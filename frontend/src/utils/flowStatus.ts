@@ -7,6 +7,14 @@ export type FlowStatusLabel =
   | 'Error'
   | 'Done'
 
+/**
+ * Display text for a status label. The vocabulary value stays 'Your Turn'
+ * (comparisons, color buckets); people read sentence case.
+ */
+export function displayFlowStatus(label: string): string {
+  return label === 'Your Turn' ? 'Your turn' : label
+}
+
 type FlowExecutionState = 'idle' | 'running' | 'paused'
 type FlowStatusSummary = Record<string, number>
 

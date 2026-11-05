@@ -49,7 +49,7 @@
           :class="[
             'h-full px-2 rounded-l-md transition-colors flex items-center',
             !hasImage ? 'text-content-muted cursor-not-allowed' :
-            paintMode === 'paint' ? 'bg-accent/15 text-accent' : 'text-content-muted hover:text-content-secondary'
+            paintMode === 'paint' ? 'bg-surface-raised text-content' : 'text-content-muted hover:text-content-secondary'
           ]"
           title="Paint mask (areas to inpaint)"
         >
@@ -61,7 +61,7 @@
           :class="[
             'h-full px-2 rounded-r-md transition-colors flex items-center',
             !hasImage ? 'text-content-muted cursor-not-allowed' :
-            paintMode === 'erase' ? 'bg-accent/15 text-accent' : 'text-content-muted hover:text-content-secondary'
+            paintMode === 'erase' ? 'bg-surface-raised text-content' : 'text-content-muted hover:text-content-secondary'
           ]"
           title="Erase mask"
         >

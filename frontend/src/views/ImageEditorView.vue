@@ -42,6 +42,8 @@ import ToolIcon from '../imageEditor/components/ToolIcon.vue'
 import type { ActiveParam } from '../imageEditor/components/AdjustDeck.vue'
 import { addToast } from '../composables/useToasts'
 import IconButton from '../components/ui/IconButton.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import { compactIcon, compactIconButton } from '../components/compact/headerStyles'
 import Tooltip from '../components/ui/Tooltip.vue'
 import ConfirmDialog from '../components/ui/ConfirmDialog.vue'
 import Spinner from '../components/ui/Spinner.vue'
@@ -9137,59 +9139,60 @@ watch(
         class="editor-compact-header relative z-chrome pt-safe shrink-0 border-b border-edge-subtle bg-base"
         data-drawer-chrome
       >
-        <div class="flex h-[60px] items-center gap-0.5 pl-[max(8px,var(--safe-left,0px))] pr-[max(8px,var(--safe-right,0px))]">
+        <div class="flex h-header-mobile items-center gap-0.5 pl-[max(12px,var(--safe-left,0px))] pr-[max(12px,var(--safe-right,0px))]">
         <button
           type="button"
-          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+          :class="compactIconButton"
           aria-label="Back"
           @click="compactNav.back()"
         >
-          <ChevronLeftIcon class="w-6 h-6" />
+          <ChevronLeftIcon :class="compactIcon" />
         </button>
         <div class="flex-1 min-w-0" />
         <!-- The stack is the document's history, not a tool: it lives up here
              with the document's other verbs, so the row below is the six
-             families and nothing else. -->
+             families and nothing else. Neutral until its sheet is open. -->
         <button
           type="button"
-          class="relative h-11 shrink-0 pl-2.5 pr-3 flex items-center gap-1.5 rounded-md text-[13px] font-medium text-selection border-none bg-transparent"
+          class="relative h-11 shrink-0 pl-2.5 pr-3 flex items-center gap-1.5 rounded-md text-[13px] font-medium border-none transition-colors"
+          :class="docSheetOpen || stackOpen ? 'bg-overlay-light text-content' : 'bg-transparent text-content-secondary'"
           aria-label="Edits"
           data-compact-edits
           @click="onCompactEdits()"
         >
-          <Square3Stack3DIcon class="w-5 h-5" />
+          <Square3Stack3DIcon :class="compactIcon" />
           Edits
           <span
             v-if="visibleRows.length"
-            class="min-w-[16px] h-4 px-1 rounded-full bg-selection text-base text-[10px] font-mono font-semibold flex items-center justify-center"
+            class="min-w-[16px] h-4 px-1 rounded-full bg-overlay-strong text-content text-[10px] font-mono font-semibold flex items-center justify-center"
             aria-hidden="true"
           >{{ visibleRows.length }}</span>
         </button>
         <button
           type="button"
-          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+          :class="compactIconButton"
           aria-label="Document options"
           @click="docSheetOpen = true"
         >
-          <EllipsisHorizontalIcon class="w-6 h-6" />
+          <EllipsisHorizontalIcon :class="compactIcon" />
         </button>
         <button
           type="button"
-          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent disabled:opacity-40"
+          :class="compactIconButton"
           aria-label="Undo"
           :disabled="!stack.canUndo.value"
           @click="stack.undo(); render()"
         >
-          <ArrowUturnLeftIcon class="w-5 h-5" />
+          <ArrowUturnLeftIcon :class="compactIcon" />
         </button>
         <button
           type="button"
-          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent disabled:opacity-40"
+          :class="compactIconButton"
           aria-label="Redo"
           :disabled="!stack.canRedo.value"
           @click="stack.redo(); render()"
         >
-          <ArrowUturnRightIcon class="w-5 h-5" />
+          <ArrowUturnRightIcon :class="compactIcon" />
         </button>
         <Button
           class="ml-1 !h-11 !px-4 !text-[13px]"
@@ -9202,40 +9205,43 @@ watch(
         </Button>
         </div>
       </div>
-      <div v-else class="@container flex items-center gap-3 px-3 h-11 shrink-0 min-w-0 overflow-hidden border-b border-edge-subtle">
-        <h1 class="text-sm font-medium text-content shrink-0">Edit</h1>
-        <StatusDot
-          v-if="stack.dirtySinceSave.value"
-          bucket="warning"
-          class="shrink-0"
-          title="Unsaved edits"
-          aria-label="Unsaved edits"
-        />
-        <EditorToolbar :active="family" class="ml-2" @select="selectFamily" />
+      <PageHeader v-else tier="compact" class="@container min-w-0 overflow-hidden">
+        <template #title>Edit</template>
+        <template #meta>
+          <StatusDot
+            v-if="stack.dirtySinceSave.value"
+            bucket="warning"
+            class="shrink-0"
+            title="Unsaved edits"
+            aria-label="Unsaved edits"
+          />
+          <EditorToolbar :active="family" class="ml-2" @select="selectFamily" />
+        </template>
         <!-- Reopens (and puts away) the history column. It sits at the end of
-             the row, on the edge of the column it controls. -->
-        <div class="ml-auto shrink-0">
+             the row, on the edge of the column it controls. Neutral until the
+             panel is open. -->
+        <template #actions>
         <Tooltip :text="sidebarVisible ? 'Hide edits panel' : 'Show edits panel'">
           <button
             type="button"
             class="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
-            :class="sidebarVisible ? 'bg-selection/15 text-selection' : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
+            :class="sidebarVisible ? 'bg-overlay-light text-content' : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
             :aria-pressed="sidebarVisible"
             aria-label="Edits panel"
             data-testid="editor-sidebar-toggle"
             @click="toggleSidebar"
           >
-            <Square3Stack3DIcon class="w-4 h-4" />
+            <Square3Stack3DIcon class="h-icon-nav w-icon-nav" />
             <span class="hidden @3xl:inline">Edits</span>
             <span
               v-if="visibleRows.length"
-              class="min-w-[15px] h-[15px] px-1 rounded-full bg-selection text-base text-[9.5px] font-mono font-semibold flex items-center justify-center"
+              class="min-w-[15px] h-[15px] px-1 rounded-full bg-overlay-strong text-content text-[9.5px] font-mono font-semibold flex items-center justify-center"
               aria-hidden="true"
             >{{ visibleRows.length }}</span>
           </button>
         </Tooltip>
-        </div>
-      </div>
+        </template>
+      </PageHeader>
 
       <!-- The canvas region. relative so the sub-toolbar can FLOAT over the
            top of the matte: the viewport keeps its full height whether or not
@@ -9646,7 +9652,7 @@ watch(
               class="px-2.5 py-1 text-xs font-medium rounded-md compact:flex-1 compact:min-h-11 compact:text-[12px]
                      transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
               :class="sidebarTab === tab.id
-                ? 'bg-accent/15 text-accent-hi'
+                ? 'bg-surface-raised text-content'
                 : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
               @click="sidebarTab = tab.id as 'edits' | 'output' | 'info'"
             >
@@ -9675,14 +9681,14 @@ watch(
             type="button"
             role="tab"
             class="flex-1 min-h-11 rounded text-[13px] font-medium transition-colors duration-150"
-            :class="sidebarTab === tab.id ? 'bg-accent/15 text-accent-hi' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
+            :class="sidebarTab === tab.id ? 'bg-surface-raised text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
             :aria-selected="sidebarTab === tab.id"
             @click="sidebarTab = tab.id as 'edits' | 'output' | 'info'"
           >
             {{ tab.label }}
             <span
               v-if="tab.id === 'output' && outputLabel(outputStage)"
-              class="ml-1 text-[11px] text-accent tabular-nums"
+              class="ml-1 text-[11px] font-mono text-content-tertiary tabular-nums"
             >{{ outputLabel(outputStage) }}</span>
           </button>
         </div>

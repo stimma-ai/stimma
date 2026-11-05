@@ -13,7 +13,7 @@
         <h3 class="text-lg font-semibold text-content m-0">External metadata</h3>
         <Tooltip text="Close">
           <IconButton aria-label="Close" @click="rawMetadata = null">
-            <XMarkIcon class="w-5 h-5" />
+            <XMarkIcon class="w-icon-nav h-icon-nav" />
           </IconButton>
         </Tooltip>
       </div>

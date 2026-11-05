@@ -114,7 +114,7 @@
 
       <ProviderRow name="Add STP provider" accent-icon @click="openAddModal">
         <template #icon>
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+          <svg class="h-icon-nav w-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" d="M12 5v14M5 12h14" />
           </svg>
         </template>
@@ -130,7 +130,7 @@
     <section v-else-if="selectedProvider && detailView === 'tools'" class="max-w-3xl">
       <div class="mb-7 flex items-center gap-4">
         <button type="button" class="flex h-9 w-9 shrink-0 items-center justify-center text-content-tertiary hover:text-content" title="Back to provider" @click="closeProviderSubpage">
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+          <svg class="h-icon-nav w-icon-nav" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
         </button>
         <ToolProviderBrandIcon :provider="selectedProvider" />
         <div class="min-w-0 flex-1">
@@ -166,7 +166,7 @@
     <section v-else-if="selectedProvider && detailView === 'logs'" class="max-w-3xl">
       <div class="mb-7 flex items-center gap-4">
         <button type="button" class="flex h-9 w-9 shrink-0 items-center justify-center text-content-tertiary hover:text-content" title="Back to provider" @click="closeProviderSubpage">
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+          <svg class="h-icon-nav w-icon-nav" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
         </button>
         <ToolProviderBrandIcon :provider="selectedProvider" />
         <div class="min-w-0 flex-1">
@@ -192,7 +192,7 @@
           title="Back to Generation Tools"
           @click="closeProviderDetails"
         >
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+          <svg class="h-icon-nav w-icon-nav" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
             <path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" />
           </svg>
         </button>
@@ -218,7 +218,7 @@
       </div>
 
       <div v-if="selectedProvider.error_message" class="mb-7 flex max-w-2xl items-start gap-3 rounded-lg bg-red-500/10 px-4 py-3.5">
-        <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+        <svg class="mt-0.5 h-icon-nav w-icon-nav shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-1.5a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12V16.5Z" />
         </svg>
         <div class="min-w-0">
@@ -401,7 +401,7 @@
     <div v-if="showModal" ref="addModalRef" class="max-w-2xl" tabindex="-1">
       <div class="mb-7 flex items-center gap-4">
         <button type="button" class="flex h-9 w-9 shrink-0 items-center justify-center text-content-tertiary hover:text-content" title="Back to Generation Tools" @click="closeModal">
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+          <svg class="h-icon-nav w-icon-nav" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
         </button>
         <ToolProviderBrandIcon :kind="addMode === 'comfy' ? 'comfyui' : addMode === 'drawthings' ? 'drawthings' : 'custom'" />
         <div>
@@ -430,7 +430,7 @@
               {{ drawThingsSetupStatusLabel }}
             </div>
             <div v-if="isProviderConnectionError(drawThingsSetupProvider) && drawThingsSetupProvider.error_message" class="flex items-start gap-3 rounded-lg bg-red-500/10 px-4 py-3.5">
-              <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+              <svg class="mt-0.5 h-icon-nav w-icon-nav shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-1.5a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12V16.5Z" />
               </svg>
               <p class="min-w-0 text-xs leading-5 text-content-secondary">{{ drawThingsSetupProvider.error_message }}</p>
@@ -485,7 +485,7 @@
                 {{ comfySetupStatusLabel }}
               </div>
               <div v-if="comfySetupProvider && isProviderConnectionError(comfySetupProvider) && comfySetupProvider.error_message" class="mt-3 flex items-start gap-3 rounded-lg bg-red-500/10 px-4 py-3.5">
-                <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+                <svg class="mt-0.5 h-icon-nav w-icon-nav shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-1.5a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12V16.5Z" />
                 </svg>
                 <div class="min-w-0">
@@ -526,7 +526,7 @@
 
       <div v-if="addMode !== 'comfy' && testResult" class="mt-5 rounded-lg px-4 py-3" :class="testResult.success ? 'bg-green-500/10' : 'bg-red-500/10'">
             <div v-if="testResult.success" class="flex items-start gap-2">
-              <svg class="w-5 h-5 text-green-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <svg class="w-icon-nav h-icon-nav text-green-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
               <div>
@@ -539,7 +539,7 @@
               </div>
             </div>
             <div v-else class="flex items-start gap-3">
-              <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+              <svg class="mt-0.5 h-icon-nav w-icon-nav shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-1.5a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12V16.5Z" />
               </svg>
               <div class="min-w-0">
@@ -621,7 +621,7 @@
                 @click="closeLogsModal"
                 class="p-1.5 text-content-tertiary hover:text-content hover:bg-surface-hover rounded transition-colors"
               >
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -678,10 +678,10 @@
                 class="p-1.5 text-content-muted hover:text-content-secondary hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
                 :title="copiedAllTools ? 'Copied!' : 'Copy all tools as JSON'"
               >
-                <svg v-if="copiedAllTools" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg v-if="copiedAllTools" class="w-icon-nav h-icon-nav text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg v-else class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               </button>
@@ -690,7 +690,7 @@
               @click="closeToolsModal"
               class="p-1.5 text-content-tertiary hover:text-content hover:bg-surface-hover rounded transition-colors"
             >
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>

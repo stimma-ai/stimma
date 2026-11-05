@@ -12,7 +12,7 @@
     />
 
     <div v-else class="h-full overflow-y-auto custom-scrollbar">
-      <div class="max-w-[960px] mx-auto px-8 py-8 compact:px-4 compact:py-3">
+      <div class="max-w-[960px] mx-auto px-page py-8 compact:py-3">
         <!-- Compact viewports have no omnibox; the query field lives here. -->
         <form v-if="isCompact" class="mb-4" @submit.prevent="submitCompactQuery">
           <input
@@ -103,7 +103,7 @@
               <span class="text-[11px] text-content-muted/70">{{ toolResults.length }}</span>
               <router-link
                 :to="{ name: 'all-tools', query: { q } }"
-                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
+                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2 compact:-mr-2"
               >View all</router-link>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -136,7 +136,7 @@
               <router-link
                 v-if="section.viewAll"
                 :to="section.viewAll"
-                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
+                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2 compact:-mr-2"
               >View all</router-link>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -178,7 +178,7 @@
                 </div>
                 <EntityIcon v-else-if="section.entityIcon" :type="section.entityIcon" size="md" shape="rounded" />
                 <div v-else class="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-overlay-faint border border-edge-subtle text-content-secondary">
-                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" :d="PRESET_ICON" />
                   </svg>
                 </div>
@@ -207,7 +207,7 @@
               <span class="text-[11px] text-content-muted/70">{{ assetSection.total }}</span>
               <router-link
                 :to="{ name: 'browse', query: assetSection.browseQuery }"
-                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
+                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2 compact:-mr-2"
               >View all</router-link>
             </div>
             <div v-if="assetSection.titled" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">

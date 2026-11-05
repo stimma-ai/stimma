@@ -33,10 +33,10 @@
         <button v-for="entry in visible" :key="entry.path" :aria-label="entry.name" class="rounded-lg text-left hover:bg-overlay-subtle focus-visible:ring-2 focus-visible:ring-accent outline-none min-w-0" :class="mode === 'grid' ? 'p-2 border border-edge-subtle' : 'flex items-center gap-3 px-3 py-2'" @click="entry.directory ? folder = entry.path.replace(/\/$/, '') + '/' : $emit('open', entry)" :draggable="!entry.directory" @dragstart="$emit('drag', $event, entry)">
           <div :class="mode === 'grid' ? 'h-24 flex items-center justify-center mb-2 bg-surface/50 rounded overflow-hidden' : 'w-5 h-5 shrink-0 text-content-muted'">
             <img v-if="mode === 'grid' && !entry.directory && entry.mime?.startsWith('image/') && thumbnail" :src="thumbnail(entry)" alt="" loading="lazy" class="w-full h-full object-contain" />
-            <component v-else :is="entry.directory ? FolderIcon : DocumentIcon" :class="mode === 'grid' ? 'w-9 h-9 text-content-muted' : 'w-5 h-5'" />
+            <component v-else :is="entry.directory ? FolderIcon : DocumentIcon" :class="mode === 'grid' ? 'w-9 h-9 text-content-muted' : 'w-icon-nav h-icon-nav'" />
           </div>
           <span class="block truncate flex-1 text-sm">{{ entry.name }}</span>
-          <span class="block text-xs text-content-muted tabular-nums" :class="mode === 'grid' ? 'mt-1' : 'shrink-0'">{{ entry.directory ? 'Folder' : fileSize(entry.size) }}</span>
+          <span class="block text-xs text-content-muted font-mono tabular-nums" :class="mode === 'grid' ? 'mt-1' : 'shrink-0'">{{ entry.directory ? 'Folder' : fileSize(entry.size) }}</span>
         </button>
       </div>
       <p v-if="!visible.length" class="p-8 text-center text-sm text-content-muted">{{ loading ? 'Loading…' : 'Empty folder' }}</p>

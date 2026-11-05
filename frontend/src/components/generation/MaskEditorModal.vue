@@ -9,7 +9,7 @@
       <div class="flex items-center justify-between">
         <h2 class="text-sm font-medium text-content-secondary">Edit mask</h2>
         <IconButton @click="close">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </IconButton>

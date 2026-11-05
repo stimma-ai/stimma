@@ -49,7 +49,7 @@
       title="Remove from shelf (edits stay with the image)"
       @click.stop="$emit('remove')"
     >
-      <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+      <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" data-stroke="own">
         <path d="M6 18L18 6M6 6l12 12" />
       </svg>
     </button>

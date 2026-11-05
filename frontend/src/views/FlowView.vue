@@ -23,7 +23,7 @@
       <template #header>
         <div class="flex items-center gap-3">
           <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent/15 border border-accent/50">
-            <BoltIcon class="h-5 w-5 text-accent" />
+            <BoltIcon class="h-icon-nav w-icon-nav text-accent" />
           </div>
           <div class="min-w-0">
             <h2 class="text-lg font-semibold text-content">You can skip the code</h2>
@@ -46,15 +46,15 @@
       </template>
     </Modal>
 
-    <!-- Control strip -->
-    <div class="relative flex items-center px-4 py-2 border-b border-edge-subtle flex-shrink-0 gap-3 compact:flex-wrap compact:px-3">
-      <!-- Left: name + meta -->
-      <div class="flex items-center gap-3 min-w-0 flex-shrink compact:hidden">
+    <!-- Control strip: the compact-tier page header. Name, then status and the run
+         controls as its meta, then the workspace actions, then the overflow menu. -->
+    <PageHeader tier="compact" class="relative compact:[&_h1]:hidden">
+      <template #title>
         <template v-if="editingName">
           <input
             ref="nameInputEl"
             v-model="editingNameValue"
-            class="bg-base border border-edge rounded-md px-2 py-1 text-sm font-medium text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40 min-w-0 max-w-xs"
+            class="min-w-0 max-w-xs rounded-md border border-transparent bg-overlay-subtle px-2 py-1 text-base font-semibold text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
             @blur="saveName"
             @keydown.enter.prevent="saveName"
             @keydown.esc.prevent="cancelEditName"
@@ -63,7 +63,7 @@
         <template v-else>
           <button
             v-if="flow?.name"
-            class="text-sm font-semibold text-content hover:text-accent transition-colors truncate max-w-[200px]"
+            class="max-w-[280px] truncate text-left transition-colors hover:text-content-secondary"
             @click="!isCompact && startEditName()"
             :title="flow.name"
           >
@@ -71,13 +71,16 @@
           </button>
           <button
             v-else
-            class="text-sm font-semibold italic text-content-muted hover:text-content-secondary transition-colors truncate max-w-[200px]"
+            class="max-w-[280px] truncate text-left text-content-muted transition-colors hover:text-content-secondary"
             @click="!isCompact && startEditName()"
           >
             Name this flow...
           </button>
         </template>
 
+      </template>
+
+      <template #meta>
         <span v-if="parentName" class="text-[11px] text-content-muted flex-shrink-0">
           Copy of
           <button class="text-accent hover:underline" @click="openParent">{{ parentName }}</button>
@@ -90,8 +93,8 @@
             :title="copies.length === 1 ? '1 copy of this flow' : `${copies.length} copies of this flow`"
           >
             <span>{{ copies.length }} {{ copies.length === 1 ? 'copy' : 'copies' }}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 opacity-70">
-              <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-icon-inline h-icon-inline opacity-70">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
             </svg>
           </button>
 
@@ -113,10 +116,7 @@
             </button>
           </div>
         </div>
-      </div>
-
-      <!-- Center: status + execution controls -->
-      <div class="flex flex-1 min-w-0 items-center justify-start gap-2 text-xs">
+        <!-- Status + execution controls -->
         <FlowStatusPill
           :flow-id="flowId"
           show-pending
@@ -133,7 +133,7 @@
           aria-label="Start"
           @click="doPlay"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-icon-nav h-icon-nav">
             <path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" />
           </svg>
         </button>
@@ -144,7 +144,7 @@
           aria-label="Pause"
           @click="doPause"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-icon-nav h-icon-nav">
             <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
           </svg>
         </button>
@@ -155,14 +155,13 @@
           aria-label="Resume"
           @click="doPlay"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-icon-nav h-icon-nav">
             <path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" />
           </svg>
         </button>
-      </div>
+      </template>
 
-      <!-- Right: chat toggle + more menu -->
-      <div class="flex items-center gap-1.5 flex-shrink-0 justify-end">
+      <template #actions>
         <!-- Save Custom Tool. With no backing tool it freezes a new one. Once this
              flow backs a tool, a caret opens a terse menu (Update <tool> / Save as
              New). A dot — on the button and on each drifted row — marks unsaved
@@ -178,8 +177,8 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437" />
             </svg>
             <span class="compact:hidden">Save custom tool</span>
-            <svg v-if="backingTools.length > 0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 opacity-70 -mr-0.5">
-              <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+            <svg v-if="backingTools.length > 0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-icon-inline h-icon-inline opacity-70 -mr-0.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
             </svg>
             <!-- Top-level unsaved-changes dot. -->
             <span
@@ -243,8 +242,8 @@
               :aria-expanded="showChatMenu"
               @click="toggleChatMenu"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 opacity-70">
-                <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-icon-inline h-icon-inline opacity-70">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
               </svg>
             </button>
           </div>
@@ -313,17 +312,12 @@
           </div>
         </div>
 
-        <!-- 3-dot Menu -->
+      </template>
+
+      <template #menu>
+        <!-- Overflow menu -->
         <div class="relative compact:hidden" ref="menuContainerRef">
-          <button
-            @click="toggleMenu"
-            class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
-            title="More options"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-            </svg>
-          </button>
+          <OverflowButton size="lg" @click="toggleMenu" />
 
           <!-- Dropdown menu -->
           <div
@@ -374,15 +368,15 @@
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Main row: (main column + resize handle) wrapper + chat sidebar -->
     <div class="flex flex-1 min-h-0 relative">
       <!-- Left wrapper: tab subheader spans main column AND resize handle so its border butts against the chat panel's left divider -->
       <div class="flex-1 flex flex-col min-w-0">
         <!-- View tabs subheader -->
-        <div class="flex items-center px-4 border-b border-edge-subtle flex-shrink-0">
+        <div class="flex items-center px-page border-b border-edge-subtle flex-shrink-0">
           <SegmentedControl
             class="my-2"
             :model-value="viewMode"
@@ -405,16 +399,7 @@
             </div>
 
             <div class="relative" ref="tabMenuContainerRef">
-              <button
-                @click="toggleTabMenu"
-                class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
-                title="More options"
-                aria-label="More options"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-                </svg>
-              </button>
+              <OverflowButton size="lg" @click="toggleTabMenu" />
 
               <div
                 v-if="showTabMenu"
@@ -486,8 +471,8 @@
           <div class="flex-1 flex flex-col min-w-0">
 
             <!-- Steps mode: single scroll region with Inputs, Steps, Outputs cards -->
-            <div v-if="viewMode === 'compact'" class="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar compact:px-3">
-              <div class="mx-auto max-w-[960px] space-y-4">
+            <div v-if="viewMode === 'compact'" class="flex-1 overflow-y-auto px-page py-section custom-scrollbar">
+              <div class="mx-auto max-w-[960px] space-y-section">
                 <div class="relative">
                   <!-- Headingless sections as ToolView-style cards: one raised
                        card each for inputs, steps, and outputs. -->
@@ -792,6 +777,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDate, formatRelativeShort } from '../utils/timeFormat'
 import { mobileRecoveryEnabled } from '../composables/useMobileRecovery.js'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, onActivated, provide, type WatchStopHandle } from 'vue'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
@@ -834,6 +820,8 @@ import { BoltIcon } from '@heroicons/vue/24/solid'
 import Modal from '../components/ui/Modal.vue'
 import Button from '../components/ui/Button.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import OverflowButton from '../components/ui/OverflowButton.vue'
 import { useFlowStatus } from '../composables/useFlowStatus'
 import { syncedStorage } from '../utils/workspaceStore'
 
@@ -1546,24 +1534,15 @@ function sessionDisplayName(session: FlowChatSession): string {
   if (trimmed) return trimmed
   try {
     const d = new Date(session.created_at)
-    return `Session · ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+    return `Session · ${formatDate(d)}`
   } catch {
     return 'Untitled session'
   }
 }
 
 function formatSessionTime(iso: string): string {
-  const date = new Date(iso)
-  const diffMs = Date.now() - date.getTime()
-  const mins = Math.floor(diffMs / 60000)
-  if (mins < 1) return 'now'
-  if (mins < 60) return `${mins}m`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h`
-  const days = Math.floor(hours / 24)
-  if (days === 1) return 'yesterday'
-  if (days < 7) return `${days}d`
-  return date.toLocaleDateString()
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+  return days === 1 ? 'yesterday' : formatRelativeShort(iso)
 }
 
 // --- Execution controls ---

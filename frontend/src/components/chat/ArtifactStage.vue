@@ -151,8 +151,8 @@
                 :title="videoMuted ? 'Unmute' : 'Mute'"
                 @click="toggleVideoMute"
               >
-                <SpeakerXMarkIcon v-if="videoMuted" class="w-5 h-5" />
-                <SpeakerWaveIcon v-else class="w-5 h-5" />
+                <SpeakerXMarkIcon v-if="videoMuted" class="w-icon-nav h-icon-nav" />
+                <SpeakerWaveIcon v-else class="w-icon-nav h-icon-nav" />
               </button>
             </VideoTransportBar>
           </template>

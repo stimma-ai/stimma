@@ -1,27 +1,21 @@
 <template>
   <div class="h-full flex flex-col bg-base" @contextmenu.self="handleEmptyContextMenu">
     <!-- Header -->
-    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:hidden">
-      <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Chats</h1>
-
-      <div class="flex items-center gap-3 compact:flex-1 compact:justify-between">
-        <button
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary compact:min-h-11 compact:px-3"
-          @click="createNewChat"
-        >
-          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>New</span>
-        </button>
-        <ListSearch
+    <PageHeader class="compact:hidden">
+      <template #title>Chats</template>
+      <template #actions>
+        <SearchField
           ref="searchInputRef"
           v-model="searchQuery"
           placeholder="Search chats..."
-          class="w-48 compact:w-full compact:flex-1"
+          class="w-48"
         />
-      </div>
-    </div>
+        <Button variant="primary" size="sm" @click="createNewChat">
+          <template #icon><PlusIcon class="h-icon-inline w-icon-inline" /></template>
+          New
+        </Button>
+      </template>
+    </PageHeader>
 
     <!-- Content -->
     <div
@@ -59,7 +53,7 @@
           v-for="(chat, index) in filteredChats"
           :key="chat.id"
           :data-testid="`chat-row-${chat.id}`"
-          class="flex items-center gap-4 px-6 py-3 transition-colors cursor-pointer group relative compact:gap-3 compact:px-4"
+          class="flex items-center gap-4 px-page py-3 transition-colors cursor-pointer group relative compact:gap-3"
           :class="isSelected(chat.id)
             ? 'bg-selection/15'
             : 'hover:bg-overlay-subtle'"
@@ -78,7 +72,7 @@
                 ? 'bg-selection border-selection'
                 : 'border-content-tertiary bg-black/55 hover:border-content-secondary'"
             >
-              <svg v-if="isSelected(chat.id)" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+              <svg v-if="isSelected(chat.id)" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
             </button>
@@ -89,7 +83,7 @@
             :media-id="hasMedia(chat) ? chat.recent_media[0].media_id : null"
             :file-hash="hasMedia(chat) ? chat.recent_media[0].file_hash : undefined"
           >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
             </svg>
           </RowThumb>
@@ -132,8 +126,8 @@
                 </span>
               </template>
 
-              <span class="w-12 flex-shrink-0 text-right text-xs leading-5 tabular-nums text-content-tertiary whitespace-nowrap">
-                {{ chat.updated_at ? formatRelativeTime(chat.updated_at) : '' }}
+              <span class="w-14 flex-shrink-0 text-right font-mono text-xs leading-5 tabular-nums text-content-tertiary whitespace-nowrap">
+                {{ chat.updated_at ? formatRelativeShort(chat.updated_at) : '' }}
               </span>
             </div>
 
@@ -216,6 +210,7 @@
 </template>
 
 <script setup>
+import { formatRelativeShort } from '../utils/timeFormat'
 import { consumeEscape, hasEscapeLayer, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useEntityMove } from '../composables/useEntityMove'
 import { fetchScopedJson } from '../utils/scopedList'
@@ -231,7 +226,10 @@ import EntityContextMenu from '../components/EntityContextMenu.vue'
 import RenameSheet from '../components/compact/RenameSheet.vue'
 import { useViewport } from '../composables/useViewport'
 import EntitySelectionBar from '../components/EntitySelectionBar.vue'
-import ListSearch from '../components/lists/ListSearch.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import SearchField from '../components/ui/SearchField.vue'
+import Button from '../components/ui/Button.vue'
+import { PlusIcon } from '@heroicons/vue/24/outline'
 import RowThumb from '../components/lists/RowThumb.vue'
 
 defineOptions({
@@ -580,24 +578,6 @@ async function createNewChat() {
 
 function openChat(chat) {
   router.push({ name: 'chat', params: { id: chat.id } })
-}
-
-function formatRelativeTime(dateStr) {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now - date
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 1) return 'now'
-  if (diffMins < 60) return `${diffMins}m`
-  if (diffHours < 24) return `${diffHours}h`
-  if (diffDays < 7) return `${diffDays}d`
-  const opts = { month: 'short', day: 'numeric' }
-  if (date.getFullYear() !== now.getFullYear()) opts.year = '2-digit'
-  return date.toLocaleDateString(undefined, opts)
 }
 
 // Inline editing functions

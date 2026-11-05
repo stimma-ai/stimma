@@ -9,7 +9,7 @@
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold text-content">Add to Board</h2>
         <IconButton @click="close">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-icon-nav w-icon-nav">
             <path d="M6 18L18 6M6 6l12 12" />
           </svg>
         </IconButton>
@@ -57,7 +57,7 @@
                 >
                   {{ board.name || 'Name this board...' }}
                 </h3>
-                <span class="text-xs text-content-muted">{{ board.asset_count || 0 }} items</span>
+                <span class="font-mono text-xs tabular-nums text-content-muted">{{ board.asset_count || 0 }} {{ (board.asset_count || 0) === 1 ? 'asset' : 'assets' }}</span>
               </div>
               <svg
                 v-if="selectedBoardId === board.id"

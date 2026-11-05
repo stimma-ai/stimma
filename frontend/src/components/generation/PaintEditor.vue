@@ -56,7 +56,7 @@
         >
           <PaintToolIcon name="zoomOut" />
         </button>
-        <span class="text-[10px] tabular-nums text-white/80 w-9 text-center select-none">{{ Math.round(zoomLevel * 100) }}%</span>
+        <span class="text-[10px] font-mono tabular-nums text-white/80 w-9 text-center select-none">{{ Math.round(zoomLevel * 100) }}%</span>
         <button
           @click="zoomIn"
           :disabled="zoomLevel >= ZOOM_MAX"
@@ -180,7 +180,7 @@
             step="1"
             class="flex-1 slider cursor-pointer"
           />
-          <span class="text-[11px] tabular-nums text-content-muted w-6 text-right">{{ brushSize }}</span>
+          <span class="text-[11px] font-mono tabular-nums text-content-muted w-6 text-right">{{ brushSize }}</span>
         </div>
         <div class="flex items-center gap-1.5">
           <span class="text-[11px] text-content-muted w-10">Hardness</span>
@@ -193,7 +193,7 @@
             class="flex-1 slider cursor-pointer"
             title="Lower hardness feathers the brush edge"
           />
-          <span class="text-[11px] tabular-nums text-content-muted w-6 text-right">{{ brushHardness }}</span>
+          <span class="text-[11px] font-mono tabular-nums text-content-muted w-6 text-right">{{ brushHardness }}</span>
         </div>
       </div>
 

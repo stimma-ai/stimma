@@ -382,7 +382,7 @@ defineExpose({ isEraser });
       <span class="absolute left-2 bottom-1.5 text-[11px] leading-none text-content-secondary">
         {{ ribbonLabel }}
       </span>
-      <span class="absolute right-2 bottom-1.5 text-[11px] leading-none text-content-tertiary tabular-nums">
+      <span class="absolute right-2 bottom-1.5 text-[11px] leading-none text-content-tertiary font-mono tabular-nums">
         {{ editSettings.size }}px
       </span>
     </div>
@@ -429,7 +429,7 @@ defineExpose({ isEraser });
           <span class="absolute left-2 top-1/2 -translate-y-1/2 text-[11.5px] text-content-secondary pointer-events-none">
             {{ def.label }}
           </span>
-          <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[11.5px] text-content/85 tabular-nums pointer-events-none">
+          <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[11.5px] text-content/85 font-mono tabular-nums pointer-events-none">
             {{ editSettings[def.key] }}{{ def.unit }}
           </span>
         </div>

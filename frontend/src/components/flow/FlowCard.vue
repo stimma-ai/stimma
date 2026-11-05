@@ -1,12 +1,12 @@
 <template>
   <div
-    class="flex items-center gap-4 px-6 py-3 transition-colors cursor-pointer hover:bg-overlay-subtle compact:gap-3 compact:px-4"
+    class="flex items-center gap-4 px-page py-3 transition-colors cursor-pointer hover:bg-overlay-subtle compact:gap-3"
     @click="handleClick"
     @contextmenu="$emit('contextmenu', $event, flow)"
   >
     <!-- Thumbnail -->
     <RowThumb :media-id="heroMediaId" :thumbnail-size="128">
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
       </svg>
     </RowThumb>
@@ -45,8 +45,8 @@
           >
             Name this flow...
           </span>
-          <span class="w-12 flex-shrink-0 text-right text-xs leading-5 tabular-nums text-content-tertiary whitespace-nowrap">
-            {{ flow.updated_at ? formatRelative(flow.updated_at) : '' }}
+          <span class="w-14 flex-shrink-0 text-right font-mono text-xs leading-5 tabular-nums text-content-tertiary whitespace-nowrap">
+            {{ flow.updated_at ? formatRelativeShort(flow.updated_at) : '' }}
           </span>
         </template>
       </div>
@@ -101,6 +101,8 @@
 </template>
 
 <script setup lang="ts">
+import { formatRelativeShort } from '../../utils/timeFormat'
+import { displayFlowStatus } from '../../utils/flowStatus'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useFlowsApi, type Flow, type FlowEquation } from '../../composables/useFlowsApi'
 import { computeFlowOutputs } from '../../composables/useFlowOutputs'
@@ -132,7 +134,7 @@ const { label: statusLabel, dotClass: statusDotClass } = useFlowStatus(computed(
 const { countFor } = useFlowCounts()
 // "Your Turn" is the backend's status value; only its display is sentence case.
 const statusText = computed(() => {
-  const label = statusLabel.value === 'Your Turn' ? 'Your turn' : statusLabel.value
+  const label = displayFlowStatus(statusLabel.value)
   const pending = countFor(props.flow.id)
   if (width.value === 'narrow' || pending <= 0 || label === 'Error' || label === 'Tool unavailable') return label
   return `${label} · ${pending} pending`
@@ -243,17 +245,5 @@ function cancelEdit() {
   editing.value = false
   editingName.value = ''
   emit('rename-cancelled')
-}
-
-function formatRelative(ts: string): string {
-  const d = new Date(ts)
-  const diff = (Date.now() - d.getTime()) / 1000
-  if (diff < 60) return 'now'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
-  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d`
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
-  if (d.getFullYear() !== new Date().getFullYear()) opts.year = '2-digit'
-  return d.toLocaleDateString(undefined, opts)
 }
 </script>

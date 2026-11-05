@@ -38,6 +38,26 @@ export default {
         black: ({ opacityValue }) =>
           `rgb(0 0 0 / calc(${opacityValue === undefined ? 1 : opacityValue} * var(--shadow-pop-a)))`,
       },
+      // Page rhythm and icon scale tokens (style.css). `px-page`, `-mx-page`,
+      // `gap-section`, `space-y-section`, `w-icon-nav` and friends.
+      spacing: {
+        page: 'var(--page-margin)',
+        section: 'var(--section-gap)',
+        'header-pb': 'var(--header-pb)',
+        'icon-inline': 'var(--icon-inline)',
+        'icon-nav': 'var(--icon-nav)',
+        'icon-canvas': 'var(--icon-canvas)',
+      },
+      height: {
+        header: 'var(--header-h)',
+        'header-compact': 'var(--header-h-compact)',
+        'header-mobile': 'var(--header-h-mobile)',
+      },
+      minHeight: {
+        header: 'var(--header-h)',
+        'header-compact': 'var(--header-h-compact)',
+        'header-mobile': 'var(--header-h-mobile)',
+      },
       // Dense-control tier: actionable labels in tool, flow and editor forms.
       // Between text-xs (12/16) and text-sm (14/20); mono facts stay text-xs.
       fontSize: {

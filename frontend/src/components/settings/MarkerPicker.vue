@@ -10,7 +10,7 @@
       <component
         :is="currentIconComponent"
         v-if="currentIconComponent"
-        class="w-5 h-5"
+        class="w-icon-nav h-icon-nav"
         :style="{ color: color }"
       />
       <span v-else class="text-xs" :style="{ color: color }">?</span>
@@ -52,7 +52,7 @@
                 :class="{ 'bg-accent/20 ring-1 ring-accent': localIcon === icon.ref }"
                 :title="icon.name"
               >
-                <component :is="getIconComponent(icon.ref)" class="w-5 h-5 text-content-tertiary" />
+                <component :is="getIconComponent(icon.ref)" class="w-icon-nav h-icon-nav text-content-tertiary" />
               </button>
             </div>
             <!-- Custom SVG inline -->

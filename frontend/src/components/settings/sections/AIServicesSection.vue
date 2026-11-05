@@ -96,7 +96,7 @@
           @click="openAddLocalProvider"
         >
           <template #icon>
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+            <svg class="h-icon-nav w-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
           </template>
         </ProviderRow>
       </div>
@@ -361,7 +361,7 @@
                   </div>
                 </div>
                 <button v-if="!selectedManagerModel && canAddProviderModel" type="button" @click="startAddProviderModel" class="mt-1 flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-accent/[0.04]">
-                  <span class="flex h-9 w-9 shrink-0 items-center justify-center text-accent-hi"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg></span>
+                  <span class="flex h-9 w-9 shrink-0 items-center justify-center text-accent-hi"><svg class="h-icon-nav w-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg></span>
                   <span class="min-w-0 flex-1"><span class="block text-[13px] font-medium text-accent-hi">Add a model</span></span>
                 </button>
               </div>

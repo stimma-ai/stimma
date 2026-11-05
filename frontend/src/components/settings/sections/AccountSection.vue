@@ -24,7 +24,7 @@
         <div class="mb-16 grid grid-cols-3 gap-10 text-center">
           <div>
             <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-edge-subtle bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
-              <svg class="h-5 w-5 text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+              <svg class="h-icon-nav w-icon-nav text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
               </svg>
             </div>
@@ -36,7 +36,7 @@
 
           <div>
             <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-edge-subtle bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
-              <svg class="h-5 w-5 text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+              <svg class="h-icon-nav w-icon-nav text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
               </svg>
             </div>
@@ -48,7 +48,7 @@
 
           <div>
             <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-edge-subtle bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
-              <svg class="h-5 w-5 text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+              <svg class="h-icon-nav w-icon-nav text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
               </svg>
             </div>
@@ -161,6 +161,7 @@
 </template>
 
 <script setup>
+import { formatDate as formatDateValue } from '../../../utils/timeFormat'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
 import { useCloudAccount } from '../../../composables/useCloudAccount'
@@ -214,9 +215,7 @@ async function refreshAccount() {
 }
 
 function formatDate(dateStr) {
-  if (!dateStr) return '—'
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return formatDateValue(dateStr, { year: 'always' }) || '—'
 }
 
 async function handleConnect() {

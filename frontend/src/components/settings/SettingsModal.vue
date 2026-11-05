@@ -7,23 +7,24 @@
     @close="close"
   >
     <template #header>
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-1 min-w-0">
+      <div class="flex items-center justify-between compact:-mx-6 compact:-my-4 compact:h-header-mobile compact:px-3">
+        <div class="flex items-center gap-0.5 min-w-0">
           <button
             v-if="isCompact && !compactList"
             type="button"
-            class="w-11 h-11 -ml-3 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+            :class="compactIconButton"
             aria-label="All settings"
             @click="compactList = true"
           >
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m15 6-6 6 6 6" /></svg>
+            <ChevronLeftIcon :class="compactIcon" />
           </button>
-          <h2 ref="settingsTitle" class="text-[16px] font-semibold text-content truncate">{{ isCompact && !compactList ? activeSectionLabel : 'Settings' }}</h2>
+          <h2 ref="settingsTitle" class="truncate font-brand font-semibold text-content" :class="isCompact ? 'text-[18px] leading-6 px-1' : 'text-base'">{{ isCompact && !compactList ? activeSectionLabel : 'Settings' }}</h2>
         </div>
-        <IconButton aria-label="Close" title="Close" @click="close">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+        <button v-if="isCompact" type="button" :class="compactIconButton" aria-label="Close" title="Close" @click="close">
+          <XMarkIcon :class="compactIcon" />
+        </button>
+        <IconButton v-else size="lg" aria-label="Close" title="Close" @click="close">
+          <XMarkIcon class="h-icon-nav w-icon-nav" />
         </IconButton>
       </div>
     </template>
@@ -231,6 +232,8 @@
 
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
+import { ChevronLeftIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { compactIcon, compactIconButton } from '../compact/headerStyles'
 import { searchSettings } from '../../utils/settingsSearch'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { useViewport } from '../../composables/useViewport'

@@ -180,14 +180,28 @@ Placeholders are the muted step in both themes (a global `::placeholder` rule in
 style.css; fields write `placeholder:text-content-muted`, never `placeholder-white/NN`).
 
 - UI sans (system): `text-xs` default dense UI, `text-sm` primary content,
-  `text-lg font-semibold` in-page headings, `text-xl font-semibold` view
-  titles. `font-medium` is the emphasis weight; `font-bold` is banned outside
+  `text-lg font-semibold` in-page headings. View titles are display voice
+  (`font-brand font-semibold`), 20px on a collection header and 16px on a
+  workspace header (§2 PageHeader). `font-medium` is the emphasis weight; `font-bold` is banned outside
   display voice.
 - **Facts = mono**: ids, paths, seeds, dimensions, file sizes, counts,
   durations, timestamps, params. `font-mono tabular-nums`. Bordered mono =
   editable; bare/chip mono = read-only (codifying the one convention the app
   already keeps). Names and context (project subtitle, provider and task line
-  under a tool name) are UI sans, not mono.
+  under a tool name) are UI sans, not mono. Applied everywhere, rows
+  included: a chat or flow row's date, a board's asset count, a sidebar
+  detail line, a slider readout are all mono.
+  **One date format** (`utils/timeFormat.js`, nothing else formats a date):
+  within a week, relative (`now`, `5m`, `3h`, `2d` in rows; `5m ago` in
+  panels); beyond that `Aug 13` in the current year and `Aug 13, 2026`
+  otherwise (`formatDate`); detail panels and account or sharing facts always
+  carry the year; an exact timestamp (tooltips, the Created fact) is
+  `Aug 13, 2026, 11:36 PM`. The numeric locale form (`8/13/2026`) is retired.
+  **One noun for what a board holds: "assets"** (`1 asset`, `20 assets`) in
+  the sidebar, board cards, pickers and the browse count; "items" is not used
+  for board contents. A status value shown to people is sentence case
+  (`Your turn`) even where the stored vocabulary keeps `Your Turn`
+  (`displayFlowStatus`).
 - **Display = General Sans** (decided 2026-07-17; already bundled as
   `font-brand`): view heroes, empty-state titles, view titles, onboarding.
   600 default; the hero's `font-bold` also resolves to 600
@@ -226,9 +240,29 @@ style.css; fields write `placeholder:text-content-muted`, never `placeholder-whi
 ### 1.6 Spacing
 
 Control padding `px-3 py-2`, tight `px-2 py-1`, gaps `gap-2` (within groups)
-/ `gap-1.5` (icon+label). Page gutter `px-6`; page header `px-6 py-5`;
-section gap `space-y-6`; hairline-separated rows `py-2.5`. Half-steps are a
+/ `gap-1.5` (icon+label); hairline-separated rows `py-2.5`. Half-steps are a
 fine-tuning tier, not defaults. Nothing above p-8 without a reason.
+
+**Page rhythm is two tokens per width band** (`style.css`, switched by
+`data-width`; Tailwind `px-page`, `gap-section`, `space-y-section`):
+
+| Band | `--page-margin` | `--section-gap` |
+|---|---|---|
+| narrow (< 600) | 16px | 20px |
+| medium (600–839) | 20px | 24px |
+| wide (≥ 840, every desktop window) | 24px | 28px |
+
+Every non-media block (headers, titles, rows, cards, section labels, form
+fields, filter bars) starts on `--page-margin` and ends on it: a trailing
+text link ("View all", "Add assets"), a status line or a count sits on the
+same right edge as the trailing button (a touch target's padding is pulled
+back with a negative margin so the text, not the target, lands on the edge).
+Rows with a hover tint run full bleed and pad themselves by `px-page`. **Media
+grids may bleed** past the margin to the pane edge on 2px matte gutters, and
+Browse and Board bleed the same way: no inset matte box. Sections are
+separated by `--section-gap`, not per-screen numbers. A centered reading
+column (chat transcript, home, search) keeps its own measure and takes the
+margin only as its minimum side padding.
 
 ### 1.7 Motion
 
@@ -251,8 +285,22 @@ fine-tuning tier, not defaults. Nothing above p-8 without a reason.
   (+ `ring-offset-1 ring-offset-surface` on filled controls). Keyboard-only —
   adopt `focus-visible:`, never bare `focus:` ring styling. Text fields may
   additionally swap `border-accent` on `:focus` for pointer users.
-- Selection (tiles/rows/chips): `ring-2 ring-accent-selection` inset for media
-  tiles; `bg-accent-selection/15` for rows/chips. One treatment each.
+- **The selection law (2026-11-05).** Teal is action; indigo is selection;
+  neither marks a tab. Selected media tiles take `ring-2 ring-accent-selection`
+  inset. Selected rows, chips and option tiles (sidebar and settings nav rows,
+  picker options, export tiles) take `bg-selection/15` with **primary text**
+  (`text-content`) and the leading icon in `text-selection`; indigo is never
+  the label colour (it measures 3.4:1 on its own wash in light). Selected tabs
+  and segments (`SegmentedControl`, the Flow/Chat switch, Steps/Workflow/Code,
+  the editor's family bar and panel tabs, mode switches inside tools) are a
+  neutral raised fill (`bg-surface-raised`) with `text-content` on the faint
+  track; unselected segments are `text-content-secondary`. A toggle that is
+  merely on (a panel that is open, a mode that is armed) wears the same
+  neutral fill or, for user-armed continuous modes, `live`; it never rests in
+  indigo. Measured (text-content on the selection wash over surface): dark
+  12.4:1, light 13.5:1; selected segment (text-content on raised): dark
+  14.0:1, light 14.0:1; the selection-coloured icon on its wash: dark 5.0:1,
+  light 3.4:1 (non-text, 3:1 required).
 - Browse marker filters are one chip grammar: hairline outline at rest, backing plus the marker's colour when included, red backing, red minus and struck label when excluded. Labels show wherever there is room; on a phone the chips share one track.
 - Filmstrips centre the current item only while it has neighbours on both sides; near either end the strip aligns to that edge.
 - Filter states keep the documented pair: include `bg-blue-500/15
@@ -312,9 +360,17 @@ existing tiered `getRemainingTimeColor()`; type icons go monochrome).
 
 ### 1.10 Iconography
 
-Heroicons-outline style, `stroke-width="1.75"` for new icons (existing 1.5/2
-split migrates opportunistically). Sizes: `w-3.5` in dense rows, `w-4`
-standard, `w-5` toolbar. Tool icons via `ToolIcon.vue`/`taskTypeIcons.ts` +
+Heroicons-outline style, **one stroke width**: `--icon-stroke` (1.75). A global
+rule in style.css draws every outline glyph on the 24px grid at that width
+whatever `stroke-width` attribute it ships with; a glyph that needs its own
+(a check inside a 12px badge) opts out with `data-stroke="own"`. **Three
+sizes**, tokens in style.css and Tailwind (`w-icon-*`, `h-icon-*`):
+`icon-inline` 14px inside text, chips and menu rows; `icon-nav` 16px for the
+sidebar, toolbars, filter chips, settings nav, header and tool actions and
+field adornments; `icon-canvas` 18px for canvas and transport controls and for the phone
+header's 44px touch targets
+(slideshow, compare, video transport). Nothing is 20px: hero and empty-state
+art is illustration, not an icon. Tool icons via `ToolIcon.vue`/`taskTypeIcons.ts` +
 provider badge — the only sanctioned tool iconography (existing rule).
 Menus, rows and the sidebar draw every glyph outline at 1.75; fill is reserved
 for an active toggle (a set heart or bookmark), so an unset toggle never looks
@@ -327,7 +383,7 @@ are the monochrome black-glass chip (`TileMarkers`). Each destination in the sid
 the glyph of the filter they hold (marker, clock for expiring, else funnel).
 Pinned and open tool rows show the task-type glyph from `taskTypeIcons.ts` at
 nav-icon size and weight, not the vendor mark. The rail has two row shapes: the
-icon row (14px glyph in a 24px slot, then label) and the two-line row with a
+icon row (16px glyph in a 24px slot, then label) and the two-line row with a
 24px thumbnail, plus the Editing thumbnails.
 
 ### 1.11 Small screens and touch (adopted 2026-09-04)
@@ -367,8 +423,9 @@ that a desktop-sized window never trips.
   drawer (NavigationSidebar with `is-mobile`: 276px, pushes the app aside
   rather than floating over it, opened by the header's Menu button or an
   edge swipe, closed by any navigation or a tap on the pushed app) plus a
-  60px header on hub and detail routes: Menu (hubs) or back chevron
-  (details), title, then the right strip (the transient background-work
+  60px header (`--header-h-mobile`) on hub and detail routes, and the same
+  row in Settings and the editor: Menu (hubs) or back chevron (details),
+  title (`font-brand` 18px), then the right strip (the transient background-work
   indicator, provider managers, search, create). No tab bar: the phone keeps
   the desktop's navigation model — library links, projects, boards, chats,
   flows, tools, the working set, and the footer (account, server, feedback,
@@ -381,7 +438,12 @@ that a desktop-sized window never trips.
   into it. A view never renders its own navigation chrome. Detail pages
   show the entity name in that header, with tap-to-rename where supported and
   one entity-options drawer. Desktop title rows and their menus are hidden on
-  compact; execution controls may remain in a content toolbar.
+  compact; execution controls may remain in a content toolbar. Every phone
+  header button is one style (`compact/headerStyles.ts`): a bare 44px target,
+  secondary glyph at the canvas icon size, no fill; a toggle that is on takes
+  the neutral raised fill, and the only filled button is a primary create.
+  Settings is the same row (back and close). On a project's Home the title is
+  the project's name; the other project screens keep it as the subtitle.
 - **Touch targets.** Interactive controls are ≥ 44×44 px on coarse pointers
   (`min-h-11 min-w-11` under `[data-pointer=coarse]`). Dense desktop rows
   keep their 28px icon buttons on fine pointers; the kit does the switch.
@@ -423,9 +485,15 @@ that a desktop-sized window never trips.
   one touch target, never taller), `--sheet-row-px` 16px, `--sheet-row-gap`
   12px, `--sheet-font` 14px, `--sheet-font-detail` 12px mono,
   `--sheet-icon` 20px, `--sheet-radius` 12px, handle 32×4 at 6px,
-  `--sheet-pad-top` 16px, `--sheet-menu-max-h` 62dvh (menus),
-  `--sheet-panel-max-h` 85dvh (pickers, info, forms), `--sheet-drawer-h` 75dvh
-  (expandable drawers), `--sheet-backdrop`.
+  `--sheet-pad-top` 16px, `--sheet-header-pb` 8px (under a sheet's title
+  row), `--sheet-max-w` 480px (100% on a narrow phone), `--sheet-menu-max-h`
+  62dvh (menus), `--sheet-panel-max-h` 85dvh (pickers, info, forms),
+  `--sheet-drawer-h` 75dvh (expandable drawers), `--sheet-backdrop`.
+  **The sheet is the column.** From the medium band up the sheet itself is
+  `--sheet-max-w` wide and centred (kit Sheet, converted menus and inline
+  dropdowns alike, via `.sheet-panel` and the coarse-pointer rule); rows fill
+  it edge to edge, so a rule never floats inside a wider panel. No sheet
+  content builds its own centred inner column.
   Rows are `.sheet-row` (icon first, `.sheet-row-icon`; trailing fact in
   `.sheet-row-detail`; group label `.sheet-section`). Sheets never show a
   scrollbar: the content overflows and the user tugs it. Sheets are dense,
@@ -506,9 +574,8 @@ Tier 2:
 revealed row controls), `KeyValueList` (typeset facts: muted sans label left,
 mono value right, hairline rules — replaces every `bg-overlay-subtle p-2
 rounded` field tile), `ActionRow` (compact icon+label actions; replaces
-stacked full-width outline buttons), `SectionLabel`, `PageHeader` (`px-6 py-5`
-hairline; title slot, actions slot), `Tabs`/`SegmentedControl` (one active
-treatment: `bg-accent/15 text-accent`), `Toggle`, `Checkbox`, `Radio`,
+stacked full-width outline buttons), `SectionLabel`, `PageHeader` (two tiers, see below), `Tabs`/`SegmentedControl` (one active
+treatment: neutral `bg-surface-raised text-content`, see §1.8), `Toggle`, `Checkbox`, `Radio`,
 `Slider` (one thumb spec, webkit+moz), `Stepper`, `Combobox` (absorb
 ChatModelPicker into SettingsDropdown's successor), `Badge`/`Chip` (semantic
 variants only), `CountBadge`, `Avatar`, `MediaTile` chrome (square, matte,
@@ -524,6 +591,44 @@ MediaPicker.vue's inline Scale/Extend/Preprocess implementations),
 parameters, §3.4 LoRA weights, and §3.5 prep rows — drag-to-scrub +
 click-to-type in one place), `LoraRow` + `LoraPool` (§3.4 — replaces
 LoraChip/LoraGroupBox).
+
+**PageHeader** (`ui/PageHeader.vue`, desktop; phones use CompactHeader) is the
+one header. Two tiers, one height and one title size per tier, one left inset
+(`--page-margin`), one slot order: **title, meta, actions, menu**.
+
+| Tier | Screens | Height | Title |
+|---|---|---|---|
+| standard | collections: boards, chats, flows, tools, board detail, trash | 64px (`h-header`) | `font-brand text-xl font-semibold` |
+| compact | workspaces: chat, flow, tool, editor | 52px (`h-header-compact`) | `font-brand text-base font-semibold` |
+
+Rules: the title is the entity's name (editable in place where it can be
+renamed); meta is quiet `text-xs` tertiary (status, provider and task, an
+unsaved dot); actions are ordered secondary first and the one primary last;
+the menu slot holds the overflow button, last on the right. The bottom
+hairline is the header's only boundary. A tool's page teleports its
+controls into a slot that wears `pageHeaderClass('compact')`
+(`ui/pageHeader.ts`). A second row under a header (the flow's view tabs)
+shares the margin and takes no second height token.
+
+**One overflow glyph**: horizontal dots (`OverflowButton`), bare, 32px
+(`IconButton size="lg"`) on a header, never boxed, never vertical dots;
+44px on coarse pointers. **One caret**: the outline chevron-down
+(`ui/Caret.vue`), flipped when open, on every select, disclosure and
+picker trigger; no solid triangles. A toggle that is on (a panel open, a
+layout armed) takes `IconButton active`: a neutral raised fill, never
+teal or indigo.
+
+**Select** (`ui/Select.vue`) is the trigger of every dropdown: fill-only
+(`bg-overlay-subtle`, no outline), label, caret; `active` tints it accent
+while a filter narrows the list. The menu or sheet it opens stays with the
+caller. **SearchField** (`ui/SearchField.vue`) is every search or filter
+field: fill-only, glass at the left, an accent border only once the person
+types (`focusQuietly()` for focus on page load). **Button** carries the
+secondary treatment (`variant="secondary"`, raised fill) and the one
+primary create (`variant="primary"`, solid accent): a filled button is only
+ever a primary create or Run. A screen offers one search entry: a list page's
+own field is it, so the phone header drops its global-search icon there
+(Tools); global search stays reachable from every other hub.
 
 Kit-wide contracts: both themes from day one; focus-visible built in;
 disabled = `disabled:opacity-50 disabled:cursor-not-allowed` (the one
@@ -644,8 +749,8 @@ build a settings surface (mock §10 is the reference):
   The Stimma Cloud gradient CTA is the only filled treatment in a list.
   The section's own title is hidden on compact (the header already shows it).
 - **Settings nav**: row-sized text (13px, 15px on compact), selected row =
-  `bg-selection/15 text-content` with a `text-selection` icon, same indigo as
-  the app sidebar.
+  `bg-selection/15 text-content` with a `text-selection` icon, the same as
+  the app sidebar (§1.8).
 - **Danger zone**: last group, micro-label in red, rows identical to normal
   settings but with `btn-danger-ghost` actions. No red panels/borders;
   destructive confirmation happens in the ConfirmDialog, not inline.
@@ -664,9 +769,11 @@ no fills, no borders-in-borders — so the run bar and results carry the
 energy. **Exactly one solid-accent button on the whole screen: Run.**
 Stage mode swaps proportions, same grammar.
 
-**Header strip:** tool icon chip (accent-wash square) + name (General Sans
-600) + hop-to-tool disclosure + mono subtitle (provider · task types).
-Presets and layout toggle are ghosts on the right. RemixBanner, when active,
+**Header strip:** the compact-tier PageHeader (§2): tool icon chip (accent-wash
+square) + name (General Sans 600, 16px) + hop-to-tool disclosure, then the
+provider and task types as meta on the same row. Presets and the layout
+toggle are ghosts on the right; the layout toggle is neutral raised while
+Stage is on. RemixBanner, when active,
 is a single hairline row under the header (purple text accent per §1.9
 special) — not a filled banner.
 
@@ -897,7 +1004,7 @@ same for Adjust, the brushes, the selection tools, Crop and Annotate:
 
 - The tool's numeric controls are a **grid of cells** — name left, mono
   value right, three to a row — all visible at once, nothing to scroll
-  sideways for. The chosen cell wears the panel's single accent wash;
+  sideways for. The chosen cell wears the panel's single selection wash (`bg-selection/15`, primary text);
   values away from their default read in the accent. A single parameter is
   just the dial.
 - Where a tool has more numbers than one screen wants, a **segment row**
@@ -967,6 +1074,12 @@ the media menu stay in one place.
   while it has focus). It rests one line tall and grows with its text. Its meta
   line, placeholder and model picker share one left edge (16px). A message queue
   or selection bar docked on top uses the same fill.
+- **Send is one control** (`ui/SendButton.vue`, used by the chat, flow and
+  prompt-agent composers): a 32px `rounded-md` shape, never a disc, inside a
+  target that grows to 44px on coarse pointers. Enabled = `bg-accent
+  text-accent-on` (hover `bg-accent/90`). Disabled = the faint `overlay-subtle`
+  fill with a muted glyph at `opacity-50`: the quietest shape in the composer,
+  never a grey solid. Stop uses the same shape with a square glyph.
 - **Chat markdown renders inline code as a mono chip**, never with literal
   backticks (the typography plugin's `code::before/after` content is cleared in
   `ChatMarkdown`). Step labels in the transcript are UI sans; mono stays for

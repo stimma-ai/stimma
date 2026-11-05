@@ -588,7 +588,7 @@ test('Home reads its cards in one compact read, with no board or flow detail rea
   await expect(page.getByText('Compact board')).toBeVisible()
   await expect(page.getByText('Compact flow')).toBeVisible()
   await expect(page.getByText('Compact chat')).toBeVisible()
-  await expect(page.getByText(/5000 items/)).toBeVisible()
+  await expect(page.getByText(/5000 assets/)).toBeVisible()
   await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
   // Artwork comes from the compact read, by content hash.
   await expect.poll(() => thumbnailPaths(counts).filter(path => /boardhash|flowhash|chathash/.test(path)).length).toBe(5)

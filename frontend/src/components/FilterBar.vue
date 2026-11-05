@@ -1,10 +1,10 @@
 <template>
   <div class="bg-surface border-b border-edge flex-shrink-0">
     <!-- Filter Selection Strip (Shopping Cart) -->
-    <div class="flex justify-between items-center px-2 py-2 gap-2 flex-wrap compact:justify-start compact:gap-1">
+    <div class="flex justify-between items-center px-page py-2 gap-2 flex-wrap compact:justify-start compact:gap-1">
       <!-- Left Side: Filter Toggle Button -->
       <button
-        class="text-content-secondary px-4 h-9 rounded-md text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle compact:h-11 compact:w-11 compact:px-0 compact:justify-center"
+        class="text-content-secondary px-3 -ml-3 h-9 rounded-md text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle compact:h-11 compact:w-11 compact:px-0 compact:justify-center"
         :class="(showCriteriaPanel || hasActiveFilters) ? 'compact:text-accent-hi compact:bg-accent/15' : ''"
         aria-label="Filters"
         @click="toggleCriteriaPanel"
@@ -56,7 +56,7 @@
             class="text-red-400 text-[16px] font-semibold leading-none select-none -mr-0.5"
           >−</span>
           <span
-            class="w-5 h-5 flex items-center justify-center icon-container"
+            class="w-icon-nav h-icon-nav flex items-center justify-center icon-container"
             :class="isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? '' : 'marker-glyph-off text-content-tertiary'"
             :style="isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? { color: markerColor(marker) } : {}"
             v-html="sanitizeSvg(marker.icon_svg)"
@@ -71,7 +71,7 @@
         <div class="contents compact:flex compact:flex-wrap compact:gap-1.5 compact:basis-full compact:order-4 compact:empty:hidden">
         <!-- Similar Search Badge -->
         <div v-if="hasSimilarSearchBadge" class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-accent/15 text-accent-hi">
-          <MagnifyingGlassCircleIcon class="w-5 h-5 flex-shrink-0" />
+          <MagnifyingGlassCircleIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
           <span class="leading-none">{{ similarSearchBadgeLabel }}</span>
           <div
             v-for="item in similarSearchSourceItems"
@@ -120,7 +120,7 @@
 
         <!-- Text Similarity Badge -->
         <div v-if="localSimilarToText" class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-accent/15 text-accent-hi">
-          <MagnifyingGlassCircleIcon class="w-5 h-5 flex-shrink-0" />
+          <MagnifyingGlassCircleIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
           <span class="leading-none">{{ localSimilarToText }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearSimilarToText">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -326,7 +326,7 @@
         </div>
         <!-- Shuffle button - only visible when in random mode (not in trash mode) -->
         <button v-if="!isTrashMode && localSortBy === 'random'" @click="handleShuffle" class="px-3 py-2 cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle rounded-md text-content-secondary hover:text-accent" title="Shuffle order">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
           </svg>
         </button>
@@ -338,7 +338,7 @@
             class="text-content-secondary p-2 rounded-md cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle"
             title="View options"
           >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
             </svg>
           </button>
@@ -406,7 +406,7 @@
             class="text-content-secondary p-2 rounded-md cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle"
             title="Filter options"
           >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
             </svg>
           </button>
@@ -561,7 +561,7 @@
                   Include project assets
                 </span>
                 <span :class="['w-3.5 h-3.5 flex-shrink-0 rounded-sm border flex items-center justify-center', localIncludeProjects ? 'bg-accent border-accent text-accent-on' : 'border-edge']" aria-hidden="true">
-                  <svg v-if="localIncludeProjects" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                  <svg v-if="localIncludeProjects" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </span>
@@ -773,6 +773,7 @@
 </template>
 
 <script setup>
+import { formatDate } from '../utils/timeFormat'
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useViewport } from '../composables/useViewport'
 import { MagnifyingGlassCircleIcon } from '@heroicons/vue/24/solid'
@@ -1079,10 +1080,10 @@ const itemCountText = computed(() => {
   if (hasActiveFilters.value && unfilteredTotalCount.value !== null) {
     // Compact: the bare ratio, nothing else fits on the line.
     if (isCompact.value) return `${props.totalCount} / ${unfilteredTotalCount.value}`
-    return `${props.totalCount} of ${unfilteredTotalCount.value} items`
+    return `${props.totalCount} of ${unfilteredTotalCount.value} assets`
   }
 
-  return `${props.totalCount} items`
+  return `${props.totalCount} ${props.totalCount === 1 ? 'asset' : 'assets'}`
 })
 
 // Top keywords for inline display - show selected keywords first, then top keywords
@@ -2097,14 +2098,14 @@ function getDateRangeLabel() {
     const parts = []
     if (localCreatedAfter.value) {
       const date = new Date(localCreatedAfter.value)
-      parts.push(date.toLocaleDateString())
+      parts.push(formatDate(date, { year: 'always' }))
     }
     if (localCreatedBefore.value) {
       const date = new Date(localCreatedBefore.value)
       if (parts.length > 0) {
         parts.push(' - ')
       }
-      parts.push(date.toLocaleDateString())
+      parts.push(formatDate(date, { year: 'always' }))
     }
     return parts.join('') || 'Custom range'
   }

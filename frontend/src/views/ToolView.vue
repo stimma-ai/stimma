@@ -80,7 +80,7 @@
              Phones carry the title and Run in the app's compact top bar, and
              everything teleported here is compact:hidden, so the slot goes too
              (it was an empty band with a stray hairline). -->
-        <div id="tool-header-slot" class="flex-none px-6 pt-4 pb-3 border-b border-edge-subtle compact:hidden"></div>
+        <div id="tool-header-slot" :class="pageHeaderClass('compact')" data-page-header="compact" class="compact:hidden"></div>
         <!-- Transient run context (remix banners) lands here as its own card
              so the header card stays fixed-height. Hidden when the teleport
              delivers nothing. -->
@@ -135,14 +135,14 @@
        </div>
        </div>
        </Transition>
-       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable mx-3 mt-4 mb-3 px-3 pb-6 roomy:mx-2 roomy:mr-0 roomy:overscroll-contain">
+       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable mt-4 mb-3 px-page pb-6 roomy:overscroll-contain">
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
-        <div class="flex items-center justify-between compact:flex-wrap compact:gap-y-2">
-          <div class="min-w-0 compact:hidden">
-          <div class="flex items-center gap-3 min-w-0">
+          <!-- Title, then the tool's facts as meta. One 52px row. -->
+          <div class="flex min-w-0 flex-1 items-center gap-3 compact:hidden">
             <div class="w-7 h-7 rounded-md bg-accent/12 flex items-center justify-center flex-shrink-0 text-accent-hi p-1.5"><ToolIcon :tool="tool" bare :ring="false" /></div>
             <HopToToolMenu
+              class="min-w-0"
               :source-tool-id="tool.full_tool_id"
               :tool-name="tool.name"
               :source-task-types="tool.task_types || []"
@@ -152,10 +152,10 @@
               @hop-instance="(tab, hopTool) => handleHopToTool(hopTool, tab)"
               @rename="renameInstance"
             />
-          </div>
-          <!-- Subtitle: Provider, task types. Renamed instances condense the
-               tool name onto this row (mirrors the sidebar row contract). -->
-          <div class="text-[11px] mt-1 flex items-center gap-1.5 text-content-tertiary">
+            <!-- Provider, task types, attribution, output project. Renamed
+                 instances condense the tool name onto this row (mirrors the
+                 sidebar row contract). -->
+            <div class="flex min-w-0 items-center gap-1.5 truncate text-xs text-content-tertiary">
             <template v-if="instanceCustomName">
               <span>{{ tool.name }}</span>
               <span>·</span>
@@ -185,24 +185,17 @@
                 </span>
               </span>
             </span>
-          </div>
+            </div>
           </div>
           <!-- Compact: hidden; Run is the header control (ToolRunControl) and
                batch/forever live in its sheet. -->
           <div class="flex items-center gap-2 compact:hidden">
             <!-- Edit (frozen-flow tools only): the tool's own page is the obvious
                  place to find "edit this tool". Matches the Presets trigger. -->
-            <button
-              v-if="isUserTool"
-              class="flex items-center gap-2 px-3 py-1.5 bg-overlay-subtle hover:bg-overlay-light border border-edge-subtle rounded text-sm text-content-secondary transition-colors"
-              title="Edit this tool"
-              @click="openEditUserTool"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-              </svg>
+            <Button v-if="isUserTool" variant="secondary" size="sm" title="Edit this tool" @click="openEditUserTool">
+              <template #icon><PencilIcon class="h-icon-nav w-icon-nav" /></template>
               Edit
-            </button>
+            </Button>
             <span
               v-if="tool.metadata?.display_price && !hidePricesRef"
               class="px-2.5 py-1 text-xs rounded-full"
@@ -228,22 +221,18 @@
               @update:concurrency="uiState.generateForeverConcurrency = $event"
               @update:idle-limit="uiState.generateForeverIdleLimit = $event"
             />
-            <button
-              @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
-              class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md compact:hidden"
-              :class="layoutMode === 'stage' ? 'bg-surface-raised text-accent-hi hover:bg-surface-hover' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content'"
+            <IconButton
+              size="lg"
+              class="compact:hidden"
+              :active="layoutMode === 'stage'"
               :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Controls primary'"
+              :aria-label="layoutMode === 'stage' ? 'Stage layout' : 'Studio layout'"
+              @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
             >
-              <PhotoIcon class="w-5 h-5" />
-            </button>
+              <PhotoIcon class="h-icon-nav w-icon-nav" />
+            </IconButton>
             <div v-if="jobsManager && isFromScratch" class="relative flex items-center">
-              <button
-                @click="stageMenuOpen = !stageMenuOpen"
-                class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content"
-                title="Queue options"
-              >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
-              </button>
+              <OverflowButton size="lg" label="Queue options" :active="stageMenuOpen" @click="stageMenuOpen = !stageMenuOpen" />
               <div v-if="stageMenuOpen" class="fixed inset-0 z-menu" @click="stageMenuOpen = false"></div>
               <div v-if="stageMenuOpen" class="absolute right-0 top-full mt-2 z-menu bg-surface border border-edge-subtle rounded-md shadow-lg min-w-[160px] overflow-hidden py-1" @click.stop>
                 <template v-if="isFromScratch">
@@ -273,7 +262,6 @@
               @clear="handleResetToDefaults"
             />
           </div>
-        </div>
 
         </Teleport>
 
@@ -896,7 +884,7 @@
               :style="stageHasMarker(marker.id) ? { borderColor: marker.color, color: marker.color, backgroundColor: 'transparent' } : {}"
               :title="stageHasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
             >
-              <span class="w-5 h-5 flex items-center justify-center icon-container" :class="stageHasMarker(marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
+              <span class="w-icon-nav h-icon-nav flex items-center justify-center icon-container" :class="stageHasMarker(marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
             </button>
           </template>
 
@@ -938,7 +926,7 @@
               class="result-action result-action-accent"
               title="Remix: load this image's settings"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-nav h-icon-nav">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
               </svg>
             </button>
@@ -947,7 +935,7 @@
               class="result-action result-action-danger"
               title="Move to trash"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-nav h-icon-nav">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
               </svg>
             </button>
@@ -1115,10 +1103,10 @@
                 <span class="rounded-full bg-overlay-light" style="width: var(--sheet-handle-w); height: var(--sheet-handle-h)"></span>
               </div>
               <div class="flex-none flex items-center gap-2 px-4 pb-1">
-                <SparklesIcon class="w-5 h-5 text-accent-hi" />
+                <SparklesIcon class="w-icon-nav h-icon-nav text-accent-hi" />
                 <h2 class="text-[15px] font-semibold text-content">Agent</h2>
                 <button type="button" class="ml-auto w-11 h-11 -mr-2 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent" aria-label="Close" @click="compactAgentOpen = false">
-                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
               <div id="agent-dock-compact" class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-4"></div>
@@ -1228,7 +1216,10 @@ const props = defineProps<{
 
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
-import { ArchiveBoxIcon, PhotoIcon, SparklesIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, PencilIcon, PhotoIcon, SparklesIcon } from '@heroicons/vue/24/outline'
+import { pageHeaderClass } from '../components/ui/pageHeader'
+import IconButton from '../components/ui/IconButton.vue'
+import OverflowButton from '../components/ui/OverflowButton.vue'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useRealtimeTopic } from '../composables/useRealtimeTopic'
 import { useGenerationPreferences } from '../composables/useGenerationPreferences'

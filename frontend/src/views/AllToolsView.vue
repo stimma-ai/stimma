@@ -2,32 +2,25 @@
   <div class="h-full flex flex-col bg-base">
     <!-- Header row. Wide: title, task and provider filters, tool filter field.
          Compact (the "Tools" title is the compact header's): one 44px row with
-         the task and provider filters and the tool filter field side by side. The
-         compact header's own search icon is global search; this field only
-         filters the tools on this page. -->
-    <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle compact:px-3 compact:py-1 compact:gap-2">
-      <h1 class="text-xl font-semibold leading-none text-content compact:hidden">All tools</h1>
-
-      <div class="flex items-center gap-2 compact:flex-1 compact:gap-1 compact:min-w-0">
+         the task and provider filters and the tool filter field side by side.
+         This field is the page's one search entry; the compact header drops its
+         own search icon here, and global search stays reachable from the other hubs. -->
+    <PageHeader class="compact:h-auto compact:min-h-header-compact compact:gap-2 compact:px-2 compact:[&>:first-child]:hidden compact:[&>:nth-child(2)]:min-w-0 compact:[&>:nth-child(2)]:flex-1">
+      <template #title>All tools</template>
+      <template #actions>
         <!-- Task filter. Multi-select, like providers; compact / coarse opens
              it as a sheet, as the provider filter does. -->
         <div v-if="availableTaskTypes.length > 0" class="relative compact:min-w-0" ref="taskDropdownRef">
-          <button
-            type="button"
+          <Select
+            :label="taskFilterLabel"
+            :open="taskDropdownOpen"
+            :active="activeTaskFilters.size > 0"
+            :caret="!isCompact"
+            class="compact:max-w-full compact:gap-1.5 compact:px-2"
             @click="taskDropdownOpen = !taskDropdownOpen"
-            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 compact:min-h-11 compact:max-w-full compact:gap-1.5 compact:px-2"
-            :class="activeTaskFilters.size > 0
-              ? 'bg-accent/15 text-accent-hi'
-              : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
-            aria-haspopup="listbox"
-            :aria-expanded="taskDropdownOpen"
           >
-            <Squares2X2Icon class="w-4 h-4 flex-shrink-0 hidden compact:block" />
-            <span class="truncate max-w-[16rem]">{{ taskFilterLabel }}</span>
-            <svg class="w-4 h-4 flex-shrink-0 transition-transform compact:hidden" :class="taskDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-            </svg>
-          </button>
+            <template #icon><Squares2X2Icon class="h-icon-nav w-icon-nav flex-shrink-0 hidden compact:block" /></template>
+          </Select>
 
           <div
             v-if="taskDropdownOpen && !providerSheet"
@@ -75,19 +68,17 @@
              inside the app column's stacking context, under the shared sheet
              backdrop, and no tap would ever reach it. -->
         <div v-if="availableProviders.length > 1 || hasUnavailableTools" class="relative compact:min-w-0" ref="providerDropdownRef">
-          <button
+          <Select
+            :label="providerFilterLabel"
+            :open="providerDropdownOpen"
+            :active="activeProviderFilters.size > 0"
+            :caret="!isCompact"
+            :class="providerFilterIsStimma ? 'stimma-cloud-text font-medium' : ''"
+            class="compact:max-w-full compact:gap-1.5 compact:px-2"
             @click="providerDropdownOpen = !providerDropdownOpen"
-            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 compact:min-h-11 compact:max-w-full compact:gap-1.5 compact:px-2"
-            :class="activeProviderFilters.size > 0
-              ? 'bg-accent/15 text-accent-hi'
-              : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
           >
-            <FunnelIcon class="w-4 h-4 flex-shrink-0 hidden compact:block" />
-            <span class="truncate" :class="providerFilterIsStimma ? 'stimma-cloud-text font-medium' : ''">{{ providerFilterLabel }}</span>
-            <svg class="w-4 h-4 flex-shrink-0 transition-transform compact:hidden" :class="providerDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-            </svg>
-          </button>
+            <template #icon><FunnelIcon class="h-icon-nav w-icon-nav flex-shrink-0 hidden compact:block" /></template>
+          </Select>
 
           <!-- Dropdown menu (wide) -->
           <div
@@ -138,7 +129,7 @@
 
         <!-- Tool filter: the one explicit field for narrowing the tools on this
              page, beside the provider filter. -->
-        <ListSearch
+        <SearchField
           ref="searchInputRef"
           v-model="searchQuery"
           placeholder="Filter tools..."
@@ -146,8 +137,8 @@
           class="w-48 compact:w-full compact:flex-1 compact:min-w-0"
           @escape="closeSearch"
         />
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Task filter as a bottom sheet (compact / coarse), same rows as the
          wide dropdown. -->
@@ -219,7 +210,7 @@
     </Sheet>
 
     <!-- Tools Grid -->
-    <div class="flex-1 overflow-y-auto p-6 compact:p-3">
+    <div class="flex-1 overflow-y-auto p-page">
       <!-- Connection Error -->
       <ConnectionError
         v-if="loadError"
@@ -250,7 +241,7 @@
       </div>
 
       <!-- Tools by Task -->
-      <div v-else class="space-y-6">
+      <div v-else class="space-y-section">
         <div v-for="group in groupedByTask" :key="group.taskType">
           <!-- Task type header -->
           <div class="mb-3">
@@ -319,7 +310,7 @@
                   </template>
                   <span
                     v-if="hiddenBadgeCount(tool) > 0"
-                    class="flex-shrink-0 tabular-nums"
+                    class="flex-shrink-0 font-mono tabular-nums"
                     :title="getToolBadges(tool).join(', ')"
                   >+{{ hiddenBadgeCount(tool) }}</span>
                 </div>
@@ -396,7 +387,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { FunnelIcon, Squares2X2Icon } from '@heroicons/vue/24/outline'
 import { useViewport } from '../composables/useViewport'
 import Sheet from '../components/ui/Sheet.vue'
-import ListSearch from '../components/lists/ListSearch.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import Select from '../components/ui/Select.vue'
+import SearchField from '../components/ui/SearchField.vue'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { makeProfileKey } from '../utils/storageKeys'
 import {

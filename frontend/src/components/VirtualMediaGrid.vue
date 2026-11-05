@@ -95,7 +95,7 @@
                   'w-5 h-5 bg-black/55 backdrop-blur-md border-2 rounded-md flex items-center justify-center transition-all cursor-pointer',
                   isSelected(assetIdOf(rowItem)) ? 'bg-selection border-selection' : 'border-edge-strong hover:border-edge-strong'
                 ]">
-                  <svg v-if="isSelected(assetIdOf(rowItem))" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                  <svg v-if="isSelected(assetIdOf(rowItem))" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </div>

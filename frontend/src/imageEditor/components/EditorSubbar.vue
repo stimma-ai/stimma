@@ -541,7 +541,7 @@ function chipClass(active: boolean, pending = false) {
           )"
           @change="emit('commit', 'crop')"
         />
-        <span class="tabular-nums w-10">{{ (-(state.rotation ?? 0) * 180 / Math.PI).toFixed(1) }}°</span>
+        <span class="font-mono tabular-nums w-10">{{ (-(state.rotation ?? 0) * 180 / Math.PI).toFixed(1) }}°</span>
       </label>
       <button
         v-if="state.rotation"
@@ -1061,7 +1061,7 @@ function chipClass(active: boolean, pending = false) {
               class="flex-1 rounded-full bg-current"
               :style="{ height: Math.min(weight, 12) + 'px' }"
             />
-            <span class="text-[11px] tabular-nums w-8 text-right">{{ weight }}px</span>
+            <span class="text-[11px] font-mono tabular-nums w-8 text-right">{{ weight }}px</span>
           </button>
         </ToolbarPopover>
 

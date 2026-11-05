@@ -44,22 +44,22 @@
             @dragenter="handleStimmaHomeDragEnter"
             @dragleave="handleStimmaHomeDragLeave"
             @drop="handleStimmaHomeDrop"
-            class="mb-1.5 flex w-full items-center gap-2 rounded border-none bg-transparent px-3 py-1.5 text-left text-sm font-medium text-content-secondary no-underline transition-all cursor-pointer whitespace-nowrap hover:bg-overlay-subtle hover:text-content [&>:first-child]:mx-[5px]"
+            class="mb-1.5 flex w-full items-center gap-2 rounded border-none bg-transparent px-3 py-1.5 text-left text-sm font-medium text-content-secondary no-underline transition-all cursor-pointer whitespace-nowrap hover:bg-overlay-subtle hover:text-content [&>:first-child]:mx-1"
             :class="dragHoverStimmaHome ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''"
             title="Stimma (drag media here to attach)"
           >
-            <img src="/logo.svg" class="w-3.5 h-3.5 flex-shrink-0" :class="{ 'logo-disconnected': !wsConnected }" alt="" />
+            <img src="/logo.svg" class="w-icon-nav h-icon-nav flex-shrink-0" :class="{ 'logo-disconnected': !wsConnected }" alt="" />
             <span class="font-brand lowercase tracking-[0.12em]">stimma</span>
           </button>
           <template v-else>
             <button
               type="button"
               aria-label="Back to everything"
-              class="mb-0.5 flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-xs text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11 coarse:text-sm [&>:first-child]:mx-[5px]"
+              class="mb-0.5 flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-xs text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11 coarse:text-sm [&>:first-child]:mx-1"
               :title="busyElsewhere ? 'Back to everything (work is running elsewhere)' : undefined"
               @click="leaveProject"
             >
-              <ChevronLeftIcon class="h-3.5 w-3.5 flex-shrink-0" :stroke-width="1.75" />
+              <ChevronLeftIcon class="h-icon-nav w-icon-nav flex-shrink-0" />
               <span>Back to everything</span>
               <Spinner v-if="busyElsewhere" size="sm" hue="border-t-blue-500" class="ml-auto" />
             </button>
@@ -78,22 +78,22 @@
                 @dragover="projectHeaderDrag.onDragOver"
                 @dragleave="projectHeaderDrag.onDragLeave"
                 @drop="projectHeaderDrag.onDrop"
-              ><span class="min-w-0 flex-1 break-words font-brand text-base font-semibold leading-snug text-content">{{ activeProject?.name || 'Untitled project' }}</span><ChevronUpDownIcon class="mt-1.5 h-3 w-3 shrink-0 text-content-muted" /></button>
+              ><span class="min-w-0 flex-1 break-words font-brand text-base font-semibold leading-snug text-content">{{ activeProject?.name || 'Untitled project' }}</span><ChevronUpDownIcon class="mt-1.5 h-icon-inline w-icon-inline shrink-0 text-content-muted" /></button>
             </WorkingContextPicker>
           </template>
 
-          <button @click="handleNavClick('home')" @dragover="handleDragOver" @dragenter="handleStimmaHomeDragEnter" @dragleave="handleStimmaHomeDragLeave" @drop="handleStimmaHomeDrop" class="flex w-full items-center gap-2 rounded px-3 py-1.5 text-sm text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11 [&>:first-child]:mx-[5px]" :class="activeTab === 'home' ? '!bg-selection/15 !text-selection' : ''"><HomeIcon class="h-3.5 w-3.5 flex-shrink-0" :stroke-width="1.75" />Home</button>
+          <button @click="handleNavClick('home')" @dragover="handleDragOver" @dragenter="handleStimmaHomeDragEnter" @dragleave="handleStimmaHomeDragLeave" @drop="handleStimmaHomeDrop" class="flex w-full items-center gap-2 rounded px-3 py-1.5 text-sm text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11 [&>:first-child]:mx-1" :class="activeTab === 'home' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"><HomeIcon class="h-icon-nav w-icon-nav flex-shrink-0" />Home</button>
 
           <!-- Saved views sit with Home: places, before the kinds of things. -->
           <button
             v-for="savedView in contextSavedViews"
             :key="savedView.id"
             @click="openSavedView(savedView.id)"
-            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left [&>:first-child]:mx-[5px]"
-            :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-selection' : ''"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left [&>:first-child]:mx-1"
+            :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
             :title="savedView.name"
           >
-            <component :is="savedViewIcon(savedView)" class="w-3.5 h-3.5 flex-shrink-0" :stroke-width="1.75" />
+            <component :is="savedViewIcon(savedView)" class="w-icon-nav h-icon-nav flex-shrink-0" />
             <span class="truncate text-sm">{{ savedView.name }}</span>
           </button>
 
@@ -102,10 +102,10 @@
           <!-- All Assets -->
           <button
             @click="handleNavClick('browse')"
-            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
-            :class="activeTab === 'browse' ? '!bg-selection/15 !text-selection' : ''"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
+            :class="activeTab === 'browse' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
           >
-            <PhotoIcon class="w-3.5 h-3.5 flex-shrink-0" :stroke-width="1.75" />
+            <PhotoIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
             <span>Assets</span>
           </button>
 
@@ -117,14 +117,14 @@
               @dragenter="handleNewBoardDragEnter"
               @dragleave="handleNewBoardDragLeave"
               @drop="handleNewBoardDrop"
-              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
               :class="[
-                activeTab === 'boards' ? '!bg-selection/15 !text-selection' : '',
+                activeTab === 'boards' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                 dragHoverNewBoard ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Boards (drag media here to create new)"
             >
-              <Squares2X2Icon class="w-3.5 h-3.5 flex-shrink-0" :stroke-width="1.75" />
+              <Squares2X2Icon class="w-icon-nav h-icon-nav flex-shrink-0" />
               <span>Boards</span>
             </button>
             <!-- Create new board button -->
@@ -133,7 +133,7 @@
                 @click.stop="createNewBoard"
                 class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
               >
-                <PlusIcon class="w-3 h-3" :stroke-width="2" />
+                <PlusIcon class="w-icon-inline h-icon-inline" />
               </button>
             </Tooltip>
           </div>
@@ -147,14 +147,14 @@
               @dragenter="handleNewChatDragEnter"
               @dragleave="handleNewChatDragLeave"
               @drop="handleNewChatDrop"
-              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
               :class="[
-                activeTab === 'chats' ? '!bg-selection/15 !text-selection' : '',
+                activeTab === 'chats' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                 dragHoverNewChat ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Chats (drag media here to create new)"
             >
-              <ChatBubbleLeftRightIcon class="w-3.5 h-3.5 flex-shrink-0" :stroke-width="1.75" />
+              <ChatBubbleLeftRightIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
               <span>Chats</span>
             </button>
             <!-- Create new chat button -->
@@ -163,7 +163,7 @@
                 @click.stop="createNewChat"
                 class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
               >
-                <PlusIcon class="w-3 h-3" :stroke-width="2" />
+                <PlusIcon class="w-icon-inline h-icon-inline" />
               </button>
             </Tooltip>
           </div>
@@ -176,14 +176,14 @@
               @dragenter="handleNewFlowDragEnter"
               @dragleave="handleNewFlowDragLeave"
               @drop="handleNewFlowDrop"
-              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
               :class="[
-                activeTab === 'flows' ? '!bg-selection/15 !text-selection' : '',
+                activeTab === 'flows' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                 dragHoverNewFlow ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Flows (drag media here to create new)"
             >
-              <BoltIcon class="w-3.5 h-3.5 flex-shrink-0" :stroke-width="1.75" />
+              <BoltIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
               <span>Flows</span>
             </button>
             <Tooltip text="Create new flow" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -191,7 +191,7 @@
                 @click.stop="createNewFlow"
                 class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
               >
-                <PlusIcon class="w-3 h-3" :stroke-width="2" />
+                <PlusIcon class="w-icon-inline h-icon-inline" />
               </button>
             </Tooltip>
           </div>
@@ -200,10 +200,10 @@
           <button
             @click="handleNavClick('all-tools')"
             data-tour="tools"
-            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
-            :class="activeTab === 'all-tools' ? '!bg-selection/15 !text-selection' : ''"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
+            :class="activeTab === 'all-tools' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
           >
-            <WrenchScrewdriverIcon class="w-3.5 h-3.5 flex-shrink-0" :stroke-width="1.75" />
+            <WrenchScrewdriverIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
             <span>Tools</span>
           </button>
 
@@ -242,7 +242,7 @@
                 @drop="handleTabMediaDrop(tab, $event)"
                 class="min-h-10 coarse:min-h-11 flex items-center gap-2 px-3 py-1 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
                 :class="[
-                  isTabActive(tab) ? '!bg-selection/15 !text-selection' : '',
+                  isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
@@ -282,12 +282,12 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-icon-nav h-icon-nav text-content-secondary" />
                     </div>
                   </div>
                   <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
                   <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
+                    <svg class="w-icon-nav h-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
@@ -337,12 +337,12 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-icon-nav h-icon-nav text-content-secondary" />
                     </div>
                   </div>
                   <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
                   <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
+                    <svg class="w-icon-nav h-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
@@ -377,7 +377,7 @@
                       <span class="truncate text-[13px] leading-4 text-content">
                         {{ tab.displayName }}
                       </span>
-                      <span class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
+                      <span class="min-w-0 truncate font-mono tabular-nums text-[11px] leading-[14px] text-content-muted">
                         {{ formatBoardTabDetail(tab.entityId) }}
                       </span>
                     </div>
@@ -500,7 +500,7 @@
                 class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-content-muted pointer-events-none"
                 :title="getToolSubtitle(tab.entityId)"
               >
-                <ExclamationTriangleIcon class="w-3.5 h-3.5" :stroke-width="1.75" />
+                <ExclamationTriangleIcon class="w-icon-inline h-icon-inline" :stroke-width="1.75" />
               </span>
             </div>
 
@@ -558,7 +558,7 @@
                 @drop="handleTabMediaDrop(tab, $event)"
                 class="min-h-10 coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
                 :class="[
-                  isTabActive(tab) ? '!bg-selection/15 !text-selection' : '',
+                  isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : '',
@@ -599,12 +599,12 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-icon-nav h-icon-nav text-content-secondary" />
                     </div>
                   </div>
                   <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
                   <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
+                    <svg class="w-icon-nav h-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
@@ -654,12 +654,12 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-icon-nav h-icon-nav text-content-secondary" />
                     </div>
                   </div>
                   <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
                   <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
+                    <svg class="w-icon-nav h-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
@@ -694,7 +694,7 @@
                       <span class="truncate text-[13px] leading-4 text-content">
                         {{ tab.displayName }}
                       </span>
-                      <span class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
+                      <span class="min-w-0 truncate font-mono tabular-nums text-[11px] leading-[14px] text-content-muted">
                         {{ formatBoardTabDetail(tab.entityId) }}
                       </span>
                     </div>
@@ -818,7 +818,7 @@
                 class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-content-muted opacity-100 group-hover:opacity-0 transition-opacity pointer-events-none"
                 :title="getToolSubtitle(tab.entityId)"
               >
-                <ExclamationTriangleIcon class="w-3.5 h-3.5" :stroke-width="1.75" />
+                <ExclamationTriangleIcon class="w-icon-inline h-icon-inline" :stroke-width="1.75" />
               </span>
               <!-- Close button (appears on hover). Not on phones: there is no
                    hover to reveal it, so it was an invisible 44px target at the
@@ -828,7 +828,7 @@
                   @click.stop="closeTab(tab.id)"
                   class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-light"
                 >
-                  <XMarkIcon class="w-3 h-3" :stroke-width="2" />
+                  <XMarkIcon class="w-icon-inline h-icon-inline" />
                 </button>
               </Tooltip>
             </div>
@@ -898,7 +898,7 @@
               class="w-full h-8 flex items-center justify-center rounded transition-colors cursor-pointer border-none coarse:min-h-11"
               :class="activeTab === 'trash' ? 'bg-selection/15 text-selection' : 'bg-transparent text-content-tertiary hover:text-content hover:bg-overlay-subtle'"
             >
-              <TrashIcon class="w-[18px] h-[18px]" :stroke-width="1.75" />
+              <TrashIcon class="w-icon-nav h-icon-nav" />
             </button>
           </Tooltip>
           <Tooltip text="Settings (⌘,)" class="w-8 flex-shrink-0 coarse:w-11">
@@ -907,7 +907,7 @@
               aria-label="Settings"
               class="w-full h-8 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent coarse:min-h-11"
             >
-              <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+              <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
               </svg>
@@ -961,7 +961,7 @@
           :class="flowTargetHover === '__chat__' ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
           @drop.stop.prevent="onFlowTargetDrop(null, $event)"
         >
-          <ChatBubbleOvalLeftEllipsisIcon class="w-4 h-4 flex-shrink-0 pointer-events-none" :stroke-width="1.5" />
+          <ChatBubbleOvalLeftEllipsisIcon class="w-icon-nav h-icon-nav flex-shrink-0 pointer-events-none" />
           <span class="truncate pointer-events-none">Chat</span>
         </div>
         <div
@@ -972,7 +972,7 @@
           :class="flowTargetHover === zone.name ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
           @drop.stop.prevent="onFlowTargetDrop(zone, $event)"
         >
-          <PhotoIcon class="w-4 h-4 flex-shrink-0 pointer-events-none" :stroke-width="1.5" />
+          <PhotoIcon class="w-icon-nav h-icon-nav flex-shrink-0 pointer-events-none" />
           <span class="truncate pointer-events-none">{{ zone.label }}</span>
         </div>
       </div>
@@ -1465,7 +1465,7 @@ function formatChatTabSubtitle(chatId: string): string {
 
 function formatBoardTabDetail(boardId: string): string {
   const metadata = getBoardMetadata(boardId)
-  const itemText = formatCount(metadata?.item_count || 0, 'item')
+  const itemText = formatCount(metadata?.item_count || 0, 'asset')
   const sectionCount = metadata?.section_count || 0
   return sectionCount > 1 ? `${itemText} · ${formatCount(sectionCount, 'section')}` : itemText
 }
@@ -1550,16 +1550,16 @@ function getTabIcon(tab: WorkspaceTab) {
     const tool = allToolsMap.value.get(tab.entityId)
     return createTaskTypeIconComponent(tool?.task_type || 'text-to-image', 'currentColor')
   }
-  if (tab.type === 'chat') return h(ChatBubbleLeftRightIcon, { 'stroke-width': 1.75 })
-  if (tab.type === 'board') return h(Squares2X2Icon, { 'stroke-width': 1.75 })
+  if (tab.type === 'chat') return h(ChatBubbleLeftRightIcon, {})
+  if (tab.type === 'board') return h(Squares2X2Icon, {})
   if (tab.type === 'project') return ArchiveBoxIcon
   if (tab.type === 'lineage') {
     // Git-branch-like icon for lineage
-    return h('svg', { class: 'w-3.5 h-3.5', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.75', stroke: 'currentColor' }, [
+    return h('svg', { class: 'w-icon-nav h-icon-nav', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.75', stroke: 'currentColor' }, [
       h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z' })
     ])
   }
-  if (tab.type === 'flow') return h(BoltIcon, { 'stroke-width': 1.75 })
+  if (tab.type === 'flow') return h(BoltIcon, {})
   return h('span')
 }
 

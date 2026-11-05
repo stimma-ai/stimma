@@ -74,7 +74,7 @@ function tap(id: FamilyId) {
       type="button"
       class="flex-1 min-w-0 min-h-12 py-1 flex flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-medium leading-none border-none transition-colors"
       :class="[
-        active === family.id ? 'text-accent-hi bg-accent/15' : 'text-content-secondary bg-transparent',
+        active === family.id ? 'text-content bg-surface-raised' : 'text-content-secondary bg-transparent',
         unavailable.includes(family.id) && 'opacity-35',
       ]"
       :aria-label="family.label"
@@ -115,7 +115,7 @@ function tap(id: FamilyId) {
         type="button"
         class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors compact:min-h-11 compact:text-[13px] focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
         :class="active === family.id
-          ? 'bg-accent/15 text-accent-hi'
+          ? 'bg-surface-raised text-content'
           : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
         :aria-label="family.label"
         @click="emit('select', family.id)"

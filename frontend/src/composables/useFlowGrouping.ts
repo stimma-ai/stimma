@@ -813,7 +813,7 @@ export function candidateProducerForSlot(slot: GroupedIteration): FlowEquation |
 function subStepDisplayName(sub: SlotSubStep, approve: FlowEquation): string {
   // Match the HITL-elsewhere convention ("Your Turn" for actionable user
   // input). Bare "Approve" was ambiguous on a rolled-up row.
-  if (sub.kind === 'hitl-approve') return 'Your Turn'
+  if (sub.kind === 'hitl-approve') return 'Your turn'
   // Producer rows surface the underlying tool/llm name when available,
   // matching the chrome of a normal foreach group row.
   if (sub.displayName && sub.displayName !== sub.relativePath) return sub.displayName

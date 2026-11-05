@@ -52,7 +52,7 @@
            separates it from the list, nothing trails it. -->
       <button type="button" @click="openCreateModal" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04]">
         <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+          <svg class="h-icon-nav w-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
           <div class="text-[13px] font-medium text-accent-hi">Create profile</div>
@@ -120,7 +120,7 @@
       <template #header>
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <svg class="w-icon-nav h-icon-nav text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
           </div>
@@ -169,7 +169,7 @@
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <svg
-                  class="w-5 h-5"
+                  class="w-icon-nav h-icon-nav"
                   :class="pinSettingsProfile.has_pin ? 'text-accent' : 'text-content-muted'"
                   fill="none"
                   viewBox="0 0 24 24"

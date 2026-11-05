@@ -37,7 +37,7 @@
         <!-- Main chat area -->
         <div class="flex-1 flex flex-col min-w-0">
     <!-- Chat Messages Area -->
-    <div class="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-2 space-y-4 custom-scrollbar compact:px-3 compact:pt-3 compact:pb-1" ref="messagesContainer" data-chat-scroller>
+    <div class="flex-1 min-h-0 overflow-y-auto px-page pt-4 pb-2 space-y-4 custom-scrollbar compact:pt-3 compact:pb-1" ref="messagesContainer" data-chat-scroller>
       <!-- Connection Error -->
       <ConnectionError
         v-if="loadError"
@@ -1144,7 +1144,7 @@
     </div>
 
     <!-- Input Area -->
-    <div class="px-4 pb-4 pt-1 compact:px-3 compact:pb-3 flex-shrink-0">
+    <div class="px-page pb-4 pt-1 compact:pb-3 flex-shrink-0">
       <!-- Same column as the transcript above, so the composer lines up with it. -->
       <div class="mx-auto w-full" :class="chatColumnClass">
       <div
@@ -1218,27 +1218,13 @@
           />
         </template>
         <template #actions="{ text }">
-          <button
-            v-if="showStopButton"
-            @click="stopAgent"
-            class="w-8 h-8 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-full bg-content text-surface transition-colors hover:opacity-80"
-            title="Stop"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5">
-              <rect x="6" y="6" width="12" height="12" rx="1" />
-            </svg>
-          </button>
-          <button
+          <SendButton v-if="showStopButton" icon="stop" title="Stop" @click="stopAgent" />
+          <SendButton
             v-else
-            @click="sendMessage()"
             :disabled="(!text.trim() && inputAttachments.length === 0) || sending || isChatModelUnavailable || Boolean(imageUnsupportedMessage)"
-            class="w-8 h-8 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
             :title="modelUnavailableMessage || 'Send'"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-              <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" transform="rotate(-90 12 12)" />
-            </svg>
-          </button>
+            @click="sendMessage()"
+          />
         </template>
       </ChatInputBox>
       </div>
@@ -1392,6 +1378,7 @@ import { MediaImage, AppImage, MediaContextMenu } from '../components/media'
 import ChatImageStrip from '../components/chat/ChatImageStrip.vue'
 import ChatInputAttachments from '../components/chat/ChatInputAttachments.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
+import SendButton from '../components/ui/SendButton.vue'
 import ChatMessageQueue, { type QueuedMessage } from '../components/chat/ChatMessageQueue.vue'
 import SkillsMenuButton from '../components/chat/SkillsMenuButton.vue'
 import FlowRefChip from '../components/flow/FlowRefChip.vue'

@@ -15,61 +15,54 @@
     <AssetSelectionSheet :show="addAssetsSection !== null" :project-id="board ? (board.project_id ?? null) : undefined" :saving="addingAssets" @close="addAssetsSection = null" @select="addSectionAssets" />
     <RenameSheet :show="renameOpen" :name="board?.name || ''" label="Rename board" @close="renameOpen = false" @save="renameBoard" />
 
-    <div v-show="!isCompact && !slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3 compact:px-3 compact:py-2">
-      <div class="flex min-w-0 flex-1 items-baseline gap-3">
+    <PageHeader v-show="!isCompact && !slideshowState.active && board">
+      <template #title>
         <input
           v-if="isEditingBoardName || (editedName && !isCompact)"
           ref="boardNameInputRef"
           v-model="editedName"
-          class="min-w-0 max-w-md flex-shrink bg-transparent text-lg font-semibold text-content outline-none compact:min-h-11"
+          class="-ml-2 w-80 max-w-full rounded-md border border-transparent bg-transparent px-2 py-1 font-brand text-xl font-semibold text-content outline-none transition-colors hover:bg-overlay-subtle focus:bg-overlay-subtle focus:border-accent"
           placeholder="Name this board..."
           @blur="handleBoardNameBlur"
           @keydown.enter.prevent="saveBoardName"
           @keydown.esc.prevent="cancelBoardNameEdit"
         />
-        <span v-else-if="editedName" class="min-w-0 truncate text-lg font-semibold text-content compact:hidden">{{ editedName }}</span>
+        <span v-else-if="editedName">{{ editedName }}</span>
         <button
           v-else
-          class="bg-transparent text-left text-lg font-semibold text-content-muted/70 outline-none transition-colors hover:text-content-secondary"
+          class="bg-transparent text-left text-content-muted/70 outline-none transition-colors hover:text-content-secondary"
           @click="!isCompact && startBoardNameEdit()"
         >
           Name this board...
         </button>
-      </div>
-      <div class="relative">
-        <button
-          ref="boardMenuButtonRef"
-          class="flex h-8 w-8 items-center justify-center rounded-md border border-edge-subtle text-content-muted transition-colors hover:bg-overlay-subtle hover:text-content compact:h-11 compact:w-11"
-          title="Board actions"
-          @click="toggleBoardMenu"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
-            <path d="M10 3a1.75 1.75 0 110 3.5A1.75 1.75 0 0110 3zm0 5.25a1.75 1.75 0 110 3.5 1.75 1.75 0 010-3.5zm0 5.25a1.75 1.75 0 110 3.5 1.75 1.75 0 010-3.5z" />
-          </svg>
-        </button>
+      </template>
+      <template #menu>
+        <div class="relative">
+          <OverflowButton ref="boardMenuButtonRef" size="lg" label="Board actions" @click="toggleBoardMenu" />
 
-        <div
-          v-if="boardMenuOpen"
-          ref="boardMenuRef" data-escape-layer
-          class="absolute right-0 top-11 z-menu min-w-[180px] overflow-hidden rounded-lg border border-edge-subtle bg-surface shadow-lg"
-        >
-          <button
-            class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
-            @click="handleBoardMenuDeleteBoard"
+          <div
+            v-if="boardMenuOpen"
+            ref="boardMenuRef" data-escape-layer
+            class="absolute right-0 top-11 z-menu min-w-[180px] overflow-hidden rounded-lg border border-edge-subtle bg-surface shadow-lg"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-              <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5z" clip-rule="evenodd" />
-            </svg>
-            <span>Delete board</span>
-          </button>
+            <button
+              class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
+              @click="handleBoardMenuDeleteBoard"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-icon-inline w-icon-inline">
+                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5z" clip-rule="evenodd" />
+              </svg>
+              <span>Delete board</span>
+            </button>
+          </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
-    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto px-6 py-5 compact:px-2 compact:py-3" :class="{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }">
-      <div v-if="loading" class="py-20 text-center text-content-muted">Loading board...</div>
-      <div v-else-if="!board" class="py-20 text-center text-content-muted">Board not found.</div>
-      <TransitionGroup v-else tag="div" class="space-y-5">
+    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto py-section" :class="{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }">
+      <div v-if="loading" class="px-page py-20 text-center text-content-muted">Loading board...</div>
+      <div v-else-if="!board" class="px-page py-20 text-center text-content-muted">Board not found.</div>
+      <TransitionGroup v-else tag="div" class="space-y-section">
         <section
           v-for="section in displaySections"
           :key="section.id"
@@ -86,7 +79,7 @@
                pill, restyled to the sentence-case label grammar with a mono
                count on the right. -->
           <div
-            class="relative flex select-none items-center gap-2 px-0.5 pb-1.5"
+            class="relative flex select-none items-center gap-2 px-page pb-1.5"
             :class="!dragState.item ? 'cursor-grab active:cursor-grabbing' : ''"
             draggable="true"
             @dragstart.stop="onSectionDragStart(section, $event)"
@@ -107,7 +100,7 @@
               />
               <button
                 v-else
-                class="group/name min-w-0 compact:min-h-11 compact:min-w-11 compact:-my-2 compact:px-2 truncate text-left text-sm font-semibold text-content transition-colors"
+                class="group/name min-w-0 compact:min-h-11 compact:min-w-11 compact:-my-2 compact:-ml-2 compact:px-2 truncate text-left text-sm font-semibold text-content transition-colors"
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
@@ -119,13 +112,13 @@
             </div>
             <div class="flex flex-none items-center gap-1">
               <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ (section.items || []).length }} {{ (section.items || []).length === 1 ? 'asset' : 'assets' }}</span>
-              <button v-if="isCompact && (section.items || []).length" class="min-h-11 min-w-11 compact:-my-2 whitespace-nowrap px-2 text-xs font-medium text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
+              <button v-if="isCompact && (section.items || []).length" class="min-h-11 min-w-11 -mr-2 compact:-my-2 whitespace-nowrap px-2 text-xs font-medium text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
             </div>
           </div>
 
           <div
             v-if="!(sectionDragCollapsed && dragState.sectionDragId === section.id)"
-            class="relative select-none rounded-media bg-matte p-0.5"
+            class="relative select-none bg-matte p-0.5"
             :class="[sectionDragCollapsed ? '' : 'min-h-[120px]']"
             @dragover.stop.prevent="handleSectionBodyDragOver(section, $event)"
             @drop.stop.prevent="commitSectionBodyDrop(section, $event)"
@@ -205,7 +198,7 @@
                       'w-5 h-5 bg-black/55 backdrop-blur-md border-2 rounded-md flex items-center justify-center transition-all cursor-pointer',
                       selectedItemIds.includes(item.id) ? 'bg-selection border-selection' : 'border-edge-strong hover:border-edge-strong'
                     ]">
-                      <svg v-if="selectedItemIds.includes(item.id)" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                      <svg v-if="selectedItemIds.includes(item.id)" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                       </svg>
                     </div>
@@ -356,6 +349,8 @@ import { useViewport } from '../composables/useViewport'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import RenameSheet from '../components/compact/RenameSheet.vue'
 import Sheet from '../components/ui/Sheet.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import OverflowButton from '../components/ui/OverflowButton.vue'
 import { PencilIcon } from '@heroicons/vue/24/outline'
 import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
 import { useEntityMove } from '../composables/useEntityMove'
@@ -911,7 +906,7 @@ async function handleBoardMenuDeleteBoard() {
 
 function handleDocumentClick(event) {
   const target = event.target
-  if (boardMenuOpen.value && !boardMenuRef.value?.contains(target) && !boardMenuButtonRef.value?.contains(target)) {
+  if (boardMenuOpen.value && !boardMenuRef.value?.contains(target) && !(boardMenuButtonRef.value?.$el ?? boardMenuButtonRef.value)?.contains(target)) {
     boardMenuOpen.value = false
   }
 }

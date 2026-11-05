@@ -166,6 +166,7 @@
 </template>
 
 <script setup>
+import { formatDate as formatDateValue } from '../../../utils/timeFormat'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { getApiBase, getBackendOrigin } from '../../../apiConfig'
@@ -341,7 +342,7 @@ async function openGuide() {
 }
 function formatDate(iso) {
   if (!iso) return ''
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  return formatDateValue(iso, { year: 'always' })
 }
 function formatRelative(iso) {
   const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)

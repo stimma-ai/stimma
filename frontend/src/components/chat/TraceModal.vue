@@ -15,12 +15,12 @@
             @click="selectedTraceId = null"
             class="p-1 -ml-1 rounded hover:bg-surface-raised/50 text-content-tertiary hover:text-content transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-icon-nav h-icon-nav">
               <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
             </svg>
           </button>
           <div class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-purple-500">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-icon-nav h-icon-nav text-purple-500">
               <path fill-rule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v11.5A2.25 2.25 0 004.25 18h11.5A2.25 2.25 0 0018 15.75V4.25A2.25 2.25 0 0015.75 2H4.25zM15 5.75a.75.75 0 00-1.5 0v8.5a.75.75 0 001.5 0v-8.5zm-8.5 6a.75.75 0 00-1.5 0v2.5a.75.75 0 001.5 0v-2.5zM8.584 9a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm3.58-1.25a.75.75 0 00-1.5 0v6.5a.75.75 0 001.5 0v-6.5z" clip-rule="evenodd" />
             </svg>
           </div>
@@ -38,7 +38,7 @@
           </div>
         </div>
         <IconButton aria-label="Close" title="Close" @click="close">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-icon-nav h-icon-nav">
             <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
           </svg>
         </IconButton>
@@ -75,7 +75,7 @@
                 >
                   <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                      <component :is="getTraceIcon(t.trace_type)" class="w-5 h-5" :class="getTraceIconColor(t.trace_type)" />
+                      <component :is="getTraceIcon(t.trace_type)" class="w-icon-nav h-icon-nav" :class="getTraceIconColor(t.trace_type)" />
                       <div>
                         <div class="font-medium text-sm" :class="getTraceTextColor(t.trace_type)">
                           {{ traceTypeLabels[t.trace_type] || t.trace_type }}
@@ -120,12 +120,12 @@
                       </span>
                     </div>
                     <svg
-                      class="w-4 h-4 text-content-muted transition-transform"
+                      class="w-icon-inline h-icon-inline text-content-muted transition-transform"
                       :class="{ 'rotate-180': expandedMessages[i] }"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                      fill="none" stroke="currentColor"
                     >
-                      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                     </svg>
                   </div>
                   <!-- Message content (collapsible) -->
@@ -153,12 +153,12 @@
                       </span>
                     </div>
                     <svg
-                      class="w-4 h-4 text-content-muted transition-transform"
+                      class="w-icon-inline h-icon-inline text-content-muted transition-transform"
                       :class="{ 'rotate-180': responseExpanded }"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                      fill="none" stroke="currentColor"
                     >
-                      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                     </svg>
                   </div>
                   <div

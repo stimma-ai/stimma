@@ -64,7 +64,7 @@
         />
         <button
           type="button"
-          class="flex-shrink-0 flex items-center gap-1 text-[11px] text-content tabular-nums px-1.5 py-0.5 rounded border border-transparent hover:border-edge-subtle hover:bg-overlay-hover transition-colors"
+          class="flex-shrink-0 flex items-center gap-1 text-[11px] text-content font-mono tabular-nums px-1.5 py-0.5 rounded border border-transparent hover:border-edge-subtle hover:bg-overlay-hover transition-colors"
           :title="`Re-run all ${data.iterCount} iterations`"
           @click.stop="emit('invalidate', data.foreachKey)"
         >

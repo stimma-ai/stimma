@@ -278,7 +278,7 @@ watch(open, (isOpen) => {
           </span>
         </div>
         <IconButton aria-label="Close" @click="cancel">
-          <XMarkIcon class="h-5 w-5" />
+          <XMarkIcon class="h-icon-nav w-icon-nav" />
         </IconButton>
       </div>
     </template>
@@ -338,7 +338,7 @@ watch(open, (isOpen) => {
               :key="root.path"
               type="button"
               class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
-              :class="activeRootPath === root.path ? 'bg-accent/15 text-accent' : 'text-content hover:bg-overlay-subtle'"
+              :class="activeRootPath === root.path ? 'bg-selection/15 text-content' : 'text-content hover:bg-overlay-subtle'"
               @click="navigateTo(root.path)"
             >
               <component :is="rootIcon(root)" class="h-4 w-4 shrink-0" :class="activeRootPath === root.path ? '' : 'text-content-tertiary'" />

@@ -6,7 +6,7 @@
       class="relative w-8 h-8 flex items-center justify-center rounded-full transition-colors text-content-muted hover:text-content-secondary hover:bg-overlay-subtle"
       :title="title"
     >
-      <BookOpenIcon class="w-5 h-5" />
+      <BookOpenIcon class="w-icon-nav h-icon-nav" />
       <span
         v-if="activeCount > 0"
         class="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-1 rounded-full bg-white/15 text-content-secondary text-[9px] font-medium flex items-center justify-center"

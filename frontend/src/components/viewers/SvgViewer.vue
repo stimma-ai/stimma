@@ -239,7 +239,7 @@ function selectBackground(value) {
 function toggleClass(active) {
   const base = 'px-2.5 h-7 rounded text-xs font-medium transition-colors cursor-pointer'
   return active
-    ? `${base} bg-accent/15 text-accent-hi`
+    ? `${base} bg-surface-raised text-content`
     : `${base} text-content-tertiary hover:text-content hover:bg-surface`
 }
 

@@ -84,8 +84,8 @@ function manage(project: WorkingProject, event: MouseEvent) {
   picker.value?.manage(project, event.currentTarget as HTMLElement)
 }
 
-// The nav row shape: a 14px outline glyph centred in a 24px slot, then the label.
-const rowClass = 'flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-sm transition-colors coarse:min-h-11 [&>:first-child]:mx-[5px]'
+// The nav row shape: a 16px outline glyph centred in a 24px slot, then the label.
+const rowClass = 'flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-sm transition-colors coarse:min-h-11 [&>:first-child]:mx-1'
 </script>
 
 <template>
@@ -102,7 +102,7 @@ const rowClass = 'flex w-full items-center gap-2 rounded px-3 py-1.5 text-left t
             :class="projects.length > 0 ? 'opacity-0 group-hover/section:opacity-100' : ''"
             @click="startNaming"
           >
-            <PlusIcon class="h-3 w-3" :stroke-width="2" />
+            <PlusIcon class="h-icon-inline w-icon-inline" />
           </button>
         </template>
       </SidebarSectionHeader>
@@ -110,7 +110,7 @@ const rowClass = 'flex w-full items-center gap-2 rounded px-3 py-1.5 text-left t
 
     <div v-if="!collapsed" class="flex flex-col gap-1">
       <div v-if="naming" :class="[rowClass, 'text-content-muted']">
-        <ArchiveBoxIcon class="h-3.5 w-3.5 flex-shrink-0" :stroke-width="1.75" />
+        <ArchiveBoxIcon class="h-icon-nav w-icon-nav flex-shrink-0" />
         <input
           ref="nameInput"
           v-model="draft"
@@ -134,7 +134,7 @@ const rowClass = 'flex w-full items-center gap-2 rounded px-3 py-1.5 text-left t
           @dragleave="onDragLeave(project.id)"
           @drop="onDrop(project.id, $event)"
         >
-          <ArchiveBoxIcon class="h-3.5 w-3.5 flex-shrink-0" :stroke-width="1.75" />
+          <ArchiveBoxIcon class="h-icon-nav w-icon-nav flex-shrink-0" />
           <span class="truncate" :class="project.name ? '' : 'italic text-content-muted'">{{ project.name || 'Untitled project' }}</span>
           <Spinner v-if="isBusy(project.id)" size="sm" hue="border-t-blue-500" class="ml-auto shrink-0" title="Running" />
         </button>
@@ -144,7 +144,7 @@ const rowClass = 'flex w-full items-center gap-2 rounded px-3 py-1.5 text-left t
           class="absolute inset-y-0 right-1.5 my-auto flex h-6 w-6 items-center justify-center rounded text-content-muted opacity-0 transition-opacity hover:bg-overlay-light hover:text-content focus-visible:opacity-100 group-hover/project:opacity-100 coarse:h-11 coarse:w-11 coarse:opacity-100"
           @click.stop="manage(project, $event)"
         >
-          <EllipsisHorizontalIcon class="h-3.5 w-3.5" :stroke-width="1.75" />
+          <EllipsisHorizontalIcon class="h-icon-nav w-icon-nav" />
         </button>
       </div>
 
@@ -160,11 +160,11 @@ const rowClass = 'flex w-full items-center gap-2 rounded px-3 py-1.5 text-left t
         @dragleave="allRowDrag.onDragLeave"
         @drop="allRowDrag.onDrop"
       >
-        <EllipsisHorizontalIcon class="h-3.5 w-3.5 flex-shrink-0" :stroke-width="1.75" />
+        <EllipsisHorizontalIcon class="h-icon-nav w-icon-nav flex-shrink-0" />
         <span class="flex-1 text-left">All projects</span>
         <span class="flex items-center gap-1.5">
           <Spinner v-if="busyBeyondRecent" size="sm" hue="border-t-blue-500" title="Running" />
-          <span class="text-[11px] tabular-nums">{{ projects.length }}</span>
+          <span class="text-[11px] font-mono tabular-nums">{{ projects.length }}</span>
         </span>
       </button>
     </div>

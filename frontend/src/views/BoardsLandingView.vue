@@ -1,28 +1,10 @@
 <template>
   <div class="flex h-full flex-col bg-base">
-    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:hidden">
-      <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Boards</h1>
-
-      <div class="flex items-center gap-3 compact:flex-1 compact:justify-between">
-        <button
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary compact:min-h-11 compact:px-3"
-          @click="createNewBoard"
-        >
-          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>New</span>
-        </button>
+    <PageHeader class="compact:hidden">
+      <template #title>Boards</template>
+      <template #actions>
         <div class="relative" ref="sortDropdownRef">
-          <button
-            class="flex items-center gap-2 rounded-lg border border-edge-subtle bg-overlay-subtle px-3 py-1.5 text-sm text-content-tertiary transition-colors hover:border-edge hover:text-content-secondary compact:min-h-11"
-            @click="sortDropdownOpen = !sortDropdownOpen"
-          >
-            <span>{{ activeSortLabel }}</span>
-            <svg class="h-4 w-4 transition-transform" :class="sortDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-            </svg>
-          </button>
+          <Select :label="activeSortLabel" :open="sortDropdownOpen" @click="sortDropdownOpen = !sortDropdownOpen" />
 
           <div
             v-if="sortDropdownOpen"
@@ -32,12 +14,12 @@
               v-for="option in sortOptions"
               :key="option.value"
               class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-overlay-subtle"
-              :class="sortBy === option.value ? 'text-blue-500' : 'text-content-secondary'"
+              :class="sortBy === option.value ? 'text-accent-hi' : 'text-content-secondary'"
               @click="selectSort(option.value)"
             >
               <svg
                 v-if="sortBy === option.value"
-                class="h-4 w-4 flex-shrink-0"
+                class="h-icon-nav w-icon-nav flex-shrink-0"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke-width="2"
@@ -45,27 +27,20 @@
               >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
-              <span v-else class="w-4 flex-shrink-0"></span>
+              <span v-else class="w-icon-nav flex-shrink-0"></span>
               <span>{{ option.label }}</span>
             </button>
           </div>
         </div>
+        <SearchField v-model="searchQuery" placeholder="Search boards..." class="w-48" />
+        <Button variant="primary" size="sm" @click="createNewBoard">
+          <template #icon><PlusIcon class="h-icon-inline w-icon-inline" /></template>
+          New
+        </Button>
+      </template>
+    </PageHeader>
 
-        <div class="relative compact:flex-1">
-          <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
-          <input v-no-autocorrect
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search boards..."
-            class="w-48 rounded-lg border border-edge-subtle bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content-secondary placeholder:text-content-muted focus:border-accent focus:outline-none compact:w-full compact:min-h-11"
-          />
-        </div>
-      </div>
-    </div>
-
-    <div class="flex-1 overflow-y-auto px-6 pb-6">
+    <div class="flex-1 overflow-y-auto px-page pb-section">
       <div v-if="loading" class="py-20 text-center text-content-muted">Loading boards...</div>
       <div v-else-if="boards.length === 0" class="flex h-64 compact:h-full flex-col items-center justify-center text-center">
         <p class="mb-2 text-content-muted">No boards yet</p>
@@ -78,7 +53,7 @@
         <p class="mb-2 text-content-muted">No boards match your search</p>
       </div>
 
-      <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6 pt-6 compact:grid-cols-2 compact:gap-3 compact:pt-3">
+      <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-section pt-section compact:grid-cols-2 compact:gap-3 compact:pt-3">
         <button
           v-for="board in filteredBoards"
           :key="board.id"
@@ -150,12 +125,18 @@
 </template>
 
 <script setup>
+import { formatRelativeTime } from '../utils/timeFormat'
 import { useEntityMove } from '../composables/useEntityMove'
 import { computed, onMounted, onUnmounted, ref, watch, onActivated } from 'vue'
 import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import RenameSheet from '../components/compact/RenameSheet.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import Select from '../components/ui/Select.vue'
+import SearchField from '../components/ui/SearchField.vue'
+import Button from '../components/ui/Button.vue'
+import { PlusIcon } from '@heroicons/vue/24/outline'
 import { useViewport } from '../composables/useViewport'
 import { MediaImage } from '../components/media'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
@@ -404,31 +385,9 @@ function handleDocumentClick(event) {
 
 function formatBoardMeta(board) {
   const assetCount = board.asset_count || 0
-  const assetLabel = `${assetCount} ${assetCount === 1 ? 'item' : 'items'}`
+  const assetLabel = `${assetCount} ${assetCount === 1 ? 'asset' : 'assets'}`
   if (!board.updated_at) return assetLabel
   return `${assetLabel} • Updated ${formatRelativeTime(board.updated_at)}`
-}
-
-function formatRelativeTime(value) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-
-  const diffMs = Date.now() - date.getTime()
-  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000))
-
-  if (diffMinutes < 1) return 'just now'
-  if (diffMinutes < 60) return `${diffMinutes}m ago`
-
-  const diffHours = Math.floor(diffMinutes / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return `${diffDays}d ago`
-
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric'
-  })
 }
 
 async function createNewBoard() {

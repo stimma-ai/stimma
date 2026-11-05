@@ -53,6 +53,14 @@
   [contenteditable]:not([contenteditable="false"]) {
     @apply select-text;
   }
+
+  /* One icon stroke (DESIGN.md §1.10). Outline glyphs (the 24px Heroicons
+     grid) draw at --icon-stroke whatever stroke-width attribute they ship
+     with; a presentation attribute loses to this rule. Spinners and
+     progress rings opt out with `data-stroke="own"`. */
+  svg[viewBox="0 0 24 24"][fill="none"][stroke="currentColor"]:not([data-stroke="own"]):not(.animate-spin) {
+    stroke-width: var(--icon-stroke);
+  }
 }
 
 /*
@@ -323,6 +331,36 @@ body {
   /* Slider thumb colors (used in pseudo-elements that can't use Tailwind classes) */
   --slider-thumb: rgb(99 102 241); /* indigo-500 */
   --slider-thumb-hover: rgb(129 140 248); /* indigo-400 */
+
+  /* Page rhythm (DESIGN.md §1.6). One left edge for every non-media block
+     and one gap between sections, per width band (data-width, set by
+     useViewport; desktop is always `wide`). Tailwind: px-page, gap-section,
+     space-y-section. Media grids may bleed past the margin; text and
+     controls never do. */
+  --page-margin: 16px;
+  --section-gap: 20px;
+
+  /* Page header tiers (ui/PageHeader.vue). standard = collections (boards,
+     chats, flows, tools, board detail); compact = workspaces (chat, flow,
+     tool, editor). The phone header is --header-h-mobile. */
+  --header-h: 64px;
+  --header-h-compact: 52px;
+  --header-h-mobile: 60px;
+  --header-pb: 12px;          /* header bottom padding where a header holds a second row */
+
+  /* Icon scale (DESIGN.md §1.10): three sizes and one stroke. */
+  --icon-inline: 14px;        /* inside text rows, chips, menu rows */
+  --icon-nav: 16px;           /* sidebar, toolbars, filter chips, settings nav, tool actions */
+  --icon-canvas: 18px;        /* canvas and transport: editor, slideshow, hero overlays */
+  --icon-stroke: 1.75;
+}
+:root[data-width="medium"] {
+  --page-margin: 20px;
+  --section-gap: 24px;
+}
+:root[data-width="wide"] {
+  --page-margin: 24px;
+  --section-gap: 28px;
 }
 
 /* Android's shell already pads the WebView for system bars, cutouts and
@@ -900,11 +938,18 @@ textarea,
   --sheet-handle-h: 4px;
   --sheet-handle-top: 6px;
   --sheet-pad-top: 16px;      /* room for the handle */
+  --sheet-header-pb: 8px;     /* bottom padding under a sheet's title row */
+  --sheet-max-w: 480px;       /* the sheet itself, centred; narrow windows go full width */
   --sheet-menu-max-h: 62dvh;  /* menus */
   --sheet-panel-max-h: 85dvh; /* pickers, info, forms */
   --sheet-drawer-h: 75dvh;    /* interactive, expandable drawers */
   --sheet-backdrop: rgba(7, 9, 15, 0.55);
 }
+:root[data-width="narrow"] { --sheet-max-w: 100%; }
+/* The kit Sheet panel (and hand-built panels in its dress) is the sheet:
+   about 480px and centred from the medium band up, full width on a phone.
+   Rows fill it; there is no inner column. */
+.sheet-panel { width: 100%; max-width: var(--sheet-max-w); margin-inline: auto; }
 /* A row in any sheet. Buttons or divs; the first child is the icon. */
 .sheet-row {
   display: flex;
@@ -1162,12 +1207,12 @@ textarea,
   bottom: 0 !important;
   top: auto !important;
   transform: none !important;
-  width: 100% !important;
+  width: min(100%, var(--sheet-max-w)) !important;
   min-width: 0 !important;
   max-width: none !important;
   max-height: var(--sheet-menu-max-h) !important;
   overflow-y: auto !important;
-  margin: 0 !important;
+  margin: 0 auto !important;
   border-radius: var(--sheet-radius) var(--sheet-radius) 0 0 !important;
   border-left: 0 !important;
   border-right: 0 !important;

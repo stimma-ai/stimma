@@ -699,7 +699,7 @@ function buttonClass(active: boolean, enabled = true) {
             @pointercancel="finishSliderAdjustment(slider)"
             @blur="finishSliderAdjustment(slider)"
           />
-          <span class="tabular-nums w-10 text-content-secondary">{{ slider.readout }}{{ slider.unit }}</span>
+          <span class="font-mono tabular-nums w-10 text-content-secondary">{{ slider.readout }}{{ slider.unit }}</span>
         </label>
         <label
           v-if="armed === 'wand'"

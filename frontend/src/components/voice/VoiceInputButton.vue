@@ -31,7 +31,7 @@
     </button>
 
     <!-- Download percentage -->
-    <span v-if="state === 'downloading'" class="ml-1 text-[11px] tabular-nums text-content-muted">
+    <span v-if="state === 'downloading'" class="ml-1 text-[11px] font-mono tabular-nums text-content-muted">
       {{ downloadLabel }}
     </span>
   </div>

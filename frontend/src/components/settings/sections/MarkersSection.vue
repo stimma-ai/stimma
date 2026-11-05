@@ -58,7 +58,7 @@
         class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04] disabled:opacity-50"
       >
         <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+          <svg class="h-icon-nav w-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
           <div class="text-[13px] font-medium text-accent-hi">Add marker</div>

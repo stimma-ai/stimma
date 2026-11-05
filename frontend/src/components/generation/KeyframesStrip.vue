@@ -23,7 +23,7 @@
           <span
             v-for="tick in ticks"
             :key="tick"
-            class="absolute -translate-x-1/2 text-[9.5px] text-content-muted tabular-nums"
+            class="absolute -translate-x-1/2 text-[9.5px] text-content-muted font-mono tabular-nums"
             :style="{ left: pct(tick) }"
           >{{ formatTick(tick) }}</span>
         </div>
@@ -44,7 +44,7 @@
           @contextmenu.prevent.stop="openMenu($event, item)"
         >
           <span
-            class="h-3.5 text-[10px] leading-3 whitespace-nowrap tabular-nums"
+            class="h-3.5 text-[10px] leading-3 whitespace-nowrap font-mono tabular-nums"
             :class="problemFor(item) ? 'text-red-400' : 'text-accent-hi'"
           >{{ capLabel(item) }}</span>
           <div
@@ -95,7 +95,7 @@
 
         <!-- Drop / add indicator -->
         <template v-if="indicatorAt !== null">
-          <span class="absolute top-0 -translate-x-1/2 text-[10px] text-accent-hi tabular-nums pointer-events-none" :style="{ left: pct(indicatorAt) }">
+          <span class="absolute top-0 -translate-x-1/2 text-[10px] text-accent-hi font-mono tabular-nums pointer-events-none" :style="{ left: pct(indicatorAt) }">
             {{ formatTime(indicatorAt) }}
           </span>
           <div class="absolute top-[14px] h-[70px] compact:h-[52px] border-l-2 border-dashed border-accent-hi pointer-events-none" :style="{ left: pct(indicatorAt) }" />
@@ -182,7 +182,7 @@
                 v-for="len in lengths"
                 :key="len"
                 class="flex-1 py-1 text-[11px] border-r border-edge-subtle tabular-nums"
-                :class="Math.abs((selected.length || 0) - len) < 1e-3 ? 'bg-accent/15 text-accent-hi font-medium' : 'text-content-muted hover:bg-overlay-medium'"
+                :class="Math.abs((selected.length || 0) - len) < 1e-3 ? 'bg-surface-raised text-content font-medium' : 'text-content-muted hover:bg-overlay-medium'"
                 @click="setLength(len)"
               >{{ len.toFixed(1) }} s</button>
             </template>

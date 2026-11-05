@@ -8,7 +8,7 @@
       >
         <!-- Icon (only colored element) -->
         <div class="flex-shrink-0 mt-0.5" :class="iconColor(toast.type)">
-          <component :is="getIcon(toast.type)" class="w-5 h-5" />
+          <component :is="getIcon(toast.type)" class="w-icon-nav h-icon-nav" />
         </div>
 
         <!-- Message + Action -->

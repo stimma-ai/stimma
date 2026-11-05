@@ -32,27 +32,22 @@
     <div v-show="!slideshowState.active && !compareState.active" class="w-full h-full flex flex-col">
 
     <!-- Trash Header (only in trash mode) -->
-    <div v-if="isTrashMode" class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:px-3 compact:py-2">
-      <div class="flex items-baseline gap-3">
-        <h1 class="text-[16px] font-semibold leading-none text-content compact:hidden">Trash</h1>
-        <p class="text-xs font-mono tabular-nums text-content-tertiary">
-          {{ trashHeaderSubtitle }}
-        </p>
-      </div>
-      <div class="flex items-center gap-3">
-        <button
+    <PageHeader v-if="isTrashMode" class="compact:h-auto compact:min-h-header-compact compact:[&_h1]:hidden">
+      <template #title>Trash</template>
+      <template #meta><span class="font-mono tabular-nums">{{ trashHeaderSubtitle }}</span></template>
+      <template #actions>
+        <Button
           v-if="totalCount > 0"
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-          @click="confirmEmptyTrash"
+          variant="danger-ghost"
+          size="sm"
           :disabled="isEmptyingTrash"
+          @click="confirmEmptyTrash"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
-            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
+          <template #icon><TrashIcon class="h-icon-inline w-icon-inline" /></template>
           {{ emptyTrashSubmitting ? 'Queueing…' : 'Empty trash' }}
-        </button>
-      </div>
-    </div>
+        </Button>
+      </template>
+    </PageHeader>
 
     <!-- Filter Bar -->
     <FilterBar
@@ -271,6 +266,9 @@ defineOptions({
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FilterBar from '../components/FilterBar.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import Button from '../components/ui/Button.vue'
+import { TrashIcon } from '@heroicons/vue/24/outline'
 import VirtualMediaGrid from '../components/VirtualMediaGrid.vue'
 import MultiSelectActionBar from '../components/MultiSelectActionBar.vue'
 import BoardPicker from '../components/BoardPicker.vue'

@@ -118,6 +118,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDate as formatDateValue } from '../../../utils/timeFormat'
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
   ArrowTopRightOnSquareIcon,
@@ -192,10 +193,7 @@ function viewsLabel(n: number) {
 }
 
 function formatDate(value: string) {
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
-  const sameYear = d.getFullYear() === new Date().getFullYear()
-  return d.toLocaleDateString(undefined, sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' })
+  return formatDateValue(value, { year: 'always' })
 }
 
 async function copyLink(link: ShareLink) {

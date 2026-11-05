@@ -18,7 +18,7 @@ const { isCollapsed, toggleSection } = useSidebarSections()
     >
       <span class="truncate">{{ props.label }}</span>
       <ChevronDownIcon
-        class="h-2.5 w-2.5 shrink-0 transition-[transform,opacity]"
+        class="h-icon-inline w-icon-inline shrink-0 transition-[transform,opacity]"
         :class="isCollapsed(props.id) ? '-rotate-90 opacity-100' : 'opacity-0 group-hover/section:opacity-100 coarse:opacity-100'"
       />
     </button>

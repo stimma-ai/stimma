@@ -41,7 +41,7 @@
         @click="$emit('select', section.id)"
         :class="[navItemClass, activeSection === section.id ? navActiveClass : navIdleClass]"
       >
-        <component :is="section.icon" class="w-5 h-5 shrink-0" :class="activeSection === section.id ? 'text-selection' : ''" />
+        <component :is="section.icon" class="w-icon-nav h-icon-nav shrink-0" :class="activeSection === section.id ? 'text-selection' : ''" />
         <span class="flex min-w-0 flex-1 items-center gap-2">
           <span>{{ section.label }}</span>
           <span v-if="section.id === 'mcp'" class="shrink-0 rounded border border-edge-subtle px-1 py-0.5 text-[10px] font-normal leading-none text-content-tertiary">Experimental</span>
@@ -62,7 +62,7 @@
         >
           <component
             :is="section.icon"
-            class="h-5 w-5 shrink-0"
+            class="h-icon-nav w-icon-nav shrink-0"
             :class="section.branded ? 'text-cyan-600 dark:text-cyan-400' : activeSection === section.id ? 'text-selection' : ''"
           />
           <span
@@ -89,7 +89,7 @@
         @click.stop="$emit('select', 'developer')"
         :class="[navItemClass, 'w-full', activeSection === 'developer' ? navActiveClass : navIdleClass]"
       >
-        <component :is="CodeBracketIcon" class="w-5 h-5 shrink-0" :class="activeSection === 'developer' ? 'text-selection' : ''" />
+        <component :is="CodeBracketIcon" class="w-icon-nav h-icon-nav shrink-0" :class="activeSection === 'developer' ? 'text-selection' : ''" />
         <span>Developer</span>
       </button>
       <div v-else class="h-10 cursor-default select-none" />

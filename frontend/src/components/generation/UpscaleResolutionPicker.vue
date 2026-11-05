@@ -9,16 +9,16 @@
         <button
           @click="resolutionMode = 'relative'"
           :class="compact
-            ? ['px-3 py-1 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'relative' ? 'bg-accent/15 text-accent' : 'text-content-tertiary hover:text-content']
-            : ['px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'relative' ? 'bg-accent/15 text-accent' : 'bg-overlay-subtle text-content-tertiary hover:text-content-secondary']"
+            ? ['px-3 py-1 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'relative' ? 'bg-surface-raised text-content' : 'text-content-tertiary hover:text-content']
+            : ['px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'relative' ? 'bg-surface-raised text-content' : 'bg-overlay-subtle text-content-tertiary hover:text-content-secondary']"
         >
           Scale Factor
         </button>
         <button
           @click="resolutionMode = 'pixels'"
           :class="compact
-            ? ['px-3 py-1 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'pixels' ? 'bg-accent/15 text-accent' : 'text-content-tertiary hover:text-content']
-            : ['px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'pixels' ? 'bg-accent/15 text-accent' : 'bg-overlay-subtle text-content-tertiary hover:text-content-secondary']"
+            ? ['px-3 py-1 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'pixels' ? 'bg-surface-raised text-content' : 'text-content-tertiary hover:text-content']
+            : ['px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'pixels' ? 'bg-surface-raised text-content' : 'bg-overlay-subtle text-content-tertiary hover:text-content-secondary']"
         >
           Short Edge (px)
         </button>

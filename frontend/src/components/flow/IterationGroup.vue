@@ -23,7 +23,7 @@
       <span
         v-else-if="aggregateStatus === 'actionable'"
         class="w-2.5 h-2.5 rounded-full bg-accent flex-shrink-0 animate-pulse-soft"
-        :title="'Your Turn'"
+        :title="'Your turn'"
       />
       <svg
         v-else-if="aggregateStatus === 'failed'"

@@ -19,7 +19,7 @@
       ref="menuRef" data-escape-layer
       data-context-menu
       v-show="!isCoarsePointer || (!activeSubmenu && !activeGroup)"
-      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[180px] coarse:px-[max(0px,calc((100%-30rem)/2))]"
+      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[180px]"
       :style="menuPosition"
       @scroll.passive="updateMenuMore"
     >

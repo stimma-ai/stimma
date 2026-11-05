@@ -14,7 +14,9 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ChevronDownIcon, ChevronLeftIcon, EllipsisVerticalIcon, MagnifyingGlassIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { ChevronLeftIcon, EllipsisHorizontalIcon, MagnifyingGlassIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import Caret from '../ui/Caret.vue'
+import { compactIcon, compactIconButton, compactIconButtonOn, compactPrimaryCreate, compactTitle } from './headerStyles'
 import { useCompactChrome, hubForRoute } from '../../composables/useCompactChrome'
 import { useCompactNav } from '../../composables/useCompactNav'
 import { useBackgroundWork } from '../../composables/useBackgroundWork'
@@ -62,7 +64,10 @@ function openSearch() {
 // action. A detail without a menu keeps the icon. The tool view's strip is
 // Agent and Run, so it has none.
 const detailHasMenu = computed(() => !isHub.value && menuItems.value.length > 0)
-const showSearchButton = computed(() => route.name !== 'search' && route.name !== 'tool' && !detailHasMenu.value)
+// The Tools hub carries its own filter field, its one search entry; global
+// search stays reachable from the other hubs.
+const hasOwnSearchField = computed(() => route.name === 'all-tools')
+const showSearchButton = computed(() => route.name !== 'search' && route.name !== 'tool' && !detailHasMenu.value && !hasOwnSearchField.value)
 const sheetItems = computed(() => {
   const items = [...menuItems.value]
   if (route.name === 'search') return items
@@ -75,7 +80,7 @@ const sheetItems = computed(() => {
 
 <template>
   <header class="compact-header flex-none bg-surface pt-safe">
-    <div class="h-[60px] pt-2 flex items-center gap-0.5 px-3">
+    <div class="h-header-mobile pt-2 flex items-center gap-0.5 px-3">
       <!-- Left slot: Menu on hubs, Back on details, never both. The drawer
            stays reachable from a detail through Back (to the hub) and the edge
            swipe. Where the drawer can dock (a hub when roomy, a detail at
@@ -84,31 +89,27 @@ const sheetItems = computed(() => {
       <button
         v-if="isHub || sidebarDockable"
         type="button"
-        class="w-11 h-11 flex-none flex items-center justify-center border-none bg-transparent"
+        :class="[compactIconButton, sidebarDockable && sidebarDocked ? compactIconButtonOn : '']"
         :aria-label="menuLabel"
         :aria-pressed="sidebarDockable ? sidebarDocked : undefined"
         @click="emit('openMenu')"
       >
-        <span class="w-9 h-9 rounded-full flex items-center justify-center" :class="sidebarDocked ? 'bg-overlay-hover text-content' : 'bg-overlay-subtle text-content'">
-          <svg v-if="sidebarDockable" class="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="2.5" y="4" width="15" height="12" rx="2" />
-            <path d="M7.5 4v12" />
-          </svg>
-          <svg v-else class="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <path d="M3 7h14M3 13h9" />
-          </svg>
-        </span>
+        <svg v-if="sidebarDockable" :class="compactIcon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2.5" y="4" width="15" height="12" rx="2" />
+          <path d="M7.5 4v12" />
+        </svg>
+        <svg v-else :class="compactIcon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
+          <path d="M3 7h14M3 13h9" />
+        </svg>
       </button>
       <button
         v-if="!isHub"
         type="button"
-        class="w-11 h-11 flex-none flex items-center justify-center border-none bg-transparent"
+        :class="compactIconButton"
         aria-label="Back"
         @click="back"
       >
-        <span class="w-9 h-9 rounded-full flex items-center justify-center bg-overlay-subtle text-content">
-          <ChevronLeftIcon class="w-5 h-5" />
-        </span>
+        <ChevronLeftIcon :class="compactIcon" />
       </button>
 
       <button
@@ -119,16 +120,16 @@ const sheetItems = computed(() => {
         @click="scopeOpen = true"
       >
         <span class="min-w-0">
-          <span class="block truncate font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</span>
+          <span class="block truncate" :class="compactTitle">{{ title }}</span>
           <span v-if="subtitle" class="block truncate text-[11px] text-content-tertiary leading-snug">{{ subtitle }}</span>
         </span>
-        <ChevronDownIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" />
+        <Caret class="text-content-tertiary" />
       </button>
       <button v-else-if="titleAction" type="button" class="flex flex-1 min-w-[96px] h-11 px-1 items-center text-left border-none bg-transparent overflow-hidden" :aria-label="`Rename ${title}`" :title="title" @click="titleAction()">
-        <h1 class="block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</h1>
+        <h1 class="block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap" :class="compactTitle">{{ title }}</h1>
       </button>
       <div v-else class="flex-1 min-w-[96px] overflow-hidden px-1">
-        <h1 v-if="title" :title="title" class="truncate font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</h1>
+        <h1 v-if="title" :title="title" class="truncate" :class="compactTitle">{{ title }}</h1>
         <p v-if="subtitle" class="truncate text-[11px] text-content-tertiary leading-snug">{{ subtitle }}</p>
       </div>
 
@@ -136,7 +137,7 @@ const sheetItems = computed(() => {
       <button
         v-if="isHub && hasActiveWork"
         type="button"
-        class="w-11 h-11 flex-none flex items-center justify-center rounded-md border-none bg-transparent"
+        :class="compactIconButton"
         :aria-label="progressTitle"
         @click="workOpen = true"
       >
@@ -150,30 +151,30 @@ const sheetItems = computed(() => {
       <button
         v-if="showSearchButton"
         type="button"
-        class="w-11 h-11 flex-none flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+        :class="compactIconButton"
         aria-label="Search"
         @click="openSearch"
       >
-        <MagnifyingGlassIcon class="w-6 h-6" />
+        <MagnifyingGlassIcon :class="compactIcon" />
       </button>
       <button
         v-if="primaryAction"
         type="button"
-        class="w-11 h-11 flex-none flex items-center justify-center rounded-md text-accent-hi bg-accent/15 border-none"
+        :class="[compactIconButton, compactPrimaryCreate]"
         :aria-label="primaryAction.label"
         @click="primaryAction.run()"
       >
-        <PlusIcon class="w-6 h-6" />
+        <PlusIcon :class="compactIcon" />
       </button>
       <!-- Detail screens: the entity's menu (rename, ...). -->
       <button
         v-if="!isHub && menuItems.length"
         type="button"
-        class="w-11 h-11 flex-none flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+        :class="compactIconButton"
         aria-label="More"
         @click="menuOpen = true"
       >
-        <EllipsisVerticalIcon class="w-6 h-6" />
+        <EllipsisHorizontalIcon :class="compactIcon" />
       </button>
     </div>
 

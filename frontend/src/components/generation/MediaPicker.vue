@@ -216,7 +216,7 @@
                     class="text-[10px] font-mono text-accent-hi font-medium tabular-nums hover:text-accent cursor-pointer"
                   >{{ headerFrameLabel(item) }}</button>
                   <span v-else class="text-[10px] font-mono text-accent-hi font-medium tabular-nums">{{ headerFrameLabel(item) }}</span>
-                  <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'frame' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                  <svg class="w-icon-inline h-icon-inline text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'frame' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                 </div>
                 <!-- Frame picker expanded panel (the live preview is the <video> up top) -->
                 <div v-if="openPrepPanel[item.originalIndex] === 'frame'" class="px-2.5 py-2 bg-overlay-faint rounded-md space-y-2">
@@ -268,7 +268,7 @@
                       @click="setFramePosition(item, pos)"
                       :class="[
                         'flex-1 py-1 text-[11px] capitalize border-r border-edge-subtle transition-colors',
-                        item._framePosition === pos ? 'bg-accent/15 text-accent-hi font-medium' : 'text-content-muted hover:bg-overlay-medium'
+                        item._framePosition === pos ? 'bg-surface-raised text-content font-medium' : 'text-content-muted hover:bg-overlay-medium'
                       ]"
                     >{{ pos }}</button>
                     <button @click="stepFrame(item, 1)" title="Next frame"
@@ -300,7 +300,7 @@
                         v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'flip'"
                         size="sm"
                       />
-                    <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'flip' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                    <svg v-else class="w-icon-inline h-icon-inline text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'flip' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                   </div>
                 </div>
                 <!-- Flip / Rotate expanded panel -->
@@ -395,7 +395,7 @@
                         v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'scale'"
                         size="sm"
                       />
-                    <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'scale' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                    <svg v-else class="w-icon-inline h-icon-inline text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'scale' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                   </div>
                 </div>
                 <!-- Scale expanded panel -->
@@ -408,7 +408,7 @@
                       :class="[
                         'flex-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors',
                         (item._scale?.mode || 'factor') === mode.value
-                          ? 'bg-accent/15 text-accent-hi'
+                          ? 'bg-surface-raised text-content'
                           : 'text-content-muted hover:text-content-secondary'
                       ]"
                     >{{ mode.label }}</button>
@@ -463,7 +463,7 @@
                   <span :class="['text-[10px] font-mono', hasExtendPadding(item) ? 'text-accent-hi font-medium' : 'text-content-muted']">
                     {{ getExtendStatusText(item) }}
                   </span>
-                  <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'extend' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                  <svg class="w-icon-inline h-icon-inline text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'extend' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                 </div>
                 <!-- Extend expanded panel -->
                 <div v-if="openPrepPanel[item.originalIndex] === 'extend'" class="px-2.5 py-2 bg-overlay-faint rounded-md">
@@ -551,7 +551,7 @@
                         v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'preprocess'"
                         size="sm"
                       />
-                    <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'preprocess' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                    <svg v-else class="w-icon-inline h-icon-inline text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'preprocess' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                   </div>
                 </div>
                 <!-- Preprocess expanded panel -->
@@ -817,7 +817,7 @@
           @click="previewModalUrl = ''"
           class="absolute top-2 right-2 bg-black/60 text-white rounded-full p-2 hover:bg-black/80 border-none cursor-pointer"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-icon-nav h-icon-nav">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
           </svg>
         </button>

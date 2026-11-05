@@ -104,8 +104,8 @@ function onDragStart(event) {
       <span v-else-if="status === 'pending' || status === 'generating'" class="absolute inset-0 flex items-center justify-center">
         <span class="h-1.5 w-1.5 rounded-full" :class="status === 'generating' ? 'animate-pulse-soft bg-blue-500' : 'bg-zinc-500'"></span>
       </span>
-      <span v-else class="absolute inset-0 flex items-center justify-center text-red-400"><ExclamationCircleIcon class="h-5 w-5" /></span>
-      <span v-if="status === 'trashed'" class="absolute inset-0 flex items-center justify-center text-amber-500"><TrashIcon class="h-5 w-5" /></span>
+      <span v-else class="absolute inset-0 flex items-center justify-center text-red-400"><ExclamationCircleIcon class="h-icon-nav w-icon-nav" /></span>
+      <span v-if="status === 'trashed'" class="absolute inset-0 flex items-center justify-center text-amber-500"><TrashIcon class="h-icon-nav w-icon-nav" /></span>
     </div>
 
     <!-- Grid -->
@@ -151,7 +151,7 @@ function onDragStart(event) {
           selected ? 'border-selection bg-selection' : 'border-edge-strong bg-black/60 hover:border-content-secondary',
         ]"
       >
-        <svg v-if="selected" :class="variant === 'strip' ? 'h-3 w-3' : 'h-4 w-4'" class="text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+        <svg v-if="selected" :class="variant === 'strip' ? 'h-3 w-3' : 'h-4 w-4'" class="text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
       </span>

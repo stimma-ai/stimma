@@ -43,7 +43,7 @@ const filteredMarkers = computed(() => props.markers.filter(marker => marker.nam
           :aria-label="marker.name" :aria-pressed="isActive(marker.id)" @click="$emit('toggle', marker.id)">
           <span class="sheet-row-icon icon-container" :class="isActive(marker.id) ? '' : 'marker-glyph-off'" :style="isActive(marker.id) ? { color: marker.color } : undefined" v-html="sanitizeSvg(marker.icon_svg)" />
           <span class="flex-1">{{ marker.name }}</span>
-          <CheckIcon v-if="isActive(marker.id)" class="h-5 w-5 text-content-secondary" />
+          <CheckIcon v-if="isActive(marker.id)" class="h-icon-canvas w-icon-canvas text-content-secondary" />
         </button>
         <p v-if="!filteredMarkers.length" class="py-4 text-sm text-content-tertiary">No markers found</p>
       </div>

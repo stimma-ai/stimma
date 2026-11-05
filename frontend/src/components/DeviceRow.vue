@@ -42,7 +42,7 @@
           >{{ tag }}</span
         >
       </span>
-      <span v-if="detail" class="text-[10.5px] text-content-muted truncate tabular-nums">{{ detail }}</span>
+      <span v-if="detail" class="text-[10.5px] text-content-muted truncate font-mono tabular-nums">{{ detail }}</span>
     </span>
 
     <svg

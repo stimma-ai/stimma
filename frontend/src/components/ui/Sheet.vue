@@ -126,7 +126,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           <div v-else class="flex-none flex items-center justify-center" style="padding-top: var(--sheet-handle-top); height: var(--sheet-pad-top)" aria-hidden="true">
             <span class="rounded-full bg-overlay-light" style="width: var(--sheet-handle-w); height: var(--sheet-handle-h)"></span>
           </div>
-          <div v-if="title || $slots.header" class="flex-none px-4 pt-1 pb-1">
+          <div v-if="title || $slots.header" class="flex-none px-4 pt-1" style="padding-bottom: var(--sheet-header-pb)">
             <slot name="header">
               <h2 class="text-[14px] font-semibold text-content">{{ title }}</h2>
             </slot>

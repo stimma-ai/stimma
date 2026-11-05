@@ -32,7 +32,7 @@
         class="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
         aria-hidden="true"
       />
-      <span v-if="!hideTriggerDetails && selectedOption?.meta" class="shrink-0 text-[11px] tabular-nums text-content-muted">{{ selectedOption.meta }}</span>
+      <span v-if="!hideTriggerDetails && selectedOption?.meta" class="shrink-0 text-[11px] font-mono tabular-nums text-content-muted">{{ selectedOption.meta }}</span>
       <svg
         class="w-3 h-3 text-content-muted transition-transform"
         :class="{ 'rotate-180': isOpen }"
@@ -94,9 +94,9 @@
               option.disabled
                 ? 'cursor-not-allowed text-content-muted opacity-60'
                 : index === highlightedIndex
-                  ? 'bg-accent/15'
+                  ? 'bg-overlay-hover'
                   : option.value === modelValue
-                    ? 'bg-accent/10'
+                    ? 'bg-selection/15'
                     : 'hover:bg-surface-raised',
             ]"
             role="option"
@@ -113,7 +113,7 @@
                     class="shrink-0 rounded border border-edge-subtle px-1 text-[9.5px] uppercase tracking-wide text-content-muted"
                   >{{ option.tag }}</span>
                 </span>
-                <span v-if="option.meta" class="shrink-0 text-[11px] tabular-nums text-content-muted">{{ option.meta }}</span>
+                <span v-if="option.meta" class="shrink-0 text-[11px] font-mono tabular-nums text-content-muted">{{ option.meta }}</span>
               </span>
               <span
                 v-if="option.description"

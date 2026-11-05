@@ -429,7 +429,7 @@ onBeforeUnmount(() => {
             </Tooltip>
           </template>
           <IconButton v-else-if="!isSingle" aria-label="More options" class="!h-11 !w-11" @click="moreOpen = true">
-            <EllipsisHorizontalIcon class="h-5 w-5" />
+            <EllipsisHorizontalIcon class="h-icon-nav w-icon-nav" />
           </IconButton>
           <Tooltip v-if="inPanel" text="Close panel">
             <IconButton aria-label="Close panel" class="coarse:!h-11 coarse:!w-11" @click="panel.close">
@@ -522,7 +522,7 @@ onBeforeUnmount(() => {
                 @click.stop="togglePickActive"
               >
                 <span class="flex h-6 w-6 items-center justify-center rounded-md border-2 backdrop-blur-md transition-colors duration-150" :class="activeSelected ? 'border-selection bg-selection' : activeIsComposite ? 'border-edge-strong bg-overlay-subtle hover:border-content-secondary' : 'border-edge-strong bg-black/60 hover:border-content-secondary'">
-                  <svg v-if="activeSelected" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                  <svg v-if="activeSelected" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                 </span>
               </button>
             </template>
@@ -545,10 +545,10 @@ onBeforeUnmount(() => {
             <!-- Edge paging. Touch swipes the picture instead. -->
             <template v-if="!isSingle && !isCoarsePointer">
               <button type="button" aria-label="Previous image" :disabled="activeIndex === 0" class="absolute left-2 top-1/2 z-chrome flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-opacity duration-150 focus-visible:opacity-100 disabled:!opacity-0 group-hover/hero:opacity-100" :class="ctl" @click.stop="move(-1)">
-                <ChevronLeftIcon class="h-5 w-5" />
+                <ChevronLeftIcon class="h-icon-nav w-icon-nav" />
               </button>
               <button type="button" aria-label="Next image" :disabled="activeIndex === count - 1" class="absolute right-2 top-1/2 z-chrome flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-opacity duration-150 focus-visible:opacity-100 disabled:!opacity-0 group-hover/hero:opacity-100" :class="ctl" @click.stop="move(1)">
-                <ChevronRightIcon class="h-5 w-5" />
+                <ChevronRightIcon class="h-icon-nav w-icon-nav" />
               </button>
             </template>
 

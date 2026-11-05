@@ -113,7 +113,7 @@
         <div class="py-2">
           <div class="mb-1 flex items-baseline justify-between gap-4">
             <label class="text-xs font-medium text-content">Context window</label>
-            <span class="text-xs tabular-nums text-content-secondary">{{ contextLabel }}</span>
+            <span class="text-xs font-mono tabular-nums text-content-secondary">{{ contextLabel }}</span>
           </div>
           <input v-model.number="model.max_context_tokens" type="range" min="32768" max="1048576" step="32768" @change="changed" class="w-full accent-accent" />
           <p class="mt-1 text-[11px] text-content-muted">Match the model's configured context length. Stimma compacts history at about 80% of this.</p>

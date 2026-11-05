@@ -61,7 +61,7 @@
         <div class="py-1.5">
           <div class="flex items-center justify-between px-3.5 pt-1 pb-0.5">
             <div class="text-xs font-semibold text-content-secondary">
-              {{ section.title }}<span v-if="section.count && section.count > section.items.length" class="ml-1.5 font-normal text-content-muted/70 tabular-nums">{{ section.count }}</span>
+              {{ section.title }}<span v-if="section.count && section.count > section.items.length" class="ml-1.5 font-normal text-content-muted/70 font-mono tabular-nums">{{ section.count }}</span>
             </div>
             <button
               v-if="section.action"
@@ -211,7 +211,7 @@
                    right-aligned time column so rows line up. -->
               <span v-if="item.provider || item.meta" class="flex-shrink-0 pl-3 inline-flex items-center gap-2 text-[11.5px] text-content-muted">
                 <ToolProviderLabel v-if="item.provider" :cloud="!!item.provider.cloud" :provider-name="item.provider.name" />
-                <span v-if="item.meta" class="w-[52px] text-right tabular-nums whitespace-nowrap">{{ item.meta }}</span>
+                <span v-if="item.meta" class="w-[52px] text-right font-mono tabular-nums whitespace-nowrap">{{ item.meta }}</span>
               </span>
             </button>
           </template>

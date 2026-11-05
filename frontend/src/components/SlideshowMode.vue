@@ -72,7 +72,7 @@
       @click="goBackFromSource"
       title="Back to original image"
     >
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <svg class="w-icon-canvas h-icon-canvas" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
       </svg>
       Back
@@ -85,7 +85,7 @@
       @click="exitSetView"
       title="Exit set and return to main slideshow"
     >
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <svg class="w-icon-canvas h-icon-canvas" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
       </svg>
       Exit Set
@@ -99,7 +99,7 @@
       @click="exitGridView"
       title="Return to grid overview (Esc)"
     >
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <svg class="w-icon-canvas h-icon-canvas" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
       </svg>
       Back to Grid
@@ -325,7 +325,7 @@
           @click="toggleGridMultiSelectMode"
           title="Cancel"
         >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
         </button>
@@ -335,15 +335,15 @@
     <!-- Gallery chrome stays separate from the image's marker actions. -->
     <div v-if="slideshowCompact && !compactImmersive" class="relative z-chrome flex shrink-0 items-center justify-between bg-slideshow-matt pb-2 pt-[calc(var(--safe-top,0px)+8px)]" :style="{ paddingLeft: 'calc(var(--safe-left, 0px) + 12px)', paddingRight: 'calc(var(--safe-right, 0px) + 12px)', WebkitAppRegion: 'no-drag' }">
       <button class="compact-bar-btn" :aria-label="isViewingSource || isViewingSet || isViewingGrid ? 'Back' : 'Close slideshow'" @click="isViewingSource ? goBackFromSource() : isViewingGrid ? exitGridView() : isViewingSet ? exitSetView() : handleCloseClick()">
-        <ArrowLeftIcon v-if="isViewingSource || isViewingSet || isViewingGrid" class="h-5 w-5" /><XMarkIcon v-else class="h-5 w-5" />
+        <ArrowLeftIcon v-if="isViewingSource || isViewingSet || isViewingGrid" class="h-icon-canvas w-icon-canvas" /><XMarkIcon v-else class="h-icon-canvas w-icon-canvas" />
       </button>
       <div class="pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-xs tabular-nums text-content-tertiary">
         <template v-if="isViewingGrid && currentGridView"><span class="text-content-secondary">{{ gridLinearPosition }}</span> / {{ gridTotalCells }}</template>
         <template v-else><span class="text-content-secondary">{{ effectiveIndex + 1 }}</span> / {{ effectiveTotalCount }}</template>
       </div>
       <div class="flex items-center">
-        <button @click="showSidebar = true" class="compact-bar-btn" aria-label="Info"><InformationCircleIcon class="h-5 w-5" /></button>
-        <button @click="compactImmersive = true" class="compact-bar-btn" aria-label="Full screen"><ArrowsPointingOutIcon class="h-5 w-5" /></button>
+        <button @click="showSidebar = true" class="compact-bar-btn" aria-label="Info"><InformationCircleIcon class="h-icon-canvas w-icon-canvas" /></button>
+        <button @click="compactImmersive = true" class="compact-bar-btn" aria-label="Full screen"><ArrowsPointingOutIcon class="h-icon-canvas w-icon-canvas" /></button>
       </div>
     </div>
 
@@ -364,7 +364,7 @@
         title="Download ZIP"
         @click="downloadPackage('zip')"
       >
-        <ArchiveBoxIcon class="w-4 h-4 text-accent" />
+        <ArchiveBoxIcon class="w-icon-nav h-icon-nav text-accent" />
         Download ZIP
       </button>
       <button
@@ -374,7 +374,7 @@
         title="Download PDF"
         @click="downloadPackage('pdf')"
       >
-        <DocumentArrowDownIcon class="w-4 h-4 text-accent" />
+        <DocumentArrowDownIcon class="w-icon-nav h-icon-nav text-accent" />
         Download PDF
       </button>
     </div>
@@ -388,7 +388,7 @@
       @click="handleCloseClick"
       title="Close slideshow"
       aria-label="Close slideshow"
-    ><XMarkIcon class="h-5 w-5" /></button>
+    ><XMarkIcon class="h-icon-canvas w-icon-canvas" /></button>
 
     <!-- Caption (bottom) -->
     <div v-if="currentItem && showCaption && currentItem.vlm_caption && captioningEnabledRef" class="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-md px-8 py-6 text-white text-sm leading-normal z-chrome">
@@ -412,7 +412,7 @@
         v-else-if="displayItem._placeholder"
         class="flex flex-col items-center justify-center gap-4 text-content-muted"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="w-24 h-24">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="w-24 h-24" data-stroke="own">
           <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
         </svg>
         <span class="text-lg">Image no longer available</span>
@@ -670,7 +670,7 @@
         title="Previous (← or A)"
       >
         <div class="ml-3 w-10 h-10 flex items-center justify-center rounded-md bg-transparent group-hover:bg-black/50 group-hover:backdrop-blur-md transition-all">
-          <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-white/0 group-hover:text-white transition-all">
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-canvas h-icon-canvas text-white/0 group-hover:text-white transition-all">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
         </div>
@@ -688,7 +688,7 @@
         title="Next (→ or D)"
       >
         <div class="mr-3 w-10 h-10 flex items-center justify-center rounded-md bg-transparent group-hover:bg-black/50 group-hover:backdrop-blur-md transition-all">
-          <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-white/0 group-hover:text-white transition-all">
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-canvas h-icon-canvas text-white/0 group-hover:text-white transition-all">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
         </div>
@@ -958,10 +958,10 @@
       <!-- Gallery: markers are primary; transport and disclosure are quiet chrome. -->
       <template v-if="slideshowCompact">
         <button @click="toggleSlideshow" :class="['compact-bar-btn', { '!text-live': isPlaying }]" :aria-label="isPlaying ? 'Pause' : 'Play slideshow'">
-          <PauseIcon v-if="isPlaying" class="h-5 w-5" /><PlayIcon v-else class="h-5 w-5" />
+          <PauseIcon v-if="isPlaying" class="h-icon-canvas w-icon-canvas" /><PlayIcon v-else class="h-icon-canvas w-icon-canvas" />
         </button>
         <SlideshowMarkerControls class="min-w-0 flex-1" :markers="currentItem ? availableMarkers : []" :is-active="isMarkerActive" @toggle="toggleMarker" />
-        <button @click="compactMoreOpen = true" class="compact-bar-btn" aria-label="More"><EllipsisHorizontalIcon class="h-5 w-5" /></button>
+        <button @click="compactMoreOpen = true" class="compact-bar-btn" aria-label="More"><EllipsisHorizontalIcon class="h-icon-canvas w-icon-canvas" /></button>
       </template>
       <template v-else>
       <!-- Cluster 1 — Playback: shuffle · play/pause · loop · interval · volume -->
@@ -975,7 +975,7 @@
           ]"
           title="Toggle shuffle (r)"
         >
-          <ArrowsRightLeftIcon class="w-5 h-5" />
+          <ArrowsRightLeftIcon class="w-icon-canvas h-icon-canvas" />
         </button>
 
         <!-- Play / Pause (explicit) -->
@@ -987,8 +987,8 @@
           ]"
           :title="isPlaying ? 'Pause (space)' : 'Play slideshow (space)'"
         >
-          <PauseIcon v-if="isPlaying" class="w-5 h-5" />
-          <PlayIcon v-else class="w-5 h-5" />
+          <PauseIcon v-if="isPlaying" class="w-icon-canvas h-icon-canvas" />
+          <PlayIcon v-else class="w-icon-canvas h-icon-canvas" />
         </button>
 
         <!-- Loop -->
@@ -1021,9 +1021,9 @@
             ]"
             title="Mute/unmute (m) — hover for volume"
           >
-            <SpeakerWaveIcon v-if="!isMuted && volume > 0.5" class="w-5 h-5" />
-            <SpeakerWaveIcon v-else-if="!isMuted && volume > 0" class="w-5 h-5 scale-90" />
-            <SpeakerXMarkIcon v-else class="w-5 h-5" />
+            <SpeakerWaveIcon v-if="!isMuted && volume > 0.5" class="w-icon-canvas h-icon-canvas" />
+            <SpeakerWaveIcon v-else-if="!isMuted && volume > 0" class="w-icon-canvas h-icon-canvas scale-90" />
+            <SpeakerXMarkIcon v-else class="w-icon-canvas h-icon-canvas" />
           </button>
           <!-- Volume popup with mute + slider -->
           <div
@@ -1047,8 +1047,8 @@
                   isMuted ? 'text-white/40 hover:text-white' : 'text-live hover:text-live/80'
                 ]"
               >
-                <SpeakerXMarkIcon v-if="isMuted" class="w-4 h-4" />
-                <SpeakerWaveIcon v-else class="w-4 h-4" />
+                <SpeakerXMarkIcon v-if="isMuted" class="w-icon-nav h-icon-nav" />
+                <SpeakerWaveIcon v-else class="w-icon-nav h-icon-nav" />
               </button>
               <input
                 type="range"
@@ -1078,8 +1078,8 @@
                   isMuted ? 'text-white/40 hover:text-white' : 'text-live hover:text-live/80'
                 ]"
               >
-                <SpeakerXMarkIcon v-if="isMuted" class="w-4 h-4" />
-                <SpeakerWaveIcon v-else class="w-4 h-4" />
+                <SpeakerXMarkIcon v-if="isMuted" class="w-icon-nav h-icon-nav" />
+                <SpeakerWaveIcon v-else class="w-icon-nav h-icon-nav" />
               </button>
             </template>
           </div>
@@ -1097,7 +1097,7 @@
           ]"
           :title="showVideoTransport ? 'Hide scrubber (v)' : 'Show scrubber (v)'"
         >
-          <FilmIcon class="w-5 h-5" />
+          <FilmIcon class="w-icon-canvas h-icon-canvas" />
         </button>
       </div>
 
@@ -1155,7 +1155,7 @@
           ]"
           title="Toggle focus mode (f)"
         >
-          <ArrowsPointingOutIcon class="w-5 h-5" />
+          <ArrowsPointingOutIcon class="w-icon-canvas h-icon-canvas" />
         </button>
 
         <!-- Lineage button -->
@@ -1164,7 +1164,7 @@
           class="bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]"
           title="View lineage (t)"
         >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" class="w-5 h-5">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" class="w-icon-canvas h-icon-canvas">
             <circle cx="6" cy="4.5" r="1.75" stroke-width="1.5" />
             <circle cx="14" cy="4.5" r="1.75" stroke-width="1.5" />
             <circle cx="10" cy="15.5" r="1.75" stroke-width="1.5" />
@@ -1185,7 +1185,7 @@
           class="bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]"
           title="Show in file manager (⇧S); drag to copy file"
         >
-          <DocumentIcon class="w-5 h-5 pointer-events-none" />
+          <DocumentIcon class="w-icon-canvas h-icon-canvas pointer-events-none" />
         </button>
 
         <!-- Marker toggles (own sub-group, divided from the view actions) -->
@@ -1202,7 +1202,7 @@
             :style="isMarkerActive(marker.id) ? { color: marker.color } : {}"
             :title="isMarkerActive(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
           >
-            <span class="w-5 h-5 flex items-center justify-center icon-container" :class="isMarkerActive(marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
+            <span class="w-icon-canvas h-icon-canvas flex items-center justify-center icon-container" :class="isMarkerActive(marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
           </button>
         </template>
       </div>
@@ -1255,7 +1255,7 @@
             class="rounded p-1 text-content-tertiary transition-colors hover:bg-overlay-light hover:text-content"
             @click="closeProjectPicker"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-icon-canvas w-icon-canvas">
               <path d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>

@@ -15,7 +15,7 @@
     <div v-else class="h-full overflow-y-auto custom-scrollbar">
       <!-- Fades in once the model check says which hero to show; recents and
            their artwork fill in below as they arrive. -->
-      <div class="min-h-full flex flex-col items-center px-8 lg:px-16 compact:px-4" :class="heroReady ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
+      <div class="min-h-full flex flex-col items-center px-page" :class="heroReady ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
 
         <!-- Hero area — centered in space above content -->
         <!-- Spacing scale: top offset pt-20 (compact pt-8), hero to composer
@@ -257,7 +257,7 @@
           <div v-if="recentMedia.length > 0">
             <div class="flex items-center justify-between mb-3">
               <h2 class="text-xs font-semibold text-content-secondary">{{ projectId ? 'Fresh from this project' : 'Recent assets' }}</h2>
-              <router-link :to="contextRoute('browse', projectId)" class="text-xs text-content-muted hover:text-content-secondary transition-colors coarse:inline-flex coarse:min-h-11 coarse:min-w-11 coarse:items-center coarse:px-2">
+              <router-link :to="contextRoute('browse', projectId)" class="text-xs text-content-muted hover:text-content-secondary transition-colors coarse:inline-flex coarse:min-h-11 coarse:min-w-11 coarse:items-center coarse:px-2 coarse:-mr-2">
                 View all
               </router-link>
             </div>
@@ -295,6 +295,7 @@
 </template>
 
 <script setup>
+import { formatRelativeTime } from '../utils/timeFormat'
 import { useEntityMove } from '../composables/useEntityMove'
 import { fetchScopedJson } from '../utils/scopedList'
 import { fetchHomeRecents } from '../utils/homeRecents'
@@ -1087,26 +1088,11 @@ function isVideoFormat(fileFormat) {
 
 function formatBoardMeta(board) {
   const assetCount = board.asset_count || 0
-  const assetLabel = `${assetCount} ${assetCount === 1 ? 'item' : 'items'}`
+  const assetLabel = `${assetCount} ${assetCount === 1 ? 'asset' : 'assets'}`
   if (!board.updated_at) return assetLabel
   return `${assetLabel} • ${formatRelativeTime(board.updated_at)}`
 }
 
-function formatRelativeTime(dateStr) {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now - date
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString()
-}
 
 // Attach any media handed off to the home input (sidebar drag-drop).
 // One-shot consumption from the store — see usePendingMedia for why this isn't

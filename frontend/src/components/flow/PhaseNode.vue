@@ -40,7 +40,7 @@
       <span
         v-else-if="phaseStatus.kind === 'tasks'"
         class="flex-shrink-0 text-[10.5px] font-medium text-accent-hi"
-      >Your Turn</span>
+      >Your turn</span>
       <span
         v-else-if="phaseStatus.kind === 'error'"
         class="flex-shrink-0 text-[10.5px] font-medium text-red-500"
@@ -643,7 +643,7 @@ const phaseStatus = computed(() => {
   const waitingTool = (s['waiting_for_tool'] || 0) as number
   const completed = (s['completed'] || 0) as number
   if (failed > 0) return { kind: 'error', label: failed === 1 ? 'Error' : `${failed} errors` }
-  if (awaiting > 0 || hasActionableTask.value) return { kind: 'tasks', label: 'Your Turn' }
+  if (awaiting > 0 || hasActionableTask.value) return { kind: 'tasks', label: 'Your turn' }
   if (waitingTool > 0 || hasUnavailableTool.value) return { kind: 'unavailable', label: 'Tool unavailable' }
   if (computing > 0) return { kind: 'running', label: '' }
   if (pending > 0) return { kind: 'waiting', label: 'Waiting' }
@@ -942,7 +942,7 @@ function equationStatusLabel(eq: FlowEquation): string | null {
     case 'completed':      return null
     case 'computing':      return 'Running'
     case 'failed':         return 'Failed'
-    case 'awaiting_input': return isEquationActionable(eq) && getTasksForEquation(eq.equation_key).length > 0 ? 'Your Turn' : null
+    case 'awaiting_input': return isEquationActionable(eq) && getTasksForEquation(eq.equation_key).length > 0 ? 'Your turn' : null
     case 'waiting_for_tool': return 'Tool unavailable'
     case 'skipped':        return 'Skipped'
     case 'invalidated':    return 'Stale'
@@ -1011,7 +1011,7 @@ function hitlKindLabel(kind: string | null | undefined): string {
 // turn is misleading. Completed rows get a past-tense summary.
 function hitlTitle(eq: FlowEquation): string {
   if (eq.status === 'completed') return completedHitlLabel(eq)
-  if (isEquationActionable(eq)) return 'Your Turn'
+  if (isEquationActionable(eq)) return 'Your turn'
   return eq.display_name || hitlKindLabel(eq.hitl_kind)
 }
 

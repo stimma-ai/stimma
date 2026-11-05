@@ -88,7 +88,7 @@
             class="w-8 h-8 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors disabled:pointer-events-none disabled:opacity-50"
             title="Add image"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-icon-nav h-icon-nav">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
           </button>
@@ -101,7 +101,7 @@
             class="flex h-8 w-8 items-center justify-center rounded-full text-content-muted opacity-50"
             title="Voice input unavailable"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-icon-nav w-icon-nav">
               <rect x="9" y="3" width="6" height="12" rx="3" />
               <path stroke-linecap="round" d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" />
             </svg>
@@ -110,28 +110,13 @@
         </div>
 
         <!-- Right: slot for custom buttons, or default send -->
-        <button
-          v-if="agentUnavailable"
-          type="button"
-          disabled
-          class="w-8 h-8 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-full bg-content text-surface opacity-20"
-          title="Send unavailable"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-            <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" transform="rotate(-90 12 12)" />
-          </svg>
-        </button>
+        <SendButton v-if="agentUnavailable" disabled title="Send unavailable" />
         <slot v-else name="actions" :text="inputText">
-          <button
-            @click="$emit('submit')"
-            :disabled="(!inputText.trim() && attachments.length === 0) || disabled"
-            class="w-8 h-8 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
+          <SendButton
             title="Send"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-              <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" transform="rotate(-90 12 12)" />
-            </svg>
-          </button>
+            :disabled="(!inputText.trim() && attachments.length === 0) || disabled"
+            @click="$emit('submit')"
+          />
         </slot>
       </div>
     </div>
@@ -155,6 +140,7 @@ import axios from 'axios'
 import ChatInputAttachments from './ChatInputAttachments.vue'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
 import AgentUnavailableInput from './AgentUnavailableInput.vue'
+import SendButton from '../ui/SendButton.vue'
 import { insertNewlineAtCaret } from '../../utils/textInput'
 import { useOwnerProject } from '../../composables/useProjectScope'
 import { appendProjectId } from '../../utils/projectScope'
