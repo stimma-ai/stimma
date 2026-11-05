@@ -27,6 +27,9 @@ test('saved views are created, restored and listed within their owning context',
   await choose(page, other.name);
   await expect(sidebar(page).getByRole('button', { name: 'Review picks', exact: true })).toHaveCount(0);
   await choose(page, 'Everything');
+  // Saved views fold under Assets; open the fold when the current screen has not.
+  const fold = sidebar(page).getByTestId('saved-views-toggle');
+  if ((await fold.getAttribute('aria-expanded')) === 'false') await fold.click();
   await sidebar(page).getByRole('button', { name: 'Review picks', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/saved-view/${global.id}`));
   const scopedRequest = page.waitForRequest(r => new URL(r.url()).pathname === '/api/assets/browse' && new URL(r.url()).searchParams.get('project_id') === String(project.id));

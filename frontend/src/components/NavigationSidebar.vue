@@ -84,30 +84,47 @@
 
           <button @click="handleNavClick('home')" @dragover="handleDragOver" @dragenter="handleStimmaHomeDragEnter" @dragleave="handleStimmaHomeDragLeave" @drop="handleStimmaHomeDrop" class="flex w-full items-center gap-2 rounded px-3 py-1.5 text-sm text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11 [&>:first-child]:mx-1" :class="activeTab === 'home' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"><HomeIcon class="h-icon-nav w-icon-nav flex-shrink-0" />Home</button>
 
-          <!-- Saved views sit with Home: places, before the kinds of things. -->
-          <button
-            v-for="savedView in contextSavedViews"
-            :key="savedView.id"
-            @click="openSavedView(savedView.id)"
-            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left [&>:first-child]:mx-1"
-            :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
-            :title="displaySavedViewName(savedView.name)"
-          >
-            <component :is="savedViewIcon(savedView)" class="w-icon-nav h-icon-nav flex-shrink-0" />
-            <span class="truncate text-sm">{{ displaySavedViewName(savedView.name) }}</span>
-          </button>
-
           <div class="h-3.5 flex-shrink-0 coarse:h-2" aria-hidden="true"></div>
 
-          <!-- All Assets -->
-          <button
-            @click="handleNavClick('browse')"
-            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
-            :class="activeTab === 'browse' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
-          >
-            <PhotoIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
-            <span>Assets</span>
-          </button>
+          <!-- All Assets. The chevron folds the saved views (Favorites, My
+               library, ...) under it; clicking the row itself still opens Assets. -->
+          <div class="group relative">
+            <button
+              @click="handleNavClick('browse')"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
+              :class="[activeTab === 'browse' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '', contextSavedViews.length > 0 ? 'pr-9 coarse:pr-12' : '']"
+            >
+              <PhotoIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
+              <span>Assets</span>
+            </button>
+            <Tooltip v-if="contextSavedViews.length > 0" :text="savedViewsOpen ? 'Hide saved views' : 'Show saved views'" class="absolute right-0 top-0 bottom-0 flex items-center">
+              <button
+                type="button"
+                data-testid="saved-views-toggle"
+                class="flex h-7 w-8 items-center justify-center rounded text-content-muted transition-colors hover:text-content focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:h-11 coarse:w-11"
+                :aria-label="savedViewsOpen ? 'Hide saved views' : 'Show saved views'"
+                :aria-expanded="savedViewsOpen"
+                aria-controls="sidebar-saved-views"
+                @click.stop="toggleSavedViews"
+              >
+                <ChevronDownIcon class="h-icon-inline w-icon-inline transition-transform" :class="savedViewsOpen ? '' : '-rotate-90'" />
+              </button>
+            </Tooltip>
+          </div>
+
+          <div v-if="savedViewsOpen && contextSavedViews.length > 0" id="sidebar-saved-views" class="flex flex-col gap-0.5 pl-4 coarse:gap-0">
+            <button
+              v-for="savedView in contextSavedViews"
+              :key="savedView.id"
+              @click="openSavedView(savedView.id)"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
+              :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
+              :title="displaySavedViewName(savedView.name)"
+            >
+              <component :is="savedViewIcon(savedView)" class="w-icon-nav h-icon-nav flex-shrink-0" />
+              <span class="truncate text-sm">{{ displaySavedViewName(savedView.name) }}</span>
+            </button>
+          </div>
 
           <!-- Boards landing link (with drag-drop to create new) -->
           <div class="group relative">
@@ -995,7 +1012,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, h, nextTick } from 'vue'
-import { ArchiveBoxIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronLeftIcon, ChevronUpDownIcon, ClockIcon, ExclamationTriangleIcon, FunnelIcon, HeartIcon, HomeIcon, PhotoIcon, PlusIcon, Squares2X2Icon, TrashIcon, WrenchScrewdriverIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronDownIcon, ChevronLeftIcon, ChevronUpDownIcon, ClockIcon, ExclamationTriangleIcon, FunnelIcon, HeartIcon, HomeIcon, PhotoIcon, PlusIcon, Squares2X2Icon, TrashIcon, WrenchScrewdriverIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useMarkers } from '../composables/useMarkers'
 import { useRouter, useRoute } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -1318,6 +1335,23 @@ watch(() => hasLoadedData.value && props.isMobile, (phoneReady) => {
   if (!phoneReady || localStorage.getItem(makeProfileKey('sidebar', 'collapsed_sections')) !== null) return
   if (!isCollapsed('pinned')) toggleSection('pinned')
 }, { immediate: true })
+
+// Saved views fold under Assets. The fold is a per-profile choice that starts
+// closed; the active saved view opens it for as long as it is the screen, so
+// the current location stays visible without rewriting the stored choice.
+const SAVED_VIEWS_OPEN_KEY = makeProfileKey('sidebar', 'saved_views_open')
+const savedViewsStored = ref(localStorage.getItem(SAVED_VIEWS_OPEN_KEY) === '1')
+const savedViewsPeek = ref(false)
+const activeSavedViewInContext = computed(() =>
+  route.name === 'saved-view' && contextSavedViews.value.some(v => isSavedViewActive(v.id)))
+watch(activeSavedViewInContext, (active) => { savedViewsPeek.value = active }, { immediate: true })
+const savedViewsOpen = computed(() => savedViewsStored.value || savedViewsPeek.value)
+function toggleSavedViews() {
+  const next = !savedViewsOpen.value
+  savedViewsStored.value = next
+  savedViewsPeek.value = false
+  try { localStorage.setItem(SAVED_VIEWS_OPEN_KEY, next ? '1' : '0') } catch { /* fold still toggles */ }
+}
 
 // ==================== Tool compatibility ====================
 
