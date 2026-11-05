@@ -37,7 +37,7 @@ const menuLabel = computed(() => props.sidebarDockable ? (props.sidebarDocked ? 
 
 const route = useRoute()
 const router = useRouter()
-const { isHub, title, subtitle, titleAction, primaryAction, menuItems } = useCompactChrome(route)
+const { isHub, title, subtitle, subtitleBrand, titleAction, primaryAction, menuItems } = useCompactChrome(route)
 const backgroundWork = useBackgroundWork()
 const { hasActiveWork, progressTitle } = backgroundWork
 onMounted(() => backgroundWork.start())
@@ -81,13 +81,10 @@ const sheetItems = computed(() => {
 <template>
   <header class="compact-header flex-none bg-surface pt-safe">
     <div class="h-header-mobile flex items-center gap-0.5 px-page">
-      <!-- Left slot: Menu on hubs, Back on details, never both. The drawer
-           stays reachable from a detail through Back (to the hub) and the edge
-           swipe. Where the drawer can dock (a hub when roomy, a detail at
-           wide), the button is the dock toggle instead and a detail keeps
-           Back beside it, since there is room. -->
+      <!-- Left slot: the Menu (drawer) on every screen, as the multitasking
+           switcher; a detail adds Back beside it. Where the drawer can dock,
+           the Menu button is the dock toggle instead. -->
       <button
-        v-if="isHub || sidebarDockable"
         type="button"
         :class="[compactIconButton, sidebarDockable && sidebarDocked ? compactIconButtonOn : '']"
         :aria-label="menuLabel"
@@ -130,7 +127,7 @@ const sheetItems = computed(() => {
       </button>
       <div v-else class="flex-1 min-w-[96px] overflow-hidden px-1">
         <h1 v-if="title" :title="title" class="truncate" :class="compactTitle">{{ title }}</h1>
-        <p v-if="subtitle" class="truncate text-[11px] text-content-tertiary leading-snug">{{ subtitle }}</p>
+        <p v-if="subtitle" class="truncate text-[11px] leading-snug" :class="subtitleBrand ? 'stimma-cloud-text font-medium' : 'text-content-tertiary'">{{ subtitle }}</p>
       </div>
 
       <!-- Transient: only while there is work or something to look at. -->

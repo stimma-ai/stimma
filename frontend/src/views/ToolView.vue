@@ -7635,6 +7635,9 @@ onUnmounted(async () => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 
-// Compact header title follows the tool (cleared per route by App.vue).
-watch(() => tool.value?.name, (name) => { if (name) setCompactTitle(name) }, { immediate: true })
+// Compact header title follows the tool (cleared per route by App.vue); the
+// provider is the subtitle, as the desktop header carries it beside the name.
+watch(() => [tool.value?.name, providerDisplayName.value, isStimmaCloudTool.value] as const, ([name, provider, cloud]) => {
+  if (name) setCompactTitle(name, cloud ? STIMMA_TOOL_PROVIDER_DISPLAY_NAME : provider, null, cloud)
+}, { immediate: true })
 </script>
