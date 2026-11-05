@@ -57,8 +57,8 @@
 
       <AgentUnavailableInput v-if="agentUnavailable" />
 
-      <!-- Textarea scroll wrapper -->
-      <div v-else ref="scrollWrapRef" class="chat-input-scroll-wrap overflow-y-auto mx-4 coarse:mt-0"
+      <!-- The textarea owns scrolling so the browser can keep its caret visible. -->
+      <div v-else class="mx-4 coarse:mt-0"
         :class="context ? 'mt-1.5' : 'mt-3'">
         <textarea v-no-autocorrect
           ref="textareaRef"
@@ -66,9 +66,8 @@
           @input="setText($event.target.value)"
           :placeholder="placeholder"
           :rows="rows"
-          class="chat-input-textarea w-full bg-transparent text-content p-0 coarse:py-2.5 focus:outline-none resize-none block"
+          class="chat-input-textarea w-full bg-transparent text-content p-0 coarse:py-2.5 focus:outline-none resize-none block overflow-y-auto"
           @keydown.enter.exact.prevent="$emit('submit')"
-          @keydown.enter.shift.exact.prevent="insertNewline"
           @keydown="onTextareaKeydown"
           @keyup="onTextareaKeyup"
         />
@@ -151,7 +150,6 @@ import ChatInputAttachments from './ChatInputAttachments.vue'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
 import AgentUnavailableInput from './AgentUnavailableInput.vue'
 import SendButton from '../ui/SendButton.vue'
-import { insertNewlineAtCaret } from '../../utils/textInput'
 import { useOwnerProject } from '../../composables/useProjectScope'
 import { appendProjectId } from '../../utils/projectScope'
 
@@ -187,20 +185,14 @@ const emit = defineEmits([
 ])
 
 const textareaRef = ref(null)
-const scrollWrapRef = ref(null)
+// Keep the exposed scrolling element available to existing hosts.
+const scrollWrapRef = textareaRef
 const uploadInputRef = ref(null)
 const dragging = ref(false)
 const voiceBtn = ref(null)
 const inputText = computed(() => props.draft ? props.draft.text : props.modelValue)
 const uploadProjectId = useOwnerProject(() => props.projectId)
 let resizeFrame = null
-
-// Shift+Enter breaks the line (plain Enter submits).
-function insertNewline() {
-  const el = textareaRef.value
-  if (!el) return
-  setText(insertNewlineAtCaret(el))
-}
 
 // Space-to-dictate (when empty) + propagate keydown for history nav etc.
 function onTextareaKeydown(event) {
@@ -263,15 +255,15 @@ function autoResize() {
 
 function resizeTextarea() {
   const el = textareaRef.value
-  const wrap = scrollWrapRef.value
   if (!el) return
+  // Measuring at auto height temporarily collapses the field and can reset its
+  // scroll offset. Preserve the browser's caret scroll (or the user's scroll).
+  const scrollTop = el.scrollTop
   el.style.height = 'auto'
   const lineHeight = parseFloat(getComputedStyle(el).lineHeight || '24')
   const minHeight = el.rows * lineHeight
-  el.style.height = Math.max(minHeight, el.scrollHeight) + 'px'
-  if (wrap) {
-    wrap.style.maxHeight = Math.round(10 * lineHeight) + 'px'
-  }
+  el.style.height = Math.min(10 * lineHeight, Math.max(minHeight, el.scrollHeight)) + 'px'
+  el.scrollTop = scrollTop
 }
 
 // ==================== Attachments ====================
@@ -390,6 +382,7 @@ async function onDrop(event) {
 }
 
 onMounted(() => {
+  autoResize()
   // A drag can start inside this composer and be dropped elsewhere. In that
   // case the composer receives neither drop nor a reliable dragleave, while
   // dragend still reaches the window.

@@ -262,35 +262,27 @@ body {
   background-color: rgba(156, 163, 175, 0.6);
 }
 
-/* Chat input scroll wrapper - trackless scrollbar */
+/* Chat input textarea - trackless scrollbar */
 /* scrollbar-width: auto overrides the global * { scrollbar-width: thin } so that
    ::-webkit-scrollbar pseudo-elements take effect in Safari/WKWebView. */
-.chat-input-scroll-wrap {
+.chat-input-textarea {
   scrollbar-width: auto !important;
   scrollbar-color: auto !important;
 }
-.chat-input-scroll-wrap::-webkit-scrollbar {
+.chat-input-textarea::-webkit-scrollbar {
   width: 12px;
   background: transparent;
 }
-.chat-input-scroll-wrap::-webkit-scrollbar-track {
+.chat-input-textarea::-webkit-scrollbar-track {
   background: transparent;
 }
-.chat-input-scroll-wrap::-webkit-scrollbar-thumb {
+.chat-input-textarea::-webkit-scrollbar-thumb {
   background-color: rgba(156, 163, 175, 0.4);
   border-radius: 6px;
 }
-.chat-input-scroll-wrap::-webkit-scrollbar-thumb:hover {
+.chat-input-textarea::-webkit-scrollbar-thumb:hover {
   background-color: rgba(156, 163, 175, 0.6);
 }
-/* Hide native textarea scrollbar entirely */
-.chat-input-textarea {
-  overflow: hidden !important;
-}
-.chat-input-textarea::-webkit-scrollbar {
-  display: none !important;
-}
-
 /* ============================================
    Theme Token Definitions
    ============================================ */
