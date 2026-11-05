@@ -25,6 +25,7 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   Squares2X2Icon,
+  Square3Stack3DIcon,
   ChevronUpIcon,
   DocumentDuplicateIcon,
   EllipsisHorizontalIcon,
@@ -4313,14 +4314,32 @@ const sidebarWidth = ref(Number(localStorage.getItem('stimma_editor_sidebar')) |
 const propertiesHeight = ref(Number(localStorage.getItem('stimma_editor_properties')) || 0)
 const sidebarEl = ref<HTMLElement | null>(null)
 
+/** Which sidebar panel is showing. Edits owns the stack, Output owns the
+ * terminal stage, and Info reuses the library's media-information body. */
+const sidebarTab = ref<'edits' | 'output' | 'info'>('edits')
+
+/**
+ * The right-hand column is the document's history, and a fresh document has
+ * none. Until there is something to show it folds away and the picture takes
+ * the width; the Edits button in the header brings it back (and puts it away
+ * again). Once the person has chosen, their choice stands for the session.
+ * Output and Info live in the same column, so asking for either keeps it open.
+ */
+const sidebarOverride = ref<boolean | null>(null)
+const sidebarHasContent = computed(() =>
+  visibleRows.value.length > 0 || inspectorKind.value !== null || sidebarTab.value !== 'edits')
+const sidebarVisible = computed(() => sidebarOverride.value ?? sidebarHasContent.value)
+function toggleSidebar() { sidebarOverride.value = !sidebarVisible.value }
+
 /**
  * Two thirds of the sidebar by default, measured rather than guessed — a pixel
  * constant is the wrong height on every window that is not the one it was
  * picked on. Only until the user drags it, after which their number wins.
  */
-watch(sidebarEl, element => {
+watch([sidebarEl, () => sidebarVisible.value], ([element]) => {
   if (!element || propertiesHeight.value) return
-  propertiesHeight.value = Math.round(element.getBoundingClientRect().height * (2 / 3))
+  const height = element.getBoundingClientRect().height
+  if (height > 0) propertiesHeight.value = Math.round(height * (2 / 3))
 }, { flush: 'post' })
 
 /** Drag along one axis, clamped, persisted on release. */
@@ -7958,10 +7977,6 @@ async function toggleCompare() {
 const defaultUpscaleToolId = ref<string | null>(null)
 const outputPickerOpen = ref(false)
 
-/** Which sidebar panel is showing. Edits owns the stack, Output owns the
- * terminal stage, and Info reuses the library's media-information body. */
-const sidebarTab = ref<'edits' | 'output' | 'info'>('edits')
-
 async function loadEditorMediaInfo() {
   const token = ++infoLoadToken
   infoLoading.value = true
@@ -9107,6 +9122,24 @@ watch(
           <ChevronLeftIcon class="w-6 h-6" />
         </button>
         <div class="flex-1 min-w-0" />
+        <!-- The stack is the document's history, not a tool: it lives up here
+             with the document's other verbs, so the row below is the six
+             families and nothing else. -->
+        <button
+          type="button"
+          class="relative h-11 shrink-0 pl-2.5 pr-3 flex items-center gap-1.5 rounded-md text-[13px] font-medium text-selection border-none bg-transparent"
+          aria-label="Edits"
+          data-compact-edits
+          @click="onCompactEdits()"
+        >
+          <Square3Stack3DIcon class="w-5 h-5" />
+          Edits
+          <span
+            v-if="visibleRows.length"
+            class="min-w-[16px] h-4 px-1 rounded-full bg-selection text-base text-[10px] font-mono font-semibold flex items-center justify-center"
+            aria-hidden="true"
+          >{{ visibleRows.length }}</span>
+        </button>
         <button
           type="button"
           class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
@@ -9154,6 +9187,29 @@ watch(
           aria-label="Unsaved edits"
         />
         <EditorToolbar :active="family" class="ml-2" @select="selectFamily" />
+        <!-- Reopens (and puts away) the history column. It sits at the end of
+             the row, on the edge of the column it controls. -->
+        <div class="ml-auto shrink-0">
+        <Tooltip :text="sidebarVisible ? 'Hide edits panel' : 'Show edits panel'">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+            :class="sidebarVisible ? 'bg-selection/15 text-selection' : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
+            :aria-pressed="sidebarVisible"
+            aria-label="Edits panel"
+            data-testid="editor-sidebar-toggle"
+            @click="toggleSidebar"
+          >
+            <Square3Stack3DIcon class="w-4 h-4" />
+            <span class="hidden @3xl:inline">Edits</span>
+            <span
+              v-if="visibleRows.length"
+              class="min-w-[15px] h-[15px] px-1 rounded-full bg-selection text-base text-[9.5px] font-mono font-semibold flex items-center justify-center"
+              aria-hidden="true"
+            >{{ visibleRows.length }}</span>
+          </button>
+        </Tooltip>
+        </div>
       </div>
 
       <!-- The canvas region. relative so the sub-toolbar can FLOAT over the
@@ -9522,7 +9578,7 @@ watch(
       <!-- Drag to widen the stack. The panels in here carry real controls, and
            how much room they deserve is the user's call, not a constant. -->
       <div
-        v-if="!isCompact"
+        v-if="!isCompact && sidebarVisible"
         class="w-1 shrink-0 cursor-col-resize bg-edge-subtle/40 hover:bg-accent/40 transition-colors"
         @pointerdown="startSidebarResize"
       />
@@ -9533,7 +9589,9 @@ watch(
       <aside
         ref="sidebarEl"
         class="shrink-0 border-l border-edge-subtle flex flex-col min-h-0 compact:hidden"
+        :class="!sidebarVisible && !isCompact && '!hidden'"
         :style="isCompact ? {} : { width: sidebarWidth + 'px' }"
+        :aria-hidden="!isCompact && !sidebarVisible ? true : undefined"
       >
         <!-- Three panels, not three lists. Edits is the stack, Output is the
              terminal stage, and Info is the shared media-information body. -->
@@ -10064,12 +10122,10 @@ watch(
             :sub="sub"
             :state="subbarState"
             :armed="armedSelectTool"
-            :count="visibleRows.length"
             :active-level="activeLevelSection"
             :looks="family === 'levels' && compactLevelsMode === 'looks'"
             :auto="family === 'levels' && compactLevelsMode === 'auto'"
             @family="onCompactFamily"
-            @edits="onCompactEdits"
             @back="onCompactBack"
             @sub="onCompactSub"
             @set="onSubbarSet"

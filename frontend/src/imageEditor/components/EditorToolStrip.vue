@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * The phone editor's row: one line of cells that drills down in place
- * (DESIGN.md §3.6a). At the root it is the six families and Edits. Inside a
+ * (DESIGN.md §3.6a). At the root it is the six families (the stack's Edits button lives in the header). Inside a
  * family the same row becomes ‹ and that family's pickable things — Retouch's
  * brushes, Generate's verbs, Adjust's groups, Crop's aspects and turns,
  * Paint's engines — so switching tools is one tap and never a navigation.
@@ -25,8 +25,6 @@ const props = defineProps<{
   state: Record<string, any>
   /** An armed selection tool replaces the family's row with the selection tools. */
   armed: SelectToolId | null
-  /** Root row: how many steps the stack holds, as the Edits cell's badge. */
-  count?: number
   /** Adjust: the section of the selected step, so its group reads as the open one. */
   activeLevel?: string | null
   /** Adjust: the Looks strip is what the panel shows. */
@@ -36,7 +34,6 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   family: [FamilyId]
-  edits: []
   back: []
   sub: [string]
   set: [Record<string, any>]
@@ -54,18 +51,11 @@ interface Cell {
   selection?: boolean
   /** A dot: this group has a step with values. */
   modified?: boolean
-  badge?: number
   pick: () => void
 }
 type Item = Cell | 'sep'
 
-const PHONE_ORDER: FamilyId[] = ['crop', 'retouch', 'generate', 'levels', 'annotate', 'paint']
 const SHORT: Record<string, string> = { remove: 'Remove', cutout: 'Cut out', repaint: 'Repaint', expand: 'Expand' }
-const STACK_ICON = sanitizeSvg(
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5 12 22l9-4.5"/>
-  </svg>`
-)
 const familySvg = Object.fromEntries(TOOL_FAMILIES.map(f => [f.id, sanitizeSvg(
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${f.icon}</svg>`
 )]))
@@ -83,9 +73,7 @@ const items = computed<Item[]>(() => {
   const family = props.family
   if (!family) {
     return [
-      ...PHONE_ORDER.map<Cell>(id => ({ id, label: familyById(id).label, svg: familySvg[id], active: false, pick: () => emit('family', id) })),
-      'sep',
-      { id: 'edits', label: 'Edits', svg: STACK_ICON, active: false, badge: props.count, pick: () => emit('edits') },
+      ...TOOL_FAMILIES.map<Cell>(({ id, label }) => ({ id, label, svg: familySvg[id], active: false, pick: () => emit('family', id) })),
     ]
   }
   const spec = familyById(family)
@@ -189,7 +177,6 @@ watch([activeId, () => props.family, () => props.armed], () => {
         :class="[
           level === 'root' ? 'flex-1 min-w-0' : 'flex-none min-w-[58px]',
           item.active ? (item.selection ? 'text-selection' : 'text-accent-hi') : 'text-content-secondary',
-          item.id === 'edits' && 'text-selection',
         ]"
         :aria-label="item.label"
         :aria-pressed="item.active"
@@ -203,11 +190,6 @@ watch([activeId, () => props.family, () => props.armed], () => {
         <ToolIcon v-else :name="item.icon ?? 'crop'" :size="22" />
         {{ item.label }}
         <span v-if="item.modified && !item.active" class="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-accent" aria-hidden="true" />
-        <span
-          v-if="item.badge"
-          class="absolute top-0.5 left-[calc(50%+5px)] min-w-[15px] h-[15px] px-1 rounded-full bg-selection text-base text-[9.5px] font-mono font-semibold flex items-center justify-center"
-          aria-hidden="true"
-        >{{ item.badge }}</span>
       </button>
     </template>
   </div>

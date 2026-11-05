@@ -66,7 +66,7 @@ test.describe('Source folder import acceptance', () => {
     }, 30000);
 
     // The browser was already open before the Source was configured. Verify
-    // its count and grid update without navigation or reload. Newest First
+    // its count and grid update without navigation or reload. Newest first
     // places the newly created Asset at the top, regardless of fixture age.
     // The top-level browser excludes project assets, so its expected total
     // must use the same unfiled scope even after earlier tests create projects.

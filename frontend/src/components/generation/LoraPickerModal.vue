@@ -130,7 +130,7 @@
         :class="[
           'w-full px-4 py-2 coarse:min-h-11 text-left transition-colors flex items-center justify-between gap-3',
           isInPool(lora.path)
-            ? 'bg-accent-selection/15 text-accent-selection'
+            ? 'bg-selection/15 text-accent-selection'
             : index === selectedIndex && !asSheet
               ? 'bg-overlay-subtle text-content'
               : 'hover:bg-overlay-subtle text-content-secondary'

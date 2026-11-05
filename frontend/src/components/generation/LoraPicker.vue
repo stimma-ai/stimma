@@ -78,7 +78,7 @@
                 @mouseenter="selectedIndex = loraIndex"
                 :class="[
                   'px-3 py-2 text-xs cursor-pointer transition-colors duration-150',
-                  loraIndex === selectedIndex ? 'bg-accent-selection/15 text-content' : 'text-content-secondary hover:bg-overlay-subtle'
+                  loraIndex === selectedIndex ? 'bg-selection/15 text-content' : 'text-content-secondary hover:bg-overlay-subtle'
                 ]"
               >
                 {{ lora.name }}

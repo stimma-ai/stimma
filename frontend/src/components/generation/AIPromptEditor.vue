@@ -1,7 +1,7 @@
 <template>
   <div class="relative" :style="sizeVars">
     <!-- Main Prompt Editor -->
-    <div class="relative rounded-md border border-transparent bg-overlay-faint focus-within:border-accent transition-colors [&_.cm-editor]:!bg-transparent">
+    <div class="relative rounded-md border border-transparent bg-overlay-subtle focus-within:border-accent transition-colors [&_.cm-editor]:!bg-transparent">
       <div ref="editorMount"></div>
 
       <!-- Bottom Action Bar (flows below textarea): a single quiet ghost row

@@ -65,10 +65,10 @@
                   :text="`Restore and mark ${marker.name}`"
                 >
                   <button
-                    class="marker-button p-1 flex items-center justify-center transition-opacity hover:opacity-70"
+                    class="marker-button p-1 flex items-center justify-center rounded-md text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content"
                     @click="$emit('toggle-marker', { markerId: marker.id, add: true })"
                   >
-                    <span class="marker-icon w-6 h-6 flex items-center justify-center" :style="{ color: 'var(--color-text-muted)' }" v-html="sanitizeSvg(marker.icon_svg)" />
+                    <span class="marker-icon marker-glyph-off w-6 h-6 flex items-center justify-center" v-html="sanitizeSvg(marker.icon_svg)" />
                   </button>
                 </Tooltip>
               </div>
@@ -125,10 +125,11 @@
                 :text="isMarkerActive(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
               >
                 <button
-                  :class="['marker-button p-1 flex items-center justify-center transition-opacity hover:opacity-70', { active: isMarkerActive(marker.id) }]"
+                  :class="['marker-button p-1 flex items-center justify-center rounded-md transition-colors', isMarkerActive(marker.id) ? 'bg-overlay-light' : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content']"
+                  :aria-pressed="isMarkerActive(marker.id)"
                   @click="$emit('toggle-marker', { markerId: marker.id, add: !isMarkerActive(marker.id) })"
                 >
-                  <span class="marker-icon w-6 h-6 flex items-center justify-center" :style="isMarkerActive(marker.id) ? { color: marker.color } : { color: 'var(--color-text-muted)' }" v-html="sanitizeSvg(marker.icon_svg)" />
+                  <span class="marker-icon w-6 h-6 flex items-center justify-center" :class="isMarkerActive(marker.id) ? '' : 'marker-glyph-off'" :style="isMarkerActive(marker.id) ? { color: marker.color } : undefined" v-html="sanitizeSvg(marker.icon_svg)" />
                 </button>
               </Tooltip>
             </div>
@@ -361,12 +362,6 @@ function handleSelectNone() {
 </script>
 
 <style scoped>
-/* Active-marker glow — dynamic per-marker color, not expressible as a
-   static Tailwind class. */
-.marker-button.active .marker-icon {
-  filter: drop-shadow(0 0 4px currentColor);
-}
-
 .marker-icon :deep(svg) {
   width: 24px;
   height: 24px;

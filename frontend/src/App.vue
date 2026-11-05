@@ -1428,11 +1428,11 @@ onUnmounted(() => {
 </script>
 
 <style>
-/* Docked drawer in the medium band (an unfolded foldable): a narrower rail so
+/* Docked drawer in the medium band (an unfolded foldable): a narrower rail (208px, 28% of 752) so
    hub content keeps more of the width. Wide roomy windows keep the full 276px. */
 .compact-track.is-docked-medium .compact-drawer {
-  width: 224px;
-  flex-basis: 224px;
+  width: 208px;
+  flex-basis: 208px;
 }
 
 /* Slide out NavigationSidebar and TopBar in slideshow focus mode */

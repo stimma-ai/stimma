@@ -6,7 +6,7 @@
       type="button"
       class="group relative w-[168px] max-w-full text-left rounded-lg p-1.5 transition-colors"
       :class="selectedLabel === opt.label
-        ? 'bg-accent-selection/15 border border-accent-selection/40'
+        ? 'bg-selection/15 border border-selection/40'
         : 'hover:bg-overlay-light border border-transparent'"
       @click="$emit('select', opt.label)"
     >

@@ -83,10 +83,13 @@
 
         <div v-if="targetAssetIds.length === 0 && targetMediaIds.length > 0" class="border-t border-edge-subtle my-1"></div>
 
+        <!-- Sheet: the identity and the marker toggles share one row. Elsewhere the
+             wrapper is a plain block and only the marker row shows. -->
+        <div class="coarse:flex coarse:items-center coarse:gap-3 coarse:pl-4 coarse:pr-2 coarse:border-b coarse:border-edge-subtle">
         <!-- Sheet only, and only when the sheet has height to spare: which item(s) the actions apply to. -->
         <div
           v-if="isCoarsePointer && selectionSummary"
-          class="hidden items-center gap-3 px-4 pb-2 [@media(min-height:720px)]:flex"
+          class="hidden min-w-0 flex-1 items-center gap-3 [@media(min-height:720px)]:flex"
           data-testid="menu-selection-summary"
         >
           <MediaImage
@@ -106,12 +109,14 @@
         </div>
 
         <!-- Marker toggles row -->
-        <div v-if="markers.length > 0" class="flex items-center gap-1 px-2 py-1.5 border-b border-edge-subtle coarse:gap-2 coarse:px-3">
+        <div v-if="markers.length > 0" class="flex items-center gap-1 px-2 py-1.5 border-b border-edge-subtle coarse:flex-none coarse:gap-0 coarse:px-0 coarse:py-0 coarse:border-b-0 coarse:ml-auto" role="group" aria-label="Markers">
           <button
             v-for="marker in markers"
             :key="marker.id"
             @click="handleToggleMarker(marker)"
             :title="hasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
+            :aria-label="hasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
+            :aria-pressed="hasMarker(marker.id)"
             :class="[
               'w-7 h-7 coarse:w-11 coarse:h-11 rounded-md flex items-center justify-center transition-colors',
               hasMarker(marker.id) ? 'bg-overlay-light' : 'hover:bg-overlay-subtle'
@@ -125,6 +130,7 @@
             />
           </button>
         </div>
+        </div>
 
         <!-- Edit (single image only): opens the asset's own edit mode, the
              Darkroom. Editing is a primary action on an image, not a routing
@@ -137,9 +143,9 @@
           <PencilIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>Edit</span>
         </button>
-        <div v-if="isImage && !isMultiple" class="border-t border-edge-subtle my-1"></div>
+        <div v-if="isImage && !isMultiple" class="border-t border-edge-subtle my-1 coarse:hidden"></div>
 
-        <div class="hidden coarse:block sheet-section" aria-hidden="true">Organize</div>
+        <div class="hidden coarse:block sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Organize</div>
 
         <!-- Tags -->
         <button
@@ -304,9 +310,9 @@
           </button>
         </template>
 
-        <div class="border-t border-edge-subtle my-1"></div>
+        <div class="border-t border-edge-subtle my-1 coarse:hidden"></div>
 
-        <div class="hidden coarse:block sheet-section" aria-hidden="true">Create and send</div>
+        <div class="hidden coarse:block sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Create and send</div>
 
         <!-- Create Set (multiple atomic items only) -->
         <button
@@ -711,9 +717,9 @@
           </Teleport>
         </div>
 
-        <div v-if="hasExploreActions" class="border-t border-edge-subtle my-1"></div>
+        <div v-if="hasExploreActions" class="border-t border-edge-subtle my-1 coarse:hidden"></div>
 
-        <div class="hidden coarse:block sheet-section" aria-hidden="true">Explore</div>
+        <div class="hidden coarse:block sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Explore</div>
 
         <!-- Find Similar (up to 3 items) -->
         <button
@@ -759,9 +765,9 @@
           <span>View Lineage</span>
         </button>
 
-        <div class="border-t border-edge-subtle my-1"></div>
+        <div class="border-t border-edge-subtle my-1 coarse:hidden"></div>
 
-        <div class="hidden coarse:block sheet-section" aria-hidden="true">Share and export</div>
+        <div class="hidden coarse:block sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Share and export</div>
 
         <!-- Share link (public link, every media type; single item only) -->
         <button
@@ -815,14 +821,11 @@
         </button>
       </template>
 
-      <!-- Sheet only: the actions run past the bottom edge; this says so until the end is reached. -->
-      <div v-if="isCoarsePointer && menuHasMore" class="pointer-events-none sticky bottom-0 h-0" aria-hidden="true">
-        <div class="absolute inset-x-0 bottom-0 flex h-14 items-end justify-center bg-gradient-to-t from-surface via-surface/90 to-transparent pb-1">
-          <span class="flex items-center gap-1 rounded-full bg-overlay-subtle px-2.5 py-0.5 text-[11px] text-content-tertiary">
-            <ChevronDownIcon class="h-3 w-3" :stroke-width="2" />
-            More actions
-          </span>
-        </div>
+      <!-- Sheet only: the actions run past the bottom edge. The cue is its own
+           strip with a hard edge, so no action is ever half-covered by it. -->
+      <div v-if="isCoarsePointer && menuHasMore" class="pointer-events-none sticky bottom-[calc(-0.5rem-var(--safe-bottom,0px))] z-10 flex h-[calc(2rem+var(--safe-bottom,0px))] items-center justify-center gap-1 border-t border-edge-subtle bg-surface pb-[var(--safe-bottom,0px)] text-xs text-content-tertiary" aria-hidden="true">
+        <ChevronDownIcon class="h-3.5 w-3.5" :stroke-width="2" />
+        <span>Scroll for more actions</span>
       </div>
     </div>
     </Transition>

@@ -40,14 +40,8 @@ const families = computed(() =>
   }))
 )
 
-/**
- * The phone dock's order: the three photo tools, then Generate and Adjust,
- * Annotate, and Paint last — the family a phone reaches for least.
- */
-const PHONE_ORDER: FamilyId[] = ['crop', 'retouch', 'generate', 'levels', 'annotate', 'paint']
-const barFamilies = computed(() =>
-  PHONE_ORDER.map(id => families.value.find(family => family.id === id)!).filter(Boolean)
-)
+/** One order everywhere: TOOL_FAMILIES'. */
+const barFamilies = families
 
 const STACK_ICON = sanitizeSvg(
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"

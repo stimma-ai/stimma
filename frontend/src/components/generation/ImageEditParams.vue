@@ -77,7 +77,7 @@
                 @mousedown.prevent="selectLora(index, lora.name)"
                 :class="[
                   'px-3 py-2 text-xs cursor-pointer transition-colors duration-150',
-                  loraIndex === loraRow.selectedIndex ? 'bg-accent-selection/15 text-content' : 'text-content-secondary hover:bg-overlay-subtle'
+                  loraIndex === loraRow.selectedIndex ? 'bg-selection/15 text-content' : 'text-content-secondary hover:bg-overlay-subtle'
                 ]"
               >
                 {{ lora.name }}

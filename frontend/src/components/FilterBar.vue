@@ -19,25 +19,24 @@
       </button>
 
       <div class="flex gap-2 flex-wrap flex-1 compact:contents">
-        <!-- Marker Toggle Buttons (Always First) - 3-state: none, positive (accent), negative (red) -->
-        <!-- 3-state marker toggles. Include is the PRIMARY active look: the
-             clean native-color chip (icon + wash of the marker's own color),
-             no adornment. Exclude is the louder variant: same native chip but
-             with an explicit red "−" sitting left of the icon inside the halo.
-             Off = gray ghost. The icon itself is never recolored. -->
+        <!-- Marker toggles, 3-state: off, include, exclude. One silhouette rule
+             shared with every marker toggle: outline at rest, filled in the
+             marker's own color when set, on one backing (overlay-light).
+             Exclude is the same set look plus a red "−" left of the glyph. -->
         <button
           v-for="marker in filterMarkers"
           :key="marker.id"
           :class="[
-            'inline-flex items-center justify-center h-9 compact:h-11 rounded-md transition-colors cursor-pointer',
+            'inline-flex items-center justify-center h-9 compact:h-11 rounded-md transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
             isMarkerNegative(marker.id) ? 'px-2 gap-1' : 'w-9 compact:w-10',
             isMarkerPositive(marker.id) || isMarkerNegative(marker.id)
-              ? ''
+              ? 'bg-overlay-light'
               : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
           ]"
           :style="isMarkerPositive(marker.id) || isMarkerNegative(marker.id)
-            ? { color: markerColor(marker), backgroundColor: markerWash(marker) }
+            ? { color: markerColor(marker) }
             : {}"
+          :aria-pressed="isMarkerPositive(marker.id) || isMarkerNegative(marker.id)"
           :title="marker.name + (isMarkerPositive(marker.id) ? ' — filtering' : isMarkerNegative(marker.id) ? ' — excluded' : '')"
           @click="toggleMarker(marker.id)"
         >
@@ -45,7 +44,11 @@
             v-if="isMarkerNegative(marker.id)"
             class="text-red-400 text-[16px] font-semibold leading-none select-none"
           >−</span>
-          <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+          <span
+            class="w-5 h-5 flex items-center justify-center icon-container"
+            :class="isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? '' : 'marker-glyph-off'"
+            v-html="sanitizeSvg(marker.icon_svg)"
+          />
         </button>
 
         <!-- Cart: every active criterion as a chip. Compact: its own row under the toggles. -->
@@ -183,7 +186,7 @@
                :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', projectMembership === 'none' ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
                @click="toggleProjectMembershipSign">
             <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
-            <span class="leading-none">Any Project</span>
+            <span class="leading-none">Any project</span>
             <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearProjectMembership">
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -297,9 +300,9 @@
             @update:model-value="localSortBy = $event; emitUpdate()"
             :options="[
               ...(similarSearchActive || localSimilarToText ? [{ value: 'similarity', label: 'Similarity' }] : []),
-              { value: 'created_desc', label: 'Newest First', triggerLabel: isCompact ? 'Newest' : undefined },
-              { value: 'created_asc', label: 'Oldest First', triggerLabel: isCompact ? 'Oldest' : undefined },
-              { value: 'indexed_desc', label: 'Recently Imported', triggerLabel: isCompact ? 'Imported' : undefined },
+              { value: 'created_desc', label: 'Newest first', triggerLabel: isCompact ? 'Newest' : undefined },
+              { value: 'created_asc', label: 'Oldest first', triggerLabel: isCompact ? 'Oldest' : undefined },
+              { value: 'indexed_desc', label: 'Recently imported', triggerLabel: isCompact ? 'Imported' : undefined },
               { value: 'edited_desc', label: 'Recently edited', triggerLabel: isCompact ? 'Edited' : undefined },
               { value: 'random', label: 'Random' },
             ]"
@@ -525,7 +528,7 @@
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Projects</h4>
             <div class="flex flex-col gap-0.5">
               <!-- Scope: the top level shows only assets in no project unless this is on.
-                   Picking a specific project or "Any Project" implies it. -->
+                   Picking a specific project or "Any project" implies it. -->
               <div
                 role="switch"
                 :aria-checked="localIncludeProjects ? 'true' : 'false'"
@@ -558,7 +561,7 @@
                 :title="'Cycle: no constraint → in any project → not in any project'"
               >
                 <span :class="['text-[13px]', projectMembership === 'any' ? 'text-accent-hi font-medium' : projectMembership === 'none' ? 'text-red-400 font-medium' : 'text-content-secondary']">
-                  Any Project
+                  Any project
                 </span>
                 <span :class="['text-xs font-mono tabular-nums', projectMembership ? 'text-content-tertiary' : 'text-content-muted']">({{ projectMembership === 'none' ? (filterCounts.project_membership?.none || 0) : (filterCounts.project_membership?.any || 0) }})</span>
               </div>
@@ -2153,17 +2156,10 @@ function isMarkerNegative(markerId) {
   return (excludedMarkers.value || []).includes(markerId)
 }
 
-// Marker chips render in the marker's own color; fall back to the accent for
-// markers without one. Wash = ~12% alpha of the same color (hex only — the
-// accent fallback uses the rgb token form instead).
+// Set marker toggles render in the marker's own color; fall back to the accent
+// for markers without one.
 function markerColor(marker) {
   return marker.color || 'var(--color-accent-hi)'
-}
-
-function markerWash(marker) {
-  return marker.color?.startsWith('#')
-    ? marker.color + '1F'
-    : 'rgb(var(--color-accent-rgb) / 0.12)'
 }
 
 function toggleMarker(markerId) {

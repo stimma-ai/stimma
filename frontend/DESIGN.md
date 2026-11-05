@@ -29,7 +29,7 @@ New:
 --accent-selection(-rgb)  selection accent, DECIDED 2026-07-17: indigo family
                           (dark ~#818cf8, light #6366f1). Never an alias of
                           teal: selection ≠ action.
---color-matte(-rgb)       media matte. Dark: near-black (7 8 10). Light: paper (245 245 244).
+--color-matte(-rgb)       media matte. Dark: near-black (7 8 10). Light: paper (236 234 230), a clear step darker than the 244 panel beside it.
 --color-live(-rgb)        DECIDED 2026-07-18: magenta (dark 244 114 182 /
                           light 219 39 119). "Live" = autonomous/continuous
                           operation the user set running: forever mode armed,
@@ -168,10 +168,12 @@ one background step, not border+fill.
 ladder is primary > secondary > tertiary > muted, and every step is readable;
 disabled state is `disabled:opacity-50`, never a text token. Dark
 (base 13 15 20, surface 18 20 26, raised 26 29 37): secondary 8.4 / 7.7,
-tertiary 6.5 / 6.0, muted 5.2 / 4.7 (surface / raised). Light (white, 244,
-228): secondary 9.5 / 8.2, tertiary 7.3 / 6.3, muted 5.5 / 4.8. Light
+tertiary 6.5 / 6.0, muted 5.5 / 5.0 (surface / raised). Light (white, 244,
+228): secondary 9.5 / 8.2, tertiary 7.3 / 6.3, muted 5.8 / 5.1. Light
 `accent-hi` is teal-700 (5.5 on white) so teal text passes; `accent` is the
 fill. Muted on a hover/active fill can dip toward 4.1.
+Placeholders are the muted step in both themes (a global `::placeholder` rule in
+style.css; fields write `placeholder:text-content-muted`, never `placeholder-white/NN`).
 
 - UI sans (system): `text-xs` default dense UI, `text-sm` primary content,
   `text-lg font-semibold` in-page headings, `text-xl font-semibold` view
@@ -289,7 +291,12 @@ standard, `w-5` toolbar. Tool icons via `ToolIcon.vue`/`taskTypeIcons.ts` +
 provider badge — the only sanctioned tool iconography (existing rule).
 Menus, rows and the sidebar draw every glyph outline at 1.75; fill is reserved
 for an active toggle (a set heart or bookmark), so an unset toggle never looks
-set. Each destination in the sidebar rail has its own glyph; saved views take
+set. Every marker toggle (browse filters, selection bar, slideshow rail and info
+panel, tool output settings, the context menu) follows one rule: outline in
+`content-tertiary` at rest (`marker-glyph-off` in style.css), filled in the
+marker's own color on a `bg-overlay-light` backing when set. A browse filter's
+exclude state is the set look plus a red minus. Display-only markers on a tile
+are the monochrome black-glass chip (`TileMarkers`). Each destination in the sidebar rail has its own glyph; saved views take
 the glyph of the filter they hold (marker, clock for expiring, else funnel).
 Pinned and open tool rows show the task-type glyph from `taskTypeIcons.ts` at
 nav-icon size and weight, not the vendor mark. The rail has two row shapes: the
@@ -397,7 +404,10 @@ that a desktop-sized window never trips.
   content are one surface: a drag anywhere on it outside text fields and
   sliders moves the drawer until it is full and only then scrolls the
   content; pulling down at the top of the content shrinks it; a flick goes to
-  the next height. The strip and a slice of the hero stay visible at every
+  the next height. The drawer opens at half height, sized to what the hero's
+  matte can spare (40% of the column once there is a result, 55% for an empty
+  tool), so the prompt and the next control show without shrinking the picture.
+  The strip and a slice of the hero stay visible at every
   height. Only the prompt is pinned; resolution is the first control under
   it, and the output settings (auto-markers, auto-delete) live in the sheet
   Run's long-press opens, with a dot on Run while either is on. Roomy: no drawer. Controls on the left; on the right the hero, with
@@ -608,6 +618,13 @@ right = retention ghost, forever-mode icon ghost, then the split Run button
 (primary + `×N` count chip + dropdown segment). Batch count lives IN the Run
 button; no separate stepper in the bar.
 
+**Desktop ownership:** the controls column carries no box (no border, no
+fill): the generation prompt is its first block and the only tall field. The
+agent dock beneath is one compact fill-only row at rest (sparkle, the
+placeholder, tools and send), subordinate to the prompt. Schema-supplied
+labels are rendered in sentence case at display time
+(`components/generation/displayLabel.ts`); the data is unchanged.
+
 **Prompt editor:** fill-only field (§3 input pattern), min-height ~3 lines.
 The action bar is a single quiet row under the field: Enhance toggle +
 translate chip on the left; editor toggles (mono/vim), help, and the AI
@@ -782,23 +799,31 @@ The compact editor is the desktop editor re-homed, never a second editor
 (§1.11). It borrows the shape every phone editor converges on: one toolbar
 row that drills down in place (CapCut), the current tool's parameters as
 values with one dial (iOS Photos), and the picture itself as the slider
-(Snapseed). Top to bottom:
+(Snapseed).
 
-- **One header row**: back chevron, then the options button (an anchored
-  menu: Compare, the stack, Save as, Revert), undo, redo, Save. No title.
+On desktop the history column folds away while a document has no edits; the
+Edits button at the end of the family row reopens it. The selection island
+groups its controls as tool, combine mode and selection action, and names the
+armed tool and the active combine mode. The phone, top to bottom:
+
+- **One header row**: back chevron, then Edits (the stack, labelled, with
+  its step count: history is the document's, not a tool), the options button
+  (an anchored menu: Compare, the stack, Save as, Revert), undo, redo, Save.
+  No title.
 - **The picture**, with the glass chips (zoom, Compare) and the selection
   pill on the matte. The pill is the only selection chrome: idle it arms
   the last tool, armed it names the tool in the selection color.
 - **The deck** (`EditorToolStrip` under a panel): a single row of cells.
-  At the root it is the six families and a badged Edits cell; inside a
+  At the root it is the six families, in the desktop's order (Crop,
+  Retouch, Generate, Adjust, Annotate, Paint); inside a
   family it becomes ‹ plus that family's pickable things (brushes, verbs,
   Adjust's groups, crop aspects and turns, paint engines); while a
   selection tool is armed it is ‹ plus the selection tools. Above the row,
   the panel holds only what the current pick needs: the tool's parameters
   (`ParamDeck`), Generate its prompt and Run, the wells and popovers a
   tool has beyond numbers. No drawer, no dock, nothing to drag.
-- **The stack** (Edits / Output / Info) is a kit Sheet behind the row's
-  Edits cell. Tapping a step closes the sheet and opens it where it is
+- **The stack** (Edits / Output / Info) is a kit Sheet behind the header's
+  Edits button. Tapping a step closes the sheet and opens it where it is
   edited.
 
 **One way out.** The row's left cell is ‹, and it goes up exactly one
@@ -853,7 +878,10 @@ the media menu stay in one place.
   sticks to the top of the chat with Show fewer.
 - **Preview** is the picture and a strip. Everything on the picture is §3.3 black
   glass: pick top-left, slideshow and menu top-right, facts bottom-left (the
-  position is editable), Add to message bottom-right. The picture, strip and
+  position is editable). Add to message bottom-right is the only labelled, outlined
+  chip on the picture (paging and opening are bare icon glass), and once added
+  it drops the outline and reads In message. A set or grid carries the browse `TileChip`
+  (monochrome glyph, mono member count), never a colored icon. The picture, strip and
   header fit the chat together, so paging through a set never needs a vertical
   scroll. The strip crops like the slideshow strip, and the current tile takes
   the selection ring while the rest dim.
@@ -866,6 +894,15 @@ the media menu stay in one place.
   like the message queue, keeping one bottom bar (§1.11).
 
 ### 3.5b Composer and flow header (adopted 2026-11-05)
+
+- **One transcript column.** Messages, media and the composer share one centred
+  column (880px; 640px when the chat is docked beside a tool or flow). Media
+  fills it to its own cap rather than hugging the left edge.
+- **Home and project overview share one spacing scale:** top offset 80px (32px
+  on compact), hero to composer 32px (24px), composer to content 56px (40px).
+  The hero floats in spare height only when nothing sits below it. On compact,
+  Jump back in is single-column rows (80px thumbnail, title up to two lines, one
+  preview line led by the quiet type label); two columns once the window is roomy.
 
 - **The composer is fill-only** (`bg-surface`, no hairline; a focus ring only
   while it has focus). It rests one line tall and grows with its text. Its meta

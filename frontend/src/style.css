@@ -38,6 +38,16 @@
 /* Stimma is an interaction-first desktop UI. Text selection is opt-in for
    content, while native editing surfaces must always retain normal selection. */
 @layer base {
+  /* Placeholder text is the muted step of the text ladder in both themes.
+     Preflight ships gray-400 (2.2:1 on a light panel), which reads as an empty
+     field; muted clears 4.5:1 on every surface. Fields that set their own
+     placeholder color use `placeholder:text-content-muted`, never white/NN. */
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-text-muted);
+    opacity: 1;
+  }
+
   input,
   textarea,
   [contenteditable]:not([contenteditable="false"]) {
@@ -362,7 +372,7 @@ body {
   --color-text-secondary: rgb(var(--color-text-secondary-rgb));
   --color-text-tertiary-rgb: 146 154 171;
   --color-text-tertiary: rgb(var(--color-text-tertiary-rgb));
-  --color-text-muted-rgb: 128 136 153;
+  --color-text-muted-rgb: 132 140 157;
   --color-text-muted: rgb(var(--color-text-muted-rgb));
 
   /* Borders */
@@ -507,7 +517,7 @@ body {
   --color-text-secondary: rgb(var(--color-text-secondary-rgb));
   --color-text-tertiary-rgb: 80 80 89;
   --color-text-tertiary: rgb(var(--color-text-tertiary-rgb));
-  --color-text-muted-rgb: 98 98 107;
+  --color-text-muted-rgb: 94 94 103;
   --color-text-muted: rgb(var(--color-text-muted-rgb));
 
   /* Borders */
@@ -537,7 +547,7 @@ body {
   --color-accent-hi: rgb(var(--color-accent-hi-rgb));
   --color-selection-rgb: 99 102 241;
   --color-selection: rgb(var(--color-selection-rgb));
-  --color-matte-rgb: 241 239 235;
+  --color-matte-rgb: 236 234 230;
   --color-matte: rgb(var(--color-matte-rgb));
   --color-live-rgb: 219 39 119;
   --color-live: rgb(var(--color-live-rgb));
@@ -639,6 +649,19 @@ select option {
   width: 100%;
   height: 100%;
   flex-shrink: 0;
+}
+
+/* Marker toggles (heart, bookmark, any catalog marker): ONE silhouette rule.
+   At rest the glyph is an outline; set, it is filled in the marker's own color
+   on the `bg-overlay-light` backing. Catalog icons are solid, so the outline
+   is the same shape drawn with a stroke. Put `marker-glyph-off` on the glyph
+   container while the marker is unset (and never on a display-only badge). */
+.marker-glyph-off > svg,
+.marker-glyph-off > svg * {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linejoin: round;
 }
 
 /* Checkerboard pattern for transparent image backgrounds - standard light/white pattern */
@@ -872,7 +895,7 @@ textarea,
 .sheet-row > svg:first-child, .sheet-row .sheet-row-icon { width: var(--sheet-icon); height: var(--sheet-icon); flex: none; overflow: hidden; color: var(--color-content-secondary); display: inline-flex; align-items: center; justify-content: center; }
 .sheet-row .sheet-row-icon > *, .sheet-row .sheet-row-icon svg, .sheet-row .sheet-row-icon img { width: 100% !important; height: 100% !important; max-width: 100%; max-height: 100%; }
 .sheet-row .sheet-row-detail { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--sheet-font-detail); color: var(--color-content-tertiary); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sheet-section { padding: 10px var(--sheet-row-px) 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-content-tertiary); }
+.sheet-section { padding: 10px var(--sheet-row-px) 2px; font-size: 12px; font-weight: 500; color: var(--color-content-tertiary); }
 /* Sheets scroll by touch; a scrollbar is desktop furniture. */
 [data-sheet-layer] .sheet-panel > div, [data-sheet-menu], [data-pointer="coarse"] .z-menu.fixed:not([data-sheet-layer]):not(.inset-0), [data-pointer="coarse"] .z-menu.absolute:not([data-sheet-layer]):not(.inset-0) { scrollbar-width: none; }
 [data-sheet-layer] .sheet-panel > div::-webkit-scrollbar, [data-sheet-menu]::-webkit-scrollbar { display: none; }

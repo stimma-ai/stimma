@@ -59,7 +59,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search boards..."
-            class="w-48 rounded-lg border border-edge-subtle bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content-secondary placeholder-white/30 focus:border-accent focus:outline-none compact:w-full compact:min-h-11"
+            class="w-48 rounded-lg border border-edge-subtle bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content-secondary placeholder:text-content-muted focus:border-accent focus:outline-none compact:w-full compact:min-h-11"
           />
         </div>
       </div>
@@ -193,7 +193,7 @@ const sortDropdownOpen = ref(false)
 const sortDropdownRef = ref(null)
 const unsubscribers = []
 const sortOptions = [
-  { value: 'updated', label: 'Recently Updated' },
+  { value: 'updated', label: 'Recently updated' },
   { value: 'name', label: 'Name' }
 ]
 

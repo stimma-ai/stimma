@@ -548,7 +548,8 @@ onBeforeUnmount(() => {
             <button
               v-if="activePickable && collections.canAttach.value"
               type="button"
-              class="absolute bottom-2 right-2 z-chrome flex h-7 items-center gap-1 rounded-md bg-black/55 pl-1.5 pr-2 text-xs font-medium text-white backdrop-blur transition-colors hover:bg-black/75 coarse:h-11 coarse:pl-2.5 coarse:pr-3"
+              class="absolute bottom-2 right-2 z-chrome flex h-7 items-center gap-1 rounded-md pl-1.5 pr-2 text-xs font-medium text-white backdrop-blur transition-colors coarse:h-11 coarse:pl-2.5 coarse:pr-3"
+              :class="collections.isAttached(activeMediaId) ? 'bg-black/55 hover:bg-black/75' : 'bg-black/70 ring-1 ring-inset ring-white/35 hover:bg-black/85'"
               @click.stop="collections.isAttached(activeMediaId) ? collections.detach(activeMediaId) : collections.attach([activeMediaId])"
             >
               <CheckIcon v-if="collections.isAttached(activeMediaId)" class="h-3.5 w-3.5 text-accent-hi" />

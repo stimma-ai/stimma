@@ -55,7 +55,7 @@
 
       <!-- Also shown when only older history remains (e.g. every recent item
            was deleted), so the load-more sentinel can still reach it. -->
-      <div v-if="items.length > 0 || hasMore">
+      <div v-if="items.length > 0 || hasMore" class="mx-auto w-full" :class="chatColumnClass">
         <!-- Load more trigger (scroll-based) -->
         <div v-if="hasMore" ref="loadMoreSentinel" class="text-center mb-4 py-2">
           <span class="text-content-tertiary text-sm">Loading older messages...</span>
@@ -1145,6 +1145,8 @@
 
     <!-- Input Area -->
     <div class="px-4 pb-4 pt-1 compact:px-3 compact:pb-3 flex-shrink-0">
+      <!-- Same column as the transcript above, so the composer lines up with it. -->
+      <div class="mx-auto w-full" :class="chatColumnClass">
       <div
         v-if="chatInterrupted"
         class="mb-2 flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-amber-500/40 bg-amber-500/[0.08]"
@@ -1239,6 +1241,7 @@
           </button>
         </template>
       </ChatInputBox>
+      </div>
     </div>
 
     <!-- Delete Confirmation Modal -->
@@ -1511,6 +1514,9 @@ const items = ref([])
 // and sendMessage). Instantiated unconditionally — cheap when there's no
 // artifact in the chat — so embedded usage never has to special-case it.
 const artifactStage = useArtifactStage(chatId, items)
+// The one transcript column: messages, media and composer share it. A chat
+// docked beside a tool or flow (embedded) gets the narrower variant.
+const chatColumnClass = computed(() => (props.embedded ? 'max-w-[640px]' : 'max-w-[880px]'))
 useBackOverride(() => artifactStage.stageOpen.value, artifactStage.close)
 function refreshStagedFile(file: WorkspaceFile) {
   const staged = artifactStage.workspaceFile.value

@@ -58,7 +58,7 @@
     <!-- Complete or Trashed (trashed items still viewable) -->
     <template v-else-if="(row.output.status === 'complete' || row.output.status === 'trashed') && row.output.media_id">
       <!-- Sets and grids arrive with a backdrop baked in by the server (light:
-           the surface token; dark: neutral 18). Matching it keeps the picture and
+           the surface token; dark: neutral 24, which no token matches). Matching it keeps the picture and
            what surrounds it one matte. The gutters keep the parent's chips off
            the artwork. -->
       <div class="absolute inset-x-0" :style="{ top: `${gutterTop}px`, bottom: `${gutterBottom}px` }">
@@ -73,42 +73,43 @@
         />
       </div>
 
-      <!-- Media type badge (upper right) - for non-image types -->
+      <!-- Type chip (upper right): the browse TileChip, monochrome glyph, mono member count for sets and grids -->
       <div v-if="outputMediaType && outputMediaType !== 'image'" class="absolute top-1.5 right-1.5 z-chrome" :style="insetRight ? { right: `${insetRight}px` } : null">
-        <div class="bg-black/60 backdrop-blur-md rounded px-1.5 py-0.5 flex items-center gap-1">
+        <TileChip>
           <!-- Audio icon (music note) -->
-          <svg v-if="outputMediaType === 'audio'" class="w-3.5 h-3.5 flex-shrink-0 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg v-if="outputMediaType === 'audio'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
           </svg>
           <!-- Text icon (document) -->
-          <svg v-else-if="outputMediaType === 'text'" class="w-3.5 h-3.5 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg v-else-if="outputMediaType === 'text'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
           </svg>
           <!-- Set icon (layers) -->
-          <svg v-else-if="outputMediaType === 'set'" class="w-3.5 h-3.5 flex-shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg v-else-if="outputMediaType === 'set'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" />
           </svg>
           <!-- Grid icon -->
-          <svg v-else-if="outputMediaType === 'grid'" class="w-3.5 h-3.5 flex-shrink-0 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg v-else-if="outputMediaType === 'grid'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
           </svg>
           <!-- Video icon -->
-          <svg v-else-if="outputMediaType === 'video'" class="w-3.5 h-3.5 flex-shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg v-else-if="outputMediaType === 'video'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
           </svg>
           <!-- Sprite icon (film frame) -->
-          <svg v-else-if="outputMediaType === 'sprite'" class="w-3.5 h-3.5 flex-shrink-0 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <svg v-else-if="outputMediaType === 'sprite'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m1.5 3.75C5.496 15.75 6 15.246 6 14.625v-1.5m-3.75 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5m-1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C4.254 8.25 3.75 7.746 3.75 7.125v-1.5m0 0c0-.621.504-1.125 1.125-1.125h1.5C6.996 4.5 7.5 5.004 7.5 5.625v1.5m0 0v10.5m0-10.5h9m-9 10.5h9m0 0v-10.5m0 10.5c0 .621.504 1.125 1.125 1.125h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5m1.5 2.625c.621 0 1.125-.504 1.125-1.125v-1.5m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5m-1.5-3.75C18.504 8.25 18 7.746 18 7.125v-1.5m1.125 2.625h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125h1.5c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125" />
           </svg>
           <!-- Package icon (archive box) -->
-          <svg v-else-if="outputMediaType === 'package'" class="w-3.5 h-3.5 flex-shrink-0 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+          <svg v-else-if="outputMediaType === 'package'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
           </svg>
           <!-- Layout icon (newspaper) -->
-          <svg v-else-if="outputMediaType === 'layout'" class="w-3.5 h-3.5 flex-shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <svg v-else-if="outputMediaType === 'layout'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3Z" />
           </svg>
-        </div>
+          <span v-if="(outputMediaType === 'set' || outputMediaType === 'grid') && memberCount">{{ memberCount }}</span>
+        </TileChip>
       </div>
 
       <!-- Trashed badge (upper left) - yellow trash icon -->
@@ -192,13 +193,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue'
-import { MediaImage } from '../media'
+import { computed, onMounted, ref, watch } from 'vue'
+import { MediaImage, TileChip } from '../media'
 import { workspaceMediaUrl } from '../../utils/workspaceMediaUrl'
 import { useMarkers } from '../../composables/useMarkers'
 import { useMediaState } from '../../composables/useMediaState'
 import { useExpirationClock } from '../../composables/useExpirationClock'
 import { getMediaType } from '../../utils/mediaTypes'
+import { useMediaApi } from '../../composables/useMediaApi'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
 const props = defineProps({
@@ -331,6 +333,21 @@ const outputMediaType = computed(() => {
 })
 
 const isComposite = computed(() => outputMediaType.value === 'set' || outputMediaType.value === 'grid')
+
+// Sets and grids show their member count on the type chip, as browse tiles do.
+const { getMediaItem } = useMediaApi()
+const memberCount = ref(0)
+watch(
+  () => [isComposite.value, props.row.output.media_id],
+  async ([composite, mediaId]) => {
+    if (!composite || !mediaId) return
+    try {
+      const item = await getMediaItem(mediaId, { includeTrashed: true })
+      if (props.row.output.media_id === mediaId) memberCount.value = item?.member_count || 0
+    } catch { /* the chip just omits the count */ }
+  },
+  { immediate: true }
+)
 
 // Force thumbnail mode for composite media (grids, sets) whose raw files are JSON, not images.
 // Default to thumbnail until we know the type — safe because chat tiles top out around the

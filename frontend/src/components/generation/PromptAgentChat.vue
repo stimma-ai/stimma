@@ -260,7 +260,11 @@
     </div>
 
     <!-- Feedback input box (mirrors ChatView's input: text on top, toolbar row) -->
-    <div class="bg-surface border border-edge rounded-lg overflow-hidden">
+    <!-- Subordinate to the generation prompt: fill-only (no border), and on wide
+         screens one compact row at rest — the sparkle names the purpose, the
+         field grows with its text, the tools sit beside it. -->
+    <div class="bg-overlay-subtle rounded-lg overflow-hidden md:flex md:items-center md:gap-1 md:pl-3">
+      <SparklesIcon class="hidden md:block w-4 h-4 flex-none text-accent-hi" aria-hidden="true" />
       <textarea v-no-autocorrect
         ref="feedbackInput"
         v-model="feedbackText"
@@ -273,11 +277,11 @@
         @keydown="voiceBtn?.handleInputKeydown($event)"
         @keyup="voiceBtn?.handleInputKeyup($event)"
         :placeholder="inputPlaceholder"
-        class="w-full bg-transparent text-content text-sm px-4 pt-3 pb-1 focus:outline-none font-sans resize-none block max-h-40 overflow-y-auto"
+        class="w-full bg-transparent text-content text-sm px-4 pt-3 pb-1 md:flex-1 md:min-w-0 md:px-1 md:py-2.5 focus:outline-none font-sans resize-none block max-h-40 overflow-y-auto"
       />
 
       <!-- Action bar: undo/redo/settings lower-left, send lower-right -->
-      <div class="flex items-center justify-between px-2.5 pb-2 pt-2">
+      <div class="flex items-center justify-between px-2.5 pb-2 pt-2 md:flex-none md:gap-1 md:p-1.5">
         <div class="flex items-center gap-0.5">
           <button
             @click="undo"

@@ -721,9 +721,14 @@ function buttonClass(active: boolean, enabled = true) {
   </Transition>
 
   <div
-    class="flex items-center gap-1 px-2.5 py-1.5 w-max
+    class="flex items-center gap-2 px-2 py-1.5 w-max
            bg-surface border border-edge-subtle rounded-lg shadow-lg"
   >
+    <!-- Three clusters, left to right: WHICH tool, HOW its result combines
+         with what is already selected, and what to DO with the selection.
+         The armed tool and the active combine mode say their names, so the
+         glyphs never have to be decoded. -->
+    <span class="flex items-center gap-1" role="group" aria-label="Selection tools">
     <!-- The pointer: grab and edit the things on the canvas (annotations).
          Users think "select" is one idea whether the thing is pixels or an
          object, so it lives here with the region tools rather than inside
@@ -740,7 +745,6 @@ function buttonClass(active: boolean, enabled = true) {
         <ToolIcon name="mousePointer" />
       </button>
     </Tooltip>
-    <span class="w-px h-5 bg-edge-subtle mx-1" />
 
     <span
       v-for="group in SELECT_TOOL_GROUPS"
@@ -813,15 +817,24 @@ function buttonClass(active: boolean, enabled = true) {
       </template>
     </span>
 
-    <span class="w-px h-5 bg-edge-subtle mx-1" />
+    <span
+      v-if="armedTool"
+      class="pl-1 pr-1.5 text-xs font-medium text-selection whitespace-nowrap"
+      data-select-armed-label
+    >{{ armedTool.label }}</span>
+    </span>
+
+    <span class="w-px h-5 bg-edge-subtle" />
 
     <!-- Held modifiers preview the NEXT gesture's mode without moving the
          persistent control: the overridden option lights up while the sticky
          choice stays where the person put it. -->
+    <span class="flex items-center gap-1" role="group" aria-label="Combine mode">
+    <span class="flex items-center gap-0.5 p-0.5 rounded-md bg-overlay-faint">
     <Tooltip v-for="option in SELECTION_MODES" :key="option.id" :text="option.label">
       <button
         type="button"
-        class="p-1.5 rounded-md transition-colors"
+        class="p-1 rounded transition-colors"
         :class="buttonClass((combineOverride ?? combine) === option.id, combineEnabled)"
         :aria-label="option.label"
         :aria-pressed="combine === option.id"
@@ -831,9 +844,17 @@ function buttonClass(active: boolean, enabled = true) {
         <ToolIcon :name="option.icon" />
       </button>
     </Tooltip>
+    </span>
+    <span
+      class="w-[4.25rem] pl-0.5 text-xs whitespace-nowrap"
+      :class="combineEnabled ? 'text-content-secondary' : 'text-content-tertiary/50'"
+      data-select-combine-label
+    >{{ SELECTION_MODES.find(option => option.id === (combineOverride ?? combine))?.label }}</span>
+    </span>
 
-    <span class="w-px h-5 bg-edge-subtle mx-1" />
+    <span class="w-px h-5 bg-edge-subtle" />
 
+    <span class="flex items-center gap-1">
     <span v-if="hasSelection" class="flex items-center gap-1.5">
       <Tooltip :text="`Contract selection by ${edgeAmount} pixels`">
         <button
@@ -872,8 +893,6 @@ function buttonClass(active: boolean, enabled = true) {
       </label>
     </span>
 
-    <span v-if="hasSelection" class="w-px h-5 bg-edge-subtle mx-1" />
-
     <button
       type="button"
       class="px-2.5 py-1.5 text-xs rounded-md whitespace-nowrap"
@@ -892,6 +911,7 @@ function buttonClass(active: boolean, enabled = true) {
     >
       Deselect
     </button>
+    </span>
   </div>
   </template>
   </div>

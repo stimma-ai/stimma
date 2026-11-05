@@ -130,14 +130,6 @@ export const TOOL_FAMILIES: ToolFamily[] = [
       { id: 'expand', label: 'Expand', icon: 'expand', labeled: true, hint: 'Expand — grow the canvas outward' },
     ],
   },
-  {
-    id: 'paint',
-    label: 'Paint',
-    key: 'p',
-    icon: FAMILY_ICONS.paint,
-    defaultSub: null,
-    subTools: [],
-  },
   // Every parametric adjustment lives here: the Autos, the eight group edits
   // (Light, Color, Detail, Mixer, Point color, Grading, Effects, Stylize) and
   // the Looks strip. Filters used to be a second family beside this one, which
@@ -172,6 +164,16 @@ export const TOOL_FAMILIES: ToolFamily[] = [
       { id: 'text', label: 'Text', icon: 'type' },
       { id: 'redact', label: 'Redact', icon: 'redact' },
     ],
+  },
+  // Last: the family a photo edit reaches for least. The order is the one order
+  // the editor shows everywhere (desktop row, phone row).
+  {
+    id: 'paint',
+    label: 'Paint',
+    key: 'p',
+    icon: FAMILY_ICONS.paint,
+    defaultSub: null,
+    subTools: [],
   },
 ]
 

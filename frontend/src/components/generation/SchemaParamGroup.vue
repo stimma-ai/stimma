@@ -28,7 +28,7 @@
             <!-- Seed control with randomize checkbox -->
             <div v-if="param.control === 'seed'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ sentenceCaseLabel(param.label) }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <div class="flex items-center justify-end gap-3">
@@ -64,7 +64,7 @@
             <!-- Enum/Select -->
             <div v-else-if="param.enum || param.searchOptions" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ sentenceCaseLabel(param.label) }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <!-- Content-sized, capped at 75%: a long selected value (e.g. a
@@ -96,10 +96,10 @@
             <div v-else-if="param.type === 'number' || param.type === 'integer'" class="py-1.5">
               <!-- On touch the whole row opens the value sheet. -->
               <div class="flex items-center justify-between gap-4" :class="isCoarsePointer && !constraintState(param).disabled ? 'cursor-pointer' : ''" @click="isCoarsePointer && scrubRefs[param.name]?.openEditor()">
-                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ sentenceCaseLabel(param.label) }}</div>
                 <ScrubValue
                   :ref="(el) => { scrubRefs[param.name] = el as InstanceType<typeof ScrubValue> | null }"
-                  :label="param.label"
+                  :label="sentenceCaseLabel(param.label)"
                   :default-value="typeof param.default === 'number' ? param.default : undefined"
                   :model-value="Number(values[param.name] ?? param.default ?? 0)"
                   @update:model-value="emitParam(param.name, $event)"
@@ -116,7 +116,7 @@
             <!-- Boolean/Checkbox -->
             <div v-else-if="param.type === 'boolean'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ sentenceCaseLabel(param.label) }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <input v-no-autocorrect
@@ -131,7 +131,7 @@
             <div v-else-if="param.type === 'string'" :class="rowPad">
               <div class="flex items-center justify-between gap-4 mb-2">
                 <div class="w-[55%] flex-shrink-0">
-                  <div class="text-[13px] text-content-secondary">{{ param.label }}</div>
+                  <div class="text-[13px] text-content-secondary">{{ sentenceCaseLabel(param.label) }}</div>
                   <div v-if="param.control !== 'textarea' && paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
                 </div>
               </div>
@@ -171,6 +171,7 @@ import type { GenericParam, GenericParamGroup } from '../../composables/useToolS
 import { resolveParamConstraints, isSectionHidden, type ParamConstraintState } from '../../utils/paramConstraints'
 import { useProvidersApi, type ProviderParameterOption } from '../../composables/useProvidersApi'
 import { useViewport } from '../../composables/useViewport'
+import { sentenceCaseLabel } from './displayLabel'
 
 // Standalone, schema-driven settings renderer. Extracted from ToolView's
 // inline generic-params section so any tool's parameter schema can be hosted

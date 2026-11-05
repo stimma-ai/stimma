@@ -13,8 +13,8 @@ test('saved views are created, restored and listed within their owning context',
     name: 'Review picks', filters: {}, sort_by: 'created_desc',
   } } as any);
   await choose(page, project.name);
-  await page.getByRole('button', { name: 'Newest First', exact: true }).click();
-  await page.getByRole('option', { name: 'Oldest First', exact: true }).click();
+  await page.getByRole('button', { name: 'Newest first', exact: true }).click();
+  await page.getByRole('option', { name: 'Oldest first', exact: true }).click();
   await page.getByTitle('Filter options').click();
   await page.getByRole('button', { name: 'Save View', exact: true }).click();
   await page.getByPlaceholder('View name').fill('Review picks');
@@ -35,5 +35,5 @@ test('saved views are created, restored and listed within their owning context',
   await expectContext(page, project.name);
   await page.reload();
   await expectContext(page, project.name);
-  await expect(page.getByRole('button', { name: 'Oldest First', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Oldest first', exact: true })).toBeVisible();
 });

@@ -48,13 +48,14 @@
         </template>
       </div>
       <div v-if="!editing" class="flex items-center gap-3 mt-1">
-        <!-- Status keeps its own space; on narrow rows it is a dot and the
-             text stays for assistive tech. -->
+        <!-- Status owns a slot at every width: dot plus word, never
+             truncated; the description gives way first. "Your Turn" is the
+             actionable state, so it wears the accent and a heavier weight. -->
         <FlowStatusPill
           class="flex-shrink-0"
           :flow-id="flow.id"
-          show-pending
-          text-class="text-[11.5px] text-content-tertiary whitespace-nowrap narrow:sr-only"
+          :show-pending="width !== 'narrow'"
+          :text-class="statusTextClass"
         />
         <span v-if="parentName || flow.description" class="h-3 w-px flex-shrink-0 bg-edge narrow:hidden" aria-hidden="true"></span>
         <div v-if="parentName" class="flex-1 min-w-0 text-[12px] text-content-muted truncate">
@@ -108,6 +109,8 @@ import { useWebSocket } from '../../composables/useWebSocket'
 import FlowStatusPill from './FlowStatusPill.vue'
 import { MediaImage } from '../media'
 import RowThumb from '../lists/RowThumb.vue'
+import { useFlowStatus } from '../../composables/useFlowStatus'
+import { useViewport } from '../../composables/useViewport'
 
 interface Props {
   flow: Flow
@@ -124,6 +127,14 @@ const emit = defineEmits<{
 
 const api = useFlowsApi()
 const { on } = useWebSocket()
+
+const { width } = useViewport()
+const { label: statusLabel } = useFlowStatus(computed(() => props.flow.id))
+const statusTextClass = computed(() =>
+  statusLabel.value === 'Your Turn'
+    ? 'text-[11.5px] font-semibold text-accent-hi whitespace-nowrap'
+    : 'text-[11.5px] text-content-tertiary whitespace-nowrap',
+)
 
 const editing = ref(false)
 const editingName = ref('')

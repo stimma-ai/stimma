@@ -86,7 +86,7 @@
                pill, restyled to the sentence-case label grammar with a mono
                count on the right. -->
           <div
-            class="relative flex select-none items-baseline gap-2.5 px-0.5 pb-1.5"
+            class="relative flex select-none items-center gap-2 px-0.5 pb-1.5"
             :class="!dragState.item ? 'cursor-grab active:cursor-grabbing' : ''"
             draggable="true"
             @dragstart.stop="onSectionDragStart(section, $event)"
@@ -94,7 +94,7 @@
             @dragover.stop.prevent="handleSectionHeaderDragOver(section, $event)"
             @drop.stop.prevent="commitSectionDrop()"
           >
-            <div class="flex min-w-0 flex-1 items-baseline justify-start">
+            <div class="flex min-w-0 flex-1 items-center justify-start">
               <input
                 v-if="sectionEditingId === section.id"
                 v-model="sectionNames[section.id]"
@@ -111,11 +111,16 @@
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
-                <span v-else class="font-normal text-content-muted/70 transition-colors group-hover/name:text-content-secondary">Name this section…</span>
+                <span v-else class="flex items-center gap-1.5 font-normal text-content-tertiary transition-colors group-hover/name:text-content-secondary">
+                  <span class="truncate">Name this section…</span>
+                  <PencilIcon class="h-3 w-3 flex-none" :stroke-width="1.75" aria-hidden="true" />
+                </span>
               </button>
             </div>
-            <button v-if="isCompact && (section.items || []).length" class="min-h-11 min-w-11 px-2 text-xs text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
-            <span class="flex-none whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ (section.items || []).length }} {{ (section.items || []).length === 1 ? 'asset' : 'assets' }}</span>
+            <div class="flex flex-none items-center gap-1">
+              <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ (section.items || []).length }} {{ (section.items || []).length === 1 ? 'asset' : 'assets' }}</span>
+              <button v-if="isCompact && (section.items || []).length" class="min-h-11 min-w-11 whitespace-nowrap px-2 text-xs font-medium text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
+            </div>
           </div>
 
           <div
@@ -351,6 +356,7 @@ import { useViewport } from '../composables/useViewport'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import RenameSheet from '../components/compact/RenameSheet.vue'
 import Sheet from '../components/ui/Sheet.vue'
+import { PencilIcon } from '@heroicons/vue/24/outline'
 import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
 import { useEntityMove } from '../composables/useEntityMove'
 import AssetSelectionSheet from '../components/AssetSelectionSheet.vue'

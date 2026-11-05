@@ -257,23 +257,29 @@
                   <span v-if="getToolPrice(tool)" class="text-[11px] font-mono tabular-nums text-content-tertiary flex-shrink-0">{{ getToolPrice(tool) }}</span>
                 </div>
 
-                <!-- Provider, then capability tags; tags wrap, never clip -->
-                <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-content-tertiary">
-                  <span class="flex items-center gap-1.5 min-w-0">
-                    <span
-                      class="w-[5px] h-[5px] rounded-full flex-shrink-0"
-                      :class="isStimmaCloudTool(tool) ? 'bg-accent' : 'bg-content-muted/70'"
-                    ></span>
-                    <span v-if="isUserTool(tool)" class="truncate">Custom tool</span>
-                    <span v-else-if="isStimmaCloudTool(tool)" class="stimma-cloud-text font-medium truncate">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
-                    <span v-else class="truncate">{{ tool.provider_name || tool.provider_id }}</span>
-                  </span>
+                <!-- One quiet meta line: provider, then at most two distinguishing
+                     capabilities as plain text. The rest collapse into +N; the
+                     full list is its title. -->
+                <div class="mt-0.5 flex items-center gap-1.5 min-w-0 text-[11px] text-content-tertiary">
                   <span
-                    v-for="badge in getToolBadges(tool)"
-                    :key="badge"
-                    class="rounded px-1.5 py-px font-mono text-[10.5px] lowercase whitespace-nowrap"
-                    :class="badge === 'Fast' ? 'bg-overlay-subtle text-accent-hi' : 'bg-overlay-subtle text-content-secondary'"
-                  >{{ badge === 'Fast' ? '⚡ fast' : badge }}</span>
+                    class="w-[5px] h-[5px] rounded-full flex-shrink-0"
+                    :class="isStimmaCloudTool(tool) ? 'bg-accent' : 'bg-content-muted/70'"
+                  ></span>
+                  <span v-if="isUserTool(tool)" class="truncate min-w-0">Custom tool</span>
+                  <span v-else-if="isStimmaCloudTool(tool)" class="stimma-cloud-text font-medium truncate min-w-0">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
+                  <span v-else class="truncate min-w-0">{{ tool.provider_name || tool.provider_id }}</span>
+                  <template v-for="badge in visibleBadges(tool)" :key="badge">
+                    <span class="flex-shrink-0 text-content-muted" aria-hidden="true">·</span>
+                    <span
+                      class="flex-shrink-0 font-mono text-[10.5px] lowercase whitespace-nowrap"
+                      :class="badge === 'Fast' ? 'text-accent-hi' : ''"
+                    >{{ badge === 'Fast' ? '⚡ fast' : badge }}</span>
+                  </template>
+                  <span
+                    v-if="hiddenBadgeCount(tool) > 0"
+                    class="flex-shrink-0 font-mono text-[10.5px] text-content-muted"
+                    :title="getToolBadges(tool).join(', ')"
+                  >+{{ hiddenBadgeCount(tool) }}</span>
                 </div>
 
                 <!-- Description -->
@@ -805,6 +811,15 @@ function getToolPrice(tool) {
 
 function getToolBadges(tool) {
   return tool.metadata?.badges || []
+}
+
+// Cards show the first two capabilities; the rest fold into a quiet +N.
+const VISIBLE_BADGES = 2
+function visibleBadges(tool) {
+  return getToolBadges(tool).slice(0, VISIBLE_BADGES)
+}
+function hiddenBadgeCount(tool) {
+  return Math.max(0, getToolBadges(tool).length - VISIBLE_BADGES)
 }
 
 

@@ -13,7 +13,7 @@
       :style="isSelected(marker.id) ? { backgroundColor: marker.color + '33', color: marker.color } : {}"
       :title="marker.name"
     >
-      <span v-html="sanitizeSvg(marker.icon_svg)" class="w-4 h-4 flex-shrink-0 icon-container"></span>
+      <span v-html="sanitizeSvg(marker.icon_svg)" class="w-4 h-4 flex-shrink-0 icon-container" :class="isSelected(marker.id) ? '' : 'marker-glyph-off'"></span>
     </button>
   </div>
 </template>

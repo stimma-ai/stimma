@@ -1203,7 +1203,7 @@
             :style="isMarkerActive(marker.id) ? { color: marker.color } : {}"
             :title="isMarkerActive(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
           >
-            <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+            <span class="w-5 h-5 flex items-center justify-center icon-container" :class="isMarkerActive(marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
           </button>
         </template>
       </div>

@@ -723,7 +723,7 @@
         :class="[
           'rounded-md flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer h-24 w-full',
           reorderable ? '' : 'col-span-full',
-          isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10' : 'bg-overlay-faint text-content-muted hover:bg-overlay-subtle'
+          isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10' : 'bg-overlay-subtle text-content-muted hover:bg-overlay-light'
         ]"
       >
         <span class="text-xs text-content-muted flex items-center gap-1.5">
@@ -873,6 +873,7 @@ import Modal from '../ui/Modal.vue'
 import { useOwnerProject } from '../../composables/useProjectScope'
 import { appendProjectId } from '../../utils/projectScope'
 import { syncedStorage } from '../../utils/workspaceStore'
+import { sentenceCaseLabel } from './displayLabel'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
 const { extractFrame } = useVideoFrameExtraction()
@@ -1227,9 +1228,9 @@ const fileAcceptString = computed(() =>
 )
 
 const displayLabel = computed(() => {
-  if (props.label) return props.label
-  if (props.accept === 'audio') return 'Reference Audio'
-  return props.accept === 'image' ? 'Reference Images' : 'Input Videos'
+  if (props.label) return sentenceCaseLabel(props.label)
+  if (props.accept === 'audio') return 'Reference audio'
+  return props.accept === 'image' ? 'Reference images' : 'Input videos'
 })
 
 // Check if any input is a set (batch mode)

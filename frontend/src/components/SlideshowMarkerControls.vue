@@ -21,14 +21,15 @@ const filteredMarkers = computed(() => props.markers.filter(marker => marker.nam
 <template>
   <div class="flex items-center justify-center gap-0.5" aria-label="Image markers">
     <button v-for="marker in inlineMarkers" :key="marker.id" type="button"
-      class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-content-secondary transition-colors hover:bg-overlay-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      :class="isActive(marker.id) ? 'bg-overlay-light' : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'"
       :aria-label="marker.name" :aria-pressed="isActive(marker.id)"
       :style="isActive(marker.id) ? { color: marker.color } : undefined"
       @click.stop="$emit('toggle', marker.id)">
-      <span class="icon-container flex h-6 w-6 items-center justify-center" v-html="sanitizeSvg(marker.icon_svg)" />
+      <span class="icon-container flex h-6 w-6 items-center justify-center" :class="isActive(marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
     </button>
     <button v-if="markers.length > 4" type="button"
-      class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md font-mono text-xs text-content-secondary hover:bg-overlay-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md font-mono text-xs text-content-secondary hover:bg-overlay-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       :aria-label="`${markers.length - 3} more markers`" @click="search = ''; open = true">+{{ markers.length - 3 }}</button>
     <Sheet :show="open" @close="open = false">
       <div class="px-4 pb-2">
@@ -40,7 +41,7 @@ const filteredMarkers = computed(() => props.markers.filter(marker => marker.nam
           class="my-2 min-h-11 w-full rounded-md border-0 bg-overlay-faint px-3 text-base text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
         <button v-for="marker in filteredMarkers" :key="marker.id" type="button" class="sheet-row !px-0"
           :aria-label="marker.name" :aria-pressed="isActive(marker.id)" @click="$emit('toggle', marker.id)">
-          <span class="sheet-row-icon icon-container" :style="isActive(marker.id) ? { color: marker.color } : undefined" v-html="sanitizeSvg(marker.icon_svg)" />
+          <span class="sheet-row-icon icon-container" :class="isActive(marker.id) ? '' : 'marker-glyph-off'" :style="isActive(marker.id) ? { color: marker.color } : undefined" v-html="sanitizeSvg(marker.icon_svg)" />
           <span class="flex-1">{{ marker.name }}</span>
           <CheckIcon v-if="isActive(marker.id)" class="h-5 w-5 text-content-secondary" />
         </button>

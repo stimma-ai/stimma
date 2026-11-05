@@ -135,7 +135,7 @@
        </div>
        </div>
        </Transition>
-       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-4 pb-6 roomy:m-2 roomy:mr-0 roomy:p-3 roomy:overscroll-contain">
+       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable mx-3 mt-4 mb-3 px-3 pb-6 roomy:mx-2 roomy:mr-0 roomy:overscroll-contain">
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
         <div class="flex items-center justify-between compact:flex-wrap compact:gap-y-2">
@@ -326,6 +326,24 @@
 
         <!-- Compact: the card's controls render inside ToolDrawer's body. -->
         <Teleport to="#tool-drawer-panels" :disabled="!drawerMode" defer>
+        <!-- Prompt (for task types that need it). external-chat: the editor is a
+             plain editor here — the page-level chat lives in the dock below and
+             is owned by this view, not the prompt field. -->
+        <Teleport to="#tool-drawer-prompt" :disabled="!drawerMode" defer>
+        <div v-if="hasPrompt" class="mb-6 compact:mb-0 roomy:mb-4">
+          <AIPromptEditor
+            ref="aiPromptEditorRef"
+            v-model="globalPrefs.prompt"
+            @focusout="handlePromptFocusOut"
+            :rows="drawerMode ? 3 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
+            external-chat
+            :promptOptions="globalPrefs.promptOptions"
+            @update:promptOptions="globalPrefs.promptOptions = $event"
+            :placeholder="promptPlaceholder"
+          />
+        </div>
+        </Teleport>
+
         <!-- Params-card top row: the resolution trigger, a quiet ghost control
              (no box inside the card). Output settings (auto-markers,
              auto-delete) are a labelled group of their own on desktop, so they
@@ -380,24 +398,6 @@
           />
         </div>
 
-
-        <!-- Prompt (for task types that need it). external-chat: the editor is a
-             plain editor here — the page-level chat lives in the dock below and
-             is owned by this view, not the prompt field. -->
-        <Teleport to="#tool-drawer-prompt" :disabled="!drawerMode" defer>
-        <div v-if="hasPrompt" class="mb-6 compact:mb-0 roomy:mb-4">
-          <AIPromptEditor
-            ref="aiPromptEditorRef"
-            v-model="globalPrefs.prompt"
-            @focusout="handlePromptFocusOut"
-            :rows="drawerMode ? 3 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
-            external-chat
-            :promptOptions="globalPrefs.promptOptions"
-            @update:promptOptions="globalPrefs.promptOptions = $event"
-            :placeholder="promptPlaceholder"
-          />
-        </div>
-        </Teleport>
 
         <!-- Lyrics (audio music tools): a second, prompt-like input. Sits right
              under the main prompt — the prompt is the production brief (genre,
@@ -880,7 +880,7 @@
               :style="stageHasMarker(marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
               :title="stageHasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
             >
-              <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+              <span class="w-5 h-5 flex items-center justify-center icon-container" :class="stageHasMarker(marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
             </button>
           </template>
 
@@ -1033,7 +1033,7 @@
              on screen at full height, so the drawer never squeezes the strip.
              Roomy hides it rather than unmounting it: the controls teleport
              back into it on a fold, and a teleport needs its target present. -->
-        <ToolDrawer v-if="isCompact" v-show="drawerMode" ref="toolDrawerRef" :initial="allJobs.length === 0 ? 'half' : 'collapsed'" :hero-reserve="200" />
+        <ToolDrawer v-if="isCompact" v-show="drawerMode" ref="toolDrawerRef" :initial="'half'" :half-fraction="allJobs.length === 0 ? 0.55 : 0.4" :hero-reserve="200" />
         <!-- Guarded by stageViewActive AND header ownership: KeepAlive keeps
              every tool instance alive, and a teleport left mounted would leave
              a second Run and Agent in the header (pushing the real ones off the
@@ -1116,7 +1116,7 @@
         <div
           id="agent-dock"
           v-show="!llmUnconfigured && agentDocked"
-          class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface px-4 pt-3 pb-4 max-h-[45%] roomy:mx-2 roomy:mb-2 roomy:px-3 roomy:pt-2 roomy:pb-2 roomy:max-h-[35%] roomy:pb-safe"
+          class="flex-none overflow-y-auto mx-6 mb-3 px-0 pt-0 pb-0 max-h-[45%] roomy:mx-5 roomy:mb-2 roomy:max-h-[35%] roomy:pb-safe"
         ></div>
       </div>
     </template>
@@ -4022,10 +4022,13 @@ const canSubmit = computed(() => {
 
 // Job counts from jobs manager
 const allJobs = computed(() => jobsManager?.allJobs.value || [])
-// An empty tool starts with the drawer half-open (the form is the screen);
-// the first result collapses it so the image takes over.
+// The drawer always starts half-open so the prompt and the first controls show.
+// An empty tool gives the form most of the screen; once there is a result the
+// half height shrinks to what the hero's matte can spare (see the drawer's
+// half-fraction), so the first result settles the drawer without shrinking
+// the picture.
 watch(() => allJobs.value.length, (n, prev) => {
-  if (prev === 0 && n > 0) toolDrawerRef.value?.open('collapsed')
+  if (prev === 0 && n > 0) toolDrawerRef.value?.open('half')
 })
 
 // Keep the stage pin honest as the completed-jobs list changes. Declared here

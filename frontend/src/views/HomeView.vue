@@ -18,10 +18,15 @@
       <div class="min-h-full flex flex-col items-center px-8 lg:px-16 compact:px-4" :class="heroReady ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
 
         <!-- Hero area — centered in space above content -->
-        <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16 compact:pt-12 compact:pb-12">
-          <h1 class="relative font-brand text-[32px] compact:text-[26px] compact:leading-tight font-bold tracking-tight text-content mb-2 compact:mb-9 text-center">{{ projectId ? 'What shall we make?' : (greetingParts.pre + greetingParts.word + greetingParts.post) }}</h1>
-          <!-- Scope feedback stays with the Home content. -->
-          <p class="relative h-[20px] mb-10 text-sm text-content-muted compact:hidden">{{ projectId ? `In ${project.name || 'Untitled project'}` : '' }}</p>
+        <!-- Spacing scale: top offset pt-20 (compact pt-8), hero to composer
+             mb-8 (compact mb-6), composer to content pb-14 (compact pb-10).
+             The hero only floats in spare height when there is nothing below it. -->
+        <div class="relative flex flex-col items-center justify-center w-full pt-20 pb-14 compact:pt-8 compact:pb-10" :class="hasBelowHero ? 'flex-none' : 'flex-1'">
+          <div class="relative mb-8 compact:mb-6 text-center">
+            <h1 class="font-brand text-[32px] compact:text-[26px] compact:leading-tight font-bold tracking-tight text-content">{{ projectId ? 'What shall we make?' : (greetingParts.pre + greetingParts.word + greetingParts.post) }}</h1>
+            <!-- Scope feedback stays with the Home content. -->
+            <p v-if="projectId" class="mt-2 text-sm text-content-muted compact:hidden">{{ `In ${project.name || 'Untitled project'}` }}</p>
+          </div>
 
           <div class="relative w-full max-w-[720px]">
             <!-- No chat model configured (deliberate opt-out): tools take the
@@ -117,7 +122,7 @@
         </div>
 
         <!-- Content sections -->
-        <div ref="contentRef" class="w-full max-w-[960px] pb-12 compact:pb-20 space-y-10" :data-recents-state="recentsState">
+        <div ref="contentRef" class="w-full max-w-[960px] pb-12 compact:pb-20 space-y-10 compact:space-y-8" :data-recents-state="recentsState">
 
           <p v-if="failedRecentsLabel" class="text-center text-xs text-content-muted" data-recents-error>
             Couldn't load recent {{ failedRecentsLabel }}.
@@ -129,7 +134,7 @@
             <div class="flex items-center justify-between mb-3">
               <h2 class="text-xs font-semibold text-content-secondary">Jump back in</h2>
             </div>
-            <div class="grid gap-3" :class="isCompact ? 'grid-cols-2' : 'grid-cols-3'">
+            <div class="grid gap-3" :class="isCompact ? 'grid-cols-2 narrow:grid-cols-1' : 'grid-cols-3'">
               <button
                 v-for="item in jumpBackIn"
                 :key="`${item.type}-${item.id}`"
@@ -138,13 +143,13 @@
                 @dragover.prevent="item.type === 'board' && (dragOverBoardId = item.id)"
                 @dragleave="item.type === 'board' && dragOverBoardId === item.id && (dragOverBoardId = null)"
                 @drop.prevent="item.type === 'board' && handleBoardDrop(item.id, $event)"
-                class="flex flex-col rounded-lg border overflow-hidden text-left bg-transparent transition-colors cursor-pointer"
+                class="flex flex-col compact:flex-row rounded-lg border overflow-hidden text-left bg-transparent transition-colors cursor-pointer"
                 :class="item.type === 'board' && dragOverBoardId === item.id
                   ? 'border-transparent ring-1 ring-accent/50 bg-accent/10'
                   : 'border-edge-subtle hover:bg-overlay-faint'"
               >
                 <!-- Art -->
-                <div class="w-full h-28 bg-matte">
+                <div class="w-full h-28 bg-matte compact:w-20 compact:h-auto compact:min-h-20 compact:shrink-0">
                   <!-- Board: filmstrip of tiles at natural aspect, full strip
                        height, left-aligned on matte with 2px media-grid
                        gutters. Widths follow each item's aspect ratio so
@@ -222,23 +227,27 @@
                   </div>
                 </div>
                 <!-- Body -->
-                <div class="px-3.5 py-3">
-                  <div class="text-xs font-semibold text-content-secondary">{{ jumpKindLabel(item) }}</div>
-                  <div class="text-sm font-medium truncate mt-1" :class="item.name ? 'text-content' : 'text-content-muted italic'">
+                <div class="px-3.5 py-3 compact:px-3 compact:py-2.5 compact:flex-1 compact:min-w-0 compact:self-center">
+                  <!-- On compact the type label rides the preview line instead of costing a line of its own. -->
+                  <div class="text-[11px] text-content-muted compact:hidden">{{ jumpKindLabel(item) }}</div>
+                  <div class="text-sm font-medium truncate compact:whitespace-normal compact:line-clamp-2 mt-1 compact:mt-0" :class="item.name ? 'text-content' : 'text-content-muted italic'">
                     {{ item.name || jumpUntitledLabel(item) }}
                   </div>
-                  <FlowStatusPill
-                    v-if="item.type === 'flow'"
-                    :flow-id="item.id"
-                    show-pending
-                    text-class="truncate text-xs text-content-muted"
-                    class="mt-0.5"
-                  />
-                  <div
-                    v-else
-                    class="text-xs truncate mt-0.5"
-                    :class="item.type === 'board' ? 'font-mono tabular-nums text-content-tertiary' : 'text-content-muted'"
-                  >{{ item.sub }}</div>
+                  <div class="flex items-baseline gap-1.5 min-w-0 mt-0.5">
+                    <span class="hidden compact:inline shrink-0 text-[11px] text-content-muted">{{ jumpKindLabel(item) }}<span class="ml-1.5" aria-hidden="true">·</span></span>
+                    <FlowStatusPill
+                      v-if="item.type === 'flow'"
+                      :flow-id="item.id"
+                      show-pending
+                      text-class="truncate text-xs text-content-muted"
+                      class="min-w-0"
+                    />
+                    <div
+                      v-else
+                      class="text-xs truncate min-w-0"
+                      :class="item.type === 'board' ? 'font-mono tabular-nums text-content-tertiary' : 'text-content-muted'"
+                    >{{ item.sub }}</div>
+                  </div>
                 </div>
               </button>
             </div>
@@ -401,6 +410,8 @@ const dragOverBoardId = ref(null)
 const contentWidth = ref(960)
 
 const isCompact = computed(() => contentWidth.value < 700)
+// With recents below, the hero sits at the top offset; alone, it centres in the spare height.
+const hasBelowHero = computed(() => recentMedia.value.length > 0 || jumpBackIn.value.length > 0)
 
 const mediaColumns = computed(() => {
   if (isCompact.value) return 3

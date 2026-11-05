@@ -108,7 +108,7 @@
         :style="hasMarker(job.result_media_id, marker.id) ? { color: marker.color } : {}"
         :title="hasMarker(job.result_media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
       >
-        <span class="w-4 h-4 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+        <span class="w-4 h-4 flex items-center justify-center icon-container" :class="hasMarker(job.result_media_id, marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
       </button>
       <div class="flex-1" />
       <!-- Auto-delete time remaining -->

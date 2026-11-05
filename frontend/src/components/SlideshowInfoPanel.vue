@@ -24,11 +24,11 @@
             @click="toggleMarker(marker.id)"
             :class="[
               'inline-flex items-center justify-center w-7 h-7 rounded-md cursor-pointer border-none bg-transparent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
-              isMarkerActive(marker.id) ? '' : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content-secondary'
+              isMarkerActive(marker.id) ? 'bg-overlay-light' : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
             ]"
             :style="isMarkerActive(marker.id) ? { color: marker.color } : {}"
           >
-            <span v-html="sanitizeSvg(marker.icon_svg)" class="w-5 h-5 flex items-center justify-center icon-container"></span>
+            <span v-html="sanitizeSvg(marker.icon_svg)" class="w-5 h-5 flex items-center justify-center icon-container" :class="isMarkerActive(marker.id) ? '' : 'marker-glyph-off'"></span>
           </button>
         </Tooltip>
         <template v-if="!isInTrash">
