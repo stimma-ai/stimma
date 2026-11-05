@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary">Profiles</h3>
+      <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Profiles</h3>
       <p class="mt-1 text-xs text-content-tertiary">
         Manage workspace profiles. Each profile has its own media library, markers, and settings.
       </p>
@@ -55,7 +55,7 @@
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-[13px] font-medium text-accent-hi">Create Profile</div>
+          <div class="text-[13px] font-medium text-accent-hi">Create profile</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">Start a separate library with its own markers and settings.</div>
         </div>
       </button>
@@ -266,7 +266,7 @@
               placeholder="Enter new PIN"
               class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent mb-2"
             />
-            <label class="block text-xs text-content-tertiary mb-1">Confirm New PIN</label>
+            <label class="block text-xs text-content-tertiary mb-1">Confirm new PIN</label>
             <input
               v-model="confirmPin"
               type="password"

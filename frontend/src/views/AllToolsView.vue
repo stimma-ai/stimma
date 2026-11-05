@@ -1,23 +1,84 @@
 <template>
   <div class="h-full flex flex-col bg-base">
-    <!-- Header row. Wide: title, provider dropdown, search box. Compact (the
-         "Tools" title is the compact header's): one 44px row — the provider
-         filter chip and a search icon that expands into the box. -->
+    <!-- Header row. Wide: title, task and provider filters, tool filter field.
+         Compact (the "Tools" title is the compact header's): one 44px row with
+         the provider filter chip and the tool filter field side by side. The
+         compact header's own search icon is global search; this field only
+         filters the tools on this page. -->
     <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle compact:px-3 compact:py-1 compact:gap-2">
       <h1 class="text-xl font-semibold leading-none text-content compact:hidden">All Tools</h1>
 
-      <div class="flex items-center gap-3 compact:flex-1 compact:gap-1 compact:min-w-0">
+      <div class="flex items-center gap-2 compact:flex-1 compact:gap-1 compact:min-w-0">
+        <!-- Task filter (wide). Multi-select, like providers. -->
+        <div v-if="availableTaskTypes.length > 0" class="relative compact:hidden" ref="taskDropdownRef">
+          <button
+            type="button"
+            @click="taskDropdownOpen = !taskDropdownOpen"
+            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+            :class="activeTaskFilters.size > 0
+              ? 'bg-accent/15 text-accent-hi'
+              : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
+            aria-haspopup="listbox"
+            :aria-expanded="taskDropdownOpen"
+          >
+            <span class="truncate max-w-[16rem]">{{ taskFilterLabel }}</span>
+            <svg class="w-4 h-4 flex-shrink-0 transition-transform" :class="taskDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+
+          <div
+            v-if="taskDropdownOpen"
+            class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu min-w-[220px] max-h-[min(26rem,70vh)] overflow-y-auto py-1"
+            role="listbox"
+            aria-multiselectable="true"
+          >
+            <button
+              type="button"
+              @click="activeTaskFilters = new Set()"
+              class="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors"
+              :class="activeTaskFilters.size === 0 ? 'text-accent-hi' : 'text-content-secondary'"
+              role="option"
+              :aria-selected="activeTaskFilters.size === 0"
+            >
+              <svg v-if="activeTaskFilters.size === 0" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+              <span v-else class="w-4 flex-shrink-0"></span>
+              <span class="flex-1">All tasks</span>
+            </button>
+            <div class="border-t border-edge-subtle my-1"></div>
+            <button
+              v-for="taskType in availableTaskTypes"
+              :key="taskType"
+              type="button"
+              @click="toggleTaskFilter(taskType)"
+              class="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors"
+              :class="activeTaskFilters.has(taskType) ? 'text-accent-hi' : 'text-content-secondary'"
+              role="option"
+              :aria-selected="activeTaskFilters.has(taskType)"
+            >
+              <svg v-if="activeTaskFilters.has(taskType)" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+              <span v-else class="w-4 flex-shrink-0"></span>
+              <span class="flex-1 truncate">{{ formatTaskType(taskType) }}</span>
+              <span class="text-[11px] font-mono tabular-nums text-content-muted">{{ taskTypeCounts[taskType] }}</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Provider filter. Wide: an inline dropdown. Compact / coarse: the
              kit Sheet — an inline dropdown converted to a sheet would sit
              inside the app column's stacking context, under the shared sheet
              backdrop, and no tap would ever reach it. -->
-        <div v-if="availableProviders.length > 1 || hasUnavailableTools" class="relative compact:min-w-0" :class="searchOpen ? 'compact:hidden' : ''" ref="providerDropdownRef">
+        <div v-if="availableProviders.length > 1 || hasUnavailableTools" class="relative compact:min-w-0" ref="providerDropdownRef">
           <button
             @click="providerDropdownOpen = !providerDropdownOpen"
-            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors compact:min-h-11 compact:max-w-full compact:gap-1.5 compact:px-2"
+            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 compact:min-h-11 compact:max-w-full compact:gap-1.5 compact:px-2"
             :class="activeProviderFilters.size > 0
-              ? 'bg-blue-500/15 text-blue-500'
-              : 'text-content-tertiary hover:text-content-secondary hover:bg-overlay-subtle'"
+              ? 'bg-accent/15 text-accent-hi'
+              : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
           >
             <FunnelIcon class="w-4 h-4 flex-shrink-0 hidden compact:block" />
             <span class="truncate" :class="providerFilterIsStimma ? 'stimma-cloud-text font-medium' : ''">{{ providerFilterLabel }}</span>
@@ -29,14 +90,14 @@
           <!-- Dropdown menu (wide) -->
           <div
             v-if="providerDropdownOpen && !providerSheet"
-            class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu min-w-[180px] py-1"
+            class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu min-w-[180px] py-1"
           >
             <button
               v-for="provider in availableProviders"
               :key="provider.provider_id"
               @click="toggleProviderFilter(provider.provider_id)"
               class="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors"
-              :class="activeProviderFilters.has(provider.provider_id) ? 'text-blue-500' : 'text-content-secondary'"
+              :class="activeProviderFilters.has(provider.provider_id) ? 'text-accent-hi' : 'text-content-secondary'"
             >
               <svg
                 v-if="activeProviderFilters.has(provider.provider_id)"
@@ -55,7 +116,7 @@
             <button
               @click="showUnavailable = !showUnavailable"
               class="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors"
-              :class="showUnavailable ? 'text-blue-500' : 'text-content-secondary'"
+              :class="showUnavailable ? 'text-accent-hi' : 'text-content-secondary'"
             >
               <svg
                 v-if="showUnavailable"
@@ -73,42 +134,16 @@
           </div>
         </div>
 
-        <!-- Text search. Wide: always a box. Compact: a search icon; tapping it
-             expands the box across the row, ✕ clears and collapses. A query
-             keeps the box open so the filter is never hidden while it applies. -->
-        <div class="relative compact:flex-1 compact:min-w-0 compact:flex compact:items-center compact:justify-end compact:gap-1">
-          <button
-            v-if="!searchExpanded"
-            type="button"
-            class="hidden compact:flex w-11 h-11 items-center justify-center rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors"
-            aria-label="Search tools"
-            @click="openSearch"
-          >
-            <MagnifyingGlassIcon class="w-6 h-6" />
-          </button>
-          <div class="relative compact:flex-1 compact:min-w-0" :class="searchExpanded ? '' : 'compact:hidden'">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
-            <input v-no-autocorrect
-              ref="searchInputRef"
-              v-model="searchQuery"
-              type="text"
-              placeholder="Search tools..."
-              class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48 compact:w-full compact:min-h-11"
-              @keydown.escape="closeSearch"
-            />
-          </div>
-          <button
-            v-if="searchExpanded"
-            type="button"
-            class="hidden compact:flex w-11 h-11 flex-shrink-0 items-center justify-center rounded-md text-content-secondary hover:text-content transition-colors"
-            aria-label="Clear search"
-            @click="closeSearch"
-          >
-            <XMarkIcon class="w-6 h-6" />
-          </button>
-        </div>
+        <!-- Tool filter: the one explicit field for narrowing the tools on this
+             page, beside the provider filter. -->
+        <ListSearch
+          ref="searchInputRef"
+          v-model="searchQuery"
+          placeholder="Filter tools..."
+          aria-label="Filter tools"
+          class="w-48 compact:w-full compact:flex-1 compact:min-w-0"
+          @escape="closeSearch"
+        />
       </div>
     </div>
 
@@ -121,7 +156,7 @@
           :key="provider.provider_id"
           type="button"
           class="sheet-row"
-          :class="activeProviderFilters.has(provider.provider_id) ? '!text-blue-500' : ''"
+          :class="activeProviderFilters.has(provider.provider_id) ? '!text-accent-hi' : ''"
           @click="toggleProviderFilter(provider.provider_id)"
         >
           <svg v-if="activeProviderFilters.has(provider.provider_id)" class="sheet-row-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -134,7 +169,7 @@
         <button
           type="button"
           class="sheet-row"
-          :class="showUnavailable ? '!text-blue-500' : ''"
+          :class="showUnavailable ? '!text-accent-hi' : ''"
           @click="showUnavailable = !showUnavailable"
         >
           <svg v-if="showUnavailable" class="sheet-row-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -145,21 +180,6 @@
         </button>
       </div>
     </Sheet>
-
-    <!-- Task type filter pills -->
-    <div v-if="availableTaskTypes.length > 0" class="px-6 py-3 flex flex-wrap gap-2 border-b border-edge-subtle compact:hidden">
-      <button
-        v-for="taskType in availableTaskTypes"
-        :key="taskType"
-        @click="toggleTaskFilter(taskType)"
-        class="px-3 py-1 text-xs rounded-md transition-colors"
-        :class="activeTaskFilters.has(taskType)
-          ? 'bg-blue-500/15 text-blue-500'
-          : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle'"
-      >
-        {{ formatTaskType(taskType) }}
-      </button>
-    </div>
 
     <!-- Tools Grid -->
     <div class="flex-1 overflow-y-auto p-6 compact:p-3">
@@ -203,11 +223,11 @@
           </div>
 
           <!-- Tools grid for this task type -->
-          <div class="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-2.5 compact:grid-cols-1">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2 compact:grid-cols-1">
             <div
               v-for="tool in group.tools"
               :key="tool.full_tool_id"
-              class="relative group rounded-lg p-4 h-[140px] flex flex-col gap-2 transition-colors cursor-pointer bg-surface hover:bg-surface-raised compact:h-auto compact:p-3"
+              class="relative group rounded-lg px-3 py-2.5 flex items-start gap-2.5 transition-colors cursor-pointer bg-surface hover:bg-surface-raised"
               :class="tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : ''"
               @click="openTool(tool)"
               @contextmenu.prevent="isUserTool(tool) ? openToolMenu($event, tool) : null"
@@ -215,7 +235,7 @@
               <!-- Per-tool menu (user tools only) -->
               <button
                 v-if="isUserTool(tool)"
-                class="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
+                class="absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
                 title="Tool options"
                 @click.stop="openToolMenu($event, tool)"
               >
@@ -224,17 +244,22 @@
                 </svg>
               </button>
 
-              <!-- Top: Icon + Name/Provider + Price -->
-              <div class="flex items-start gap-2.5">
-                <!-- Tool icon (vendor mark / task-generic, cloud vs neutral tile) -->
-                <div class="flex items-center justify-center flex-shrink-0">
-                  <ToolIcon :tool="tool" size="sm" :ring="false" />
+              <!-- Tool icon: the mark or task glyph alone, no tile, so the
+                   names and tags carry the comparison. -->
+              <div class="w-5 h-5 mt-px flex-shrink-0 text-content-tertiary">
+                <ToolIcon :tool="tool" bare />
+              </div>
+
+              <div class="flex-1 min-w-0">
+                <!-- Name + price -->
+                <div class="flex items-baseline gap-2">
+                  <h3 class="flex-1 min-w-0 text-sm font-medium leading-snug text-content truncate" :title="tool.name">{{ tool.name }}</h3>
+                  <span v-if="getToolPrice(tool)" class="text-[11px] font-mono tabular-nums text-content-tertiary flex-shrink-0">{{ getToolPrice(tool) }}</span>
                 </div>
 
-                <!-- Name + Provider -->
-                <div class="flex-1 min-w-0">
-                  <h3 class="text-content text-[14px] leading-tight font-brand font-semibold truncate">{{ tool.name }}</h3>
-                  <div class="mt-0.5 flex items-center gap-1.5 text-[11px] text-content-tertiary">
+                <!-- Provider, then capability tags; tags wrap, never clip -->
+                <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-content-tertiary">
+                  <span class="flex items-center gap-1.5 min-w-0">
                     <span
                       class="w-[5px] h-[5px] rounded-full flex-shrink-0"
                       :class="isStimmaCloudTool(tool) ? 'bg-accent' : 'bg-content-muted/70'"
@@ -242,23 +267,17 @@
                     <span v-if="isUserTool(tool)" class="truncate">Custom tool</span>
                     <span v-else-if="isStimmaCloudTool(tool)" class="stimma-cloud-text font-medium truncate">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
                     <span v-else class="truncate">{{ tool.provider_name || tool.provider_id }}</span>
-                  </div>
+                  </span>
+                  <span
+                    v-for="badge in getToolBadges(tool)"
+                    :key="badge"
+                    class="rounded px-1.5 py-px font-mono text-[10.5px] lowercase whitespace-nowrap"
+                    :class="badge === 'Fast' ? 'bg-overlay-subtle text-accent-hi' : 'bg-overlay-subtle text-content-secondary'"
+                  >{{ badge === 'Fast' ? '⚡ fast' : badge }}</span>
                 </div>
 
-                <span v-if="getToolPrice(tool)" class="text-[11px] font-mono tabular-nums text-content-tertiary flex-shrink-0 pt-0.5">{{ getToolPrice(tool) }}</span>
-              </div>
-
-              <!-- Description -->
-              <p class="text-xs text-content-tertiary line-clamp-2 leading-relaxed">{{ getToolDescription(tool) }}</p>
-
-              <!-- Bottom: capability facts in quiet mono -->
-              <div class="mt-auto flex items-center gap-2.5 overflow-hidden whitespace-nowrap text-[10.5px] font-mono">
-                <span
-                  v-for="badge in getToolBadges(tool)"
-                  :key="badge"
-                  class="flex-shrink-0 lowercase"
-                  :class="badge === 'Fast' ? 'text-accent' : 'text-content-muted'"
-                >{{ badge === 'Fast' ? '⚡ fast' : badge }}</span>
+                <!-- Description -->
+                <p v-if="getToolDescription(tool)" class="mt-1.5 text-xs leading-relaxed text-content-secondary line-clamp-2">{{ getToolDescription(tool) }}</p>
               </div>
             </div>
           </div>
@@ -326,9 +345,10 @@ import { consumeEscape, hasEscapeLayer, isTopmostEscapeLayer } from '../utils/es
 import { ref, computed, nextTick, onMounted, onUnmounted, onActivated, onDeactivated, watch } from 'vue'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import { useRoute, useRouter } from 'vue-router'
-import { FunnelIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { FunnelIcon } from '@heroicons/vue/24/outline'
 import { useViewport } from '../composables/useViewport'
 import Sheet from '../components/ui/Sheet.vue'
+import ListSearch from '../components/lists/ListSearch.vue'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { makeProfileKey } from '../utils/storageKeys'
 import {
@@ -375,18 +395,15 @@ const providerDropdownOpen = ref(false)
 const { isCompact, isCoarsePointer, allowsAutofocus } = useViewport()
 const providerSheet = computed(() => isCompact.value || isCoarsePointer.value)
 
-// Compact search: collapsed to an icon until tapped; a live query keeps it open.
-const searchOpen = ref(false)
-const searchExpanded = computed(() => searchOpen.value || !!searchQuery.value)
-function openSearch() {
-  searchOpen.value = true
-  nextTick(() => searchInputRef.value?.focus())
-}
+// Escape in the filter field clears it and drops focus.
 function closeSearch() {
   searchQuery.value = ''
-  searchOpen.value = false
   searchInputRef.value?.blur()
 }
+
+// Task filter dropdown (wide). On coarse pointers it renders as a sheet too.
+const taskDropdownRef = ref(null)
+const taskDropdownOpen = ref(false)
 
 function getSearchKey() {
   return makeProfileKey('allTools', 'searchQuery')
@@ -514,6 +531,22 @@ const availableTaskTypes = computed(() => {
     if (endRank(a) !== endRank(b)) return endRank(a) - endRank(b)
     return counts[b] - counts[a]
   })
+})
+
+const taskTypeCounts = computed(() => {
+  const counts = {}
+  for (const tool of visibleTools.value) {
+    const taskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
+    for (const tt of (taskTypes.length ? taskTypes : ['utility'])) counts[tt] = (counts[tt] || 0) + 1
+  }
+  return counts
+})
+
+const taskFilterLabel = computed(() => {
+  const selected = [...activeTaskFilters.value].filter(t => availableTaskTypes.value.includes(t))
+  if (selected.length === 0) return 'All tasks'
+  const first = formatTaskType(selected[0])
+  return selected.length === 1 ? first : `${first} +${selected.length - 1}`
 })
 
 const hasUnavailableTools = computed(() => (
@@ -937,6 +970,7 @@ onDeactivated(() => {
   closeToolMenu()
   providerSheet.value = false
   providerDropdownOpen.value = false
+  taskDropdownOpen.value = false
 })
 
 function handleClickOutside(e) {
@@ -944,6 +978,9 @@ function handleClickOutside(e) {
   // itself; treating its taps as outside clicks would close it on every pick.
   if (!providerSheet.value && providerDropdownRef.value && !providerDropdownRef.value.contains(e.target)) {
     providerDropdownOpen.value = false
+  }
+  if (taskDropdownRef.value && !taskDropdownRef.value.contains(e.target)) {
+    taskDropdownOpen.value = false
   }
   // Close the per-tool menu when clicking outside it.
   if (toolMenu.value.visible && toolMenuRef.value && !toolMenuRef.value.contains(e.target)) {
@@ -961,7 +998,7 @@ onMounted(() => {
   })
 
   // Focus search input on mount (wide only: on a phone that pops the keyboard)
-  if (allowsAutofocus.value) searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focusQuietly()
 
   // Listen for click outside to close dropdown
   document.addEventListener('click', handleClickOutside)
@@ -969,7 +1006,7 @@ onMounted(() => {
 
 onActivated(() => {
   // Focus search input when returning to the page (KeepAlive reactivation)
-  if (allowsAutofocus.value) searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focusQuietly()
 })
 
 onUnmounted(() => {

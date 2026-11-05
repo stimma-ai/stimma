@@ -1,7 +1,7 @@
 <template>
   <div data-testid="shared-links-section">
     <div class="mb-3">
-      <h3 class="text-base font-medium text-content">Shared links</h3>
+      <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Shared links</h3>
       <p class="mt-1 text-xs text-content-tertiary">Public links you’ve created. Anyone with a link can view the item.</p>
     </div>
 

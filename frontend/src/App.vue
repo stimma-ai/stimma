@@ -199,7 +199,7 @@
          drawer docks beside the app instead of pushing it. Same element,
          same track; only --drawer-x stops moving and the app narrows. Folding
          the phone undocks it on the spot and the drawer is back. -->
-    <div class="compact-track absolute inset-y-0 left-0 flex" :class="{ 'is-docked': sidebarDocked }">
+    <div class="compact-track absolute inset-y-0 left-0 flex" :class="{ 'is-docked': sidebarDocked, 'is-docked-medium': sidebarDocked && viewportWidth === 'medium' }">
       <NavigationSidebar
         :is-open="sidebarOpen || sidebarDocked"
         :is-mobile="true"
@@ -1428,6 +1428,13 @@ onUnmounted(() => {
 </script>
 
 <style>
+/* Docked drawer in the medium band (an unfolded foldable): a narrower rail so
+   hub content keeps more of the width. Wide roomy windows keep the full 276px. */
+.compact-track.is-docked-medium .compact-drawer {
+  width: 224px;
+  flex-basis: 224px;
+}
+
 /* Slide out NavigationSidebar and TopBar in slideshow focus mode */
 .navigation-sidebar {
   transition: margin-left 0.3s ease, opacity 0.3s ease;

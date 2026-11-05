@@ -6,7 +6,7 @@
   >
     <div class="mb-3 flex items-start justify-between gap-4">
       <div class="min-w-0">
-        <h3 class="text-xs font-semibold text-content-secondary">Stimpacks</h3>
+        <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Stimpacks</h3>
         <p class="mt-1 max-w-xl text-xs text-content-tertiary">
           Stimpacks extend Stimma with new skills and capabilities. Drop a .md or .zip file here to install one.
         </p>
@@ -21,7 +21,7 @@
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
           </svg>
-          <span>Open Folder</span>
+          <span>Open folder</span>
         </button>
         <button
           @click="showCatalog = true"
@@ -30,7 +30,7 @@
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          <span>Add Stimpack</span>
+          <span>Add stimpack</span>
         </button>
       </div>
     </div>
@@ -113,7 +113,7 @@
 
         <div v-else class="py-8 text-center">
           <p class="mb-2 text-content-tertiary">No stimpacks yet</p>
-          <p class="text-xs text-content-muted">Click <strong>Add Stimpack</strong> to browse available stimpacks, or drag and drop a .md/.zip file.</p>
+          <p class="text-xs text-content-muted">Click <strong>Add stimpack</strong> to browse available stimpacks, or drag and drop a .md/.zip file.</p>
         </div>
       </template>
     </div>

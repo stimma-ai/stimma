@@ -915,7 +915,7 @@ function chipClass(active: boolean, pending = false) {
           @click="emit('set', { auto: 'all' })"
         >
           <ToolIcon name="wand" />
-          <span class="text-xs">Auto All</span>
+          <span class="text-xs">Auto all</span>
         </button>
         <div role="separator" class="h-px bg-edge-subtle my-1" />
         <button

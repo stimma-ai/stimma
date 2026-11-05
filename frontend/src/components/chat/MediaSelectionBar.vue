@@ -18,7 +18,7 @@ function addToMessage() {
 </script>
 
 <template>
-  <div class="flex min-h-10 items-center gap-2 rounded-t-lg border border-b-0 border-edge bg-surface/60 py-1 pl-3 pr-1.5 coarse:min-h-14" data-testid="media-selection-bar">
+  <div class="flex min-h-10 items-center gap-2 rounded-t-lg bg-surface py-1 pl-3 pr-1.5 coarse:min-h-14" data-testid="media-selection-bar">
     <span class="flex-1 font-mono text-xs tabular-nums text-selection">{{ selection.ids.size }} selected</span>
     <Button variant="ghost" size="sm" class="coarse:min-h-11" @click="selection.selectAll()">All</Button>
     <Button v-if="!isCompact" variant="ghost" size="sm" class="coarse:min-h-11" :disabled="selection.ids.size !== 2" title="Select two images to compare" @click="collections.compareSelection()">Compare</Button>

@@ -287,6 +287,14 @@ Heroicons-outline style, `stroke-width="1.75"` for new icons (existing 1.5/2
 split migrates opportunistically). Sizes: `w-3.5` in dense rows, `w-4`
 standard, `w-5` toolbar. Tool icons via `ToolIcon.vue`/`taskTypeIcons.ts` +
 provider badge — the only sanctioned tool iconography (existing rule).
+Menus, rows and the sidebar draw every glyph outline at 1.75; fill is reserved
+for an active toggle (a set heart or bookmark), so an unset toggle never looks
+set. Each destination in the sidebar rail has its own glyph; saved views take
+the glyph of the filter they hold (marker, clock for expiring, else funnel).
+Pinned and open tool rows show the task-type glyph from `taskTypeIcons.ts` at
+nav-icon size and weight, not the vendor mark. The rail has two row shapes: the
+icon row (14px glyph in a 24px slot, then label) and the two-line row with a
+24px thumbnail, plus the Editing thumbnails.
 
 ### 1.11 Small screens and touch (adopted 2026-09-04)
 
@@ -563,6 +571,14 @@ build a settings surface (mock §10 is the reference):
   configured, amber needs-setup, zinc disabled) + name + mono detail;
   right side is a verb button (`Set up` secondary / `Manage` ghost).
   "Needs setup" is the amber dot + verb — no badge zoo.
+  One row grammar (`settings/ProviderRow.vue`): icon, name + description left,
+  ONE status or quiet ghost verb (`Configure`, `Sign in`) right, all in one
+  column; no chevrons, no teal text verbs. Descriptions wrap to two lines.
+  The Stimma Cloud gradient CTA is the only filled treatment in a list.
+  The section's own title is hidden on compact (the header already shows it).
+- **Settings nav**: row-sized text (13px, 15px on compact), selected row =
+  `bg-selection/15 text-content` with a `text-selection` icon, same indigo as
+  the app sidebar.
 - **Danger zone**: last group, micro-label in red, rows identical to normal
   settings but with `btn-danger-ghost` actions. No red panels/borders;
   destructive confirmation happens in the ConfirmDialog, not inline.
@@ -848,6 +864,25 @@ the media menu stay in one place.
   contents return when it leaves.
 - **Selection** belongs to one collection at a time and docks on the composer
   like the message queue, keeping one bottom bar (§1.11).
+
+### 3.5b Composer and flow header (adopted 2026-11-05)
+
+- **The composer is fill-only** (`bg-surface`, no hairline; a focus ring only
+  while it has focus). It rests one line tall and grows with its text. Its meta
+  line, placeholder and model picker share one left edge (16px). A message queue
+  or selection bar docked on top uses the same fill.
+- **Chat markdown renders inline code as a mono chip**, never with literal
+  backticks (the typography plugin's `code::before/after` content is cleared in
+  `ChatMarkdown`). Step labels in the transcript are UI sans; mono stays for
+  facts and previews.
+- **Sets and grids sit on the backdrop their thumbnail was drawn on**, so a
+  preview never shows two mattes. On a phone the chips live in bands above and
+  below the artwork instead of on it.
+- **Flow header:** the workspace (Flow | Chat) and the view (Steps | Workflow |
+  Code) are both the kit `SegmentedControl`. Start/Resume is the one accent
+  action; Pause is a ghost and quieter once the run is done. Save custom tool is
+  a ghost (icon only on compact). Phases sit directly on the page with the §3.1
+  rail, not inside a card.
 
 ### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
 

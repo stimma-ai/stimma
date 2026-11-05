@@ -14,17 +14,11 @@
           </svg>
           <span>New</span>
         </button>
-        <div class="relative compact:flex-1">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
-          <input v-no-autocorrect
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search flows..."
-            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48 compact:w-full compact:min-h-11"
-          />
-        </div>
+        <ListSearch
+          v-model="searchQuery"
+          placeholder="Search flows..."
+          class="w-48 compact:w-full compact:flex-1"
+        />
       </div>
     </div>
 
@@ -92,6 +86,7 @@ import { ref, computed, onMounted, onUnmounted, watch, onActivated } from 'vue'
 import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
 import FlowCard from '../components/flow/FlowCard.vue'
+import ListSearch from '../components/lists/ListSearch.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import RenameSheet from '../components/compact/RenameSheet.vue'

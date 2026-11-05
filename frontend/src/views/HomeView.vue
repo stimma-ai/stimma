@@ -53,7 +53,7 @@
                 ref="chatInputBoxRef"
                 v-model="inputText"
                 :attachments="inputAttachments"
-                :rows="3"
+                :rows="2"
                 :disabled="submitting"
                 :agent-unavailable="agentModelUnavailable"
                 @update:attachments="inputAttachments = $event"

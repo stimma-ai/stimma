@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary">Agent</h3>
+      <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Agent</h3>
       <p class="mt-1 max-w-xl text-xs text-content-tertiary">
         Configure default agent behavior for all chats in this profile. Per-chat settings can override these defaults.
       </p>
@@ -39,7 +39,7 @@
 
       <!-- Default Instructions -->
       <div>
-        <h4 class="text-xs font-semibold text-content-secondary">Default Instructions</h4>
+        <h4 class="text-xs font-semibold text-content-secondary">Default instructions</h4>
         <textarea
           v-model="localInstructions"
           placeholder="Give the agent default instructions..."
@@ -71,7 +71,7 @@
 
       <!-- Tool Permissions -->
       <div v-else>
-        <h4 class="text-xs font-semibold text-content-secondary">Tool Permissions</h4>
+        <h4 class="text-xs font-semibold text-content-secondary">Tool permissions</h4>
         <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">The agent asks the first time it uses a tool. Tools you allow or block appear here.</p>
         <!-- -mx-3 cancels the rows' own px-3 so their text aligns with the
              section headings; hairlines between rows only (divide-y). -->

@@ -1,29 +1,15 @@
 <template>
   <div
-    class="flex items-center gap-4 px-6 py-3 transition-colors cursor-pointer hover:bg-overlay-subtle"
+    class="flex items-center gap-4 px-6 py-3 transition-colors cursor-pointer hover:bg-overlay-subtle compact:gap-3 compact:px-4"
     @click="handleClick"
     @contextmenu="$emit('contextmenu', $event, flow)"
   >
-    <!-- Thumbnail / status -->
-    <div
-      v-if="heroMediaId != null"
-      class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden bg-matte"
-    >
-      <MediaImage
-        :media-id="heroMediaId"
-        :thumbnail="true"
-        :thumbnail-size="128"
-        :draggable="false"
-        :enable-context-menu="false"
-        container-class="w-full h-full"
-        img-class="w-full h-full object-cover"
-      />
-    </div>
-    <div v-else class="flex-shrink-0 w-10 h-10 rounded-media bg-matte flex items-center justify-center">
-      <svg class="w-5 h-5 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+    <!-- Thumbnail -->
+    <RowThumb :media-id="heroMediaId" :thumbnail-size="128">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
       </svg>
-    </div>
+    </RowThumb>
 
     <!-- Name + parent; time/outputs share the same two lines -->
     <div class="flex-1 min-w-0">
@@ -44,29 +30,33 @@
         <template v-else>
           <span
             v-if="flow.name"
-            class="text-[14px] text-content font-medium truncate"
+            class="min-w-0 truncate text-[14px] text-content font-medium"
           >
             {{ flow.name }}
           </span>
           <span
             v-else
             @click.stop="beginEdit"
-            class="text-[14px] text-content-muted italic truncate cursor-pointer hover:text-content-secondary"
+            class="min-w-0 truncate text-[14px] text-content-muted italic cursor-pointer hover:text-content-secondary"
           >
             Name this flow...
           </span>
-          <FlowStatusPill
-            :flow-id="flow.id"
-            show-pending
-            text-class="text-[11.5px] text-content-muted whitespace-nowrap"
-          />
           <span class="flex-1"></span>
-          <span v-if="flow.updated_at" class="flex-shrink-0 text-xs font-mono tabular-nums text-content-tertiary whitespace-nowrap">
-            {{ formatRelative(flow.updated_at) }}
+          <span class="w-[4.75rem] flex-shrink-0 text-right text-xs font-mono tabular-nums text-content-tertiary whitespace-nowrap">
+            {{ flow.updated_at ? formatRelative(flow.updated_at) : '' }}
           </span>
         </template>
       </div>
       <div v-if="!editing" class="flex items-center gap-3 mt-1">
+        <!-- Status keeps its own space; on narrow rows it is a dot and the
+             text stays for assistive tech. -->
+        <FlowStatusPill
+          class="flex-shrink-0"
+          :flow-id="flow.id"
+          show-pending
+          text-class="text-[11.5px] text-content-tertiary whitespace-nowrap narrow:sr-only"
+        />
+        <span v-if="parentName || flow.description" class="h-3 w-px flex-shrink-0 bg-edge narrow:hidden" aria-hidden="true"></span>
         <div v-if="parentName" class="flex-1 min-w-0 text-[12px] text-content-muted truncate">
           based on {{ parentName }}
         </div>
@@ -117,6 +107,7 @@ import { computeFlowOutputs } from '../../composables/useFlowOutputs'
 import { useWebSocket } from '../../composables/useWebSocket'
 import FlowStatusPill from './FlowStatusPill.vue'
 import { MediaImage } from '../media'
+import RowThumb from '../lists/RowThumb.vue'
 
 interface Props {
   flow: Flow

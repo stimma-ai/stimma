@@ -37,7 +37,7 @@
         <!-- Main chat area -->
         <div class="flex-1 flex flex-col min-w-0">
     <!-- Chat Messages Area -->
-    <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 custom-scrollbar compact:p-3" ref="messagesContainer" data-chat-scroller>
+    <div class="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-2 space-y-4 custom-scrollbar compact:px-3 compact:pt-3 compact:pb-1" ref="messagesContainer" data-chat-scroller>
       <!-- Connection Error -->
       <ConnectionError
         v-if="loadError"
@@ -1144,7 +1144,7 @@
     </div>
 
     <!-- Input Area -->
-    <div class="px-4 pb-4 pt-2 flex-shrink-0">
+    <div class="px-4 pb-4 pt-1 compact:px-3 compact:pb-3 flex-shrink-0">
       <div
         v-if="chatInterrupted"
         class="mb-2 flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-amber-500/40 bg-amber-500/[0.08]"
@@ -1219,7 +1219,7 @@
           <button
             v-if="showStopButton"
             @click="stopAgent"
-            class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface transition-colors hover:opacity-80"
+            class="w-8 h-8 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-full bg-content text-surface transition-colors hover:opacity-80"
             title="Stop"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5">
@@ -1230,7 +1230,7 @@
             v-else
             @click="sendMessage()"
             :disabled="(!text.trim() && inputAttachments.length === 0) || sending || isChatModelUnavailable || Boolean(imageUnsupportedMessage)"
-            class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
+            class="w-8 h-8 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
             :title="modelUnavailableMessage || 'Send'"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
@@ -6373,8 +6373,7 @@ onActivated(updateCompactHeader)
 }
 
 .activity-tool-name {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -6489,8 +6488,7 @@ onActivated(updateCompactHeader)
 }
 
 .activity-step-name {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-primary, #e5e7eb);
 }

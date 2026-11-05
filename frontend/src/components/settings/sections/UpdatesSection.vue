@@ -179,7 +179,7 @@
       <span>© 2026 B1 Research LLC</span>
       <div class="flex gap-4">
         <button @click="openExternal('/link/terms')" class="text-content-tertiary hover:text-content-secondary transition-colors">Terms</button>
-        <button @click="openExternal('/link/privacy')" class="text-content-tertiary hover:text-content-secondary transition-colors">Privacy Policy</button>
+        <button @click="openExternal('/link/privacy')" class="text-content-tertiary hover:text-content-secondary transition-colors">Privacy policy</button>
       </div>
     </div>
   </div>

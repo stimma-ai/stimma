@@ -57,15 +57,21 @@
 
     <!-- Complete or Trashed (trashed items still viewable) -->
     <template v-else-if="(row.output.status === 'complete' || row.output.status === 'trashed') && row.output.media_id">
-      <MediaImage
-        :media-id="row.output.media_id"
-        :thumbnail="effectiveThumbnail"
-        :thumbnail-size="effectiveThumbnail ? (fitThumbnail || 512) : undefined"
-        :thumbnail-mode="fitThumbnail ? 'fit' : 'crop'"
-        background-class="bg-matte"
-        :contain="true"
-        container-class="w-full h-full"
-      />
+      <!-- Sets and grids arrive with a backdrop baked in by the server (light:
+           the surface token; dark: neutral 18). Matching it keeps the picture and
+           what surrounds it one matte. The gutters keep the parent's chips off
+           the artwork. -->
+      <div class="absolute inset-x-0" :style="{ top: `${gutterTop}px`, bottom: `${gutterBottom}px` }">
+        <MediaImage
+          :media-id="row.output.media_id"
+          :thumbnail="effectiveThumbnail"
+          :thumbnail-size="effectiveThumbnail ? (fitThumbnail || 512) : undefined"
+          :thumbnail-mode="fitThumbnail ? 'fit' : 'crop'"
+          :background-class="isComposite ? 'bg-surface dark:bg-[#181818]' : 'bg-matte'"
+          :contain="true"
+          container-class="w-full h-full"
+        />
+      </div>
 
       <!-- Media type badge (upper right) - for non-image types -->
       <div v-if="outputMediaType && outputMediaType !== 'image'" class="absolute top-1.5 right-1.5 z-chrome" :style="insetRight ? { right: `${insetRight}px` } : null">
@@ -226,7 +232,10 @@ const props = defineProps({
   // Room for controls the parent lays over the tile.
   insetLeft: { type: Number, default: 0 },
   insetRight: { type: Number, default: 0 },
-  insetBottom: { type: Number, default: 0 }
+  insetBottom: { type: Number, default: 0 },
+  // Bands kept clear of the artwork, for chips the parent lays above and below it.
+  gutterTop: { type: Number, default: 0 },
+  gutterBottom: { type: Number, default: 0 }
 })
 
 const emit = defineEmits(['view-image', 'retry', 'cancel', 'show-job-info'])
@@ -320,6 +329,8 @@ const outputMediaType = computed(() => {
   if (!fileFormat) return null
   return getMediaType({ file_format: fileFormat })
 })
+
+const isComposite = computed(() => outputMediaType.value === 'set' || outputMediaType.value === 'grid')
 
 // Force thumbnail mode for composite media (grids, sets) whose raw files are JSON, not images.
 // Default to thumbnail until we know the type — safe because chat tiles top out around the

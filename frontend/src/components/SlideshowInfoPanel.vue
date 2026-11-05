@@ -17,7 +17,7 @@
          markers show: marking a trashed item restores it. -->
     <div v-if="currentItem" class="px-3 pt-3 pb-2 flex-shrink-0">
       <div class="flex flex-wrap items-center gap-0.5" :key="'markers-' + markerUpdateTrigger">
-        <Tooltip v-for="marker in availableMarkers" :key="marker.id" :text="marker.name">
+        <Tooltip v-for="marker in (showMarkers ? availableMarkers : [])" :key="marker.id" :text="marker.name">
           <button
             type="button"
             :aria-label="marker.name"
@@ -52,16 +52,14 @@
         </Tooltip>
         </template>
       </div>
-      <div v-if="!isInTrash" class="grid grid-cols-2 gap-1.5 mt-2">
-        <button
+      <div v-if="!isInTrash" class="-mx-1 mt-1 flex flex-wrap items-center gap-0.5">
+        <ActionRow
           v-if="showEditAction && handles('edit-image') && isImageType(currentItem)"
-          type="button"
-          class="col-span-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-surface-raised px-3 py-2 text-xs font-medium text-content transition-colors duration-150 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
           @click="$emit('edit-image', mediaIdOf(currentItem))"
         >
-          <PencilSquareIcon class="h-3.5 w-3.5 flex-shrink-0" />
-          <span>Edit</span>
-        </button>
+          <template #icon><PencilSquareIcon class="h-4 w-4 flex-shrink-0" /></template>
+          Edit
+        </ActionRow>
         <InspireMenu
           :media-id="mediaIdOf(currentItem)"
           @sent="$emit('menu-sent')"
@@ -533,6 +531,7 @@ import KeyValueList from './ui/KeyValueList.vue'
 import StatusDot from './ui/StatusDot.vue'
 import Spinner from './ui/Spinner.vue'
 import IconButton from './ui/IconButton.vue'
+import ActionRow from './ui/ActionRow.vue'
 import Tooltip from './ui/Tooltip.vue'
 import { captioningEnabledRef } from '../appConfig'
 import { getApiBase, isDesktop } from '../apiConfig'
@@ -617,6 +616,12 @@ const props = defineProps({
     default: false
   },
   showEditAction: {
+    type: Boolean,
+    default: true
+  },
+  // The slideshow's control bar carries the same marker toggles; its desktop
+  // layout passes false so favorite and bookmark appear once.
+  showMarkers: {
     type: Boolean,
     default: true
   }
@@ -1079,38 +1084,20 @@ defineExpose({
 
 <style scoped>
 /* Action-pair wrappers (InspireMenu, SendToToolMenu): restyle each menu's
-   own trigger into the kit secondary-button look — centered icon+label,
-   no border, no trailing chevron. Only the TRIGGER button (direct child);
-   the teleported dropdown contents are untouched. */
+   own trigger to match the kit ActionRow (ghost icon + label, no trailing
+   chevron). Only the TRIGGER button (direct child); the teleported dropdown
+   contents are untouched. */
 .action-pair-wrap {
   min-width: 0;
 }
 .action-pair-wrap :deep(button) {
-  width: 100%;
-  background: rgb(var(--color-surface-raised-rgb));
-  border: none;
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  justify-content: center;
-  gap: 6px;
-  color: rgb(var(--color-text-primary-rgb));
-  transition: background-color 150ms;
-}
-.action-pair-wrap :deep(button:hover) {
-  background: rgb(var(--color-surface-hover-rgb));
+  @apply inline-flex h-8 w-auto items-center gap-1.5 whitespace-nowrap rounded-md border-none bg-transparent px-2.5 text-xs font-medium text-content-secondary transition-colors duration-150 hover:bg-overlay-subtle hover:text-content;
 }
 .action-pair-wrap :deep(button svg:first-child) {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
+  @apply h-4 w-4 flex-shrink-0;
 }
 .action-pair-wrap :deep(button svg:last-child) {
   display: none;
-}
-.action-pair-wrap :deep(button span) {
-  white-space: nowrap;
 }
 
 /* Marker button SVG styling */

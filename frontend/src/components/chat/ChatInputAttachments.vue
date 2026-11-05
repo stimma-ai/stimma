@@ -1,5 +1,5 @@
 <template>
-  <div v-if="attachments.length > 0" class="chat-attachments flex gap-2 overflow-x-auto p-2 bg-surface/50 border-b border-edge">
+  <div v-if="attachments.length > 0" class="chat-attachments flex gap-2 overflow-x-auto px-4 pt-3">
     <div
       v-for="(attachment, index) in attachments"
       :key="attachment.id || index"

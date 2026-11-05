@@ -14,19 +14,12 @@
           </svg>
           <span>New</span>
         </button>
-        <!-- Search -->
-        <div class="relative compact:flex-1">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
-          <input v-no-autocorrect
-            ref="searchInputRef"
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search chats..."
-            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48 compact:w-full compact:min-h-11"
-          />
-        </div>
+        <ListSearch
+          ref="searchInputRef"
+          v-model="searchQuery"
+          placeholder="Search chats..."
+          class="w-48 compact:w-full compact:flex-1"
+        />
       </div>
     </div>
 
@@ -66,7 +59,7 @@
           v-for="(chat, index) in filteredChats"
           :key="chat.id"
           :data-testid="`chat-row-${chat.id}`"
-          class="flex items-center gap-4 px-6 py-3 transition-colors cursor-pointer group relative"
+          class="flex items-center gap-4 px-6 py-3 transition-colors cursor-pointer group relative compact:gap-3 compact:px-4"
           :class="isSelected(chat.id)
             ? 'bg-selection/15'
             : 'hover:bg-overlay-subtle'"
@@ -75,7 +68,7 @@
         >
           <!-- Selection checkbox (overlays thumbnail) -->
           <div
-            class="absolute top-3.5 left-6 z-10 transition-opacity"
+            class="absolute top-3.5 left-6 z-10 transition-opacity compact:left-4"
             :class="multiSelectMode || isSelected(chat.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
           >
             <button
@@ -92,23 +85,14 @@
           </div>
 
           <!-- Thumbnail -->
-          <div v-if="hasMedia(chat)" class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden">
-            <MediaImage
-              :media-id="chat.recent_media[0].media_id"
-              :file-hash="chat.recent_media[0].file_hash"
-              :thumbnail="true"
-              :thumbnail-size="80"
-              :draggable="false"
-              :enable-context-menu="false"
-              container-class="w-full h-full"
-              class="w-full h-full object-cover"
-            />
-          </div>
-          <div v-else class="flex-shrink-0 w-10 h-10 rounded-media bg-matte flex items-center justify-center">
-            <svg class="w-5 h-5 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <RowThumb
+            :media-id="hasMedia(chat) ? chat.recent_media[0].media_id : null"
+            :file-hash="hasMedia(chat) ? chat.recent_media[0].file_hash : undefined"
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
             </svg>
-          </div>
+          </RowThumb>
 
           <!-- Name + last message; time/counts share the same two lines -->
           <div class="flex-1 min-w-0">
@@ -128,32 +112,25 @@
               </template>
               <template v-else>
                 <span
-                  v-if="chat.name"
                   @click="onNameTap(chat, $event)"
-                  class="text-[14px] text-content font-medium truncate cursor-pointer hover:text-content"
+                  class="min-w-0 truncate text-[14px] cursor-pointer"
+                  :class="chat.name ? 'text-content font-medium' : 'text-content-muted font-medium hover:text-content-secondary'"
                 >
-                  {{ chat.name }}
+                  {{ chat.name || 'New chat' }}
                 </span>
                 <span
                   v-if="chat.generation_settings?.mcp_origin"
-                  class="shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
+                  class="shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent-hi bg-accent/10"
                   title="Driven by a connected assistant over MCP"
                 >MCP</span>
-                <span
-                  v-else
-                  @click="onNameTap(chat, $event)"
-                  class="text-[14px] text-content-muted italic truncate cursor-pointer hover:text-content-secondary"
-                >
-                  New chat
-                </span>
               </template>
 
               <!-- Generating indicator -->
               <div v-if="isChatGenerating(chat.id)" class="w-3 h-3 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0"></div>
 
               <span class="flex-1"></span>
-              <span v-if="chat.updated_at" class="flex-shrink-0 text-xs font-mono tabular-nums text-content-tertiary whitespace-nowrap">
-                {{ formatRelativeTime(chat.updated_at) }}
+              <span class="w-[4.75rem] flex-shrink-0 text-right text-xs font-mono tabular-nums text-content-tertiary whitespace-nowrap">
+                {{ chat.updated_at ? formatRelativeTime(chat.updated_at) : '' }}
               </span>
             </div>
 
@@ -167,7 +144,7 @@
               </p>
               <span v-else class="flex-1"></span>
 
-              <span class="flex-shrink-0 flex items-center gap-2.5 text-[11px] font-mono tabular-nums text-content-muted">
+              <span class="flex-shrink-0 flex items-center justify-end gap-2.5 text-[11px] font-mono tabular-nums text-content-tertiary">
                 <span v-if="chat.message_count > 0" class="flex items-center gap-1">
                   <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
@@ -255,7 +232,8 @@ import EntityContextMenu from '../components/EntityContextMenu.vue'
 import RenameSheet from '../components/compact/RenameSheet.vue'
 import { useViewport } from '../composables/useViewport'
 import EntitySelectionBar from '../components/EntitySelectionBar.vue'
-import { MediaImage } from '../components/media'
+import ListSearch from '../components/lists/ListSearch.vue'
+import RowThumb from '../components/lists/RowThumb.vue'
 
 defineOptions({
   name: 'ChatsLandingView'
@@ -689,13 +667,13 @@ const wsUnsubscribes = [
 
 onMounted(() => {
   loadChats()
-  if (allowsAutofocus.value) searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focusQuietly()
 })
 
 onActivated(() => {
   chatsVisible = true
   loadChats()
-  if (allowsAutofocus.value) searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focusQuietly()
   document.addEventListener('keydown', handleKeyDown)
   document.addEventListener('click', handleEmptyMenuClickOutside)
 })

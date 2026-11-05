@@ -4,7 +4,7 @@
     <section>
       <div v-if="!wizard" class="mb-3">
         <div class="flex items-center gap-3">
-          <h3 class="text-xs font-semibold text-content-secondary">Chat Models</h3>
+          <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Chat models</h3>
         </div>
         <p class="mt-1 text-xs text-content-tertiary">Choose models from your Stimma account, API providers, or your own endpoints.</p>
       </div>
@@ -17,114 +17,88 @@
         <p class="text-[13px] text-content-secondary">Connect a chat model to use chat, the agent, and AI-assisted features.</p>
       </div>
 
-      <div class="divide-y divide-edge-subtle">
-        <button type="button" class="group flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle" @click="cloudStatus === 'not_logged_in' ? handleCloudConnect() : cloudNeedsCredits ? openAddCredits() : openStimmaAccount()">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary" aria-hidden="true">
-            <div class="h-7 w-7 bg-current [mask-image:url('/logo.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.svg')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"></div>
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="text-[13px] text-content">Stimma</div>
-            <div v-if="cloudStatus === 'available' || cloudStatus === 'not_logged_in'" class="mt-0.5 truncate text-xs text-content-tertiary">Use a variety of models with one pool of credits.</div>
-            <div v-else-if="cloudMessage" class="mt-1 truncate text-xs text-red-400">{{ cloudMessage }}</div>
-            <div v-else-if="cloudConnectError" class="mt-1 truncate text-xs text-red-400">{{ cloudConnectError }}</div>
-          </div>
-          <template v-if="cloudStatus === 'not_logged_in'">
-            <div class="min-w-20 shrink-0 text-right text-xs">
-              <span class="relative inline-block">
-                <span class="invisible" aria-hidden="true">Configure</span>
-                <span class="absolute left-0 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-3.5 py-1.5 text-xs font-medium text-white transition-all group-hover:from-teal-500 group-hover:via-cyan-400 group-hover:to-indigo-400" :class="{ 'opacity-60': cloudConnecting }">
-                  {{ cloudConnecting ? 'Connecting…' : 'Sign in' }}
-                </span>
-              </span>
-            </div>
-            <span class="h-4 w-4 shrink-0" aria-hidden="true"></span>
+      <div>
+        <ProviderRow
+          name="Stimma"
+          :error="cloudStatus === 'available' || cloudStatus === 'not_logged_in' ? '' : (cloudMessage || cloudConnectError)"
+          @click="cloudStatus === 'not_logged_in' ? handleCloudConnect() : cloudNeedsCredits ? openAddCredits() : openStimmaAccount()"
+        >
+          <template #icon>
+            <div class="h-7 w-7 bg-current [mask-image:url('/logo.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.svg')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]" aria-hidden="true"></div>
           </template>
-          <template v-else>
-            <div class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
-              <span class="h-2 w-2 shrink-0 rounded-full" :class="cloudStatus !== 'available' ? 'bg-red-500' : cloudNeedsCredits ? 'bg-amber-400' : 'bg-green-500'"></span>
-              {{ cloudStatus !== 'available' ? 'Unavailable' : cloudNeedsCredits ? 'Add credits' : `Ready · ${cloudModels.length} model${cloudModels.length === 1 ? '' : 's'}` }}
-            </div>
-            <ChevronIcon />
+          <template v-if="cloudStatus === 'available' || cloudStatus === 'not_logged_in'" #description>Use a variety of models with one pool of credits.</template>
+          <template v-if="cloudStatus === 'not_logged_in'" #cta>
+            <span class="whitespace-nowrap rounded-md bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-3.5 py-1.5 text-xs font-medium text-white transition-colors group-hover:from-teal-500 group-hover:via-cyan-400 group-hover:to-indigo-400" :class="{ 'opacity-60': cloudConnecting }">
+              {{ cloudConnecting ? 'Connecting…' : 'Sign in' }}
+            </span>
           </template>
-        </button>
+          <template v-else #status>
+            <span class="h-2 w-2 shrink-0 rounded-full" :class="cloudStatus !== 'available' ? 'bg-red-500' : cloudNeedsCredits ? 'bg-amber-400' : 'bg-green-500'"></span>
+            {{ cloudStatus !== 'available' ? 'Unavailable' : cloudNeedsCredits ? 'Add credits' : `Ready · ${cloudModels.length} model${cloudModels.length === 1 ? '' : 's'}` }}
+          </template>
+        </ProviderRow>
 
-        <button
+        <ProviderRow
           v-for="provider in visibleRemoteProviderRows"
           :key="provider.id || provider.kind"
-          type="button"
+          :name="provider.name"
+          :description="chatgptRow(provider)?.sub || kindDescription(provider.kind)"
+          :description-class="chatgptRow(provider)?.subtone || 'text-content-tertiary'"
+          :error="provider.last_error && !chatgptRow(provider) ? provider.last_error : ''"
+          :verb="(chatgptRow(provider) ? (chatgptRow(provider).dot ? '' : chatgptRow(provider).label) : provider._unconfigured ? 'Configure' : '')"
           @click="openProviderRow(provider)"
-          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle"
         >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
-            <ProviderBrandIcon :provider="provider.kind" size="md" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-[13px] text-content">{{ provider.name }}</div>
-            <div class="mt-0.5 truncate text-xs" :class="chatgptRow(provider)?.subtone || 'text-content-tertiary'">{{ chatgptRow(provider)?.sub || kindDescription(provider.kind) }}</div>
-            <div v-if="provider.last_error && !chatgptRow(provider)" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
-          </div>
-          <div v-if="chatgptRow(provider)" class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
-            <span v-if="chatgptRow(provider).dot" class="h-2 w-2 shrink-0 rounded-full" :class="chatgptRow(provider).dot"></span>
-            {{ chatgptRow(provider).label }}
-          </div>
-          <div v-else class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs" :class="provider._unconfigured ? 'text-accent-hi' : 'text-content-tertiary'">
-            <span v-if="!provider._unconfigured && provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
-            {{ provider._unconfigured ? 'Configure' : provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
-          </div>
-          <ChevronIcon />
-        </button>
+          <template #icon><ProviderBrandIcon :provider="provider.kind" size="md" /></template>
+          <template #status>
+            <template v-if="chatgptRow(provider)">
+              <span v-if="chatgptRow(provider).dot" class="h-2 w-2 shrink-0 rounded-full" :class="chatgptRow(provider).dot"></span>
+              {{ chatgptRow(provider).label }}
+            </template>
+            <template v-else>
+              <span v-if="provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
+              {{ provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
+            </template>
+          </template>
+        </ProviderRow>
 
-        <button
+        <ProviderRow
           v-for="provider in localProviders"
           :key="provider.id"
-          type="button"
+          :name="provider.name"
+          :description="modelSummary(provider.models)"
+          :error="provider.last_error"
           @click="openProvider(provider)"
-          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle"
         >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
-            <ProviderBrandIcon provider="local" size="md" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-[13px] text-content">{{ provider.name }}</div>
-            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ modelSummary(provider.models) }}</div>
-            <div v-if="provider.last_error" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
-          </div>
-          <div class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
+          <template #icon><ProviderBrandIcon provider="local" size="md" /></template>
+          <template #status>
             <span v-if="provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
             {{ provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
-          </div>
-          <ChevronIcon />
-        </button>
+          </template>
+        </ProviderRow>
 
-        <button
+        <ProviderRow
           v-if="legacyProvider"
-          type="button"
+          :name="legacyProvider.name"
+          :description="legacyProvider.model"
           @click="openLegacyProvider"
-          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle"
         >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
-            <ProviderBrandIcon provider="local" size="md" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-[13px] text-content">{{ legacyProvider.name }}</div>
-            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ legacyProvider.model }}</div>
-          </div>
-          <div class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
+          <template #icon><ProviderBrandIcon provider="local" size="md" /></template>
+          <template #status>
             <span v-if="legacyProvider.last_test_passed !== undefined && legacyProvider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="legacyProvider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
             {{ legacyProvider.last_test_passed === false ? 'Check failed' : legacyProvider.last_test_passed ? '1 model' : 'Not checked' }}
-          </div>
-          <ChevronIcon />
-        </button>
+          </template>
+        </ProviderRow>
 
-        <button type="button" @click="openAddLocalProvider" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04]">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent-hi">
+        <ProviderRow
+          name="Add OpenAI compatible endpoint"
+          description="Connect LM Studio, vLLM, llama.cpp, Ollama, or another compatible server."
+          accent-icon
+          @click="openAddLocalProvider"
+        >
+          <template #icon>
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="text-[13px] font-medium text-accent-hi">Add OpenAI Compatible Endpoint</div>
-            <div class="mt-0.5 truncate text-xs text-content-tertiary">Connect LM Studio, vLLM, llama.cpp, Ollama, or another compatible server.</div>
-          </div>
-        </button>
+          </template>
+        </ProviderRow>
       </div>
 
       <div v-if="wizard && hiddenRemoteProviderCount > 0" class="mt-3 px-1">
@@ -141,7 +115,7 @@
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
             </button>
             <div>
-              <h4 class="text-xs font-semibold text-content-secondary">Add OpenAI Compatible Endpoint</h4>
+              <h4 class="text-xs font-semibold text-content-secondary">Add OpenAI-compatible endpoint</h4>
               <p class="mt-0.5 text-xs text-content-tertiary">{{ kindDescription('local') }}</p>
             </div>
           </div>
@@ -629,6 +603,7 @@ import SettingsDropdown from '../../ui/SettingsDropdown.vue'
 import ModelVendorIcon from '../../models/ModelVendorIcon.vue'
 import ProviderBrandIcon from '../../models/ProviderBrandIcon.vue'
 import ProviderModelSetup from '../ProviderModelSetup.vue'
+import ProviderRow from '../ProviderRow.vue'
 import Button from '../../ui/Button.vue'
 import KeyValueList from '../../ui/KeyValueList.vue'
 import ProgressBar from '../../ui/ProgressBar.vue'

@@ -31,7 +31,9 @@ async function copy(text: string) {
 </script>
 
 <template>
-  <div>
+  <!-- The typography plugin wraps inline code in literal backticks; chat code is
+       a mono chip instead, so the pseudo-element content is cleared. -->
+  <div class="[&_code]:before:content-none [&_code]:after:content-none [&_:not(pre)>code]:rounded-md [&_:not(pre)>code]:bg-overlay-subtle [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[0.875em] [&_:not(pre)>code]:font-normal [&_:not(pre)>code]:break-words">
     <div ref="content" v-html="html" />
     <Teleport v-for="(block, index) in blocks" :key="index" :to="block.target">
       <Tooltip text="Copy contents">

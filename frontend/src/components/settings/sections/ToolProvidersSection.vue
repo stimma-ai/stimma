@@ -2,7 +2,7 @@
   <div>
     <template v-if="!showModal && !selectedProvider">
     <div v-if="!wizard" class="mb-4 flex items-center gap-3">
-      <h3 class="text-xs font-semibold text-content-secondary">Generation Tools</h3>
+      <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Generation tools</h3>
     </div>
 
     <p v-if="!wizard" class="mb-6 max-w-2xl text-sm leading-6 text-content-tertiary">
@@ -17,164 +17,112 @@
       <p class="text-[13px] text-content-secondary">Connect generation tools to generate media.</p>
     </div>
 
-    <div class="divide-y divide-edge-subtle">
-      <button
-        type="button"
-        class="group flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
+    <div>
+      <ProviderRow
+        :name="STIMMA_TOOL_PROVIDER_DISPLAY_NAME"
+        :description="stimmaProviderDescription"
+        :status-class="isAuthenticated ? cloudRowStatusClass : ''"
         @click="!isAuthenticated ? handleCloudConnect() : cloudConnectedWithoutCredits ? openAddCredits() : openProviderDetails('stimma-cloud')"
       >
-        <ToolProviderBrandIcon kind="stimma" />
-        <div class="min-w-0 flex-1">
-          <div class="text-[13px] text-content">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</div>
-          <div class="mt-0.5 truncate text-xs text-content-tertiary">
-            {{ stimmaProviderDescription }}
-          </div>
-        </div>
-        <template v-if="isAuthenticated">
-          <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 text-right text-xs" :class="cloudRowStatusClass">
-            <Spinner v-if="isProviderConnecting(cloudProvider)" size="sm" />
-            <ExclamationCircleIcon v-else-if="isProviderConnectionError(cloudProvider)" class="h-4 w-4" />
-            <span v-else-if="cloudRowStatusDot" class="h-2 w-2 shrink-0 rounded-full" :class="cloudRowStatusDot"></span>
-            {{ cloudRowStatusLabel }}
-          </div>
-          <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
-          </svg>
+        <template #icon><ToolProviderBrandIcon kind="stimma" /></template>
+        <template v-if="!isAuthenticated" #cta>
+          <span class="whitespace-nowrap rounded-md bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-3.5 py-1.5 text-xs font-medium text-white transition-colors group-hover:from-teal-500 group-hover:via-cyan-400 group-hover:to-indigo-400" :class="{ 'opacity-60': isCloudConnecting }">
+            {{ isCloudConnecting ? 'Connecting…' : 'Sign in' }}
+          </span>
         </template>
-        <template v-else>
-          <div class="min-w-20 shrink-0 text-right text-xs">
-            <span class="relative inline-block">
-              <span class="invisible" aria-hidden="true">Configure</span>
-              <span class="absolute left-0 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-3.5 py-1.5 text-xs font-medium text-white transition-all group-hover:from-teal-500 group-hover:via-cyan-400 group-hover:to-indigo-400" :class="{ 'opacity-60': isCloudConnecting }">
-                {{ isCloudConnecting ? 'Connecting…' : 'Sign in' }}
-              </span>
-            </span>
-          </div>
-          <span class="h-4 w-4 shrink-0" aria-hidden="true"></span>
+        <template v-else #status>
+          <Spinner v-if="isProviderConnecting(cloudProvider)" size="sm" />
+          <ExclamationCircleIcon v-else-if="isProviderConnectionError(cloudProvider)" class="h-4 w-4" />
+          <span v-else-if="cloudRowStatusDot" class="h-2 w-2 shrink-0 rounded-full" :class="cloudRowStatusDot"></span>
+          {{ cloudRowStatusLabel }}
         </template>
-      </button>
+      </ProviderRow>
 
-      <button
+      <ProviderRow
         v-if="drawThingsAvailable && drawThingsProviders.length === 0"
-        type="button"
-        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
+        name="Draw Things"
+        description="Generate images and video on this Mac."
+        verb="Configure"
         @click="openDrawThingsSetup"
       >
-        <ToolProviderBrandIcon kind="drawthings" />
-        <div class="min-w-0 flex-1">
-          <div class="text-[13px] text-content">Draw Things</div>
-          <div class="mt-0.5 truncate text-xs text-content-tertiary">Generate images and video on this Mac.</div>
-        </div>
-        <div class="min-w-20 shrink-0 text-right text-xs text-accent-hi">Configure</div>
-        <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
-        </svg>
-      </button>
+        <template #icon><ToolProviderBrandIcon kind="drawthings" /></template>
+      </ProviderRow>
 
-      <button
+      <ProviderRow
         v-for="provider in drawThingsProviders"
         :key="provider.id"
-        type="button"
-        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
+        :name="provider.name"
+        :dimmed="provider.enabled === false"
+        description="Draw Things · on this Mac"
+        :status-class="providerRowStatusClass(provider)"
         @click="openProviderDetails(provider.id)"
       >
-        <ToolProviderBrandIcon :provider="provider" />
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-[13px]" :class="provider.enabled === false ? 'text-content-muted' : 'text-content'">{{ provider.name }}</div>
-          <div class="mt-0.5 truncate text-xs text-content-tertiary">Draw Things · on this Mac</div>
-        </div>
-        <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-right text-xs" :class="providerRowStatusClass(provider)">
-          <Spinner v-if="isProviderConnecting(provider)" size="sm" />
-          <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
-          <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
-          {{ providerStatusLabel(provider) }}
-        </div>
-        <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
-        </svg>
-      </button>
+        <template #icon><ToolProviderBrandIcon :provider="provider" /></template>
+          <template #status>
+            <Spinner v-if="isProviderConnecting(provider)" size="sm" />
+            <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
+            <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
+            {{ providerStatusLabel(provider) }}
+          </template>
+      </ProviderRow>
 
-      <button
+      <ProviderRow
         v-if="comfyProviders.length === 0"
-        type="button"
-        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
+        name="ComfyUI"
+        description="Run generation workflows locally."
+        verb="Configure"
         @click="openComfySetup"
       >
-        <ToolProviderBrandIcon kind="comfyui" />
-        <div class="min-w-0 flex-1">
-          <div class="text-[13px] text-content">ComfyUI</div>
-          <div class="mt-0.5 truncate text-xs text-content-tertiary">Run generation workflows locally.</div>
-        </div>
-        <div class="min-w-20 shrink-0 text-right text-xs text-accent-hi">Configure</div>
-        <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
-        </svg>
-      </button>
+        <template #icon><ToolProviderBrandIcon kind="comfyui" /></template>
+      </ProviderRow>
 
-      <button
+      <ProviderRow
         v-for="provider in comfyProviders"
         :key="provider.id"
-        type="button"
-        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
+        :name="provider.name"
+        :dimmed="provider.enabled === false"
+        :description="`ComfyUI · ${provider.url || getProviderTypeLabel(provider.type)}`"
+        :status-class="providerRowStatusClass(provider)"
         @click="openProviderDetails(provider.id)"
       >
-        <ToolProviderBrandIcon :provider="provider" />
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-[13px]" :class="provider.enabled === false ? 'text-content-muted' : 'text-content'">{{ provider.name }}</div>
-          <div class="mt-0.5 truncate text-xs text-content-tertiary">ComfyUI · {{ provider.url || getProviderTypeLabel(provider.type) }}</div>
-        </div>
-        <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-right text-xs" :class="providerRowStatusClass(provider)">
-          <Spinner v-if="isProviderConnecting(provider)" size="sm" />
-          <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
-          <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
-          {{ providerStatusLabel(provider) }}
-        </div>
-        <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
-        </svg>
-      </button>
+        <template #icon><ToolProviderBrandIcon :provider="provider" /></template>
+          <template #status>
+            <Spinner v-if="isProviderConnecting(provider)" size="sm" />
+            <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
+            <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
+            {{ providerStatusLabel(provider) }}
+          </template>
+      </ProviderRow>
 
-      <button
+      <ProviderRow
         v-for="provider in customProviders"
         :key="provider.id"
-        type="button"
-        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
+        :name="provider.name"
+        :dimmed="provider.enabled === false"
+        :description="getProviderTypeLabel(provider.type)"
+        :status-class="providerRowStatusClass(provider)"
         @click="openProviderDetails(provider.id)"
       >
-        <ToolProviderBrandIcon :provider="provider" />
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-[13px]" :class="provider.enabled === false ? 'text-content-muted' : 'text-content'">{{ provider.name }}</div>
-          <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ getProviderTypeLabel(provider.type) }}</div>
-        </div>
-        <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-right text-xs" :class="providerRowStatusClass(provider)">
-          <Spinner v-if="isProviderConnecting(provider)" size="sm" />
-          <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
-          <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
-          {{ providerStatusLabel(provider) }}
-        </div>
-        <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
-        </svg>
-      </button>
+        <template #icon><ToolProviderBrandIcon :provider="provider" /></template>
+          <template #status>
+            <Spinner v-if="isProviderConnecting(provider)" size="sm" />
+            <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
+            <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
+            {{ providerStatusLabel(provider) }}
+          </template>
+      </ProviderRow>
 
-      <button
-        type="button"
-        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-accent/[0.04]"
-        @click="openAddModal"
-      >
-        <span class="flex h-10 w-10 shrink-0 items-center justify-center text-accent-hi">
+      <ProviderRow name="Add STP provider" accent-icon @click="openAddModal">
+        <template #icon>
           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" d="M12 5v14M5 12h14" />
           </svg>
-        </span>
-        <span class="min-w-0 flex-1">
-          <span class="block text-[13px] font-medium text-accent-hi">Add STP Provider</span>
-          <span class="mt-0.5 block truncate text-xs text-content-tertiary">
-            Connect any server that speaks the
-            <a :href="stpDocsUrl" target="_blank" rel="noopener noreferrer" class="text-accent-hi hover:text-accent" @click.stop.prevent="openStpDocs">Stimma Tools Protocol ↗</a>.
-          </span>
-        </span>
-      </button>
+        </template>
+        <template #description>
+          Connect any server that speaks the
+          <a :href="stpDocsUrl" target="_blank" rel="noopener noreferrer" class="text-accent-hi hover:text-accent" @click.stop.prevent="openStpDocs">Stimma Tools Protocol ↗</a>.
+        </template>
+      </ProviderRow>
     </div>
 
     </template>
@@ -709,7 +657,7 @@
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
               <div>
-                <h3 class="text-[16px] font-semibold text-content">Available Tools</h3>
+                <h3 class="text-[16px] font-semibold text-content">Available tools</h3>
                 <p class="text-xs text-content-tertiary">{{ toolsModal.provider?.name }}</p>
                 <!-- Dev mode: Provider registration info -->
                 <div v-if="devModeRef && toolsModal.provider" class="mt-1 text-xs font-mono text-content-muted bg-overlay-subtle rounded px-2 py-1">
@@ -925,6 +873,7 @@ import { consumeEscape, isTopmostEscapeLayer } from '../../../utils/escapeLayers
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { ExclamationCircleIcon } from '@heroicons/vue/24/outline'
 import Spinner from '../../ui/Spinner.vue'
+import ProviderRow from '../ProviderRow.vue'
 import Modal from '../../ui/Modal.vue'
 import ConfirmDialog from '../../ui/ConfirmDialog.vue'
 import { useAuth } from '../../../composables/useAuth'

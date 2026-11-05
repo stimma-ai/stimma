@@ -2,7 +2,7 @@
   <!-- Empty state: a dashed-border hint strip so the user can see where to
        drop references. When populated, becomes a flex-wrapped chip strip. -->
   <div
-    class="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 border-b border-edge-subtle bg-surface/60"
+    class="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-edge-subtle"
     :class="refs.items.value.length === 0 ? 'border-dashed' : ''"
   >
     <span

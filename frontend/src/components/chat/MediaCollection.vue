@@ -21,6 +21,7 @@ import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { useMediaState } from '../../composables/useMediaState'
 import { useViewport } from '../../composables/useViewport'
+import { getMediaType } from '../../utils/mediaTypes'
 import { consumeEscape } from '../../utils/escapeLayers'
 import { COLLECTION_SIZES, gridColumns, heroHeight, startingView, stripTileSize, visibleTiles } from '../../utils/mediaCollectionLayout'
 
@@ -84,9 +85,20 @@ const visible = computed(() => visibleTiles({ count: count.value, columns: colum
 const canCollapse = computed(() => state.expanded && !inPanel.value)
 const stripSize = computed(() => stripTileSize(state.size, isCompact.value))
 const canResize = computed(() => !isSingle.value && (count.value > 4 || view.value === 'preview'))
+// A set or grid is drawn on its own backdrop, so its hero shares one surface.
+const activeIsComposite = computed(() => {
+  const format = mediaState.value[activeMediaId.value]?.file_format || activeRow.value?.output?.file_format
+  return !!format && ['set', 'grid'].includes(getMediaType({ file_format: format }))
+})
+// On a phone the picture is as tall as it is wide, so the chips would sit on the
+// artwork. A composite there gets a band above and below for them instead.
+const HERO_GUTTER_TOP = 44
+const HERO_GUTTER_BOTTOM = 52
+const heroGutters = computed(() => activeIsComposite.value && isCompact.value && width.value > 0 && width.value < 560)
 const inlineHeroHeight = computed(() => {
-  if (isSingle.value) return Math.min(width.value || 560, Math.max(200, chatHeight.value - 68))
-  return heroHeight({ chatHeight: chatHeight.value, width: width.value, size: state.size, stripSize: stripSize.value })
+  const extra = heroGutters.value ? HERO_GUTTER_TOP + HERO_GUTTER_BOTTOM : 0
+  if (isSingle.value) return Math.min(width.value || 560, Math.max(200, chatHeight.value - 68)) + extra
+  return heroHeight({ chatHeight: chatHeight.value, width: width.value, size: state.size, stripSize: stripSize.value }) + extra
 })
 const rootWidthClass = computed(() => {
   if (inPanel.value) return 'h-full w-full bg-matte'
@@ -432,8 +444,8 @@ onBeforeUnmount(() => {
         <!-- Preview: the picture, then the strip. All chrome is black glass on the matte (§3.3). -->
         <template v-else-if="activeRow">
           <div
-            class="group/hero relative min-h-0 select-none overflow-hidden bg-matte"
-            :class="inPanel ? 'flex-1' : 'flex-none'"
+            class="group/hero relative min-h-0 select-none overflow-hidden"
+            :class="[inPanel ? 'flex-1' : 'flex-none', activeIsComposite ? 'bg-surface dark:bg-[#181818]' : 'bg-matte']"
             :style="inPanel ? null : { height: inlineHeroHeight + 'px' }"
             data-testid="media-collection-hero"
             @click.capture="onHeroClickCapture"
@@ -455,10 +467,12 @@ onBeforeUnmount(() => {
                 fill
                 :use-thumbnail="false"
                 :fit-thumbnail="isSingle ? null : 1024"
-                :inset-left="36"
+                :inset-left="heroGutters ? 48 : 36"
                 :inset-right="72"
-                :inset-bottom="isCoarsePointer ? 52 : 40"
-                class="!rounded-media !bg-matte"
+                :inset-bottom="heroGutters ? 4 : isCoarsePointer ? 52 : 40"
+                :gutter-top="heroGutters ? HERO_GUTTER_TOP : 0"
+                :gutter-bottom="heroGutters ? HERO_GUTTER_BOTTOM : 0"
+                :class="activeIsComposite ? '!rounded-media !bg-surface dark:!bg-[#181818]' : '!rounded-media !bg-matte'"
                 style="aspect-ratio: auto; height: 100%"
                 @view-image="openFullView"
                 @retry="id => $emit('retry', id)"
@@ -511,7 +525,8 @@ onBeforeUnmount(() => {
             </template>
 
             <!-- Facts. The position is editable, which matters at 200. -->
-            <div v-if="!isSingle || heroFacts" class="absolute bottom-2 left-2 z-chrome flex h-7 max-w-[60%] items-center gap-1.5 rounded-md bg-black/55 px-2 font-mono text-xs tabular-nums text-white backdrop-blur coarse:h-11">
+            <div v-if="!isSingle || heroFacts" class="absolute z-chrome flex h-7 items-center gap-1.5 rounded-md bg-black/55 px-2 font-mono text-xs tabular-nums text-white backdrop-blur coarse:h-11"
+              :class="heroGutters ? 'left-12 right-32 top-0' : 'bottom-2 left-2 max-w-[60%]'">
               <template v-if="!isSingle">
                 <input
                   v-if="jumping"

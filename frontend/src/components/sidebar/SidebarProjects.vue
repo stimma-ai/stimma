@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { EllipsisHorizontalIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, EllipsisHorizontalIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { useContextSwitch, useWorkingContext, type WorkingProject } from '../../composables/useWorkingContext'
 import { useSidebarSections } from '../../composables/useSidebarSections'
 import { useMediaApi } from '../../composables/useMediaApi'
@@ -84,7 +84,8 @@ function manage(project: WorkingProject, event: MouseEvent) {
   picker.value?.manage(project, event.currentTarget as HTMLElement)
 }
 
-const rowClass = 'flex w-full items-center rounded px-3 py-1.5 text-left text-sm transition-colors coarse:min-h-11'
+// The nav row shape: a 14px outline glyph centred in a 24px slot, then the label.
+const rowClass = 'flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-sm transition-colors coarse:min-h-11 [&>:first-child]:mx-[5px]'
 </script>
 
 <template>
@@ -101,14 +102,15 @@ const rowClass = 'flex w-full items-center rounded px-3 py-1.5 text-left text-sm
             :class="projects.length > 0 ? 'opacity-0 group-hover/section:opacity-100' : ''"
             @click="startNaming"
           >
-            <PlusIcon class="h-3 w-3" />
+            <PlusIcon class="h-3 w-3" :stroke-width="2" />
           </button>
         </template>
       </SidebarSectionHeader>
     </div>
 
     <div v-if="!collapsed" class="flex flex-col gap-1">
-      <div v-if="naming" :class="[rowClass, 'py-1']">
+      <div v-if="naming" :class="[rowClass, 'text-content-muted']">
+        <ArchiveBoxIcon class="h-3.5 w-3.5 flex-shrink-0" :stroke-width="1.75" />
         <input
           ref="nameInput"
           v-model="draft"
@@ -124,7 +126,7 @@ const rowClass = 'flex w-full items-center rounded px-3 py-1.5 text-left text-sm
       <div v-for="project in recent" :key="project.id" class="group/project relative">
         <button
           type="button"
-          :class="[rowClass, 'gap-2 pr-8 text-content-secondary', dropTarget === project.id ? 'bg-accent/10 text-content ring-1 ring-accent' : 'hover:bg-overlay-subtle hover:text-content']"
+          :class="[rowClass, 'pr-8 text-content-secondary', dropTarget === project.id ? 'bg-accent/10 text-content ring-1 ring-accent' : 'hover:bg-overlay-subtle hover:text-content']"
           :title="project.name || 'Untitled project'"
           @click="enter(project)"
           @contextmenu.prevent="manage(project, $event)"
@@ -132,6 +134,7 @@ const rowClass = 'flex w-full items-center rounded px-3 py-1.5 text-left text-sm
           @dragleave="onDragLeave(project.id)"
           @drop="onDrop(project.id, $event)"
         >
+          <ArchiveBoxIcon class="h-3.5 w-3.5 flex-shrink-0" :stroke-width="1.75" />
           <span class="truncate" :class="project.name ? '' : 'italic text-content-muted'">{{ project.name || 'Untitled project' }}</span>
           <Spinner v-if="isBusy(project.id)" size="sm" hue="border-t-blue-500" class="ml-auto shrink-0" title="Running" />
         </button>
@@ -141,7 +144,7 @@ const rowClass = 'flex w-full items-center rounded px-3 py-1.5 text-left text-sm
           class="absolute inset-y-0 right-1.5 my-auto flex h-6 w-6 items-center justify-center rounded text-content-muted opacity-0 transition-opacity hover:bg-overlay-light hover:text-content focus-visible:opacity-100 group-hover/project:opacity-100 coarse:h-11 coarse:w-11 coarse:opacity-100"
           @click.stop="manage(project, $event)"
         >
-          <EllipsisHorizontalIcon class="h-3.5 w-3.5" />
+          <EllipsisHorizontalIcon class="h-3.5 w-3.5" :stroke-width="1.75" />
         </button>
       </div>
 
@@ -149,7 +152,7 @@ const rowClass = 'flex w-full items-center rounded px-3 py-1.5 text-left text-sm
         v-if="projects.length > RECENT_LIMIT"
         ref="allRow"
         type="button"
-        :class="[rowClass, 'justify-between text-content-muted hover:bg-overlay-subtle hover:text-content-secondary']"
+        :class="[rowClass, 'text-content-muted hover:bg-overlay-subtle hover:text-content-secondary']"
         title="All projects (hold media here to drop it into any project)"
         @click="picker?.toggle($event.currentTarget as HTMLElement)"
         @dragenter="allRowDrag.onDragEnter"
@@ -157,7 +160,8 @@ const rowClass = 'flex w-full items-center rounded px-3 py-1.5 text-left text-sm
         @dragleave="allRowDrag.onDragLeave"
         @drop="allRowDrag.onDrop"
       >
-        <span>All projects</span>
+        <EllipsisHorizontalIcon class="h-3.5 w-3.5 flex-shrink-0" :stroke-width="1.75" />
+        <span class="flex-1 text-left">All projects</span>
         <span class="flex items-center gap-1.5">
           <Spinner v-if="busyBeyondRecent" size="sm" hue="border-t-blue-500" title="Running" />
           <span class="text-[11px] tabular-nums">{{ projects.length }}</span>

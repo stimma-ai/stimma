@@ -116,17 +116,21 @@
       </div>
 
       <!-- Center: status + execution controls -->
-      <div class="flex flex-1 min-w-0 items-center justify-center gap-2 text-xs">
+      <div class="flex flex-1 min-w-0 items-center justify-center compact:justify-start gap-2 text-xs">
         <FlowStatusPill
           :flow-id="flowId"
           show-pending
           text-class="text-xs text-content-secondary"
           class="flex-shrink-0"
         />
+        <!-- Start and Resume are the one accent action while they apply. Pause is
+             a quiet ghost, and once the run has finished it is quieter still
+             (still here, still reachable). -->
         <button
           v-if="showStartButton"
-          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
+          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-accent/15 text-accent hover:bg-accent/25 transition-colors"
           title="Start"
+          aria-label="Start"
           @click="doPlay"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
@@ -135,18 +139,21 @@
         </button>
         <button
           v-if="showPauseButton"
-          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
+          class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md hover:bg-overlay-subtle transition-colors"
+          :class="flowStatusLabel === 'Done' ? 'text-content-muted hover:text-content-secondary' : 'text-content-secondary hover:text-content'"
           title="Pause"
+          aria-label="Pause"
           @click="doPause"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" :class="flowStatusLabel === 'Done' ? 'w-4 h-4' : 'w-5 h-5'">
             <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
           </svg>
         </button>
         <button
           v-if="showResumeButton"
-          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition-colors"
+          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-accent/15 text-accent hover:bg-accent/25 transition-colors"
           title="Resume"
+          aria-label="Resume"
           @click="doPlay"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
@@ -163,21 +170,22 @@
              changes vs the saved tool. -->
         <div class="relative" ref="linkMenuRef">
           <button
-            class="relative flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs font-medium border bg-overlay-subtle text-content border-edge hover:bg-overlay-hover transition-colors"
+            class="relative flex items-center justify-center gap-1.5 px-2 h-8 compact:h-11 compact:min-w-11 rounded-md text-xs font-medium text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors"
             :title="backingTools.length === 0 ? 'Freeze this flow into a custom tool' : 'Save / update custom tool'"
+            aria-label="Save custom tool"
             @click.stop="backingTools.length === 0 ? openFreezeDialog() : toggleLinkMenu()"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
               <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437" />
             </svg>
-            Save Custom Tool
+            <span class="compact:hidden">Save custom tool</span>
             <svg v-if="backingTools.length > 0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 opacity-70 -mr-0.5">
               <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
             </svg>
             <!-- Top-level unsaved-changes dot. -->
             <span
               v-if="anyStale"
-              class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent ring-2 ring-surface"
+              class="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-accent ring-2 ring-base"
               title="This flow has unsaved changes vs its custom tool"
             ></span>
           </button>
@@ -218,22 +226,29 @@
 
         <!-- Chat menu: new session, switch session, show/hide panel -->
         <div class="relative" ref="chatMenuContainerRef">
-          <button
-            class="flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs font-medium border transition-colors"
-            :class="chatPanelOpen
-              ? 'bg-accent/15 text-accent border-accent/50 hover:bg-accent/25'
-              : 'bg-overlay-subtle text-content border-edge hover:bg-overlay-hover'"
-            title="Chat options"
-            @click="toggleChatMenu"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
-            </svg>
-            Chat
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 opacity-70">
-              <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
-            </svg>
-          </button>
+          <div class="flex items-center gap-0.5">
+            <SegmentedControl
+              :model-value="chatPanelOpen ? 'chat' : 'flow'"
+              :options="WORKSPACE_MODES"
+              aria-label="Workspace"
+              class="coarse:[&_button]:min-h-11 coarse:[&_button]:px-4"
+              @update:model-value="chatPanelOpen = $event === 'chat'"
+            />
+            <button
+              type="button"
+              class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+              :class="showChatMenu ? 'bg-overlay-subtle text-content-secondary' : ''"
+              title="Chat sessions"
+              aria-label="Chat sessions"
+              aria-haspopup="menu"
+              :aria-expanded="showChatMenu"
+              @click="toggleChatMenu"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 opacity-70">
+                <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+              </svg>
+            </button>
+          </div>
 
           <div
             v-if="showChatMenu"
@@ -357,52 +372,25 @@
       <div class="flex-1 flex flex-col min-w-0">
         <!-- View tabs subheader -->
         <div class="flex items-center px-4 border-b border-edge-subtle flex-shrink-0">
-          <button
-            class="text-[12px] px-3 py-2 -mb-px border-b-2 transition-colors"
-            :class="viewMode === 'compact'
-              ? 'text-accent font-medium border-accent'
-              : 'text-content-muted hover:text-content border-transparent'"
-            @click="setViewMode('compact')"
-          >Steps</button>
-          <button
-            class="text-[12px] px-3 py-2 -mb-px border-b-2 transition-colors"
-            :class="viewMode === 'graph'
-              ? 'text-accent font-medium border-accent'
-              : 'text-content-muted hover:text-content border-transparent'"
-            @click="setViewMode('graph')"
-          >Workflow</button>
-          <button
-            class="text-[12px] px-3 py-2 -mb-px border-b-2 transition-colors"
-            :class="viewMode === 'code'
-              ? 'text-content font-medium border-content'
-              : 'text-content-muted hover:text-content border-transparent'"
-            @click="setViewMode('code')"
-          >Code</button>
+          <SegmentedControl
+            class="my-2"
+            :model-value="viewMode"
+            :options="VIEW_MODES"
+            aria-label="Flow view"
+            @update:model-value="setViewMode($event)"
+          />
 
           <div class="ml-auto flex items-center gap-2 py-1">
             <!-- Graph view toggle: collapse foreaches into super-nodes vs show
                  every iteration's equations expanded (the raw dagre layout). -->
             <div v-if="viewMode === 'graph' && !programAttentionError" class="flex items-center gap-1">
-              <div class="flex items-center rounded border border-edge-subtle overflow-hidden text-[11px]">
-                <button
-                  type="button"
-                  class="px-2 py-0.5 transition-colors"
-                  :class="graphCollapseForeach
-                    ? 'bg-accent text-white'
-                    : 'text-content-muted hover:text-content hover:bg-overlay-subtle'"
-                  title="Collapse foreach iterations into a single super-node"
-                  @click="graphCollapseForeach = true"
-                >Collapsed</button>
-                <button
-                  type="button"
-                  class="px-2 py-0.5 transition-colors border-l border-edge-subtle"
-                  :class="!graphCollapseForeach
-                    ? 'bg-accent text-white'
-                    : 'text-content-muted hover:text-content hover:bg-overlay-subtle'"
-                  title="Show every iteration's equations as raw graph nodes"
-                  @click="graphCollapseForeach = false"
-                >Expanded</button>
-              </div>
+              <SegmentedControl
+                :model-value="graphCollapseForeach ? 'collapsed' : 'expanded'"
+                :options="GRAPH_DETAIL_MODES"
+                aria-label="Graph detail"
+                title="Collapse foreach iterations into a single super-node, or show every iteration's equations as raw graph nodes"
+                @update:model-value="graphCollapseForeach = $event === 'collapsed'"
+              />
             </div>
 
             <div class="relative" ref="tabMenuContainerRef">
@@ -498,7 +486,7 @@
                   >
                 <!-- Inputs card (headingless — the Revert/Apply cluster pins
                      to the card's top-right corner so it never reflows) -->
-                <section v-if="hasInputFields" class="relative rounded-lg border border-edge-subtle bg-surface px-4 py-3">
+                <section v-if="hasInputFields" class="relative rounded-lg bg-surface px-4 py-3">
                   <div v-if="inputsDirty" class="absolute top-3 right-3 z-chrome flex items-center gap-1.5">
                     <button
                       type="button"
@@ -556,7 +544,7 @@
 
                 <template v-else>
                     <!-- Steps card (headingless) -->
-                    <section class="rounded-lg border border-edge-subtle bg-surface px-4 py-3">
+                    <section class="px-1">
                       <div class="py-1">
                         <ConnectionError v-if="state.loadError.value" @retry="state.loadAll" />
                         <div v-else-if="state.loading.value && !state.phaseTree.value" class="text-content-muted text-sm py-8 text-center">
@@ -807,6 +795,8 @@ import { bgClass, textClass } from '../utils/statusColors'
 import { BoltIcon } from '@heroicons/vue/24/solid'
 import Modal from '../components/ui/Modal.vue'
 import Button from '../components/ui/Button.vue'
+import SegmentedControl from '../components/ui/SegmentedControl.vue'
+import { useFlowStatus } from '../composables/useFlowStatus'
 import { syncedStorage } from '../utils/workspaceStore'
 
 const props = defineProps<{ id?: string | number }>()
@@ -827,6 +817,22 @@ const flowId = computed(() => {
 
 const state = useFlowState(flowId)
 const flow = state.flow
+const { label: flowStatusLabel } = useFlowStatus(flowId)
+
+// Mode switches use the kit's segmented control (DESIGN.md 2: Tabs/SegmentedControl).
+const VIEW_MODES = [
+  { label: 'Steps', value: 'compact' },
+  { label: 'Workflow', value: 'graph' },
+  { label: 'Code', value: 'code' },
+]
+const WORKSPACE_MODES = [
+  { label: 'Flow', value: 'flow' },
+  { label: 'Chat', value: 'chat' },
+]
+const GRAPH_DETAIL_MODES = [
+  { label: 'Collapsed', value: 'collapsed' },
+  { label: 'Expanded', value: 'expanded' },
+]
 
 // ----- Save as Tool (freeze) -----
 const showFreezeDialog = ref(false)

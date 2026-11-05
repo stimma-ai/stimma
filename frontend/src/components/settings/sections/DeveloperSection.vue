@@ -6,7 +6,7 @@
     </div>
 
     <div class="mt-6 max-w-[680px]">
-      <SettingRow label="Developer Mode" description="Show debug tools and additional developer options throughout the UI">
+      <SettingRow label="Developer mode" description="Show debug tools and additional developer options throughout the UI">
         <button
           @click="toggleDeveloperMode"
           :class="[
@@ -26,7 +26,7 @@
       <!-- Dev-only tools -->
       <template v-if="localDevMode">
         <!-- Hide Prices Toggle (for marketing screenshots) -->
-        <SettingRow label="Hide Prices" description="Hide all price/cost display throughout the UI">
+        <SettingRow label="Hide prices" description="Hide all price/cost display throughout the UI">
           <button
             @click="toggleHidePrices"
             :class="[
@@ -44,7 +44,7 @@
         </SettingRow>
 
         <!-- Hide Account Toggle (for marketing screenshots) -->
-        <SettingRow label="Hide Account" description="Show the signed-out sidebar footer instead of the account chip">
+        <SettingRow label="Hide account" description="Show the signed-out sidebar footer instead of the account chip">
           <button
             @click="toggleHideAccount"
             :class="[
@@ -79,15 +79,15 @@
           </button>
         </SettingRow>
 
-        <SettingRow label="Request Metrics" description="Inspect endpoint latency percentiles for recent requests">
+        <SettingRow label="Request metrics" description="Inspect endpoint latency percentiles for recent requests">
           <Button variant="ghost" size="sm" @click="openRequestMetricsModal">Open Request Metrics</Button>
         </SettingRow>
 
-        <SettingRow label="Reset Welcome Screen" description="Clear the welcome screen completion flag and show it again">
+        <SettingRow label="Reset welcome screen" description="Clear the welcome screen completion flag and show it again">
           <Button variant="ghost" size="sm" @click="resetOnboarding">Show Welcome Screen</Button>
         </SettingRow>
 
-        <SettingRow label="Run Setup Wizard" description="Clear the shown-once flag and open the AI setup wizard">
+        <SettingRow label="Run setup wizard" description="Clear the shown-once flag and open the AI setup wizard">
           <Button variant="ghost" size="sm" @click="runSetupWizard">Run Wizard</Button>
         </SettingRow>
 

@@ -22,7 +22,13 @@
     </Transition>
 
     <!-- Rounded input container -->
-    <div class="bg-surface border border-edge pt-1 overflow-hidden" :class="attachedTop ? 'rounded-b-lg' : 'rounded-lg'">
+    <!-- Fill-only (DESIGN.md 1.4): one background step, no hairline. A ring appears
+         only while the field has focus. Meta line, placeholder and model picker
+         all start at one left edge (16px). -->
+    <div
+      class="bg-surface overflow-hidden transition-shadow duration-150 focus-within:ring-1 focus-within:ring-accent/40"
+      :class="attachedTop ? 'rounded-b-lg border-t border-edge-subtle' : 'rounded-lg'"
+    >
       <!-- Optional header above attachments — used by FlowView to render
            the context-reference tray. The unavailable state replaces the
            whole typing region, including empty context. -->
@@ -38,14 +44,14 @@
       <AgentUnavailableInput v-if="agentUnavailable" />
 
       <!-- Textarea scroll wrapper -->
-      <div v-else ref="scrollWrapRef" class="chat-input-scroll-wrap overflow-y-auto mx-3 mt-2 compact:mx-4 compact:mt-3">
+      <div v-else ref="scrollWrapRef" class="chat-input-scroll-wrap overflow-y-auto mx-4 mt-3">
         <textarea v-no-autocorrect
           ref="textareaRef"
           :value="inputText"
           @input="setText($event.target.value)"
           :placeholder="placeholder"
           :rows="rows"
-          class="chat-input-textarea w-full bg-transparent text-content pl-1 pr-1 pb-2 focus:outline-none resize-none block"
+          class="chat-input-textarea w-full bg-transparent text-content p-0 focus:outline-none resize-none block"
           @keydown.enter.exact.prevent="$emit('submit')"
           @keydown.enter.shift.exact.prevent="insertNewline"
           @keydown="onTextareaKeydown"
@@ -55,7 +61,7 @@
 
       <!-- Action bar -->
       <div
-        class="flex items-center justify-between px-3 pb-2 pt-2 compact:px-4 compact:pb-3"
+        class="flex items-center justify-between px-2 pb-2 pt-1"
         :class="agentUnavailable ? 'border-t border-edge-subtle' : ''"
       >
         <!-- Left: model picker + upload button -->
@@ -150,7 +156,7 @@ const props = defineProps({
   placeholder: { type: String, default: 'Type a message...' },
   // Something (the message queue) is docked on top; square the top corners.
   attachedTop: { type: Boolean, default: false },
-  rows: { type: Number, default: 2 },
+  rows: { type: Number, default: 1 },
   disabled: { type: Boolean, default: false },
   agentUnavailable: { type: Boolean, default: false },
   attachments: { type: Array, default: () => [] },

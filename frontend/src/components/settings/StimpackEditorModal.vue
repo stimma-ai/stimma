@@ -19,7 +19,7 @@
     <div class="flex-1 p-6 overflow-y-auto flex flex-col gap-4">
       <!-- Display Name field -->
       <div class="space-y-1">
-        <label class="block text-sm font-medium text-content-secondary">Display Name</label>
+        <label class="block text-sm font-medium text-content-secondary">Display name</label>
         <input
           v-model="form.display_name"
           type="text"

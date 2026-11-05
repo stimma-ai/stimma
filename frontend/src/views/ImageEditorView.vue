@@ -9554,17 +9554,17 @@ watch(
             <div v-if="tab.id === 'info'" class="flex-1 compact:hidden" />
             <button
               type="button"
-              class="px-2 py-1 text-xs font-medium uppercase tracking-wide rounded-md compact:flex-1 compact:min-h-11 compact:text-[12px]
-                     transition-colors focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+              class="px-2.5 py-1 text-xs font-medium rounded-md compact:flex-1 compact:min-h-11 compact:text-[12px]
+                     transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
               :class="sidebarTab === tab.id
-                ? 'text-content bg-selection/15'
-                : 'text-content-tertiary hover:text-content-secondary'"
+                ? 'bg-accent/15 text-accent-hi'
+                : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
               @click="sidebarTab = tab.id as 'edits' | 'output' | 'info'"
             >
               {{ tab.label }}
               <span
                 v-if="tab.id === 'output' && outputLabel(outputStage)"
-                class="ml-1 text-accent normal-case tracking-normal tabular-nums"
+                class="ml-1 text-accent-hi tabular-nums"
               >{{ outputLabel(outputStage) }}</span>
             </button>
           </template>
@@ -9572,7 +9572,7 @@ watch(
         </div>
         <div
           v-else
-          class="flex rounded-md bg-overlay-subtle p-0.5 mb-2"
+          class="flex gap-0.5 rounded-md bg-overlay-faint p-0.5 mb-2"
           role="tablist"
           aria-label="Document panels"
         >
@@ -9585,8 +9585,8 @@ watch(
             :key="tab.id"
             type="button"
             role="tab"
-            class="flex-1 min-h-11 rounded text-[13px] font-medium transition-colors"
-            :class="sidebarTab === tab.id ? 'bg-surface-raised text-content shadow-sm' : 'text-content-secondary'"
+            class="flex-1 min-h-11 rounded text-[13px] font-medium transition-colors duration-150"
+            :class="sidebarTab === tab.id ? 'bg-accent/15 text-accent-hi' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
             :aria-selected="sidebarTab === tab.id"
             @click="sidebarTab = tab.id as 'edits' | 'output' | 'info'"
           >
@@ -9737,7 +9737,7 @@ watch(
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
                    border-b border-edge-strong compact:hidden"
           >
-            <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
+            <h2 class="text-xs font-semibold text-content-secondary">
               Properties
             </h2>
           </div>
@@ -9762,7 +9762,7 @@ watch(
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
                    border-b border-edge-strong compact:hidden"
           >
-            <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
+            <h2 class="text-xs font-semibold text-content-secondary">
               Properties
             </h2>
           </div>
@@ -9801,7 +9801,7 @@ watch(
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
                    border-b border-edge-strong compact:hidden"
           >
-            <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
+            <h2 class="text-xs font-semibold text-content-secondary">
               Properties
             </h2>
           </div>
@@ -9837,7 +9837,7 @@ watch(
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
                    border-b border-edge-strong compact:hidden"
           >
-            <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
+            <h2 class="text-xs font-semibold text-content-secondary">
               Properties
             </h2>
           </div>
@@ -9982,7 +9982,7 @@ watch(
               />
               <div v-else-if="family === 'levels' && compactLevelsMode === 'auto'" class="py-1">
                 <div class="flex gap-1 overflow-x-auto -mx-3 px-3 [scrollbar-width:none]">
-                  <Button size="sm" variant="ghost" @click="onSubbarSet({ auto: 'all' })">Auto All</Button>
+                  <Button size="sm" variant="ghost" @click="onSubbarSet({ auto: 'all' })">Auto all</Button>
                   <span role="separator" class="w-px shrink-0 bg-edge-subtle mx-1" />
                   <button
                     v-for="auto in AUTO_EDITS"

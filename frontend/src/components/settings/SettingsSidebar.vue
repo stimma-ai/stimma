@@ -39,15 +39,12 @@
         v-for="section in profileSections"
         :key="section.id"
         @click="$emit('select', section.id)"
-        class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer compact:min-h-11 compact:text-[15px]"
-        :class="activeSection === section.id
-          ? 'bg-overlay-light text-content'
-          : 'text-content-tertiary hover:text-content hover:bg-overlay-hover'"
+        :class="[navItemClass, activeSection === section.id ? navActiveClass : navIdleClass]"
       >
-        <component :is="section.icon" class="w-5 h-5 shrink-0" />
+        <component :is="section.icon" class="w-5 h-5 shrink-0" :class="activeSection === section.id ? 'text-selection' : ''" />
         <span class="flex min-w-0 flex-1 items-center gap-2">
           <span>{{ section.label }}</span>
-          <span v-if="section.id === 'mcp'" class="shrink-0 rounded border border-edge-subtle px-1 py-0.5 text-[8px] font-normal leading-none text-content-tertiary">EXPERIMENTAL</span>
+          <span v-if="section.id === 'mcp'" class="shrink-0 rounded border border-edge-subtle px-1 py-0.5 text-[10px] font-normal leading-none text-content-tertiary">Experimental</span>
         </span>
       </button>
 
@@ -61,20 +58,12 @@
           v-for="section in group.sections"
           :key="section.id"
           @click="$emit('select', section.id)"
-          class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all compact:min-h-11 compact:text-[15px]"
-          :class="[
-            activeSection === section.id
-              ? 'bg-overlay-light'
-              : 'hover:bg-overlay-hover',
-            section.branded
-              ? (activeSection === section.id ? 'text-cyan-600 dark:text-cyan-300' : 'text-cyan-500/70 dark:text-cyan-400/70 hover:text-cyan-600 dark:hover:text-cyan-300')
-              : (activeSection === section.id ? 'text-content' : 'text-content-tertiary hover:text-content')
-          ]"
+          :class="[navItemClass, activeSection === section.id ? navActiveClass : navIdleClass]"
         >
           <component
             :is="section.icon"
-            class="h-5 w-5"
-            :class="section.branded ? 'text-cyan-600 dark:text-cyan-400' : ''"
+            class="h-5 w-5 shrink-0"
+            :class="section.branded ? 'text-cyan-600 dark:text-cyan-400' : activeSection === section.id ? 'text-selection' : ''"
           />
           <span
             class="whitespace-nowrap"
@@ -82,7 +71,7 @@
           >{{ section.label }}</span>
           <span
             v-if="sectionNeedsSetup(section.id)"
-            class="ml-auto h-2 w-2 shrink-0 rounded-full bg-amber-400 ring-2 ring-yellow-400/15"
+            class="ml-auto h-2 w-2 shrink-0 rounded-full bg-amber-400"
             :title="section.id === 'ai-services' ? 'Chat model setup required' : 'Generation provider setup required'"
           ></span>
         </button>
@@ -98,12 +87,9 @@
       <button
         v-if="showDeveloper"
         @click.stop="$emit('select', 'developer')"
-        class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer w-full"
-        :class="activeSection === 'developer'
-          ? 'bg-overlay-light text-content'
-          : 'text-content-tertiary hover:text-content hover:bg-overlay-hover'"
+        :class="[navItemClass, 'w-full', activeSection === 'developer' ? navActiveClass : navIdleClass]"
       >
-        <component :is="CodeBracketIcon" class="w-5 h-5" />
+        <component :is="CodeBracketIcon" class="w-5 h-5 shrink-0" :class="activeSection === 'developer' ? 'text-selection' : ''" />
         <span>Developer</span>
       </button>
       <div v-else class="h-10 cursor-default select-none" />
@@ -147,11 +133,17 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'switch-profile'])
 
+// One nav-row treatment: row-sized text (13px, 15px on compact like every
+// other row), selection = the indigo wash DESIGN.md §1.8 prescribes.
+const navItemClass = 'flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-colors compact:min-h-11 compact:text-[15px]'
+const navActiveClass = 'bg-selection/15 text-content'
+const navIdleClass = 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
+
 const showProfileDropdown = ref(false)
 
 const currentProfileName = computed(() => {
   const profile = props.profiles.find(p => p.id === props.currentProfileId)
-  return profile?.name || 'Select Profile'
+  return profile?.name || 'Select profile'
 })
 
 function switchProfile(profileId) {
@@ -275,7 +267,7 @@ const BookOpenIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'strok
 const profileSections = [
   { id: 'folders', label: 'Folders', icon: FolderIcon },
   { id: 'markers', label: 'Markers', icon: TagIcon },
-  { id: 'wildcards', label: 'Prompt Variables', icon: WildcardIcon },
+  { id: 'wildcards', label: 'Prompt variables', icon: WildcardIcon },
   { id: 'agent', label: 'Agent', icon: SparklesIcon },
   { id: 'mcp', label: 'MCP', icon: PlugIcon },
 ]
@@ -285,14 +277,14 @@ const globalSectionGroups = [
   {
     label: 'Settings',
     sections: [
-      { id: 'account', label: 'Stimma Account', icon: AccountIcon },
+      { id: 'account', label: 'Stimma account', icon: AccountIcon },
       { id: 'shared-links', label: 'Shared links', icon: LinkIcon },
-      { id: 'server', label: 'Stimma Server', icon: ServerIcon },
-      { id: 'tools', label: 'Generation Tools', icon: WrenchIcon },
-      { id: 'ai-services', label: 'Chat Models', icon: CogIcon },
+      { id: 'server', label: 'Stimma server', icon: ServerIcon },
+      { id: 'tools', label: 'Generation tools', icon: WrenchIcon },
+      { id: 'ai-services', label: 'Chat models', icon: CogIcon },
       { id: 'model-preferences', label: 'Preferences', icon: AdjustmentsIcon },
       { id: 'profiles', label: 'Profiles', icon: UserIcon },
-      { id: 'background', label: 'Background Work', icon: CpuIcon },
+      { id: 'background', label: 'Background work', icon: CpuIcon },
       { id: 'stimpacks', label: 'Stimpacks', icon: BookOpenIcon },
       { id: 'privacy', label: 'Privacy', icon: ShieldCheckIcon },
       { id: 'updates', label: 'About', icon: InformationCircleIcon },

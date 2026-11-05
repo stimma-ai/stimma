@@ -3,7 +3,7 @@
     <section>
       <div class="mb-3">
         <div class="flex items-center gap-3">
-          <h3 class="text-xs font-semibold text-content-secondary">Preferences</h3>
+          <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Preferences</h3>
         </div>
       </div>
 
