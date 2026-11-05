@@ -1009,7 +1009,8 @@ async function loadAppSettings() {
   // The shared snapshot: main.js requested it alongside the roster. Locking
   // discards it, so after an unlock this is a fresh, authorized read.
   const settings = await fetchSettings({ reuse: true })
-  await loadFlowsPreference().catch(err => console.error('Failed to load Flows preference:', err))
+  // Flows stay hidden until this resolves; feature discovery must not delay startup.
+  void loadFlowsPreference().catch(err => console.error('Failed to load Flows preference:', err))
   setAppModifier(settings.bundle_id, settings.sandbox)
   // App modifier is now set, so localStorage key prefix is stable — purge
   // legacy masks/paint (now in IndexedDB) and the old tool-descriptor cache.

@@ -28,7 +28,7 @@ function profile(id, extra = {}) {
   return { id, name: id, database: `${id}.db`, db_guid: `guid-${id}`, has_pin: false, pin_idle_timeout_minutes: 30, ...extra }
 }
 
-const settingsBody = { bundle_id: BUNDLE, sandbox: 'default', theme: 'dark', developer_mode: false, wildcards: [], prompt_segments: [],
+const settingsBody = { bundle_id: BUNDLE, sandbox: 'default', theme: 'dark', developer_mode: false, tool_providers: [], wildcards: [], prompt_segments: [],
   readiness: { ready: true, has_agent_llm: true, has_generation: true, missing: [], wizard_version: 1, wizard_seen_version: 1 } }
 
 const fixed = {
@@ -74,7 +74,7 @@ test.after(async () => {
  * id -> PIN the fixture enforces on profile-scoped routes like the server's
  * middleware does.
  */
-async function boot(t, { profiles = [profile('main')], pins = {}, storedProfile = 'main', cachedPin = null, desktop = false, path = 'home', savedRoute = null } = {}) {
+async function boot(t, { profiles = [profile('main')], pins = {}, storedProfile = 'main', cachedPin = null, desktop = false, path = 'home', savedRoute = null, stallFlows = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 860 } })
   t.after(() => context.close())
   const page = await context.newPage()
@@ -137,6 +137,10 @@ async function boot(t, { profiles = [profile('main')], pins = {}, storedProfile 
     const url = new URL(request.url())
     const path = url.pathname
     const profileId = request.headers()['x-profile-id'] || null
+    if (stallFlows && path === '/api/preferences/experimental_flows' && request.method() === 'GET') {
+      backend.resolveFlows = () => route.fulfill({ json: { value: { enabled: false } } })
+      return
+    }
     if (SLOW[path] === Infinity) return // a read that never answers
     await new Promise(resolve => setTimeout(resolve, SLOW[path] ?? LATENCY_MS))
     let status = 200
@@ -422,6 +426,22 @@ test('profile switches, server switches, and lock events invalidate the right sn
   const settings = backend.log.filter(r => r.path === '/api/settings').map(r => r.profileId)
   // Startup, then 'other' and 'main' again (switching away discards the old profile's snapshot), then after the lock.
   assert.deepEqual(settings, ['main', 'other', 'main', 'main'])
+})
+
+
+test('experimental Flows discovery cannot delay startup or overwrite a saved choice', async t => {
+  const { page, backend } = await boot(t, { stallFlows: true })
+  await page.locator('.top-bar').first().waitFor({ state: 'visible', timeout: 3000 })
+  const sidebar = page.locator('.navigation-sidebar')
+  assert.equal(await sidebar.getByRole('button', { name: 'Flows', exact: true }).count(), 0)
+  await sidebar.getByRole('button', { name: 'Settings', exact: true }).click()
+  await page.getByRole('button', { name: 'Preferences', exact: true }).click()
+  const toggle = page.getByRole('switch', { name: 'Enable Flows [experimental]', exact: true })
+  await toggle.click()
+  await page.waitForFunction(() => document.querySelector('[role="switch"][aria-label="Enable Flows [experimental]"]')?.getAttribute('aria-checked') === 'true')
+  await backend.resolveFlows()
+  await page.waitForTimeout(150)
+  assert.equal(await toggle.getAttribute('aria-checked'), 'true', 'a delayed startup read cannot overwrite the saved opt-in')
 })
 
 })

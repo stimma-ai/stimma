@@ -20,7 +20,7 @@ export async function loadFlowsPreference() {
     const response = await fetch(`${getApiBase()}/preferences/experimental_flows`, { signal })
     if (!response.ok && response.status !== 404) throw new Error(`Could not load Flows preference: ${response.status}`)
     const value = response.ok ? (await response.json()).value?.enabled === true : false
-    if (scope() === key) {
+    if (scope() === key && loadedScope !== key) {
       enabled.value = value
       loadedScope = key
     }
