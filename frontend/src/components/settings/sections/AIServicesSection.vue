@@ -34,7 +34,7 @@
           </template>
           <template v-else #status>
             <span class="h-2 w-2 shrink-0 rounded-full" :class="cloudStatus !== 'available' ? 'bg-red-500' : cloudNeedsCredits ? 'bg-amber-400' : 'bg-green-500'"></span>
-            {{ cloudStatus !== 'available' ? 'Unavailable' : cloudNeedsCredits ? 'Add credits' : `Ready · ${cloudModels.length} model${cloudModels.length === 1 ? '' : 's'}` }}
+            <template v-if="cloudStatus !== 'available'">Unavailable</template><template v-else-if="cloudNeedsCredits">Add credits</template><template v-else>Ready · <span class="font-mono tabular-nums">{{ cloudModels.length }} model{{ cloudModels.length === 1 ? '' : 's' }}</span></template>
           </template>
         </ProviderRow>
 
@@ -52,11 +52,11 @@
           <template #status>
             <template v-if="chatgptRow(provider)">
               <span v-if="chatgptRow(provider).dot" class="h-2 w-2 shrink-0 rounded-full" :class="chatgptRow(provider).dot"></span>
-              {{ chatgptRow(provider).label }}
+              {{ chatgptRow(provider).label }}<template v-if="chatgptRow(provider).count"> · <span class="font-mono tabular-nums">{{ chatgptRow(provider).count }}</span></template>
             </template>
             <template v-else>
               <span v-if="provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
-              {{ provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
+              <template v-if="provider.last_test_passed === false">Check failed</template><span v-else-if="provider.last_test_passed" class="font-mono tabular-nums">{{ provider.models.length }} model{{ provider.models.length === 1 ? '' : 's' }}</span><template v-else>Not checked</template>
             </template>
           </template>
         </ProviderRow>
@@ -72,7 +72,7 @@
           <template #icon><ProviderBrandIcon provider="local" size="md" /></template>
           <template #status>
             <span v-if="provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
-            {{ provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
+            <template v-if="provider.last_test_passed === false">Check failed</template><span v-else-if="provider.last_test_passed" class="font-mono tabular-nums">{{ provider.models.length }} model{{ provider.models.length === 1 ? '' : 's' }}</span><template v-else>Not checked</template>
           </template>
         </ProviderRow>
 
@@ -85,7 +85,7 @@
           <template #icon><ProviderBrandIcon provider="local" size="md" /></template>
           <template #status>
             <span v-if="legacyProvider.last_test_passed !== undefined && legacyProvider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="legacyProvider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
-            {{ legacyProvider.last_test_passed === false ? 'Check failed' : legacyProvider.last_test_passed ? '1 model' : 'Not checked' }}
+            <template v-if="legacyProvider.last_test_passed === false">Check failed</template><span v-else-if="legacyProvider.last_test_passed" class="font-mono tabular-nums">1 model</span><template v-else>Not checked</template>
           </template>
         </ProviderRow>
 
@@ -777,7 +777,8 @@ function chatgptRow(provider) {
   }
   const count = chatgptStatus.value.models.length
   return {
-    label: `Ready · ${count} model${count === 1 ? '' : 's'}`,
+    label: 'Ready',
+    count: `${count} model${count === 1 ? '' : 's'}`,
     dot: 'bg-green-500',
     sub: [chatgptPlanLabel.value, chatgptStatus.value.account?.email].filter(Boolean).join(' · ') || null,
     subtone: 'text-content-tertiary',

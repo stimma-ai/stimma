@@ -132,7 +132,7 @@
               </button>
             </div>
             <div v-if="!(loneSection && loneSection.id === section.id)" class="flex flex-none items-center gap-1">
-              <span class="whitespace-nowrap text-[11px] tabular-nums text-content-tertiary" :class="quietSection && quietSection.id === section.id ? 'text-xs' : 'font-mono'">{{ assetCountLabel(section) }}</span>
+              <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary" :class="quietSection && quietSection.id === section.id ? 'text-xs' : ''">{{ assetCountLabel(section) }}</span>
               <!-- A phone board's single unnamed section is one quiet line: the add is text, not a filled glyph. -->
               <button
                 v-if="quietSection && quietSection.id === section.id"

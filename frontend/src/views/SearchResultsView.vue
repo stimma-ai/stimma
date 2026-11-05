@@ -100,7 +100,7 @@
           <section v-if="toolResults.length > 0">
             <div class="flex items-baseline gap-2.5 mb-3">
               <h2 class="text-xs font-semibold text-content-secondary">Tools</h2>
-              <span class="text-[11px] text-content-muted/70">{{ toolResults.length }}</span>
+              <span class="font-mono text-[11px] tabular-nums text-content-muted/70">{{ toolResults.length }}</span>
               <router-link
                 :to="{ name: 'all-tools', query: { q } }"
                 class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2 compact:-mr-2"
@@ -132,7 +132,7 @@
           <section v-for="section in entitySections" :key="section.title">
             <div class="flex items-baseline gap-2.5 mb-3">
               <h2 class="text-xs font-semibold text-content-secondary">{{ section.title }}</h2>
-              <span class="text-[11px] text-content-muted/70">{{ section.hits.length }}</span>
+              <span class="font-mono text-[11px] tabular-nums text-content-muted/70">{{ section.hits.length }}</span>
               <router-link
                 v-if="section.viewAll"
                 :to="section.viewAll"
@@ -190,7 +190,7 @@
                   </div>
                   <div class="text-xs text-content-muted truncate mt-0.5">
                     <template v-if="section.kind === 'preset' && toolById.get(hit.tool_id)">{{ toolById.get(hit.tool_id).name }} · <span :class="isStimmaCloudTool(toolById.get(hit.tool_id)) ? 'stimma-cloud-text font-medium' : ''">{{ toolProviderDisplayName(toolById.get(hit.tool_id), '') }}</span></template>
-                    <template v-else-if="hit.updated_at">{{ formatRelativeTime(hit.updated_at) }}</template>
+                    <span v-else-if="hit.updated_at" class="font-mono tabular-nums">{{ formatRelativeTime(hit.updated_at) }}</span>
                   </div>
                 </div>
               </button>
@@ -204,7 +204,7 @@
           <section v-for="assetSection in assetSections" :key="assetSection.key">
             <div class="flex items-baseline gap-2.5 mb-3">
               <h2 class="text-xs font-semibold text-content-secondary">{{ assetSection.title }}</h2>
-              <span class="text-[11px] text-content-muted/70">{{ assetSection.total }}</span>
+              <span class="font-mono text-[11px] tabular-nums text-content-muted/70">{{ assetSection.total }}</span>
               <router-link
                 :to="{ name: 'browse', query: assetSection.browseQuery }"
                 class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2 compact:-mr-2"
@@ -232,7 +232,7 @@
                 <div class="flex-1 min-w-0">
                   <HighlightedName :text="assetDisplayTitle(media)" :query="q" />
                   <div class="text-xs text-content-muted truncate mt-0.5">
-                    {{ assetSection.singular }}<template v-if="media.asset_created_at || media.created_date"> · {{ formatRelativeTime(media.asset_created_at || media.created_date) }}</template>
+                    {{ assetSection.singular }}<template v-if="media.asset_created_at || media.created_date"> · <span class="font-mono tabular-nums">{{ formatRelativeTime(media.asset_created_at || media.created_date) }}</span></template>
                   </div>
                 </div>
               </button>
@@ -260,7 +260,7 @@
           <section v-if="contextualGroups.length > 0">
             <div class="mb-3 flex items-baseline gap-2.5">
               <h2 class="text-xs font-semibold text-content-secondary">In chats and runs</h2>
-              <span class="text-[11px] text-content-muted/70">{{ contextualCount }}</span>
+              <span class="font-mono text-[11px] tabular-nums text-content-muted/70">{{ contextualCount }}</span>
             </div>
             <div class="space-y-3">
               <div v-for="group in contextualGroups" :key="`${group.root_kind}:${group.root_id}`" class="rounded-lg border border-edge-subtle bg-overlay-light p-3">

@@ -34,7 +34,7 @@
             </svg>
           </div>
           <div class="mt-0.5 flex items-center gap-1.5">
-            <p class="text-xs text-content-tertiary">{{ folder.media_count?.toLocaleString() || 0 }} assets</p>
+            <p class="text-xs text-content-tertiary"><span class="font-mono tabular-nums">{{ folder.media_count?.toLocaleString() || 0 }} assets</span></p>
             <!-- Auto-mark indicators -->
             <template v-if="folder.markers && folder.markers.length > 0">
               <span class="text-content-muted text-xs">·</span>

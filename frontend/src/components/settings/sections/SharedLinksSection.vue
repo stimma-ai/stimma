@@ -71,8 +71,8 @@
                 </template>
                 <span>{{ typeLabel(link.media_type) }}</span>
                 <span aria-hidden="true">·</span>
-                <span>{{ viewsLabel(link.view_count) }}</span>
-                <template v-if="link.created_at"><span aria-hidden="true">·</span><span>{{ formatDate(link.created_at) }}</span></template>
+                <span class="font-mono tabular-nums">{{ viewsLabel(link.view_count) }}</span>
+                <template v-if="link.created_at"><span aria-hidden="true">·</span><span class="font-mono tabular-nums">{{ formatDate(link.created_at) }}</span></template>
               </p>
             </div>
             <div class="flex items-center gap-0.5">

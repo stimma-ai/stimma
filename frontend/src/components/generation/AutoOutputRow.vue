@@ -45,7 +45,7 @@ const deleteArmed = computed(() => props.autoDelete !== 'never')
         @click="emit('configure')"
       >
         <TrashIcon class="h-icon-nav w-icon-nav" aria-hidden="true" />
-        <span v-if="deleteArmed">{{ autoDelete }}</span>
+        <span v-if="deleteArmed" class="font-mono tabular-nums">{{ autoDelete }}</span>
       </button>
       <AutoDeletePicker
         v-else

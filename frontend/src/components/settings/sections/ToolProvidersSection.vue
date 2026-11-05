@@ -34,7 +34,8 @@
           <Spinner v-if="isProviderConnecting(cloudProvider)" size="sm" />
           <ExclamationCircleIcon v-else-if="isProviderConnectionError(cloudProvider)" class="h-4 w-4" />
           <span v-else-if="cloudRowStatusDot" class="h-2 w-2 shrink-0 rounded-full" :class="cloudRowStatusDot"></span>
-          {{ cloudRowStatusLabel }}
+          <template v-if="cloudReady">Ready · <span class="font-mono tabular-nums">{{ providerStatusLabel(cloudProvider) }}</span></template>
+          <template v-else>{{ cloudRowStatusLabel }}</template>
         </template>
       </ProviderRow>
 
@@ -62,7 +63,7 @@
             <Spinner v-if="isProviderConnecting(provider)" size="sm" />
             <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
             <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
-            {{ providerStatusLabel(provider) }}
+            <span v-if="isProviderCountStatus(provider)" class="font-mono tabular-nums">{{ providerStatusLabel(provider) }}</span><template v-else>{{ providerStatusLabel(provider) }}</template>
           </template>
       </ProviderRow>
 
@@ -90,7 +91,7 @@
             <Spinner v-if="isProviderConnecting(provider)" size="sm" />
             <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
             <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
-            {{ providerStatusLabel(provider) }}
+            <span v-if="isProviderCountStatus(provider)" class="font-mono tabular-nums">{{ providerStatusLabel(provider) }}</span><template v-else>{{ providerStatusLabel(provider) }}</template>
           </template>
       </ProviderRow>
 
@@ -108,7 +109,7 @@
             <Spinner v-if="isProviderConnecting(provider)" size="sm" />
             <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
             <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
-            {{ providerStatusLabel(provider) }}
+            <span v-if="isProviderCountStatus(provider)" class="font-mono tabular-nums">{{ providerStatusLabel(provider) }}</span><template v-else>{{ providerStatusLabel(provider) }}</template>
           </template>
       </ProviderRow>
 
@@ -1081,6 +1082,11 @@ function providerStatusDotClass(provider) {
   if (isProviderConnectionError(provider)) return 'bg-red-500'
   if (provider.status === 'disconnected') return 'bg-amber-400'
   return 'bg-zinc-500'
+}
+
+// A connected provider's status is its tool count, which is a fact.
+function isProviderCountStatus(provider) {
+  return !!provider && provider.enabled !== false && provider.status === 'connected'
 }
 
 function providerStatusLabel(provider) {

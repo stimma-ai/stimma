@@ -1117,7 +1117,7 @@
 
       <!-- Cluster 2 — Position -->
       <div
-        class="text-xs font-semibold cursor-grab" :style="{ color: 'var(--bar-strong)' }"
+        class="text-xs font-semibold font-mono tabular-nums cursor-grab" :style="{ color: 'var(--bar-strong)' }"
         :class="controlBarOrientation === 'vertical' ? 'flex flex-col gap-0.5 items-center leading-none' : 'min-w-[80px] text-center'"
         @dblclick="toggleOrientation"
         :title="isViewingGrid ? 'Grid position | Arrow keys to navigate | Double-click to toggle orientation' : 'Position | Arrow keys / a/d to navigate | Double-click to toggle orientation'"

@@ -24,7 +24,7 @@
         <div class="min-w-0 flex-1">
           <div class="truncate text-[13px] text-content">{{ profile.name }}</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">
-            {{ profile.media_count?.toLocaleString() || 0 }} media file{{ profile.media_count !== 1 ? 's' : '' }}<template v-if="profile.has_pin"> · PIN</template>
+            <span class="font-mono tabular-nums">{{ profile.media_count?.toLocaleString() || 0 }} media file{{ profile.media_count !== 1 ? 's' : '' }}</span><template v-if="profile.has_pin"> · PIN</template>
           </div>
         </div>
         <div v-if="profile.id === currentProfileId" class="shrink-0 inline-flex items-center gap-1.5 text-[11px] text-content-tertiary">

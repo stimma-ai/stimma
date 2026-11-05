@@ -118,8 +118,8 @@
             <div class="min-w-0">
               <p class="truncate text-sm text-content">{{ client.name }}</p>
               <p class="mt-0.5 text-xs text-content-tertiary">
-                Created {{ formatDate(client.created_at) }} ·
-                {{ client.unlocked ? 'Active now' : client.last_used_at ? `Last used ${formatRelative(client.last_used_at)}` : 'Never used' }}
+                Created <span class="font-mono tabular-nums">{{ formatDate(client.created_at) }}</span> ·
+                <template v-if="client.unlocked">Active now</template><template v-else-if="client.last_used_at">Last used <span class="font-mono tabular-nums">{{ formatRelative(client.last_used_at) }}</span></template><template v-else>Never used</template>
               </p>
             </div>
           </div>
