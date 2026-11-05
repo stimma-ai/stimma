@@ -3,7 +3,10 @@
 // description on the left, ONE status or quiet verb on the right, all rows
 // sharing one right-hand column. Rows are whitespace-separated (hairline
 // budget, DESIGN.md §1.3); the whole row is the tap target, so there is no
-// chevron. The sanctioned Stimma gradient CTA goes in the `cta` slot.
+// chevron. The sanctioned Stimma gradient CTA goes in the `cta` slot. Three
+// explicit columns (icon, text, trailing), centred on the row, and on compact
+// a fixed row height (room for a two-line description), so rows keep one pitch
+// whether a description wraps or not.
 withDefaults(defineProps<{
   name: string
   /** Quiet one-line-or-two description under the name. */
@@ -25,7 +28,7 @@ withDefaults(defineProps<{
 <template>
   <button
     type="button"
-    class="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-3 text-left transition-colors hover:bg-overlay-subtle focus-visible:outline-none focus-visible:ring-2 ring-accent/60 compact:min-h-[60px]"
+    class="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-3 text-left transition-colors hover:bg-overlay-subtle focus-visible:outline-none focus-visible:ring-2 ring-accent/60 compact:min-h-[72px]"
   >
     <span class="flex h-9 w-9 shrink-0 items-center justify-center" :class="accentIcon ? 'text-accent-hi' : 'text-content-secondary'">
       <slot name="icon" />
@@ -35,7 +38,7 @@ withDefaults(defineProps<{
       <span v-if="description || $slots.description" class="mt-0.5 line-clamp-2 block text-xs" :class="descriptionClass"><slot name="description">{{ description }}</slot></span>
       <span v-if="error" class="mt-1 line-clamp-2 block text-xs text-red-400">{{ error }}</span>
     </span>
-    <span v-if="$slots.cta || verb || $slots.status" class="flex w-28 shrink-0 items-center justify-end text-xs compact:w-auto compact:min-w-[5.5rem]">
+    <span v-if="$slots.cta || verb || $slots.status" class="flex w-28 shrink-0 items-center justify-end text-xs compact:w-24">
       <slot v-if="$slots.cta" name="cta" />
       <span v-else-if="verb" class="-mr-2 whitespace-nowrap rounded-md px-2.5 py-1 text-content-secondary transition-colors group-hover:bg-overlay-light group-hover:text-content">{{ verb }}</span>
       <span v-else class="-mr-2 inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1" :class="statusClass"><slot name="status" /></span>

@@ -28,8 +28,8 @@ New:
                           Dark: 18 166 150 (brightened teal).
 --accent-on(-rgb)         label/glyph colour ON an accent fill: white on the
                           light fill (5.35:1), near-black 7 8 10 on the dark
-                          fill (6.6:1). Write `text-accent-on`; legacy
-                          `bg-accent` + `text-white` is remapped in style.css.
+                          fill (6.6:1). Always write `text-accent-on` on a
+                          `bg-accent` element, never `text-white`.
 --accent-selection(-rgb)  selection accent, DECIDED 2026-07-17: indigo family
                           (dark ~#818cf8, light #6366f1). Never an alias of
                           teal: selection ≠ action.
@@ -151,7 +151,7 @@ Practically: panels/menus/modals carry BOTH a border token and a shadow
 token; dark resolves the shadow to none, light resolves the border to
 transparent. Shadow strength is a token: `--shadow-page-a` (sm, default, md)
 and `--shadow-pop-a` (lg, xl, 2xl, `shadow-black/NN`) scale opacity per theme;
-light is 0.4 / 0.55 of dark, so in-page lift is a whisper and true overlays
+light is 0.4 / 0.85 of dark, so in-page lift is a whisper and true overlays
 stay distinguishable. A surface never carries a visible border AND a shadow
 beyond `shadow-sm` in the light theme; pick one. Radius scale in both themes: controls 6px, containers 10px,
 overlays 12px, media `radius-media` (2px). KV rows are hairline-separated
@@ -203,6 +203,14 @@ style.css; fields write `placeholder:text-content-muted`, never `placeholder-whi
   a result): `.result-action`. Resting = hairline outline on the band, never a
   grey fill; hover = one overlay step; set = overlay-light backing plus the
   marker's own colour; disabled = 40% opacity, no hover.
+- **Chat bubbles and composer**: bubbles are fill-only (user `surface-raised`,
+  assistant `surface`), one padding (`px-4 py-2.5`), no border; paragraph
+  spacing carries the structure inside, and the first and last block have no
+  outer margin. The composer rests at one text line plus its control row.
+  A chat result collection keeps one title row (title, count, menu), the
+  artwork, and one action row where markers and "Add to message" share a
+  baseline. Unset markers over artwork are a bare glyph with a soft shadow,
+  never a filled rectangle.
 - **Resolution trigger**: one control everywhere (tool and flow forms): a
   viewfinder aspect glyph drawn at the real shape, dimensions, chevron, on a
   single fill. A reference-image lock is a badge on the glyph plus a caption
@@ -343,10 +351,14 @@ that a desktop-sized window never trips.
   tests. Roomy surfaces open up INSIDE the compact shell (docked drawer,
   side-by-side tool columns); nothing switches chrome, so folding and
   unfolding mid-task loses no state. In the compact shell the drawer docks
-  when roomy on hub routes, and on detail routes only at `wide`; the
-  header's menu button becomes the dock toggle (a sidebar glyph, not a
-  hamburger) and the preference is per profile. A drawer that would leave a
-  detail surface under ~470px stays a drawer.
+  by default only at `wide` (≥ 840px), where content keeps a useful width.
+  At `medium` (a 752px fold) hubs open on the closed drawer: a docked rail
+  there narrows rows, recent cards and the tool catalog to one column. Docking
+  at medium is the person's choice, kept per profile once made. Detail routes
+  dock only at `wide`. Where docking is possible the header's menu button
+  becomes the dock toggle (a sidebar glyph, not a hamburger); the closed
+  drawer still opens by edge swipe. A drawer that would leave a detail
+  surface under ~470px stays a drawer.
 - **Chrome.** Every route declares `meta.surface`: `hub`, `detail` or
   `overlay`. Wide = sidebar + top bar. Compact = the SAME sidebar as a
   drawer (NavigationSidebar with `is-mobile`: 276px, pushes the app aside
@@ -954,9 +966,16 @@ the media menu stay in one place.
   below the artwork instead of on it.
 - **Flow header:** the workspace (Flow | Chat) and the view (Steps | Workflow |
   Code) are both the kit `SegmentedControl`. Start/Resume is the one accent
-  action; Pause is a ghost and quieter once the run is done. Save custom tool is
-  a ghost (icon only on compact). Phases sit directly on the page with the §3.1
-  rail, not inside a card.
+  action; Pause is a ghost while the run is live and moves into the entity menu
+  once the run is done. Status is a quiet label beside the name (dot plus text,
+  left-aligned; the compact strip leads with it), never a control. Save custom
+  tool is a ghost (icon only on compact). The workspace switch and its sessions
+  chevron are one group on one fill. Phases sit directly on the page with the
+  §3.1 rail, not inside a card; the Steps column holds a 960px measure, and
+  phase titles share the inputs card's content edge. A step title never
+  truncates for its provider pill: the pill wraps below. The compact header's
+  title slot keeps a 96px minimum, ellipsizes at the end and never shrinks the
+  action buttons.
 
 ### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
 

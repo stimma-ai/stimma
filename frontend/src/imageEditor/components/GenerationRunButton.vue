@@ -35,7 +35,7 @@ onUnmounted(() => document.removeEventListener('click', closeOutside))
 <template>
   <div ref="root" class="relative shrink-0">
     <div
-      class="flex overflow-hidden rounded-md bg-accent text-white"
+      class="flex overflow-hidden rounded-md bg-accent text-accent-on"
       :class="(disabled || loading) && 'opacity-50'"
     >
       <button

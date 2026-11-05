@@ -86,13 +86,13 @@
       <div class="relative flex" ref="allowMenuRef">
         <button
           @click="handleAllow(defaultScope)"
-          class="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-medium rounded-l-md transition-colors"
+          class="px-4 py-2 bg-accent hover:bg-accent/90 text-accent-on text-sm font-medium rounded-l-md transition-colors"
         >
           Allow
         </button>
         <button
           @click.stop="allowMenuOpen = !allowMenuOpen"
-          class="px-2 py-2 bg-accent hover:bg-accent/90 text-white rounded-r-md border-l border-overlay-medium transition-colors"
+          class="px-2 py-2 bg-accent hover:bg-accent/90 text-accent-on rounded-r-md border-l border-overlay-medium transition-colors"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
@@ -153,7 +153,7 @@
     <template #footer>
       <button
         @click="reviewModalOpen = false"
-        class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90"
+        class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-on transition-colors hover:bg-accent/90"
       >
         Close
       </button>

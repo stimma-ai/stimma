@@ -30,7 +30,7 @@ test('server updates live on Stimma Server and start immediately from the top ba
   await page.getByRole('button', { name: 'About', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Server status' })).toHaveCount(0);
   await expect(page.getByText('Server hosting this library')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Stimma Server', exact: true }).click();
+  await page.getByRole('button', { name: 'Stimma server', exact: true }).click();
   const card = page.getByRole('region', { name: 'Server status' });
   await expect(card.getByText('1.2.4', { exact: true })).toBeVisible();
   await expect(card.getByText('1.0.0', { exact: true })).toBeVisible();

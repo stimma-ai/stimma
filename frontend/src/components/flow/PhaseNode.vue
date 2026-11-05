@@ -18,11 +18,11 @@
     >
       <span
         v-if="isTopLevelPhase && phaseIndex != null"
-        class="flex-shrink-0 font-mono text-[10px] text-content-muted"
-      >PHASE {{ phaseIndex }}</span>
+        class="flex-shrink-0 font-mono text-[11px] text-content-muted"
+      >Phase {{ phaseIndex }}</span>
       <span
         class="text-content truncate"
-        :class="isTopLevelPhase ? 'text-[13.5px] font-semibold' : 'text-[14px] font-semibold'"
+        :class="isTopLevelPhase ? 'text-[15px] font-semibold' : 'text-[14px] font-semibold'"
       >{{ displayName }}</span>
 
       <StatusDot :bucket="phaseStatusBucket" :pulse="phaseStatus.kind === 'tasks' || phaseStatus.kind === 'running'" />
@@ -178,7 +178,7 @@
                 <span v-else class="w-2 h-2 rounded-full border border-content-muted/40 flex-shrink-0" />
 
                 <div class="flex-1 min-w-0 flex flex-col justify-center">
-                  <span class="truncate text-[13px] leading-tight text-content">{{ eq.display_name }}</span>
+                  <span class="truncate text-ctl text-content">{{ eq.display_name }}</span>
                   <span
                     v-if="eq.description"
                     class="truncate text-[11px] leading-tight text-content-muted"
@@ -231,7 +231,7 @@
                   <div class="text-[11px] text-red-400">This step failed.</div>
                   <div class="flex items-center gap-1.5">
                     <button
-                      class="text-[11px] px-2 py-0.5 rounded-md bg-accent text-white hover:bg-accent/90"
+                      class="text-[11px] px-2 py-0.5 rounded-md bg-accent text-accent-on hover:bg-accent/90"
                       @click.stop="$emit('fix-step-with-agent', eq)"
                     >Ask the agent for help</button>
                     <button
@@ -335,7 +335,7 @@
                 <!-- Title + optional subtitle. Actionable HITL reads as
                      "Your Turn" / "Pick one"; other states are single-line. -->
                 <div class="flex-1 min-w-0 flex flex-col justify-center">
-                  <span class="truncate text-[13px] leading-tight text-content">{{ hitlTitle(eq) }}</span>
+                  <span class="truncate text-ctl text-content">{{ hitlTitle(eq) }}</span>
                   <span
                     v-if="hitlSubtitle(eq)"
                     class="truncate text-[11px] leading-tight text-content-muted"

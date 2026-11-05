@@ -28,7 +28,7 @@
           :class="[
             'px-2 py-1 rounded-md text-xs font-medium font-mono transition-colors duration-150',
             Math.abs(megapixels - preset) < 0.05
-              ? 'bg-accent text-white'
+              ? 'bg-accent text-accent-on'
               : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light'
           ]"
         >

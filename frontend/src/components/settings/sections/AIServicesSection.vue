@@ -141,7 +141,7 @@
 
           <div class="flex items-center justify-between px-6 pb-4 pt-2">
             <button type="button" @click="closeAddProvider" class="text-xs text-content-secondary hover:text-content">Cancel</button>
-            <button type="button" @click="advanceAddProvider" :disabled="addSaving" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">
+            <button type="button" @click="advanceAddProvider" :disabled="addSaving" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">
               {{ addSaving ? 'Checking…' : 'Continue' }}
             </button>
           </div>
@@ -202,7 +202,7 @@
                 </div>
                 <div v-else class="mt-4 flex items-center gap-2">
                   <input v-model="providerKeyDraft" type="password" autocomplete="off" class="min-w-0 flex-1 rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" :placeholder="activeProvider.api_key_set ? '••••••••••••' : 'Paste API key'" />
-                  <button type="button" @click="saveProviderConnection" :disabled="managerSaving || !providerKeyDraft" class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ activeProvider.api_key_set ? 'Save' : 'Connect' }}</button>
+                  <button type="button" @click="saveProviderConnection" :disabled="managerSaving || !providerKeyDraft" class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ activeProvider.api_key_set ? 'Save' : 'Connect' }}</button>
                   <button v-if="activeProvider.api_key_set" type="button" @click="cancelProviderKeyEdit" :disabled="managerSaving" class="rounded-md px-3 py-2 text-sm text-content-secondary hover:bg-overlay-subtle hover:text-content disabled:opacity-50">Cancel</button>
                 </div>
                 <p v-if="managerError" class="mt-2 text-xs text-red-400">{{ managerError }}</p>
@@ -223,7 +223,7 @@
                 </label>
               </div>
               <div v-if="!isRemoteProvider(activeProvider)" class="mt-3 flex items-center gap-3">
-                <button type="button" @click="saveProviderConnection" :disabled="managerSaving" class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ managerSaving ? 'Checking…' : 'Save connection' }}</button>
+                <button type="button" @click="saveProviderConnection" :disabled="managerSaving" class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ managerSaving ? 'Checking…' : 'Save connection' }}</button>
                 <button type="button" @click="testProvider(activeProvider)" :disabled="testingId === activeProvider.id" class="text-xs text-content-secondary hover:text-content disabled:opacity-50">{{ testingId === activeProvider.id ? 'Testing…' : 'Check connection' }}</button>
                 <span v-if="activeProvider.last_tested_at" class="text-[11px] text-content-muted">Tested {{ timeAgo(activeProvider.last_tested_at) }}</span>
               </div>
@@ -356,7 +356,7 @@
                     </template>
 
                     <p v-if="managerError" class="text-xs text-red-400">{{ managerError }}</p>
-                    <button v-if="isFlexibleProvider(activeProvider)" type="button" @click="saveModelSettings(model)" :disabled="managerSaving || Boolean(extraBodyErrors[model.id])" class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ managerSaving ? 'Saving…' : 'Save model settings' }}</button>
+                    <button v-if="isFlexibleProvider(activeProvider)" type="button" @click="saveModelSettings(model)" :disabled="managerSaving || Boolean(extraBodyErrors[model.id])" class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ managerSaving ? 'Saving…' : 'Save model settings' }}</button>
                     </template>
                   </div>
                 </div>
@@ -584,7 +584,7 @@
             <button type="button" @click="removeLegacyProvider" :disabled="legacySaving" class="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 disabled:opacity-50">
               <TrashIcon /> Remove endpoint
             </button>
-            <button type="button" @click="saveLegacyEndpoint" :disabled="legacySaving || Boolean(legacyExtraBodyError)" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ legacySaving ? 'Saving…' : 'Save' }}</button>
+            <button type="button" @click="saveLegacyEndpoint" :disabled="legacySaving || Boolean(legacyExtraBodyError)" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ legacySaving ? 'Saving…' : 'Save' }}</button>
           </div>
     </div>
 

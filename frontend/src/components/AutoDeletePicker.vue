@@ -79,15 +79,18 @@ const props = withDefaults(defineProps<Props>(), {
 
 const buttonClasses = computed(() => {
   const base = 'cursor-pointer transition-colors flex items-center justify-center gap-1.5'
-  const sizeClasses = props.size === 'small'
-    ? 'px-2.5 h-7 rounded text-xs font-medium'
-    : 'px-3 py-2 rounded-md text-sm font-semibold'
-  const colorClasses = props.modelValue !== 'never'
-    ? 'bg-accent/15 text-accent-hi'
-    : props.size === 'small'
-      ? 'text-content-tertiary hover:text-content hover:bg-surface'
-      : 'bg-surface-raised hover:bg-surface-hover text-content-secondary hover:text-content'
-  return `${base} ${sizeClasses} ${colorClasses}`
+  const armed = props.modelValue !== 'never'
+  if (props.size === 'small') {
+    const sizeClasses = 'px-2.5 h-7 rounded text-xs font-medium'
+    const colorClasses = armed
+      ? 'bg-accent/15 text-accent-hi'
+      : 'text-content-tertiary hover:text-content hover:bg-surface'
+    return `${base} ${sizeClasses} ${colorClasses}`
+  }
+  // Same outlined treatment as the result actions: no resting fill; armed
+  // shows an accent outline and the duration.
+  const armedClasses = armed ? '!border-accent/50 !text-accent-hi' : ''
+  return `${base} result-action px-2.5 text-sm font-semibold coarse:min-h-11 coarse:min-w-11 ${armedClasses}`
 })
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void

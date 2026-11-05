@@ -1757,6 +1757,31 @@ function commitLivePan() {
 
 const viewZoomLabel = computed(() => `${Math.round(viewZoom.value * 100)}%`)
 const viewTransformStyle = computed(() => ({ transform: panTransform(viewPan.value) }))
+// Compact: the zoom read-out, Compare and Select are chips that belong to the
+// picture, not to the viewport corners. The matte reserves a band above and
+// below the fitted artwork (see the viewport's padding) and the chips sit in
+// those bands against the artwork's own edges.
+const COMPACT_BAND = 52
+const COMPACT_CHIP = 44
+const compactChipInset = computed(() => {
+  const vp = viewportSize.value
+  const art = displayBox.value
+  const edge = (vp.width - art.width) / 2
+  return Math.round(Math.max(8, Math.min(edge, vp.width / 2 - 110)))
+})
+const compactChipTop = computed(() => {
+  const vp = viewportSize.value
+  const art = displayBox.value
+  const artTop = (vp.height + COMPACT_BAND * 2 - art.height) / 2
+  return Math.max(4, Math.round(artTop - COMPACT_CHIP - 4))
+})
+const compactSelectTop = computed(() => {
+  const vp = viewportSize.value
+  const art = displayBox.value
+  const artBottom = (vp.height + COMPACT_BAND * 2 + art.height) / 2
+  return Math.round(artBottom + 4)
+})
+
 const zoomedDisplayBox = computed(() => ({
   width: Math.round(displayBox.value.width * viewZoom.value),
   height: Math.round(displayBox.value.height * viewZoom.value),
@@ -9254,11 +9279,16 @@ watch(
       </div>
 
       <!-- Compact: the commit bar's zoom read-out and before/after as glass
-           chips on the matte; pinch zooms, two fingers pan. -->
-      <template v-if="isCompact && !loading && family !== 'crop'">
+           chips in the band just above the artwork; pinch zooms, two fingers
+           pan. Select sits in the band below it. -->
+      <div
+        v-if="isCompact && !loading && family !== 'crop'"
+        class="absolute z-chrome flex items-center justify-between pointer-events-none"
+        :style="{ top: compactChipTop + 'px', left: compactChipInset + 'px', right: compactChipInset + 'px' }"
+      >
         <button
           type="button"
-          class="absolute top-2 left-2 z-chrome min-h-11 px-3 rounded-lg bg-black/60 text-white text-[11px] font-mono tabular-nums flex items-center gap-1.5 border border-white/10 backdrop-blur"
+          class="pointer-events-auto min-h-11 px-3 rounded-lg bg-surface/90 text-content text-[11px] font-mono tabular-nums flex items-center gap-1.5 border border-edge-subtle backdrop-blur"
           :aria-label="`Zoom ${viewZoomLabel}. Fit and recenter`"
           @click="resetView"
         >
@@ -9267,8 +9297,8 @@ watch(
         </button>
         <button
           type="button"
-          class="absolute top-2 right-2 z-chrome min-h-11 px-3 rounded-lg text-[12px] font-medium flex items-center gap-1.5 border backdrop-blur disabled:opacity-40"
-          :class="comparing ? 'bg-selection/25 text-selection border-selection/40' : 'bg-black/60 text-white border-white/10'"
+          class="pointer-events-auto min-h-11 px-3 rounded-lg text-[12px] font-medium flex items-center gap-1.5 border backdrop-blur disabled:opacity-40"
+          :class="comparing ? 'bg-selection/25 text-selection border-selection/40' : 'bg-surface/90 text-content border-edge-subtle'"
           :aria-pressed="comparing"
           :disabled="!composite"
           @click="toggleCompare()"
@@ -9276,7 +9306,7 @@ watch(
           <ViewColumnsIcon class="w-4 h-4" />
           Compare
         </button>
-      </template>
+      </div>
 
       <div
         v-if="scrubReadout"
@@ -9300,7 +9330,7 @@ watch(
         ref="viewport"
         data-disable-long-press
         class="relative flex-1 min-h-0 grid place-items-center overflow-hidden bg-matte p-6 coarse:touch-none compact:p-0"
-        :class="viewPanning ? 'cursor-grabbing' : (spacePanHeld ? 'cursor-grab' : '')"
+        :class="[viewPanning ? 'cursor-grabbing' : (spacePanHeld ? 'cursor-grab' : ''), isCompact && family !== 'crop' && 'compact:!py-[52px]']"
         @wheel.prevent="onViewportWheel"
         @pointerdown.capture="onViewportPointerDown"
         @pointermove.capture="onViewportPointerMove"
@@ -9557,8 +9587,9 @@ watch(
           :panel-target="isCompact ? '#editor-deck-panel' : null"
           @done="disarmSelect"
           :class="isCompact
-            ? ['absolute bottom-2 left-2 z-chrome', family === 'crop' && 'hidden']
+            ? ['absolute z-chrome', family === 'crop' && 'hidden']
             : 'absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome'"
+          :style="isCompact ? { top: compactSelectTop + 'px', left: compactChipInset + 'px' } : undefined"
           @arm="armSelectTool"
           @choose="(id: SelectToolId) => armSelectTool(id, true)"
           @pointer="activatePointer"
@@ -10242,7 +10273,7 @@ watch(
         </Button>
         <button
           type="button"
-          class="px-1.5 rounded-r-md bg-accent hover:bg-accent/90 text-white
+          class="px-1.5 rounded-r-md bg-accent hover:bg-accent/90 text-accent-on
                  border-l border-white/20 transition-colors disabled:opacity-50
                  focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
           :disabled="saving || !composite"

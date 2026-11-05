@@ -38,7 +38,7 @@
               <button
                 v-if="hasActivePreset"
                 @click="handleSave"
-                class="flex-1 px-3 py-1.5 text-sm text-white bg-accent hover:bg-accent/90 rounded-md transition-colors"
+                class="flex-1 px-3 py-1.5 text-sm text-accent-on bg-accent hover:bg-accent/90 rounded-md transition-colors"
               >
                 Save
               </button>
@@ -146,7 +146,7 @@
         <button
           @click="confirmSavePreset"
           :disabled="!newPresetName.trim() || saving"
-          class="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-4 py-2 bg-accent hover:bg-accent/90 text-accent-on rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {{ saving ? 'Saving...' : 'Save' }}
         </button>

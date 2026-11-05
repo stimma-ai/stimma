@@ -11,9 +11,9 @@
       </svg>
     </RowThumb>
 
-    <!-- Slots: name + status + date on the first line, description (full
-         width, with the output strip trailing) on the second. On narrow the
-         status moves to the second line. -->
+    <!-- Row slots, shared with chats: name + date on the first line,
+         description + status on the second. The date and the status end on
+         the same right edge; the output strip sits before the status. -->
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-3">
         <template v-if="editing">
@@ -43,12 +43,6 @@
           >
             Name this flow...
           </span>
-          <FlowStatusPill
-            class="flex-shrink-0 narrow:hidden"
-            :flow-id="flow.id"
-            :show-pending="true"
-            :text-class="statusTextClass"
-          />
           <span class="flex-1"></span>
           <span class="w-12 flex-shrink-0 text-right text-xs tabular-nums text-content-tertiary whitespace-nowrap">
             {{ flow.updated_at ? formatRelative(flow.updated_at) : '' }}
@@ -56,20 +50,10 @@
         </template>
       </div>
       <div v-if="!editing" class="flex items-center gap-3 mt-0.5">
-        <!-- Narrow only: status keeps a slot ahead of the description, never
-             truncated. "Your Turn" is the actionable state, so it wears the
-             accent and a heavier weight. -->
-        <FlowStatusPill
-          class="hidden flex-shrink-0 narrow:inline-flex"
-          :flow-id="flow.id"
-          :show-pending="false"
-          :text-class="statusTextClass"
-        />
-        <span v-if="parentName || flow.description" class="hidden h-3 w-px flex-shrink-0 bg-edge narrow:block" aria-hidden="true"></span>
-        <div v-if="parentName" class="flex-1 min-w-0 text-[12px] text-content-muted truncate">
+        <div v-if="parentName" class="flex-1 min-w-0 text-[13px] text-content-muted truncate">
           based on {{ parentName }}
         </div>
-        <div v-else-if="flow.description" class="flex-1 min-w-0 text-[12px] text-content-muted truncate">
+        <div v-else-if="flow.description" class="flex-1 min-w-0 text-[13px] text-content-muted truncate">
           {{ flow.description }}
         </div>
         <span v-else class="flex-1"></span>
@@ -80,7 +64,7 @@
              surfaced outputs, not just a generic bolt glyph. -->
         <div
           v-if="stripMediaIds.length > 0"
-          class="hidden sm:flex flex-shrink-0 items-center justify-end pl-2 -my-1.5"
+          class="hidden sm:flex flex-shrink-0 items-center justify-end -my-1.5"
         >
           <div
             v-for="(mid, i) in stripMediaIds"
@@ -104,6 +88,13 @@
             class="ml-1.5 text-[10.5px] font-mono text-content-muted tabular-nums"
           >+{{ extraCount }}</span>
         </div>
+
+        <!-- Status: the trailing fact. "Your turn" is the actionable state, so
+             it wears the accent and a heavier weight. -->
+        <span class="inline-flex min-w-14 flex-shrink-0 items-center justify-end gap-1.5" :class="statusTextClass">
+          <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="statusDotClass"></span>
+          {{ statusText }}
+        </span>
       </div>
     </div>
   </div>
@@ -114,7 +105,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useFlowsApi, type Flow, type FlowEquation } from '../../composables/useFlowsApi'
 import { computeFlowOutputs } from '../../composables/useFlowOutputs'
 import { useWebSocket } from '../../composables/useWebSocket'
-import FlowStatusPill from './FlowStatusPill.vue'
+import { useFlowCounts } from '../../composables/useFlowCounts'
 import { MediaImage } from '../media'
 import RowThumb from '../lists/RowThumb.vue'
 import { useFlowStatus } from '../../composables/useFlowStatus'
@@ -137,7 +128,15 @@ const api = useFlowsApi()
 const { on } = useWebSocket()
 
 const { width } = useViewport()
-const { label: statusLabel } = useFlowStatus(computed(() => props.flow.id))
+const { label: statusLabel, dotClass: statusDotClass } = useFlowStatus(computed(() => props.flow.id))
+const { countFor } = useFlowCounts()
+// "Your Turn" is the backend's status value; only its display is sentence case.
+const statusText = computed(() => {
+  const label = statusLabel.value === 'Your Turn' ? 'Your turn' : statusLabel.value
+  const pending = countFor(props.flow.id)
+  if (width.value === 'narrow' || pending <= 0 || label === 'Error' || label === 'Tool unavailable') return label
+  return `${label} · ${pending} pending`
+})
 const statusTextClass = computed(() =>
   statusLabel.value === 'Your Turn'
     ? 'text-[11.5px] font-semibold text-accent-hi whitespace-nowrap'

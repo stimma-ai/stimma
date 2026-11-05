@@ -317,13 +317,15 @@ const emit = defineEmits<{
   (e: 'update:promptOptions', value: PromptOptions): void
 }>()
 
-// Box height. Desktop keeps the editor's own 200–408px; phones give the
+// Box height. Desktop rests at ~5 lines and grows to 408px; phones give the
 // prompt a few lines (more on a roomy inner screen) and let it grow a little,
 // so the parameters stay in view. 21px is one 14px line at 1.5.
 const { isCompact, isRoomy } = useViewport()
 const sizeVars = computed(() => {
-  if (!isCompact.value) return undefined
-  const lines = Math.min(props.rows, isRoomy.value ? 6 : 3)
+  // Desktop rests at about five lines and grows with the text up to the
+  // editor's own cap; the controls below stay close to the placeholder.
+  if (!isCompact.value) return { '--prompt-min-h': `${Math.min(props.rows, 5) * 21 + 8}px` }
+  const lines = Math.min(props.rows, isRoomy.value ? 4 : 3)
   return {
     '--prompt-min-h': `${lines * 21 + 8}px`,
     '--prompt-max-h': isRoomy.value ? '260px' : '160px',

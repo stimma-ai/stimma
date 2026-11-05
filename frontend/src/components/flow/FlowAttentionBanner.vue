@@ -29,13 +29,13 @@
           <div class="mt-2 flex flex-wrap items-center gap-1.5">
             <button
               v-if="error"
-              class="text-[12px] px-2.5 py-1 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="text-[12px] px-2.5 py-1 rounded-md bg-accent text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
               :disabled="fixing"
               @click="$emit('fix')"
             >{{ fixing ? 'Sending…' : 'Ask the assistant to fix it' }}</button>
             <button
               v-else-if="blocked"
-              class="text-[12px] px-2.5 py-1 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="text-[12px] px-2.5 py-1 rounded-md bg-accent text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
               :disabled="fixing"
               @click="$emit('unblock')"
             >{{ fixing ? 'Sending…' : 'Ask the assistant' }}</button>

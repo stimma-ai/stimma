@@ -488,7 +488,7 @@
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
-              <div class="bg-surface-raised text-content rounded-lg px-4 py-2">
+              <div class="bg-surface-raised text-content rounded-lg px-4 py-2.5">
                 <!-- Attachments -->
                 <div v-if="getMessageAttachments(item).length > 0" class="flex gap-2 mb-2">
                   <div
@@ -600,7 +600,7 @@
                 </template>
                 <div
                   v-if="getDisplayText(item)"
-                  class="bg-surface border border-edge-subtle text-content rounded-lg px-4 py-2 prose prose-sm max-w-none select-text"
+                  class="bg-surface text-content rounded-lg px-4 py-2.5 prose prose-sm max-w-none select-text"
                 >
                   <template v-for="(seg, segIdx) in parseMarkdownSegments(getDisplayText(item))" :key="segIdx">
                     <ChatMarkdown v-if="seg.type === 'html'" :html="seg.content" />

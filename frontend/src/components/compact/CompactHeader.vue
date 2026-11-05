@@ -114,7 +114,7 @@ const sheetItems = computed(() => {
       <button
         v-if="isLibrary"
         type="button"
-        class="flex-1 min-w-0 h-11 px-1 flex items-center gap-1 text-left border-none bg-transparent"
+        class="flex-1 min-w-[96px] h-11 px-1 flex items-center gap-1 text-left border-none bg-transparent overflow-hidden"
         aria-label="Assets scope"
         @click="scopeOpen = true"
       >
@@ -124,11 +124,11 @@ const sheetItems = computed(() => {
         </span>
         <ChevronDownIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" />
       </button>
-      <button v-else-if="titleAction" type="button" class="flex-1 min-w-0 h-11 px-1 text-left border-none bg-transparent" :aria-label="`Rename ${title}`" @click="titleAction()">
-        <h1 class="truncate font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</h1>
+      <button v-else-if="titleAction" type="button" class="flex flex-1 min-w-[96px] h-11 px-1 items-center text-left border-none bg-transparent overflow-hidden" :aria-label="`Rename ${title}`" :title="title" @click="titleAction()">
+        <h1 class="block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</h1>
       </button>
-      <div v-else class="flex-1 min-w-0 px-1">
-        <h1 v-if="title" class="truncate font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</h1>
+      <div v-else class="flex-1 min-w-[96px] overflow-hidden px-1">
+        <h1 v-if="title" :title="title" class="truncate font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</h1>
         <p v-if="subtitle" class="truncate text-[11px] font-mono text-content-tertiary leading-snug">{{ subtitle }}</p>
       </div>
 
@@ -136,7 +136,7 @@ const sheetItems = computed(() => {
       <button
         v-if="isHub && hasActiveWork"
         type="button"
-        class="w-11 h-11 flex items-center justify-center rounded-md border-none bg-transparent"
+        class="w-11 h-11 flex-none flex items-center justify-center rounded-md border-none bg-transparent"
         :aria-label="progressTitle"
         @click="workOpen = true"
       >
@@ -146,11 +146,11 @@ const sheetItems = computed(() => {
       <ProviderManagerButton v-if="isHub" />
 
       <!-- Screens with a primary control (the tool view's Run) teleport it here. -->
-      <div id="compact-header-actions" class="flex items-center gap-1 empty:hidden"></div>
+      <div id="compact-header-actions" class="flex flex-none items-center gap-1 empty:hidden"></div>
       <button
         v-if="showSearchButton"
         type="button"
-        class="w-11 h-11 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+        class="w-11 h-11 flex-none flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
         aria-label="Search"
         @click="openSearch"
       >
@@ -159,7 +159,7 @@ const sheetItems = computed(() => {
       <button
         v-if="primaryAction"
         type="button"
-        class="w-11 h-11 flex items-center justify-center rounded-md text-accent-hi bg-accent/15 border-none"
+        class="w-11 h-11 flex-none flex items-center justify-center rounded-md text-accent-hi bg-accent/15 border-none"
         :aria-label="primaryAction.label"
         @click="primaryAction.run()"
       >
@@ -169,7 +169,7 @@ const sheetItems = computed(() => {
       <button
         v-if="!isHub && menuItems.length"
         type="button"
-        class="w-11 h-11 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+        class="w-11 h-11 flex-none flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
         aria-label="More"
         @click="menuOpen = true"
       >

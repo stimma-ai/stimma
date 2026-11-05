@@ -1,13 +1,13 @@
 <template>
   <div
-    class="relative space-y-3 mb-6"
+    class="relative space-y-2 mb-5"
     :class="disabled ? 'opacity-40 pointer-events-none' : ''"
     :data-drop-zone="`media-picker-${accept}`"
     @dragover.prevent="onDragOver"
     @dragleave="onDragLeave"
     @drop.prevent="onDrop($event)"
   >
-    <div class="flex items-baseline justify-between pb-1 mb-1.5">
+    <div class="flex items-center justify-between min-h-6">
       <div class="flex items-baseline gap-2 min-w-0">
         <label class="text-ctl font-semibold text-content-secondary">{{ displayLabel }}</label>
         <span v-if="props.description" class="text-xs text-content-muted truncate">{{ props.description }}</span>
@@ -721,7 +721,7 @@
         @dragleave.stop="onDragLeave"
         @drop.prevent.stop="onDrop($event)"
         :class="[
-          'rounded-md flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer h-24 w-full',
+          'rounded-md flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer h-14 w-full',
           reorderable ? '' : 'col-span-full',
           isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10' : 'bg-overlay-subtle text-content-muted hover:bg-overlay-light'
         ]"

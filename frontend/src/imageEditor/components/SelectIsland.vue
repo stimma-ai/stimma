@@ -410,8 +410,8 @@ function buttonClass(active: boolean, enabled = true) {
         type="button"
         class="min-h-11 pl-2.5 pr-3 rounded-lg backdrop-blur border text-[12.5px] font-medium flex items-center gap-1.5"
         :class="armed
-          ? 'bg-selection/30 text-white border-selection/50'
-          : hasSelection ? 'bg-black/60 text-selection border-selection/40' : 'bg-black/60 text-white border-white/10'"
+          ? 'bg-selection/30 text-content border-selection/50'
+          : hasSelection ? 'bg-surface/90 text-selection border-selection/40' : 'bg-surface/90 text-content border-edge-subtle'"
         :aria-label="armed ? `${armedTool?.label} armed. Done` : hasSelection ? 'Edit selection' : 'Select'"
         :aria-pressed="!!armed"
         data-select-pill
@@ -426,7 +426,7 @@ function buttonClass(active: boolean, enabled = true) {
       <button
         v-if="hasSelection && !armed"
         type="button"
-        class="min-h-11 min-w-11 rounded-lg bg-black/60 backdrop-blur border border-white/10 text-white flex items-center justify-center"
+        class="min-h-11 min-w-11 rounded-lg bg-surface/90 backdrop-blur border border-edge-subtle text-content flex items-center justify-center"
         aria-label="Deselect"
         @click="emit('clear')"
       >
@@ -487,7 +487,7 @@ function buttonClass(active: boolean, enabled = true) {
               v-if="aiPrompt.trim()"
               type="button"
               class="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md
-                     flex items-center justify-center bg-accent text-white"
+                     flex items-center justify-center bg-accent text-accent-on"
               aria-label="Find"
               :disabled="aiBusy"
               @click="submitAiPrompt"
@@ -594,7 +594,7 @@ function buttonClass(active: boolean, enabled = true) {
                 v-if="aiPrompt.trim()"
                 type="button"
                 class="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md
-                       flex items-center justify-center bg-accent text-white transition-colors
+                       flex items-center justify-center bg-accent text-accent-on transition-colors
                        hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
                 aria-label="Find"
                 title="Find (Enter)"
@@ -822,6 +822,11 @@ function buttonClass(active: boolean, enabled = true) {
       class="pl-1 pr-1.5 text-xs font-medium text-selection whitespace-nowrap"
       data-select-armed-label
     >{{ armedTool.label }}</span>
+    <span
+      v-else
+      class="pl-1 pr-1.5 text-xs text-content-tertiary whitespace-nowrap select-none"
+      data-select-idle-label
+    >{{ pointerActive ? 'Objects' : 'Select' }}</span>
     </span>
 
     <span class="w-px h-5 bg-edge-subtle" />

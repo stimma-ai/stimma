@@ -185,7 +185,7 @@
               <button
                 v-if="!pinSettingsProfile.has_pin"
                 @click="showSetPinForm = true"
-                class="px-3 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm rounded-md font-medium transition-colors"
+                class="px-3 py-1.5 bg-accent hover:bg-accent/90 text-accent-on text-sm rounded-md font-medium transition-colors"
               >
                 Set PIN
               </button>
@@ -239,7 +239,7 @@
               <button
                 @click="submitSetPin"
                 :disabled="!canSetPin || savingPin"
-                class="px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded-md font-medium transition-colors"
+                class="px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-accent-on text-sm rounded-md font-medium transition-colors"
               >
                 {{ savingPin ? 'Setting...' : 'Set PIN' }}
               </button>
@@ -287,7 +287,7 @@
               <button
                 @click="submitChangePin"
                 :disabled="!canChangePin || savingPin"
-                class="px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded-md font-medium transition-colors"
+                class="px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-accent-on text-sm rounded-md font-medium transition-colors"
               >
                 {{ savingPin ? 'Changing...' : 'Change PIN' }}
               </button>

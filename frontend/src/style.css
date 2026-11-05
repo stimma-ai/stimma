@@ -496,7 +496,7 @@ body {
   /* Light elevation is a soft diffuse lift, not a dark drop. In-page lift is
      barely there; overlays keep enough shadow to separate from the page. */
   --shadow-page-a: 0.4;
-  --shadow-pop-a: 0.55;
+  --shadow-pop-a: 0.85;
 
   /* Surfaces — channels for `<alpha-value>` support; see the dark block. */
   --color-base-rgb: 255 255 255;
@@ -686,12 +686,6 @@ select option {
 .result-action:focus-visible { outline: none; box-shadow: 0 0 0 2px rgb(var(--color-accent-rgb) / .6); }
 .result-action.result-action-accent:hover:not(:disabled) { background: rgb(var(--color-accent-rgb)); border-color: rgb(var(--color-accent-rgb)); color: rgb(var(--color-on-accent-rgb)); }
 .result-action.result-action-danger:hover:not(:disabled) { background: rgb(239 68 68 / .85); border-color: transparent; color: #fff; }
-
-/* White text on an accent fill resolves to the theme's on-accent label colour
-   (near-black on the dark theme's bright teal; see --color-on-accent-rgb).
-   Retires the 3.0:1 white-on-teal pairing without touching every call site;
-   new code writes `text-accent-on`. */
-.bg-accent.text-white, .bg-accent .text-white { color: rgb(var(--color-on-accent-rgb)); }
 
 /* Checkerboard pattern for transparent image backgrounds - standard light/white pattern */
 .bg-checker {

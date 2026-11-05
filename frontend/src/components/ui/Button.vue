@@ -28,7 +28,7 @@ function onClick(e: MouseEvent) {
 const isLink = computed(() => props.variant === 'link')
 
 const variantClasses: Record<string, string> = {
-  primary: 'bg-accent hover:bg-accent/90 text-white',
+  primary: 'bg-accent hover:bg-accent/90 text-accent-on',
   secondary: 'bg-surface-raised hover:bg-surface-hover text-content',
   ghost: 'text-content-secondary hover:text-content hover:bg-overlay-subtle',
   danger: 'bg-red-600 hover:bg-red-500 text-white',

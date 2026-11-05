@@ -311,7 +311,7 @@
           :class="[
             'border-none text-xs px-3 h-6 rounded-full transition-all flex items-center',
             gridSelectedCells.length === 2
-              ? 'bg-accent text-white cursor-pointer hover:bg-accent/90'
+              ? 'bg-accent text-accent-on cursor-pointer hover:bg-accent/90'
               : 'bg-white/10 text-white/40 cursor-not-allowed'
           ]"
           @click="compareGridCells"
@@ -996,7 +996,7 @@
         <button
           @click="toggleLoop"
           :class="[
-            'text-base text-[color:var(--bar-fg)] cursor-pointer transition-all bg-transparent border-none p-1.5 rounded-md leading-none flex items-center justify-center w-8',
+            'text-[16px] text-[color:var(--bar-fg)] cursor-pointer transition-all bg-transparent border-none p-1.5 rounded-md leading-none flex items-center justify-center w-8',
             { '!text-live hover:!text-live/80': loopEnabled },
             'hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]'
           ]"
@@ -1216,7 +1216,7 @@
         <button v-if="currentPayloadId" type="button" class="sheet-row" @click="compactMoreOpen = false; openShareLink()"><LinkIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Share link…</span></button>
         <button v-if="nativeShareSupported && currentPayloadId && !isSprite && !isPackage && !isSet && !isGrid && !isLayout" type="button" class="sheet-row" @click="nativeShareMediaId = currentPayloadId; compactMoreOpen = false"><ArrowUpTrayIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Share file…</span></button>
         <button type="button" class="sheet-row" @click="toggleRandomize"><ArrowsRightLeftIcon class="sheet-row-icon" /><span class="flex-1">Shuffle</span><span class="sheet-row-detail" :class="isRandomized ? '!text-live' : ''">{{ isRandomized ? 'on' : 'off' }}</span></button>
-        <button type="button" class="sheet-row" @click="toggleLoop"><span class="sheet-row-icon flex items-center justify-center text-base leading-none">↻</span><span class="flex-1">Loop</span><span class="sheet-row-detail" :class="loopEnabled ? '!text-live' : ''">{{ loopEnabled ? 'on' : 'off' }}</span></button>
+        <button type="button" class="sheet-row" @click="toggleLoop"><span class="sheet-row-icon flex items-center justify-center text-[16px] leading-none">↻</span><span class="flex-1">Loop</span><span class="sheet-row-detail" :class="loopEnabled ? '!text-live' : ''">{{ loopEnabled ? 'on' : 'off' }}</span></button>
         <button type="button" class="sheet-row" @click="cycleDuration"><span class="sheet-row-icon flex items-center justify-center text-[11px] font-semibold">{{ currentDuration }}s</span><span class="flex-1">Slideshow interval</span><span class="sheet-row-detail">tap to change</span></button>
         <button v-if="isVideo" type="button" class="sheet-row" @click="toggleMute"><SpeakerXMarkIcon v-if="isMuted" class="sheet-row-icon" /><SpeakerWaveIcon v-else class="sheet-row-icon" /><span class="flex-1">Sound</span><span class="sheet-row-detail" :class="isMuted ? '' : '!text-live'">{{ isMuted ? 'muted' : 'on' }}</span></button>
         <button v-if="isVideo" type="button" class="sheet-row" @click="toggleVideoTransport"><FilmIcon class="sheet-row-icon" /><span class="flex-1">Scrubber</span><span class="sheet-row-detail" :class="showVideoTransport ? '!text-live' : ''">{{ showVideoTransport ? 'shown' : 'hidden' }}</span></button>

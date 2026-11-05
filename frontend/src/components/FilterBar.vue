@@ -23,12 +23,14 @@
              shared with every marker toggle: outline at rest, filled in the
              marker's own color when set, on one backing (overlay-light).
              Exclude is the same set look plus a red "−" left of the glyph. -->
+        <div v-if="filterMarkers.length" class="w-px h-5 bg-edge self-center mx-1 compact:hidden" aria-hidden="true"></div>
+        <div v-if="filterMarkers.length" class="flex items-center gap-1 compact:contents" role="group" aria-label="Marker filters">
         <button
           v-for="marker in filterMarkers"
           :key="marker.id"
           :class="[
             'inline-flex items-center justify-center h-9 compact:h-11 rounded-md transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
-            isMarkerNegative(marker.id) ? 'px-2 gap-1' : 'w-9 compact:w-10',
+            isMarkerNegative(marker.id) ? 'px-2 gap-1' : 'gap-1.5 px-2 compact:px-0 compact:w-10',
             isMarkerPositive(marker.id) || isMarkerNegative(marker.id)
               ? 'bg-overlay-light'
               : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
@@ -49,7 +51,11 @@
             :class="isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? '' : 'marker-glyph-off'"
             v-html="sanitizeSvg(marker.icon_svg)"
           />
+          <span
+            :class="['text-xs font-medium leading-none first-letter:uppercase', isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? 'compact:hidden roomy:inline' : 'compact:hidden']"
+          >{{ marker.name }}</span>
         </button>
+        </div>
 
         <!-- Cart: every active criterion as a chip. Compact: its own row under the toggles. -->
         <div class="contents compact:flex compact:flex-wrap compact:gap-1.5 compact:basis-full compact:order-4 compact:empty:hidden">
@@ -544,7 +550,7 @@
                 <span :class="['text-[13px]', localIncludeProjects ? 'text-accent-hi font-medium' : 'text-content-secondary']">
                   Include project assets
                 </span>
-                <span :class="['w-3.5 h-3.5 flex-shrink-0 rounded-sm border flex items-center justify-center', localIncludeProjects ? 'bg-accent border-accent text-white' : 'border-edge']" aria-hidden="true">
+                <span :class="['w-3.5 h-3.5 flex-shrink-0 rounded-sm border flex items-center justify-center', localIncludeProjects ? 'bg-accent border-accent text-accent-on' : 'border-edge']" aria-hidden="true">
                   <svg v-if="localIncludeProjects" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>

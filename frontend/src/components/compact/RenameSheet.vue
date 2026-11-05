@@ -40,7 +40,7 @@ function save() {
       />
       <div class="flex gap-2 justify-end">
         <button type="button" class="h-11 px-4 rounded-md text-[15px] text-content-secondary border-none bg-transparent" @click="emit('close')">Cancel</button>
-        <button type="submit" class="h-11 px-5 rounded-md text-[15px] font-medium text-white bg-accent border-none disabled:opacity-40" :disabled="!value.trim()">Save</button>
+        <button type="submit" class="h-11 px-5 rounded-md text-[15px] font-medium text-accent-on bg-accent border-none disabled:opacity-40" :disabled="!value.trim()">Save</button>
       </div>
     </form>
   </Sheet>

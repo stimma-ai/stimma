@@ -9,7 +9,7 @@
       <button
         @click="$emit('submit')"
         :disabled="!canSubmit || isSubmitting"
-        class="px-4 py-3 bg-accent hover:bg-accent/90 rounded-lg text-white text-base font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        class="px-4 py-3 bg-accent hover:bg-accent/90 rounded-lg text-accent-on text-[16px] leading-6 font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         <span v-if="isSubmitting">Submitting...</span>
         <template v-else>
@@ -23,7 +23,7 @@
         v-if="showForeverMode"
         @click="$emit('toggle-forever')"
         :class="[
-          'px-4 py-3 rounded-lg text-base font-semibold cursor-pointer transition-colors flex items-center justify-center gap-2',
+          'px-4 py-3 rounded-lg text-[16px] leading-6 font-semibold cursor-pointer transition-colors flex items-center justify-center gap-2',
           foreverMode ? 'bg-accent/15 text-accent-hi ring-1 ring-accent/40' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
         ]"
         :title="foreverMode ? 'Forever mode active - click to stop' : 'Enable forever mode'"

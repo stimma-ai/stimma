@@ -2,12 +2,12 @@
   <!-- Empty state: a dashed-border hint strip so the user can see where to
        drop references. When populated, becomes a flex-wrapped chip strip. -->
   <div
-    class="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-edge-subtle"
-    :class="refs.items.value.length === 0 ? 'border-dashed' : ''"
+    class="flex flex-wrap items-center gap-1.5 px-4 py-2"
+    :class="refs.items.value.length === 0 ? '' : 'border-b border-edge-subtle'"
   >
     <span
       v-if="refs.items.value.length === 0"
-      class="text-[11px] text-content-muted italic"
+      class="text-[11px] text-content-muted"
     >
       Reference items from the flow to give the agent context
     </span>

@@ -76,7 +76,7 @@
           <button
             type="button"
             aria-pressed="false"
-            class="flex-1 min-w-0 bg-accent text-white text-[10px] font-medium px-1 py-0.5 rounded-md hover:bg-accent/90 transition-colors truncate"
+            class="flex-1 min-w-0 bg-accent text-accent-on text-[10px] font-medium px-1 py-0.5 rounded-md hover:bg-accent/90 transition-colors truncate"
             title="Approve"
             @click.stop="$emit('approve', true)"
           >Approve</button>

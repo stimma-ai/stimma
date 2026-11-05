@@ -1,13 +1,13 @@
 <template>
   <!-- Outputs card (headingless, ToolView card shell; self-hides when empty) -->
-  <div v-if="groups.length > 0" class="rounded-lg border border-edge-subtle bg-surface px-4 py-3">
+  <div v-if="groups.length > 0" class="rounded-lg bg-surface px-4 py-3">
     <div class="py-1 space-y-8">
       <div
         v-for="group in groups"
         :key="group.key"
       >
         <div class="flex items-center gap-2 px-2 pb-1.5">
-          <span class="text-xs font-semibold text-content-secondary truncate">{{ group.label }}</span>
+          <span class="text-ctl font-semibold text-content-secondary truncate">{{ group.label }}</span>
         </div>
 
         <!-- Text-shaped outputs (llm() strings, code() returning a value) get

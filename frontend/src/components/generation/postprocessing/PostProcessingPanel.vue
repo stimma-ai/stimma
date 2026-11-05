@@ -1,11 +1,12 @@
 <template>
-  <div class="mb-6">
+  <div class="mb-5">
     <!-- Panel header: label + icon strip (mirrors the LoRAs header). The
          chain enable is the mock's quiet `On ▾` value dropdown, not a switch —
          a bright toggle here outshone the whole column. -->
-    <div class="flex items-center gap-2 pb-1 mb-1.5">
+    <div class="flex items-center gap-2 min-h-6" :class="chain.steps.length ? 'mb-1.5' : ''">
       <span class="text-ctl font-semibold text-content-secondary">Post-processing</span>
-      <div class="ml-auto flex items-center gap-1.5">
+      <span v-if="chain.steps.length" class="text-xs tabular-nums text-content-tertiary">{{ chain.steps.length }} {{ chain.steps.length === 1 ? 'step' : 'steps' }}</span>
+      <div class="ml-auto flex items-center gap-1.5 coarse:-my-2" :class="chain.steps.length ? '' : 'coarse:-mr-4'">
         <button
           ref="addBtnRef"
           @click="toggleAddMenu"

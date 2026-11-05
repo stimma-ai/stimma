@@ -223,11 +223,11 @@
           </div>
 
           <!-- Tools grid for this task type -->
-          <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2 compact:grid-cols-1">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2 compact:grid-cols-1 roomy:grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
             <div
               v-for="tool in group.tools"
               :key="tool.full_tool_id"
-              class="relative group rounded-lg px-3 py-2.5 flex items-start gap-2.5 transition-colors cursor-pointer bg-surface hover:bg-surface-raised"
+              class="relative group rounded-lg px-3 py-2 flex items-start gap-2.5 transition-colors cursor-pointer bg-surface hover:bg-surface-raised"
               :class="tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : ''"
               @click="openTool(tool)"
               @contextmenu.prevent="isUserTool(tool) ? openToolMenu($event, tool) : null"
@@ -251,21 +251,20 @@
               </div>
 
               <div class="flex-1 min-w-0">
-                <!-- Identity: the name (task label dropped, the group heading
-                     carries it) wraps before it truncates; price is a trailing
-                     slot. -->
+                <!-- Identity: name, with the variant beside it in a lighter
+                     weight (task label dropped, the group heading carries it);
+                     price is a trailing slot. Wraps before it truncates. -->
                 <div class="flex items-baseline gap-2">
-                  <h3 class="flex-1 min-w-0 text-sm font-medium leading-snug text-content line-clamp-2 break-words" :title="tool.name">{{ toolTitleParts(tool, group.taskType).title }}</h3>
+                  <h3 class="flex-1 min-w-0 text-sm leading-snug line-clamp-2 break-words" :title="tool.name">
+                    <span class="font-medium text-content">{{ toolTitleParts(tool, group.taskType).title }}</span><span v-if="toolTitleParts(tool, group.taskType).variant" class="ml-1.5 text-content-secondary">{{ toolTitleParts(tool, group.taskType).variant }}</span>
+                  </h3>
                   <span v-if="getToolPrice(tool)" class="text-[11px] font-mono tabular-nums text-content-tertiary flex-shrink-0">{{ getToolPrice(tool) }}</span>
                 </div>
-
-                <!-- Variant: its own secondary line -->
-                <p v-if="toolTitleParts(tool, group.taskType).variant" class="mt-0.5 text-xs leading-snug text-content-secondary line-clamp-2 break-words">{{ toolTitleParts(tool, group.taskType).variant }}</p>
 
                 <!-- Technical facts, subordinate: provider, then at most two
                      capabilities. The rest collapse into +N; the full list is
                      its title. -->
-                <div class="mt-1 flex items-center gap-1.5 min-w-0 text-[11px] text-content-muted">
+                <div class="mt-0.5 flex items-center gap-1.5 min-w-0 text-[11px] text-content-muted">
                   <span
                     class="w-[5px] h-[5px] rounded-full flex-shrink-0"
                     :class="isStimmaCloudTool(tool) ? 'bg-accent' : 'bg-content-muted/70'"
@@ -273,12 +272,13 @@
                   <span v-if="isUserTool(tool)" class="truncate min-w-0">Custom tool</span>
                   <span v-else-if="isStimmaCloudTool(tool)" class="stimma-cloud-text font-medium truncate min-w-0">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
                   <span v-else class="truncate min-w-0">{{ tool.provider_name || tool.provider_id }}</span>
+                  <template v-if="toolTitleParts(tool, group.taskType).fast && !visibleBadges(tool).some((b) => b === 'Fast' || b.includes('⚡'))">
+                    <span class="flex-shrink-0" aria-hidden="true">·</span>
+                    <span class="flex-shrink-0" aria-hidden="true">⚡</span>
+                  </template>
                   <template v-for="badge in visibleBadges(tool)" :key="badge">
                     <span class="flex-shrink-0" aria-hidden="true">·</span>
-                    <span
-                      class="flex-shrink-0 lowercase whitespace-nowrap"
-                      :class="badge === 'Fast' ? 'text-accent-hi' : ''"
-                    >{{ badge === 'Fast' ? '⚡ fast' : badge }}</span>
+                    <span class="flex-shrink-0 lowercase whitespace-nowrap">{{ badge === 'Fast' ? '⚡ fast' : badge }}</span>
                   </template>
                   <span
                     v-if="hiddenBadgeCount(tool) > 0"
@@ -288,7 +288,7 @@
                 </div>
 
                 <!-- Description -->
-                <p v-if="getToolDescription(tool)" class="mt-1.5 text-xs leading-relaxed text-content-secondary line-clamp-2">{{ getToolDescription(tool) }}</p>
+                <p v-if="getToolDescription(tool)" class="mt-1 text-xs leading-relaxed text-content-secondary line-clamp-2">{{ getToolDescription(tool) }}</p>
               </div>
             </div>
           </div>
@@ -826,7 +826,13 @@ function toolTitleParts(tool, taskType) {
     const stripped = base.replace(new RegExp(`\\s+${task.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s*⚡)?$`, 'i'), '$1').trim()
     if (stripped && stripped !== base) base = stripped
   }
-  return { title: base, variant }
+  // A lightning mark on the title is a fact about the tool, so it moves to the facts line.
+  let fast = false
+  if (/\s*⚡\s*$/.test(base)) {
+    fast = true
+    base = base.replace(/\s*⚡\s*$/, '').trim()
+  }
+  return { title: base, variant, fast }
 }
 
 function getToolPrice(tool) {

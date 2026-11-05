@@ -54,7 +54,7 @@
       <template v-if="cellState === 'awaiting'">
         <button
           type="button"
-          class="bg-accent text-white text-[11px] font-medium px-2 py-1 rounded-md hover:bg-accent/90 transition-colors"
+          class="bg-accent text-accent-on text-[11px] font-medium px-2 py-1 rounded-md hover:bg-accent/90 transition-colors"
           @click.stop="submitApprove(true)"
         >Approve</button>
         <button

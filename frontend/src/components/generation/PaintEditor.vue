@@ -78,7 +78,7 @@
             @click="activeTool = 'brush'"
             :class="[
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
-              activeTool === 'brush' ? 'bg-accent text-white' : 'text-content hover:bg-overlay-subtle'
+              activeTool === 'brush' ? 'bg-accent text-accent-on' : 'text-content hover:bg-overlay-subtle'
             ]"
             title="Brush"
           >
@@ -88,7 +88,7 @@
             @click="activeTool = 'eyedropper'"
             :class="[
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
-              activeTool === 'eyedropper' ? 'bg-accent text-white' : 'text-content hover:bg-overlay-subtle'
+              activeTool === 'eyedropper' ? 'bg-accent text-accent-on' : 'text-content hover:bg-overlay-subtle'
             ]"
             title="Eyedropper (sample color from image)"
           >
@@ -98,7 +98,7 @@
             @click="activeTool = 'eraser'"
             :class="[
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
-              activeTool === 'eraser' ? 'bg-accent text-white' : 'text-content hover:bg-overlay-subtle'
+              activeTool === 'eraser' ? 'bg-accent text-accent-on' : 'text-content hover:bg-overlay-subtle'
             ]"
             title="Eraser"
           >
@@ -202,7 +202,7 @@
       <div class="px-3 py-3">
         <button
           @click="$emit('done')"
-          class="w-full py-2 rounded-md bg-accent hover:bg-accent/90 text-white text-xs font-semibold transition-colors"
+          class="w-full py-2 rounded-md bg-accent hover:bg-accent/90 text-accent-on text-xs font-semibold transition-colors"
         >
           Done
         </button>

@@ -1,8 +1,9 @@
 <template>
-  <div :class="compact ? 'my-1' : 'my-6'">
+  <div :class="compact ? 'my-1' : 'mb-5'">
     <!-- Header: label + count + compact icon strip (＋ · ⌕ · disable-all · RAW · ⋯) -->
-    <div class="flex items-center gap-2 pb-1 mb-1.5">
+    <div class="flex items-center gap-2 min-h-6" :class="hasAnyItems || filterOpen ? 'mb-1.5' : ''">
       <span class="text-ctl font-semibold text-content-secondary">LoRAs</span>
+      <span v-if="enabledCount > 0" class="text-xs tabular-nums text-content-tertiary">{{ enabledCount }} on</span>
       <button
         v-if="enabledCount > 0"
         @click="disableAll"
@@ -10,7 +11,7 @@
         class="text-[10px] rounded-full px-2 py-0.5 text-content-tertiary bg-overlay-subtle hover:text-content hover:bg-overlay-light transition-colors coarse:min-h-11 coarse:px-3 coarse:text-xs"
         title="Disable all LoRAs (keeps the list)"
       >Clear all</button>
-      <div class="ml-auto flex items-center gap-0.5">
+      <div class="ml-auto flex items-center gap-0.5 coarse:-my-2 coarse:-mr-4">
         <button
           v-if="availableLoras.length > 0 || uploadConfig"
           @click="showModal = true"

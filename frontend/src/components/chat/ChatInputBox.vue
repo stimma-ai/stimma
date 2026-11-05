@@ -56,7 +56,7 @@
       <AgentUnavailableInput v-if="agentUnavailable" />
 
       <!-- Textarea scroll wrapper -->
-      <div v-else ref="scrollWrapRef" class="chat-input-scroll-wrap overflow-y-auto mx-4 mt-3">
+      <div v-else ref="scrollWrapRef" class="chat-input-scroll-wrap overflow-y-auto mx-4 mt-2.5">
         <textarea v-no-autocorrect
           ref="textareaRef"
           :value="inputText"
@@ -73,7 +73,7 @@
 
       <!-- Action bar -->
       <div
-        class="flex items-center justify-between px-2 pb-2 pt-1"
+        class="flex items-center justify-between px-2 pb-1.5 pt-0 coarse:pb-1"
         :class="agentUnavailable ? 'border-t border-edge-subtle' : ''"
       >
         <!-- Left: model picker + upload button -->

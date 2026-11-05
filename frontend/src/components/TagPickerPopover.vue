@@ -50,8 +50,8 @@
           @click="toggleTag(tag)"
         >
           <span
-            class="w-4 h-4 rounded flex-shrink-0 border-[1.5px] flex items-center justify-center text-white"
-            :class="stateOf(tag.id) === 'all' ? 'bg-accent border-accent'
+            class="w-4 h-4 rounded flex-shrink-0 border-[1.5px] flex items-center justify-center"
+            :class="stateOf(tag.id) === 'all' ? 'bg-accent border-accent text-accent-on'
               : stateOf(tag.id) === 'some' ? 'border-accent text-accent-hi'
               : 'border-content-tertiary'"
           >

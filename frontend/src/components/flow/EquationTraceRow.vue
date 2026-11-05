@@ -89,11 +89,11 @@
            model identifier. Routing/code rows that have a real subtitle
            still render it on a second line. -->
       <div class="flex-1 min-w-0 flex flex-col justify-center">
-        <div class="flex items-baseline gap-2 min-w-0">
-          <span class="truncate text-[13px] leading-tight text-content">{{ title }}</span>
+        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0">
+          <span class="min-w-0 max-w-full truncate text-ctl text-content">{{ title }}</span>
           <span
             v-if="runtimePill"
-            class="flex-shrink-0 truncate text-[10px] leading-none rounded px-1.5 py-0.5 bg-overlay-faint text-content-muted"
+            class="min-w-0 max-w-full truncate text-[11px] leading-none rounded px-1.5 py-0.5 bg-overlay-faint text-content-muted"
           >
             <span v-if="runtimeModelLabel">{{ runtimeModelLabel }}</span>
             <span v-if="runtimeModelLabel && runtimeProviderLabel"> · </span>

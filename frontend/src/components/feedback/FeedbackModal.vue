@@ -82,7 +82,7 @@
       <button
         @click="submit"
         :disabled="submitting || !message.trim()"
-        class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors flex items-center gap-2"
+        class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-accent-on rounded-md transition-colors flex items-center gap-2"
       >
         <Spinner v-if="submitting" size="sm" hue="border-t-white" />
         <span>{{ submitting ? 'Sending…' : 'Send feedback' }}</span>

@@ -420,7 +420,7 @@
           </ul>
 
           <div v-if="!drawThingsSetupProvider">
-            <button type="button" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90" @click="enableDrawThings">{{ drawThingsInstalled ? 'Enable Draw Things' : 'Set up Draw Things' }}</button>
+            <button type="button" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-on hover:bg-accent/90" @click="enableDrawThings">{{ drawThingsInstalled ? 'Enable Draw Things' : 'Set up Draw Things' }}</button>
           </div>
           <template v-else>
             <div class="flex items-center gap-1.5 text-xs font-medium" :class="providerConnectionStatusClass(drawThingsSetupProvider)">
@@ -553,19 +553,19 @@
         <button
           v-if="addMode === 'comfy' && !wizard"
           type="button"
-          class="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
+          class="bg-accent rounded-md px-4 py-2 text-sm font-medium text-accent-on hover:bg-accent/90"
           @click="finishComfySetup"
         >Done</button>
         <button
           v-else-if="addMode === 'drawthings' && !wizard && drawThingsSetupProvider"
           type="button"
-          class="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
+          class="bg-accent rounded-md px-4 py-2 text-sm font-medium text-accent-on hover:bg-accent/90"
           @click="showModal = false"
         >Done</button>
         <template v-else-if="addMode === 'drawthings'"></template>
         <template v-else>
           <button type="button" :disabled="!canTest || testing" class="bg-surface-raised px-4 py-2 text-sm font-medium text-content hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50" @click="testConnection">{{ testing ? 'Testing…' : 'Test connection' }}</button>
-          <button type="button" :disabled="!canSave || saving" class="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50" @click="saveProvider">{{ saving ? 'Adding…' : 'Add provider' }}</button>
+          <button type="button" :disabled="!canSave || saving" class="bg-accent rounded-md px-4 py-2 text-sm font-medium text-accent-on hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50" @click="saveProvider">{{ saving ? 'Adding…' : 'Add provider' }}</button>
           <button type="button" class="px-3 py-2 text-sm text-content-tertiary hover:text-content" @click="closeModal">Cancel</button>
         </template>
       </div>

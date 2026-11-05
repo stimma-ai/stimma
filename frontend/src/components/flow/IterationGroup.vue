@@ -62,11 +62,11 @@
            row read as a model identifier. The count pill is kept visually
            distinct so rolled-up rows don't read as "candidates". -->
       <div class="flex-1 min-w-0 flex flex-col justify-center">
-        <div class="flex items-baseline gap-2 min-w-0">
-          <span class="truncate text-[13px] leading-tight text-content">{{ titleText }}</span>
+        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0">
+          <span class="min-w-0 max-w-full truncate text-ctl text-content">{{ titleText }}</span>
           <span
             v-if="runtimePill"
-            class="flex-shrink-0 truncate text-[10px] leading-none rounded px-1.5 py-0.5 bg-overlay-faint text-content-muted"
+            class="min-w-0 max-w-full truncate text-[11px] leading-none rounded px-1.5 py-0.5 bg-overlay-faint text-content-muted"
           >
             <span v-if="runtimeModelLabel">{{ runtimeModelLabel }}</span>
             <span v-if="runtimeModelLabel && runtimeProviderLabel"> · </span>
@@ -127,7 +127,7 @@
       <button
         v-if="pendingApproveTasks.length > 0"
         type="button"
-        class="flex-shrink-0 h-6 px-2 flex items-center justify-center rounded-md bg-accent text-white text-[10.5px] font-semibold hover:bg-accent/90 transition-colors"
+        class="flex-shrink-0 h-6 px-2 flex items-center justify-center rounded-md bg-accent text-accent-on text-[10.5px] font-semibold hover:bg-accent/90 transition-colors"
         :title="`Approve all ${pendingApproveTasks.length} pending`"
         @click.stop="approveAll"
       >Approve all</button>
@@ -243,7 +243,7 @@
 
         <!-- Actionable + recent preview -->
         <div v-if="previewIterations.length">
-          <div class="text-xs font-semibold text-content-secondary mb-1">Needs attention</div>
+          <div class="text-ctl font-semibold text-content-secondary mb-1">Needs attention</div>
           <div class="grid grid-cols-8 gap-1.5">
             <IterationCard
               v-for="it in previewIterations"

@@ -620,21 +620,27 @@ const isMobile = isCompact
 
 // Roomy compact chrome (unfolded foldable, tablet in the phone shell) can
 // keep the drawer docked beside the app. The preference is the user's and
-// survives folding; whether it takes effect right now is the window's:
-// hubs dock at medium width, details (tool, chat, editor) only at wide,
-// because a 276px rail next to a ~750px window leaves no room for their
-// columns — there the drawer stays a drawer, the way slideshow focus mode
-// hides the desktop sidebar. Overlays never dock.
+// survives folding; whether it takes effect right now is the window's.
+// Without a saved choice the drawer docks only where the content keeps a
+// useful width (wide, 840px and up); at medium (a 752px fold) it stays the
+// closed drawer, because a 208px rail leaves hub rows, recent cards and the
+// tool catalog too narrow. A person who docks it there has chosen, and the
+// choice is kept. Hubs may dock at medium by that choice, details (tool,
+// chat, editor) only at wide: their columns have no room beside a rail, so
+// there the drawer stays a drawer, the way slideshow focus mode hides the
+// desktop sidebar. Overlays never dock.
 const SIDEBAR_PINNED_KEY = makeProfileKey('sidebar', 'pinned')
-const sidebarPinned = ref(localStorage.getItem(SIDEBAR_PINNED_KEY) !== '0')
-watch(sidebarPinned, (v) => localStorage.setItem(SIDEBAR_PINNED_KEY, v ? '1' : '0'))
+// null = never chosen: the window decides (docked at wide, drawer otherwise).
+const storedPin = localStorage.getItem(SIDEBAR_PINNED_KEY)
+const sidebarPinned = ref(storedPin === '1' ? true : storedPin === '0' ? false : null)
+watch(sidebarPinned, (v) => { if (v !== null) localStorage.setItem(SIDEBAR_PINNED_KEY, v ? '1' : '0') })
 const sidebarDockable = computed(() => {
   if (!isRoomy.value || slideshowActive.value) return false
   const surface = route.meta?.surface
   if (surface === 'overlay') return false
   return surface === 'hub' || viewportWidth.value === 'wide'
 })
-const sidebarDocked = computed(() => sidebarDockable.value && sidebarPinned.value)
+const sidebarDocked = computed(() => sidebarDockable.value && (sidebarPinned.value ?? viewportWidth.value === 'wide'))
 watch(sidebarDocked, (docked) => { if (docked) sidebarOpen.value = false })
 
 // The header's menu button: on a phone it opens the drawer; where the drawer
@@ -642,7 +648,7 @@ watch(sidebarDocked, (docked) => { if (docked) sidebarOpen.value = false })
 // me the sidebar" and never has two meanings on one screen.
 function onCompactMenu() {
   if (sidebarDockable.value) {
-    sidebarPinned.value = !sidebarPinned.value
+    sidebarPinned.value = !sidebarDocked.value
     if (!sidebarPinned.value) sidebarOpen.value = false
     return
   }

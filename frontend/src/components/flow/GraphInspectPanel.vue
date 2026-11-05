@@ -162,7 +162,7 @@
             >Revert</button>
             <button
               type="button"
-              class="text-[11px] px-2 py-1 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="text-[11px] px-2 py-1 rounded-md bg-accent text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
               :disabled="!panelInputValid || submittingInputs"
               title="Apply this input value to the flow"
               @click="panelInputFormRef?.applyChanges()"
@@ -900,7 +900,7 @@ interface ActionButton {
   onClick: () => void
 }
 
-const PRIMARY_BTN  = 'w-full text-[12px] font-medium px-3 py-1.5 rounded-md bg-accent text-white hover:bg-accent/90 transition-colors'
+const PRIMARY_BTN  = 'w-full text-[12px] font-medium px-3 py-1.5 rounded-md bg-accent text-accent-on hover:bg-accent/90 transition-colors'
 const SECONDARY_BTN = 'w-full text-[12px] font-medium px-3 py-1.5 rounded-md bg-overlay-subtle text-content hover:bg-overlay-hover transition-colors'
 const APPROVED_BTN = 'w-full text-[12px] font-medium px-3 py-1.5 rounded bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25 transition-colors'
 

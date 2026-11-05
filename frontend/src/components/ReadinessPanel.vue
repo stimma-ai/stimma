@@ -173,7 +173,7 @@
                 </p>
                 <button
                   type="button"
-                  class="mt-7 rounded-md bg-accent hover:bg-accent/90 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/15"
+                  class="mt-7 rounded-md bg-accent hover:bg-accent/90 px-5 py-2.5 text-sm font-semibold text-accent-on shadow-lg shadow-accent/15"
                   @click="goToStep(llmReady ? 'generation' : 'llm')"
                 >
                   Go back
@@ -194,10 +194,10 @@
               <button
                 type="button"
                 :disabled="primaryBusy"
-                class="rounded-lg px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+                class="rounded-lg px-5 py-2.5 text-sm font-semibold disabled:cursor-wait disabled:opacity-70"
                 :class="step === 'complete' && anyReady
-                  ? 'bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 shadow-lg shadow-cyan-500/15 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400'
-                  : 'bg-accent hover:bg-accent/90 shadow-lg shadow-accent/15'"
+                  ? 'text-white bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 shadow-lg shadow-cyan-500/15 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400'
+                  : 'bg-accent text-accent-on hover:bg-accent/90 shadow-lg shadow-accent/15'"
                 @click="handlePrimaryAction"
               >
                 {{ primaryActionLabel }}

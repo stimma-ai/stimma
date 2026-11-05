@@ -74,7 +74,7 @@
       </div>
 
       <!-- Type chip (upper right): the browse TileChip, monochrome glyph, mono member count for sets and grids -->
-      <div v-if="outputMediaType && outputMediaType !== 'image'" class="absolute top-1.5 right-1.5 z-chrome" :style="insetRight ? { right: `${insetRight}px` } : null">
+      <div v-if="outputMediaType && outputMediaType !== 'image' && !(hideCountChip && isComposite)" class="absolute top-1.5 right-1.5 z-chrome" :style="insetRight ? { right: `${insetRight}px` } : null">
         <TileChip>
           <!-- Audio icon (music note) -->
           <svg v-if="outputMediaType === 'audio'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -137,7 +137,7 @@
             'w-7 h-7 coarse:w-11 coarse:h-11 rounded-md flex items-center justify-center transition-colors',
             hasMarker(row.output.media_id, marker.id)
               ? (isComposite ? 'bg-overlay-light' : 'bg-black/70')
-              : (isComposite ? 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light hover:text-content' : 'bg-black/40 text-white/75 hover:bg-black/60 hover:text-white'),
+              : (isComposite ? 'text-content-tertiary hover:bg-overlay-light hover:text-content' : 'text-white/85 [filter:drop-shadow(0_1px_2px_rgb(0_0_0/0.7))] hover:bg-black/55 hover:text-white hover:[filter:none]'),
             quietMarkers && !hasMarker(row.output.media_id, marker.id) ? 'opacity-0 group-hover:opacity-100 [[data-pointer=coarse]_&]:hidden' : ''
           ]"
           :style="hasMarker(row.output.media_id, marker.id) ? { color: marker.color } : {}"
@@ -237,6 +237,8 @@ const props = defineProps({
   insetBottom: { type: Number, default: 0 },
   // Bands kept clear of the artwork, for chips the parent lays above and below it.
   gutterTop: { type: Number, default: 0 },
+  // The parent shows a set's or grid's member count itself.
+  hideCountChip: { type: Boolean, default: false },
   gutterBottom: { type: Number, default: 0 }
 })
 

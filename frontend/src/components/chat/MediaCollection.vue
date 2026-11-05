@@ -5,7 +5,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   ArrowsPointingOutIcon, CheckCircleIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon,
-  EllipsisHorizontalIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PlusIcon, Squares2X2Icon, XMarkIcon,
+  EllipsisHorizontalIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PlusIcon, Square3Stack3DIcon, Squares2X2Icon, XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import IconButton from '../ui/IconButton.vue'
 import SegmentedControl from '../ui/SegmentedControl.vue'
@@ -92,13 +92,21 @@ const activeIsComposite = computed(() => {
 })
 // On a phone the picture is as tall as it is wide, so the chips would sit on the
 // artwork. A composite there gets a band above and below for them instead.
-const HERO_GUTTER_TOP = 44
-const HERO_GUTTER_BOTTOM = 52
+// A single result with a title carries its count and menu in that title row, so
+// its picture needs no band of its own above it.
+const HERO_GUTTER_TOP = 40
+const HERO_GUTTER_BOTTOM = 48
 const heroGutters = computed(() => activeIsComposite.value && isCompact.value && width.value > 0 && width.value < 560)
+// Too narrow for the facts to share the bottom row with the markers and Add.
+const factsTop = computed(() => width.value > 0 && width.value < 560)
+const hostsHeroMenu = computed(() => isSingle.value && hasHeader.value && !!activeMediaId.value)
+const topBand = computed(() => heroGutters.value && (!hostsHeroMenu.value || !!heroFacts.value))
+const gutterTop = computed(() => (topBand.value ? HERO_GUTTER_TOP : 0))
+const gutterBottom = computed(() => (heroGutters.value ? HERO_GUTTER_BOTTOM : 0))
 // The whole presentation (header, bands, picture, strip) shares one budget of
 // the visible conversation, so the band chips never push the picture past it.
 const inlineHeroHeight = computed(() => {
-  const extra = heroGutters.value ? HERO_GUTTER_TOP + HERO_GUTTER_BOTTOM : 0
+  const extra = gutterTop.value + gutterBottom.value
   // Bands and picture together take at most 70% of the visible conversation.
   const room = Math.round(chatHeight.value * 0.7) - extra
   if (isSingle.value) return Math.min(width.value || 560, Math.max(200, room)) + extra
@@ -115,6 +123,7 @@ const rootWidthClass = computed(() => {
 const ctl = computed(() => (activeIsComposite.value
   ? 'bg-overlay-light text-content hover:bg-overlay-medium'
   : 'bg-black/55 text-white backdrop-blur hover:bg-black/75'))
+const memberCount = computed(() => (heroInfo.value?.id === activeMediaId.value ? heroInfo.value.members : 0))
 const heroFacts = computed(() => {
   const label = activeRow.value?.input?.label
   if (label) return label
@@ -288,7 +297,7 @@ watch([activeMediaId, view], async ([id, nextView]) => {
   if (!id || nextView !== 'preview') return
   try {
     const item = await getMediaItem(id, { includeTrashed: true })
-    if (id === activeMediaId.value) heroInfo.value = { id, width: item.width, height: item.height }
+    if (id === activeMediaId.value) heroInfo.value = { id, width: item.width, height: item.height, members: item.member_count || 0 }
   } catch { /* the chip just omits what it can't read */ }
 }, { immediate: true })
 
@@ -352,7 +361,7 @@ onBeforeUnmount(() => {
     >
       <header
         v-if="hasHeader"
-        class="flex min-h-11 flex-none items-center gap-2 pl-3 pr-1.5 coarse:min-h-14"
+        class="flex min-h-10 flex-none items-center gap-2 pl-3 pr-1.5 coarse:min-h-12"
         :class="[
           inPanel ? 'border-b border-edge-subtle bg-surface/60 pl-3.5' : 'rounded-t-lg',
           state.expanded && !inPanel ? 'sticky -top-4 z-chrome bg-surface compact:-top-3' : '',
@@ -379,6 +388,14 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="flex flex-none items-center gap-1">
+          <template v-if="hostsHeroMenu">
+            <span v-if="activeIsComposite && memberCount" class="flex items-center gap-1 px-1 font-mono text-xs tabular-nums text-content-muted" :title="`${memberCount} items`">
+              <Square3Stack3DIcon class="h-3.5 w-3.5" :stroke-width="1.75" />{{ memberCount }}
+            </span>
+            <IconButton aria-label="More actions" class="coarse:!h-11 coarse:!w-11" @click="openHeroMenu">
+              <EllipsisHorizontalIcon class="h-4 w-4" />
+            </IconButton>
+          </template>
           <Tooltip v-if="canCollapse && !isCoarsePointer" text="Back to three rows">
             <button type="button" class="flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content" @click="collapse">
               <ChevronUpIcon class="h-3.5 w-3.5" />Show fewer
@@ -477,11 +494,12 @@ onBeforeUnmount(() => {
                 fill
                 :use-thumbnail="false"
                 :fit-thumbnail="isSingle ? null : 1024"
-                :inset-left="heroGutters ? 48 : 36"
+                :inset-left="topBand ? 48 : 36"
                 :inset-right="72"
-                :inset-bottom="heroGutters ? 4 : isCoarsePointer ? 52 : 40"
-                :gutter-top="heroGutters ? HERO_GUTTER_TOP : 0"
-                :gutter-bottom="heroGutters ? HERO_GUTTER_BOTTOM : 0"
+                :inset-bottom="heroGutters ? 2 : 8"
+                :gutter-top="gutterTop"
+                :gutter-bottom="gutterBottom"
+                :hide-count-chip="hostsHeroMenu && activeIsComposite"
                 :class="activeIsComposite ? '!rounded-media !bg-surface dark:!bg-[#181818]' : '!rounded-media !bg-matte'"
                 style="aspect-ratio: auto; height: 100%"
                 @view-image="openFullView"
@@ -519,7 +537,7 @@ onBeforeUnmount(() => {
                   <ArrowsPointingOutIcon class="h-4 w-4" />
                 </button>
               </Tooltip>
-              <button type="button" aria-label="More actions" class="flex h-7 w-7 items-center justify-center rounded-md transition-colors coarse:h-11 coarse:w-11" :class="ctl" @click="openHeroMenu">
+              <button v-if="!hostsHeroMenu" type="button" aria-label="More actions" class="flex h-7 w-7 items-center justify-center rounded-md transition-colors coarse:h-11 coarse:w-11" :class="ctl" @click="openHeroMenu">
                 <EllipsisHorizontalIcon class="h-4 w-4" />
               </button>
             </div>
@@ -536,7 +554,7 @@ onBeforeUnmount(() => {
 
             <!-- Facts. The position is editable, which matters at 200. -->
             <div v-if="!isSingle || heroFacts" class="absolute z-chrome flex h-7 items-center gap-1.5 rounded-md px-2 font-mono text-xs tabular-nums coarse:h-11"
-              :class="[activeIsComposite ? 'bg-overlay-subtle text-content-secondary' : 'bg-black/55 text-white backdrop-blur', heroGutters ? 'left-12 right-32 top-0' : 'bottom-2 left-2 max-w-[60%]']">
+              :class="[activeIsComposite ? 'bg-overlay-subtle text-content-secondary' : 'bg-black/55 text-white backdrop-blur', topBand ? 'left-12 top-0 max-w-[calc(100%-10rem)]' : factsTop ? 'left-10 top-2 max-w-[calc(100%-6.5rem)] coarse:left-12 coarse:top-0' : 'bottom-2 left-1/2 max-w-[40%] -translate-x-1/2']">
               <template v-if="!isSingle">
                 <input
                   v-if="jumping"
@@ -558,10 +576,10 @@ onBeforeUnmount(() => {
             <button
               v-if="activePickable && collections.canAttach.value"
               type="button"
-              class="absolute bottom-2 right-2 z-chrome flex h-7 items-center gap-1 rounded-md pl-1.5 pr-2 text-xs font-medium transition-colors coarse:h-11 coarse:pl-2.5 coarse:pr-3"
-              :class="activeIsComposite
-                ? (collections.isAttached(activeMediaId) ? 'bg-overlay-light text-content hover:bg-overlay-medium' : 'bg-overlay-light text-content ring-1 ring-inset ring-edge-strong hover:bg-overlay-medium')
-                : (collections.isAttached(activeMediaId) ? 'bg-black/55 text-white backdrop-blur hover:bg-black/75' : 'bg-black/70 text-white backdrop-blur ring-1 ring-inset ring-white/35 hover:bg-black/85')"
+              class="absolute right-2 z-chrome flex h-7 items-center gap-1 rounded-md pl-1.5 pr-2 text-xs font-medium transition-colors coarse:h-11 coarse:pl-2.5 coarse:pr-3"
+              :class="[heroGutters ? 'bottom-0.5' : 'bottom-2', activeIsComposite
+                ? (collections.isAttached(activeMediaId) ? 'bg-overlay-light text-content hover:bg-overlay-medium' : 'text-content ring-1 ring-inset ring-edge-strong hover:bg-overlay-light')
+                : (collections.isAttached(activeMediaId) ? 'bg-black/55 text-white backdrop-blur hover:bg-black/75' : 'bg-black/70 text-white backdrop-blur ring-1 ring-inset ring-white/35 hover:bg-black/85')]"
               @click.stop="collections.isAttached(activeMediaId) ? collections.detach(activeMediaId) : collections.attach([activeMediaId])"
             >
               <CheckIcon v-if="collections.isAttached(activeMediaId)" class="h-3.5 w-3.5 text-accent-hi" />

@@ -350,7 +350,7 @@
              do not read as a second copy of the result's heart / bookmark /
              trash. Compact layouts (phone and fold) keep them in the sheet
              Run's long-press opens, with a dot on Run while either is on. -->
-        <div class="flex flex-wrap items-center gap-2 mb-4 empty:hidden">
+        <div class="flex flex-wrap items-center gap-2 mb-3 empty:hidden">
             <!-- Resolution picker: width/height tools, freeform or fixed list -->
             <ResolutionPicker
               v-if="allowedDimensions || (hasWidthHeight && !hasMegapixels)"
@@ -378,7 +378,7 @@
         </div>
         <div
           v-if="!isCompact"
-          class="flex items-center gap-2 mb-6"
+          class="flex items-center gap-2 min-h-8 mb-5"
           role="group"
           aria-label="Output settings"
         >
@@ -401,7 +401,7 @@
              under the main prompt — the prompt is the production brief (genre,
              mood), the lyrics are the words sung. Bound to modelParams like the
              other special params; empty → instrumental / auto-written lyrics. -->
-        <div v-if="hasLyrics" class="mb-6">
+        <div v-if="hasLyrics" class="mb-5">
           <label class="block text-sm font-medium text-content mb-1.5">Lyrics</label>
           <textarea
             v-model="modelParams.lyrics"
@@ -599,7 +599,7 @@
         </div>
 
         <!-- Video Parameters: Frame Count + FPS (legacy, for VACE tools) -->
-        <div v-else-if="hasFrameCount" class="mb-6">
+        <div v-else-if="hasFrameCount" class="mb-5">
           <div class="rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]">
             <!-- Frame Count -->
             <div class="flex items-center justify-between gap-4 px-4 py-3">
@@ -640,7 +640,7 @@
         <!-- Upscale Resolution (for tools with x-control: "upscale_resolution") -->
         <UpscaleResolutionPicker
           v-if="showUpscalePicker"
-          class="my-6"
+          class="mb-5"
           :model-value="resolutionPickerValue"
           @update:model-value="onResolutionPickerUpdate"
           :input-width="inputImageWidth"
@@ -807,9 +807,22 @@
              is smaller than the hero) by using cover mode with an !object-contain
              override on the img — fills the hero, then object-fit does the
              aspect-ratio work. Container forced transparent so the matte shows. -->
+        <!-- The artwork and its action band share one centred column. Once the
+             picture's natural size is known the frame shrinks to the artwork's
+             bounds (contain, nothing cropped) and the band takes the same width,
+             so the controls sit against the picture, not the viewport corners. -->
         <div
           v-else
-          class="relative flex-1 min-h-0 rounded-media overflow-hidden cursor-zoom-in"
+          ref="heroColRef"
+          class="flex-1 min-h-0 flex flex-col items-center"
+          :class="heroArt ? 'justify-center' : ''"
+          @load.capture="onHeroMediaMeasure"
+          @loadedmetadata.capture="onHeroMediaMeasure"
+        >
+        <div
+          class="relative min-h-0 rounded-media overflow-hidden cursor-zoom-in"
+          :class="heroArt ? 'flex-none' : 'flex-1 w-full'"
+          :style="heroArt ? { width: `${heroArt.w}px`, height: `${heroArt.h}px` } : undefined"
           @click="openSlideshow(stageCurrentJob)"
           title="Open in slideshow"
         >
@@ -855,20 +868,24 @@
             img-class="!object-contain object-top compact:object-center !bg-none !bg-transparent"
             alt="Current generation"
           />
+          <!-- Jump to newest (top-left, on the image) -->
+          <button
+            v-if="stageCurrentJob && !stageOnNewest && !stageLiveShowing"
+            @click.stop="stageJumpToNewest()"
+            class="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-black/55 backdrop-blur-sm text-white font-mono text-[11px] px-3 py-1.5 rounded hover:bg-black/70 transition-colors"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19.5v-15m0 0-6.75 6.75M12 4.5l6.75 6.75" /></svg>
+            Jump to newest
+          </button>
         </div>
 
-        <!-- Jump to newest (top-left, on the image) -->
-        <button
-          v-if="stageCurrentJob && !stageOnNewest && !stageLiveShowing"
-          @click.stop="stageJumpToNewest()"
-          class="absolute top-7 left-7 z-10 flex items-center gap-1.5 bg-black/55 backdrop-blur-sm text-white font-mono text-[11px] px-3 py-1.5 rounded hover:bg-black/70 transition-colors"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19.5v-15m0 0-6.75 6.75M12 4.5l6.75 6.75" /></svg>
-          Jump to newest
-        </button>
-
         <!-- Control bar beneath the image: markers · facts | volume · remix · trash -->
-        <div v-if="stageCurrentJob && !stageLiveShowing" class="flex-none flex items-center gap-1.5 pt-2">
+        <div
+          v-if="stageCurrentJob && !stageLiveShowing"
+          class="flex-none flex items-center gap-1.5 pt-2"
+          :class="[!heroArt || (heroColSize && heroArt.barW >= heroColSize.w) ? 'compact:px-2' : '', heroArt ? '' : 'w-full']"
+          :style="heroArt ? { width: `${heroArt.barW}px` } : undefined"
+        >
           <template v-if="stageMarkers.length">
             <button
               v-for="marker in stageMarkers"
@@ -876,7 +893,7 @@
               @click.stop="handleToggleMarker({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id, marker })"
               class="result-action"
               :data-on="stageHasMarker(marker.id)"
-              :style="stageHasMarker(marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
+              :style="stageHasMarker(marker.id) ? { borderColor: marker.color, color: marker.color, backgroundColor: 'transparent' } : {}"
               :title="stageHasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
             >
               <span class="w-5 h-5 flex items-center justify-center icon-container" :class="stageHasMarker(marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
@@ -935,6 +952,7 @@
               </svg>
             </button>
           </div>
+        </div>
         </div>
       </div>
 
@@ -1845,6 +1863,52 @@ const stageOnNewest = computed(() => {
   return !!stageCurrentJob.value && list.length > 0 && stageCurrentJob.value.id === list[0].id
 })
 const stageMarkers = computed(() => jobsManager?.availableMarkers.value || [])
+
+// Artwork bounds. The hero column measures itself and the result's natural
+// size; the frame and its action band are then sized to the contained picture
+// so the controls hug it. Unknown size (audio, not loaded yet) keeps the
+// full-column layout.
+const HERO_BAR_H = 40
+const HERO_BAR_MIN_W = 232
+const heroColRef = ref<HTMLElement | null>(null)
+const heroColSize = ref<{ w: number, h: number } | null>(null)
+const heroNatural = ref<{ w: number, h: number } | null>(null)
+const heroArt = computed(() => {
+  const col = heroColSize.value
+  const nat = heroNatural.value
+  if (!col || !nat || outputsAudio.value || stageCurrentMediaId.value == null) return null
+  const availH = col.h - HERO_BAR_H
+  if (col.w <= 0 || availH <= 0) return null
+  const scale = Math.min(col.w / nat.w, availH / nat.h)
+  const w = Math.max(1, Math.floor(nat.w * scale))
+  const h = Math.max(1, Math.floor(nat.h * scale))
+  return { w, h, barW: Math.min(col.w, Math.max(w, HERO_BAR_MIN_W)) }
+})
+function onHeroMediaMeasure(e: Event) {
+  const t = e.target
+  let w = 0
+  let h = 0
+  if (t instanceof HTMLImageElement) { w = t.naturalWidth; h = t.naturalHeight }
+  else if (t instanceof HTMLVideoElement) { w = t.videoWidth; h = t.videoHeight }
+  if (w > 0 && h > 0) heroNatural.value = { w, h }
+}
+let heroColObserver: ResizeObserver | null = null
+watch(heroColRef, (el) => {
+  heroColObserver?.disconnect()
+  heroColObserver = null
+  if (!el) { heroColSize.value = null; return }
+  heroColObserver = new ResizeObserver(() => {
+    heroColSize.value = { w: el.clientWidth, h: el.clientHeight }
+  })
+  heroColObserver.observe(el)
+  heroColSize.value = { w: el.clientWidth, h: el.clientHeight }
+  // Images served from cache may finish before the capture listener exists.
+  nextTick(() => {
+    const m = el.querySelector('img, video') as HTMLImageElement | HTMLVideoElement | null
+    if (m) onHeroMediaMeasure({ target: m } as unknown as Event)
+  })
+})
+onBeforeUnmount(() => { heroColObserver?.disconnect() })
 function stageHasMarker(markerId: number): boolean {
   if (stageCurrentMediaId.value == null) return false
   const ms: any[] = jobsManager?.mediaMarkers.value?.[stageCurrentMediaId.value] || []

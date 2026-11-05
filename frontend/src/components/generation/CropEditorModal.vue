@@ -78,7 +78,7 @@
               >Cancel</button>
               <button
                 @click="apply"
-                class="px-3 py-1.5 rounded-md text-xs font-medium bg-accent hover:bg-accent/90 text-white transition-colors"
+                class="px-3 py-1.5 rounded-md text-xs font-medium bg-accent hover:bg-accent/90 text-accent-on transition-colors"
               >Apply</button>
             </div>
           </div>

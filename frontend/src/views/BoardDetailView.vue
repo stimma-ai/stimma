@@ -232,7 +232,7 @@
       >
         <div
           class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
-          :class="dragState.newSectionHover ? 'border-accent bg-accent text-white shadow-accent/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
+          :class="dragState.newSectionHover ? 'border-accent bg-accent text-accent-on shadow-accent/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
           @dragenter.prevent="dragState.newSectionHover = true"
           @dragover.prevent="handleNewSectionDragOver"
           @dragleave="handleNewSectionDragLeave"
@@ -271,7 +271,7 @@
         <div
           v-if="!draggedSectionIsDefault"
           class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
-          :class="dragState.explodeSectionHover ? 'border-accent bg-accent text-white shadow-accent/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
+          :class="dragState.explodeSectionHover ? 'border-accent bg-accent text-accent-on shadow-accent/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
           @dragenter.prevent="dragState.explodeSectionHover = true"
           @dragover.prevent="dragState.explodeSectionHover = true"
           @dragleave="handleExplodeSectionDragLeave"

@@ -264,7 +264,7 @@
       </div>
       <div class="flex items-center gap-1.5">
         <button
-          class="text-[11px] px-2 py-0.5 rounded-md bg-accent text-white hover:bg-accent/90"
+          class="text-[11px] px-2 py-0.5 rounded-md bg-accent text-accent-on hover:bg-accent/90"
           @click.stop="$emit('fix-step-with-agent', equation)"
         >Ask the agent for help</button>
         <button

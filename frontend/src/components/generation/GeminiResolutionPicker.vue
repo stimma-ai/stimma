@@ -34,7 +34,7 @@
           :class="[
             'px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150',
             aspectRatio === ar
-              ? 'bg-accent text-white'
+              ? 'bg-accent text-accent-on'
               : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light'
           ]"
         >
@@ -51,7 +51,7 @@
           :class="[
             'px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150',
             aspectRatio === ar
-              ? 'bg-accent text-white'
+              ? 'bg-accent text-accent-on'
               : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light'
           ]"
         >
@@ -70,7 +70,7 @@
             :class="[
               'px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150',
               imageSize === size
-                ? 'bg-accent text-white'
+                ? 'bg-accent text-accent-on'
                 : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light'
             ]"
           >

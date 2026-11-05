@@ -58,7 +58,7 @@
                 ref="chatInputBoxRef"
                 v-model="inputText"
                 :attachments="inputAttachments"
-                :rows="2"
+                :rows="1"
                 :disabled="submitting"
                 :agent-unavailable="agentModelUnavailable"
                 @update:attachments="inputAttachments = $event"
@@ -261,7 +261,7 @@
                 View all
               </router-link>
             </div>
-            <div class="grid gap-0.5" :style="{ gridTemplateColumns: `repeat(${mediaColumns}, 1fr)` }">
+            <div class="grid gap-0.5" :style="{ gridTemplateColumns: `repeat(${mediaColumns}, minmax(0, 1fr))` }">
               <div
                 v-for="(media, index) in visibleMedia"
                 :key="media.id"
@@ -298,6 +298,7 @@
 import { useEntityMove } from '../composables/useEntityMove'
 import { fetchScopedJson } from '../utils/scopedList'
 import { fetchHomeRecents } from '../utils/homeRecents'
+import { tileColumns } from '../utils/tileGrid'
 import { useViewport } from '../composables/useViewport'
 import { ref, computed, onMounted, onActivated, onDeactivated, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -413,10 +414,8 @@ const isCompact = computed(() => contentWidth.value < 700)
 // With recents below, the hero sits at the top offset; alone, it centres in the spare height.
 const hasBelowHero = computed(() => recentMedia.value.length > 0 || jumpBackIn.value.length > 0)
 
-const mediaColumns = computed(() => {
-  if (isCompact.value) return 3
-  return 6
-})
+// The same width rule as browse (utils/tileGrid.ts), so the strip's tiles match.
+const mediaColumns = computed(() => tileColumns(contentWidth.value, 'browse'))
 
 // Phones get two rows so the home screen has enough below the fold to
 // scroll a little; every other home screen does, and a page that fits

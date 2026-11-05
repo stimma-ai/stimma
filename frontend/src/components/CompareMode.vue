@@ -128,7 +128,7 @@
             @click="showInfoPanel = !showInfoPanel"
             :class="[
               'w-10 h-10 coarse:min-w-11 coarse:min-h-11 rounded-full flex items-center justify-center transition-colors',
-              showInfoPanel ? 'bg-accent text-white' : 'bg-black/70 text-white hover:bg-black/50'
+              showInfoPanel ? 'bg-accent text-accent-on' : 'bg-black/70 text-white hover:bg-black/50'
             ]"
             aria-label="Toggle image information" title="Toggle info panels (I)"
           >

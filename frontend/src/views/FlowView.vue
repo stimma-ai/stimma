@@ -116,7 +116,7 @@
       </div>
 
       <!-- Center: status + execution controls -->
-      <div class="flex flex-1 min-w-0 items-center justify-center compact:justify-start gap-2 text-xs">
+      <div class="flex flex-1 min-w-0 items-center justify-start gap-2 text-xs">
         <FlowStatusPill
           :flow-id="flowId"
           show-pending
@@ -138,14 +138,13 @@
           </svg>
         </button>
         <button
-          v-if="showPauseButton"
-          class="flex items-center justify-center rounded-md hover:bg-overlay-subtle transition-colors compact:w-11 compact:h-11"
-          :class="flowStatusLabel === 'Done' ? 'h-7 w-7 text-content-muted opacity-60 hover:text-content-secondary hover:opacity-100' : 'h-8 w-8 text-content-secondary hover:text-content'"
+          v-if="showPauseButton && !pauseInMenu"
+          class="flex h-8 w-8 items-center justify-center rounded-md text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:w-11 compact:h-11"
           title="Pause"
           aria-label="Pause"
           @click="doPause"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" :class="flowStatusLabel === 'Done' ? 'w-3.5 h-3.5' : 'w-5 h-5'">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
             <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
           </svg>
         </button>
@@ -226,17 +225,17 @@
 
         <!-- Chat menu: new session, switch session, show/hide panel -->
         <div class="relative" ref="chatMenuContainerRef">
-          <div class="flex items-center gap-0.5">
+          <div class="flex items-center rounded-md bg-overlay-faint p-0.5">
             <SegmentedControl
               :model-value="chatPanelOpen ? 'chat' : 'flow'"
               :options="WORKSPACE_MODES"
               aria-label="Workspace"
-              class="coarse:[&_button]:min-h-11 coarse:[&_button]:px-4"
+              class="!bg-transparent !p-0 coarse:[&_button]:min-h-11 coarse:[&_button]:px-4"
               @update:model-value="chatPanelOpen = $event === 'chat'"
             />
             <button
               type="button"
-              class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+              class="w-6 h-7 compact:w-9 compact:h-11 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
               :class="showChatMenu ? 'bg-overlay-subtle text-content-secondary' : ''"
               title="Chat sessions"
               aria-label="Chat sessions"
@@ -331,6 +330,18 @@
             v-if="showMenu"
             class="absolute right-0 mt-1 w-44 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
           >
+            <template v-if="showPauseButton && pauseInMenu">
+              <button
+                @click="showMenu = false; doPause()"
+                class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5">
+                  <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
+                </svg>
+                Pause
+              </button>
+              <div class="border-t border-edge my-1"></div>
+            </template>
             <button
               @click="doCopy"
               :disabled="copying"
@@ -475,8 +486,8 @@
           <div class="flex-1 flex flex-col min-w-0">
 
             <!-- Steps mode: single scroll region with Inputs, Steps, Outputs cards -->
-            <div v-if="viewMode === 'compact'" class="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
-              <div class="space-y-4">
+            <div v-if="viewMode === 'compact'" class="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar compact:px-3">
+              <div class="mx-auto max-w-[960px] space-y-4">
                 <div class="relative">
                   <!-- Headingless sections as ToolView-style cards: one raised
                        card each for inputs, steps, and outputs. -->
@@ -497,7 +508,7 @@
                     >Revert</button>
                     <button
                       type="button"
-                      class="text-[11px] px-2 py-1 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                      class="text-[11px] px-2 py-1 rounded-md bg-accent text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                       :disabled="!inputsValid || submittingInputs"
                       @click="inputFormRef?.applyChanges()"
                       title="Apply the changed inputs to this flow"
@@ -534,7 +545,7 @@
                     <button
                       v-if="!chatPanelOpen"
                       type="button"
-                      class="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-accent/90"
+                      class="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-on hover:bg-accent/90"
                       @click="chatPanelOpen = true"
                     >
                       Open chat
@@ -544,7 +555,7 @@
 
                 <template v-else>
                     <!-- Steps card (headingless) -->
-                    <section class="px-1">
+                    <section class="px-4">
                       <div class="py-1">
                         <ConnectionError v-if="state.loadError.value" @retry="state.loadAll" />
                         <div v-else-if="state.loading.value && !state.phaseTree.value" class="text-content-muted text-sm py-8 text-center">
@@ -610,7 +621,7 @@
                     <button
                       v-if="!chatPanelOpen"
                       type="button"
-                      class="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-accent/90"
+                      class="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-on hover:bg-accent/90"
                       @click="chatPanelOpen = true"
                     >
                       Open chat
@@ -665,7 +676,7 @@
                   >Revert</button>
                   <button
                     type="button"
-                    class="text-[11px] px-2 py-1 rounded bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
+                    class="text-[11px] px-2 py-1 rounded bg-accent text-accent-on hover:bg-accent/90 disabled:opacity-50"
                     :disabled="!codeDirty || savingCode"
                     @click="saveCodeEdit"
                     title="Save program.py and re-process the flow"
@@ -1269,6 +1280,8 @@ async function saveName() {
 const showStartButton  = computed(() => !flow.value?.execution_state || flow.value.execution_state === 'idle')
 const showResumeButton = computed(() => flow.value?.execution_state === 'paused')
 const showPauseButton  = computed(() => flow.value?.execution_state === 'running')
+// A finished run has nothing to pause in the moment; Pause stays reachable from the entity menu.
+const pauseInMenu = computed(() => flowStatusLabel.value === 'Done')
 
 // "All branches blocked" — the flow is running, has failures, and nothing
 // is actively making forward progress (no pending, no computing, no HITL
@@ -2348,12 +2361,13 @@ function updateCompactHeader() {
   if (route.name !== 'flow' || String(route.params.id) !== String(flow.value?.id)) return
   setCompactTitle(flow.value?.name || 'Name this flow…', '', () => { renameOpen.value = true })
   setCompactMenu([
+    ...(showPauseButton.value && pauseInMenu.value ? [{ label: 'Pause', run: doPause }] : []),
     { label: 'Rename', run: () => { renameOpen.value = true } },
     { label: 'Move to project', run: () => { moveProjectOpen.value = true } },
     { label: 'Make a copy', run: doCopy },
     { label: 'Delete', run: handleDelete, destructive: true },
   ])
 }
-watch([() => flow.value?.id, () => flow.value?.name], updateCompactHeader, { immediate: true })
+watch([() => flow.value?.id, () => flow.value?.name, () => showPauseButton.value && pauseInMenu.value], updateCompactHeader, { immediate: true })
 onActivated(updateCompactHeader)
 </script>

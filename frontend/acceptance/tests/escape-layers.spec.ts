@@ -43,11 +43,11 @@ test('Escape dismisses provider setup before Settings without changing the route
   await page.goto('/browse');
   await waitForShell(page);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Chat Models', exact: true }).click();
-  await page.getByRole('button', { name: /^Add OpenAI Compatible Endpoint/ }).click();
-  await expect(page.getByRole('heading', { name: 'Add OpenAI Compatible Endpoint', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Chat models', exact: true }).click();
+  await page.getByRole('button', { name: /^Add OpenAI compatible endpoint/ }).click();
+  await expect(page.getByRole('heading', { name: 'Add OpenAI-compatible endpoint', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('heading', { name: 'Add OpenAI Compatible Endpoint', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Add OpenAI-compatible endpoint', exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/browse$/);
   await page.keyboard.press('Escape');
@@ -75,7 +75,7 @@ test('Escape dismisses a Settings menu before Settings itself', async ({ page })
   await waitForShell(page);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Markers', exact: true }).click();
-  await page.getByRole('button', { name: 'Add Marker', exact: true }).click();
+  await page.getByRole('button', { name: 'Add marker', exact: true }).click();
   await page.getByPlaceholder('Marker name').last().locator('..').getByTitle('More options', { exact: true }).click();
   await expect(page.locator('[data-marker-menu]')).toBeVisible();
   await page.keyboard.press('Escape');
