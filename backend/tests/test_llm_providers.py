@@ -15,7 +15,7 @@ from config import (
 )
 from llm import _apply_endpoint_reasoning
 from llm_http import LLMConnectionError, classify_provider_http_error
-from llm_provider_catalog import branded_models, discovered_model
+from llm_provider_catalog import branded_models, canonical_model_id, discovered_model
 import llm_resolver
 from routes import models as models_route
 from routes import settings as settings_route
@@ -766,6 +766,7 @@ async def test_profile_retries_provider_advertised_effort_when_high_is_unsupport
     ("kind", "model_id", "expected"),
     [
         ("openai", "gpt-6.1-sol", "openai:gpt-6.1-sol"),
+        ("chatgpt", "gpt-6.1-sol", "openai:gpt-6.1-sol"),
         ("openrouter", "openai/gpt-6.1-sol", "openai:gpt-6.1-sol"),
         ("openrouter", "x-ai/grok-4.5", "xai:grok-4.5"),
         ("openrouter", "minimax/minimax-m3", "minimax:minimax-m3"),
@@ -789,7 +790,7 @@ async def test_profile_retries_provider_advertised_effort_when_high_is_unsupport
     ],
 )
 def test_duplicate_routes_share_canonical_identity(kind, model_id, expected):
-    assert models_route._canonical_model_id(kind, model_id) == expected
+    assert canonical_model_id(kind, model_id) == expected
 
 
 def test_reasoning_contract_translates_exact_provider_wire_shape():

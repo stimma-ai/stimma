@@ -75,7 +75,10 @@ watch(
     if (!project.value || !String(route.name || '').startsWith('project-') || Number(route.params.id) !== ownId) return
     const section = contextSection(route.name)
     const label = { home: 'Home', browse: 'Assets', boards: 'Boards', chats: 'Chats', flows: 'Flows', 'all-tools': 'Tools' }[section] || 'Settings'
-    setCompactTitle(label, project.value.name || 'Untitled project')
+    const projectName = project.value.name || 'Untitled project'
+    // Home is the project itself, so its name is the title; the other sections keep it as the subtitle.
+    if (section === 'home') setCompactTitle(projectName)
+    else setCompactTitle(label, projectName)
   },
   { immediate: true, flush: 'post' }
 )

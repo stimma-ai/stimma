@@ -7,7 +7,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { isDesktop } from '../../apiConfig'
 import { useViewport } from '../../composables/useViewport'
-import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
+import { consumeEscape, getEscapeLayers } from '../../utils/escapeLayers'
 
 const { allowsAutofocus } = useViewport()
 
@@ -63,7 +63,30 @@ function onBackdropClick() {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (!e.defaultPrevented && e.key === 'Escape' && props.closeOnEsc && isTopmostEscapeLayer(layerRef.value)) {
+  if (e.defaultPrevented || (e.key !== 'Tab' && e.key !== 'Escape')) return
+  const layers = getEscapeLayers()
+  const index = layers.indexOf(layerRef.value)
+  if (index < 0) return
+  // The highest modal hosts every menu above it, including teleported menus.
+  const popovers = layers.slice(index + 1)
+  if (popovers.some(layer => layer.hasAttribute('data-modal-layer'))) return
+  if (e.key === 'Escape' && popovers.length) return
+  if (e.key === 'Tab') {
+    const card = cardRef.value
+    if (!card) return
+    const scope = [card, ...popovers]
+    const focusable = [...new Set(scope.flatMap(root => [...root.querySelectorAll<HTMLElement>(
+      'a[href], area[href], button, input, select, textarea, iframe, [tabindex], [contenteditable], summary, audio[controls], video[controls]'
+    )]))].filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && !el.closest('[inert]')
+      && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
+    const index = focusable.indexOf(document.activeElement as HTMLElement)
+    const next = e.shiftKey
+      ? (index <= 0 ? focusable.length - 1 : index - 1)
+      : (index + 1) % focusable.length
+    const target = focusable[next] || card
+    e.preventDefault()
+    target.focus()
+  } else if (e.key === 'Escape' && props.closeOnEsc) {
     // CodeMirror/Vim owns Escape while editing.
     if ((e.target as Element)?.closest?.('.cm-editor')) return
     consumeEscape(e)
@@ -111,6 +134,8 @@ onBeforeUnmount(() => {
         <div
           ref="cardRef"
           tabindex="-1"
+          role="dialog"
+          aria-modal="true"
           class="relative bg-surface border border-edge rounded-lg shadow-2xl outline-none mx-4 compact:mx-3 compact:w-[calc(100%-1.5rem)] compact:max-w-none compact:max-h-[min(92dvh,calc(100dvh-2*max(var(--safe-top,0px),var(--safe-bottom,0px))))] compact:overflow-y-auto"
           :class="cardSizeClass"
         >

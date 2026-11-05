@@ -5,7 +5,8 @@
 // backdrop tap or Escape. On wide viewports callers keep using Modal /
 // ContextMenu; this component is only ever rendered when useViewport says
 // compact or coarse-pointer.
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onUpdated, ref, watch } from 'vue'
+import { ChevronDownIcon } from '@heroicons/vue/24/outline'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 
 const props = withDefaults(defineProps<{
@@ -30,6 +31,16 @@ const emit = defineEmits<{ close: [] }>()
 
 const panelRef = ref<HTMLElement | null>(null)
 const layerRef = ref<HTMLElement | null>(null)
+const bodyRef = ref<HTMLElement | null>(null)
+
+// Scroll cue: a fade and a chevron while content remains below the edge.
+const hasMore = ref(false)
+function updateMore() {
+  const el = bodyRef.value
+  hasMore.value = !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 8
+}
+watch(bodyRef, () => nextTick(updateMore), { flush: 'post' })
+onUpdated(() => nextTick(updateMore))
 
 const expanded = ref(false)
 const dragHeight = ref<number | null>(null)
@@ -115,13 +126,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           <div v-else class="flex-none flex items-center justify-center" style="padding-top: var(--sheet-handle-top); height: var(--sheet-pad-top)" aria-hidden="true">
             <span class="rounded-full bg-overlay-light" style="width: var(--sheet-handle-w); height: var(--sheet-handle-h)"></span>
           </div>
-          <div v-if="title || $slots.header" class="flex-none px-4 pt-1 pb-1">
+          <div v-if="title || $slots.header" class="flex-none px-4 pt-1" style="padding-bottom: var(--sheet-header-pb)">
             <slot name="header">
               <h2 class="text-[14px] font-semibold text-content">{{ title }}</h2>
             </slot>
           </div>
-          <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar" :class="contentClass">
+          <div ref="bodyRef" class="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar" :class="contentClass" @scroll.passive="updateMore">
             <slot />
+          </div>
+          <div v-if="hasMore" class="pointer-events-none absolute inset-x-0 bottom-[var(--safe-bottom,0px)] flex h-12 items-end justify-center bg-gradient-to-t from-surface to-transparent pb-1 text-content-tertiary" aria-hidden="true">
+            <ChevronDownIcon class="h-4 w-4" :stroke-width="2" />
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 <template>
   <span class="inline-flex items-center gap-1.5 min-w-0">
     <span
+      v-if="!atRest"
       class="w-1.5 h-1.5 rounded-full flex-shrink-0"
       :class="dotClass"
     ></span>
@@ -14,6 +15,7 @@
 import { computed, toRef } from 'vue'
 import { useFlowStatus } from '../../composables/useFlowStatus'
 import { useFlowCounts } from '../../composables/useFlowCounts'
+import { displayFlowStatus } from '../../utils/flowStatus'
 
 interface Props {
   flowId: number | string | null | undefined
@@ -30,8 +32,11 @@ const flowIdRef = toRef(props, 'flowId')
 const { label, dotClass } = useFlowStatus(flowIdRef)
 const { countFor } = useFlowCounts()
 const pending = computed(() => countFor(props.flowId))
+// A flow at rest is just the word (DESIGN.md, status in a flow row).
+const atRest = computed(() => label.value === 'Done' || label.value === 'Idle')
 const statusText = computed(() => {
-  if (!props.showPending || pending.value <= 0 || label.value === 'Error' || label.value === 'Tool unavailable') return label.value
-  return `${label.value} · ${pending.value} pending`
+  const text = displayFlowStatus(label.value)
+  if (!props.showPending || pending.value <= 0 || label.value === 'Error' || label.value === 'Tool unavailable') return text
+  return `${text} · ${pending.value} pending`
 })
 </script>

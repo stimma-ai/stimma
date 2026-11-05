@@ -1,6 +1,7 @@
 """Media file serving routes (thumbnails and original files)."""
 import asyncio
 import os
+import shutil
 import uuid
 from typing import Optional, List
 from core.logging import get_logger
@@ -30,6 +31,21 @@ import metadata_embed
 router = APIRouter(prefix="/api", tags=["media_files"])
 
 
+class TemporaryFileResponse(FileResponse):
+    """Own temporary output through send, including failure and cancellation."""
+
+    def __init__(self, *args, cleanup_dir, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cleanup_dir = cleanup_dir
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            # No await: an already cancelled request must still remove its files.
+            shutil.rmtree(self.cleanup_dir, ignore_errors=True)
+
+
 # Cache headers for immutable content (db_guid in URL makes it globally unique)
 # Note: CORS headers are added here because FileResponse doesn't always get
 # processed by the CORS middleware correctly in all contexts (e.g., image loading
@@ -56,7 +72,7 @@ CONTAINER_VIDEO_FORMATS = {'mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'}
 CONTAINER_VISUAL_FORMATS = CONTAINER_IMAGE_FORMATS | CONTAINER_VIDEO_FORMATS
 
 # Invalidate changed container previews without regenerating unrelated thumbnails.
-CONTAINER_PREVIEW_VERSIONS = {'stimmaset.json': 2, 'stimmapackage': 1}
+CONTAINER_PREVIEW_VERSIONS = {'stimmaset.json': 3, 'stimmagrid.json': 1, 'stimmapackage': 1}
 
 THUMBNAIL_VERSION = 33  # Include payload identity, even when a locator is reused.
 
@@ -212,8 +228,8 @@ async def _raise_if_thumbnail_deleted_after_generation(
 
 THEME_PALETTES = {
     'dark': {
-        'set_bg': '#181818', 'set_card_border': '#000000',
-        'grid_bg': '#181818', 'grid_accent': '#06b6d4', 'grid_empty_fill': '#2a2a3e',
+        'set_bg': '#07080a', 'set_card_border': '#000000',
+        'grid_bg': '#07080a', 'grid_accent': '#06b6d4', 'grid_empty_fill': '#2a2a3e',
         'text_bg': '#1e293b', 'text_title': '#f1f5f9', 'text_separator': '#475569', 'text_body': '#94a3b8',
         'audio_bg': '#1a1a2e', 'audio_fallback_icon': '#9333ea',
         'placeholder_set_bg': '#1a1a2e', 'placeholder_grid_bg': '#1a1a2e', 'placeholder_default_bg': '#1f2937',
@@ -221,8 +237,8 @@ THEME_PALETTES = {
         'package_bg': '#151517', 'package_shelf': '#0d0d0f', 'package_rule': '#2a2a2b',
     },
     'light': {
-        'set_bg': '#f4f4f5', 'set_card_border': '#d4d4d8',
-        'grid_bg': '#f4f4f5', 'grid_accent': '#0891b2', 'grid_empty_fill': '#e4e4e7',
+        'set_bg': '#eae9e6', 'set_card_border': '#d4d4d8',
+        'grid_bg': '#eae9e6', 'grid_accent': '#0891b2', 'grid_empty_fill': '#e4e4e7',
         'text_bg': '#f1f5f9', 'text_title': '#1e293b', 'text_separator': '#cbd5e1', 'text_body': '#475569',
         'audio_bg': '#f0f0ff', 'audio_fallback_icon': '#7c3aed',
         'placeholder_set_bg': '#f0f0ff', 'placeholder_grid_bg': '#f0f0ff', 'placeholder_default_bg': '#f1f5f9',
@@ -3524,30 +3540,11 @@ async def bulk_download_media(
     if not valid_items:
         raise HTTPException(status_code=404, detail="No media files found on disk")
 
-    # Single file: return directly
-    if len(valid_items) == 1:
+    # Single file: return directly; directory payloads use the zip path below.
+    single_directory = len(valid_items) == 1 and Path(valid_items[0].file_path).is_dir()
+    if len(valid_items) == 1 and not single_directory:
         item = valid_items[0]
         file_path = Path(item.file_path)
-
-        # Directory-based media (e.g., .stimmalayout bundles) - zip the directory
-        if file_path.is_dir():
-            import zipfile
-            buffer = io.BytesIO()
-            with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for child in file_path.rglob('*'):
-                    if child.is_file():
-                        zf.write(child, f"{file_path.name}/{child.relative_to(file_path)}")
-            buffer.seek(0)
-            zip_data = buffer.read()
-            return StreamingResponse(
-                io.BytesIO(zip_data),
-                media_type="application/zip",
-                headers={
-                    'Content-Disposition': content_disposition('attachment', f'{file_path.name}.zip'),
-                    'Content-Length': str(len(zip_data)),
-                    'Access-Control-Allow-Origin': '*',
-                }
-            )
 
         video_formats = {'mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'}
         if item.file_format.lower() in video_formats:
@@ -3575,11 +3572,11 @@ async def bulk_download_media(
         )
 
     # Multiple files: create zip stream
+    tmp_dir = tempfile.mkdtemp(prefix='stimma-download-')
+    zip_path = Path(tmp_dir) / 'download.zip'
+
     def generate_zip():
-        """Generator that yields zip file chunks."""
-        # Use a BytesIO buffer to accumulate zip data
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
             seen_names = {}  # Track filenames to handle duplicates
 
             for item in valid_items:
@@ -3605,25 +3602,24 @@ async def bulk_download_media(
                 else:
                     zf.write(file_path, base_name)
 
-        # Return complete buffer
-        buffer.seek(0)
-        return buffer.read()
-
-    # Generate the zip file
-    zip_data = generate_zip()
-
-    # Create timestamp for filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_filename = f"stimma-download-{timestamp}.zip"
-
-    return StreamingResponse(
-        io.BytesIO(zip_data),
-        media_type="application/zip",
-        headers={
+    try:
+        await asyncio.to_thread(generate_zip)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_filename = (f"{Path(valid_items[0].file_path).name}.zip" if single_directory
+                        else f"stimma-download-{timestamp}.zip")
+        headers = {
             'Content-Disposition': content_disposition('attachment', zip_filename),
-            'Content-Length': str(len(zip_data))
+            'Content-Length': str(zip_path.stat().st_size),
         }
-    )
+        if single_directory:
+            headers['Access-Control-Allow-Origin'] = '*'
+        return TemporaryFileResponse(
+            zip_path, media_type="application/zip", headers=headers,
+            cleanup_dir=tmp_dir,
+        )
+    except BaseException:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
 
 
 # ============================================================================
@@ -3941,8 +3937,8 @@ async def export_media(
             fmt = (item.file_format or '').lower()
 
             if fmt in IMAGE_EXPORT_FORMATS:
-                buf, filename, media_type = _convert_image(
-                    file_path, opts, item.generation_metadata, input_hashes
+                buf, filename, media_type = await asyncio.to_thread(
+                    _convert_image, file_path, opts, item.generation_metadata, input_hashes
                 )
                 return StreamingResponse(
                     buf,
@@ -3954,104 +3950,103 @@ async def export_media(
                 )
             elif fmt in VIDEO_EXPORT_FORMATS:
                 tmp_dir = tempfile.mkdtemp(prefix='stimma-export-')
-                output_path, filename, media_type = _convert_video(file_path, opts, tmp_dir)
-                return FileResponse(
+                output_path, filename, media_type = await asyncio.to_thread(_convert_video, file_path, opts, tmp_dir)
+                return TemporaryFileResponse(
                     output_path,
                     media_type=media_type,
                     headers={
                         'Content-Disposition': content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     },
-                    background=None  # cleanup handled below
+                    cleanup_dir=tmp_dir
                 )
             elif fmt in AUDIO_EXPORT_FORMATS:
                 tmp_dir = tempfile.mkdtemp(prefix='stimma-export-')
-                output_path, filename, media_type = _convert_audio(file_path, opts, tmp_dir)
-                return FileResponse(
+                output_path, filename, media_type = await asyncio.to_thread(_convert_audio, file_path, opts, tmp_dir)
+                return TemporaryFileResponse(
                     output_path,
                     media_type=media_type,
                     headers={
                         'Content-Disposition': content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     },
-                    background=None
+                    cleanup_dir=tmp_dir
                 )
 
         # Multiple files: export to zip
         tmp_dir = tempfile.mkdtemp(prefix='stimma-export-')
-        buffer = io.BytesIO()
+        zip_path = Path(tmp_dir) / 'export.zip'
 
-        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-            seen_names = {}
+        def generate_zip():
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                seen_names = {}
 
-            for item in valid_items:
-                file_path = Path(item.file_path)
-                if not file_path.exists():
-                    continue
+                for item in valid_items:
+                    file_path = Path(item.file_path)
+                    if not file_path.exists():
+                        continue
 
-                fmt = (item.file_format or '').lower()
+                    fmt = (item.file_format or '').lower()
 
-                try:
-                    if fmt in IMAGE_EXPORT_FORMATS:
-                        buf, filename, _ = _convert_image(
-                            file_path, opts, item.generation_metadata, input_hashes
-                        )
-                        data = buf.read()
-                    elif fmt in VIDEO_EXPORT_FORMATS:
-                        output_path, filename, _ = _convert_video(file_path, opts, tmp_dir)
-                        data = output_path.read_bytes()
-                    elif fmt in AUDIO_EXPORT_FORMATS:
-                        output_path, filename, _ = _convert_audio(file_path, opts, tmp_dir)
-                        data = output_path.read_bytes()
-                    else:
-                        filename = file_path.name
-                        if file_path.is_dir():
-                            data = None  # handled below
+                    try:
+                        if fmt in IMAGE_EXPORT_FORMATS:
+                            buf, filename, _ = _convert_image(
+                                file_path, opts, item.generation_metadata, input_hashes
+                            )
+                            data = buf.read()
+                        elif fmt in VIDEO_EXPORT_FORMATS:
+                            output_path, filename, _ = _convert_video(file_path, opts, tmp_dir)
+                            data = None
+                            file_path = output_path
+                        elif fmt in AUDIO_EXPORT_FORMATS:
+                            output_path, filename, _ = _convert_audio(file_path, opts, tmp_dir)
+                            data = None
+                            file_path = output_path
                         else:
-                            data = file_path.read_bytes()
-                except Exception as e:
-                    log.warning(f"Failed to convert {file_path.name}: {e}")
-                    # Fall back to original file
-                    filename = file_path.name
-                    if file_path.is_dir():
+                            filename = file_path.name
+                            data = None
+                    except Exception as e:
+                        log.warning(f"Failed to convert {file_path.name}: {e}")
+                        # Fall back to original file
+                        filename = file_path.name
                         data = None
+
+                    # Handle duplicate filenames
+                    if filename in seen_names:
+                        seen_names[filename] += 1
+                        stem = Path(filename).stem
+                        suffix = Path(filename).suffix
+                        filename = f"{stem}_{seen_names[filename]}{suffix}"
                     else:
-                        data = file_path.read_bytes()
+                        seen_names[filename] = 0
 
-                # Handle duplicate filenames
-                if filename in seen_names:
-                    seen_names[filename] += 1
-                    stem = Path(filename).stem
-                    suffix = Path(filename).suffix
-                    filename = f"{stem}_{seen_names[filename]}{suffix}"
-                else:
-                    seen_names[filename] = 0
+                    if data is None and file_path.is_dir():
+                        # Directory-based media: add all files under the directory name
+                        for child in file_path.rglob('*'):
+                            if child.is_file():
+                                zf.write(child, f"{filename}/{child.relative_to(file_path)}")
+                    elif data is None:
+                        zf.write(file_path, filename)
+                    else:
+                        zf.writestr(filename, data)
 
-                if data is None and file_path.is_dir():
-                    # Directory-based media: add all files under the directory name
-                    for child in file_path.rglob('*'):
-                        if child.is_file():
-                            zf.write(child, f"{filename}/{child.relative_to(file_path)}")
-                else:
-                    zf.writestr(filename, data)
-
-        buffer.seek(0)
-        zip_data = buffer.read()
+        await asyncio.to_thread(generate_zip)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_filename = f"stimma-export-{timestamp}.zip"
 
-        return StreamingResponse(
-            io.BytesIO(zip_data),
+        return TemporaryFileResponse(
+            zip_path,
             media_type="application/zip",
             headers={
                 'Content-Disposition': content_disposition('attachment', zip_filename),
-                'Content-Length': str(len(zip_data))
-            }
+                'Content-Length': str(zip_path.stat().st_size)
+            },
+            cleanup_dir=tmp_dir,
         )
-    finally:
-        # Clean up temp directory in background
+    except BaseException:
         if tmp_dir:
             try:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
             except Exception:
                 pass
+        raise

@@ -130,7 +130,7 @@
 
         <button
           type="button"
-          class="min-w-[52px] text-right text-[11px] tabular-nums text-content-secondary hover:text-content bg-transparent border-none cursor-pointer"
+          class="min-w-[52px] text-right text-[11px] font-mono tabular-nums text-content-secondary hover:text-content bg-transparent border-none cursor-pointer"
           :title="readoutMode === 'frames' ? 'Show time' : 'Show frames'"
           @click="toggleReadout"
         >
@@ -182,7 +182,7 @@
             {{ direction }}
           </button>
         </template>
-        <span v-if="current" class="ml-auto self-center text-[11px] text-content-muted tabular-nums">
+        <span v-if="current" class="ml-auto self-center text-[11px] text-content-muted font-mono tabular-nums">
           {{ current.fps }} fps · {{ current.loop }}
         </span>
       </div>

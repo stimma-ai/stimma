@@ -333,7 +333,7 @@ export function setProxyTarget(next: ProxyTarget | null): void {
     tlsAgent?.destroy()
     tlsAgent = null
   }
-  log.info('proxy', next ? `Target set to ${next.host}:${next.port}` : 'Target cleared')
+  log.info('proxy', next ? `Target set via ${next.tls ? 'tls' : 'tcp'}` : 'Target cleared')
 }
 
 function dropUpgrades(): void {

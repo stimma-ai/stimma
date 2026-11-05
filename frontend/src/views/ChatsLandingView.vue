@@ -1,34 +1,21 @@
 <template>
   <div class="h-full flex flex-col bg-base" @contextmenu.self="handleEmptyContextMenu">
     <!-- Header -->
-    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:hidden">
-      <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Chats</h1>
-
-      <div class="flex items-center gap-3 compact:flex-1 compact:justify-between">
-        <button
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary compact:min-h-11 compact:px-3"
-          @click="createNewChat"
-        >
-          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>New</span>
-        </button>
-        <!-- Search -->
-        <div class="relative compact:flex-1">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
-          <input v-no-autocorrect
-            ref="searchInputRef"
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search chats..."
-            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48 compact:w-full compact:min-h-11"
-          />
-        </div>
-      </div>
-    </div>
+    <PageHeader class="compact:hidden">
+      <template #title>Chats</template>
+      <template #actions>
+        <SearchField
+          ref="searchInputRef"
+          v-model="searchQuery"
+          placeholder="Search chats..."
+          class="w-48"
+        />
+        <Button variant="primary" @click="createNewChat">
+          <template #icon><PlusIcon class="h-icon-inline w-icon-inline" /></template>
+          New
+        </Button>
+      </template>
+    </PageHeader>
 
     <!-- Content -->
     <div
@@ -61,129 +48,114 @@
       </div>
 
       <!-- Chat list (messenger-style) -->
-      <div v-else class="py-1">
-        <div
+      <div v-else class="py-2">
+        <CollectionRow
           v-for="(chat, index) in filteredChats"
           :key="chat.id"
           :data-testid="`chat-row-${chat.id}`"
-          class="flex items-center gap-4 px-6 py-3 transition-colors cursor-pointer group relative"
-          :class="isSelected(chat.id)
-            ? 'bg-selection/15'
-            : 'hover:bg-overlay-subtle'"
+          :selected="isSelected(chat.id)"
           @click="handleCardClick($event, chat, index)"
           @contextmenu="handleCardContextMenu($event, chat)"
         >
           <!-- Selection checkbox (overlays thumbnail) -->
-          <div
-            class="absolute top-3.5 left-6 z-10 transition-opacity"
-            :class="multiSelectMode || isSelected(chat.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
-          >
-            <button
-              @click.stop="toggleSelection(chat.id)"
-              class="w-5 h-5 rounded border flex items-center justify-center transition-colors compact:hidden"
-              :class="isSelected(chat.id)
-                ? 'bg-selection border-selection'
-                : 'border-content-tertiary bg-black/55 hover:border-content-secondary'"
+          <template #overlay>
+            <div
+              class="absolute left-0 top-1/2 z-10 -translate-y-5 transition-opacity"
+              :class="multiSelectMode || isSelected(chat.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
             >
-              <svg v-if="isSelected(chat.id)" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              <button
+                @click.stop="toggleSelection(chat.id)"
+                class="w-5 h-5 rounded border flex items-center justify-center transition-colors compact:hidden"
+                :class="isSelected(chat.id)
+                  ? 'bg-selection border-selection'
+                  : 'border-content-tertiary bg-black/55 hover:border-content-secondary'"
+              >
+                <svg v-if="isSelected(chat.id)" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </button>
+            </div>
+          </template>
+
+          <template #thumb>
+            <RowThumb
+              :media-id="hasMedia(chat) ? chat.recent_media[0].media_id : null"
+              :file-hash="hasMedia(chat) ? chat.recent_media[0].file_hash : undefined"
+            >
+              <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
               </svg>
-            </button>
-          </div>
+            </RowThumb>
+          </template>
 
-          <!-- Thumbnail -->
-          <div v-if="hasMedia(chat)" class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden">
-            <MediaImage
-              :media-id="chat.recent_media[0].media_id"
-              :file-hash="chat.recent_media[0].file_hash"
-              :thumbnail="true"
-              :thumbnail-size="80"
-              :draggable="false"
-              :enable-context-menu="false"
-              container-class="w-full h-full"
-              class="w-full h-full object-cover"
+          <template #title>
+            <input v-if="editingChatId === chat.id" v-no-autocorrect
+              v-model="editingName"
+              @blur="saveChatName(chat)"
+              @keydown.enter="saveChatName(chat)"
+              @keydown.esc="cancelEdit"
+              @click.stop
+              class="text-sm text-content font-medium bg-surface-raised border border-edge rounded px-2 py-0.5 outline-none focus:border-accent flex-1 min-w-0"
+              placeholder="Name this chat..."
+              autofocus
             />
-          </div>
-          <div v-else class="flex-shrink-0 w-10 h-10 rounded-media bg-matte flex items-center justify-center">
-            <svg class="w-5 h-5 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-            </svg>
-          </div>
-
-          <!-- Name + last message; time/counts share the same two lines -->
-          <div class="flex-1 min-w-0">
-            <!-- Name row -->
-            <div class="flex items-center gap-3">
-              <template v-if="editingChatId === chat.id">
-                <input v-no-autocorrect
-                  v-model="editingName"
-                  @blur="saveChatName(chat)"
-                  @keydown.enter="saveChatName(chat)"
-                  @keydown.esc="cancelEdit"
-                  @click.stop
-                  class="text-sm text-content font-medium bg-surface-raised border border-edge rounded px-2 py-0.5 outline-none focus:border-accent flex-1 min-w-0"
-                  placeholder="Name this chat..."
-                  autofocus
-                />
-              </template>
-              <template v-else>
-                <span
-                  v-if="chat.name"
-                  @click="onNameTap(chat, $event)"
-                  class="text-[14px] text-content font-medium truncate cursor-pointer hover:text-content"
-                >
-                  {{ chat.name }}
-                </span>
-                <span
-                  v-if="chat.generation_settings?.mcp_origin"
-                  class="shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
-                  title="Driven by a connected assistant over MCP"
-                >MCP</span>
-                <span
-                  v-else
-                  @click="onNameTap(chat, $event)"
-                  class="text-[14px] text-content-muted italic truncate cursor-pointer hover:text-content-secondary"
-                >
-                  New chat
-                </span>
-              </template>
-
+            <span v-else class="flex min-w-0 flex-1 items-start gap-2">
+              <span
+                @click="onNameTap(chat, $event)"
+                class="line-clamp-2 min-w-0 cursor-pointer text-[14px] font-medium leading-5"
+                :class="chat.name ? 'text-content' : 'text-content-muted hover:text-content-secondary'"
+              >
+                {{ chat.name || 'New chat' }}
+              </span>
+              <span
+                v-if="chat.generation_settings?.mcp_origin"
+                class="shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent-hi bg-accent/10"
+                title="Driven by a connected assistant over MCP"
+              >MCP</span>
               <!-- Generating indicator -->
-              <div v-if="isChatGenerating(chat.id)" class="w-3 h-3 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0"></div>
+              <span v-if="isChatGenerating(chat.id)" class="mt-1 h-3 w-3 flex-shrink-0 animate-spin rounded-full border-2 border-edge-strong border-t-white"></span>
+            </span>
+          </template>
 
-              <span class="flex-1"></span>
-              <span v-if="chat.updated_at" class="flex-shrink-0 text-xs font-mono tabular-nums text-content-tertiary whitespace-nowrap">
-                {{ formatRelativeTime(chat.updated_at) }}
+          <template v-if="plainPreview(chat.last_message) || chat.generated_count > 0" #preview>
+            <p class="truncate text-[13px] leading-5 text-content-muted">
+              <template v-if="plainPreview(chat.last_message)">{{ plainPreview(chat.last_message) }}</template>
+              <template v-else>{{ chat.generated_count }} image{{ chat.generated_count !== 1 ? 's' : '' }} generated</template>
+            </p>
+          </template>
+
+          <!-- Counts: two fixed cells on wider layouts, so messages and images
+               each keep one vertical track. On a narrow window they sit
+               together beneath the name, only the ones the chat has. -->
+          <template v-if="chat.message_count > 0 || chat.generated_count > 0" #trailing>
+            <span class="flex items-center justify-end gap-1 text-[11px] font-mono tabular-nums text-content-muted narrow:justify-start narrow:gap-3">
+              <span
+                class="flex w-11 items-center justify-end gap-1 narrow:w-auto"
+                :class="chat.message_count > 0 ? '' : 'invisible narrow:hidden'"
+                :title="`${chat.message_count} ${chat.message_count === 1 ? 'message' : 'messages'}`"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                </svg>
+                {{ chat.message_count }}
               </span>
-            </div>
-
-            <!-- Preview row -->
-            <div class="flex items-center gap-3 mt-1">
-              <p v-if="chat.last_message" class="flex-1 min-w-0 text-[13px] text-content-muted truncate">
-                {{ chat.last_message }}
-              </p>
-              <p v-else-if="chat.generated_count > 0" class="flex-1 min-w-0 text-[13px] text-content-muted truncate">
-                {{ chat.generated_count }} image{{ chat.generated_count !== 1 ? 's' : '' }} generated
-              </p>
-              <span v-else class="flex-1"></span>
-
-              <span class="flex-shrink-0 flex items-center gap-2.5 text-[11px] font-mono tabular-nums text-content-muted">
-                <span v-if="chat.message_count > 0" class="flex items-center gap-1">
-                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
-                  </svg>
-                  {{ chat.message_count }}
-                </span>
-                <span v-if="chat.generated_count > 0" class="flex items-center gap-1">
-                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
-                  </svg>
-                  {{ chat.generated_count }}
-                </span>
+              <span
+                class="flex w-11 items-center justify-end gap-1 narrow:w-auto"
+                :class="chat.generated_count > 0 ? '' : 'invisible narrow:hidden'"
+                :title="`${chat.generated_count} ${chat.generated_count === 1 ? 'image' : 'images'}`"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+                </svg>
+                {{ chat.generated_count }}
               </span>
-            </div>
-          </div>
-        </div>
+            </span>
+          </template>
+
+          <template #date>
+            {{ chat.updated_at ? formatRelativeShort(chat.updated_at) : '' }}
+          </template>
+        </CollectionRow>
       </div>
     </div>
 
@@ -210,7 +182,7 @@
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
         >
           <span class="w-4 h-4 flex-shrink-0"></span>
-          <span>Select All</span>
+          <span>Select all</span>
         </button>
         <div class="border-t border-edge-subtle my-1"></div>
         <button
@@ -220,7 +192,7 @@
           <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          <span>New Chat</span>
+          <span>New chat</span>
         </button>
       </div>
     </Teleport>
@@ -240,6 +212,7 @@
 </template>
 
 <script setup>
+import { formatRelativeShort } from '../utils/timeFormat'
 import { consumeEscape, hasEscapeLayer, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useEntityMove } from '../composables/useEntityMove'
 import { fetchScopedJson } from '../utils/scopedList'
@@ -249,13 +222,19 @@ import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useAgentActivity } from '../composables/useAgentActivity'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
-import { useToasts } from '../composables/useToasts'
+import { useToasts, reportActionError } from '../composables/useToasts'
 import ConnectionError from '../components/ConnectionError.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import RenameSheet from '../components/compact/RenameSheet.vue'
 import { useViewport } from '../composables/useViewport'
 import EntitySelectionBar from '../components/EntitySelectionBar.vue'
-import { MediaImage } from '../components/media'
+import PageHeader from '../components/ui/PageHeader.vue'
+import SearchField from '../components/ui/SearchField.vue'
+import Button from '../components/ui/Button.vue'
+import { PlusIcon } from '@heroicons/vue/24/outline'
+import CollectionRow from '../components/lists/CollectionRow.vue'
+import RowThumb from '../components/lists/RowThumb.vue'
+import { plainPreview } from '../components/lists/previewText'
 
 defineOptions({
   name: 'ChatsLandingView'
@@ -597,30 +576,12 @@ async function createNewChat() {
     const newChat = await response.json()
     router.push({ name: 'chat', params: { id: newChat.id } })
   } catch (err) {
-    console.error('Failed to create chat:', err)
+    reportActionError("Couldn't create chat.", err)
   }
 }
 
 function openChat(chat) {
   router.push({ name: 'chat', params: { id: chat.id } })
-}
-
-function formatRelativeTime(dateStr) {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now - date
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 1) return 'now'
-  if (diffMins < 60) return `${diffMins}m`
-  if (diffHours < 24) return `${diffHours}h`
-  if (diffDays < 7) return `${diffDays}d`
-  const opts = { month: 'short', day: 'numeric' }
-  if (date.getFullYear() !== now.getFullYear()) opts.year = '2-digit'
-  return date.toLocaleDateString(undefined, opts)
 }
 
 // Inline editing functions
@@ -648,14 +609,15 @@ async function saveChatName(chat) {
 
   const newName = editingName.value.trim()
   try {
-    await fetch(`/api/chats/${chat.id}`, {
+    const response = await fetch(`/api/chats/${chat.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newName })
     })
+    if (!response.ok) throw new Error(await response.text())
     chat.name = newName
   } catch (err) {
-    console.error('Failed to rename chat:', err)
+    reportActionError("Couldn't rename chat.", err)
   }
 
   editingChatId.value = null
@@ -688,13 +650,13 @@ const wsUnsubscribes = [
 
 onMounted(() => {
   loadChats()
-  if (allowsAutofocus.value) searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focusQuietly()
 })
 
 onActivated(() => {
   chatsVisible = true
   loadChats()
-  if (allowsAutofocus.value) searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focusQuietly()
   document.addEventListener('keydown', handleKeyDown)
   document.addEventListener('click', handleEmptyMenuClickOutside)
 })

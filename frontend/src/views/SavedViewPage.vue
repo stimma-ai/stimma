@@ -24,7 +24,7 @@
           type="button"
           class="px-2.5 py-1 rounded-md text-xs text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors whitespace-nowrap"
           @click="showSaveAsModal = true"
-        >Save As</button>
+        >Save as</button>
       </div>
     </div>
 
@@ -70,7 +70,7 @@
     <!-- Delete Confirmation Modal -->
     <ConfirmDialog
       :show="showDeleteConfirm"
-      title="Delete View"
+      title="Delete view"
       confirm-label="Delete"
       danger
       @confirm="deleteView"
@@ -82,7 +82,7 @@
     <!-- Rename Modal -->
     <Modal :show="showRenameModal" size="sm" @close="showRenameModal = false">
       <template #header>
-        <h3 class="text-lg font-semibold text-content">Rename View</h3>
+        <h3 class="text-lg font-semibold text-content">Rename view</h3>
       </template>
       <div class="px-6 py-5">
         <input v-no-autocorrect
@@ -105,6 +105,8 @@
 </template>
 
 <script setup>
+import { displaySavedViewName } from '../utils/savedViewName'
+import { reportActionError } from '../composables/useToasts'
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BrowseGridView from './BrowseGridView.vue'
@@ -196,7 +198,7 @@ async function saveChanges() {
     })
     originalFilters.value = JSON.parse(JSON.stringify(filters))
   } catch (error) {
-    console.error('Failed to save changes:', error)
+    reportActionError("Couldn't save view.", error)
   }
 }
 
@@ -210,7 +212,7 @@ async function saveAsNew() {
     // Navigate to the new view
     router.push({ name: 'saved-view', params: { id: newView.id } })
   } catch (error) {
-    console.error('Failed to create new view:', error)
+    reportActionError("Couldn't create view.", error)
   }
 }
 
@@ -221,7 +223,7 @@ async function deleteView() {
     // Navigate back to browse
     router.push({ name: 'browse' })
   } catch (error) {
-    console.error('Failed to delete view:', error)
+    reportActionError("Couldn't delete view.", error)
   }
 }
 
@@ -269,7 +271,7 @@ async function moveView(direction) {
   try {
     await reorderSavedView(savedViewId.value, direction)
   } catch (error) {
-    console.error('Failed to move view:', error)
+    reportActionError("Couldn't move view.", error)
   }
 }
 
@@ -292,9 +294,9 @@ watch(() => route.params.id, async (newId) => {
 async function loadSavedView() {
   try {
     const view = await getSavedView(savedViewId.value)
-    savedViewName.value = view.name
+    savedViewName.value = displaySavedViewName(view.name)
     savedViewProjectId.value = view.project_id ?? null
-    setCompactTitle(view.name || 'Saved view')
+    setCompactTitle(displaySavedViewName(view.name) || 'Saved view')
 
     // Apply saved filters
     const savedFilters = normalizeBrowseFilters({

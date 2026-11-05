@@ -1,19 +1,22 @@
 <template>
-  <div v-if="markers.length > 0" class="flex items-center gap-1">
+  <div v-if="markers.length > 0" class="flex items-center gap-0.5">
+    <!-- Quiet marker toggles (DESIGN.md §1.10): an outline glyph at rest; set =
+         the marker's own colour on the overlay backing, no outline. -->
     <button
       v-for="marker in markers"
       :key="marker.id"
       @click="toggleMarker(marker.id)"
       :class="[
-        'w-9 h-9 rounded-md cursor-pointer transition-all flex items-center justify-center',
+        'w-7 h-7 coarse:w-11 coarse:h-11 rounded-md cursor-pointer transition-colors duration-150 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 ring-accent/60',
         isSelected(marker.id)
-          ? 'bg-opacity-30'
-          : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
+          ? 'bg-overlay-light'
+          : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
       ]"
-      :style="isSelected(marker.id) ? { backgroundColor: marker.color + '33', color: marker.color } : {}"
+      :style="isSelected(marker.id) ? { color: marker.color } : {}"
       :title="marker.name"
+      :aria-pressed="isSelected(marker.id)"
     >
-      <span v-html="sanitizeSvg(marker.icon_svg)" class="w-4 h-4 flex-shrink-0 icon-container"></span>
+      <span v-html="sanitizeSvg(marker.icon_svg)" class="w-icon-nav h-icon-nav flex-shrink-0 icon-container" :class="isSelected(marker.id) ? '' : 'marker-glyph-off'"></span>
     </button>
   </div>
 </template>

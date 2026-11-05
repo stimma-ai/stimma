@@ -23,15 +23,20 @@ async function fixture(t, width = 390, reducedMotion = 'no-preference') {
   await page.addScriptTag({ content: output.find(x => x.type === 'chunk').code })
   return page
 }
-async function centered(page, index) {
-  await expect.poll(() => page.evaluate(index => {
+// Items near the ends align to the leading or trailing edge (inset by the
+// gutter) instead of centering; every other item is centered.
+async function placed(page, index, last = 999) {
+  await expect.poll(() => page.evaluate(({ index, last }) => {
     const el = document.querySelector(`[data-index="${index}"]`)?.parentElement
     if (!el) return 9999
     const item = el.getBoundingClientRect(), container = document.querySelector('.scroll-container').getBoundingClientRect()
+    const gutter = 4
+    if (index === 0) return Math.abs(item.x - container.x - gutter)
+    if (index === last) return Math.abs(container.right - item.right - gutter)
     return Math.abs(item.x + item.width / 2 - container.x - container.width / 2)
-  }, index)).toBeLessThan(2)
+  }, { index, last })).toBeLessThan(2)
 }
-test('four markers fit at 320px; overflow is searchable, toggleable and dismissible', async t => {
+test('four markers fit at 320px; overflow is toggleable and dismissible', async t => {
   const page = await fixture(t, 320)
   assert.equal(await page.getByRole('button', { name: /^Marker / }).count(), 4)
   for (const b of await page.getByRole('button', { name: /^Marker / }).all()) {
@@ -40,34 +45,33 @@ test('four markers fit at 320px; overflow is searchable, toggleable and dismissi
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
   await page.evaluate(() => window.galleryTest.markers(24))
   await page.getByRole('button', { name: '21 more markers' }).tap()
-  await page.getByRole('searchbox', { name: 'Find marker' }).fill('Marker 23')
   await page.getByRole('button', { name: 'Marker 23', exact: true }).tap()
   await expect(page.getByRole('button', { name: 'Marker 23', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await page.keyboard.press('Escape')
-  await expect(page.getByRole('searchbox')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Done' })).toHaveCount(0)
   await page.getByRole('button', { name: '21 more markers' }).tap()
   await page.mouse.click(10, 10)
-  await expect(page.getByRole('searchbox')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Done' })).toHaveCount(0)
 })
-test('filmstrip animates to selection, centers both edges, and stays virtualized', async t => {
+test('filmstrip animates to selection, aligns to the leading and trailing edges, and stays virtualized', async t => {
   const page = await fixture(t)
-  await centered(page, 0)
+  await placed(page, 0)
   await page.evaluate(() => window.galleryTest.select(8))
   await expect.poll(() => page.locator('.scroll-container').evaluate(el => el.scrollLeft)).toBeGreaterThan(0)
   const intermediate = await page.locator('.scroll-container').evaluate(el => el.scrollLeft)
   assert.ok(intermediate < 8 * 54, 'scroll has intermediate animation positions')
-  await centered(page, 8)
+  await placed(page, 8)
   await page.evaluate(() => window.galleryTest.select(999))
-  await centered(page, 999)
+  await placed(page, 999)
   assert.ok(await page.locator('[data-index]').count() < 40)
   await page.setViewportSize({ width: 320, height: 844 })
-  await centered(page, 999)
+  await placed(page, 999)
 })
-test('slow loads cannot delay navigation; reduced motion centers immediately', async t => {
+test('slow loads cannot delay navigation; reduced motion places immediately', async t => {
   const page = await fixture(t, 390, 'reduce')
-  await centered(page, 0)
+  await placed(page, 0)
   await page.evaluate(() => { window.galleryTest.pending(); window.galleryTest.select(100) })
-  await centered(page, 100)
+  await placed(page, 100)
   await page.evaluate(() => { window.galleryTest.select(400); window.galleryTest.select(3) })
-  await centered(page, 3)
+  await placed(page, 3)
 })

@@ -24,12 +24,16 @@ Existing semantic tokens stand (base/surface*/content*/edge*/overlay*/flow-*).
 New:
 
 ```
---accent(-rgb)            interactive accent. Light: 13 148 136 (teal #0d9488).
-                          Dark: brightened teal, contrast-checked (TBD, ~#2dd4bf family).
+--accent(-rgb)            interactive accent. Light: 11 120 110 (deep teal).
+                          Dark: 18 166 150 (brightened teal).
+--accent-on(-rgb)         label/glyph colour ON an accent fill: white on the
+                          light fill (5.35:1), near-black 7 8 10 on the dark
+                          fill (6.6:1). Always write `text-accent-on` on a
+                          `bg-accent` element, never `text-white`.
 --accent-selection(-rgb)  selection accent, DECIDED 2026-07-17: indigo family
                           (dark ~#818cf8, light #6366f1). Never an alias of
                           teal: selection ≠ action.
---color-matte(-rgb)       media matte. Dark: near-black (7 9 13). Light: paper (245 245 244).
+--color-matte(-rgb)       media matte. Dark: near-black (7 8 10). Light: paper (234 233 230), a clear step darker (L* 92.3 against the panel's 96.2) than the 245 244 242 panel beside it.
 --color-live(-rgb)        DECIDED 2026-07-18: magenta (dark 244 114 182 /
                           light 219 39 119). "Live" = autonomous/continuous
                           operation the user set running: forever mode armed,
@@ -96,7 +100,8 @@ Radius signals *what a thing is*; never mix roles for visual taste.
 boundaries, not every row. Single-line fact rows (KeyValueList) may keep
 per-row hairlines; any row tall enough to carry a description separates by
 whitespace only — a rule under the group label, none between rows. A stack
-of full-width rules between two-line rows reads as a wall of <hr>s.
+of full-width rules between two-line rows reads as a wall of <hr>s. Settings
+lists are the exception: every setting is a hairline row, description or not.
 
 ### 1.3a The separator law (added 2026-07-18, distilled from the review)
 
@@ -142,10 +147,19 @@ are identical in both, but render differently because the physics differ:
   (`border-edge-subtle`); shadows only on true overlays.
 - Light ("gallery at noon"): warm paper tokens; elevation = fill + soft
   diffuse shadow; hairlines reserved for in-panel row separation.
+  Light neutrals are ONE warm family: surface 245 244 242, raised 230 229 226,
+  hover 214 213 209, borders the same cast, and the matte 234 233 230 (CIELAB
+  b* +1.1 to +2.1), so the sidebar, top bar and matte never read as two
+  temperatures. The field fill is black at 5.5% (1.13:1 on white, 1.12 on the
+  panel). Fields stay fill-only; no hairline was needed.
 
 Practically: panels/menus/modals carry BOTH a border token and a shadow
 token; dark resolves the shadow to none, light resolves the border to
-transparent. Radius scale in both themes: controls 6px, containers 10px,
+transparent. Shadow strength is a token: `--shadow-page-a` (sm, default, md)
+and `--shadow-pop-a` (lg, xl, 2xl, `shadow-black/NN`) scale opacity per theme;
+light is 0.4 / 0.85 of dark, so in-page lift is a whisper and true overlays
+stay distinguishable. A surface never carries a visible border AND a shadow
+beyond `shadow-sm` in the light theme; pick one. Radius scale in both themes: controls 6px, containers 10px,
 overlays 12px, media `radius-media` (2px). KV rows are hairline-separated
 in both (no zebra). Rows use a soft 6px hover tint in both.
 
@@ -160,21 +174,76 @@ one background step, not border+fill.
 
 ### 1.5 Type scale & voices
 
+**Text contrast (measured, WCAG AA 4.5:1 on base/surface/raised).** The text
+ladder is primary > secondary > tertiary > muted, and every step is readable;
+disabled state is `disabled:opacity-50`, never a text token. Dark
+(base 13 15 20, surface 18 20 26, raised 26 29 37): secondary 8.4 / 7.7,
+tertiary 6.5 / 6.0, muted 5.5 / 5.0 (surface / raised). Light (white, 245,
+230): secondary 9.5 / 8.2, tertiary 7.3 / 6.3, muted 5.8 / 5.1. Light
+`accent-hi` (13 106 98, 6.7 on white) is for teal text; `accent` is the
+fill and carries a white label at 5.35:1. Muted on a hover/active fill can dip toward 4.1.
+Placeholders are the muted step in both themes (a global `::placeholder` rule in
+style.css; fields write `placeholder:text-content-muted`, never `placeholder-white/NN`).
+
 - UI sans (system): `text-xs` default dense UI, `text-sm` primary content,
-  `text-lg font-semibold` in-page headings, `text-xl font-semibold` view
-  titles. `font-medium` is the emphasis weight; `font-bold` is banned outside
+  `text-lg font-semibold` in-page headings. View titles are display voice
+  (`font-brand font-semibold`), 18px on every desktop page header and on the
+  phone header (§2 PageHeader). `font-medium` is the emphasis weight; `font-bold` is banned outside
   display voice.
 - **Facts = mono**: ids, paths, seeds, dimensions, file sizes, counts,
   durations, timestamps, params. `font-mono tabular-nums`. Bordered mono =
   editable; bare/chip mono = read-only (codifying the one convention the app
-  already keeps).
+  already keeps). Names and context (project subtitle, provider and task line
+  under a tool name) are UI sans, not mono. Applied everywhere, rows
+  included: a chat or flow row's date, a board's asset count, a sidebar
+  detail line, a slider readout are all mono.
+  **One date format** (`utils/timeFormat.js`, nothing else formats a date):
+  within a week, relative (`now`, `5m`, `3h`, `2d` in rows; `5m ago` in
+  panels); beyond that `Aug 13` in the current year and `Aug 13, 2026`
+  otherwise (`formatDate`); detail panels and account or sharing facts always
+  carry the year; an exact timestamp (tooltips, the Created fact) is
+  `Aug 13, 2026, 11:36 PM`. The numeric locale form (`8/13/2026`) is retired.
+  **One noun for what a board holds: "assets"** (`1 asset`, `20 assets`) in
+  the sidebar, board cards, pickers and the browse count; "items" is not used
+  for board contents. A status value shown to people is sentence case
+  (`Your turn`) even where the stored vocabulary keeps `Your Turn`
+  (`displayFlowStatus`).
 - **Display = General Sans** (decided 2026-07-17; already bundled as
   `font-brand`): view heroes, empty-state titles, view titles, onboarding.
-  600 default, 700 for heroes. Never in controls, menus, or body text.
+  600 default; the hero's `font-bold` also resolves to 600
+  (`--display-weight-hero`; 700 crowded the counters). Tracking is
+  `--display-tracking` (-0.005em), applied to every `font-brand` element that
+  doesn't set its own `tracking-[..]` (the wordmark does), so `tracking-tight`
+  is a no-op there. Never in controls, menus, or body text.
   Network fonts stay banned in-app.
+- **Dense-control tier**: `text-ctl` (13px / 18px) is the size for actionable
+  labels in tool, flow and editor forms: section labels, prompt utilities
+  (Enhance, Translate), the resolution trigger's caption. `text-xs` (12px)
+  stays for facts and secondary text; mono facts are not enlarged.
+- **Media actions** (markers, remix, trash on the band under a tool result; the
+  slideshow's rail and the chat preview use the same grammar): a bare target at
+  rest (glyph in `content-tertiary`, 36px, 44px on touch), no outline and no fill;
+  hover = one overlay step; set = `overlay-light` backing plus the marker's own
+  colour. Remix hovers in the accent, trash in danger. Only a set or active state
+  gets a stronger backing, so the band never competes with the artwork. The band's
+  targets reach past the picture by their own padding so the glyphs, not the
+  invisible targets, line up with its edges. (`.result-action` in style.css now
+  serves the auto-delete trigger only.)
+- **Chat bubbles and composer**: bubbles are fill-only (user `surface-raised`,
+  assistant `surface`), one padding (`px-4 py-2.5`), no border; paragraph
+  spacing carries the structure inside, and the first and last block have no
+  outer margin. The composer rests at one text line plus its control row.
+  A chat result collection keeps one title row (title, count, menu), the
+  artwork, and one action row where markers and "Add to message" share a
+  baseline. Unset markers over artwork are a bare glyph with a soft shadow,
+  never a filled rectangle.
+- **Resolution trigger**: one control everywhere (tool and flow forms): a
+  viewfinder aspect glyph drawn at the real shape, dimensions, chevron, on a
+  single fill. A reference-image lock is a badge on the glyph plus a caption
+  inside the same control.
 - Section micro-label, THE one variant (replaces all five found):
   **sentence case** — `text-xs font-semibold
-  text-content-secondary`, no uppercase, no tracking. The historical
+  text-content-secondary` (`text-ctl` in tool/flow forms), no uppercase, no tracking. The historical
   ALL-CAPS device is retired app-wide (tables too).
 - `font-brand` (General Sans) = the display voice (widened from
   wordmark-only in Phase 3).
@@ -182,9 +251,29 @@ one background step, not border+fill.
 ### 1.6 Spacing
 
 Control padding `px-3 py-2`, tight `px-2 py-1`, gaps `gap-2` (within groups)
-/ `gap-1.5` (icon+label). Page gutter `px-6`; page header `px-6 py-5`;
-section gap `space-y-6`; hairline-separated rows `py-2.5`. Half-steps are a
+/ `gap-1.5` (icon+label); hairline-separated rows `py-2.5`. Half-steps are a
 fine-tuning tier, not defaults. Nothing above p-8 without a reason.
+
+**Page rhythm is two tokens per width band** (`style.css`, switched by
+`data-width`; Tailwind `px-page`, `gap-section`, `space-y-section`):
+
+| Band | `--page-margin` | `--section-gap` |
+|---|---|---|
+| narrow (< 600) | 16px | 20px |
+| medium (600–839, the fold) | 20px | 24px |
+| wide (≥ 840, every desktop window) | 24px | 28px |
+
+Every non-media block (headers, titles, rows, cards, section labels, form
+fields, filter bars) starts on `--page-margin` and ends on it: a trailing
+text link ("View all", "Add assets"), a status line or a count sits on the
+same right edge as the trailing button (a touch target's padding is pulled
+back with a negative margin so the text, not the target, lands on the edge).
+Rows with a hover tint run full bleed and pad themselves by `px-page`. **Media
+grids may bleed** past the margin to the pane edge on 2px matte gutters, and
+Browse and Board bleed the same way: no inset matte box. Sections are
+separated by `--section-gap`, not per-screen numbers. A centered reading
+column (chat transcript, home, search) keeps its own measure and takes the
+margin only as its minimum side padding.
 
 ### 1.7 Motion
 
@@ -207,8 +296,45 @@ fine-tuning tier, not defaults. Nothing above p-8 without a reason.
   (+ `ring-offset-1 ring-offset-surface` on filled controls). Keyboard-only —
   adopt `focus-visible:`, never bare `focus:` ring styling. Text fields may
   additionally swap `border-accent` on `:focus` for pointer users.
-- Selection (tiles/rows/chips): `ring-2 ring-accent-selection` inset for media
-  tiles; `bg-accent-selection/15` for rows/chips. One treatment each.
+- **The selection law (2026-11-05).** Teal is action; indigo is selection;
+  neither marks a tab. Selected media tiles take `ring-2 ring-accent-selection`
+  inset. Selected rows, chips and option tiles (sidebar and settings nav rows,
+  picker options, export tiles) take `bg-selection/15` with **primary text**
+  (`text-content`) and the leading icon in `text-selection`; indigo is never
+  the label colour (it measures 3.4:1 on its own wash in light). Selected tabs
+  and segments (`SegmentedControl`, the Flow/Chat switch, Steps/Workflow/Code,
+  the editor's family bar and panel tabs, mode switches inside tools) are a
+  neutral fill two steps above their track (`bg-overlay-medium` on a
+  `bg-overlay-subtle` track) with `text-content`; unselected segments are
+  `text-content-secondary`. All segments of one control share one label style:
+  all text, or all glyph plus text. A toggle that is
+  merely on (a panel that is open, a mode that is armed) wears the same
+  neutral fill or, for user-armed continuous modes, `live`; it never rests in
+  indigo. Measured (text-content on the selection wash over surface): dark
+  12.4:1, light 13.5:1; selected segment (text-content on raised): dark
+  14.0:1, light 14.0:1; the selection-coloured icon on its wash: dark 5.0:1,
+  light 3.4:1 (non-text, 3:1 required).
+- Browse marker filters are one chip grammar at every width: individual chips, each with its own include and exclude state. A bare glyph (and label where there is room) at rest, no outline and no fill; backing plus the marker's colour when included; red backing, red minus and struck label when excluded. Spacing holds them together, never a group box. The strip's other controls follow it: Filters is a bare funnel and label that takes the neutral fill only while its panel is open or filters apply; the sort order is a secondary-weight label; every dropdown wears the one outline chevron.
+- Filmstrips centre the current item only while it has neighbours on both sides; near either end the strip aligns to that edge.
+- **Filmstrip tokens** (`--strip-*` in style.css, `utils/filmstrip.ts`): the tool
+  result strip and the slideshow strip share one tile size by available height
+  (52px for the phone strips, 96px for a full row), one gap, and one ring: 2px
+  selection ring with a 2px offset on the matte, drawn outside the tile. Tiles
+  that are not current dim to 80%, never lower. Aspect handling stays per strip
+  (natural aspect in the tool strip, square crops in the slideshow).
+- **Secondary toolbar on a phone** (browse filters, tools filters, a board's
+  section row, the flow's status and workspace row): one band under the header,
+  `bg-surface`, a 48px minimum height with 44px targets and no vertical
+  padding, side padding of `--page-margin` (the same edge as the header's
+  glyphs; a bare first or last button pulls its target back so its glyph sits
+  on it), 4px gaps inside a group, a `border-edge-subtle`
+  hairline underneath. Each surface keeps its own controls.
+- **Fields** (`bg-field`): text fields, selects and the composer take one small
+  luminance step above the surface in dark (`--color-field`), and the same quiet
+  wash in light. Fill-only; the focus ring appears only on focus.
+- **Unavailable thumbnails** are a neutral tile (`bg-surface-raised`) with a quiet
+  outline glyph and, where the tile is wide enough, the label "Unavailable".
+  Same geometry as a loaded tile; no cross, no alarm colour.
 - Filter states keep the documented pair: include `bg-blue-500/15
   border-blue-500/50 text-blue-400` → migrate to accent equivalents in Phase 2;
   exclude = red equivalents.
@@ -266,10 +392,46 @@ existing tiered `getRemainingTimeColor()`; type icons go monochrome).
 
 ### 1.10 Iconography
 
-Heroicons-outline style, `stroke-width="1.75"` for new icons (existing 1.5/2
-split migrates opportunistically). Sizes: `w-3.5` in dense rows, `w-4`
-standard, `w-5` toolbar. Tool icons via `ToolIcon.vue`/`taskTypeIcons.ts` +
+Heroicons-outline style, **one stroke width**: `--icon-stroke` (1.75). A global
+rule in style.css draws every outline glyph on the 24px grid at that width
+whatever `stroke-width` attribute it ships with; a glyph that needs its own
+(a check inside a 12px badge) opts out with `data-stroke="own"`. **Three
+sizes**, tokens in style.css and Tailwind (`w-icon-*`, `h-icon-*`):
+`icon-inline` 14px inside text, chips and menu rows; `icon-nav` 16px for the
+sidebar, toolbars, filter chips, settings nav, header and tool actions and
+field adornments; `icon-canvas` 18px for canvas and transport controls and for the phone
+header's 44px touch targets
+(slideshow, compare, video transport). Nothing is 20px: hero and empty-state
+art is illustration, not an icon. Tool icons via `ToolIcon.vue`/`taskTypeIcons.ts` +
 provider badge — the only sanctioned tool iconography (existing rule).
+Menus, rows and the sidebar draw every glyph outline at 1.75; fill is reserved
+for an active toggle (a set heart or bookmark), so an unset toggle never looks
+set. Every marker toggle (browse filters, selection bar, slideshow rail and info
+panel, tool output settings, the context menu) follows one rule: outline in
+`content-tertiary` at rest (`marker-glyph-off` in style.css), filled in the
+marker's own color on a `bg-overlay-light` backing when set. A browse filter's
+exclude state is the set look plus a red minus. Display-only markers on a tile
+are the monochrome black-glass chip (`TileMarkers`). Each destination in the sidebar rail has its own glyph; saved views take
+the glyph of the filter they hold (marker, clock for expiring, else funnel).
+Pinned and open tool rows show the task-type glyph from `taskTypeIcons.ts` at
+nav-icon size and weight, not the vendor mark. The rail has two row shapes: the
+icon row (16px glyph in a 24px slot, then label) and the two-line row with a
+24px thumbnail, plus the Editing thumbnails (32px, 44px on touch). A tool row is one line; its
+provider line appears only for a cloud tool, a tool that is not ready, or a name
+another row shares. Rows have ONE height (32px, 44px on touch) and one
+two-line variant (40px) for rows with a second line of detail; the rail never
+draws a hairline between groups. Within a group rows sit 2px apart. Groups
+separate by whitespace alone, always 16px: a break after Home and the saved
+views, then each group label (Projects, Pinned, Editing, Open: small semibold
+tertiary text) sits 16px under the last row of the group above. Every resting
+row is the secondary text step (a pinned tool's name is no brighter than
+Assets); the selected row is primary text. Open takes the height the rest of
+the rail leaves and scrolls inside it (a short fade marks more below); the rail
+itself only scrolls in a window too short to leave Open a few rows. Other groups
+collapse from their labels. A saved view that a profile starts with ("My
+library", "Expiring soon") shows in sentence case; any other name shows as
+stored. On a phone the app beside the open drawer is dimmed with
+the backdrop token.
 
 ### 1.11 Small screens and touch (adopted 2026-09-04)
 
@@ -295,17 +457,22 @@ that a desktop-sized window never trips.
   tests. Roomy surfaces open up INSIDE the compact shell (docked drawer,
   side-by-side tool columns); nothing switches chrome, so folding and
   unfolding mid-task loses no state. In the compact shell the drawer docks
-  when roomy on hub routes, and on detail routes only at `wide`; the
-  header's menu button becomes the dock toggle (a sidebar glyph, not a
-  hamburger) and the preference is per profile. A drawer that would leave a
-  detail surface under ~470px stays a drawer.
+  by default only at `wide` (≥ 840px), where content keeps a useful width.
+  At `medium` (a 752px fold) hubs open on the closed drawer: a docked rail
+  there narrows rows, recent cards and the tool catalog to one column. Docking
+  at medium is the person's choice, kept per profile once made. Detail routes
+  dock only at `wide`. Where docking is possible the header's menu button
+  becomes the dock toggle (a sidebar glyph, not a hamburger); the closed
+  drawer still opens by edge swipe. A drawer that would leave a detail
+  surface under ~470px stays a drawer.
 - **Chrome.** Every route declares `meta.surface`: `hub`, `detail` or
   `overlay`. Wide = sidebar + top bar. Compact = the SAME sidebar as a
   drawer (NavigationSidebar with `is-mobile`: 276px, pushes the app aside
   rather than floating over it, opened by the header's Menu button or an
   edge swipe, closed by any navigation or a tap on the pushed app) plus a
-  60px header on hub and detail routes: Menu (hubs) or back chevron
-  (details), title, then the right strip (the transient background-work
+  60px header (`--header-h-mobile`) on hub and detail routes, and the same
+  row in Settings and the editor: Menu (hubs) or back chevron (details),
+  title (`font-brand` 18px), then the right strip (the transient background-work
   indicator, provider managers, search, create). No tab bar: the phone keeps
   the desktop's navigation model — library links, projects, boards, chats,
   flows, tools, the working set, and the footer (account, server, feedback,
@@ -318,7 +485,23 @@ that a desktop-sized window never trips.
   into it. A view never renders its own navigation chrome. Detail pages
   show the entity name in that header, with tap-to-rename where supported and
   one entity-options drawer. Desktop title rows and their menus are hidden on
-  compact; execution controls may remain in a content toolbar.
+  compact; execution controls may remain in a content toolbar. Every phone
+  header button is one style (`compact/headerStyles.ts`): a bare 44px target,
+  secondary glyph at the canvas icon size, no fill; a toggle that is on takes
+  the neutral raised fill, and the only filled button is a primary create
+  or Run. One vertical centre for every phone header (hub, detail, Settings,
+  editor, slideshow): the title never moves between routes. The first and last
+  button are pulled into the row's padding so their glyphs sit on
+  `--page-margin` (16px on a phone, 20px at fold width), not on the button edge:
+  the row pads by the token (`px-page`) and `compactIconButton` pulls back the
+  13px between the 44px target and its 18px glyph. One filled style in
+  `headerStyles.ts`: solid accent, 36px tall inside the 44px target, whether it
+  is the icon create (`compactPrimaryCreate`, a 36px square) or a labelled
+  primary such as Save (`compactPrimaryLabel`, 36px tall, as wide as its label
+  needs). Last in the strip, the FILL's edge sits on the margin, so Add, Upload
+  and Save end on the same edge as the glyphs beside them.
+  Settings is the same row (back and close). On a project's Home the title is
+  the project's name; the other project screens keep it as the subtitle.
 - **Touch targets.** Interactive controls are ≥ 44×44 px on coarse pointers
   (`min-h-11 min-w-11` under `[data-pointer=coarse]`). Dense desktop rows
   keep their 28px icon buttons on fine pointers; the kit does the switch.
@@ -360,9 +543,15 @@ that a desktop-sized window never trips.
   one touch target, never taller), `--sheet-row-px` 16px, `--sheet-row-gap`
   12px, `--sheet-font` 14px, `--sheet-font-detail` 12px mono,
   `--sheet-icon` 20px, `--sheet-radius` 12px, handle 32×4 at 6px,
-  `--sheet-pad-top` 16px, `--sheet-menu-max-h` 62dvh (menus),
-  `--sheet-panel-max-h` 85dvh (pickers, info, forms), `--sheet-drawer-h` 75dvh
-  (expandable drawers), `--sheet-backdrop`.
+  `--sheet-pad-top` 16px, `--sheet-header-pb` 8px (under a sheet's title
+  row), `--sheet-max-w` 480px (100% on a narrow phone), `--sheet-menu-max-h`
+  62dvh (menus), `--sheet-panel-max-h` 85dvh (pickers, info, forms),
+  `--sheet-drawer-h` 75dvh (expandable drawers), `--sheet-backdrop`.
+  **The sheet is the column.** From the medium band up the sheet itself is
+  `--sheet-max-w` wide and centred (kit Sheet, converted menus and inline
+  dropdowns alike, via `.sheet-panel` and the coarse-pointer rule); rows fill
+  it edge to edge, so a rule never floats inside a wider panel. No sheet
+  content builds its own centred inner column.
   Rows are `.sheet-row` (icon first, `.sheet-row-icon`; trailing fact in
   `.sheet-row-detail`; group label `.sheet-section`). Sheets never show a
   scrollbar: the content overflows and the user tugs it. Sheets are dense,
@@ -372,12 +561,18 @@ that a desktop-sized window never trips.
   content are one surface: a drag anywhere on it outside text fields and
   sliders moves the drawer until it is full and only then scrolls the
   content; pulling down at the top of the content shrinks it; a flick goes to
-  the next height. The strip and a slice of the hero stay visible at every
+  the next height. The drawer opens at half height: 50% of the column once there is a result,
+  55% for an empty tool, so the prompt and the first controls form a working
+  area and the picture still holds most of the width. The picture, its action
+  row (44px targets, 4px gap) and the strip sit tight; a glyph on the picture's
+  corner opens it full screen (tapping the picture does the same).
+  The strip and a slice of the hero stay visible at every
   height. Only the prompt is pinned; resolution is the first control under
   it, and the output settings (auto-markers, auto-delete) live in the sheet
-  Run's long-press opens, with a dot on Run while either is on. Roomy: no drawer. Controls on the left; on the right the hero, with
-  the same sideways strip of results as the phone (taller) pegged to the
-  bottom. A wrap of results scrolling under the hero read as a second
+  Run's long-press opens. Compact shows them on an Every new output row in
+  the controls (markers toggle in place; delete opens that sheet) and a small settings glyph inside Run's fill (a trailing mark, with the batch size; nothing straddles its corner) while either is on. Roomy: no drawer. Controls on the left; on the right the hero, with
+  the same sideways strip of results as the phone (taller) directly under its
+  action band as one media unit. A wrap of results scrolling under the hero read as a second
   scroll region. The agent is opt-in: the header's agent
   button docks it full width beneath, as on desktop, and the choice is kept
   per device (docked by default, it read as the prompt field). Short
@@ -388,13 +583,44 @@ that a desktop-sized window never trips.
   Safe-area tokens describe space still needed inside the web viewport.
   The Android shell already insets its WebView, so its frontend tokens are
   zero; browser and iOS viewports retain the CSS environment insets.
-- **Media grids.** 3 columns on compact, 2px gutters, on matte;
-  `rounded-media` and the selection ring unchanged. Tap = open,
-  long-press = select.
-- **Voice.** Facts are real facts: one mono fact per row, status as a dot
-  plus a word. Never invented rollups (`6 · 2 running · 1 unsaved`).
+- **One matte.** Every surface that places artwork (browse, board, editor, tool,
+  slideshow with its strip and its viewers) sits on `--color-matte`: near-black
+  in dark, paper in light. `--color-slideshow-matt` is an alias of it.
+- **Browse toolbar.** Upload is the toolbar's one create action and the
+  view's one primary (solid accent, glyph only on compact), at the right end
+  of the filter strip, never a floating button over the grid.
+- **Composite previews.** Set and grid covers are baked server-side on the matte (`set_bg`/`grid_bg` in `THEME_PALETTES` equal the matte token values: #07080a dark, #eae9e6 light), so the tile shows no second frame. Change a matte value and the palette together, and bump the container's `CONTAINER_PREVIEW_VERSIONS` entry so cached previews rebake.
+- **Media grids.** Square tiles, 2px gutters, on matte; `rounded-media` and
+  the selection ring unchanged. Tap = open, long-press = select. Column count
+  follows the pane's width, never the layout tier (see Tile grids, §3).
+- **The sidebar inside a project** keeps the global rail's rows and wears two
+  extra rows above them in the same top slot the stimma wordmark holds
+  globally: a labelled return row (`Back to everything`, chevron in the icon
+  column) and the project's name as the one prominent identity (display voice,
+  switcher chevron). Content screens repeat the project only as a quiet
+  subtitle. The return row is the same size and place on desktop, the drawer
+  and a docked drawer.
+- **The media menu on a phone** is a first level without scrolling: direct
+  actions (Edit, Tags, Remix, Share link, Print, Export, Move to Trash) plus
+  named rows that open the next stacked sheet: Boards and projects, Send to
+  (Tool, Chat, Flow), Explore, Share. A group with one visible row shows that
+  row directly. Every action is at most one extra tap. Destinations keep their
+  full accessible names (`Send to Chat`); only the visible label drops the
+  prefix inside the group sheet. Desktop uses the same groups as hover
+  submenus: Boards and projects, Send to, Explore (and Share and export, once
+  the OS share row makes it two or more share rows; otherwise Share link, Print
+  and Export stay inline) open a panel beside the menu, and a destination inside it (Boards,
+  Tool, Chat, Flow) opens its usual submenu beside the panel. Edit, Tags and
+  Boards and projects (organization) stay direct; Remix, Send to and Explore
+  are one group; sharing and export are one group; the destructive row stays
+  separated at the bottom. A rule exists only between those groups, desktop and
+  sheet alike.
+- **Voice.** Facts are real facts: one mono fact per row, status as a word, with a
+  dot only for states that want attention (a flow at rest is just the word). Never invented rollups (`6 · 2 running · 1 unsaved`).
 - **Type.** Body stays `text-sm`; row labels are 15px on compact via the
-  kit; mono facts stay 12–12.5px.
+  kit; mono facts stay 12–12.5px. Long transcript text on a phone uses the
+  reading tier, `text-read` / `compact:prose-read` (16px at 1.5, lists indented
+  1.25em); facts and controls keep their dense tiers.
 
 **Greppable rules** (enforced as a ratchet by `stimma lint frontend`;
 counts may only go down): a width/pointer `matchMedia` outside
@@ -426,9 +652,8 @@ Tier 2:
 revealed row controls), `KeyValueList` (typeset facts: muted sans label left,
 mono value right, hairline rules — replaces every `bg-overlay-subtle p-2
 rounded` field tile), `ActionRow` (compact icon+label actions; replaces
-stacked full-width outline buttons), `SectionLabel`, `PageHeader` (`px-6 py-5`
-hairline; title slot, actions slot), `Tabs`/`SegmentedControl` (one active
-treatment: `bg-accent/15 text-accent`), `Toggle`, `Checkbox`, `Radio`,
+stacked full-width outline buttons), `SectionLabel`, `PageHeader` (two tiers, see below), `Tabs`/`SegmentedControl` (one active
+treatment: neutral `bg-surface-raised text-content`, see §1.8), `Toggle`, `Checkbox`, `Radio`,
 `Slider` (one thumb spec, webkit+moz), `Stepper`, `Combobox` (absorb
 ChatModelPicker into SettingsDropdown's successor), `Badge`/`Chip` (semantic
 variants only), `CountBadge`, `Avatar`, `MediaTile` chrome (square, matte,
@@ -444,6 +669,81 @@ MediaPicker.vue's inline Scale/Extend/Preprocess implementations),
 parameters, §3.4 LoRA weights, and §3.5 prep rows — drag-to-scrub +
 click-to-type in one place), `LoraRow` + `LoraPool` (§3.4 — replaces
 LoraChip/LoraGroupBox).
+
+**PageHeader** (`ui/PageHeader.vue`, desktop; phones use CompactHeader) is the
+one header: ONE height (56px, `h-header`), ONE title (`font-brand text-lg
+font-semibold`, 18px, the phone header's size), one fill (`bg-base`), one left
+edge (`--page-margin`) on every desktop page, collection or workspace, and one
+slot order: **title, meta, actions, menu**. The `tier` prop is accepted for
+existing callers and changes nothing. Browse has no title, but its filter strip
+is the same band (`min-h-header`, same margin, same controls). A list measure
+(chats, flows: rows capped at 56rem) is anchored to the LEFT margin, never
+centred, so the title and the rows share one edge; the header's actions end on
+the measure's right edge, level with the rows' date column, and the rows' hover
+tint still runs full bleed (`components/lists/listMeasure.ts`).
+
+**The desktop control scale: two heights, one label size.** Every control in a
+header or toolbar is `h-control` (32px: Button `sm`, Select, SearchField,
+filter chips, marker toggles, the Filters toggle, icon buttons `lg`); the single
+main action of a surface (New, Add assets, Upload, Run, Save) is `h-control-main`
+(36px: Button `md`). Tokens `--control-h` and `--control-h-main` (style.css),
+Tailwind `h-control` / `h-control-main`. One label size across a bar: `text-ctl`
+(13px); mono facts (counts, dates) keep `text-xs`. Coarse pointers lift every
+control to 44px (`coarse:min-h-11`); a view never invents a third height.
+
+Rules: the title is the entity's name (editable in place where it can be
+renamed); meta is quiet `text-xs` tertiary (status, provider and task, an
+unsaved dot); actions are ordered secondary first and the one primary last;
+the menu slot holds the overflow button, last on the right. The bottom
+hairline is the header's only boundary. A tool's page teleports its
+controls into a slot that wears `pageHeaderClass('compact')`
+(`ui/pageHeader.ts`). A second row under a header (the flow's view tabs)
+shares the margin and takes no second height token.
+
+**One overflow glyph**: horizontal dots (`OverflowButton`), bare, 32px
+(`IconButton size="lg"`) on a header, never boxed, never vertical dots;
+44px on coarse pointers. **One caret**: the outline chevron-down
+(`ui/Caret.vue`), flipped when open, on every select, disclosure and
+picker trigger; no solid triangles. A toggle that is on (a panel open, a
+layout armed) takes `IconButton active`: a neutral raised fill, never
+teal or indigo.
+
+**Select** (`ui/Select.vue`) is the trigger of every dropdown: fill-only
+(`bg-overlay-subtle`, no outline), label, caret; `active` tints it accent
+while a filter narrows the list. The menu or sheet it opens stays with the
+caller. **SearchField** (`ui/SearchField.vue`) is every search or filter
+field: fill-only, glass at the left, an accent border only once the person
+types (`focusQuietly()` for focus on page load). **Button** carries the
+secondary treatment (`variant="secondary"`, raised fill) and the one
+primary create (`variant="primary"`, solid accent): a filled button is only
+ever a primary create or Run. A screen offers one search entry: a list page's
+own field is it, so the phone header drops its global-search icon there
+(Tools); global search stays reachable from every other hub.
+
+**Action roles (one hierarchy, three roles).**
+
+| Role | Treatment | Used for |
+|---|---|---|
+| Primary | solid accent (`Button` primary at the main-action height; on a phone a 36px fill in a 44px target) | the one create or run action of a view: New (collections), Add assets (a board), Upload (browse), Run, Start. At most one per view. |
+| Secondary | raised fill, primary text (`Button` secondary; `ProviderRow`'s action) | a labelled supporting action: Configure, Manage, Sign in, Edit inputs |
+| Tertiary | bare glyph or secondary-colour text, fill only on hover or when on | toggles, filters, per-section adds, overflow, anything repeated down a list |
+
+Adding content is one treatment: the primary of the view that adds. A second
+add action in the same view (a section's own Add assets on a board with several
+sections) is tertiary. Teal text is a link or a selected label, never a button.
+Configure, Manage and Sign in share the secondary style in every state of a
+settings row; the Stimma account's gradient is the one exception and is
+cloud-reserved. A screen's global search rests quiet where the page has its own
+list field (boards, chats, flows, tools): the list field is the visible search,
+and the top bar's field keeps its geometry and shortcut but drops its fill and its resting outline (the outline returns on hover and focus). It reads the route name, no setting.
+
+A board whose only section is unnamed has no band of its own on desktop: the
+page header carries the count and Add assets, the matte starts directly below,
+and "Name this section…" floats over the matte's corner on hover and focus.
+On a phone the same board has one quiet line instead: no rule and no fill,
+"Name this section…" at the page margin on the left, the count and a text
+Add assets (tertiary, 44px target) on the right. Once the section is named, or
+a second one exists, the band and its filled add return.
 
 Kit-wide contracts: both themes from day one; focus-visible built in;
 disabled = `disabled:opacity-50 disabled:cursor-not-allowed` (the one
@@ -473,16 +773,83 @@ Until a kit component exists, new code uses these exact patterns:
 - **List row**: `w-full flex items-center gap-2.5 px-3 py-2 hover:bg-
   overlay-subtle` (full-bleed, no per-item borders); controls
   `opacity-0 group-hover:opacity-100`.
+- **Collection row** (`lists/CollectionRow.vue`; chats, flows): thumbnail,
+  content column (title, one-line preview), a fixed right-aligned facts column
+  (a status, or message and image counts in two fixed cells), then the date.
+  Rows run the pane's full width so the hover tint is full bleed (press steps
+  it once more), but their content stops at the list measure (56rem,
+  `lists/listMeasure.ts`) and sits centred in it on a broad pane; the page
+  header pads itself to the same measure, so the title, the header controls,
+  the thumbnails and the date column share two edges. Below 56rem plus margins
+  the measure is the page margin. The preview truncates before any fact. Height
+  follows content: padding above the title and after the last line, a small
+  gap between a record's lines, a clearly larger one between records (the
+  facts on a phone never sit near the next record's name). Narrow tightens the
+  record's inside: no gap between name, preview and the facts line, a 16px facts
+  line, 12px padding above and below, about 84px a record. Narrow (< 600) gives the name first
+  claim on width: it shares its line only with a bounded date, the preview
+  takes the next line and the facts sit together beneath, both counts for a
+  chat. A flow row shows no extra output strip; its thumbnail is the first
+  output. Preview text is plain: Markdown syntax is stripped
+  (`lists/previewText.ts`). **Status in a flow row**: a flow at rest (Done,
+  Idle) is muted text with no dot; Running and Paused keep their dot, "Your
+  turn" is accent and semibold, a failure is red. The word shows at every width.
+- **Row thumbnail** (`lists/RowThumb.vue`): a 40px square on the matte when
+  there is art. A set shows its cover (the top card of its stack, cropped to
+  fill), transparent art (a vector, or a file with an alpha channel) is drawn
+  whole on the transparency checker (a vector never waits on a raster
+  renderer) and optically sized: its opaque bounds are measured on load and the
+  art is centred and enlarged to fill the slot, by at most 1.6x, so a sticker
+  with empty margin does not read as a tiny mark beside a photo. Anything else
+  uses its thumbnail. With no
+  art, or art that will not load, the slot is a real 40px square on
+  `surface-raised` with the type's glyph in `content-tertiary` (the same tile as
+  an unavailable thumbnail), so the column has no holes. Home's Jump back in
+  uses the same tile, with the title below it as on every card. The kind word ("Chat") shows on those
+  cards only when the kinds in view are mixed. A fact cell (icon and number)
+  starts at its own left edge so the icons line up down the page.
+- **Tools list** (All tools): a grid of tool cards grouped by task, with jump links to each task and a provider filter. Under review; see the owner decision before restyling.
 - **Modal**: backdrop `fixed inset-0 z-modal bg-overlay-backdrop
   backdrop-blur-sm` (token, never bg-black/NN); card `bg-surface border
   border-edge rounded-lg shadow-2xl`; Esc closes; `@click.self` closes unless
   destructive-in-progress.
 - **Menu/popover**: `bg-surface border border-edge-subtle rounded-lg
   shadow-lg py-1 min-w-[160px] z-menu`; rows `px-3 py-2 text-xs
-  hover:bg-overlay-subtle`; destructive rows `text-red-400`.
+  hover:bg-overlay-subtle`; destructive rows `text-red-400` (themed: `--color-danger-fg-rgb`,
+  light #be2626, 5.47:1 on the menu, 5.14:1 on hover).
 - **Media tile**: `rounded-media bg-matte overflow-hidden` + MediaImage;
   selected `ring-2 ring-accent-selection ring-inset`; NO border, NO
   hover-scale; hover = overlay controls fade-in.
+- **Tile signals** (`TileChip`, `TileMarkers` in `components/media/`): three fixed
+  places, one grammar. Kind (type, duration, member count) is a black-glass
+  chip top-right; facts (similarity, time left, revisions) are black-glass
+  chips bottom-left; state (markers, including edited) is a row of white glyphs bottom-right,
+  each on a small black-glass square, the same backing as the media chips, so
+  it holds contrast on any image. A chip is `h-5`, `bg-black/55 backdrop-blur`, mono facts, white
+  glyphs, same in both themes. At most two signals show at rest, in the order
+  similarity or time left, kind, state; the rest (revisions always) fade in on
+  hover on a fine pointer and live in the detail view. The only color on a
+  tile is an active favorite heart. No per-type icon colors, no bare counts,
+  no dog-ears. Set and grid covers are centred on their own backdrop so the
+  tile has no blank band.
+- **Board section headings:** a named section's title is `text-sm font-semibold
+  text-content` with a mono asset count on the right. An unnamed section shows
+  one quiet muted line (`Name this section…` and a pencil), never a band: on
+  compact it is always there (its 44px target overlaps the gutter instead of
+  adding height); on desktop it appears on hover. Every section carries the
+  same quiet action, `Add assets`, beside the mono count at the right margin.
+- **Tile grids** (`utils/tileGrid.ts`, one rule for browse and boards): the
+  column count is `max(3, floor((width + 2) / (minimum + 2)))` from the pane's
+  real content width, so a folded phone, an unfolded one and a desktop pane
+  all ask the same question and tiles never get small because a layout tier
+  said "compact". Three columns is the floor (the phone's rhythm). Tiles share
+  the width left after 2px gutters, which equal the 2px outer matte padding;
+  tiles sit on `bg-matte` with no separate fill; a short last row keeps the
+  tile size. Density is a choice per surface: `browse` minimum 200px (scanning
+  many assets), `board` minimum 220px (a curated sheet, a touch larger). Strips
+  that sit beside these grids (home recents) take the same function and the
+  `browse` density. Board landing covers use 1, 2 or 4 tiles by asset count;
+  the name takes its own line above the mono facts.
 - **Empty state**: EmptyState.vue (extended for display-serif titles in
   Phase 3); errors keep ConnectionError but gain a red-tinted icon circle to
   stop reading identical to empty.
@@ -496,8 +863,13 @@ The stress test for the depth budget. Rules (mock §9 is the reference):
 - **Structure = indentation + rail, never nested boxes.** Each level indents
   16px under a 2px `border-edge-subtle` rail; step dots sit ON the rail
   (outlined in the surface color) and carry status via the §1.9 map.
-- **Level grammar:** Phase = header row (mono `PHASE N` index + sm semibold
-  title + status dot + mono rollup right), hairline-separated, no container.
+- **Level grammar:** Phase = header row (quiet mono `Phase N` index + row-size
+  semibold title + mono rollup right), no container. The phase's status dot and
+  label appear only while it needs attention (running, your turn, error, tool
+  unavailable); a finished phase is silent because its steps carry the checks.
+  Metrics sit in fixed columns shared by phase and step rows (output strip,
+  duration, actions). Row actions (reference in chat, re-run) show on hover or
+  focus on fine pointers and always on coarse ones.
   Step = rail row (name + type badge + mono duration right). Iteration =
   one more indent; media iterations render as a mini matte strip of
   `radius-media` thumbs + mono `+N` overflow. Trace/detail = disclosure only.
@@ -534,6 +906,29 @@ build a settings surface (mock §10 is the reference):
   configured, amber needs-setup, zinc disabled) + name + mono detail;
   right side is a verb button (`Set up` secondary / `Manage` ghost).
   "Needs setup" is the amber dot + verb — no badge zoo.
+  One row grammar (`settings/ProviderRow.vue`): icon, name + description left,
+  the same trailing structure in every state: a quiet secondary status (when
+  there is one), then ONE action in a fixed column (`Configure` / `Sign in`
+  while not connected, `Manage` once connected: one secondary style for all
+  three, and the status stays in this trailing area beside the action in every
+  layout). On compact the row
+  is a grid: the name and the action share the first line (the action in one
+  fixed 96px column, text centred), and the description and status run the
+  full row beneath on one line. No chevrons, no teal text verbs. Descriptions
+  wrap to two lines on wider windows.
+  The Stimma Cloud gradient CTA is the only other filled treatment in a list.
+  A provider's description says what connecting it adds, from what the app
+  does with it (which models appear), never the vendor's slogan.
+  The section's own title is hidden on compact (the header already shows it).
+- **Settings page**: the content pane opens with a display-voice title
+  (`font-brand text-xl`, hidden on compact where the header names the page)
+  and a one-line description beneath. The modal's own title is the only
+  "Settings"; the app-wide group in the nav is "App". Both panes fade where
+  content clips at the bottom. On compact the list level shows the title,
+  Close and the search field; a section shows Back and its title only.
+- **Settings nav**: row-sized text (13px, 15px on compact), selected row =
+  `bg-selection/15 text-content` with a `text-selection` icon, the same as
+  the app sidebar (§1.8).
 - **Danger zone**: last group, micro-label in red, rows identical to normal
   settings but with `btn-danger-ghost` actions. No red panels/borders;
   destructive confirmation happens in the ConfirmDialog, not inline.
@@ -549,12 +944,16 @@ ToolView is the most important screen in the app; it gets its own spec
 · queue rail (right). The hero and queue rail are the only image-bearing
 zones and both sit on matte. The controls column is quiet monochrome rows —
 no fills, no borders-in-borders — so the run bar and results carry the
-energy. **Exactly one solid-accent button on the whole screen: Run.**
+energy. **Exactly one solid-accent button on the whole screen: Run.** One teal fill per region; resting secondary controls (Enhance, the aspect glyph, the Agent label) stay neutral, and an on state reads as brighter text on a quiet chip, not teal.
 Stage mode swaps proportions, same grammar.
 
-**Header strip:** tool icon chip (accent-wash square) + name (General Sans
-600) + hop-to-tool disclosure + mono subtitle (provider · task types).
-Presets and layout toggle are ghosts on the right. RemixBanner, when active,
+**Header strip:** the PageHeader (§2): tool icon chip (accent-wash
+square) + name (General Sans 600, 16px) + hop-to-tool disclosure, then the
+provider and the first task as meta on the same row (the other tasks and the
+output destination are the tooltip; a destination chip shows only when a
+project is set). Presets and the layout
+toggle are ghosts on the right; the layout toggle is neutral raised while
+Stage is on. RemixBanner, when active,
 is a single hairline row under the header (purple text accent per §1.9
 special) — not a filled banner.
 
@@ -562,6 +961,42 @@ special) — not a filled banner.
 right = retention ghost, forever-mode icon ghost, then the split Run button
 (primary + `×N` count chip + dropdown segment). Batch count lives IN the Run
 button; no separate stepper in the bar.
+
+**Desktop ownership:** the controls column carries no box (no border, no
+fill): the generation prompt is its first block and the only tall field. The
+agent dock beneath is the shared composer shape on `bg-field`: at rest one row
+(Agent label, an uninterrupted text field, tools and send at the trailing edge;
+undo and redo appear only when there is something to undo). Focus or text opens
+it into the composer layout: the field on its own full-width row, the controls
+row beneath, label at the left and tools plus send at the trailing edge. Schema-supplied
+labels are rendered in sentence case at display time
+(`components/generation/displayLabel.ts`); the data is unchanged.
+
+**Desktop alignment (2026-11-05):** the prompt and the artwork share one top
+edge (16px under the header; on the fold the matte runs to the screen edge
+with `--page-margin` inside it, matching the form's left inset). The hero is
+top-aligned, never centred, except on a narrow phone. In Stage the agent
+prompt docks under the result's action band at the artwork's width (page-wide in
+Studio and on the fold). On the fold the hero, its action band and the strip are
+one media unit stacked from the top, and the form column sits on the panel
+surface (`surface`) with the matte behind the result only; the strip is never
+pegged below a gap.
+The header's right side is one quiet icon group (presets, layout, forever
+mode; forever is a ghost until it runs, then `live`), then Run, then the
+queue-options menu. **Every new output** is one always-visible row in the
+form: label left, then the auto-mark toggles and auto-delete at the right edge.
+Its label names the scope, because the result's heart, bookmark and trash look
+alike and act on one result only. The result band's facts (generation time, auto-trash
+countdown) are quiet mono readouts, not outlined actions; the time carries a
+caret because it opens details. Collapsed subsystems read value-first: label
+left; at the right edge a quiet state in the page's own sans (`2 on`, `3 steps`,
+`4 settings`, `Delete after 30m`) and then either a labelled `+ Add` (it adds) or the one caret
+(it discloses). One row height (32px, 44px on touch) and one gap
+(`ToolSectionHeader`) serve reference images, LoRAs, post-processing, advanced
+settings and new outputs; an optional input with nothing in it is that row
+(the label and `Add` only, lighter than a row that holds something, and still a drop target), and its media tile with its height
+appears only once there is media or the tool requires one. The prompt editor's keybinding, font and syntax-help
+controls sit behind one overflow button.
 
 **Prompt editor:** fill-only field (§3 input pattern), min-height ~3 lines.
 The action bar is a single quiet row under the field: Enhance toggle +
@@ -709,7 +1144,7 @@ parameter rows (§3.3) — value-first rows are ONE pattern app-wide:
 
 - **The media is the slot's hero**: square (`radius-media`), on matte,
   slot-header row above it (micro-label + mono dims + hover-revealed
-  replace/remove ghosts). Empty slot = dashed `border-edge` drop zone.
+  replace/remove ghosts). Empty slot = fill-only drop zone (`bg-overlay-faint`, no border, no dashes); drag-over takes the §1.8 drop-target ring.
 - **Prep row grammar (value-first):** icon (content-tertiary) + label
   (12px content-secondary) + **current value in mono, right-aligned** +
   chevron. Value color IS the modified signal: `accent` when non-default,
@@ -737,23 +1172,35 @@ The compact editor is the desktop editor re-homed, never a second editor
 (§1.11). It borrows the shape every phone editor converges on: one toolbar
 row that drills down in place (CapCut), the current tool's parameters as
 values with one dial (iOS Photos), and the picture itself as the slider
-(Snapseed). Top to bottom:
+(Snapseed).
 
-- **One header row**: back chevron, then the options button (an anchored
-  menu: Compare, the stack, Save as, Revert), undo, redo, Save. No title.
-- **The picture**, with the glass chips (zoom, Compare) and the selection
-  pill on the matte. The pill is the only selection chrome: idle it arms
+On desktop the history column folds away while a document has no edits; the
+Edits button at the end of the family row reopens it. The selection island
+rests as one compact Select control, as on the phone; arming a tool (or having
+a selection) opens it into three separated groups, tool, combine mode and
+selection action (shown only once there is a selection), naming the armed tool
+and the active combine mode. The phone, top to bottom:
+
+- **One header row**: back chevron, then Edits straight after it (the stack,
+  labelled, with its step count: history is the document's, not a tool), the options button
+  (an anchored menu: Compare, the stack, Save as, Revert), undo, redo, Save.
+  No title.
+- **The picture**, with the glass chips in two fixed zones, whatever the
+  picture's shape: zoom and Compare on the stage's top edge, the selection
+  pill on its bottom edge just above the deck, all 12px from the sides (the
+  header's padding). The pill is the only selection chrome: idle it arms
   the last tool, armed it names the tool in the selection color.
 - **The deck** (`EditorToolStrip` under a panel): a single row of cells.
-  At the root it is the six families and a badged Edits cell; inside a
+  At the root it is the six families, in the desktop's order (Crop,
+  Retouch, Generate, Adjust, Annotate, Paint); inside a
   family it becomes ‹ plus that family's pickable things (brushes, verbs,
   Adjust's groups, crop aspects and turns, paint engines); while a
   selection tool is armed it is ‹ plus the selection tools. Above the row,
   the panel holds only what the current pick needs: the tool's parameters
   (`ParamDeck`), Generate its prompt and Run, the wells and popovers a
   tool has beyond numbers. No drawer, no dock, nothing to drag.
-- **The stack** (Edits / Output / Info) is a kit Sheet behind the row's
-  Edits cell. Tapping a step closes the sheet and opens it where it is
+- **The stack** (Edits / Output / Info) is a kit Sheet behind the header's
+  Edits button. Tapping a step closes the sheet and opens it where it is
   edited.
 
 **One way out.** The row's left cell is ‹, and it goes up exactly one
@@ -768,7 +1215,7 @@ same for Adjust, the brushes, the selection tools, Crop and Annotate:
 
 - The tool's numeric controls are a **grid of cells** — name left, mono
   value right, three to a row — all visible at once, nothing to scroll
-  sideways for. The chosen cell wears the panel's single accent wash;
+  sideways for. The chosen cell wears the panel's single selection wash (`bg-selection/15`, primary text);
   values away from their default read in the accent. A single parameter is
   just the dial.
 - Where a tool has more numbers than one screen wants, a **segment row**
@@ -794,6 +1241,119 @@ same for Adjust, the brushes, the selection tools, Crop and Annotate:
   segments and the picker). Its handle dismisses it by tap or a downward
   swipe, and the row returns exactly as it was. It is not a level of the
   row: ‹ in the row always means the row's own level, never a drawer.
+
+### 3.5a Image collections in chat (adopted 2026-11-03)
+
+An agent's output images are one collection with two views and two homes
+(`MediaCollection`). Tiles are `OutputImage`, so status, markers, job info and
+the media menu stay in one place.
+
+- **Starting view.** Grid when the whole set fits without paging (12 on wide, 9
+  on compact), otherwise Preview. One image has no view toggle.
+- **Grid** is one matte wall with 2px gutters, showing whole images. It collapses
+  to three rows and the last tile carries mono `+N`. While expanded, the header
+  sticks to the top of the chat with Show fewer.
+- **Preview** is the picture and a strip. Everything on the picture is §3.3 black
+  glass: pick top-left, slideshow and menu top-right. The
+  position is editable. Facts and Add to message share a surface toolbar below
+  the picture, using the standard ghost button. The picture, strip and
+  header fit the chat together, so paging through a set never needs a vertical
+  scroll. The strip crops like the slideshow strip, and the current tile takes
+  the selection ring while the rest dim.
+- **Clicks.** A grid tile opens Preview; an image opens the slideshow. Video previews
+  click to play/pause; fine-pointer hover plays a silent loop after 150ms and
+  releases it on leave (grid tiles too). Click promotes a hover preview to normal
+  playback. There is a visible play control while paused and a neutral
+  film glyph for type. The explicit slideshow action stays available. Touch
+  swipes the picture and long-presses to select (§1.11).
+- **Panel.** A collection can move into the artifact panel (full screen on
+  compact). A chip holds its place in the transcript, and the panel's previous
+  contents return when it leaves.
+- **Selection** belongs to one collection at a time and docks on the composer
+  like the message queue, keeping one bottom bar (§1.11).
+
+### 3.5b Composer and flow header (adopted 2026-11-05)
+
+- **One transcript column.** Messages, media and the composer share one centred
+  column (880px; 640px when the chat is docked beside a tool or flow). Everything
+  the assistant says or shows, media included, starts on the column's left edge
+  (bubble fill, step chevron and artwork card line up) and keeps its own cap on
+  the right. On a phone the column sits on `--page-margin`.
+- **Home and project overview share one spacing scale** (the `--hub-*` tokens in
+  style.css): top offset 80px (16px on compact), hero to composer 32px (16px),
+  composer to content 56px (24px), hero size 32px (24px). Hero, composer, tool
+  shortcuts, section headings and recent work share one 840px column
+  (`--hub-column`); nothing on the page starts further left than the composer.
+  Media on the page (recent assets, project art, jump-back covers, flow output
+  previews) sits on `bg-matte`, never on the page colour.
+  The hero floats in spare height only when nothing sits below it. Inside a
+  project the composer carries no "Working in" line (the heading and header say
+  it). Recent media sits on the matte and fills the rest of the fold. On compact,
+  Jump back in is single-column rows (80px thumbnail, title up to two lines, one
+  preview line led by the quiet type label); two columns once the window is roomy.
+  The tool shortcuts under the composer are the same row on every layout; on compact
+  it is one line that scrolls sideways, subordinate to the composer.
+
+- **The composer is fill-only** (`bg-surface`, no hairline; a focus ring only
+  while it has focus). It rests one line tall and grows with its text. Its one
+  optional context line (`context` on the shared composer, 11px muted, e.g. where
+  a new chat lands), placeholder and model picker share one left edge (16px). A message queue
+  or selection bar docked on top uses the same fill. The control row has two groups:
+  the model picker on the left; attach, skills and voice as one cluster on the
+  right with send standing apart from it. A collection's selection checkbox shows
+  on hover or in selection mode only; touch selects by long press.
+- **Send is one control** (`ui/SendButton.vue`, used by the chat, flow and
+  prompt-agent composers): a 32px `rounded-md` shape, never a disc, inside a
+  target that grows to 44px on coarse pointers. Enabled = `bg-accent
+  text-accent-on` (hover `bg-accent/90`). Disabled = the faint `overlay-subtle`
+  fill with a muted glyph at `opacity-50`: the quietest shape in the composer,
+  never a grey solid. Stop uses the same shape with a square glyph.
+- **Chat markdown renders inline code as a mono chip**, never with literal
+  backticks (the typography plugin's `code::before/after` content is cleared in
+  `ChatMarkdown`). Step labels in the transcript are UI sans; mono stays for
+  facts and previews.
+- **A set is drawn from its own members** (`SetStackPreview`): the first image
+  as the picture (78% of the square), the next two as narrow 3% reveals faded
+  into the matte, no outlines, on the ordinary matte. The fade is theme-specific:
+  light is a light scrim plus a soft shadow so a pale layer stays visible on
+  paper; dark exposes less (2%) under a very heavy scrim, so a layer keeps a trace of its
+  image without becoming a grey plane. Flow output groups draw
+  a set the same way. It falls back to the server's baked thumbnail only when
+  no member can be read. **Grids sit on the backdrop their thumbnail was drawn
+  on**, so a preview never shows two mattes. On a phone the chips live in bands above and
+  below the artwork instead of on it.
+- **The agent glyph** is the bot (`components/icons/AgentIcon.vue`), the one
+  glyph for opening the agent in tool, chat and flow workspaces (tool header
+  and sheet, the dock row with the label "Agent", the flow's Chat segment,
+  Settings > Agent). Sparkles stay with prompt enhancement, the wand with
+  Enhance, the wrench with configuration.
+- **Flow header:** the workspace (Flow | Chat) and the view (Steps | Workflow |
+  Code) are both the kit `SegmentedControl`. Start/Resume is the one accent
+  action; Pause is a ghost while the run is live and moves into the entity menu
+  once the run is done. Status is a quiet label beside the name (the word, with a dot only when it needs attention;
+  left-aligned; the compact strip leads with it), never a control. Save custom
+  tool is a ghost (icon only on compact). The workspace switch is one
+  segmented control whose segments both carry a glyph (bolt for Flow, the bot
+  for Chat); its sessions chevron is a separate bare button beside it, never
+  inside the track. Where the flow and chat sit side by side, an open chat marks
+  both segments; compact keeps the exclusive choice. On wide screens the view
+  switch (Steps | Workflow | Code) sits in the header beside the status and the
+  header's one overflow menu carries the flow's housekeeping (reset inputs,
+  re-process, clear); compact keeps the view switch in a strip under the header
+  and those items in the compact menu. Inputs, phases and outputs are all flat
+  sections on the page (the §3.1 rail for phases, no cards), separated by the
+  section gap; the Steps column holds a 960px measure and every section shares
+  one left edge. Inputs is a quiet label with its one action (Edit inputs) at
+  the right; its summary values are mono when they are facts (seeds, sizes) and
+  sans when they are names. Each output group has one heading with a mono
+  count and its artwork sized around the content (a lone result is large); a
+  group with nothing to show leaves no heading or gap. The chat's context hint
+  is the composer's placeholder, so nothing changes height when typing starts. Steps and the chat share one body size (`text-sm`). A finished step carries a small outline check in tertiary
+  text; colour stays for states that need action. A step's output strip uses 40px thumbnails on one
+  matte (the tile's own; no outline or second frame). A step title never
+  truncates for its provider pill: the pill wraps below. The compact header's
+  title slot keeps a 96px minimum, ellipsizes at the end and never shrinks the
+  action buttons.
 
 ### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
 
@@ -841,8 +1401,7 @@ around read-only text · any §1.11 small-screen rule.
 ## 5. What is deliberately NOT changing
 
 The flow type/status color *values* in style.css (the node treatment itself
-is §3.6); slideshow matte;
-cloud-gradient reservation and `.stimma-cloud-*` treatments; chat bubbles
+is §3.6); cloud-gradient reservation and `.stimma-cloud-*` treatments; chat bubbles
 (restyled via kit, not removed); LoRA pool undo isolation; toolview volume
 scoping; segmented-control height matching rule; the RGB-channel alpha
 convention; `custom-scrollbar` (and the chat-input native-scrollbar

@@ -30,7 +30,7 @@
                 v-if="backingFlowId != null"
                 class="flex items-center gap-2.5 bg-base border border-edge-subtle rounded-lg px-3 py-2.5 mb-3.5"
               >
-                <BoltIcon class="w-5 h-5 text-blue-500 flex-shrink-0" />
+                <BoltIcon class="w-icon-nav h-icon-nav text-blue-500 flex-shrink-0" />
                 <div class="flex-1 min-w-0 text-sm font-semibold text-content truncate">{{ sourceFlowName }}</div>
                 <!-- In create mode you came from the flow screen, so don't offer a
                      link straight back to it. -->

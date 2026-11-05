@@ -17,7 +17,7 @@
         </span>
         <div class="w-3 h-3 flex-shrink-0">
           <Spinner v-if="processing === 'flip'" size="sm" />
-          <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPanel === 'flip' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+          <svg v-else class="w-icon-inline h-icon-inline text-content-muted transition-transform" :class="{ 'rotate-180': openPanel === 'flip' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
         </div>
       </div>
       <div v-if="openPanel === 'flip'" class="px-2.5 py-2 bg-overlay-faint rounded-md">
@@ -97,7 +97,7 @@
         </span>
         <div class="w-3 h-3 flex-shrink-0">
           <Spinner v-if="processing === 'scale'" size="sm" />
-          <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPanel === 'scale' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+          <svg v-else class="w-icon-inline h-icon-inline text-content-muted transition-transform" :class="{ 'rotate-180': openPanel === 'scale' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
         </div>
       </div>
       <div v-if="openPanel === 'scale'" class="px-2.5 py-2 bg-overlay-faint rounded-md space-y-2">
@@ -108,7 +108,7 @@
             :class="[
               'flex-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors',
               (image._scale?.mode || 'factor') === mode.value
-                ? 'bg-accent/15 text-accent-hi'
+                ? 'bg-surface-raised text-content'
                 : 'text-content-muted hover:text-content-secondary'
             ]"
           >{{ mode.label }}</button>
@@ -155,13 +155,13 @@
         class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none cursor-pointer hover:bg-overlay-subtle transition-colors"
         @click="togglePanel('extend')"
       >
-        <span class="text-[11px] text-content-secondary flex-1">Extend Canvas</span>
+        <span class="text-[11px] text-content-secondary flex-1">Extend canvas</span>
         <span :class="['text-[10px] font-mono', hasExtend ? 'text-accent-hi font-medium' : 'text-content-muted']">
           {{ extendStatusText }}
         </span>
         <div class="w-3 h-3 flex-shrink-0">
           <Spinner v-if="processing === 'extend'" size="sm" />
-          <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPanel === 'extend' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+          <svg v-else class="w-icon-inline h-icon-inline text-content-muted transition-transform" :class="{ 'rotate-180': openPanel === 'extend' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
         </div>
       </div>
       <div v-if="openPanel === 'extend'" class="px-2.5 py-2 bg-overlay-faint rounded-md">
@@ -207,6 +207,7 @@
 </template>
 
 <script setup lang="ts">
+import { reportActionError } from '../../composables/useToasts'
 import { ref, computed } from 'vue'
 import axios from 'axios'
 import { getCurrentProfileId } from '../../composables/useProfile'
@@ -552,7 +553,7 @@ async function applyPrep(fields: Partial<InpaintPrepImage>, reason: string) {
       _originalHeight: originalHeight,
     })
   } catch (err) {
-    console.error('Inpaint source preprocessing failed:', err)
+    reportActionError("Couldn't process image.", err)
   } finally {
     processing.value = null
   }

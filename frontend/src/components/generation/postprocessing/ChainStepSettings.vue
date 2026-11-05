@@ -64,7 +64,7 @@
            run time; choosing a ratio pins it. -->
       <div class="divide-y divide-edge-subtle">
       <div v-if="hasAspectRatio && aspectRatioChoices.length" class="flex items-center justify-between gap-4 px-0 py-1.5">
-        <div class="text-[13px] text-content-secondary">Aspect Ratio</div>
+        <div class="text-[13px] text-content-secondary">Aspect ratio</div>
         <div class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
             quiet
@@ -78,7 +78,7 @@
         </div>
       </div>
       <div v-if="imageSizeChoices.length" class="flex items-center justify-between gap-4 px-0 py-1.5">
-        <div class="text-[13px] text-content-secondary">Image Size</div>
+        <div class="text-[13px] text-content-secondary">Image size</div>
         <div class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
             quiet

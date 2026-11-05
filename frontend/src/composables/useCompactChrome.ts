@@ -62,12 +62,15 @@ export const HUB_ROOTS: Record<HubId, string> = {
 
 const routeTitle = ref<string>('')
 const routeSubtitle = ref<string>('')
+const routeSubtitleBrand = ref(false)
 const titleAction = ref<(() => void) | null>(null)
 
-export function setCompactTitle(title: string, subtitle = '', action: (() => void) | null = null) {
+/** `brandSubtitle` draws the subtitle in the Stimma Cloud treatment (a cloud tool's provider). */
+export function setCompactTitle(title: string, subtitle = '', action: (() => void) | null = null, brandSubtitle = false) {
   titleAction.value = action
   routeTitle.value = title
   routeSubtitle.value = subtitle
+  routeSubtitleBrand.value = brandSubtitle
 }
 
 export interface CompactAction { label: string; run: () => void }
@@ -105,6 +108,7 @@ export function releaseCompactHeader(token: symbol) {
 export function clearCompactTitle() {
   routeTitle.value = ''
   routeSubtitle.value = ''
+  routeSubtitleBrand.value = false
   titleAction.value = null
   primaryAction.value = null
   menuItems.value = []
@@ -125,5 +129,6 @@ export function useCompactChrome(route: RouteLocationNormalizedLoaded) {
     return 'Stimma'
   })
   const subtitle = computed(() => routeSubtitle.value)
-  return { surface, isHub, title, subtitle, titleAction, primaryAction, menuItems }
+  const subtitleBrand = computed(() => routeSubtitleBrand.value)
+  return { surface, isHub, title, subtitle, subtitleBrand, titleAction, primaryAction, menuItems }
 }

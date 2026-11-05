@@ -143,7 +143,7 @@ export function toolRunButton(page: Page) {
 async function disablePromptTransforms(page: Page) {
   const enhanceButton = page.getByRole('button', { name: /^Enhance(?: Prompt)?$/ }).first();
   if (await enhanceButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-    const isActive = await enhanceButton.evaluate((el) => el.className.includes('text-purple-500') || el.className.includes('text-accent'));
+    const isActive = await enhanceButton.evaluate((el) => el.getAttribute('aria-pressed') === 'true');
     if (isActive) await enhanceButton.click();
   }
 

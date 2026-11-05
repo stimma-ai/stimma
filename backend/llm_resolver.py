@@ -21,6 +21,7 @@ from typing import Optional
 
 from config import LEGACY_LLM_MODEL_SLUGS, get_settings, LLMEndpointConfig
 from core.logging import get_logger
+from llm_provider_catalog import STIMMA_ROUTE, canonical_model_id, shadowed_routes
 from model_tiers import ModelCandidate, ROLE_TIERS, seed_effort, select_auto_model
 
 log = get_logger(__name__)
@@ -250,6 +251,7 @@ async def _get_stimma_cloud_config(
 
         return LLMEndpointConfig(
             url=llm_url,
+            max_output_tokens=(_lookup_catalog(model_slug or role) or {}).get("max_output_tokens"),
             model=role,  # alias (e.g. 'agent', 'agent-max')
             api_key=id_token,
             max_context_tokens=max_context_tokens if max_context_tokens is not None else MAX_CONTEXT_CAP,
@@ -358,6 +360,7 @@ def set_catalog_cache(entries: list[dict]) -> None:
             'agent_model': e.get('agent_model') or e['slug'],
             'agent_fast_model': e.get('agent_fast_model') or e['slug'],
             'max_context_tokens': int(e.get('max_context_tokens') or _FALLBACK_CONTEXT),
+            'max_output_tokens': e.get('max_output_tokens'),
             'reasoning': e.get('reasoning') or {},
             'is_default': bool(e.get('is_default')),
             # The name the user sees in the model picker. Anything reporting
@@ -492,6 +495,7 @@ def auto_candidates(*, cloud_available: bool) -> list[ModelCandidate]:
 
     lockdown = is_privacy_lockdown_enabled()
     candidates: list[ModelCandidate] = []
+    routes: list[tuple[str, Optional[str], str]] = []
 
     if cloud_available and not lockdown:
         for slug, entry in {**_BUILTIN_CATALOG, **_catalog_cache}.items():
@@ -505,6 +509,7 @@ def auto_candidates(*, cloud_available: bool) -> list[ModelCandidate]:
                 vendor=entry.get("model_vendor"),
                 model_id=(entry.get("canonical_model_id") or slug),
             ))
+            routes.append((slug, entry.get("canonical_model_id"), STIMMA_ROUTE))
 
     for provider in getattr(get_settings(), "llm_providers", []):
         if provider.deleted_at or not provider.enabled or provider.last_test_passed is False:
@@ -520,8 +525,12 @@ def auto_candidates(*, cloud_available: bool) -> list[ModelCandidate]:
                 vendor=model.model_vendor,
                 model_id=model.model_id,
             ))
+            routes.append((model.id, canonical_model_id(provider.kind, model.model_id), provider.kind))
 
-    return candidates
+    # One model reachable two ways is one candidate, on the route the picker
+    # leads with: otherwise `auto` can spend credits the user's own key covers.
+    shadowed = shadowed_routes(routes)
+    return [candidate for candidate in candidates if candidate.slug not in shadowed]
 
 
 async def _cloud_is_available() -> bool:
@@ -785,6 +794,7 @@ def _get_provider_model_config(
                 model=model.model_id,
                 api_key=provider.api_key,
                 max_context_tokens=min(MAX_CONTEXT_CAP, model.max_context_tokens),
+                max_output_tokens=model.max_output_tokens,
                 content_policy_enabled=model.content_policy_enabled,
                 extra_system_prompt=model.extra_system_prompt.strip(),
                 extra_body=model.extra_body,

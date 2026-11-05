@@ -9,7 +9,7 @@
       <button
         @click="$emit('submit')"
         :disabled="!canSubmit || isSubmitting"
-        class="px-4 py-3 bg-accent hover:bg-accent/90 rounded-lg text-white text-base font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        class="px-4 py-3 bg-accent hover:bg-accent/90 rounded-lg text-accent-on text-[16px] leading-6 font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         <span v-if="isSubmitting">Submitting...</span>
         <template v-else>
@@ -23,7 +23,7 @@
         v-if="showForeverMode"
         @click="$emit('toggle-forever')"
         :class="[
-          'px-4 py-3 rounded-lg text-base font-semibold cursor-pointer transition-colors flex items-center justify-center gap-2',
+          'px-4 py-3 rounded-lg text-[16px] leading-6 font-semibold cursor-pointer transition-colors flex items-center justify-center gap-2',
           foreverMode ? 'bg-accent/15 text-accent-hi ring-1 ring-accent/40' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
         ]"
         :title="foreverMode ? 'Forever mode active - click to stop' : 'Enable forever mode'"
@@ -47,7 +47,7 @@
           class="p-2 hover:bg-overlay-light rounded transition-colors"
           title="Options"
         >
-          <svg class="w-5 h-5 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg class="w-icon-nav h-icon-nav text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
           </svg>
         </button>

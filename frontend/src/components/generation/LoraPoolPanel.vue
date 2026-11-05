@@ -1,28 +1,24 @@
 <template>
-  <div :class="compact ? 'my-1' : 'my-6'">
+  <div :class="compact ? 'my-1' : 'mb-3 coarse:mb-1'">
     <!-- Header: label + count + compact icon strip (＋ · ⌕ · disable-all · RAW · ⋯) -->
-    <div class="flex items-center gap-2 pb-1 mb-1.5">
-      <span class="text-xs font-semibold text-content-secondary">LoRAs</span>
-      <button
-        v-if="enabledCount > 0"
-        @click="disableAll"
-        type="button"
-        class="text-[10px] rounded-full px-2 py-0.5 text-content-tertiary bg-overlay-subtle hover:text-content hover:bg-overlay-light transition-colors coarse:min-h-11 coarse:px-3 coarse:text-xs"
-        title="Disable all LoRAs (keeps the list)"
-      >Clear all</button>
-      <div class="ml-auto flex items-center gap-0.5">
+    <ToolSectionHeader
+      label="LoRAs"
+      :state="stateLabel"
+      :addable="availableLoras.length > 0 || !!uploadConfig"
+      add-title="Add LoRA"
+      :class="hasAnyItems || filterOpen ? 'mb-1.5' : ''"
+      @add="showModal = true"
+    >
+      <template #label-extra>
         <button
-          v-if="availableLoras.length > 0 || uploadConfig"
-          @click="showModal = true"
+          v-if="enabledCount > 0"
+          @click="disableAll"
           type="button"
-          class="w-6 h-6 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
-          title="Add LoRA"
-          aria-label="Add LoRA"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-          </svg>
-        </button>
+          class="text-[10px] rounded-full px-2 py-0.5 text-content-tertiary bg-overlay-subtle hover:text-content hover:bg-overlay-light transition-colors coarse:min-h-11 coarse:px-3 coarse:text-xs"
+          title="Disable all LoRAs (keeps the list)"
+        >Clear all</button>
+      </template>
+      <template #trailing>
         <button
           v-if="hasAnyItems"
           @click="toggleFilter"
@@ -39,9 +35,9 @@
           v-if="hasAnyItems"
           @click="showRaw = !showRaw"
           type="button"
-          :class="['h-6 px-1.5 coarse:h-11 coarse:min-w-11 coarse:px-2 flex items-center justify-center rounded-md font-mono text-[9px] tracking-wide transition-colors', showRaw ? 'bg-accent/12 text-accent-hi' : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle']"
+          :class="['h-6 px-1.5 coarse:h-11 coarse:min-w-11 coarse:px-2 flex items-center justify-center rounded-md font-mono text-[10px] transition-colors', showRaw ? 'bg-accent/12 text-accent-hi' : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle']"
           title="Show raw file names"
-        >RAW</button>
+        >Raw</button>
         <div v-if="hasAnyItems" class="relative">
           <button
             @click.stop="onHeaderMenuClick"
@@ -62,8 +58,8 @@
             @close="headerMenu.visible = false"
           />
         </div>
-      </div>
-    </div>
+      </template>
+    </ToolSectionHeader>
 
     <!-- Filter row (full width, only when open) -->
     <div v-if="filterOpen" class="flex items-center gap-2 mb-1.5 px-2 py-1 bg-overlay-subtle rounded-md">
@@ -214,6 +210,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onUnmounted, nextTick } from 'vue'
 import LoraChip from './LoraChip.vue'
+import ToolSectionHeader from './ToolSectionHeader.vue'
 import LoraGroupBox from './LoraGroupBox.vue'
 import LoraPickerModal from './LoraPickerModal.vue'
 import LoraNoteEditor from './LoraNoteEditor.vue'
@@ -321,6 +318,8 @@ watch(showRaw, (v) => {
 const pool = computed(() => getPool(props.toolId))
 const allItems = computed(() => getAllItems(props.toolId))
 const hasAnyItems = computed(() => allItems.value.length > 0)
+// Quiet state at the header's right: how many are on, or that the pool is empty.
+const stateLabel = computed(() => (hasAnyItems.value ? (enabledCount.value > 0 ? `${enabledCount.value} on` : 'All off') : 'None'))
 
 // Availability: a pinned pool item is "unavailable" when its path is no longer in
 // the tool's supported LoRA list (e.g. after restoring an old image whose LoRAs the

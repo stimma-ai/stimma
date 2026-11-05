@@ -6,7 +6,6 @@ def get_system_prompt(
     additional_instructions: str = "",
     global_memory: str = "",
     project_memory: str = "",
-    notepad_state: str = "",
 ) -> str:
     """Get the v2 agent system prompt with merged user configuration."""
     shell_name = get_shell_runtime_name()
@@ -220,8 +219,5 @@ The user doesn't think in "turns," so never announce that you're finishing, wrap
         if project_memory:
             pm = project_memory if len(project_memory) <= 4000 else project_memory[:4000] + "\n... (truncated)"
             prompt += f"\n### Project\n\n{pm}"
-
-    if notepad_state:
-        prompt += "\n" + notepad_state
 
     return prompt

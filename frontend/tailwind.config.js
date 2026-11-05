@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+// Shadow ink at a theme-scaled opacity (see --shadow-*-a in style.css).
+const ink = (alpha, tier) => `rgb(0 0 0 / calc(${alpha} * var(--shadow-${tier}-a)))`
 export default {
   // Hover styles only where the primary pointer can hover. On a phone the
   // first tap would otherwise "hover" a tile (revealing its checkbox) and
@@ -30,6 +32,45 @@ export default {
         // applies — a bare font-family with no fallback degrades to serif.
         brand: ['General Sans', 'system-ui', 'sans-serif'],
       },
+      // shadow-black/NN is the app's one "ink" shadow color; scale it with the
+      // theme like the shadow scale so a light page isn't dragged down by it.
+      boxShadowColor: {
+        black: ({ opacityValue }) =>
+          `rgb(0 0 0 / calc(${opacityValue === undefined ? 1 : opacityValue} * var(--shadow-pop-a)))`,
+      },
+      // Page rhythm and icon scale tokens (style.css). `px-page`, `-mx-page`,
+      // `gap-section`, `space-y-section`, `w-icon-nav` and friends.
+      spacing: {
+        page: 'var(--page-margin)',
+        section: 'var(--section-gap)',
+        'header-pb': 'var(--header-pb)',
+        'icon-inline': 'var(--icon-inline)',
+        'icon-nav': 'var(--icon-nav)',
+        'icon-canvas': 'var(--icon-canvas)',
+      },
+      height: {
+        control: 'var(--control-h)',
+        'control-main': 'var(--control-h-main)',
+        header: 'var(--header-h)',
+        'header-compact': 'var(--header-h-compact)',
+        'header-mobile': 'var(--header-h-mobile)',
+      },
+      minHeight: {
+        control: 'var(--control-h)',
+        'control-main': 'var(--control-h-main)',
+        header: 'var(--header-h)',
+        'header-compact': 'var(--header-h-compact)',
+        'header-mobile': 'var(--header-h-mobile)',
+      },
+      // Dense-control tier: actionable labels in tool, flow and editor forms.
+      // Between text-xs (12/16) and text-sm (14/20); mono facts stay text-xs.
+      fontSize: {
+        ctl: ['13px', { lineHeight: '18px' }],
+        // Compact transcript reading tier: long assistant text on a phone.
+        // 16px at 1.5; facts and controls keep their dense tiers. The
+        // matching `prose-read` size below types markdown to the same measure.
+        read: ['16px', { lineHeight: '1.5' }],
+      },
       colors: {
         // Solid tokens are stored as RGB channels in style.css so the
         // `<alpha-value>` placeholder lets opacity modifiers work, e.g.
@@ -55,11 +96,16 @@ export default {
         accent: {
           DEFAULT: 'rgb(var(--color-accent-rgb) / <alpha-value>)',
           hi: 'rgb(var(--color-accent-hi-rgb) / <alpha-value>)',
+          // Label/glyph colour ON an accent fill (>= 4.5:1 in both themes).
+          on: 'rgb(var(--color-on-accent-rgb) / <alpha-value>)',
         },
         selection: 'rgb(var(--color-selection-rgb) / <alpha-value>)',
         // live = autonomous/continuous operation states (forever mode,
         // transport toggles). Fun on purpose; never a resting control.
         live: 'rgb(var(--color-live-rgb) / <alpha-value>)',
+        // Destructive/error foreground. Light theme deepens it; red-500/600
+        // fills are untouched.
+        red: { 400: 'rgb(var(--color-danger-fg-rgb) / <alpha-value>)' },
         matte: 'rgb(var(--color-matte-rgb) / <alpha-value>)',
         content: {
           DEFAULT: 'rgb(var(--color-text-primary-rgb) / <alpha-value>)',
@@ -81,6 +127,8 @@ export default {
           strong: 'var(--color-overlay-strong)',
           backdrop: 'var(--color-backdrop)',
         },
+        // Text fields and the composer: fill-only, one small step above the surface.
+        field: 'var(--color-field)',
         // Flow graph node palette — refined matte colors for status, type
         // chips, and edges. See style.css for the per-theme values.
         flow: {
@@ -120,6 +168,17 @@ export default {
           'create-tint':  'var(--color-flow-type-create-tint)',
           'create-strong':'var(--color-flow-type-create-strong)',
         },
+      },
+      // Elevation tokens: tighter than Tailwind's defaults (less spread), with
+      // opacity scaled by the per-theme --shadow-*-a vars in style.css (light is
+      // much softer). Literal lengths keep shadow-<color> utilities working.
+      boxShadow: {
+        sm: `0 1px 2px 0 ${ink(0.05, 'page')}`,
+        DEFAULT: `0 1px 3px 0 ${ink(0.1, 'page')}, 0 1px 2px -1px ${ink(0.1, 'page')}`,
+        md: `0 4px 6px -1px ${ink(0.1, 'page')}, 0 2px 4px -2px ${ink(0.1, 'page')}`,
+        lg: `0 8px 12px -4px ${ink(0.1, 'pop')}, 0 3px 5px -3px ${ink(0.1, 'pop')}`,
+        xl: `0 14px 20px -6px ${ink(0.1, 'pop')}, 0 6px 8px -5px ${ink(0.1, 'pop')}`,
+        '2xl': `0 20px 40px -12px ${ink(0.25, 'pop')}`,
       },
       // Atelier z-scale — the ONLY sanctioned z-index values. Arbitrary
       // z-[NNNN] is banned in new code; migrate stragglers onto these tiers.
@@ -184,6 +243,28 @@ export default {
             'th': {
               backgroundColor: 'var(--color-surface)',
             },
+          },
+        },
+        // `prose-read`: the compact transcript size (use as `compact:prose-read`).
+        // 16px / 1.5, tighter block spacing, and lists indented one step instead
+        // of the default 1.6em so the reading area stays wide.
+        read: {
+          css: {
+            fontSize: '1rem',
+            lineHeight: '1.5',
+            p: { marginTop: '0.75em', marginBottom: '0.75em' },
+            'ul, ol': { marginTop: '0.75em', marginBottom: '0.75em', paddingInlineStart: '1.25em' },
+            li: { marginTop: '0.25em', marginBottom: '0.25em' },
+            'ol > li, ul > li': { paddingInlineStart: '0.25em' },
+            'li > p, li > ul, li > ol': { marginTop: '0.25em', marginBottom: '0.25em' },
+            h1: { fontSize: '1.375em', marginTop: '1em', marginBottom: '0.5em', lineHeight: '1.25' },
+            h2: { fontSize: '1.25em', marginTop: '1em', marginBottom: '0.5em', lineHeight: '1.3' },
+            h3: { fontSize: '1.125em', marginTop: '1em', marginBottom: '0.4em', lineHeight: '1.4' },
+            h4: { marginTop: '1em', marginBottom: '0.4em', lineHeight: '1.5' },
+            code: { fontSize: '0.875em' },
+            'pre code': { fontSize: '0.8125em' },
+            pre: { marginTop: '0.75em', marginBottom: '0.75em', paddingInline: '0.75em', fontSize: '0.875em' },
+            blockquote: { marginTop: '0.75em', marginBottom: '0.75em', paddingInlineStart: '0.75em' },
           },
         },
       },

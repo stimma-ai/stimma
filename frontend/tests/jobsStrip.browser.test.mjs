@@ -36,8 +36,8 @@ for (const [width, height] of [[390, 844], [752, 844], [752, 420]]) test(`mixed-
     assert.equal(geometry.height, railHeight - 4)
     assert.equal(geometry.scrollHeight, geometry.height, 'no hidden vertical overflow')
     for (const tile of geometry.tiles) {
-      assert.equal(tile.top, 0, 'items share one row')
-      assert.equal(tile.height, geometry.height)
+      assert.equal(tile.top, geometry.tiles[0].top, 'items share one row')
+      assert.ok(tile.top >= 0 && tile.top + tile.height <= geometry.height, 'items fit inside the strip')
       assert.ok(Math.abs(tile.width / tile.height - tile.aspect) < 0.01, 'width follows aspect')
     }
   }

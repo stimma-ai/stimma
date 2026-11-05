@@ -64,7 +64,7 @@
         />
         <button
           type="button"
-          class="flex-shrink-0 flex items-center gap-1 text-[11px] text-content tabular-nums px-1.5 py-0.5 rounded border border-transparent hover:border-edge-subtle hover:bg-overlay-hover transition-colors"
+          class="flex-shrink-0 flex items-center gap-1 text-[11px] text-content font-mono tabular-nums px-1.5 py-0.5 rounded border border-transparent hover:border-edge-subtle hover:bg-overlay-hover transition-colors"
           :title="`Re-run all ${data.iterCount} iterations`"
           @click.stop="emit('invalidate', data.foreachKey)"
         >
@@ -76,7 +76,7 @@
         <button
           v-if="focusedIdx !== null"
           type="button"
-          class="flex-shrink-0 text-[11px] px-2.5 py-0.5 rounded-full transition-colors bg-accent text-white hover:bg-accent/90"
+          class="flex-shrink-0 text-[11px] px-2.5 py-0.5 rounded-full transition-colors bg-accent text-accent-on hover:bg-accent/90"
           title="Back to aggregate (Esc)"
           @click.stop="viewAll"
         >View All</button>

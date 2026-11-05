@@ -27,7 +27,7 @@
             v-if="uploadConfig"
             @click="fileInputRef?.click()"
             type="button"
-            class="text-xs font-semibold text-content-secondary hover:text-accent transition-colors px-2 min-h-8 coarse:min-h-11 coarse:px-3 rounded-md"
+            class="text-ctl font-semibold text-content-secondary hover:text-accent transition-colors px-2 min-h-8 coarse:min-h-11 coarse:px-3 rounded-md"
           >Upload</button>
           <button
             @click="$emit('toggle-raw')"
@@ -38,7 +38,7 @@
             ]"
           >Raw</button>
           <IconButton v-if="!asSheet" @click="$emit('close')">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-icon-nav h-icon-nav">
               <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
             </svg>
           </IconButton>
@@ -130,7 +130,7 @@
         :class="[
           'w-full px-4 py-2 coarse:min-h-11 text-left transition-colors flex items-center justify-between gap-3',
           isInPool(lora.path)
-            ? 'bg-accent-selection/15 text-accent-selection'
+            ? 'bg-selection/15 text-accent-selection'
             : index === selectedIndex && !asSheet
               ? 'bg-overlay-subtle text-content'
               : 'hover:bg-overlay-subtle text-content-secondary'

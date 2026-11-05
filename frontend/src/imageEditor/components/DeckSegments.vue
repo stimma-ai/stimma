@@ -16,7 +16,7 @@ withDefaults(defineProps<{
   /** Selection contexts underline in the selection color, not the accent. */
   tone?: 'accent' | 'selection'
   disabled?: boolean
-}>(), { tone: 'accent', disabled: false })
+}>(), { tone: 'selection', disabled: false })
 const emit = defineEmits<{ 'update:modelValue': [T] }>()
 </script>
 

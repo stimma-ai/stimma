@@ -1,7 +1,7 @@
 <template>
   <div class="retry-prompt">
     <div class="flex items-start gap-3">
-      <ExclamationTriangleIcon class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+      <ExclamationTriangleIcon class="w-icon-nav h-icon-nav text-amber-500 flex-shrink-0 mt-0.5" />
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between mb-1">
           <span class="text-xs font-medium text-amber-500">Execution Error</span>

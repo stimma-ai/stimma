@@ -18,10 +18,10 @@
       <div
         v-if="true"
         class="navigation-sidebar h-screen bg-surface border-r border-edge-subtle flex flex-col flex-shrink-0"
-        :class="isMobile ? 'compact-drawer relative w-[276px] !h-full pt-safe' : 'relative'"
+        :class="isMobile ? 'compact-drawer relative w-[276px] !h-full pt-safe' : focusCollapsed ? ['absolute inset-y-0 left-0 z-modal', peeking ? 'is-peeking translate-x-0 shadow-lg' : '-translate-x-full invisible pointer-events-none'] : 'relative'"
         :style="!isMobile ? { width: `${sidebarWidth}px` } : undefined"
-        :aria-hidden="isMobile && !isOpen ? 'true' : undefined"
-        :inert="isMobile && !isOpen ? true : undefined"
+        :aria-hidden="(isMobile && !isOpen) || (focusCollapsed && !peeking) ? 'true' : undefined"
+        :inert="(isMobile && !isOpen) || (focusCollapsed && !peeking) ? true : undefined"
       >
         <!-- Draggable region + fade overlay for traffic light area -->
         <div v-if="isDesktopMac" class="absolute top-0 left-0 right-3 h-9 z-10 pointer-events-none">
@@ -30,7 +30,7 @@
         </div>
 
         <!-- Nav Menu - only show when we have data -->
-        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-1 flex-1 overflow-y-auto custom-scrollbar" :class="isDesktopMac ? 'pt-10' : 'pt-3'">
+        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-0.5 coarse:gap-0 flex-1 overflow-y-auto custom-scrollbar" :class="isDesktopMac ? 'pt-10' : 'pt-3'">
 
           <!-- ==================== ZONE 1: Library Links ==================== -->
 
@@ -44,24 +44,24 @@
             @dragenter="handleStimmaHomeDragEnter"
             @dragleave="handleStimmaHomeDragLeave"
             @drop="handleStimmaHomeDrop"
-            class="mb-1.5 flex w-full items-center gap-2 rounded border-none bg-transparent px-3 py-1.5 text-left text-sm font-medium text-content-secondary no-underline transition-all cursor-pointer whitespace-nowrap hover:bg-overlay-subtle hover:text-content [&>:first-child]:mx-[5px]"
+            class="mb-1.5 flex w-full items-center gap-2 rounded border-none bg-transparent px-3 py-1.5 text-left text-sm font-medium text-content-secondary no-underline transition-all cursor-pointer whitespace-nowrap hover:bg-overlay-subtle hover:text-content [&>:first-child]:mx-1"
             :class="dragHoverStimmaHome ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''"
             title="Stimma (drag media here to attach)"
           >
-            <img src="/logo.svg" class="w-3.5 h-3.5 flex-shrink-0" :class="{ 'logo-disconnected': !wsConnected }" alt="" />
+            <img src="/logo.svg" class="w-icon-nav h-icon-nav flex-shrink-0" :class="{ 'logo-disconnected': !wsConnected }" alt="" />
             <span class="font-brand lowercase tracking-[0.12em]">stimma</span>
           </button>
           <template v-else>
             <button
               type="button"
               aria-label="Back to everything"
-              class="flex w-fit items-center gap-1.5 rounded px-3 py-0.5 text-content-muted transition-colors hover:text-content coarse:min-h-11"
+              class="mb-0.5 flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-xs text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11 coarse:text-sm [&>:first-child]:mx-1"
               :title="busyElsewhere ? 'Back to everything (work is running elsewhere)' : undefined"
               @click="leaveProject"
             >
-              <ChevronLeftIcon class="h-3 w-3" />
-              <span class="font-brand text-[11px] lowercase tracking-[0.12em]">stimma</span>
-              <Spinner v-if="busyElsewhere" size="sm" hue="border-t-blue-500" class="ml-0.5" />
+              <ChevronLeftIcon class="h-icon-nav w-icon-nav flex-shrink-0" />
+              <span>Back to everything</span>
+              <Spinner v-if="busyElsewhere" size="sm" hue="border-t-blue-500" class="ml-auto" />
             </button>
             <WorkingContextPicker v-slot="{ toggle, open, openForDrop }" ref="projectPicker" @selected="props.isMobile && emit('close')">
               <!-- Holding dragged media here opens the picker so its rows can take the drop. -->
@@ -78,40 +78,53 @@
                 @dragover="projectHeaderDrag.onDragOver"
                 @dragleave="projectHeaderDrag.onDragLeave"
                 @drop="projectHeaderDrag.onDrop"
-              ><span class="min-w-0 flex-1 break-words text-sm font-semibold leading-snug text-content">{{ activeProject?.name || 'Untitled project' }}</span><ChevronUpDownIcon class="mt-1 h-3 w-3 shrink-0 text-content-muted" /></button>
+              ><span class="min-w-0 flex-1 break-words font-brand text-base font-semibold leading-snug text-content">{{ activeProject?.name || 'Untitled project' }}</span><ChevronUpDownIcon class="mt-1.5 h-icon-inline w-icon-inline shrink-0 text-content-muted" /></button>
             </WorkingContextPicker>
           </template>
 
-          <button @click="handleNavClick('home')" @dragover="handleDragOver" @dragenter="handleStimmaHomeDragEnter" @dragleave="handleStimmaHomeDragLeave" @drop="handleStimmaHomeDrop" class="flex w-full items-center gap-2 rounded px-3 py-1.5 text-sm text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11 [&>:first-child]:mx-[5px]" :class="activeTab === 'home' ? '!bg-selection/15 !text-selection' : ''"><HomeIcon class="h-3.5 w-3.5 flex-shrink-0" />Home</button>
+          <button @click="handleNavClick('home')" @dragover="handleDragOver" @dragenter="handleStimmaHomeDragEnter" @dragleave="handleStimmaHomeDragLeave" @drop="handleStimmaHomeDrop" class="flex w-full items-center gap-2 rounded px-3 py-1.5 text-sm text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11 [&>:first-child]:mx-1" :class="activeTab === 'home' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"><HomeIcon class="h-icon-nav w-icon-nav flex-shrink-0" />Home</button>
 
-          <!-- Saved views sit with Home: places, before the kinds of things. -->
-          <button
-            v-for="savedView in contextSavedViews"
-            :key="savedView.id"
-            @click="openSavedView(savedView.id)"
-            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left [&>:first-child]:mx-[5px]"
-            :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-selection' : ''"
-            :title="savedView.name"
-          >
-            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-            </svg>
-            <span class="truncate text-sm">{{ savedView.name }}</span>
-          </button>
+          <div class="h-3.5 flex-shrink-0 coarse:h-2" aria-hidden="true"></div>
 
-          <div class="h-2 flex-shrink-0" aria-hidden="true"></div>
+          <!-- All Assets. The chevron folds the saved views (Favorites, My
+               library, ...) under it; clicking the row itself still opens Assets. -->
+          <div class="group relative">
+            <button
+              @click="handleNavClick('browse')"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
+              :class="[activeTab === 'browse' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '', contextSavedViews.length > 0 ? 'pr-9 coarse:pr-12' : '']"
+            >
+              <PhotoIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
+              <span>Assets</span>
+            </button>
+            <Tooltip v-if="contextSavedViews.length > 0" :text="savedViewsOpen ? 'Hide saved views' : 'Show saved views'" class="absolute right-0 top-0 bottom-0 flex items-center">
+              <button
+                type="button"
+                data-testid="saved-views-toggle"
+                class="flex h-7 w-8 items-center justify-center rounded text-content-muted transition-colors hover:text-content focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:h-11 coarse:w-11"
+                :aria-label="savedViewsOpen ? 'Hide saved views' : 'Show saved views'"
+                :aria-expanded="savedViewsOpen"
+                aria-controls="sidebar-saved-views"
+                @click.stop="toggleSavedViews"
+              >
+                <ChevronDownIcon class="h-icon-inline w-icon-inline transition-transform" :class="savedViewsOpen ? '' : '-rotate-90'" />
+              </button>
+            </Tooltip>
+          </div>
 
-          <!-- All Assets -->
-          <button
-            @click="handleNavClick('browse')"
-            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
-            :class="activeTab === 'browse' ? '!bg-selection/15 !text-selection' : ''"
-          >
-            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-            </svg>
-            <span>Assets</span>
-          </button>
+          <div v-if="savedViewsOpen && contextSavedViews.length > 0" id="sidebar-saved-views" class="flex flex-col gap-0.5 pl-4 coarse:gap-0">
+            <button
+              v-for="savedView in contextSavedViews"
+              :key="savedView.id"
+              @click="openSavedView(savedView.id)"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
+              :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
+              :title="displaySavedViewName(savedView.name)"
+            >
+              <component :is="savedViewIcon(savedView)" class="w-icon-nav h-icon-nav flex-shrink-0" />
+              <span class="truncate text-sm">{{ displaySavedViewName(savedView.name) }}</span>
+            </button>
+          </div>
 
           <!-- Boards landing link (with drag-drop to create new) -->
           <div class="group relative">
@@ -121,16 +134,14 @@
               @dragenter="handleNewBoardDragEnter"
               @dragleave="handleNewBoardDragLeave"
               @drop="handleNewBoardDrop"
-              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
               :class="[
-                activeTab === 'boards' ? '!bg-selection/15 !text-selection' : '',
+                activeTab === 'boards' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                 dragHoverNewBoard ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Boards (drag media here to create new)"
             >
-              <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M3.75 3A1.75 1.75 0 002 4.75v3.5C2 9.216 2.784 10 3.75 10h3.5C8.216 10 9 9.216 9 8.25v-3.5C9 3.784 8.216 3 7.25 3h-3.5zM3.75 11A1.75 1.75 0 002 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 009 16.25v-3.5A1.75 1.75 0 007.25 11h-3.5zM11 4.75A1.75 1.75 0 0112.75 3h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0116.25 10h-3.5A1.75 1.75 0 0111 8.25v-3.5zM12.75 11A1.75 1.75 0 0011 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0018 16.25v-3.5A1.75 1.75 0 0016.25 11h-3.5z" />
-              </svg>
+              <Squares2X2Icon class="w-icon-nav h-icon-nav flex-shrink-0" />
               <span>Boards</span>
             </button>
             <!-- Create new board button -->
@@ -139,9 +150,7 @@
                 @click.stop="createNewBoard"
                 class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
               >
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
+                <PlusIcon class="w-icon-inline h-icon-inline" />
               </button>
             </Tooltip>
           </div>
@@ -155,16 +164,14 @@
               @dragenter="handleNewChatDragEnter"
               @dragleave="handleNewChatDragLeave"
               @drop="handleNewChatDrop"
-              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
               :class="[
-                activeTab === 'chats' ? '!bg-selection/15 !text-selection' : '',
+                activeTab === 'chats' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                 dragHoverNewChat ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Chats (drag media here to create new)"
             >
-              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
-              </svg>
+              <ChatBubbleLeftRightIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
               <span>Chats</span>
             </button>
             <!-- Create new chat button -->
@@ -173,9 +180,7 @@
                 @click.stop="createNewChat"
                 class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
               >
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
+                <PlusIcon class="w-icon-inline h-icon-inline" />
               </button>
             </Tooltip>
           </div>
@@ -188,16 +193,14 @@
               @dragenter="handleNewFlowDragEnter"
               @dragleave="handleNewFlowDragLeave"
               @drop="handleNewFlowDrop"
-              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
               :class="[
-                activeTab === 'flows' ? '!bg-selection/15 !text-selection' : '',
+                activeTab === 'flows' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                 dragHoverNewFlow ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Flows (drag media here to create new)"
             >
-              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-              </svg>
+              <BoltIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
               <span>Flows</span>
             </button>
             <Tooltip text="Create new flow" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -205,9 +208,7 @@
                 @click.stop="createNewFlow"
                 class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
               >
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
+                <PlusIcon class="w-icon-inline h-icon-inline" />
               </button>
             </Tooltip>
           </div>
@@ -216,12 +217,10 @@
           <button
             @click="handleNavClick('all-tools')"
             data-tour="tools"
-            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
-            :class="activeTab === 'all-tools' ? '!bg-selection/15 !text-selection' : ''"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
+            :class="activeTab === 'all-tools' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
           >
-            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
-            </svg>
+            <WrenchScrewdriverIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
             <span>Tools</span>
           </button>
 
@@ -229,9 +228,9 @@
           <SidebarProjects v-if="activeProjectId == null" @selected="props.isMobile && emit('close')" />
 
           <!-- ==================== ZONE 2: Workspace Tabs ==================== -->
-          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="flex flex-col gap-1">
+          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="contents">
 
-            <!-- Pinned, Editing and Open share the section label recipe. -->
+            <!-- Pinned and Open share the section label recipe. -->
             <SidebarSectionHeader v-if="pinnedTabs.length > 0" id="pinned" label="Pinned" />
 
             <template v-if="!isCollapsed('pinned')">
@@ -258,9 +257,11 @@
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
-                class="min-h-10 coarse:min-h-11 flex items-center gap-2 px-3 py-1 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
+                class="coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
+                :aria-current="isTabActive(tab) ? 'page' : undefined"
                 :class="[
-                  isTabActive(tab) ? '!bg-selection/15 !text-selection' : '',
+                  isTwoLineTab(tab) ? 'min-h-10' : 'min-h-8',
+                  isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
@@ -300,12 +301,12 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-icon-nav h-icon-nav text-content-secondary" />
                     </div>
                   </div>
                   <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
                   <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                    <svg class="w-icon-nav h-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
@@ -355,12 +356,12 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-icon-nav h-icon-nav text-content-secondary" />
                     </div>
                   </div>
                   <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
                   <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                    <svg class="w-icon-nav h-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
@@ -371,7 +372,7 @@
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate" :class="isTwoLineTab(tab) ? 'text-[13px] leading-4' : 'text-sm'">
                         {{ getToolTabTitle(tab) }}
                       </span>
                       <!-- Renamed instance: tool name condenses onto the subtitle
@@ -392,17 +393,17 @@
                   <!-- Board with title/subtitle -->
                   <div v-else-if="tab.type === 'board' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate text-[13px] leading-4">
                         {{ tab.displayName }}
                       </span>
-                      <span class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
+                      <span class="min-w-0 truncate font-mono tabular-nums text-[11px] leading-[14px] text-content-muted">
                         {{ formatBoardTabDetail(tab.entityId) }}
                       </span>
                     </div>
                   </div>
 
                   <div v-else-if="tab.type === 'project' && tab.displayName" class="flex-1 min-w-0 flex flex-col">
-                    <span class="truncate text-[13px] leading-4 text-content">
+                    <span class="truncate text-[13px] leading-4">
                       {{ tab.displayName }}
                     </span>
                     <span class="truncate text-[11px] leading-[14px] text-content-muted">
@@ -426,7 +427,7 @@
                   <!-- Chat with title/subtitle -->
                   <div v-else-if="tab.type === 'chat' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate text-[13px] leading-4">
                         {{ tab.displayName }}
                       </span>
                       <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
@@ -464,7 +465,7 @@
                   <div v-else-if="tab.type === 'flow'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       v-if="tab.displayName"
-                      class="truncate text-[13px] leading-4 text-content"
+                      class="truncate text-[13px] leading-4"
                     >
                       {{ tab.displayName }}
                     </span>
@@ -518,9 +519,7 @@
                 class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-content-muted pointer-events-none"
                 :title="getToolSubtitle(tab.entityId)"
               >
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                </svg>
+                <ExclamationTriangleIcon class="w-icon-inline h-icon-inline" :stroke-width="1.75" />
               </span>
             </div>
 
@@ -538,19 +537,18 @@
             </div>
             </template>
 
-            <!-- Open editors are a working set, not documents with names. -->
-            <SidebarSectionHeader v-if="editorTabs.length > 0" id="editing" label="Editing" />
+            <!-- Open holds both kinds of working set. Images have no names, so open
+                 editors stay a wrap panel at the top; named rows follow below. -->
+            <SidebarSectionHeader v-if="openTabs.length > 0 || editorTabs.length > 0" id="open" label="Open" />
 
             <EditorShelf
-              v-if="!isCollapsed('editing')"
+              v-if="!isCollapsed('open')"
               :tabs="editorTabs"
               @open="navigateToTabId"
               @remove="closeTab"
               @contextmenu="onShelfContextMenu"
               @media-drop="handleShelfMediaDrop"
             />
-
-            <SidebarSectionHeader v-if="openTabs.length > 0" id="open" label="Open" />
 
             <template v-if="!isCollapsed('open')">
             <!-- Open (unpinned) tabs -->
@@ -576,13 +574,14 @@
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
-                class="min-h-10 coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
+                class="coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
+                :aria-current="isTabActive(tab) ? 'page' : undefined"
                 :class="[
-                  isTabActive(tab) ? '!bg-selection/15 !text-selection' : '',
+                  isTwoLineTab(tab) ? 'min-h-10' : 'min-h-8',
+                  isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
-                  isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : '',
-                  'py-1'
+                  isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
                 ]"
                 :title="tab.type === 'tool' ? (getToolIncompatibilityReason(tab.entityId) || tab.displayName) : tab.displayName"
               >
@@ -619,12 +618,12 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-icon-nav h-icon-nav text-content-secondary" />
                     </div>
                   </div>
                   <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
                   <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                    <svg class="w-icon-nav h-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
@@ -674,12 +673,12 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-icon-nav h-icon-nav text-content-secondary" />
                     </div>
                   </div>
                   <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
                   <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                    <svg class="w-icon-nav h-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" v-html="toolGlyphSvg(tab.entityId)" />
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
@@ -690,7 +689,7 @@
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate" :class="isTwoLineTab(tab) ? 'text-[13px] leading-4' : 'text-sm'">
                         {{ getToolTabTitle(tab) }}
                       </span>
                       <!-- Renamed instance: tool name condenses onto the subtitle
@@ -711,17 +710,17 @@
                   <!-- Board with title/subtitle -->
                   <div v-else-if="tab.type === 'board' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate text-[13px] leading-4">
                         {{ tab.displayName }}
                       </span>
-                      <span class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
+                      <span class="min-w-0 truncate font-mono tabular-nums text-[11px] leading-[14px] text-content-muted">
                         {{ formatBoardTabDetail(tab.entityId) }}
                       </span>
                     </div>
                   </div>
 
                   <div v-else-if="tab.type === 'project' && tab.displayName" class="flex-1 min-w-0 flex flex-col">
-                    <span class="truncate text-[13px] leading-4 text-content">
+                    <span class="truncate text-[13px] leading-4">
                       {{ tab.displayName }}
                     </span>
                     <span class="truncate text-[11px] leading-[14px] text-content-muted">
@@ -745,7 +744,7 @@
                   <!-- Chat with title/subtitle -->
                   <div v-else-if="tab.type === 'chat' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate text-[13px] leading-4">
                         {{ tab.displayName }}
                       </span>
                       <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
@@ -783,7 +782,7 @@
                   <div v-else-if="tab.type === 'flow'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       v-if="tab.displayName"
-                      class="truncate text-[13px] leading-4 text-content"
+                      class="truncate text-[13px] leading-4"
                     >
                       {{ tab.displayName }}
                     </span>
@@ -838,9 +837,7 @@
                 class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-content-muted opacity-100 group-hover:opacity-0 transition-opacity pointer-events-none"
                 :title="getToolSubtitle(tab.entityId)"
               >
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                </svg>
+                <ExclamationTriangleIcon class="w-icon-inline h-icon-inline" :stroke-width="1.75" />
               </span>
               <!-- Close button (appears on hover). Not on phones: there is no
                    hover to reveal it, so it was an invisible 44px target at the
@@ -850,9 +847,7 @@
                   @click.stop="closeTab(tab.id)"
                   class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-light"
                 >
-                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <XMarkIcon class="w-icon-inline h-icon-inline" />
                 </button>
               </Tooltip>
             </div>
@@ -879,8 +874,8 @@
              (scroll-edge divider); border stays in flow via transparent so
              toggling never shifts layout. -->
         <div
-          class="relative flex items-center gap-1 px-2 py-2 border-t flex-shrink-0 transition-colors"
-          :class="navScrolledUnder ? 'border-edge-subtle' : 'border-transparent'"
+          class="relative flex items-center gap-1 py-2 border-t flex-shrink-0 transition-colors"
+          :class="[navScrolledUnder ? 'border-edge-subtle' : 'border-transparent', showAccountChip ? 'px-2' : 'pl-5 pr-2 coarse:pl-3.5']"
         >
           <!-- Signed in: chip fills the left, compact feedback + gear icons
                on the right. Signed out: feedback and gear split the bar as
@@ -904,7 +899,7 @@
             </Tooltip>
             <FeedbackFooterButton />
           </template>
-          <FeedbackFooterButton v-if="!showAccountChip" wide />
+          <FeedbackFooterButton v-if="!showAccountChip" />
           <!-- Server picker: an icon in the occasional-actions strip, not a
                chip over the balance. Always present once signed in — with no
                other servers its menu teaches the feature instead of hiding;
@@ -922,16 +917,16 @@
               class="w-full h-8 flex items-center justify-center rounded transition-colors cursor-pointer border-none coarse:min-h-11"
               :class="activeTab === 'trash' ? 'bg-selection/15 text-selection' : 'bg-transparent text-content-tertiary hover:text-content hover:bg-overlay-subtle'"
             >
-              <TrashIcon class="w-[18px] h-[18px]" />
+              <TrashIcon class="w-icon-nav h-icon-nav" />
             </button>
           </Tooltip>
-          <Tooltip text="Settings (⌘,)" :class="showAccountChip ? 'w-8 flex-shrink-0' : 'flex-1'">
+          <Tooltip text="Settings (⌘,)" class="w-8 flex-shrink-0 coarse:w-11">
             <button
               @click="openSettingsFromFooter"
               aria-label="Settings"
-              class="w-full h-8 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent"
+              class="w-full h-8 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent coarse:min-h-11"
             >
-              <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
               </svg>
@@ -963,6 +958,16 @@
       </div>
     </Transition>
 
+    <!-- The pushed app dims while the drawer is open: the drawer is the one
+         bright surface. Taps are caught by the app's own closer; docked
+         drawers sit beside the app and leave it lit. -->
+    <div
+      v-if="isMobile"
+      class="pointer-events-none absolute inset-y-0 left-[276px] z-modal w-screen bg-overlay-backdrop transition-opacity duration-200 [.is-docked_&]:hidden"
+      :class="isOpen ? 'opacity-100' : 'opacity-0'"
+      aria-hidden="true"
+    ></div>
+
     <!-- Workspace Tabs Context Menu -->
     <WorkspaceTabsContextMenu @rename="handleRenameFromContextMenu" @rename-tab="handleRenameTabFromContextMenu" @refresh="loadPinnedTools" />
     <!-- Phones rename from a sheet; inline editing in a drawer row is confusing. -->
@@ -985,9 +990,7 @@
           :class="flowTargetHover === '__chat__' ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
           @drop.stop.prevent="onFlowTargetDrop(null, $event)"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 flex-shrink-0 pointer-events-none">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM21 12c0 4.556-4.03 8.25-9 8.25a9.76 9.76 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
-          </svg>
+          <ChatBubbleOvalLeftEllipsisIcon class="w-icon-nav h-icon-nav flex-shrink-0 pointer-events-none" />
           <span class="truncate pointer-events-none">Chat</span>
         </div>
         <div
@@ -998,9 +1001,7 @@
           :class="flowTargetHover === zone.name ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
           @drop.stop.prevent="onFlowTargetDrop(zone, $event)"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 flex-shrink-0 pointer-events-none">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" />
-          </svg>
+          <PhotoIcon class="w-icon-nav h-icon-nav flex-shrink-0 pointer-events-none" />
           <span class="truncate pointer-events-none">{{ zone.label }}</span>
         </div>
       </div>
@@ -1010,7 +1011,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, h, nextTick } from 'vue'
-import { ArchiveBoxIcon, ChevronLeftIcon, ChevronUpDownIcon, HomeIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronDownIcon, ChevronLeftIcon, ChevronUpDownIcon, ClockIcon, ExclamationTriangleIcon, FunnelIcon, HeartIcon, HomeIcon, PhotoIcon, PlusIcon, Squares2X2Icon, TrashIcon, WrenchScrewdriverIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { useMarkers } from '../composables/useMarkers'
 import { useRouter, useRoute } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useAuth } from '../composables/useAuth'
@@ -1019,9 +1021,9 @@ import { hideAccountRef } from '../appConfig'
 import { setPendingMedia } from '../composables/usePendingMedia'
 import { makeProfileKey } from '../utils/storageKeys'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
-import { createTaskTypeIconComponent } from '../utils/taskTypeIcons'
+import { createTaskTypeIconComponent, getTaskTypeIconSvg } from '../utils/taskTypeIcons'
 import { planToolHandoff } from '../utils/toolHandoff'
-import { addToast } from '../composables/useToasts'
+import { addToast, reportActionError } from '../composables/useToasts'
 import { useGenerationStatus } from '../composables/useGenerationStatus'
 import { useUnseenActivity } from '../composables/useUnseenActivity'
 import { useAgentActivity } from '../composables/useAgentActivity'
@@ -1040,6 +1042,7 @@ import { useProjectActivity } from '../composables/useProjectActivity'
 import { handleProjectDeletedBroadcast } from '../composables/useProjectDeletion'
 import { useDragHoverOpen } from '../composables/useProjectDrop'
 import SidebarSectionHeader from './sidebar/SidebarSectionHeader.vue'
+import { displaySavedViewName } from '../utils/savedViewName'
 import { useSidebarSections } from '../composables/useSidebarSections'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
 import { useFlowCounts } from '../composables/useFlowCounts'
@@ -1051,7 +1054,6 @@ import { getDroppedAssetRefs, getDroppedMediaIds } from '../composables/useDragP
 import { isDesktop } from '../apiConfig'
 import { desktop } from '../desktop'
 import { MediaImage } from './media'
-import ToolIcon from './tools/ToolIcon.vue'
 import EntityIcon from './EntityIcon.vue'
 import RenameSheet from './compact/RenameSheet.vue'
 import StatusDot from './ui/StatusDot.vue'
@@ -1072,8 +1074,20 @@ const props = defineProps({
   isMobile: {
     type: Boolean,
     default: false
+  },
+  // Focus screens (slideshow, image editor): the docked sidebar leaves the
+  // layout but stays mounted, since its drop targets and state live here.
+  // `peeking` slides it back in as an overlay for the length of a media drag.
+  collapsed: {
+    type: Boolean,
+    default: false
+  },
+  peeking: {
+    type: Boolean,
+    default: false
   }
 })
+const focusCollapsed = computed(() => props.collapsed && !props.isMobile)
 
 const emit = defineEmits(['close', 'open-settings', 'media-dropped-on-tool', 'media-dropped-on-chat', 'open-account'])
 
@@ -1085,7 +1099,7 @@ const router = useRouter()
 const route = useRoute()
 const { activeProjectId, activeProject, refreshProjects, rememberProject, selectProject } = useWorkingContext()
 const switchContext = useContextSwitch()
-const { isCollapsed } = useSidebarSections()
+const { isCollapsed, toggleSection } = useSidebarSections()
 const { isBusyElsewhere } = useProjectActivity()
 const busyElsewhere = computed(() => activeProjectId.value != null && isBusyElsewhere(activeProjectId.value))
 const projectPicker = ref<InstanceType<typeof WorkingContextPicker> | null>(null)
@@ -1304,6 +1318,30 @@ const hasLoadedData = computed(() => {
   return Object.values(loadingState.value).some(s => !s.loading && !s.error)
 })
 
+// A phone drawer is short, so pinned tools (reachable from Tools) start folded
+// until the person chooses otherwise; their choice is stored from then on.
+watch(() => hasLoadedData.value && props.isMobile, (phoneReady) => {
+  if (!phoneReady || localStorage.getItem(makeProfileKey('sidebar', 'collapsed_sections')) !== null) return
+  if (!isCollapsed('pinned')) toggleSection('pinned')
+}, { immediate: true })
+
+// Saved views fold under Assets. The fold is a per-profile choice that starts
+// closed; the active saved view opens it for as long as it is the screen, so
+// the current location stays visible without rewriting the stored choice.
+const SAVED_VIEWS_OPEN_KEY = makeProfileKey('sidebar', 'saved_views_open')
+const savedViewsStored = ref(localStorage.getItem(SAVED_VIEWS_OPEN_KEY) === '1')
+const savedViewsPeek = ref(false)
+const activeSavedViewInContext = computed(() =>
+  route.name === 'saved-view' && contextSavedViews.value.some(v => isSavedViewActive(v.id)))
+watch(activeSavedViewInContext, (active) => { savedViewsPeek.value = active }, { immediate: true })
+const savedViewsOpen = computed(() => savedViewsStored.value || savedViewsPeek.value)
+function toggleSavedViews() {
+  const next = !savedViewsOpen.value
+  savedViewsStored.value = next
+  savedViewsPeek.value = false
+  try { localStorage.setItem(SAVED_VIEWS_OPEN_KEY, next ? '1' : '0') } catch { /* fold still toggles */ }
+}
+
 // ==================== Tool compatibility ====================
 
 const toolCompatibility = computed(() => {
@@ -1377,6 +1415,20 @@ function getToolSubtitle(fullToolId: string): string {
   return provider
 }
 
+// The rail has one row height (32px, 44px on touch) and one two-line variant
+// (40px): rows that carry a second line of detail. Mirrors the row template.
+function isTwoLineTab(tab: WorkspaceTab): boolean {
+  switch (tab.type) {
+    // Every tool row names its provider: provider changes cost, privacy and speed.
+    case 'tool': return true
+    case 'board': return !!tab.displayName
+    case 'chat': return !!formatChatTabSubtitle(tab.entityId)
+    case 'flow':
+    case 'project': return true
+    default: return false
+  }
+}
+
 function getToolSubtitleClass(fullToolId: string): string {
   const availability = getToolAvailability(fullToolId)
   // Unavailable tools read as a calm, de-emphasized state (muted + italic),
@@ -1393,15 +1445,6 @@ function isTabToolUnavailable(tab: any): boolean {
 function isToolStimmaCloud(fullToolId: string): boolean {
   const tool = allToolsMap.value.get(fullToolId)
   return tool ? isStimmaCloudTool(tool) : false
-}
-
-// Build a ToolIcon-compatible object for a tab's tool. Prefer the cached tool
-// row (carries model_vendor); when it's missing (e.g. provider not yet loaded)
-// pass at least the id so the task-generic glyph still renders.
-function getToolForIcon(fullToolId: string) {
-  const tool = allToolsMap.value.get(fullToolId)
-  if (tool) return tool
-  return { id: fullToolId, full_tool_id: fullToolId, task_types: [] as string[] }
 }
 
 function extractBoardMetadata(board: any) {
@@ -1502,7 +1545,7 @@ function formatChatTabSubtitle(chatId: string): string {
 
 function formatBoardTabDetail(boardId: string): string {
   const metadata = getBoardMetadata(boardId)
-  const itemText = formatCount(metadata?.item_count || 0, 'item')
+  const itemText = formatCount(metadata?.item_count || 0, 'asset')
   const sectionCount = metadata?.section_count || 0
   return sectionCount > 1 ? `${itemText} · ${formatCount(sectionCount, 'section')}` : itemText
 }
@@ -1559,35 +1602,44 @@ function loadAllBoardMetadata() {
 
 // ==================== Tab helpers ====================
 
+// A saved view is a filter, so its glyph says which filter: the marker it
+// shows, the clock for expiring items, otherwise the funnel.
+const { availableMarkers, init: initMarkers } = useMarkers()
+onMounted(() => { void initMarkers() })
+function savedViewIcon(view: any) {
+  const filters = view?.filters || {}
+  if (filters.showExpiring) return ClockIcon
+  const names = new Set<string>(
+    (filters.selectedMarkers || [])
+      .map((id: number) => availableMarkers.value.find((m: any) => m.id === id)?.name)
+      .filter(Boolean)
+  )
+  if (names.has('library')) return BookmarkIcon
+  if (names.has('favorite')) return HeartIcon
+  return FunnelIcon
+}
+
+// Pinned and open tool rows use the task-type glyph at the nav icon's size
+// and weight; the provider is in the row's subtitle.
+function toolGlyphSvg(toolId: string) {
+  return getTaskTypeIconSvg(allToolsMap.value.get(toolId)?.task_type || 'text-to-image')
+}
+
 function getTabIcon(tab: WorkspaceTab) {
   if (tab.type === 'tool') {
     const tool = allToolsMap.value.get(tab.entityId)
     return createTaskTypeIconComponent(tool?.task_type || 'text-to-image', 'currentColor')
   }
-  if (tab.type === 'chat') {
-    return h('svg', { class: 'w-3.5 h-3.5', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '2', stroke: 'currentColor' }, [
-      h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155' })
-    ])
-  }
-  if (tab.type === 'board') {
-    return h('svg', { class: 'w-3.5 h-3.5', viewBox: '0 0 20 20', fill: 'currentColor' }, [
-      h('path', { d: 'M3.75 3A1.75 1.75 0 002 4.75v3.5C2 9.216 2.784 10 3.75 10h3.5C8.216 10 9 9.216 9 8.25v-3.5C9 3.784 8.216 3 7.25 3h-3.5zM3.75 11A1.75 1.75 0 002 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 009 16.25v-3.5A1.75 1.75 0 007.25 11h-3.5zM11 4.75A1.75 1.75 0 0112.75 3h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0116.25 10h-3.5A1.75 1.75 0 0111 8.25v-3.5zM12.75 11A1.75 1.75 0 0011 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0018 16.25v-3.5A1.75 1.75 0 0016.25 11h-3.5z' })
-    ])
-  }
-  if (tab.type === 'project') {
-    return ArchiveBoxIcon
-  }
+  if (tab.type === 'chat') return h(ChatBubbleLeftRightIcon, {})
+  if (tab.type === 'board') return h(Squares2X2Icon, {})
+  if (tab.type === 'project') return ArchiveBoxIcon
   if (tab.type === 'lineage') {
     // Git-branch-like icon for lineage
-    return h('svg', { class: 'w-3.5 h-3.5', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '2', stroke: 'currentColor' }, [
+    return h('svg', { class: 'w-icon-nav h-icon-nav', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.75', stroke: 'currentColor' }, [
       h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z' })
     ])
   }
-  if (tab.type === 'flow') {
-    return h('svg', { class: 'w-3.5 h-3.5', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '2', stroke: 'currentColor' }, [
-      h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z' })
-    ])
-  }
+  if (tab.type === 'flow') return h(BoltIcon, {})
   return h('span')
 }
 
@@ -1795,14 +1847,15 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
     if (props.isMobile) emit('close')
   } else if (tab.type === 'board') {
     try {
-      await fetch(`/api/boards/${tab.entityId}/items`, {
+      const response = await fetch(`/api/boards/${tab.entityId}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(assetIds.length > 0 ? { asset_ids: assetIds } : { media_ids: mediaIds })
       })
+      if (!response.ok) throw new Error(await response.text())
       if (props.isMobile) emit('close')
     } catch (error) {
-      console.error('Failed to add media to board:', error)
+      reportActionError("Couldn't add to board.", error)
     }
   }
 }
@@ -1973,15 +2026,16 @@ async function handleNewBoardDrop(e: DragEvent) {
   if (mediaIds.length > 0) {
     try {
       const newBoard = await apiCreateBoard('', activeProjectId.value)
-      await fetch(`/api/boards/${newBoard.id}/items`, {
+      const response = await fetch(`/api/boards/${newBoard.id}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(assetIds.length > 0 ? { asset_ids: assetIds } : { media_ids: mediaIds })
       })
+      if (!response.ok) throw new Error(await response.text())
       router.push({ name: 'board-detail', params: { id: newBoard.id } })
       if (props.isMobile) emit('close')
     } catch (error) {
-      console.error('Failed to create board with media:', error)
+      reportActionError("Couldn't create board.", error)
     }
   }
 }
@@ -2022,7 +2076,7 @@ async function handleNewChatDrop(e: DragEvent) {
       router.push({ name: 'chat', params: { id: newChat.id } })
       if (props.isMobile) emit('close')
     } catch (error) {
-      console.error('Failed to create chat with media:', error)
+      reportActionError("Couldn't create chat.", error)
     }
   }
 }
@@ -2033,6 +2087,7 @@ async function handleNewChatDrop(e: DragEvent) {
 async function resolveFlowChatId(flowId: number): Promise<number | null> {
   try {
     const listResp = await fetch(`/api/chats?flow_id=${flowId}&page=1&page_size=1`)
+    if (!listResp.ok) throw new Error(await listResp.text())
     if (listResp.ok) {
       const list = await listResp.json()
       const existing = list?.items?.[0]?.id
@@ -2047,7 +2102,7 @@ async function resolveFlowChatId(flowId: number): Promise<number | null> {
     const created = await createResp.json()
     return created?.id != null ? Number(created.id) : null
   } catch (error) {
-    console.error('Failed to resolve flow chat:', error)
+    reportActionError("Couldn't create chat.", error)
     return null
   }
 }
@@ -2090,7 +2145,7 @@ async function handleNewFlowDrop(e: DragEvent) {
       router.push({ name: 'flow', params: { id: String(flow.id) } })
       if (props.isMobile) emit('close')
     } catch (error) {
-      console.error('Failed to create flow with media:', error)
+      reportActionError("Couldn't create flow.", error)
     }
   }
 }
@@ -2132,7 +2187,7 @@ async function createNewBoard() {
     router.push({ name: 'board-detail', params: { id: newBoard.id } })
     if (props.isMobile) emit('close')
   } catch (error) {
-    console.error('Failed to create board:', error)
+    reportActionError("Couldn't create board.", error)
   }
 }
 
@@ -2149,7 +2204,7 @@ async function createNewChat() {
     router.push({ name: 'chat', params: { id: newChat.id } })
     if (props.isMobile) emit('close')
   } catch (error) {
-    console.error('Failed to create chat:', error)
+    reportActionError("Couldn't create chat.", error)
   }
 }
 
@@ -2165,7 +2220,7 @@ async function createNewFlow() {
     router.push({ name: 'flow', params: { id: String(flow.id) } })
     if (props.isMobile) emit('close')
   } catch (err) {
-    console.error('Failed to create flow:', err)
+    reportActionError("Couldn't create flow.", err)
   }
 }
 
@@ -2287,21 +2342,24 @@ async function saveRename() {
     } else if (tabType === 'project') {
       await updateProject(entityId, { name: newName })
     } else if (tabType === 'chat') {
-      await fetch(`/api/chats/${entityId}`, {
+      const response = await fetch(`/api/chats/${entityId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName })
       })
+      if (!response.ok) throw new Error(await response.text())
     } else if (tabType === 'flow') {
-      await fetch(`/api/flows/${entityId}`, {
+      const response = await fetch(`/api/flows/${entityId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName })
       })
+      if (!response.ok) throw new Error(await response.text())
     }
     updateTabName(tabId, newName)
   } catch (err) {
-    console.error(`Failed to rename ${tabType}:`, err)
+    reportActionError("Couldn't rename item.", err)
+    return
   }
 
   editingItem.value = null

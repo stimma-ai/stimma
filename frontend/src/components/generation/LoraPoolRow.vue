@@ -32,7 +32,7 @@
         <span
           v-for="chip in secondaryChips"
           :key="chip"
-          class="shrink-0 text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-overlay-subtle text-content-tertiary font-mono uppercase"
+          class="shrink-0 text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-overlay-subtle text-content-tertiary font-mono"
         >{{ chip }}</span>
       </div>
       <div v-if="showRaw && directoryPath" class="text-[10px] text-content-muted truncate mt-0.5">

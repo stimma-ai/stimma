@@ -38,10 +38,28 @@
 /* Stimma is an interaction-first desktop UI. Text selection is opt-in for
    content, while native editing surfaces must always retain normal selection. */
 @layer base {
+  /* Placeholder text is the muted step of the text ladder in both themes.
+     Preflight ships gray-400 (2.2:1 on a light panel), which reads as an empty
+     field; muted clears 4.5:1 on every surface. Fields that set their own
+     placeholder color use `placeholder:text-content-muted`, never white/NN. */
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-text-muted);
+    opacity: 1;
+  }
+
   input,
   textarea,
   [contenteditable]:not([contenteditable="false"]) {
     @apply select-text;
+  }
+
+  /* One icon stroke (DESIGN.md §1.10). Outline glyphs (the 24px Heroicons
+     grid) draw at --icon-stroke whatever stroke-width attribute they ship
+     with; a presentation attribute loses to this rule. Spinners and
+     progress rings opt out with `data-stroke="own"`. */
+  svg[viewBox="0 0 24 24"][fill="none"][stroke="currentColor"]:not([data-stroke="own"]):not(.animate-spin) {
+    stroke-width: var(--icon-stroke);
   }
 }
 
@@ -98,6 +116,16 @@ body {
   background: var(--color-base);
   color: var(--color-text-primary);
   overflow: hidden;
+}
+
+/* Display voice tokens. The wordmark keeps its own explicit tracking
+   (tracking-[..]); everything else in General Sans takes the display
+   tracking, which overrides tracking-tight/tighter. */
+.font-brand:not([class*="tracking-["]) {
+  letter-spacing: var(--display-tracking);
+}
+.font-brand.font-bold {
+  font-weight: var(--display-weight-hero);
 }
 
 #app {
@@ -169,7 +197,7 @@ body {
 .lock-key:active { background: var(--color-overlay-medium); transform: scale(.96); }
 .lock-key:disabled { cursor: default; opacity: .6; transform: none; }
 .lock-key-ghost { border-color: transparent; background: transparent; color: var(--color-text-secondary); }
-.lock-key-go { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.lock-key-go { background: var(--color-accent); border-color: var(--color-accent); color: rgb(var(--color-on-accent-rgb)); }
 .lock-key-go:hover:not(:disabled) { background: var(--color-accent-hi); }
 .lock-key-go:disabled { background: rgb(var(--color-accent-rgb) / 0.5); border-color: transparent; opacity: 1; }
 
@@ -234,35 +262,27 @@ body {
   background-color: rgba(156, 163, 175, 0.6);
 }
 
-/* Chat input scroll wrapper - trackless scrollbar */
+/* Chat input textarea - trackless scrollbar */
 /* scrollbar-width: auto overrides the global * { scrollbar-width: thin } so that
    ::-webkit-scrollbar pseudo-elements take effect in Safari/WKWebView. */
-.chat-input-scroll-wrap {
+.chat-input-textarea {
   scrollbar-width: auto !important;
   scrollbar-color: auto !important;
 }
-.chat-input-scroll-wrap::-webkit-scrollbar {
+.chat-input-textarea::-webkit-scrollbar {
   width: 12px;
   background: transparent;
 }
-.chat-input-scroll-wrap::-webkit-scrollbar-track {
+.chat-input-textarea::-webkit-scrollbar-track {
   background: transparent;
 }
-.chat-input-scroll-wrap::-webkit-scrollbar-thumb {
+.chat-input-textarea::-webkit-scrollbar-thumb {
   background-color: rgba(156, 163, 175, 0.4);
   border-radius: 6px;
 }
-.chat-input-scroll-wrap::-webkit-scrollbar-thumb:hover {
+.chat-input-textarea::-webkit-scrollbar-thumb:hover {
   background-color: rgba(156, 163, 175, 0.6);
 }
-/* Hide native textarea scrollbar entirely */
-.chat-input-textarea {
-  overflow: hidden !important;
-}
-.chat-input-textarea::-webkit-scrollbar {
-  display: none !important;
-}
-
 /* ============================================
    Theme Token Definitions
    ============================================ */
@@ -288,9 +308,83 @@ body {
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
 
+  /* Display type (General Sans, `font-brand`). Near-zero tracking: the face is
+     already tightly spaced, and negative tracking smears it at header sizes.
+     Weight 600 is the display default; the hero's 700 is --display-weight-hero. */
+  --display-tracking: -0.005em;
+  --display-weight-hero: 600;
+
+  /* Shadow strength per theme (see boxShadow in tailwind.config.js).
+     page = in-page elevation (sm, default, md); pop = true overlays
+     (lg, xl, 2xl, shadow-black/NN). Each scales shadow opacity. */
+  --shadow-page-a: 1;
+  --shadow-pop-a: 1;
+
   /* Slider thumb colors (used in pseudo-elements that can't use Tailwind classes) */
   --slider-thumb: rgb(99 102 241); /* indigo-500 */
   --slider-thumb-hover: rgb(129 140 248); /* indigo-400 */
+
+  /* Page rhythm (DESIGN.md §1.6). One left edge for every non-media block
+     and one gap between sections, per width band (data-width, set by
+     useViewport; desktop is always `wide`). Tailwind: px-page, gap-section,
+     space-y-section. Media grids may bleed past the margin; text and
+     controls never do. */
+  --page-margin: 16px;
+  --section-gap: 20px;
+
+  /* Hub rhythm (DESIGN.md §3 home): offset above the greeting, greeting to
+     composer, composer to recent work, and the greeting's size. The compact
+     chrome takes a tighter set so recent work sits higher. */
+  --hub-top: 80px;
+  --hub-hero-gap: 32px;
+  --hub-content-gap: 56px;
+  --hub-hero-size: 32px;
+  --hub-column: 840px;        /* the one measure for the hub: hero, composer, tool shortcuts, section headings and recent work */
+
+  /* One desktop page header height (ui/PageHeader.vue) for every page,
+     collection or workspace; the Browse strip is the same band. The phone
+     header is --header-h-mobile. --header-h-compact is kept as an alias so
+     callers that still say `compact` land on the same height. */
+  --header-h: 56px;
+  --header-h-compact: var(--header-h);
+
+  /* Desktop control scale (DESIGN.md §2): two heights. --control-h for every
+     control in a header or toolbar (buttons, selects, search, chips, toggles,
+     icon buttons); --control-h-main only for a surface's single main action.
+     One label size (text-ctl, 13px) across both. Coarse pointers take 44px. */
+  --control-h: 32px;
+  --control-h-main: 36px;
+  --header-h-mobile: 60px;
+  --header-pb: 12px;          /* header bottom padding where a header holds a second row */
+
+  /* Icon scale (DESIGN.md §1.10): three sizes and one stroke. */
+  --icon-inline: 14px;        /* inside text rows, chips, menu rows */
+  --icon-nav: 16px;           /* sidebar, toolbars, filter chips, settings nav, tool actions */
+  --icon-canvas: 18px;        /* canvas and transport: editor, slideshow, hero overlays */
+  --icon-stroke: 1.75;
+
+  /* Filmstrips (DESIGN.md §1.11): tile size by the strip's available height,
+     one ring spacing (ring 2px + offset 2px, drawn outside the tile), one
+     restrained inactive dim. Mirrors utils/filmstrip.ts. */
+  --strip-tile-sm: 52px;      /* phone strips, about 60-74px tall */
+  --strip-tile-lg: 96px;      /* strips with a full row: desktop slideshow, roomy tool view */
+  --strip-gap-sm: 6px;
+  --strip-gap-lg: 8px;
+  --strip-gutter: 8px;        /* strip edge to the first tile; room for the ring */
+}
+:root[data-viewport="compact"] {
+  --hub-top: 16px;
+  --hub-hero-gap: 16px;
+  --hub-content-gap: 24px;
+  --hub-hero-size: 24px;
+}
+:root[data-width="medium"] {
+  --page-margin: 20px;
+  --section-gap: 24px;
+}
+:root[data-width="wide"] {
+  --page-margin: 24px;
+  --section-gap: 28px;
 }
 
 /* Android's shell already pads the WebView for system bars, cutouts and
@@ -320,48 +414,49 @@ body {
      makes `bg-surface/50`, `border-edge/30`, etc. resolve. The matching
      `--color-*` var derives the full color via `rgb(var(--*-rgb))` so the ~80
      places that read `var(--color-surface)` directly keep working unchanged. */
-  --color-base-rgb: 11 14 20;
+  --color-base-rgb: 13 15 20;
   --color-base: rgb(var(--color-base-rgb));
-  --color-surface-rgb: 19 23 32;
+  --color-surface-rgb: 18 20 26;
   --color-surface: rgb(var(--color-surface-rgb));
-  --color-surface-raised-rgb: 28 34 48;
+  --color-surface-raised-rgb: 26 29 37;
   --color-surface-raised: rgb(var(--color-surface-raised-rgb));
-  --color-surface-overlay-rgb: 8 10 15;
+  --color-surface-overlay-rgb: 8 9 12;
   --color-surface-overlay: rgb(var(--color-surface-overlay-rgb));
-  --color-surface-hover-rgb: 35 42 58;
+  --color-surface-hover-rgb: 33 37 47;
   --color-surface-hover: rgb(var(--color-surface-hover-rgb));
-  --color-surface-active-rgb: 49 58 79;
+  --color-surface-active-rgb: 45 50 63;
   --color-surface-active: rgb(var(--color-surface-active-rgb));
 
   /* Text — softened off-white instead of pure #fff to kill the glare. */
   --color-text-primary-rgb: 232 234 240;
   --color-text-primary: rgb(var(--color-text-primary-rgb));
-  --color-text-secondary-rgb: 154 163 180;
+  --color-text-secondary-rgb: 168 175 190;
   --color-text-secondary: rgb(var(--color-text-secondary-rgb));
-  --color-text-tertiary-rgb: 124 133 151;
+  --color-text-tertiary-rgb: 146 154 171;
   --color-text-tertiary: rgb(var(--color-text-tertiary-rgb));
-  --color-text-muted-rgb: 86 94 110;
+  --color-text-muted-rgb: 132 140 157;
   --color-text-muted: rgb(var(--color-text-muted-rgb));
 
   /* Borders */
-  --color-border-rgb: 35 42 54;
+  --color-border-rgb: 34 37 46;
   --color-border: rgb(var(--color-border-rgb));
-  --color-border-subtle: rgba(148,163,184,0.12);
-  --color-border-strong-rgb: 51 61 77;
+  --color-border-subtle: rgba(152,160,176,0.12);
+  --color-border-strong-rgb: 49 54 66;
   --color-border-strong: rgb(var(--color-border-strong-rgb));
 
   /* Overlays — slate-tinted so hover/active states stay in the family. */
-  --color-overlay-faint: rgba(148,163,184,0.03);
-  --color-overlay-subtle: rgba(148,163,184,0.06);
-  --color-overlay-hover: rgba(148,163,184,0.09);
-  --color-overlay-light: rgba(148,163,184,0.13);
-  --color-overlay-medium: rgba(148,163,184,0.18);
-  --color-overlay-strong: rgba(148,163,184,0.24);
-  --color-backdrop: rgba(7,9,15,0.65);
+  --color-overlay-faint: rgba(152,160,176,0.03);
+  --color-overlay-subtle: rgba(152,160,176,0.06);
+  --color-overlay-hover: rgba(152,160,176,0.09);
+  --color-overlay-light: rgba(152,160,176,0.13);
+  --color-overlay-medium: rgba(152,160,176,0.18);
+  --color-overlay-strong: rgba(152,160,176,0.24);
+  --color-field: rgba(152,160,176,0.11); /* text fields and the composer: one small step above the surface */
+  --color-backdrop: rgba(6,7,10,0.65);
 
-  /* Slideshow — matt stays pure black for distraction-free viewing. */
-  --color-slideshow-matt: #000000;
-  --color-surface-elevated: rgba(19,23,32,0.95);
+  /* Slideshow: the one matte (near-black here, paper in light) sits behind all artwork, viewers included. */
+  --color-slideshow-matt: var(--color-matte);
+  --color-surface-elevated: rgba(18,20,26,0.95);
 
   /* Atelier accents (see frontend/DESIGN.md).
      accent      = THE interactive accent (fills: buttons, toggles-on).
@@ -372,17 +467,21 @@ body {
   --color-accent: rgb(var(--color-accent-rgb));
   --color-accent-hi-rgb: 47 208 187;
   --color-accent-hi: rgb(var(--color-accent-hi-rgb));
+  /* Label on an accent fill: near-black on the bright dark teal (6.6:1). */
+  --color-on-accent-rgb: 7 8 10;
   --color-selection-rgb: 129 140 248;
   --color-selection: rgb(var(--color-selection-rgb));
-  --color-matte-rgb: 8 9 12;
+  --color-matte-rgb: 7 8 10;
   --color-matte: rgb(var(--color-matte-rgb));
   /* live = autonomous/continuous operation the user set running (forever
      mode, transport/loop toggles). Never a resting button, never selection. */
   --color-live-rgb: 244 114 182;
   --color-live: rgb(var(--color-live-rgb));
+  /* Destructive/error foreground: backs `text-red-400` (tailwind.config.js). */
+  --color-danger-fg-rgb: 248 113 113;
 
   /* Lineage */
-  --color-lineage-edge: #2e3645;
+  --color-lineage-edge: #2d323d;
   --color-lineage-edge-inspired: #6d3a9e;
   --color-lineage-minimap-bg: rgba(0,0,0,0.6);
   --color-lineage-minimap-edge: rgba(255,255,255,0.25);
@@ -459,35 +558,44 @@ body {
   --file-type-image-rgb: 174 58 93;
   color-scheme: light;
 
-  /* Surfaces — channels for `<alpha-value>` support; see the dark block. */
+  /* Light elevation is a soft diffuse lift, not a dark drop. In-page lift is
+     barely there; overlays keep enough shadow to separate from the page. */
+  --shadow-page-a: 0.4;
+  --shadow-pop-a: 0.85;
+
+  /* Surfaces — channels for `<alpha-value>` support; see the dark block.
+     One warm-neutral family: panels, raised steps, borders and the paper matte
+     share a faint warm cast (CIELAB b* +1.1 to +2.1), so a screen never shows a
+     cool sidebar beside a warm matte. Lightness is unchanged from the zinc
+     values they replace (surface L* 96.2); the matte stays a clear step darker. */
   --color-base-rgb: 255 255 255;
   --color-base: rgb(var(--color-base-rgb));
-  --color-surface-rgb: 244 244 245;
+  --color-surface-rgb: 245 244 242;
   --color-surface: rgb(var(--color-surface-rgb));
-  --color-surface-raised-rgb: 228 228 231;
+  --color-surface-raised-rgb: 230 229 226;
   --color-surface-raised: rgb(var(--color-surface-raised-rgb));
   --color-surface-overlay-rgb: 255 255 255;
   --color-surface-overlay: rgb(var(--color-surface-overlay-rgb));
-  --color-surface-hover-rgb: 212 212 216;
+  --color-surface-hover-rgb: 214 213 209;
   --color-surface-hover: rgb(var(--color-surface-hover-rgb));
-  --color-surface-active-rgb: 161 161 170;
+  --color-surface-active-rgb: 163 162 158;
   --color-surface-active: rgb(var(--color-surface-active-rgb));
 
   /* Text */
   --color-text-primary-rgb: 24 24 27;
   --color-text-primary: rgb(var(--color-text-primary-rgb));
-  --color-text-secondary-rgb: 82 82 91;
+  --color-text-secondary-rgb: 63 63 70;
   --color-text-secondary: rgb(var(--color-text-secondary-rgb));
-  --color-text-tertiary-rgb: 113 113 122;
+  --color-text-tertiary-rgb: 80 80 89;
   --color-text-tertiary: rgb(var(--color-text-tertiary-rgb));
-  --color-text-muted-rgb: 161 161 170;
+  --color-text-muted-rgb: 94 94 103;
   --color-text-muted: rgb(var(--color-text-muted-rgb));
 
   /* Borders */
-  --color-border-rgb: 212 212 216;
+  --color-border-rgb: 214 213 209;
   --color-border: rgb(var(--color-border-rgb));
   --color-border-subtle: rgba(0,0,0,0.08);
-  --color-border-strong-rgb: 161 161 170;
+  --color-border-strong-rgb: 163 162 158;
   --color-border-strong: rgb(var(--color-border-strong-rgb));
 
   /* Overlays */
@@ -497,23 +605,28 @@ body {
   --color-overlay-light: rgba(0,0,0,0.06);
   --color-overlay-medium: rgba(0,0,0,0.1);
   --color-overlay-strong: rgba(0,0,0,0.15);
+  --color-field: rgba(0,0,0,0.055); /* one small step above the old 0.04: 1.12:1 on white, was 1.09 */
   --color-backdrop: rgba(0,0,0,0.4);
 
-  /* Slideshow */
-  --color-slideshow-matt: #f5f5f5;
+  /* Slideshow: the one matte behind all artwork, viewers included. */
+  --color-slideshow-matt: var(--color-matte);
   --color-surface-elevated: rgba(255,255,255,0.95);
 
   /* Atelier accents (light: site CTA teal; selection indigo-500; paper matte) */
-  --color-accent-rgb: 13 148 136;
+  --color-accent-rgb: 11 120 110;
   --color-accent: rgb(var(--color-accent-rgb));
-  --color-accent-hi-rgb: 13 148 136;
+  --color-accent-hi-rgb: 13 106 98;
   --color-accent-hi: rgb(var(--color-accent-hi-rgb));
+  /* White on the light fill: 5.35:1 (was 3.74 on 13 148 136). */
+  --color-on-accent-rgb: 255 255 255;
   --color-selection-rgb: 99 102 241;
   --color-selection: rgb(var(--color-selection-rgb));
-  --color-matte-rgb: 241 239 235;
+  --color-matte-rgb: 234 233 230;
   --color-matte: rgb(var(--color-matte-rgb));
   --color-live-rgb: 219 39 119;
   --color-live: rgb(var(--color-live-rgb));
+  /* Deepened for paper: 5.47:1 on the menu surface, 5.14:1 on its hover. */
+  --color-danger-fg-rgb: 190 38 38;
 
   /* Lineage */
   --color-lineage-edge: #c4c4c8;
@@ -613,6 +726,38 @@ select option {
   height: 100%;
   flex-shrink: 0;
 }
+
+/* Marker toggles (heart, bookmark, any catalog marker): ONE silhouette rule.
+   At rest the glyph is an outline; set, it is filled in the marker's own color
+   on the `bg-overlay-light` backing. Catalog icons are solid, so the outline
+   is the same shape drawn with a stroke. Put `marker-glyph-off` on the glyph
+   container while the marker is unset (and never on a display-only badge). */
+.marker-glyph-off > svg,
+.marker-glyph-off > svg * {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+}
+
+/* Controls on the matte band under a result (markers, facts, remix, trash).
+   Resting is a hairline outline on the band, never a grey fill: a fill reads
+   as disabled on the light paper matte. Hover takes one overlay step;
+   disabled drops to 40% with no hover. `data-on` is the set state of a marker
+   toggle (the marker colours its own border and glyph inline). */
+.result-action {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  height: 32px; min-width: 32px; border-radius: 6px;
+  border: 1px solid rgb(var(--color-border-rgb));
+  background: transparent; color: rgb(var(--color-text-secondary-rgb));
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.result-action:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--color-overlay-light); color: rgb(var(--color-text-primary-rgb)); }
+.result-action[data-on="true"] { background: var(--color-overlay-light); border-width: 2px; }
+.result-action:disabled, .result-action[aria-disabled="true"] { opacity: .4; cursor: not-allowed; }
+.result-action:focus-visible { outline: none; box-shadow: 0 0 0 2px rgb(var(--color-accent-rgb) / .6); }
+.result-action.result-action-accent:hover:not(:disabled) { background: rgb(var(--color-accent-rgb)); border-color: rgb(var(--color-accent-rgb)); color: rgb(var(--color-on-accent-rgb)); }
+.result-action.result-action-danger:hover:not(:disabled) { background: rgb(239 68 68 / .85); border-color: transparent; color: #fff; }
 
 /* Checkerboard pattern for transparent image backgrounds - standard light/white pattern */
 .bg-checker {
@@ -823,11 +968,18 @@ textarea,
   --sheet-handle-h: 4px;
   --sheet-handle-top: 6px;
   --sheet-pad-top: 16px;      /* room for the handle */
+  --sheet-header-pb: 8px;     /* bottom padding under a sheet's title row */
+  --sheet-max-w: 480px;       /* the sheet itself, centred; narrow windows go full width */
   --sheet-menu-max-h: 62dvh;  /* menus */
   --sheet-panel-max-h: 85dvh; /* pickers, info, forms */
   --sheet-drawer-h: 75dvh;    /* interactive, expandable drawers */
   --sheet-backdrop: rgba(7, 9, 15, 0.55);
 }
+:root[data-width="narrow"] { --sheet-max-w: 100%; }
+/* The kit Sheet panel (and hand-built panels in its dress) is the sheet:
+   about 480px and centred from the medium band up, full width on a phone.
+   Rows fill it; there is no inner column. */
+.sheet-panel { width: 100%; max-width: var(--sheet-max-w); margin-inline: auto; }
 /* A row in any sheet. Buttons or divs; the first child is the icon. */
 .sheet-row {
   display: flex;
@@ -845,7 +997,7 @@ textarea,
 .sheet-row > svg:first-child, .sheet-row .sheet-row-icon { width: var(--sheet-icon); height: var(--sheet-icon); flex: none; overflow: hidden; color: var(--color-content-secondary); display: inline-flex; align-items: center; justify-content: center; }
 .sheet-row .sheet-row-icon > *, .sheet-row .sheet-row-icon svg, .sheet-row .sheet-row-icon img { width: 100% !important; height: 100% !important; max-width: 100%; max-height: 100%; }
 .sheet-row .sheet-row-detail { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--sheet-font-detail); color: var(--color-content-tertiary); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sheet-section { padding: 10px var(--sheet-row-px) 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-content-tertiary); }
+.sheet-section { padding: 10px var(--sheet-row-px) 2px; font-size: 12px; font-weight: 500; color: var(--color-content-tertiary); }
 /* Sheets scroll by touch; a scrollbar is desktop furniture. */
 [data-sheet-layer] .sheet-panel > div, [data-sheet-menu], [data-pointer="coarse"] .z-menu.fixed:not([data-sheet-layer]):not(.inset-0), [data-pointer="coarse"] .z-menu.absolute:not([data-sheet-layer]):not(.inset-0) { scrollbar-width: none; }
 [data-sheet-layer] .sheet-panel > div::-webkit-scrollbar, [data-sheet-menu]::-webkit-scrollbar { display: none; }
@@ -907,12 +1059,18 @@ textarea,
   flex-direction: row !important;
   height: 100%;
   min-height: 0;
-  align-items: stretch;
+  align-items: center;
   overflow-x: auto;
   overflow-y: hidden;
-  gap: 2px;
+  gap: var(--strip-gap-sm);
+  padding-inline: var(--strip-gutter);
   scrollbar-width: none;
   scrollbar-gutter: auto;
+}
+/* A roomy window's strip is taller: the large tier and its own side margin. */
+[data-viewport="compact"]:not([data-width="narrow"]) .jobs-results {
+  gap: var(--strip-gap-lg);
+  padding-inline: 4px;
 }
 [data-viewport="compact"] .jobs-results::-webkit-scrollbar { display: none; }
 [data-viewport="compact"] .jobs-results .text-\[11px\] { display: none; }
@@ -920,21 +1078,25 @@ textarea,
 [data-viewport="compact"] .jobs-results .jobs-rail,
 [data-viewport="compact"] .jobs-results .job-tile { display: contents; }
 [data-viewport="compact"] .jobs-results .jobs-tile {
-  height: 100%;
+  height: min(var(--strip-tile-sm), 100%);
   width: auto;
   min-width: 0;
   flex: none;
 }
 [data-viewport="compact"] .jobs-results .jobs-batch-cell {
   display: flex;
-  height: 100%;
+  height: min(var(--strip-tile-sm), 100%);
   flex: none;
+}
+[data-viewport="compact"]:not([data-width="narrow"]) .jobs-results .jobs-tile,
+[data-viewport="compact"]:not([data-width="narrow"]) .jobs-results .jobs-batch-cell {
+  height: min(var(--strip-tile-lg), 100%);
 }
 /* Progress summaries and the pagination button have no artwork aspect. */
 [data-viewport="compact"] .jobs-results > button,
 [data-viewport="compact"] .jobs-results .jobs-group > .group:not(.jobs-tile) {
   width: 10rem;
-  height: 100%;
+  height: var(--strip-tile-sm);
   min-height: 0;
   flex: none;
 }
@@ -1085,12 +1247,12 @@ textarea,
   bottom: 0 !important;
   top: auto !important;
   transform: none !important;
-  width: 100% !important;
+  width: min(100%, var(--sheet-max-w)) !important;
   min-width: 0 !important;
   max-width: none !important;
   max-height: var(--sheet-menu-max-h) !important;
   overflow-y: auto !important;
-  margin: 0 !important;
+  margin: 0 auto !important;
   border-radius: var(--sheet-radius) var(--sheet-radius) 0 0 !important;
   border-left: 0 !important;
   border-right: 0 !important;

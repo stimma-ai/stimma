@@ -2,7 +2,7 @@
   <div :class="modalMode ? 'flex flex-col h-full' : 'space-y-2 mb-6 overflow-x-hidden'" data-drop-zone="mask-editor">
     <!-- Label row (hidden in modal mode) -->
     <div v-if="!modalMode">
-      <label class="text-xs font-semibold text-content-secondary">Image to inpaint</label>
+      <label class="text-ctl font-semibold text-content-secondary">Image to inpaint</label>
     </div>
 
     <!-- Toolbar (always visible, disabled when no image). In modal mode the
@@ -49,7 +49,7 @@
           :class="[
             'h-full px-2 rounded-l-md transition-colors flex items-center',
             !hasImage ? 'text-content-muted cursor-not-allowed' :
-            paintMode === 'paint' ? 'bg-accent/15 text-accent' : 'text-content-muted hover:text-content-secondary'
+            paintMode === 'paint' ? 'bg-surface-raised text-content' : 'text-content-muted hover:text-content-secondary'
           ]"
           title="Paint mask (areas to inpaint)"
         >
@@ -61,7 +61,7 @@
           :class="[
             'h-full px-2 rounded-r-md transition-colors flex items-center',
             !hasImage ? 'text-content-muted cursor-not-allowed' :
-            paintMode === 'erase' ? 'bg-accent/15 text-accent' : 'text-content-muted hover:text-content-secondary'
+            paintMode === 'erase' ? 'bg-surface-raised text-content' : 'text-content-muted hover:text-content-secondary'
           ]"
           title="Erase mask"
         >
@@ -273,6 +273,7 @@
 </template>
 
 <script setup lang="ts">
+import { reportActionError } from '../../composables/useToasts'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import axios from 'axios'
 import { getCurrentProfileId } from '../../composables/useProfile'
@@ -875,7 +876,7 @@ async function addFromMediaId(mediaId: number) {
 
     emit('update:image', newImage)
   } catch (error) {
-    console.error('Failed to add image from media library:', error)
+    reportActionError("Couldn't attach image.", error)
   } finally {
     isUploading.value = false
   }
@@ -908,7 +909,7 @@ async function uploadFile(file: File) {
 
     emit('update:image', newImage)
   } catch (error) {
-    console.error('Failed to upload image:', error)
+    reportActionError("Couldn't upload image.", error)
   } finally {
     isUploading.value = false
   }

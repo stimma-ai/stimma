@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary">Markers</h3>
+      <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Markers</h3>
       <p class="mt-1 max-w-xl text-xs text-content-tertiary">
         Markers are the fastest way to organize your library. One click to mark an image as a favorite,
         flag it for review, or sort it into any category you create.
@@ -58,10 +58,10 @@
         class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04] disabled:opacity-50"
       >
         <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+          <svg class="h-icon-nav w-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-[13px] font-medium text-accent-hi">Add Marker</div>
+          <div class="text-[13px] font-medium text-accent-hi">Add marker</div>
         </div>
       </button>
     </div>

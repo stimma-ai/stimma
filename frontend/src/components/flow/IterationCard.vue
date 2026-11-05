@@ -18,8 +18,9 @@
         :media-id="primaryMediaId"
         :media-ids="primaryMediaIds"
         :thumbnail="true"
-        :thumbnail-size="size === 'full' ? 256 : 160"
+        :thumbnail-size="large ? 640 : size === 'full' ? 256 : 160"
         :contain="!isCompositePrimary"
+        :stack="iteration.primary?.equation_type === 'create_set'"
         :container-class="tileAspectClass"
       />
     </template>
@@ -39,7 +40,7 @@
         <Spinner hue="border-t-blue-400" />
       </template>
       <template v-else-if="iteration.status === 'failed'">
-        <svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg class="w-icon-nav h-icon-nav text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </template>
@@ -63,7 +64,7 @@
         </svg>
         <svg
           v-else-if="iteration.blockReason === 'error'"
-          class="w-5 h-5 text-red-400/70"
+          class="w-icon-nav h-icon-nav text-red-400/70"
           fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z" />
@@ -109,7 +110,7 @@
     <button
       v-if="!isRunning"
       type="button"
-      class="absolute bottom-1 right-1 z-10 h-6 w-6 flex items-center justify-center rounded bg-black/60 text-white/85 opacity-0 transition-all hover:bg-accent/80 hover:text-white group-hover/iteration-card:opacity-100"
+      class="absolute bottom-1 right-1 z-10 h-6 w-6 flex items-center justify-center rounded bg-black/60 text-white/85 opacity-0 transition-all hover:bg-accent/80 hover:text-white group-hover/iteration-card:opacity-100 coarse:opacity-100"
       title="Show iteration details"
       @click.stop="$emit('open', iteration)"
     >
@@ -121,7 +122,7 @@
     <button
       v-if="invalidateKey"
       type="button"
-      class="absolute top-1 right-1 opacity-0 group-hover/iteration-card:opacity-100 text-sm w-6 h-6 flex items-center justify-center rounded bg-black/55 text-white/85 hover:bg-black/75 transition-opacity"
+      class="absolute top-1 right-1 opacity-0 group-hover/iteration-card:opacity-100 coarse:opacity-100 text-sm w-6 h-6 flex items-center justify-center rounded bg-black/55 text-white/85 hover:bg-black/75 transition-opacity"
       title="Re-run this iteration"
       @click.stop="$emit('invalidate', invalidateKey)"
     >↻</button>
@@ -154,8 +155,10 @@ import { mapEquationStatus, mapBlockReason, tileBgClass } from '../../utils/stat
 interface Props {
   iteration: GroupedIteration
   size?: 'full' | 'compact'
+  // A lone or near-lone result shown large: asks for a bigger thumbnail.
+  large?: boolean
 }
-const props = withDefaults(defineProps<Props>(), { size: 'full' })
+const props = withDefaults(defineProps<Props>(), { size: 'full', large: false })
 const emit = defineEmits<{
   (e: 'open', iteration: GroupedIteration): void
   (e: 'invalidate', equationKey: string): void

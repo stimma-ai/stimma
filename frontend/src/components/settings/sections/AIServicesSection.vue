@@ -2,9 +2,9 @@
   <div class="space-y-6">
     <template v-if="!addOpen && !managerOpen && !legacyOpen && !chatgptOpen">
     <section>
-      <div v-if="!wizard" class="mb-3">
+      <div v-if="!wizard" class="mb-1">
         <div class="flex items-center gap-3">
-          <h3 class="text-xs font-semibold text-content-secondary">Chat Models</h3>
+          <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Chat models</h3>
         </div>
         <p class="mt-1 text-xs text-content-tertiary">Choose models from your Stimma account, API providers, or your own endpoints.</p>
       </div>
@@ -18,113 +18,87 @@
       </div>
 
       <div class="divide-y divide-edge-subtle">
-        <button type="button" class="group flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle" @click="cloudStatus === 'not_logged_in' ? handleCloudConnect() : cloudNeedsCredits ? openAddCredits() : openStimmaAccount()">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary" aria-hidden="true">
-            <div class="h-7 w-7 bg-current [mask-image:url('/logo.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.svg')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"></div>
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="text-[13px] text-content">Stimma</div>
-            <div v-if="cloudStatus === 'available' || cloudStatus === 'not_logged_in'" class="mt-0.5 truncate text-xs text-content-tertiary">Use a variety of models with one pool of credits.</div>
-            <div v-else-if="cloudMessage" class="mt-1 truncate text-xs text-red-400">{{ cloudMessage }}</div>
-            <div v-else-if="cloudConnectError" class="mt-1 truncate text-xs text-red-400">{{ cloudConnectError }}</div>
-          </div>
-          <template v-if="cloudStatus === 'not_logged_in'">
-            <div class="min-w-20 shrink-0 text-right text-xs">
-              <span class="relative inline-block">
-                <span class="invisible" aria-hidden="true">Configure</span>
-                <span class="absolute left-0 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-3.5 py-1.5 text-xs font-medium text-white transition-all group-hover:from-teal-500 group-hover:via-cyan-400 group-hover:to-indigo-400" :class="{ 'opacity-60': cloudConnecting }">
-                  {{ cloudConnecting ? 'Connecting…' : 'Sign in' }}
-                </span>
-              </span>
-            </div>
-            <span class="h-4 w-4 shrink-0" aria-hidden="true"></span>
+        <ProviderRow
+          name="Stimma"
+          :error="cloudStatus === 'available' || cloudStatus === 'not_logged_in' ? '' : (cloudMessage || cloudConnectError)"
+          @click="cloudStatus === 'not_logged_in' ? handleCloudConnect() : cloudNeedsCredits ? openAddCredits() : openStimmaAccount()"
+        >
+          <template #icon>
+            <div class="h-7 w-7 bg-current [mask-image:url('/logo.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.svg')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]" aria-hidden="true"></div>
           </template>
-          <template v-else>
-            <div class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
-              <span class="h-2 w-2 shrink-0 rounded-full" :class="cloudStatus !== 'available' ? 'bg-red-500' : cloudNeedsCredits ? 'bg-amber-400' : 'bg-green-500'"></span>
-              {{ cloudStatus !== 'available' ? 'Unavailable' : cloudNeedsCredits ? 'Add credits' : `Ready · ${cloudModels.length} model${cloudModels.length === 1 ? '' : 's'}` }}
-            </div>
-            <ChevronIcon />
+          <template v-if="cloudStatus === 'available' || cloudStatus === 'not_logged_in'" #description>Use a variety of models with one pool of credits.</template>
+          <template v-if="cloudStatus === 'not_logged_in'" #cta>
+            <span class="whitespace-nowrap rounded-md bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-3.5 py-1.5 text-xs font-medium text-white transition-colors group-hover:from-teal-500 group-hover:via-cyan-400 group-hover:to-indigo-400" :class="{ 'opacity-60': cloudConnecting }">
+              {{ cloudConnecting ? 'Connecting…' : 'Sign in' }}
+            </span>
           </template>
-        </button>
+          <template v-else #status>
+            <span class="h-2 w-2 shrink-0 rounded-full" :class="cloudStatus !== 'available' ? 'bg-red-500' : cloudNeedsCredits ? 'bg-amber-400' : 'bg-green-500'"></span>
+            <template v-if="cloudStatus !== 'available'">Unavailable</template><template v-else-if="cloudNeedsCredits">Add credits</template><template v-else>Ready · <span class="font-mono tabular-nums">{{ cloudModels.length }} model{{ cloudModels.length === 1 ? '' : 's' }}</span></template>
+          </template>
+        </ProviderRow>
 
-        <button
+        <ProviderRow
           v-for="provider in visibleRemoteProviderRows"
           :key="provider.id || provider.kind"
-          type="button"
+          :name="provider.name"
+          :description="chatgptRow(provider)?.sub || kindDescription(provider.kind)"
+          :description-class="chatgptRow(provider)?.subtone || 'text-content-tertiary'"
+          :error="provider.last_error && !chatgptRow(provider) ? provider.last_error : ''"
+          :verb="(chatgptRow(provider) ? (chatgptRow(provider).dot ? '' : chatgptRow(provider).label) : provider._unconfigured ? 'Configure' : '')"
           @click="openProviderRow(provider)"
-          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle"
         >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
-            <ProviderBrandIcon :provider="provider.kind" size="md" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-[13px] text-content">{{ provider.name }}</div>
-            <div class="mt-0.5 truncate text-xs" :class="chatgptRow(provider)?.subtone || 'text-content-tertiary'">{{ chatgptRow(provider)?.sub || kindDescription(provider.kind) }}</div>
-            <div v-if="provider.last_error && !chatgptRow(provider)" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
-          </div>
-          <div v-if="chatgptRow(provider)" class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
-            <span v-if="chatgptRow(provider).dot" class="h-2 w-2 shrink-0 rounded-full" :class="chatgptRow(provider).dot"></span>
-            {{ chatgptRow(provider).label }}
-          </div>
-          <div v-else class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs" :class="provider._unconfigured ? 'text-accent-hi' : 'text-content-tertiary'">
-            <span v-if="!provider._unconfigured && provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
-            {{ provider._unconfigured ? 'Configure' : provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
-          </div>
-          <ChevronIcon />
-        </button>
+          <template #icon><ProviderBrandIcon :provider="provider.kind" size="md" /></template>
+          <template #status>
+            <template v-if="chatgptRow(provider)">
+              <span v-if="chatgptRow(provider).dot" class="h-2 w-2 shrink-0 rounded-full" :class="chatgptRow(provider).dot"></span>
+              {{ chatgptRow(provider).label }}<template v-if="chatgptRow(provider).count"> · <span class="font-mono tabular-nums">{{ chatgptRow(provider).count }}</span></template>
+            </template>
+            <template v-else>
+              <span v-if="provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
+              <template v-if="provider.last_test_passed === false">Check failed</template><span v-else-if="provider.last_test_passed" class="font-mono tabular-nums">{{ provider.models.length }} model{{ provider.models.length === 1 ? '' : 's' }}</span><template v-else>Not checked</template>
+            </template>
+          </template>
+        </ProviderRow>
 
-        <button
+        <ProviderRow
           v-for="provider in localProviders"
           :key="provider.id"
-          type="button"
+          :name="provider.name"
+          :description="modelSummary(provider.models)"
+          :error="provider.last_error"
           @click="openProvider(provider)"
-          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle"
         >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
-            <ProviderBrandIcon provider="local" size="md" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-[13px] text-content">{{ provider.name }}</div>
-            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ modelSummary(provider.models) }}</div>
-            <div v-if="provider.last_error" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
-          </div>
-          <div class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
+          <template #icon><ProviderBrandIcon provider="local" size="md" /></template>
+          <template #status>
             <span v-if="provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
-            {{ provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
-          </div>
-          <ChevronIcon />
-        </button>
+            <template v-if="provider.last_test_passed === false">Check failed</template><span v-else-if="provider.last_test_passed" class="font-mono tabular-nums">{{ provider.models.length }} model{{ provider.models.length === 1 ? '' : 's' }}</span><template v-else>Not checked</template>
+          </template>
+        </ProviderRow>
 
-        <button
+        <ProviderRow
           v-if="legacyProvider"
-          type="button"
+          :name="legacyProvider.name"
+          :description="legacyProvider.model"
           @click="openLegacyProvider"
-          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle"
         >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
-            <ProviderBrandIcon provider="local" size="md" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-[13px] text-content">{{ legacyProvider.name }}</div>
-            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ legacyProvider.model }}</div>
-          </div>
-          <div class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
+          <template #icon><ProviderBrandIcon provider="local" size="md" /></template>
+          <template #status>
             <span v-if="legacyProvider.last_test_passed !== undefined && legacyProvider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="legacyProvider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
-            {{ legacyProvider.last_test_passed === false ? 'Check failed' : legacyProvider.last_test_passed ? '1 model' : 'Not checked' }}
-          </div>
-          <ChevronIcon />
-        </button>
+            <template v-if="legacyProvider.last_test_passed === false">Check failed</template><span v-else-if="legacyProvider.last_test_passed" class="font-mono tabular-nums">1 model</span><template v-else>Not checked</template>
+          </template>
+        </ProviderRow>
 
-        <button type="button" @click="openAddLocalProvider" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04]">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent-hi">
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="text-[13px] font-medium text-accent-hi">Add OpenAI Compatible Endpoint</div>
-            <div class="mt-0.5 truncate text-xs text-content-tertiary">Connect LM Studio, vLLM, llama.cpp, Ollama, or another compatible server.</div>
-          </div>
-        </button>
+        <ProviderRow
+          name="Add OpenAI compatible endpoint"
+          description="Connect LM Studio, vLLM, llama.cpp, Ollama, or another compatible server."
+          accent-icon
+          @click="openAddLocalProvider"
+        >
+          <template #icon>
+            <svg class="h-icon-nav w-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+          </template>
+        </ProviderRow>
       </div>
 
       <div v-if="wizard && hiddenRemoteProviderCount > 0" class="mt-3 px-1">
@@ -141,7 +115,7 @@
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
             </button>
             <div>
-              <h4 class="text-xs font-semibold text-content-secondary">Add OpenAI Compatible Endpoint</h4>
+              <h4 class="text-xs font-semibold text-content-secondary">Add OpenAI-compatible endpoint</h4>
               <p class="mt-0.5 text-xs text-content-tertiary">{{ kindDescription('local') }}</p>
             </div>
           </div>
@@ -167,7 +141,7 @@
 
           <div class="flex items-center justify-between px-6 pb-4 pt-2">
             <button type="button" @click="closeAddProvider" class="text-xs text-content-secondary hover:text-content">Cancel</button>
-            <button type="button" @click="advanceAddProvider" :disabled="addSaving" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">
+            <button type="button" @click="advanceAddProvider" :disabled="addSaving" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">
               {{ addSaving ? 'Checking…' : 'Continue' }}
             </button>
           </div>
@@ -228,7 +202,7 @@
                 </div>
                 <div v-else class="mt-4 flex items-center gap-2">
                   <input v-model="providerKeyDraft" type="password" autocomplete="off" class="min-w-0 flex-1 rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" :placeholder="activeProvider.api_key_set ? '••••••••••••' : 'Paste API key'" />
-                  <button type="button" @click="saveProviderConnection" :disabled="managerSaving || !providerKeyDraft" class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ activeProvider.api_key_set ? 'Save' : 'Connect' }}</button>
+                  <button type="button" @click="saveProviderConnection" :disabled="managerSaving || !providerKeyDraft" class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ activeProvider.api_key_set ? 'Save' : 'Connect' }}</button>
                   <button v-if="activeProvider.api_key_set" type="button" @click="cancelProviderKeyEdit" :disabled="managerSaving" class="rounded-md px-3 py-2 text-sm text-content-secondary hover:bg-overlay-subtle hover:text-content disabled:opacity-50">Cancel</button>
                 </div>
                 <p v-if="managerError" class="mt-2 text-xs text-red-400">{{ managerError }}</p>
@@ -249,7 +223,7 @@
                 </label>
               </div>
               <div v-if="!isRemoteProvider(activeProvider)" class="mt-3 flex items-center gap-3">
-                <button type="button" @click="saveProviderConnection" :disabled="managerSaving" class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ managerSaving ? 'Checking…' : 'Save connection' }}</button>
+                <button type="button" @click="saveProviderConnection" :disabled="managerSaving" class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ managerSaving ? 'Checking…' : 'Save connection' }}</button>
                 <button type="button" @click="testProvider(activeProvider)" :disabled="testingId === activeProvider.id" class="text-xs text-content-secondary hover:text-content disabled:opacity-50">{{ testingId === activeProvider.id ? 'Testing…' : 'Check connection' }}</button>
                 <span v-if="activeProvider.last_tested_at" class="text-[11px] text-content-muted">Tested {{ timeAgo(activeProvider.last_tested_at) }}</span>
               </div>
@@ -382,12 +356,12 @@
                     </template>
 
                     <p v-if="managerError" class="text-xs text-red-400">{{ managerError }}</p>
-                    <button v-if="isFlexibleProvider(activeProvider)" type="button" @click="saveModelSettings(model)" :disabled="managerSaving || Boolean(extraBodyErrors[model.id])" class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ managerSaving ? 'Saving…' : 'Save model settings' }}</button>
+                    <button v-if="isFlexibleProvider(activeProvider)" type="button" @click="saveModelSettings(model)" :disabled="managerSaving || Boolean(extraBodyErrors[model.id])" class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ managerSaving ? 'Saving…' : 'Save model settings' }}</button>
                     </template>
                   </div>
                 </div>
                 <button v-if="!selectedManagerModel && canAddProviderModel" type="button" @click="startAddProviderModel" class="mt-1 flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-accent/[0.04]">
-                  <span class="flex h-9 w-9 shrink-0 items-center justify-center text-accent-hi"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg></span>
+                  <span class="flex h-9 w-9 shrink-0 items-center justify-center text-accent-hi"><svg class="h-icon-nav w-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg></span>
                   <span class="min-w-0 flex-1"><span class="block text-[13px] font-medium text-accent-hi">Add a model</span></span>
                 </button>
               </div>
@@ -610,7 +584,7 @@
             <button type="button" @click="removeLegacyProvider" :disabled="legacySaving" class="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 disabled:opacity-50">
               <TrashIcon /> Remove endpoint
             </button>
-            <button type="button" @click="saveLegacyEndpoint" :disabled="legacySaving || Boolean(legacyExtraBodyError)" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ legacySaving ? 'Saving…' : 'Save' }}</button>
+            <button type="button" @click="saveLegacyEndpoint" :disabled="legacySaving || Boolean(legacyExtraBodyError)" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ legacySaving ? 'Saving…' : 'Save' }}</button>
           </div>
     </div>
 
@@ -629,6 +603,7 @@ import SettingsDropdown from '../../ui/SettingsDropdown.vue'
 import ModelVendorIcon from '../../models/ModelVendorIcon.vue'
 import ProviderBrandIcon from '../../models/ProviderBrandIcon.vue'
 import ProviderModelSetup from '../ProviderModelSetup.vue'
+import ProviderRow from '../ProviderRow.vue'
 import Button from '../../ui/Button.vue'
 import KeyValueList from '../../ui/KeyValueList.vue'
 import ProgressBar from '../../ui/ProgressBar.vue'
@@ -653,17 +628,17 @@ const props = defineProps({
 defineEmits(['navigate'])
 
 const providerKinds = [
-  { id: 'openai', name: 'OpenAI', description: 'Ensuring artificial general intelligence benefits all of humanity.', apiKeyHelp: 'Create or manage keys in the OpenAI Platform.', apiKeyUrl: 'https://platform.openai.com/api-keys' },
+  { id: 'openai', name: 'OpenAI', description: 'Adds GPT models using your OpenAI API key.', apiKeyHelp: 'Create or manage keys in the OpenAI Platform.', apiKeyUrl: 'https://platform.openai.com/api-keys' },
   // Signs in with a ChatGPT subscription instead of an API key. Kept beside
   // the API-key row rather than merged into it: different billing, different
   // model availability, and both can be connected at once.
   { id: 'chatgpt', name: 'ChatGPT', description: 'Use models included with your ChatGPT subscription.' },
-  { id: 'anthropic', name: 'Anthropic', description: 'Making AI systems you can rely on.', apiKeyHelp: 'Create or manage keys in the Claude Console.', apiKeyUrl: 'https://platform.claude.com/settings/keys' },
-  { id: 'google', name: 'Google', description: 'Gemini models from Google.', apiKeyHelp: 'Create or manage keys in Google AI Studio.', apiKeyUrl: 'https://aistudio.google.com/app/apikey' },
-  { id: 'xai', name: 'xAI', description: 'Accelerating human scientific discovery.', apiKeyHelp: 'Create or manage keys in the xAI Console.', apiKeyUrl: 'https://console.x.ai/' },
-  { id: 'together', name: 'Together AI', description: 'Open models through Together AI.', apiKeyHelp: 'Create or manage keys in your Together AI account.', apiKeyUrl: 'https://api.together.ai/settings/api-keys' },
-  { id: 'fireworks', name: 'Fireworks AI', description: 'Open models through Fireworks AI.', apiKeyHelp: 'Create or manage keys in your Fireworks AI account.', apiKeyUrl: 'https://app.fireworks.ai/settings/users/api-keys' },
-  { id: 'openrouter', name: 'OpenRouter', description: 'Access hundreds of models with one key.', apiKeyHelp: 'Create or manage keys in your OpenRouter account.', apiKeyUrl: 'https://openrouter.ai/settings/keys' },
+  { id: 'anthropic', name: 'Anthropic', description: 'Adds Claude models using your Anthropic API key.', apiKeyHelp: 'Create or manage keys in the Claude Console.', apiKeyUrl: 'https://platform.claude.com/settings/keys' },
+  { id: 'google', name: 'Google', description: 'Adds Gemini models using your Google API key.', apiKeyHelp: 'Create or manage keys in Google AI Studio.', apiKeyUrl: 'https://aistudio.google.com/app/apikey' },
+  { id: 'xai', name: 'xAI', description: 'Adds Grok models using your xAI API key.', apiKeyHelp: 'Create or manage keys in the xAI Console.', apiKeyUrl: 'https://console.x.ai/' },
+  { id: 'together', name: 'Together AI', description: 'Adds the models your Together AI key can list.', apiKeyHelp: 'Create or manage keys in your Together AI account.', apiKeyUrl: 'https://api.together.ai/settings/api-keys' },
+  { id: 'fireworks', name: 'Fireworks AI', description: 'Adds the models your Fireworks AI key can list.', apiKeyHelp: 'Create or manage keys in your Fireworks AI account.', apiKeyUrl: 'https://app.fireworks.ai/settings/users/api-keys' },
+  { id: 'openrouter', name: 'OpenRouter', description: 'Adds the models your OpenRouter key can list.', apiKeyHelp: 'Create or manage keys in your OpenRouter account.', apiKeyUrl: 'https://openrouter.ai/settings/keys' },
   { id: 'local', name: 'Local endpoint', description: 'Connect to LM Studio, vLLM, llama.cpp, Ollama, or another compatible server.' },
 ]
 const modelVendorOptions = MODEL_VENDOR_OPTIONS
@@ -802,7 +777,8 @@ function chatgptRow(provider) {
   }
   const count = chatgptStatus.value.models.length
   return {
-    label: `Ready · ${count} model${count === 1 ? '' : 's'}`,
+    label: 'Ready',
+    count: `${count} model${count === 1 ? '' : 's'}`,
     dot: 'bg-green-500',
     sub: [chatgptPlanLabel.value, chatgptStatus.value.account?.email].filter(Boolean).join(' · ') || null,
     subtone: 'text-content-tertiary',

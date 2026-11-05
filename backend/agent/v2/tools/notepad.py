@@ -78,7 +78,7 @@ def _summary(tasks_data: dict, scratchpad: str) -> str:
 
 
 def format_notepad_for_prompt(workspace_dir: str) -> str:
-    """Format notepad state for system prompt injection. Returns empty string if notepad is unused."""
+    """Format the current notepad for an appended conversation reminder."""
     tasks_data = _read_tasks(workspace_dir)
     scratchpad = _read_scratchpad(workspace_dir)
     tasks = tasks_data.get("tasks", [])

@@ -23,7 +23,7 @@
     <div class="max-h-96 overflow-y-auto py-1">
       <!-- Built-in filters (highest priority) -->
       <template v-if="filteredFilters.length">
-        <div class="px-3 pt-2 pb-1 text-xs font-semibold text-content-secondary">
+        <div class="px-3 pt-2 pb-1 text-ctl font-semibold text-content-secondary">
           Filters
         </div>
         <button
@@ -47,7 +47,7 @@
 
       <!-- STP tools, grouped by category in priority order -->
       <template v-for="group in toolGroups" :key="group.label">
-        <div class="px-3 pt-2 pb-1 text-xs font-semibold text-content-secondary">
+        <div class="px-3 pt-2 pb-1 text-ctl font-semibold text-content-secondary">
           {{ group.label }}
         </div>
         <button

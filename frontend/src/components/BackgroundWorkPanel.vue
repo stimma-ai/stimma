@@ -40,7 +40,7 @@
           <svg class="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
             <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
           </svg>
-          <span class="text-sm font-semibold text-yellow-500">System Warnings</span>
+          <span class="text-sm font-semibold text-yellow-500">System warnings</span>
         </div>
         <div v-for="warning in systemWarnings" :key="warning.type" class="text-xs text-content-secondary mb-2">
           <div class="flex items-start justify-between gap-2">
@@ -151,7 +151,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
               </svg>
               <Spinner v-else size="md" hue="border-t-white" />
-              <span class="compact:hidden">Trash All</span>
+              <span class="compact:hidden">Trash all</span>
             </button>
             <button class="bg-transparent border-none text-content-tertiary cursor-pointer p-1 coarse:w-11 coarse:h-11 flex items-center justify-center transition-colors hover:text-content" @click="closeFailedItems">
               <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -220,10 +220,10 @@ const {
 const { getThumbnailUrl } = useMediaApi()
 
 const phases = computed(() => [
-  { id: 'metadata', label: 'Processing Media', pausable: false },
-  { id: 'clip', label: 'Visual Indexing', pausable: true },
-  { id: 'face_detection', label: 'Face Analysis', pausable: true },
-  { id: 'vlm_caption', label: 'Visual Analysis', pausable: true },
+  { id: 'metadata', label: 'Processing media', pausable: false },
+  { id: 'clip', label: 'Visual indexing', pausable: true },
+  { id: 'face_detection', label: 'Face analysis', pausable: true },
+  { id: 'vlm_caption', label: 'Visual analysis', pausable: true },
 ].filter((phase) => isPhaseEnabled(phase.id)))
 
 function getFileName(path) {

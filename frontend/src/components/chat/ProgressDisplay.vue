@@ -5,7 +5,7 @@
       <span v-if="displayData.title" class="text-sm text-content-secondary font-medium truncate">
         {{ displayData.title }}
       </span>
-      <span class="text-xs text-content-tertiary tabular-nums whitespace-nowrap flex-shrink-0">
+      <span class="text-xs text-content-tertiary font-mono tabular-nums whitespace-nowrap flex-shrink-0">
         {{ displayData.current }} / {{ displayData.total }}
       </span>
     </div>

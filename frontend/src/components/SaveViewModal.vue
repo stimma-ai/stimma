@@ -1,7 +1,7 @@
 <template>
   <Modal :show="visible" size="sm" @close="$emit('close')">
     <template #header>
-      <h3 class="text-lg font-semibold text-content">Save View</h3>
+      <h3 class="text-lg font-semibold text-content">Save view</h3>
     </template>
 
     <div class="px-6 py-5">

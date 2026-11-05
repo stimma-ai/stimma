@@ -24,8 +24,8 @@ export function parseServerTime(value) {
 export function formatRelativeTime(dateStr) {
   if (!dateStr) return ''
   const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now - date
+  if (Number.isNaN(date.getTime())) return ''
+  const diffMs = Date.now() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
@@ -34,7 +34,45 @@ export function formatRelativeTime(dateStr) {
   if (diffMins < 60) return `${diffMins}m ago`
   if (diffHours < 24) return `${diffHours}h ago`
   if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString()
+  return formatDate(date)
+}
+
+/**
+ * The compact relative form for list rows ("now", "5m", "3h", "2d"), falling
+ * back to formatDate beyond a week.
+ */
+export function formatRelativeShort(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  if (Number.isNaN(date.getTime())) return ''
+  const diffMs = Date.now() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'now'
+  if (diffMins < 60) return `${diffMins}m`
+  if (diffHours < 24) return `${diffHours}h`
+  if (diffDays < 7) return `${diffDays}d`
+  return formatDate(date)
+}
+
+/**
+ * THE app date format: "Aug 13" in the current year, "Aug 13, 2026" otherwise.
+ * Pass `{ year: 'always' }` where the year must always show (detail panels,
+ * account and sharing facts). Never the numeric locale form ("8/13/2026").
+ *
+ * @param {string|number|Date|null} value
+ * @param {{ year?: 'auto'|'always' }} [options]
+ * @returns {string} '' for a falsy or invalid value
+ */
+export function formatDate(value, { year = 'auto' } = {}) {
+  if (!value) return ''
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const opts = { month: 'short', day: 'numeric' }
+  if (year === 'always' || date.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric'
+  return date.toLocaleDateString(undefined, opts)
 }
 
 /**

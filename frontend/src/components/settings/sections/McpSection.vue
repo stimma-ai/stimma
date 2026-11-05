@@ -2,8 +2,8 @@
   <div class="max-w-[720px] space-y-6">
     <header>
       <div class="flex items-center gap-3">
-        <h3 class="font-brand text-xl font-semibold text-content">MCP</h3>
-        <span class="shrink-0 rounded border border-edge-subtle px-1 py-0.5 text-[8px] font-normal leading-none text-content-tertiary">EXPERIMENTAL</span>
+        <h3 class="font-brand text-xl font-semibold text-content compact:hidden">MCP</h3>
+        <span class="shrink-0 rounded border border-edge-subtle px-1 py-0.5 text-[10px] font-normal leading-none text-content-tertiary">Experimental</span>
         <a href="https://docs.stimma.ai/mcp/" target="_blank" rel="noopener noreferrer" class="ml-auto shrink-0 text-sm text-accent-hi hover:text-accent" @click.prevent="openGuide">Learn more ↗</a>
       </div>
       <p class="mt-2 text-sm leading-relaxed text-content-secondary">
@@ -118,8 +118,8 @@
             <div class="min-w-0">
               <p class="truncate text-sm text-content">{{ client.name }}</p>
               <p class="mt-0.5 text-xs text-content-tertiary">
-                Created {{ formatDate(client.created_at) }} ·
-                {{ client.unlocked ? 'Active now' : client.last_used_at ? `Last used ${formatRelative(client.last_used_at)}` : 'Never used' }}
+                Created <span class="font-mono tabular-nums">{{ formatDate(client.created_at) }}</span> ·
+                <template v-if="client.unlocked">Active now</template><template v-else-if="client.last_used_at">Last used <span class="font-mono tabular-nums">{{ formatRelative(client.last_used_at) }}</span></template><template v-else>Never used</template>
               </p>
             </div>
           </div>
@@ -166,6 +166,7 @@
 </template>
 
 <script setup>
+import { formatDate as formatDateValue } from '../../../utils/timeFormat'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { getApiBase, getBackendOrigin } from '../../../apiConfig'
@@ -341,7 +342,7 @@ async function openGuide() {
 }
 function formatDate(iso) {
   if (!iso) return ''
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  return formatDateValue(iso, { year: 'always' })
 }
 function formatRelative(iso) {
   const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)

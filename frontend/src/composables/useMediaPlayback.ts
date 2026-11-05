@@ -20,7 +20,7 @@
  *     playing, other audible registered elements pause. Muted/ambient playback
  *     (e.g. a muted looping video) neither claims exclusivity nor gets paused.
  */
-import { ref, watch, onBeforeUnmount, onDeactivated, type Ref } from 'vue'
+import { ref, watch, onBeforeUnmount, onActivated, onDeactivated, type Ref } from 'vue'
 import { makeProfileKey } from '../utils/storageKeys'
 import { mobileAutoplayAllowed } from './useMobilePlaybackLifecycle.js'
 import { isMobileShell } from '../desktop/mobileBridge.ts'
@@ -221,11 +221,15 @@ function onRegisteredPlay(e: Event) {
   }
 }
 
-function registerMediaElement(el: HTMLMediaElement): () => void {
-  registeredElements.add(el)
-  el.addEventListener('play', onRegisteredPlay)
+function registerMediaElement(el: HTMLMediaElement, canPlay: () => boolean): () => void {
+  if (canPlay()) registeredElements.add(el)
+  const onPlay = (event: Event) => {
+    if (!canPlay() || !el.isConnected) { el.pause(); return }
+    onRegisteredPlay(event)
+  }
+  el.addEventListener('play', onPlay)
   return () => {
-    el.removeEventListener('play', onRegisteredPlay)
+    el.removeEventListener('play', onPlay)
     registeredElements.delete(el)
   }
 }
@@ -235,6 +239,7 @@ function registerMediaElement(el: HTMLMediaElement): () => void {
  * and make its playback die with the component. Call once during setup.
  */
 export function useManagedMediaElement(elRef: Ref<HTMLMediaElement | null>) {
+  let active = true
   let unregister: (() => void) | null = null
   watch(elRef, (el, oldEl) => {
     if (unregister) {
@@ -244,12 +249,23 @@ export function useManagedMediaElement(elRef: Ref<HTMLMediaElement | null>) {
     // A keyed re-render discards the old element while it may still be
     // playing — kill it, don't wait for GC.
     if (oldEl && oldEl !== el) teardownMediaElement(oldEl)
-    if (el) unregister = registerMediaElement(el)
+    if (el) unregister = registerMediaElement(el, () => active)
   }, { immediate: true })
+  onActivated(() => {
+    active = true
+    if (elRef.value) registeredElements.add(elRef.value)
+  })
   onDeactivated(() => {
-    elRef.value?.pause()
+    active = false
+    if (elRef.value) {
+      elRef.value.pause()
+      // Cached DOM is intentionally detached, not a ghost. Keep the play
+      // guard attached but exclude it from other players' ghost cleanup.
+      registeredElements.delete(elRef.value)
+    }
   })
   onBeforeUnmount(() => {
+    active = false
     if (unregister) {
       unregister()
       unregister = null

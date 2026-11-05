@@ -25,7 +25,7 @@
           <p v-if="dialogSubtitle" class="truncate text-xs text-content-tertiary">{{ dialogSubtitle }}</p>
         </div>
         <IconButton class="self-start" aria-label="Close" @click="$emit('close')">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-icon-nav h-icon-nav">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
         </IconButton>
@@ -125,7 +125,7 @@
             aria-label="Quality"
             class="flex-1 h-1 bg-surface-raised rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
           >
-          <span class="text-xs text-content-secondary tabular-nums w-6 text-right">{{ quality }}</span>
+          <span class="text-xs text-content-secondary font-mono tabular-nums w-6 text-right">{{ quality }}</span>
         </div>
       </div>
 
@@ -138,11 +138,11 @@
             <template v-if="layoutScaleMode === 'custom'">
               <input v-model.number="layoutCustomWidth" type="number" :min="mediaCategory === 'vector' ? 16 : 100" :max="mediaCategory === 'vector' ? 4096 : 16384" step="1" aria-label="Width" :class="[NUMBER, 'w-24']">
               <span class="mx-1.5 text-content-tertiary">&times;</span>
-              <span class="text-content-secondary tabular-nums">{{ layoutDerivedHeight }}</span>
+              <span class="text-content-secondary font-mono tabular-nums">{{ layoutDerivedHeight }}</span>
               <span class="ml-1.5 text-content-tertiary">px</span>
             </template>
             <template v-else>
-              <span class="text-content-secondary tabular-nums">{{ layoutOutputWidth }} &times; {{ layoutOutputHeight }}</span>
+              <span class="text-content-secondary font-mono tabular-nums">{{ layoutOutputWidth }} &times; {{ layoutOutputHeight }}</span>
               <span class="ml-1.5 text-content-tertiary">px</span>
             </template>
           </div>
@@ -159,7 +159,7 @@
             :aria-pressed="pngSetSizes.includes(size)"
             :class="[
               'rounded px-2 py-1 text-xs font-medium tabular-nums transition-colors',
-              pngSetSizes.includes(size) ? 'bg-accent/15 text-accent' : 'bg-overlay-faint text-content-secondary hover:bg-overlay-subtle hover:text-content'
+              pngSetSizes.includes(size) ? 'bg-selection/15 text-content' : 'bg-overlay-faint text-content-secondary hover:bg-overlay-subtle hover:text-content'
             ]"
             @click="togglePngSetSize(size)"
           >
@@ -216,7 +216,7 @@
               <input v-model.number="scalePercent" type="number" min="1" max="1000" step="1" aria-label="Scale" :class="[NUMBER, 'w-20']">
               <span>%</span>
             </template>
-            <span v-if="imageOutputSize && resizeMode !== 'exact'" class="ml-auto tabular-nums text-content-secondary">
+            <span v-if="imageOutputSize && resizeMode !== 'exact'" class="ml-auto font-mono tabular-nums text-content-secondary">
               {{ imageOutputSize }}
             </span>
           </div>
@@ -331,7 +331,7 @@ const { getThumbnailUrl } = useMediaApi()
 const ROW = 'grid grid-cols-[84px_minmax(0,1fr)] items-start gap-3'
 const LABEL = 'pt-1.5 text-xs font-semibold text-content-secondary'
 const TILE = 'flex min-h-8 items-center justify-center rounded-md px-3 py-1.5 text-center text-xs font-medium transition-colors duration-150 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-accent/60'
-const TILE_ON = 'bg-accent/15 text-accent'
+const TILE_ON = 'bg-selection/15 text-content'
 const TILE_OFF = 'bg-overlay-faint text-content-secondary hover:bg-overlay-subtle hover:text-content'
 const NUMBER = 'px-2.5 py-1 bg-surface-overlay border border-edge rounded text-content-secondary text-xs tabular-nums focus:outline-none focus:border-accent'
 const SWITCH_ROW = 'flex cursor-pointer select-none items-center gap-2 pt-1 text-xs text-content-secondary'

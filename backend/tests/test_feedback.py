@@ -26,6 +26,88 @@ import pytest
 
 
 class TestLogTail:
+    @pytest.mark.parametrize("message", [
+        "task_queues:105:5", "App.vue:42:11", "foo.ts:10", "foo.js:1:2", "foo.py:7",
+        "app.123.js:42", "foo.ts:100000", "size:1024", "render-box:9191", "metric.value1:1024",
+        "Version 1.2.3; version:1.2.3; size 1048576 bytes (12.5 MB); 12:34:56",
+        "invalid 999.1.2.3", "Listening on localhost:9191", "Listening on 127.0.0.1:9191",
+        "Listening on 127.0.0.1:PORT", "Listening on 127.0.0.2:9191",
+        "Listening on [::1]:9191", "Listening on ::1", "Listening on 0:0:0:0:0:0:0:1",
+        "http://localhost:9191/path", "http://127.0.0.1:9191/path", "http://[::1]:9191/path",
+        "http://[0:0:0:0:0:0:0:1]:9191/path",
+    ])
+    def test_shell_scrubber_preserves_diagnostics_and_loopback_endpoints(self, message):
+        from log_tail import scrub_shell_details
+        assert scrub_shell_details(message) == message
+
+    @pytest.mark.parametrize(("message", "expected"), [
+        ("getaddrinfo ENOTFOUND studio-node.example", "getaddrinfo ENOTFOUND [redacted]"),
+        ("getaddrinfo EAI_AGAIN studio-node.example:9191", "getaddrinfo EAI_AGAIN [redacted]"),
+        ("route render-box.local. render-box.tailtest.ts.net.", "route [redacted] [redacted]"),
+        ("route render-box.local.:9191 render-box.tailtest.ts.net.:9191", "route [redacted] [redacted]"),
+        ("Could not resolve render-box.local.", "Could not resolve [redacted]"),
+        ("connect ECONNREFUSED 203.0.113.8:9191", "connect ECONNREFUSED [redacted]"),
+        ("route 198.51.100.8", "route [redacted]"),
+        ("route studio-node.example:9191 studio-node.example", "route [redacted] [redacted]"),
+        ("route [2001:db8::8]:9191 2001:db8::8", "route [redacted] [redacted]"),
+        ("route fe80::1234%eth0 ::ffff:192.0.2.8", "route [redacted] [redacted]"),
+        ("https://render-box:9191/path", "https://[redacted]/path"),
+        ("https://user:password@localhost:9191/path", "https://[redacted]/path"),
+        ("https://studio-node.example:9191/path", "https://[redacted]/path"),
+    ])
+    def test_shell_scrubber_removes_addresses_without_removing_error_codes(self, message, expected):
+        from log_tail import scrub_shell_details
+        assert scrub_shell_details(message) == expected
+
+    def test_shell_tail_discards_rotation_fragments_including_current_file(self, tmp_path):
+        from log_tail import tail_log_lines
+        (tmp_path / "Stimma-shell.log.2").write_text("older record\ntoken=")
+        (tmp_path / "Stimma-shell.log.1").write_text(
+            "private-rotated-value\nuseful diagnostic\ntoken="
+        )
+        (tmp_path / "Stimma-shell.log").write_text("private-current-value")
+        assert tail_log_lines(log_dir=tmp_path, include_shell=True) == [
+            "[shell]", "token=", "useful diagnostic", "token=",
+        ]
+
+    def test_bounded_tail_discards_a_partial_line_without_a_newline(self, tmp_path):
+        from log_tail import MAX_TAIL_BYTES, tail_log_lines
+        (tmp_path / "Stimma_log.00.txt").write_text("api_key=" + "v" * MAX_TAIL_BYTES)
+        assert tail_log_lines(log_dir=tmp_path) == []
+
+    def test_feedback_scrubs_export_secrets_and_current_identity(self, monkeypatch):
+        import getpass
+        import socket
+        from pathlib import Path
+        from log_tail import scrub_secrets
+
+        monkeypatch.setattr(Path, "home", lambda: Path("/home/test-account"))
+        monkeypatch.setattr(getpass, "getuser", lambda: "test-account")
+        monkeypatch.setattr(socket, "gethostname", lambda: "sample-workstation")
+        for value in (
+            '"access_token": "private-value"',
+            "Authorization: Basic private-basic",
+            "'refresh_token': 'private-refresh'",
+            "pin=123456",
+            "sk-" + "x" * 40,
+            "ghp_" + "b" * 36,
+            "opaque " + "a" * 40,
+        ):
+            out = scrub_secrets(value)
+            assert "[redacted]" in out
+            assert not any(secret in out for secret in (
+                "private-", "123456", "x" * 40, "b" * 36, "a" * 40,
+            ))
+        for home in (
+            "/home/test-account", "/Users/other-account",
+            r"C:\Users\other-account", r"C:\\Users\\other-account",
+            "C:/Users/other-account",
+        ):
+            assert scrub_secrets(home + "/cache/data") == "~/cache/data"
+        assert scrub_secrets("user=test-account host=sample-workstation") == (
+            "user=[redacted] host=[redacted]"
+        )
+
     def test_tail_reads_last_n_lines(self, tmp_path):
         from log_tail import tail_log_lines
         log_dir = tmp_path / "Logs"
@@ -59,6 +141,38 @@ class TestLogTail:
     def test_tail_missing_dir_returns_empty(self, tmp_path):
         from log_tail import tail_log_lines
         assert tail_log_lines(200, log_dir=tmp_path / "nope") == []
+
+    def test_shell_tail_includes_rotations_with_the_backend_scrubber(self, tmp_path):
+        from log_tail import tail_log_lines
+        (tmp_path / "Stimma_log.00.txt").write_text("backend warning\n")
+        (tmp_path / "Stimma-shell.log.1").write_text(
+            "old shell\nupdater api_key=private-key\n"
+        )
+        (tmp_path / "Stimma-shell.log").write_text(
+            "\nrenderer Authorization: Bearer private-token\n"
+        )
+        lines = tail_log_lines(2, log_dir=tmp_path, include_shell=True)
+        assert lines == [
+            "backend warning", "[shell]", "updater api_key=[redacted]",
+            "renderer Authorization: [redacted]",
+        ]
+
+    def test_shell_tail_bounds_a_huge_legacy_file_and_works_without_backend(self, tmp_path):
+        from log_tail import MAX_TAIL_BYTES, tail_log_text
+        with (tmp_path / "Stimma-shell.log").open("wb") as file:
+            file.seek(1024 * 1024 * 1024)
+            file.write(b"\nrenderer failure token=private-token\n")
+        text = tail_log_text(log_dir=tmp_path, include_shell=True)
+        assert "renderer failure token=[redacted]" in text
+        assert "private-token" not in text
+        assert len(text) <= MAX_TAIL_BYTES + 20
+
+    def test_unreadable_shell_does_not_hide_backend_and_zero_is_empty(self, tmp_path):
+        from log_tail import tail_log_lines
+        (tmp_path / "Stimma_log.00.txt").write_text("backend warning\n")
+        (tmp_path / "Stimma-shell.log").mkdir()
+        assert tail_log_lines(log_dir=tmp_path, include_shell=True) == ["backend warning"]
+        assert tail_log_lines(0, log_dir=tmp_path, include_shell=True) == []
 
     def test_scrubs_authorization_header(self):
         from log_tail import scrub_secrets
@@ -427,6 +541,20 @@ def _unique_booms(n):
 
 
 class TestCrashReports:
+    @pytest.mark.parametrize("consent", ["ask", "always"])
+    def test_crash_reports_exclude_shell_logs(self, monkeypatch, tmp_path, consent):
+        import crash_reports
+        import log_tail
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        monkeypatch.setattr(crash_reports, "_crash_consent", lambda: consent)
+        monkeypatch.setattr(crash_reports, "get_pending_dir", lambda: tmp_path / "pending")
+        (tmp_path / "Stimma_log.00.txt").write_text("backend warning\n")
+        (tmp_path / "Stimma-shell.log").write_text("shell diagnostic\n")
+        monkeypatch.setattr(log_tail, "get_log_dir", lambda: tmp_path)
+        report = crash_reports.record_crash(_boom())
+        assert report is not None
+        assert json.loads(report.read_text())["logTail"] == ["backend warning"]
+
     def test_dev_build_never_writes(self, crash_env, monkeypatch):
         import crash_reports
         monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
@@ -863,6 +991,98 @@ def fake_cloud(monkeypatch):
 
 
 class TestFeedbackRoutes:
+    @pytest.mark.asyncio
+    async def test_shell_logs_only_read_with_existing_consent_and_never_in_lockdown(
+        self, feedback_client_fixture, monkeypatch, tmp_path,
+    ):
+        import log_tail
+        from fastapi import HTTPException
+        from routes import feedback
+        from config import get_settings
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN", raising=False)
+        reads = []
+        sent = []
+        (tmp_path / "Stimma-shell.log").write_text("\nupdater token=private-token\n")
+        monkeypatch.setattr(log_tail, "get_log_dir", lambda: reads.append(True) or tmp_path)
+
+        async def submit_feedback(**kwargs):
+            sent.append(kwargs)
+            return "test-feedback"
+
+        import feedback_client
+        monkeypatch.setattr(feedback_client, "submit_feedback", submit_feedback)
+        request = feedback.SubmitFeedbackRequest(kind="feedback")
+        await feedback.submit(request)
+        assert reads == []
+        request.include_logs = True
+        await feedback.submit(request)
+        assert sent[-1]["logs"] == b"[shell]\nupdater token=[redacted]"
+        assert reads == [True]
+        monkeypatch.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
+        with pytest.raises(HTTPException) as error:
+            await feedback.submit(request)
+        assert error.value.status_code == 403
+        assert reads == [True]
+        monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN")
+        monkeypatch.setattr(get_settings().feedback, "thumbs_consent", "never")
+        request.kind = "thumbs"
+        with pytest.raises(HTTPException) as error:
+            await feedback.submit(request)
+        assert error.value.status_code == 403
+        assert reads == [True]
+
+    @pytest.mark.asyncio
+    async def test_feedback_scrubs_legacy_shell_devices_and_network_addresses(
+        self, feedback_client_fixture, monkeypatch, tmp_path,
+    ):
+        import log_tail
+        import feedback_client
+        from routes import feedback
+
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN", raising=False)
+        legacy = [
+            "Connected to Studio Computer via tailscale studio-node.example:9191",
+            "Connected to Studio Computer via lan render-box:9191",
+            "Bootstrap refused by Studio Computer: 403",
+            "Bootstrap failed for Studio Computer: Error: connect ECONNREFUSED 192.168.42.8:9191",
+            "Cached session rejected by Studio Computer; re-bootstrapping",
+            "Session rejected by Studio Computer; re-bootstrapping",
+            "Target set to render-box.example:9191",
+            "Renderer failed to load https://render-box.example:9192/: ERR_FAILED (-2)",
+            "getaddrinfo ENOTFOUND studio-node.example",
+            "route 10.23.45.6 172.23.4.5 192.168.42.8 100.97.42.8",
+            "route render-box.local render-box.lan render-box.tailtest.ts.net",
+            "route [fd12:3456::8]:9191 fd12:3456::8 fe80::1234 2001:db8::8",
+        ]
+        useful = "Version 1.2.3; version:1.2.3; file app.123.js:42; size 1048576 bytes (12.5 MB); 12:34:56"
+        (tmp_path / "Stimma-shell.log").write_text("\n" + "\n".join(legacy + [
+            useful, "Connected to device 3fa9c812 via tailscale",
+            "Cached session rejected by device 3fa9c812; re-bootstrapping",
+        ]))
+        monkeypatch.setattr(log_tail, "get_log_dir", lambda: tmp_path)
+        sent = []
+
+        async def submit_feedback(**kwargs):
+            sent.append(kwargs)
+            return "test-feedback"
+
+        monkeypatch.setattr(feedback_client, "submit_feedback", submit_feedback)
+        await feedback.submit(feedback.SubmitFeedbackRequest(kind="feedback", include_logs=True))
+        text = sent[-1]["logs"].decode()
+        for value in (
+            "Studio Computer", "studio-node", "render-box", "192.168.42.8", "10.23.45.6",
+            "172.23.4.5", "100.97.42.8", "fd12:3456::8", "fe80::1234", "2001:db8::8",
+        ):
+            assert value not in text
+        assert "Connected to [redacted] via tailscale [redacted]" in text
+        assert "Connected to [redacted] via lan [redacted]" in text
+        assert "Bootstrap refused by [redacted]: 403" in text
+        assert useful in text
+        assert "Connected to device 3fa9c812 via tailscale" in text
+        assert "Cached session rejected by device 3fa9c812; re-bootstrapping" in text
+
     @pytest.mark.asyncio
     async def test_state_defaults(self, feedback_client_fixture, monkeypatch):
         monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)

@@ -127,7 +127,7 @@ function tap(p: DeckParam) {
         type="button"
         role="tab"
         class="min-w-0 min-h-11 px-2 rounded-md flex items-center justify-between gap-1.5 text-[13px] font-medium transition-colors"
-        :class="[shown?.key === p.key ? 'bg-accent/15 text-accent-hi' : 'text-content-secondary', disabled && 'opacity-50']"
+        :class="[shown?.key === p.key ? 'bg-selection/15 text-content' : 'text-content-secondary', disabled && 'opacity-50']"
         :aria-selected="shown?.key === p.key"
         :data-param-chip="p.key"
         :disabled="disabled"

@@ -48,7 +48,7 @@
         />
         <svg
           v-else-if="state === 'failed'"
-          class="w-5 h-5 text-red-400"
+          class="w-icon-nav h-icon-nav text-red-400"
           fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -76,7 +76,7 @@
           <button
             type="button"
             aria-pressed="false"
-            class="flex-1 min-w-0 bg-accent text-white text-[10px] font-medium px-1 py-0.5 rounded-md hover:bg-accent/90 transition-colors truncate"
+            class="flex-1 min-w-0 bg-accent text-accent-on text-[10px] font-medium px-1 py-0.5 rounded-md hover:bg-accent/90 transition-colors truncate"
             title="Approve"
             @click.stop="$emit('approve', true)"
           >Approve</button>

@@ -1,3 +1,4 @@
+import { reportActionError } from './useToasts'
 import { ref, computed, watch, nextTick, type Ref, type ComputedRef, type WatchStopHandle } from 'vue'
 import { usePresetsApi } from './usePresetsApi'
 import { getToolDefaults } from '../utils/generationDefaults'
@@ -641,7 +642,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
 
       clearLocalStorageState()
     } catch (err) {
-      console.error('Failed to save preset:', err)
+      reportActionError("Couldn't save preset.", err)
     }
   }
 
@@ -656,7 +657,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       baseState.value = { ...state }
       clearLocalStorageState()
     } catch (err) {
-      console.error('Failed to save tool settings:', err)
+      reportActionError("Couldn't save defaults.", err)
     }
   }
 

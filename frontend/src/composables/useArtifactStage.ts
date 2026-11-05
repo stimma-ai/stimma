@@ -59,7 +59,22 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
 
   const stageOpen = ref(false)
   const workspaceFile = ref<WorkspaceFile | null>(null)
+  // A chat's image collection can borrow the panel. It is not persisted, and
+  // whatever the panel showed comes back when the collection leaves.
+  const collectionItemId = ref<number | null>(null)
+  let openBeforeCollection = false
+  function openCollection(itemId: number) {
+    if (collectionItemId.value == null) openBeforeCollection = stageOpen.value
+    collectionItemId.value = itemId
+    stageOpen.value = true
+  }
+  function closeCollection() {
+    if (collectionItemId.value == null) return
+    collectionItemId.value = null
+    stageOpen.value = openBeforeCollection
+  }
   function openFile(file: WorkspaceFile) {
+    collectionItemId.value = null
     workspaceFile.value = file
     stageOpen.value = true
   }
@@ -153,6 +168,7 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
   }
 
   async function openOnAsset(id: number, revisionId?: number | null) {
+    collectionItemId.value = null
     workspaceFile.value = null
     await syncAsset(id, { keepViewed: assetId.value === id })
     if (revisionId != null && revisions.value.some(r => r.id === revisionId)) {
@@ -167,6 +183,10 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
   const lastClosedFile = ref<WorkspaceFile | null>(null)
 
   function close() {
+    if (collectionItemId.value != null) {
+      closeCollection()
+      return
+    }
     stageOpen.value = false
     lastClosedFile.value = workspaceFile.value
     workspaceFile.value = null
@@ -189,6 +209,7 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
 
   // Chip click: navigates within an open stage, or reopens a closed one.
   function selectFromChip(artifact: ArtifactMeta) {
+    collectionItemId.value = null
     workspaceFile.value = null
     if (stageOpen.value && assetId.value === artifact.asset_id) {
       viewedRevisionId.value = artifact.revision_id
@@ -249,6 +270,7 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
   watch(chatId, (id) => {
     restoring = true
     try {
+      collectionItemId.value = null
       stageOpen.value = false
       workspaceFile.value = null
       lastClosedFile.value = null
@@ -276,10 +298,10 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
     }
   }, { immediate: true })
 
-  watch([stageOpen, workspaceFile, lastClosedFile, dismissedAssetId], () => {
+  watch([stageOpen, workspaceFile, lastClosedFile, dismissedAssetId, collectionItemId], () => {
     if (restoring || chatId.value == null) return
     const state: PersistedStageState = {
-      open: stageOpen.value,
+      open: collectionItemId.value == null ? stageOpen.value : openBeforeCollection,
       file: workspaceFile.value ?? lastClosedFile.value,
       dismissedAssetId: dismissedAssetId.value,
     }
@@ -324,6 +346,9 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
 
   return {
     stageOpen,
+    collectionItemId,
+    openCollection,
+    closeCollection,
     workspaceFile,
     openFile,
     assetId,

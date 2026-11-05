@@ -2,7 +2,7 @@
   <div>
     <div class="mb-3">
       <div class="flex items-center gap-3">
-        <h3 class="text-xs font-semibold text-content-secondary">Background Work</h3>
+        <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Background work</h3>
       </div>
       <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">
         Stimma analyzes your media in the background to support many of its features. Background work uses CPU and GPU resources and impacts your energy usage.
@@ -12,7 +12,7 @@
     <div class="mt-6 max-w-[680px]">
       <!-- Face Detection -->
       <SettingRow
-        label="Face Detection"
+        label="Face detection"
         description="Automatically locates faces in your images. You can see detected faces on the Media Info pane, and face information is made available to the Chat system."
         :divider="false"
       >
@@ -74,7 +74,7 @@
 
       <!-- Visual Indexing -->
       <SettingRow
-        label="Visual Indexing"
+        label="Visual indexing"
         description="Creates a visual fingerprint for each image. This enables natural language search and browsing similar images."
       >
         <label class="relative inline-flex flex-shrink-0 cursor-pointer items-center">

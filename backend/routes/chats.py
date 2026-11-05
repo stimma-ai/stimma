@@ -1485,6 +1485,12 @@ async def clear_chat(
 
 
 # Chat Items endpoints
+def _transcript_items_query(chat_id: int):
+    # Prompt-only context stays in model history, outside every transcript
+    # window (including pagination counts and raw transcript export).
+    return select(ChatItem).where(ChatItem.chat_id == chat_id, ChatItem.item_type != "system_reminder")
+
+
 def _is_visible_item(item: ChatItem) -> bool:
     """Check if a chat item is visible in the chat view (not hidden like tool_call/tool_result)."""
     if item.item_type == 'tool_call':
@@ -1678,7 +1684,7 @@ async def _display_window(
     batch_size = _DISPLAY_FIRST_BATCH
     reaching = reach_id is not None
     while len(taken) < cap:
-        query = select(ChatItem).where(ChatItem.chat_id == chat_id)
+        query = _transcript_items_query(chat_id)
         if cursor is not None:
             query = query.where(ChatItem.id < cursor)
         if reaching:
@@ -1886,8 +1892,8 @@ async def list_chat_items(
         has_more = False
         if window:
             older = await session.execute(
-                select(ChatItem.id)
-                .where(ChatItem.chat_id == chat_id, ChatItem.id < window[-1].id)
+                _transcript_items_query(chat_id).with_only_columns(ChatItem.id)
+                .where(ChatItem.id < window[-1].id)
                 .limit(1)
             )
             has_more = older.first() is not None
@@ -1906,7 +1912,7 @@ async def list_chat_items(
         max_iterations = 10  # Safety limit
 
         for _ in range(max_iterations):
-            query = select(ChatItem).where(ChatItem.chat_id == chat_id)
+            query = _transcript_items_query(chat_id)
             if current_before_id:
                 query = query.where(ChatItem.id < current_before_id)
             query = query.order_by(desc(ChatItem.id)).limit(batch_size)
@@ -1932,9 +1938,7 @@ async def list_chat_items(
         if all_items:
             oldest_id = all_items[-1].id
             count_result = await session.execute(
-                select(func.count()).select_from(ChatItem).where(
-                    and_(ChatItem.chat_id == chat_id, ChatItem.id < oldest_id)
-                )
+                _transcript_items_query(chat_id).with_only_columns(func.count()).where(ChatItem.id < oldest_id)
             )
             remaining = count_result.scalar()
             has_more = remaining > 0
@@ -1949,7 +1953,7 @@ async def list_chat_items(
         )
 
     # Standard pagination (original behavior)
-    query = select(ChatItem).where(ChatItem.chat_id == chat_id)
+    query = _transcript_items_query(chat_id)
 
     if before_id:
         query = query.where(ChatItem.id < before_id)

@@ -179,7 +179,7 @@ watch(
         class="flex-1 min-w-0 px-1 py-1 text-xs rounded-md tabular-nums transition-colors
                focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
         :class="value === preset
-          ? 'bg-accent text-white'
+          ? 'bg-accent text-accent-on'
           : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light'"
         @click="mode === 'pixels'
           ? set({ targetResolution: preset })

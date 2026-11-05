@@ -14,7 +14,7 @@
       ]"
       :title="active ? 'Stop sound' : 'Play sound once — hover for volume'"
     >
-      <SpeakerWaveIcon class="w-5 h-5" />
+      <SpeakerWaveIcon class="w-icon-canvas h-icon-canvas" />
       <svg v-if="active" class="absolute inset-0 w-8 h-8 -rotate-90 pointer-events-none" viewBox="0 0 32 32">
         <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="2" />
         <circle

@@ -172,6 +172,9 @@ fn main() {
                                 process::exit(0);
                             }
 
+                            // Tell the shell to preserve its bounded console tail before
+                            // a restart replaces early failures with ordinary output.
+                            eprintln!("[watchdog] Backend crashed: {:?}", status);
                             restart_count += 1;
                             if restart_count >= MAX_RESTARTS {
                                 log(&format!("Max restarts ({}) exceeded, giving up", MAX_RESTARTS));

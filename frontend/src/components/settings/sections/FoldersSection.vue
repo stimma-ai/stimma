@@ -1,7 +1,7 @@
 <template>
   <div>
     <div v-if="!wizard" class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary">Folders</h3>
+      <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Folders</h3>
       <p class="mt-1 text-xs text-content-tertiary">
         Add folders Stimma may scan for external media. Stimma never writes new files here; deleting an item and emptying the trash deletes its file from disk.
       </p>
@@ -34,7 +34,7 @@
             </svg>
           </div>
           <div class="mt-0.5 flex items-center gap-1.5">
-            <p class="text-xs text-content-tertiary">{{ folder.media_count?.toLocaleString() || 0 }} assets</p>
+            <p class="text-xs text-content-tertiary"><span class="font-mono tabular-nums">{{ folder.media_count?.toLocaleString() || 0 }} assets</span></p>
             <!-- Auto-mark indicators -->
             <template v-if="folder.markers && folder.markers.length > 0">
               <span class="text-content-muted text-xs">·</span>
@@ -77,7 +77,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
         </svg>
         <div>
-          <div class="text-[13px] font-medium text-accent-hi">Add Folder</div>
+          <div class="text-[13px] font-medium text-accent-hi">Add folder</div>
           <div class="mt-1 text-xs text-content-tertiary">Choose a folder to scan into your library. Stimma never writes new files here.</div>
         </div>
       </button>
@@ -91,10 +91,10 @@
         class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04] disabled:opacity-50"
       >
         <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+          <svg class="h-icon-nav w-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-[13px] font-medium text-accent-hi">Add Folder</div>
+          <div class="text-[13px] font-medium text-accent-hi">Add folder</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">Scan an external folder for media.</div>
         </div>
       </button>

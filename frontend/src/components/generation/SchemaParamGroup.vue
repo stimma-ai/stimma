@@ -2,21 +2,22 @@
   <template v-for="paramGroup in groups" :key="paramGroup.group || 'ungrouped'">
     <!-- Skip the whole section if hidden_when is active -->
     <template v-if="!isSectionHidden(paramGroup.hiddenWhen, values)">
-    <div :class="flat ? 'mb-3 last:mb-0' : 'mb-6 last:mb-0'">
+    <div :class="flat ? 'mb-3 last:mb-0' : 'mb-3 coarse:mb-1 last:mb-0'">
       <!-- Group header - collapsible if paramGroup.collapsible is true.
            pt-2 keeps it off the preceding row's hairline when this group sits
            inside a divide-y host (e.g. chain step settings). -->
-      <div v-if="paramGroup.label" class="pt-2 mb-1">
-        <button
+      <div v-if="paramGroup.label" :class="flat ? 'pt-2 mb-1' : ['flex items-center min-h-6', paramGroup.collapsible && !disableCollapse && isCollapsed(paramGroup.group) ? '' : 'mb-1']">
+        <!-- Disclosure row: label left; the count and the one caret at the right
+             edge, the same place the other sections keep their state. -->
+        <ToolSectionHeader
           v-if="paramGroup.collapsible && !disableCollapse"
-          @click="toggleCollapsed(paramGroup.group)"
-          type="button"
-          class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content transition-colors duration-150 focus:outline-none focus-visible:ring-2 ring-accent/60 rounded"
-        >
-          <span :class="['transition-transform duration-150 text-[10px]', isCollapsed(paramGroup.group) ? '' : 'rotate-90']">&#9654;</span>
-          {{ displayGroupLabel(paramGroup.label) }}
-        </button>
-        <span v-else class="text-xs font-semibold text-content-secondary">{{ displayGroupLabel(paramGroup.label) }}</span>
+          disclosure
+          :label="displayGroupLabel(paramGroup.label)"
+          :state="`${paramGroup.params.length} ${paramGroup.params.length === 1 ? 'setting' : 'settings'}`"
+          :open="!isCollapsed(paramGroup.group)"
+          @toggle="toggleCollapsed(paramGroup.group)"
+        />
+        <span v-else class="text-ctl font-semibold text-content-secondary">{{ displayGroupLabel(paramGroup.label) }}</span>
       </div>
       <!-- Parameters list (settings-style: label+desc on left, control on right) -->
       <!-- Atelier: ONE hairline under the group label; rows separate by
@@ -28,7 +29,7 @@
             <!-- Seed control with randomize checkbox -->
             <div v-if="param.control === 'seed'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ sentenceCaseLabel(param.label) }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <div class="flex items-center justify-end gap-3">
@@ -64,7 +65,7 @@
             <!-- Enum/Select -->
             <div v-else-if="param.enum || param.searchOptions" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ sentenceCaseLabel(param.label) }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <!-- Content-sized, capped at 75%: a long selected value (e.g. a
@@ -96,10 +97,10 @@
             <div v-else-if="param.type === 'number' || param.type === 'integer'" class="py-1.5">
               <!-- On touch the whole row opens the value sheet. -->
               <div class="flex items-center justify-between gap-4" :class="isCoarsePointer && !constraintState(param).disabled ? 'cursor-pointer' : ''" @click="isCoarsePointer && scrubRefs[param.name]?.openEditor()">
-                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ sentenceCaseLabel(param.label) }}</div>
                 <ScrubValue
                   :ref="(el) => { scrubRefs[param.name] = el as InstanceType<typeof ScrubValue> | null }"
-                  :label="param.label"
+                  :label="sentenceCaseLabel(param.label)"
                   :default-value="typeof param.default === 'number' ? param.default : undefined"
                   :model-value="Number(values[param.name] ?? param.default ?? 0)"
                   @update:model-value="emitParam(param.name, $event)"
@@ -116,7 +117,7 @@
             <!-- Boolean/Checkbox -->
             <div v-else-if="param.type === 'boolean'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ sentenceCaseLabel(param.label) }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <input v-no-autocorrect
@@ -131,7 +132,7 @@
             <div v-else-if="param.type === 'string'" :class="rowPad">
               <div class="flex items-center justify-between gap-4 mb-2">
                 <div class="w-[55%] flex-shrink-0">
-                  <div class="text-[13px] text-content-secondary">{{ param.label }}</div>
+                  <div class="text-[13px] text-content-secondary">{{ sentenceCaseLabel(param.label) }}</div>
                   <div v-if="param.control !== 'textarea' && paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
                 </div>
               </div>
@@ -163,14 +164,17 @@
 </template>
 
 <script setup lang="ts">
+import Caret from '../ui/Caret.vue'
 import { computed, ref } from 'vue'
 import SettingsDropdown from '../ui/SettingsDropdown.vue'
 import VoicePicker from './VoicePicker.vue'
+import ToolSectionHeader from './ToolSectionHeader.vue'
 import ScrubValue from '../ui/ScrubValue.vue'
 import type { GenericParam, GenericParamGroup } from '../../composables/useToolSchemaFeatures'
 import { resolveParamConstraints, isSectionHidden, type ParamConstraintState } from '../../utils/paramConstraints'
 import { useProvidersApi, type ProviderParameterOption } from '../../composables/useProvidersApi'
 import { useViewport } from '../../composables/useViewport'
+import { sentenceCaseLabel } from './displayLabel'
 
 // Standalone, schema-driven settings renderer. Extracted from ToolView's
 // inline generic-params section so any tool's parameter schema can be hosted

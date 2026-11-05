@@ -69,5 +69,5 @@ const shapeClass = computed(() => {
   return shape === 'circle' ? 'rounded-full' : radiusClass.value
 })
 
-const glyphClass = computed(() => (props.size === 'xs' ? 'w-3.5 h-3.5' : props.size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'))
+const glyphClass = computed(() => (props.size === 'xs' ? 'w-icon-inline h-icon-inline' : props.size === 'sm' ? 'w-icon-nav h-icon-nav' : 'w-5 h-5'))
 </script>

@@ -75,13 +75,15 @@ for (const source of ['slideshow', 'selection']) for (const projectId of [null, 
     }
     await tool.tap()
   } else if (action === 'chat' || action === 'new-chat') {
-    await page.getByRole('button', { name: 'Send to Chat', exact: true }).tap()
-    await page.getByRole('button', { name: action === 'chat' ? 'Destination chat' : 'New Chat', exact: true }).tap()
+    await page.getByRole('button', { name: 'Send to', exact: true }).tap()
+    await page.getByRole('button', { name: 'Send to chat', exact: true }).tap()
+    await page.getByRole('button', { name: action === 'chat' ? 'Destination chat' : 'New chat', exact: true }).tap()
   } else if (action === 'flow') {
-    await page.getByRole('button', { name: 'Send to Flow', exact: true }).tap()
+    await page.getByRole('button', { name: 'Send to', exact: true }).tap()
+    await page.getByRole('button', { name: 'Send to flow', exact: true }).tap()
     await page.getByRole('button', { name: 'Destination flow', exact: true }).tap()
-    await page.getByRole('button', { name: 'Attach to Message', exact: true }).tap()
-  } else await page.getByRole('button', { name: /Lineage/ }).tap()
+    await page.getByRole('button', { name: 'Attach to message', exact: true }).tap()
+  } else await page.getByRole('button', { name: /lineage/i }).tap()
   await expect.poll(() => page.evaluate(() => window.mobileMediaActions.route().name)).toBe(action === 'remix' ? 'tool' : action.includes('chat') ? 'chat' : action)
   const route = await page.evaluate(() => window.mobileMediaActions.route())
   if (action === 'remix') {
@@ -126,14 +128,17 @@ for (const projectId of [null, 9]) test(`phone menu renders from the caller's br
     has_clip_embedding: true, has_face_embeddings: true, markers: [], tags: [],
   }))
   const menu = page.locator('[data-context-menu]')
-  await expect(menu.getByRole('button', { name: 'Find Similar Faces' }).first()).toBeVisible()
+  // The touch sheet folds related rows behind named groups; the group sheet is teleported out of the menu.
+  await menu.getByRole('button', { name: 'Explore', exact: true }).tap()
+  await expect(page.getByRole('button', { name: 'Find similar faces' }).first()).toBeVisible()
   await expect(menu.getByText('Loading...')).toHaveCount(0)
   assert.ok(!requests.some(path => path.includes('/assets/item/7/browser') || path.includes('/faces')), 'held item needs no item or faces lookup')
   const membershipLookups = () => requests.filter(path => path === '/api/assets/item/7/projects').length
   // Memberships feed Remove from Project only when the menu acts in a project.
   if (projectId == null) assert.equal(membershipLookups(), 0)
   else await expect.poll(membershipLookups).toBe(1)
-  await page.getByRole('button', { name: 'Projects', exact: true }).tap()
+  await page.getByRole('button', { name: 'Back to actions' }).tap()
+  await menu.getByRole('button', { name: 'Projects', exact: true }).tap()
   await expect.poll(membershipLookups).toBe(1)
   assert.deepEqual(errors, [])
 })

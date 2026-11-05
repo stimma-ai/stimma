@@ -520,7 +520,7 @@ export function useWebSocket() {
         'warning',
         0,
         {
-          label: 'Open Settings',
+          label: 'Open settings',
           onClick: async () => {
             try {
               const { desktop } = await import('../desktop')

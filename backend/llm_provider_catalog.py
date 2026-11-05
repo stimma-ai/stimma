@@ -6,7 +6,7 @@ checked contracts so their controls work immediately after a key is added.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterable, Optional
 
 from config import LLMProviderModelConfig, LLMReasoningConfig
 
@@ -33,6 +33,81 @@ PROFILED_MODEL_PROVIDERS = {"openrouter", "together", "fireworks", "local"}
 # fixed branded list nor something we may probe with test completions (every
 # probe spends the user's plan quota).
 OAUTH_MODEL_PROVIDERS = {"chatgpt"}
+# Resellers: their model IDs name the upstream vendor rather than themselves.
+AGGREGATOR_MODEL_PROVIDERS = {"openrouter", "together", "fireworks"}
+# The route kind of a model served by the user's Stimma account.
+STIMMA_ROUTE = "stimma"
+
+
+def canonical_model_id(kind: str, model_id: str) -> str:
+    """The underlying model, independent of which account serves it."""
+    # A ChatGPT plan runs the same OpenAI models an API key does.
+    if kind == "chatgpt":
+        return f"openai:{model_id}"
+    if kind not in AGGREGATOR_MODEL_PROVIDERS:
+        return f"{kind}:{model_id}"
+    known = {
+        "minimax/minimax-m3": "minimax:minimax-m3",
+        "minimaxai/minimax-m3": "minimax:minimax-m3",
+        "qwen/qwen3.7-plus": "qwen:qwen-3.7-plus",
+        "moonshotai/kimi-k2.7-code": "moonshot:kimi-k2.7",
+        "moonshotai/kimi-k2.7": "moonshot:kimi-k2.7",
+        "stepfun/step-3.7-flash": "stepfun:step-3.7-flash",
+        "accounts/fireworks/models/kimi-k2p6": "moonshot:kimi-k2.6",
+        "accounts/fireworks/models/glm-5p1": "zai:glm-5.1",
+        "accounts/fireworks/models/glm-5p2": "zai:glm-5.2",
+        "accounts/fireworks/models/glm-5p3-flash": "zai:glm-5.3-flash",
+        "accounts/fireworks/models/qwen3p8-flash-next-fp8": "qwen:qwen-3.8-flash-next",
+        "accounts/fireworks/models/qwen3p8-flash-next-nvfp4": "qwen:qwen-3.8-flash-next",
+        "accounts/fireworks/models/gpt-oss-120b": "openai:gpt-oss-120b",
+        "accounts/fireworks/models/deepseek-v4-pro": "deepseek:deepseek-v4-pro",
+    }
+    normalized = model_id.lower()
+    if normalized in known:
+        return known[normalized]
+    if "/" not in model_id:
+        return f"{kind}:{model_id}"
+    upstream, upstream_model = model_id.split("/", 1)
+    upstream = {
+        "minimaxai": "minimax", "moonshotai": "moonshot",
+        "qwen": "qwen", "zai-org": "zai", "x-ai": "xai",
+    }.get(upstream.lower(), upstream.lower())
+    return f"{upstream}:{upstream_model}"
+
+
+def _route_rank(kind: str) -> int:
+    """Whose account serves a model when several can: the plan already paid for,
+    then the user's own key (direct before reseller), then Stimma credits."""
+    if kind == "chatgpt":
+        return 0
+    if kind in AGGREGATOR_MODEL_PROVIDERS:
+        return 2
+    if kind == STIMMA_ROUTE:
+        return 3
+    return 1
+
+
+def shadowed_routes(routes: Iterable[tuple[str, Optional[str], str]]) -> dict[str, str]:
+    """Map each losing route's slug to the slug that serves the same model better.
+
+    ``routes`` holds (slug, canonical model id, route kind) for usable routes only,
+    so a broken provider never hides a working one. Local servers stay out of it:
+    two machines serving the same model name are still two different machines.
+    """
+    best: dict[str, tuple[int, str]] = {}
+    contenders = [
+        (slug, canonical_id, _route_rank(kind))
+        for slug, canonical_id, kind in routes
+        if canonical_id and kind != "local"
+    ]
+    for slug, canonical_id, rank in contenders:
+        if canonical_id not in best or rank < best[canonical_id][0]:
+            best[canonical_id] = (rank, slug)
+    return {
+        slug: best[canonical_id][1]
+        for slug, canonical_id, _rank in contenders
+        if best[canonical_id][1] != slug
+    }
 
 
 def _reasoning(

@@ -6,7 +6,8 @@
     <div
       :class="[
         'jobs-tile relative w-full rounded-media overflow-hidden cursor-pointer bg-matte',
-        naturalAspect === null ? 'aspect-square' : ''
+        naturalAspect === null ? 'aspect-square' : '',
+        stripStateClass
       ]"
       :style="naturalAspect !== null ? { aspectRatio: String(naturalAspect) } : {}"
       @click="handleJobClick"
@@ -78,7 +79,7 @@
            tile itself paints below its media child and is nearly invisible. -->
       <div
         v-if="currentMediaId != null && job.result_media_id === currentMediaId"
-        class="pointer-events-none absolute inset-0 z-chrome rounded-media ring-2 ring-inset ring-selection"
+        class="pointer-events-none absolute inset-0 z-chrome rounded-media ring-2 ring-inset ring-selection compact:hidden"
       />
       <!-- Compact rail (Stage) hides the marker strip below the tile — surface
            existing markers as small read-only badges so marked items stay
@@ -108,7 +109,7 @@
         :style="hasMarker(job.result_media_id, marker.id) ? { color: marker.color } : {}"
         :title="hasMarker(job.result_media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
       >
-        <span class="w-4 h-4 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+        <span class="w-4 h-4 flex items-center justify-center icon-container" :class="hasMarker(job.result_media_id, marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
       </button>
       <div class="flex-1" />
       <!-- Auto-delete time remaining -->
@@ -144,7 +145,7 @@
       <button
         @click.stop="$emit('trash-media', { mediaId: job.result_media_id, assetId: job.result_asset_id })"
         class="w-6 h-6 rounded-md flex items-center justify-center text-content-muted/60 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-        title="Move to Trash"
+        title="Move to trash"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
           <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
@@ -155,9 +156,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick, onBeforeUnmount, onDeactivated } from 'vue'
 import { useExpirationClock } from '../../composables/useExpirationClock'
 import { MediaImage, AppImage } from '../media'
+import { useManagedMediaElement } from '../../composables/useMediaPlayback'
 import MarkerBadges from '../MarkerBadges.vue'
 import Spinner from '../ui/Spinner.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
@@ -207,6 +209,16 @@ const props = withDefaults(defineProps<{
   mediaData: () => ({}),
 })
 
+// Phone strip (the results filmstrip): the current tile wears the shared strip
+// ring, the others a restrained dim. Desktop tiles keep their inset ring overlay.
+const stripStateClass = computed(() => {
+  if (props.currentMediaId == null) return ''
+  // Literal classes (the strip tokens in utils/filmstrip.ts, phone-only).
+  return props.job.result_media_id === props.currentMediaId
+    ? 'compact:ring-2 compact:ring-selection compact:ring-offset-2 compact:ring-offset-matte'
+    : 'compact:opacity-80 compact:hover:opacity-100'
+})
+
 // Natural width/height ratio for the fit-mode tile box; null (→ square matte
 // fallback) in cover mode or for audio. Sources, most→least authoritative:
 // the media record's dims, the loaded image's natural dims, then the job's
@@ -253,6 +265,7 @@ function getMediaHash(mediaId?: number): string { return (mediaId && props.media
 // holds a decoding video. The poster (first-frame thumbnail) carries the resting
 // state. Debounced so flicking the cursor across the strip allocates nothing.
 const videoEl = ref<HTMLVideoElement | null>(null)
+useManagedMediaElement(videoEl)
 const videoActive = ref(false)
 let hoverTimer: ReturnType<typeof setTimeout> | null = null
 let msePlayback: MseLoopPlayback | null = null
@@ -309,6 +322,7 @@ function handleVideoError() {
 }
 
 onBeforeUnmount(releaseVideo)
+onDeactivated(releaseVideo)
 const tileMarkers = computed<Marker[]>(() =>
   props.job.result_media_id ? (props.mediaMarkers[props.job.result_media_id] || []) : []
 )

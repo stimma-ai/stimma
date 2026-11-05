@@ -1,22 +1,32 @@
 <template>
   <div
-    class="relative space-y-3 mb-6"
-    :class="disabled ? 'opacity-40 pointer-events-none' : ''"
+    class="relative"
+    :class="[collapsedEmpty ? 'mb-3 coarse:mb-1' : 'space-y-2 mb-5', disabled ? 'opacity-40 pointer-events-none' : '']"
     :data-drop-zone="`media-picker-${accept}`"
     @dragover.prevent="onDragOver"
     @dragleave="onDragLeave"
     @drop.prevent="onDrop($event)"
   >
-    <div class="flex items-baseline justify-between pb-1 mb-1.5">
-      <div class="flex items-baseline gap-2 min-w-0">
-        <label class="text-xs font-semibold text-content-secondary">{{ displayLabel }}</label>
-        <span v-if="props.description" class="text-xs text-content-muted truncate">{{ props.description }}</span>
-      </div>
-      <span v-if="!batchMode" class="text-[10px] font-mono tabular-nums text-content-tertiary flex-shrink-0">{{ items.length }}/{{ maxItems }}</span>
-    </div>
+    <!-- An optional input with nothing in it is one collapsed row (label, None,
+         Add): the whole picker stays a drop target, and the tile with its room
+         only appears for an input the tool needs or once there is media. -->
+    <ToolSectionHeader
+      ref="headerRef"
+      :label="displayLabel"
+      :state="collapsedEmpty ? (isDragging ? 'Drop here' : 'None') : (batchMode ? undefined : `${items.length}/${maxItems}`)"
+      :addable="collapsedEmpty"
+      :add-title="isCoarsePointer ? 'Add — tap to choose' : 'Add — drop, paste, or browse'"
+      class="transition-colors"
+      :class="isDragging || pickerPopoverOpen ? 'rounded-md bg-accent/10 ring-1 ring-accent/50' : ''"
+      @add="onAddTileClick"
+    >
+      <template v-if="props.description" #label-extra>
+        <span class="min-w-0 truncate text-xs font-normal text-content-muted">{{ props.description }}</span>
+      </template>
+    </ToolSectionHeader>
 
     <!-- Item Grid/Sequence -->
-    <div :class="reorderable ? 'flex flex-wrap gap-3 items-start' : 'grid gap-3 items-start [grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))]'">
+    <div v-if="!collapsedEmpty" :class="reorderable ? 'flex flex-wrap gap-3 items-start' : 'grid gap-3 items-start [grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))]'">
       <template v-for="(item, index) in displayItems" :key="item.originalIndex">
         <div class="flex items-center gap-1 min-w-0">
           <div
@@ -216,7 +226,7 @@
                     class="text-[10px] font-mono text-accent-hi font-medium tabular-nums hover:text-accent cursor-pointer"
                   >{{ headerFrameLabel(item) }}</button>
                   <span v-else class="text-[10px] font-mono text-accent-hi font-medium tabular-nums">{{ headerFrameLabel(item) }}</span>
-                  <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'frame' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                  <svg class="w-icon-inline h-icon-inline text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'frame' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                 </div>
                 <!-- Frame picker expanded panel (the live preview is the <video> up top) -->
                 <div v-if="openPrepPanel[item.originalIndex] === 'frame'" class="px-2.5 py-2 bg-overlay-faint rounded-md space-y-2">
@@ -268,7 +278,7 @@
                       @click="setFramePosition(item, pos)"
                       :class="[
                         'flex-1 py-1 text-[11px] capitalize border-r border-edge-subtle transition-colors',
-                        item._framePosition === pos ? 'bg-accent/15 text-accent-hi font-medium' : 'text-content-muted hover:bg-overlay-medium'
+                        item._framePosition === pos ? 'bg-surface-raised text-content font-medium' : 'text-content-muted hover:bg-overlay-medium'
                       ]"
                     >{{ pos }}</button>
                     <button @click="stepFrame(item, 1)" title="Next frame"
@@ -300,7 +310,7 @@
                         v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'flip'"
                         size="sm"
                       />
-                    <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'flip' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                    <svg v-else class="w-icon-inline h-icon-inline text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'flip' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                   </div>
                 </div>
                 <!-- Flip / Rotate expanded panel -->
@@ -395,7 +405,7 @@
                         v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'scale'"
                         size="sm"
                       />
-                    <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'scale' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                    <svg v-else class="w-icon-inline h-icon-inline text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'scale' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                   </div>
                 </div>
                 <!-- Scale expanded panel -->
@@ -408,7 +418,7 @@
                       :class="[
                         'flex-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors',
                         (item._scale?.mode || 'factor') === mode.value
-                          ? 'bg-accent/15 text-accent-hi'
+                          ? 'bg-surface-raised text-content'
                           : 'text-content-muted hover:text-content-secondary'
                       ]"
                     >{{ mode.label }}</button>
@@ -459,11 +469,11 @@
                   class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'extend')"
                 >
-                  <span class="text-[11px] text-content-secondary flex-1">Extend Canvas</span>
+                  <span class="text-[11px] text-content-secondary flex-1">Extend canvas</span>
                   <span :class="['text-[10px] font-mono', hasExtendPadding(item) ? 'text-accent-hi font-medium' : 'text-content-muted']">
                     {{ getExtendStatusText(item) }}
                   </span>
-                  <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'extend' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                  <svg class="w-icon-inline h-icon-inline text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'extend' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                 </div>
                 <!-- Extend expanded panel -->
                 <div v-if="openPrepPanel[item.originalIndex] === 'extend'" class="px-2.5 py-2 bg-overlay-faint rounded-md">
@@ -551,7 +561,7 @@
                         v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'preprocess'"
                         size="sm"
                       />
-                    <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'preprocess' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                    <svg v-else class="w-icon-inline h-icon-inline text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'preprocess' }" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                   </div>
                 </div>
                 <!-- Preprocess expanded panel -->
@@ -711,7 +721,7 @@
         </div>
       </template>
 
-      <!-- Add: dashed tile only when EMPTY; ghost row once items exist.
+      <!-- Add: fill-only tile when EMPTY; ghost row once items exist.
            Both stay live drop targets (accent chrome on drag-over). -->
       <div
         v-if="!batchMode && items.length < maxItems && items.length === 0"
@@ -721,16 +731,16 @@
         @dragleave.stop="onDragLeave"
         @drop.prevent.stop="onDrop($event)"
         :class="[
-          'border border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer h-24 w-full',
+          'rounded-md flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer h-14 w-full',
           reorderable ? '' : 'col-span-full',
-          isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10 border-transparent' : 'border-edge text-content-muted hover:border-accent'
+          isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10' : 'bg-overlay-subtle text-content-muted hover:bg-overlay-light'
         ]"
       >
         <span class="text-xs text-content-muted flex items-center gap-1.5">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          {{ isDragging ? 'Drop here' : (useSlotLabels ? slotName(items.length) : 'Add — drop, paste, or browse') }}
+          {{ isDragging ? 'Drop here' : (useSlotLabels ? slotName(items.length) : (isCoarsePointer ? 'Add — tap to choose' : 'Add — drop, paste, or browse')) }}
         </span>
       </div>
     </div>
@@ -745,7 +755,7 @@
       @drop.prevent.stop="onDrop($event)"
       :class="[
         'mt-1.5 w-full flex items-center gap-1.5 rounded-md px-1 py-1.5 text-xs cursor-pointer transition-colors',
-        isDragging || pickerPopoverOpen ? 'border border-dashed border-accent/50 bg-accent/10 text-accent-hi justify-center' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
+        isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10 text-accent-hi justify-center' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
       ]"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
@@ -793,7 +803,7 @@
     <MediaPickerPopover
       v-if="pickerPopoverOpen"
       :accept="accept"
-      :anchor-el="addTileRef"
+      :anchor-el="pickerAnchor"
       :exclude-ids="pickerExcludeIds"
       @pick="onPopoverPick"
       @browse="onPopoverBrowse"
@@ -817,7 +827,7 @@
           @click="previewModalUrl = ''"
           class="absolute top-2 right-2 bg-black/60 text-white rounded-full p-2 hover:bg-black/80 border-none cursor-pointer"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-icon-nav h-icon-nav">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
           </svg>
         </button>
@@ -851,6 +861,7 @@
 import { ref, reactive, computed, watch, onBeforeUnmount, onMounted } from 'vue'
 import axios from 'axios'
 import { ArrowDownOnSquareIcon, Square3Stack3DIcon } from '@heroicons/vue/24/outline'
+import ToolSectionHeader from './ToolSectionHeader.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { getCurrentProfileId } from '../../composables/useProfile'
 import { getCachedPin } from '../../composables/usePinLock'
@@ -858,7 +869,7 @@ import { getApiBase } from '../../apiConfig'
 import { makeProfileKey } from '../../utils/storageKeys'
 import { useVideoFrameExtraction, type FramePosition } from '../../composables/useVideoFrameExtraction'
 import { createDragPreview, handleDragEnd as clearDragPreview } from '../../composables/useDragPreview'
-import { addToast } from '../../composables/useToasts'
+import { addToast, reportActionError } from '../../composables/useToasts'
 import AppImage from '../media/AppImage.vue'
 import MediaImage from '../media/MediaImage.vue'
 import CompactAudioPlayer from '../viewers/CompactAudioPlayer.vue'
@@ -869,10 +880,12 @@ import { recordMediaInputUse, removeRecentMediaInput, type RecentInputKind } fro
 import { removeRecentMediaPick } from '../../composables/useRecentMediaPicks'
 import { getMediaType } from '../../utils/mediaTypes'
 import Spinner from '../ui/Spinner.vue'
+import { useViewport } from '../../composables/useViewport'
 import Modal from '../ui/Modal.vue'
 import { useOwnerProject } from '../../composables/useProjectScope'
 import { appendProjectId } from '../../utils/projectScope'
 import { syncedStorage } from '../../utils/workspaceStore'
+import { sentenceCaseLabel } from './displayLabel'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
 const { extractFrame } = useVideoFrameExtraction()
@@ -984,6 +997,7 @@ interface Props {
   disabledReason?: string
 }
 
+const { isCoarsePointer } = useViewport()
 const props = withDefaults(defineProps<Props>(), {
   minItems: 1,
   maxItems: 1,
@@ -1227,9 +1241,9 @@ const fileAcceptString = computed(() =>
 )
 
 const displayLabel = computed(() => {
-  if (props.label) return props.label
-  if (props.accept === 'audio') return 'Reference Audio'
-  return props.accept === 'image' ? 'Reference Images' : 'Input Videos'
+  if (props.label) return sentenceCaseLabel(props.label)
+  if (props.accept === 'audio') return 'Reference audio'
+  return props.accept === 'image' ? 'Reference images' : 'Input videos'
 })
 
 // Check if any input is a set (batch mode)
@@ -1294,6 +1308,9 @@ function openFilePicker() {
 // file dialog is reached through its "Browse Files…" button.
 const pickerPopoverOpen = ref(false)
 const addTileRef = ref<HTMLElement | null>(null)
+const headerRef = ref<InstanceType<typeof ToolSectionHeader> | null>(null)
+const collapsedEmpty = computed(() => !props.batchMode && items.value.length === 0 && props.minItems === 0 && props.maxItems > 0 && !useSlotLabels.value && !props.disabled)
+const pickerAnchor = computed<HTMLElement | null>(() => (collapsedEmpty.value ? headerRef.value?.addEl : addTileRef.value) ?? null)
 
 const pickerExcludeIds = computed(() =>
   items.value.map(i => i.mediaId).filter((id): id is number => typeof id === 'number')
@@ -1635,7 +1652,7 @@ async function addFromMediaId(mediaId: number, replaceIndex?: number) {
       emit('update:modelValue', newItems)
     }
   } catch (error) {
-    console.error('Failed to add from media library:', error)
+    reportActionError("Couldn't attach media.", error)
     // The item no longer exists — stop offering it in the popover feeds.
     if (axios.isAxiosError(error) && error.response?.status === 404) {
       removeRecentMediaInput(mediaId)
@@ -1723,7 +1740,7 @@ async function uploadFile(file: File, replaceIndex?: number) {
     items.value = newItems
     emit('update:modelValue', newItems)
   } catch (error) {
-    console.error('Failed to upload file:', error)
+    reportActionError("Couldn't upload file.", error)
   } finally {
     isUploading.value = false
   }
@@ -1918,7 +1935,9 @@ async function applyFullPreprocessing(index: number, reason: ProcessingReason = 
     // Upload paint layer if it exists but hasn't been uploaded yet
     let paintLayerPath = item._paintLayerPath || null
     if (hasPaint && !paintLayerPath) {
-      const paintBlob = await fetch(item._paintLayerDataUrl!).then(r => r.blob())
+      const paintResponse = await fetch(item._paintLayerDataUrl!)
+      if (!paintResponse.ok) throw new Error(await paintResponse.text())
+      const paintBlob = await paintResponse.blob()
       const formData = new FormData()
       formData.append('file', paintBlob, 'paint_layer.png')
       const uploadResponse = await axios.post(`${API_BASE}/generate/upload-paint-layer`, formData, {
@@ -1986,7 +2005,7 @@ async function applyFullPreprocessing(index: number, reason: ProcessingReason = 
     items.value = newItems
     emit('update:modelValue', newItems)
   } catch (err) {
-    console.error('Reference preprocessing failed:', err)
+    reportActionError("Couldn't process image.", err)
   } finally {
     processingIndex.value = null
     processingReason.value = null

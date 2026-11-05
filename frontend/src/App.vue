@@ -199,7 +199,7 @@
          drawer docks beside the app instead of pushing it. Same element,
          same track; only --drawer-x stops moving and the app narrows. Folding
          the phone undocks it on the spot and the drawer is back. -->
-    <div class="compact-track absolute inset-y-0 left-0 flex" :class="{ 'is-docked': sidebarDocked }">
+    <div class="compact-track absolute inset-y-0 left-0 flex" :class="{ 'is-docked': sidebarDocked, 'is-docked-medium': sidebarDocked && viewportWidth === 'medium' }">
       <NavigationSidebar
         :is-open="sidebarOpen || sidebarDocked"
         :is-mobile="true"
@@ -232,11 +232,13 @@
   </div>
 
   <!-- Normal app with sidebar and topbar -->
-  <div v-else v-scroll-guard class="w-full h-screen flex overflow-hidden bg-base">
+  <div v-else v-scroll-guard class="relative w-full h-screen flex overflow-hidden bg-base">
     <!-- Sidebar - fixed on wide screens, overlay on narrow -->
     <NavigationSidebar
       :is-open="sidebarOpen"
       :is-mobile="isMobile"
+      :collapsed="sidebarFocusCollapsed"
+      :peeking="sidebarPeeking"
       @close="closeSidebar"
       @open-settings="openSettings($event)"
     />
@@ -253,6 +255,10 @@
       <!-- Static top bar -->
       <TopBar
         class="top-bar"
+        :sidebar-toggle="focusScreen"
+        :sidebar-shown="!sidebarFocusCollapsed"
+        :clear-window-controls="isMacShell && sidebarFocusCollapsed"
+        @toggle-sidebar="toggleFocusSidebar"
         @open-settings="openSettings($event)"
       />
 
@@ -307,6 +313,7 @@ import GlowCanvas from './components/ui/GlowCanvas.vue'
 import { useWorkingContext } from './composables/useWorkingContext'
 import { belongsToContext, contextRoute, contextSection, projectIdFrom } from './utils/workingContext'
 import TopBar from './components/TopBar.vue'
+import { dragPeek, focusSidebarOpen, setFocusSidebarOpen, installDragPeek } from './composables/useSidebarFocus'
 import ToastContainer from './components/ToastContainer.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import ShareDialog from './components/ShareDialog.vue'
@@ -620,29 +627,48 @@ const isMobile = isCompact
 
 // Roomy compact chrome (unfolded foldable, tablet in the phone shell) can
 // keep the drawer docked beside the app. The preference is the user's and
-// survives folding; whether it takes effect right now is the window's:
-// hubs dock at medium width, details (tool, chat, editor) only at wide,
-// because a 276px rail next to a ~750px window leaves no room for their
-// columns — there the drawer stays a drawer, the way slideshow focus mode
-// hides the desktop sidebar. Overlays never dock.
+// survives folding; whether it takes effect right now is the window's.
+// Without a saved choice the drawer docks only where the content keeps a
+// useful width (wide, 840px and up); at medium (a 752px fold) it stays the
+// closed drawer, because a 208px rail leaves hub rows, recent cards and the
+// tool catalog too narrow. A person who docks it there has chosen, and the
+// choice is kept. Hubs may dock at medium by that choice, details (tool,
+// chat, editor) only at wide: their columns have no room beside a rail, so
+// there the drawer stays a drawer, the way slideshow focus mode hides the
+// desktop sidebar. Overlays never dock.
 const SIDEBAR_PINNED_KEY = makeProfileKey('sidebar', 'pinned')
-const sidebarPinned = ref(localStorage.getItem(SIDEBAR_PINNED_KEY) !== '0')
-watch(sidebarPinned, (v) => localStorage.setItem(SIDEBAR_PINNED_KEY, v ? '1' : '0'))
+// null = never chosen: the window decides (docked at wide, drawer otherwise).
+const storedPin = localStorage.getItem(SIDEBAR_PINNED_KEY)
+const sidebarPinned = ref(storedPin === '1' ? true : storedPin === '0' ? false : null)
+watch(sidebarPinned, (v) => { if (v !== null) localStorage.setItem(SIDEBAR_PINNED_KEY, v ? '1' : '0') })
 const sidebarDockable = computed(() => {
   if (!isRoomy.value || slideshowActive.value) return false
   const surface = route.meta?.surface
   if (surface === 'overlay') return false
   return surface === 'hub' || viewportWidth.value === 'wide'
 })
-const sidebarDocked = computed(() => sidebarDockable.value && sidebarPinned.value)
+const sidebarDocked = computed(() => sidebarDockable.value && (sidebarPinned.value ?? viewportWidth.value === 'wide'))
 watch(sidebarDocked, (docked) => { if (docked) sidebarOpen.value = false })
+
+// Focus screens (the slideshow, the image editor) hand the docked sidebar's
+// space to the picture. It stays mounted, collapsed out of flow, because its
+// drop targets and state live in it. Opening it there is the person's choice
+// and is kept per profile; the drag peek is only a transient overlay.
+const isMacShell = isDesktop() && navigator.platform.toLowerCase().includes('mac')
+const focusScreen = computed(() => !isCompact.value && (slideshowActive.value || route.name === 'edit-image'))
+const sidebarFocusCollapsed = computed(() => focusScreen.value && !focusSidebarOpen())
+const sidebarPeeking = computed(() => sidebarFocusCollapsed.value && dragPeek.value)
+function toggleFocusSidebar() { setFocusSidebarOpen(!focusSidebarOpen()) }
+let removeDragPeek = null
+onMounted(() => { removeDragPeek = installDragPeek() })
+onUnmounted(() => { removeDragPeek?.() })
 
 // The header's menu button: on a phone it opens the drawer; where the drawer
 // can dock, it pins and unpins instead, so the same button is always "show
 // me the sidebar" and never has two meanings on one screen.
 function onCompactMenu() {
   if (sidebarDockable.value) {
-    sidebarPinned.value = !sidebarPinned.value
+    sidebarPinned.value = !sidebarDocked.value
     if (!sidebarPinned.value) sidebarOpen.value = false
     return
   }
@@ -1428,16 +1454,23 @@ onUnmounted(() => {
 </script>
 
 <style>
+/* Docked drawer in the medium band (an unfolded foldable): a narrower rail (208px, 28% of 752) so
+   hub content keeps more of the width. Wide roomy windows keep the full 276px. */
+.compact-track.is-docked-medium .compact-drawer {
+  width: 208px;
+  flex-basis: 208px;
+}
+
 /* Slide out NavigationSidebar and TopBar in slideshow focus mode */
 .navigation-sidebar {
-  transition: margin-left 0.3s ease, opacity 0.3s ease;
+  transition: margin-left 0.3s ease, opacity 0.3s ease, transform 0.15s ease, visibility 0.15s;
 }
 
 .top-bar {
   transition: margin-top 0.3s ease, opacity 0.3s ease;
 }
 
-body.slideshow-focus-mode .navigation-sidebar:not(.compact-drawer) {
+body.slideshow-focus-mode .navigation-sidebar:not(.compact-drawer):not(.is-peeking) {
   margin-left: 0 !important;
   width: 0 !important; /* Override inline width style from resizable sidebar */
   flex-basis: 0 !important;

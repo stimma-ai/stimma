@@ -52,7 +52,7 @@
         <!-- Quick edits (suggestion pills + auto-ideas) use the single-shot
              /enhance path, not the agent loop, so they're logged separately. -->
         <template v-if="debugHistory.length">
-          <div class="pt-1 text-xs font-semibold text-content-secondary">Quick edits</div>
+          <div class="pt-1 text-ctl font-semibold text-content-secondary">Quick edits</div>
           <div
             v-for="entry in debugHistory"
             :key="'legacy-' + entry.id"
@@ -236,7 +236,7 @@
     >
       <div class="bg-surface-overlay border border-edge rounded-lg p-3.5">
         <div class="flex items-center mb-3">
-          <span class="text-xs font-semibold text-content-secondary">Agent settings</span>
+          <span class="text-ctl font-semibold text-content-secondary">Agent settings</span>
           <button
             @click="showSettings = false"
             class="ml-auto w-6 h-6 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-light transition-colors"
@@ -259,8 +259,19 @@
       </div>
     </div>
 
-    <!-- Feedback input box (mirrors ChatView's input: text on top, toolbar row) -->
-    <div class="bg-surface border border-edge rounded-lg overflow-hidden">
+    <!-- Feedback input box, in the shared composer grammar (ChatInputBox): one
+         fill, no hairline. One shape in every state, so no control moves under
+         the pointer: wide, one row of label, field, utilities and Send, with the
+         field growing as it wraps; narrow, the field above the controls. -->
+    <div class="@container">
+    <div
+      class="grid grid-cols-[1fr_auto] [grid-template-areas:'text_text'_'utils_send'] bg-field rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-accent/40 @[480px]:grid-cols-[auto_1fr_auto_auto] @[480px]:items-end @[480px]:[grid-template-areas:'label_text_utils_send']"
+      data-testid="agent-dock"
+    >
+      <span class="hidden @[480px]:inline-flex [grid-area:label] h-10 items-center gap-1.5 pl-3 text-content-secondary">
+        <AgentIcon class="h-icon-nav w-icon-nav" />
+        <span class="text-ctl font-medium">Agent</span>
+      </span>
       <textarea v-no-autocorrect
         ref="feedbackInput"
         v-model="feedbackText"
@@ -273,12 +284,11 @@
         @keydown="voiceBtn?.handleInputKeydown($event)"
         @keyup="voiceBtn?.handleInputKeyup($event)"
         :placeholder="inputPlaceholder"
-        class="w-full bg-transparent text-content text-sm px-4 pt-3 pb-1 focus:outline-none font-sans resize-none block max-h-40 overflow-y-auto"
+        class="[grid-area:text] w-full min-w-0 bg-transparent text-content text-sm px-4 pt-3 pb-1 focus:outline-none font-sans resize-none block max-h-40 overflow-y-auto @[480px]:px-2 @[480px]:py-2.5"
       />
 
-      <!-- Action bar: undo/redo/settings lower-left, send lower-right -->
-      <div class="flex items-center justify-between px-2.5 pb-2 pt-2">
-        <div class="flex items-center gap-0.5">
+      <!-- Utilities, grouped at the trailing edge -->
+      <div class="[grid-area:utils] flex items-center gap-0.5 pl-2.5 pb-2 pt-2 @[480px]:h-10 @[480px]:p-0 @[480px]:pr-1">
           <button
             @click="undo"
             :disabled="!canUndo()"
@@ -295,35 +305,29 @@
           >
             <ArrowUturnRightIcon class="w-4 h-4" />
           </button>
-          <VoiceInputButton ref="voiceBtn" icon-class="w-4 h-4" :get-text="getFeedbackText" :set-text="setFeedbackText" :focus="focusFeedback" surface="prompt_agent" />
-          <!-- Agent settings (Instructions) — expands the drawer above. -->
-          <button
-            v-if="agent"
-            @click="showSettings = !showSettings"
-            class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
-            :class="showSettings ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-light'"
-            title="Agent settings — Instructions"
-          >
-            <WrenchIcon class="w-4 h-4" />
-          </button>
-          <!-- Active skills — skills targeting this tool feed the agent automatically. -->
-          <SkillsMenuButton v-if="agent" :skills="activeSkills" mode="view" />
-        </div>
-
+        <VoiceInputButton ref="voiceBtn" icon-class="w-4 h-4" :get-text="getFeedbackText" :set-text="setFeedbackText" :focus="focusFeedback" surface="prompt_agent" />
+        <!-- Agent settings (Instructions) — expands the drawer above. -->
         <button
-          @click="enhance"
-          :disabled="feedbackBusy() || !feedbackText.trim()"
-          class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
-          :title="feedbackBusy() ? 'Working…' : 'Send'"
+          v-if="agent"
+          @click="showSettings = !showSettings"
+          class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+          :class="showSettings ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-light'"
+          title="Agent settings — Instructions"
         >
-          <svg v-if="feedbackBusy()" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5">
-            <rect x="6" y="6" width="12" height="12" rx="1" />
-          </svg>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-            <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" transform="rotate(-90 12 12)" />
-          </svg>
+          <WrenchIcon class="w-4 h-4" />
         </button>
+        <!-- Active skills — skills targeting this tool feed the agent automatically. -->
+        <SkillsMenuButton v-if="agent" :skills="activeSkills" mode="view" />
       </div>
+
+      <SendButton
+        class="[grid-area:send] mr-2.5 mb-2 mt-2 @[480px]:my-1 @[480px]:mr-1.5"
+        :icon="feedbackBusy() ? 'stop' : 'send'"
+        :disabled="feedbackBusy() || !feedbackText.trim()"
+        :title="feedbackBusy() ? 'Working…' : 'Send'"
+        @click="enhance"
+      />
+    </div>
     </div>
 
     <div v-if="error" class="mt-2 flex items-center gap-2">
@@ -350,7 +354,7 @@
     <Transition name="flow-expand">
       <div v-if="showIdeasPanel">
         <div>
-          <div class="mt-3 max-h-[300px] overflow-y-auto">
+          <div class="mt-3 overflow-y-auto" :style="{ maxHeight: `${ideasMaxHeight}px` }">
             <!-- The inline prompt helper keeps its guidance; Tool View opts out
                  by hiding this entire region when there is no meaningful state. -->
             <div v-if="!prompt.trim()" class="py-4 flex items-center justify-center">
@@ -541,6 +545,7 @@ import { PROMPT_EDITOR_AGENT_KEY } from '../../composables/promptEditorAgentKey'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon, BugAntIcon, ArrowPathIcon, ChevronDownIcon, LightBulbIcon } from '@heroicons/vue/24/solid'
 import { WrenchIcon, ChevronUpIcon, CheckIcon } from '@heroicons/vue/24/outline'
+import AgentIcon from '../icons/AgentIcon.vue'
 import { copyToClipboard } from '../../utils/clipboard'
 import { insertNewlineAtCaret } from '../../utils/textInput'
 import axios from 'axios'
@@ -549,6 +554,7 @@ import { extractVerbatim, restoreVerbatim, verifyVerbatimPreserved } from '../..
 import SuggestionSubmenu from './SuggestionSubmenu.vue'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
 import SkillsMenuButton from '../chat/SkillsMenuButton.vue'
+import SendButton from '../ui/SendButton.vue'
 import { devModeRef } from '../../appConfig'
 import { isInsufficientBalanceCode, isLlmSetupCode } from '../../utils/llmErrorCodes'
 import PromptAgentThumbButtons from '@stimma/prompt-agent-thumb-buttons'
@@ -587,6 +593,8 @@ interface Props {
   hasPrompt?: boolean
   /** Hide the ideas region until it has suggestions, loading, or failure feedback. */
   hideEmptyIdeas?: boolean
+  /** Tallest the ideas region gets before it scrolls. */
+  ideasMaxHeight?: number
   /** Placeholder for the feedback input. */
   placeholder?: string
   /** Per-tool Instructions — standing guidance, co-edited by user + agent. */
@@ -602,6 +610,7 @@ const props = withDefaults(defineProps<Props>(), {
   prompt: '',
   hasPrompt: false,
   hideEmptyIdeas: false,
+  ideasMaxHeight: 300,
   placeholder: '',
   instructions: '',
   activeSkills: () => [],

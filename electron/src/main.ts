@@ -148,7 +148,7 @@ if (process.argv.includes('--prepare-python-runtime')) {
     if (!identity.dev) {
       installAppProtocolHandler(path.join(process.resourcesPath, 'frontend'))
     }
-    installApplicationMenu(identity.dev)
+    installApplicationMenu(identity.dev, identity.dataDir)
     installTray(pkg.productName || 'Stimma')
     initWindowState(identity.dataDir)
     // WKWebView localStorage import must be resolved before the first window

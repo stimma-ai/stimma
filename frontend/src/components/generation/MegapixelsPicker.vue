@@ -7,8 +7,8 @@
       class="flex items-center gap-2 px-2.5 py-2 rounded-md text-content-secondary text-sm hover:bg-overlay-subtle hover:text-content transition-colors duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
     >
       <span class="font-mono tabular-nums">{{ megapixels.toFixed(1) }}MP</span>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-content-muted">
-        <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-icon-inline h-icon-inline text-content-muted">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
       </svg>
     </button>
 
@@ -28,7 +28,7 @@
           :class="[
             'px-2 py-1 rounded-md text-xs font-medium font-mono transition-colors duration-150',
             Math.abs(megapixels - preset) < 0.05
-              ? 'bg-accent text-white'
+              ? 'bg-accent text-accent-on'
               : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light'
           ]"
         >

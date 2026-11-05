@@ -12,7 +12,7 @@ test('Direct MCP setup works without the desktop relay and can be disabled', asy
   await page.goto('/browse');
   await waitForShell(page);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'MCP EXPERIMENTAL', exact: true }).click();
+  await page.getByRole('button', { name: 'MCP Experimental', exact: true }).click();
   const profileEnabled = page.getByRole('switch', { name: /^Enable MCP Server(?: for this profile)?$/ });
   await expect(profileEnabled).toBeEnabled();
   if (!await profileEnabled.isChecked()) await profileEnabled.click({ force: true });
@@ -72,7 +72,7 @@ test('MCP setup exposes usable connection details without developer tooling', as
   await page.goto('/browse');
   await waitForShell(page);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'MCP EXPERIMENTAL', exact: true }).click();
+  await page.getByRole('button', { name: 'MCP Experimental', exact: true }).click();
   const enabled = page.getByRole('switch', { name: /^Enable MCP Server(?: for this profile)?$/ });
   await expect(enabled).toBeEnabled();
   await expect(enabled).not.toBeChecked();

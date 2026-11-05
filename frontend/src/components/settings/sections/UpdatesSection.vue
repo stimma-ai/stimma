@@ -88,7 +88,7 @@
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content">Version {{ availableVersion }} is available</div>
             <div v-if="lastCheckedAt" class="text-xs text-content-muted mt-0.5">
-              Checked {{ formatRelativeTime(lastCheckedAt) }}
+              Checked {{ checkedAgo(lastCheckedAt) }}
             </div>
           </div>
           <UpdatePill :label="`Update ${machineLabel}`" @click="downloadAndInstallUpdate()" />
@@ -99,7 +99,7 @@
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content">You're on the latest version</div>
             <div v-if="lastCheckedAt" class="text-xs text-content-muted mt-0.5">
-              Checked {{ formatRelativeTime(lastCheckedAt) }}
+              Checked {{ checkedAgo(lastCheckedAt) }}
             </div>
           </div>
           <Button variant="secondary" size="sm" @click="checkForUpdates('manual')">Check Now</Button>
@@ -179,13 +179,14 @@
       <span>© 2026 B1 Research LLC</span>
       <div class="flex gap-4">
         <button @click="openExternal('/link/terms')" class="text-content-tertiary hover:text-content-secondary transition-colors">Terms</button>
-        <button @click="openExternal('/link/privacy')" class="text-content-tertiary hover:text-content-secondary transition-colors">Privacy Policy</button>
+        <button @click="openExternal('/link/privacy')" class="text-content-tertiary hover:text-content-secondary transition-colors">Privacy policy</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { formatRelativeTime } from '../../../utils/timeFormat'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useViewport } from '../../../composables/useViewport'
 import { desktop } from '../../../desktop'
@@ -336,19 +337,10 @@ async function openExternal(path: string) {
   }
 }
 
-function formatRelativeTime(value: string): string {
-  const date = new Date(value)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  if (diffMins < 1) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays === 1) return 'yesterday'
-  if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString()
+// Mid-sentence, so "just now" is lower case.
+function checkedAgo(value: string): string {
+  const text = formatRelativeTime(value)
+  return text === 'Just now' ? 'just now' : text
 }
 
 onBeforeUnmount(() => window.removeEventListener('resize', readViewportSize))

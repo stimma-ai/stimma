@@ -43,7 +43,7 @@
 
       <button
         type="button"
-        class="ml-auto px-2.5 py-1.5 text-[11.5px] font-medium rounded-md bg-accent hover:bg-accent/90 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        class="ml-auto px-2.5 py-1.5 text-[11.5px] font-medium rounded-md bg-accent hover:bg-accent/90 text-accent-on transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         :disabled="poolSize === 0"
         @click="openSheet"
       >

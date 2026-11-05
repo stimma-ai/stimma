@@ -1,7 +1,7 @@
 <template>
-  <div class="flex items-center gap-2 px-4 py-2 bg-base border-b border-edge">
-    <!-- Chat Name (Left). The compact header carries the name on phones. -->
-    <div class="flex items-center gap-2 flex-shrink-0 compact:hidden">
+  <PageHeader tier="compact">
+    <!-- Chat name. The compact header carries the name on phones. -->
+    <template #title>
       <input v-no-autocorrect
         v-if="editingName"
         ref="nameInputRef"
@@ -9,112 +9,95 @@
         @blur="saveName"
         @keydown.enter="saveName"
         @keydown.escape="cancelEditName"
-        class="text-sm font-medium bg-surface text-content px-2 py-1 rounded border border-edge focus:outline-none focus:border-accent"
+        class="w-64 max-w-full rounded-md border border-transparent bg-overlay-subtle px-2 py-1 text-base font-semibold text-content focus:outline-none focus:border-accent"
       />
       <span
         v-else-if="chatName"
         @dblclick="startEditName"
-        class="text-sm font-medium text-content cursor-pointer hover:text-content-secondary"
+        class="cursor-pointer hover:text-content-secondary"
         title="Double-click to rename"
-      >
-        {{ chatName }}
-      </span>
+      >{{ chatName }}</span>
       <span
-        v-if="mcpDriven && !editingName"
+        v-else
+        @click="startEditName"
+        class="cursor-pointer text-content-muted hover:text-content-secondary"
+      >Name this chat...</span>
+    </template>
+
+    <template v-if="mcpDriven && !editingName" #meta>
+      <span
         class="shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
         title="Driven by a connected assistant over MCP"
       >MCP</span>
-      <span
-        v-if="!chatName && !editingName"
-        @click="startEditName"
-        class="text-sm font-medium text-content-muted italic cursor-pointer hover:text-content-secondary"
-      >
-        Name this chat...
-      </span>
-    </div>
+    </template>
 
-    <!-- Spacer -->
-    <div class="flex-1"></div>
-
-    <!-- Right side controls -->
-    <div class="flex items-center gap-1.5">
+    <template #actions>
       <!-- Settings Panel Toggle -->
-      <button
-        @click="$emit('toggle-settings-panel')"
-        class="w-7 h-7 compact:w-11 compact:h-11 flex items-center justify-center rounded transition-colors"
-        :class="settingsPanelVisible
-          ? 'text-accent bg-accent/15 hover:bg-accent/20'
-          : 'text-content-muted hover:text-content-secondary hover:bg-surface'"
+      <IconButton
+        size="lg"
+        :active="settingsPanelVisible"
         title="Toggle settings panel"
+        aria-label="Toggle settings panel"
+        @click="$emit('toggle-settings-panel')"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-icon-nav w-icon-nav">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75a4.5 4.5 0 0 1-4.884 4.484c-1.076-.091-2.264.071-2.95.904l-7.152 8.684a2.548 2.548 0 1 1-3.586-3.586l8.684-7.152c.833-.686.995-1.874.904-2.95a4.5 4.5 0 0 1 6.336-4.486l-3.276 3.276a3.004 3.004 0 0 0 2.25 2.25l3.276-3.276c.256.565.398 1.192.398 1.852Z" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M4.867 19.125h.008v.008h-.008v-.008Z" />
         </svg>
-      </button>
+      </IconButton>
 
       <!-- Artifact panel toggle. Always here and always live so it never hops
-           or dead-ends; lit while the panel is open. -->
-      <button
-        @click="$emit('toggle-artifact')"
-        class="w-7 h-7 compact:w-11 compact:h-11 flex items-center justify-center rounded transition-colors"
-        :class="artifactOpen
-          ? 'text-accent bg-accent/15 hover:bg-accent/20'
-          : 'text-content-muted hover:text-content-secondary hover:bg-surface'"
+           or dead-ends; neutral-raised while the panel is open. -->
+      <IconButton
+        size="lg"
+        :active="artifactOpen"
         :title="artifactOpen ? 'Hide preview panel' : 'Show preview panel'"
+        :aria-label="artifactOpen ? 'Hide preview panel' : 'Show preview panel'"
+        @click="$emit('toggle-artifact')"
       >
         <ArtifactPanelIcon />
-      </button>
+      </IconButton>
 
       <!-- Open Workspace (dev mode only) -->
-      <button
+      <Button
         v-if="devModeRef"
-        @click="openWorkspace"
-        class="flex items-center gap-1.5 px-2.5 h-7 rounded text-xs font-medium text-purple-500 hover:bg-purple-500/10 transition-colors"
+        variant="ghost"
+        size="sm"
         title="Open workspace folder in Finder"
+        @click="openWorkspace"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-        </svg>
+        <template #icon><FolderOpenIcon class="h-icon-inline w-icon-inline" /></template>
         Open Workspace
-      </button>
+      </Button>
 
       <!-- Debug View (only in chat mode, dev mode only) -->
-      <button
+      <Button
         v-if="viewMode === 'chat' && devModeRef"
-        @click="$emit('toggle-view')"
-        class="flex items-center gap-1.5 px-2.5 h-7 rounded text-xs font-medium text-purple-500 hover:bg-purple-500/10 transition-colors"
+        variant="ghost"
+        size="sm"
         title="Debug view"
+        @click="$emit('toggle-view')"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 12.75c1.148 0 2.278.08 3.383.237 1.037.146 1.866.966 1.866 2.013 0 3.728-2.35 6.75-5.25 6.75S6.75 18.728 6.75 15c0-1.046.83-1.867 1.866-2.013A24.204 24.204 0 0 1 12 12.75Zm0 0c2.883 0 5.647.508 8.207 1.44a23.91 23.91 0 0 1-1.152 6.06M12 12.75c-2.883 0-5.647.508-8.208 1.44.125 2.104.52 4.136 1.153 6.06M12 12.75a2.25 2.25 0 0 0 2.248-2.354M12 12.75a2.25 2.25 0 0 1-2.248-2.354M12 8.25c.995 0 1.971-.08 2.922-.236.403-.066.74-.358.795-.762a3.778 3.778 0 0 0-.399-2.25M12 8.25c-.995 0-1.97-.08-2.922-.236-.402-.066-.74-.358-.795-.762a3.734 3.734 0 0 1 .4-2.253M12 8.25a2.25 2.25 0 0 0-2.248 2.146M12 8.25a2.25 2.25 0 0 1 2.248 2.146M8.683 5a6.032 6.032 0 0 1-1.155-1.002c.07-.63.27-1.222.574-1.747m.581 2.749A3.75 3.75 0 0 1 15.318 5m0 0c.427-.283.815-.62 1.155-.999a4.471 4.471 0 0 0-.575-1.752M4.921 6a24.048 24.048 0 0 0-.392 3.314c1.668.546 3.416.914 5.223 1.082M19.08 6c.205 1.08.337 2.187.392 3.314a23.882 23.882 0 0 1-5.223 1.082" />
-        </svg>
+        <template #icon><BugAntIcon class="h-icon-inline w-icon-inline" /></template>
         Debug View
-      </button>
+      </Button>
 
       <!-- Return to Chat (only when in raw/debug mode) -->
-      <button
+      <Button
         v-if="viewMode === 'raw'"
+        variant="secondary"
+        size="sm"
         @click="$emit('toggle-view')"
-        class="flex items-center gap-1.5 px-2.5 h-7 rounded text-xs font-medium bg-purple-500/20 text-purple-500 hover:bg-purple-500/30 transition-colors"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-        </svg>
+        <template #icon><ArrowUturnLeftIcon class="h-icon-inline w-icon-inline" /></template>
         Return to Chat
-      </button>
+      </Button>
+    </template>
 
-      <!-- 3-dot Menu -->
+    <template #menu>
+      <!-- Overflow menu -->
       <div class="relative" ref="menuContainerRef">
-        <button
-          @click="toggleMenu"
-          class="w-7 h-7 compact:w-11 compact:h-11 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-surface transition-colors"
-          title="More options"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-          </svg>
-        </button>
+        <OverflowButton size="lg" @click="toggleMenu" />
 
         <!-- Dropdown menu -->
         <div
@@ -162,12 +145,17 @@
 
         </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </PageHeader>
 </template>
 
 <script setup lang="ts">
 import ArtifactPanelIcon from './ArtifactPanelIcon.vue'
+import PageHeader from '../ui/PageHeader.vue'
+import IconButton from '../ui/IconButton.vue'
+import OverflowButton from '../ui/OverflowButton.vue'
+import Button from '../ui/Button.vue'
+import { ArrowUturnLeftIcon, BugAntIcon, FolderOpenIcon } from '@heroicons/vue/24/outline'
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { devModeRef } from '../../appConfig'
 

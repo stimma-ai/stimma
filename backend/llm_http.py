@@ -4,11 +4,16 @@ Low-level HTTP client for OpenAI-compatible chat completion endpoints.
 Handles the raw HTTP POST to /chat/completions, auth headers, token refresh,
 and error detection. All response normalization lives in llm.py.
 """
+import asyncio
+from copy import deepcopy
+import random
 import json
 import os
 import re
 import time
 import uuid
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -606,7 +611,7 @@ async def _acompletion_openai_responses(
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     if extra_headers:
         headers.update(extra_headers)
-    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, read=600.0, connect=10.0)) as client:
         resp = await client.post(url, json=body, headers=headers)
     if resp.status_code >= 400:
         raise _provider_http_error(resp, provider=provider_label)
@@ -664,7 +669,7 @@ async def _acompletion_chatgpt(*, model, messages, api_key, api_base, **kwargs) 
             "Accept": "text/event-stream",
             **chatgpt_auth.request_headers(token),
         }
-        timeout = httpx.Timeout(300.0, connect=10.0)
+        timeout = httpx.Timeout(300.0, read=600.0, connect=10.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream("POST", url, json=body, headers=headers) as resp:
                 if resp.status_code >= 400:
@@ -775,7 +780,7 @@ def _anthropic_content_blocks(content) -> list[dict]:
     return result
 
 
-def _to_anthropic_request(model: str, messages: list[dict], kwargs: dict) -> dict:
+def _to_anthropic_request(model: str, messages: list[dict], kwargs: dict, *, direct: bool = False) -> dict:
     system = []
     converted: list[dict] = []
     for message in messages:
@@ -827,6 +832,21 @@ def _to_anthropic_request(model: str, messages: list[dict], kwargs: dict) -> dic
         } for tool in kwargs["tools"]]
     extra = dict(kwargs.get("extra_body") or {})
     body.update(extra)
+    if direct and _uses_thinking_binding(model):
+        thinking = body.get("thinking") or kwargs.get("thinking") or {"type": "adaptive"}
+        # Binding controls require adaptive thinking. Legacy budgeted and
+        # between-tools settings cannot carry this field on these models.
+        if thinking.get("type") in {"enabled", "between_tools"}:
+            thinking = {"type": "adaptive"}
+        # Disabled thinking has no signed blocks to bind.
+        if thinking.get("type") == "adaptive":
+            body["thinking"] = {
+                **thinking,
+                "block_binding": {
+                    **thinking.get("block_binding", {}),
+                    "prefix_mismatch_behavior": "drop_block",
+                },
+            }
     thinking_config = body.get("thinking")
     if isinstance(thinking_config, dict) and thinking_config.get("type") == "enabled":
         budget = int(thinking_config.get("budget_tokens") or 0)
@@ -834,7 +854,41 @@ def _to_anthropic_request(model: str, messages: list[dict], kwargs: dict) -> dic
             body["max_tokens"] = max(int(body.get("max_tokens") or 0), budget + 256)
     if kwargs.get("temperature") is not None and "thinking" not in body:
         body["temperature"] = kwargs["temperature"]
+    if direct and kwargs.get("cacheable"):
+        # Own copies: replayed signed blocks belong to persisted history.
+        body = deepcopy(body)
+        body["cache_control"] = {"type": "ephemeral"}
+        system = body.get("system") or []
+        preferred = [body]
+        if system:
+            system[-1]["cache_control"] = {"type": "ephemeral"}
+            preferred.append(system[-1])
+        remaining = 4 - len(preferred)
+        # Breakpoints live on tools, system blocks, and message content blocks.
+        # Never walk tool inputs: a tool may itself accept a cache_control key.
+        candidates = list(body.get("tools") or []) + list(system)
+        for message in body.get("messages") or []:
+            candidates.extend(message.get("content") or [])
+        for block in candidates:
+            if not isinstance(block, dict) or "cache_control" not in block:
+                continue
+            if any(block is preferred_block for preferred_block in preferred):
+                continue
+            if remaining:
+                remaining -= 1
+            else:
+                block.pop("cache_control")
     return body
+
+
+_THINKING_BINDING_MODELS = (
+    "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1",
+)
+_THINKING_BINDING_BETA = "thinking-binding-controls-2026-08-01"
+
+
+def _uses_thinking_binding(model: str) -> bool:
+    return any(model == name or model.startswith(name + "-") for name in _THINKING_BINDING_MODELS)
 
 
 def _anthropic_to_chat(data: dict, requested_model: str) -> _Obj:
@@ -871,21 +925,127 @@ def _anthropic_to_chat(data: dict, requested_model: str) -> _Obj:
 
 async def _acompletion_anthropic(*, model, messages, api_key, api_base, **kwargs) -> _Obj:
     url = f"{api_base.rstrip('/')}/messages"
-    body = _to_anthropic_request(model, messages, kwargs)
+    direct = urlparse(api_base).hostname == "api.anthropic.com"
+    body = _to_anthropic_request(model, messages, kwargs, direct=direct)
     headers = {
         "Content-Type": "application/json", "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
     }
-    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
+    headers.update(kwargs.get("extra_headers") or {})
+    if direct and _uses_thinking_binding(model) and (body.get("thinking") or {}).get("block_binding", {}).get("prefix_mismatch_behavior") == "drop_block":
+        beta_key = next((key for key in headers if key.lower() == "anthropic-beta"), "anthropic-beta")
+        betas = [value.strip() for value in headers.get(beta_key, "").split(",") if value.strip()]
+        if _THINKING_BINDING_BETA not in betas:
+            betas.append(_THINKING_BINDING_BETA)
+        headers[beta_key] = ",".join(betas)
+    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, read=600.0, connect=10.0)) as client:
         resp = await client.post(url, json=body, headers=headers)
     if resp.status_code >= 400:
         raise _provider_http_error(resp, provider="Anthropic")
     return _anthropic_to_chat(resp.json(), model)
 
 
-async def acompletion(*, model, messages, api_key=None, api_base=None,
+_RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504, 529}
+
+
+def _retryable_response(response: httpx.Response) -> bool:
+    if response.status_code not in _RETRYABLE_STATUS:
+        return False
+    # Cloud can wrap an upstream rejection in a 503. Inspect its original
+    # status and detail as well as native provider error types/codes.
+    try:
+        detail = response.json()
+    except ValueError:
+        detail = response.text
+    text = json.dumps(detail).lower()
+    permanent = (
+        "quota", "billing", "insufficient_quota", "insufficient_balance",
+        "credit balance", "credits", "payment", "subscription", "entitlement",
+        "content_filter", "content filter", "content policy", "safety", "permission",
+    )
+    if any(marker in text for marker in permanent):
+        return False
+    if isinstance(detail, dict):
+        error = detail.get("error", detail)
+        if isinstance(error, dict):
+            status = error.get("upstream_status")
+            if isinstance(status, int) and 400 <= status < 500 and status not in {408, 429}:
+                return False
+    return True
+
+
+def _retry_delay(attempt: int, response: httpx.Response | None) -> float | None:
+    delay = random.uniform(0.5, 1.0) * (2 ** attempt)
+    if response is not None and (value := response.headers.get("Retry-After")):
+        try:
+            retry_after = float(value)
+        except ValueError:
+            try:
+                retry_after = (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds()
+            except (ValueError, TypeError, OverflowError):
+                retry_after = 0
+        if retry_after > 60:
+            return None
+        delay = max(delay, retry_after)
+    return delay
+
+
+async def acompletion(**kwargs) -> _Obj:
+    """Retry only transient request failures, before any tools can execute.
+
+    Each attempt owns its response/stream buffers; no partial output escapes.
+    Cancellation deliberately bypasses this loop, including during backoff.
+    """
+    # Keep a refreshed cloud token across transient retries, and refresh only
+    # once for the whole request rather than once per attempt.
+    kwargs["_auth_refresh_state"] = {}
+    for attempt in range(3):
+        response = None
+        try:
+            return await _acompletion_once(**kwargs)
+        except httpx.HTTPStatusError as error:
+            response = error.response
+            if not _retryable_response(response) or attempt == 2:
+                raise
+            delay = _retry_delay(attempt, response)
+            if delay is None:
+                raise
+        except (httpx.TransportError, LLMConnectionError) as error:
+            cause = error.__cause__ if isinstance(error, LLMConnectionError) else error
+            # A read timeout may already have spent minutes generating output.
+            # Retry connection setup failures and disconnected sockets only.
+            if attempt == 2 or not isinstance(cause, (httpx.ConnectTimeout, httpx.NetworkError, httpx.RemoteProtocolError)):
+                raise
+            delay = _retry_delay(attempt, None)
+        await asyncio.sleep(delay)
+
+
+def _chat_completion_messages(messages: list[dict]) -> list[dict]:
+    """Normalize adjacent user content for templates that require alternating roles.
+
+    Work only on the outgoing Chat Completions payload; persisted history and
+    native provider adapters keep their stable message prefixes.
+    """
+    converted = []
+    for message in messages:
+        clean = {key: value for key, value in message.items() if not key.startswith("_stimma_")}
+        if clean.get("role") == "user" and converted and converted[-1].get("role") == "user":
+            previous = converted[-1]
+            first, second = previous.get("content"), clean.get("content")
+            if isinstance(first, str) and isinstance(second, str):
+                previous["content"] = first + "\n\n" + second
+            else:
+                def parts(content):
+                    return content if isinstance(content, list) else ([{"type": "text", "text": content}] if content else [])
+                previous["content"] = parts(first) + parts(second)
+        else:
+            converted.append(clean)
+    return converted
+
+
+async def _acompletion_once(*, model, messages, api_key=None, api_base=None,
                        thinking=None, cacheable=False, session_id=None,
-                       provider_kind=None, **kwargs) -> _Obj:
+                       provider_kind=None, _auth_refresh_state=None, **kwargs) -> _Obj:
     """Make a raw HTTP POST to an OpenAI-compatible /chat/completions endpoint.
 
     Returns an _Obj with the same attribute shape as the openai SDK response:
@@ -919,10 +1079,7 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
         "model": model,
         # Namespaced continuation state is for Stimma's adapters, never an
         # OpenAI-compatible provider wire field.
-        "messages": [
-            {key: value for key, value in message.items() if not key.startswith("_stimma_")}
-            for message in messages
-        ],
+        "messages": _chat_completion_messages(messages),
     }
 
     # Merge extra_body keys into the top-level body (OpenAI-compatible endpoints
@@ -973,6 +1130,9 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
     # Detect if this is a Stimma Cloud endpoint (for 401 retry logic)
     from privacy_lockdown import is_stimma_service_url
     is_stimma_cloud = is_stimma_service_url(api_base)
+    auth_refresh_state = _auth_refresh_state if _auth_refresh_state is not None else {}
+    if is_stimma_cloud and auth_refresh_state.get("token"):
+        headers["Authorization"] = f"Bearer {auth_refresh_state['token']}"
     if is_stimma_cloud:
         from privacy_lockdown import raise_if_enabled
         raise_if_enabled("Stimma models")
@@ -999,18 +1159,20 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
         _dump_request(dump_dir, url, body, headers, cacheable, session_id)
 
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, read=600.0, connect=10.0)) as client:
             resp = await client.post(url, json=body, headers=headers)
             if dump_dir is not None:
                 _dump_response(dump_dir, resp, label="response")
 
             # On 401 from Stimma Cloud, force-refresh Firebase token and retry once
-            if resp.status_code == 401 and is_stimma_cloud:
+            if resp.status_code == 401 and is_stimma_cloud and not auth_refresh_state.get("attempted"):
+                auth_refresh_state["attempted"] = True
                 log.warning("got 401 from stimma cloud, attempting token refresh and retry")
                 try:
                     from firebase_auth import force_refresh_id_token
                     fresh_token = await force_refresh_id_token()
                     if fresh_token:
+                        auth_refresh_state["token"] = fresh_token
                         headers["Authorization"] = f"Bearer {fresh_token}"
                         resp = await client.post(url, json=body, headers=headers)
                         if dump_dir is not None:

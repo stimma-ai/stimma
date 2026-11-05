@@ -8,8 +8,8 @@
     <p v-if="error" class="p-4 text-sm text-content-muted">{{ error }} <button class="text-accent" @click="downloadUrl(url, name)">Download</button></p>
     <p v-else-if="loading" class="p-4 text-content-muted text-sm">Loading…</p>
     <AppImage v-else-if="kind === 'image'" :src="url" :alt="name" container-class="w-full h-full" img-class="object-contain" />
-    <video v-else-if="kind === 'video'" :src="url" controls playsinline class="w-full h-full object-contain" />
-    <audio v-else-if="kind === 'audio'" :src="url" controls class="w-full m-auto" />
+    <video ref="mediaElement" :key="url" v-else-if="kind === 'video'" :src="url" controls playsinline class="w-full h-full object-contain" />
+    <audio ref="mediaElement" :key="url" v-else-if="kind === 'audio'" :src="url" controls class="w-full m-auto" />
     <WorkspaceZipViewer v-else-if="kind === 'zip' && workspaceFile && chatId != null" :file="workspaceFile" :chat-id="chatId" :header-target="controlsTarget" @attach="$emit('attach', $event)" @save="$emit('save', $event)" />
     <ReadOnlyCode v-else-if="kind === 'text' || kind === 'json'" :text="text" :name="name" class="flex-1" />
     <MarkdownViewer v-else-if="kind === 'markdown' && mediaId" :media-id="mediaId" />
@@ -36,12 +36,15 @@ import { AppImage } from '../media'
 import ReadOnlyCode from './ReadOnlyCode.vue'
 import MarkdownViewer from './MarkdownViewer.vue'
 import WorkspaceZipViewer from './WorkspaceZipViewer.vue'
+import { useManagedMediaElement } from '../../composables/useMediaPlayback'
 import { useDesktopDownload } from '../../composables/useDesktopDownload'
 import { renderSafeMarkdown } from '../../utils/sanitizeHtml'
 import { fileKind, fileSize, parseDelimited, type WorkspaceFile } from '../../utils/fileRefs'
 const props = defineProps<{ url: string; name: string; mime?: string; controlsTarget?: HTMLElement | null; size?: number; mediaId?: number; workspaceFile?: WorkspaceFile; chatId?: number | string }>()
 defineEmits<{ attach: [file: WorkspaceFile]; save: [file: WorkspaceFile] }>()
 const { downloadUrl } = useDesktopDownload()
+const mediaElement = ref<HTMLMediaElement | null>(null)
+useManagedMediaElement(mediaElement)
 const text = ref(''), loading = ref(false), error = ref('')
 const tableHost = ref<HTMLElement | null>(null), scrollTop = ref(0)
 const kind = computed(() => fileKind(props.name, props.mime))

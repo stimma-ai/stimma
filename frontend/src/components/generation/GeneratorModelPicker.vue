@@ -33,12 +33,12 @@
           :class="[
             'w-full px-3 py-2 pl-6 text-left text-sm transition-colors flex items-center justify-between gap-2',
             isSelected(generator.name, model.name)
-              ? 'bg-accent-selection/15 text-accent-selection'
+              ? 'bg-selection/15 text-accent-selection'
               : 'text-content hover:bg-surface-raised/50'
           ]"
         >
           <span class="truncate">{{ model.name }}</span>
-          <span v-if="model.family" class="text-[10px] px-1.5 py-0.5 rounded bg-surface-raised/50 text-content-tertiary font-mono uppercase flex-shrink-0">
+          <span v-if="model.family" class="text-[10px] px-1.5 py-0.5 rounded bg-surface-raised/50 text-content-tertiary font-mono flex-shrink-0">
             {{ model.family }}
           </span>
         </button>

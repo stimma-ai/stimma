@@ -54,7 +54,7 @@
           <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 01.75-.75H9a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V5.25zm7.5 0A.75.75 0 0115 4.5h1.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75V5.25z" clip-rule="evenodd" />
         </svg>
       </button>
-      <span class="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] text-white tabular-nums leading-none">
+      <span class="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] text-white font-mono tabular-nums leading-none">
         {{ formatTime(currentTime) }} / {{ formatTime(effectiveDuration) }}
       </span>
     </div>

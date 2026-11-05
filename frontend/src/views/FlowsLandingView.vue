@@ -1,32 +1,16 @@
 <template>
   <div class="h-full flex flex-col bg-base">
     <!-- Header -->
-    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:hidden">
-      <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Flows</h1>
-
-      <div class="flex items-center gap-3 compact:flex-1 compact:justify-between">
-        <button
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary compact:min-h-11 compact:px-3"
-          @click="createFlow"
-        >
-          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>New</span>
-        </button>
-        <div class="relative compact:flex-1">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
-          <input v-no-autocorrect
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search flows..."
-            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48 compact:w-full compact:min-h-11"
-          />
-        </div>
-      </div>
-    </div>
+    <PageHeader class="compact:hidden">
+      <template #title>Flows</template>
+      <template #actions>
+        <SearchField v-model="searchQuery" placeholder="Search flows..." class="w-48" />
+        <Button variant="primary" @click="createFlow">
+          <template #icon><PlusIcon class="h-icon-inline w-icon-inline" /></template>
+          New
+        </Button>
+      </template>
+    </PageHeader>
 
     <!-- Content -->
     <div class="flex-1 overflow-y-auto">
@@ -38,7 +22,7 @@
 
       <template v-else>
         <!-- Unified list -->
-        <div v-if="displayed.length === 0" class="px-6 py-16 text-center compact:h-full compact:py-0 compact:flex compact:flex-col compact:justify-center">
+        <div v-if="displayed.length === 0" class="px-page py-16 text-center compact:h-full compact:py-0 compact:flex compact:flex-col compact:justify-center">
           <template v-if="flows.length === 0">
             <div class="mx-auto max-w-md space-y-2">
               <p class="text-content-secondary text-sm">No flows yet.</p>
@@ -92,6 +76,10 @@ import { ref, computed, onMounted, onUnmounted, watch, onActivated } from 'vue'
 import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
 import FlowCard from '../components/flow/FlowCard.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import SearchField from '../components/ui/SearchField.vue'
+import Button from '../components/ui/Button.vue'
+import { PlusIcon } from '@heroicons/vue/24/outline'
 import ConnectionError from '../components/ConnectionError.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import RenameSheet from '../components/compact/RenameSheet.vue'
@@ -100,7 +88,7 @@ import { useFlowsApi, type Flow } from '../composables/useFlowsApi'
 
 import { useWebSocket } from '../composables/useWebSocket'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
-import { useToasts } from '../composables/useToasts'
+import { useToasts, reportActionError } from '../composables/useToasts'
 
 
 const router = useRouter()
@@ -220,7 +208,7 @@ async function handleInlineRename(flow: Flow, newName: string) {
     const idx = flows.value.findIndex(r => r.id === flow.id)
     if (idx >= 0) flows.value[idx] = updated
   } catch (err) {
-    console.error('Failed to rename flow:', err)
+    reportActionError("Couldn't rename flow.", err)
   }
 }
 
@@ -266,7 +254,7 @@ async function createFlow() {
     const r = await api.createFlow(body)
     router.push({ name: 'flow', params: { id: String(r.id) } })
   } catch (err) {
-    console.error('Failed to create flow:', err)
+    reportActionError("Couldn't create flow.", err)
   }
 }
 

@@ -16,6 +16,7 @@
 
 import { safeStorage } from 'electron'
 import fs from 'node:fs'
+import { randomBytes } from 'node:crypto'
 import https from 'node:https'
 import path from 'node:path'
 import { log } from './log.ts'
@@ -27,6 +28,18 @@ import {
   setProxyTarget,
   type ProxyTarget,
 } from './proxy.ts'
+
+// Random references correlate a device within this run without encoding its
+// name, address or registry ID. They deliberately change on the next launch.
+const deviceLogRefs = new Map<string, string>()
+function deviceLogRef(device: DeviceRecord): string {
+  let ref = deviceLogRefs.get(device.deviceId)
+  if (!ref) {
+    ref = randomBytes(4).toString('hex')
+    deviceLogRefs.set(device.deviceId, ref)
+  }
+  return `device ${ref}`
+}
 
 export interface DeviceRoute {
   kind: 'lan' | 'tailscale'
@@ -522,12 +535,12 @@ async function bootstrapSession(device: DeviceRecord, route: DeviceRoute): Promi
       timeoutMs: 15000,
     })
     if (status !== 200) {
-      log.warn('devices', `Bootstrap refused by ${device.name}: ${status}`)
+      log.warn('devices', `Bootstrap refused by ${deviceLogRef(device)}: ${status}`)
       return null
     }
     return (JSON.parse(body) as { session?: string }).session ?? null
   } catch (e) {
-    log.warn('devices', `Bootstrap failed for ${device.name}: ${e}`)
+    log.warn('devices', `Bootstrap failed for ${deviceLogRef(device)}: ${e}`)
     return null
   }
 }
@@ -620,7 +633,7 @@ async function sweepRoutes(device: DeviceRecord, superseded: () => boolean, cach
     // A cached session may have been revoked (serving turned off, sign-out).
     const sessionState = session ? await sessionWorks(target) : null
     if (session && sessionState === 'invalid') {
-      log.info('devices', `Cached session rejected by ${device.name}; re-bootstrapping`)
+      log.info('devices', `Cached session rejected by ${deviceLogRef(device)}; re-bootstrapping`)
       session = null
     }
     if (session && sessionState === 'unreachable') continue
@@ -641,7 +654,7 @@ async function sweepRoutes(device: DeviceRecord, superseded: () => boolean, cach
     state.preferredRoutes[device.deviceId] = route
     persist()
     setConnectionState('ready')
-    log.info('devices', `Connected to ${device.name} via ${route.kind} ${route.host}:${route.port}`)
+    log.info('devices', `Connected to ${deviceLogRef(device)} via ${route.kind}`)
     return true
   }
   return false
@@ -677,7 +690,7 @@ async function recoverFromSessionFailure(failedTarget: ProxyTarget): Promise<voi
 
   sessionRecoveryInFlight = true
   try {
-    log.info('devices', `Session rejected by ${device.name}; re-bootstrapping`)
+    log.info('devices', `Session rejected by ${deviceLogRef(device)}; re-bootstrapping`)
     const route: DeviceRoute = { host: failedTarget.host, port: failedTarget.port, kind: 'lan' }
     const session = await bootstrapSession(device, route)
     if (getProxyTarget() !== failedTarget) return

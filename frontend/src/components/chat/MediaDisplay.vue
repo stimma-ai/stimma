@@ -1,5 +1,19 @@
 <template>
-  <div class="media-display bg-surface rounded-lg p-3" :class="rootWidthClass">
+  <!-- An agent's output images: browsed in place -->
+  <MediaCollection
+    v-if="isCollection"
+    :rows="rows"
+    :item-id="chatItemId"
+    :title="displayData.title || ''"
+    :show-role="showRole"
+    :failed-count="failedCount"
+    @view-image="(mediaId, index) => $emit('view-image', mediaId, `row:${index}:output`)"
+    @retry="retryRow"
+    @cancel="cancelRow"
+    @retry-all="retryAllFailed"
+    @show-job-info="(jobId) => $emit('show-job-info', jobId)"
+  />
+  <div v-else class="media-display bg-surface rounded-lg p-3 w-fit max-w-full">
     <!-- Header with title (always show if present) -->
     <div v-if="displayData.title" class="mb-3 flex items-center gap-2">
       <span class="text-sm text-content-secondary font-medium">
@@ -10,15 +24,12 @@
       </span>
     </div>
 
-    <!-- Rows: output-only batches use a bounded responsive gallery, everything else keeps the existing layouts -->
     <div :class="rowsContainerClass">
       <MediaDisplayRow
         v-for="(row, index) in visibleRows"
         :key="row.id"
         :row="row"
         :compact="shouldUseCompactLayout"
-        :fill="isFillDisplay"
-        :size="galleryTileSize"
         :library-mode="isLibraryMode"
         @view-image="(mediaId, slot) => $emit('view-image', mediaId, `row:${index}:${slot}`)"
         @retry="retryRow"
@@ -54,7 +65,9 @@
 </template>
 
 <script setup>
+import { reportActionError } from '../../composables/useToasts'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import MediaCollection from './MediaCollection.vue'
 import MediaDisplayRow from './MediaDisplayRow.vue'
 import Button from '../ui/Button.vue'
 import { getCurrentProfileId } from '../../composables/useProfile'
@@ -86,9 +99,8 @@ const pollInterval = ref(null)
 // Compact mode state (default: true for trimmer default appearance)
 const isCompact = ref(true)
 
-const DEFAULT_ITEMS_PER_LOAD = 18
-const GALLERY_ITEMS_PER_LOAD = 9
-const visibleCount = ref(DEFAULT_ITEMS_PER_LOAD)
+const ITEMS_PER_LOAD = 18
+const visibleCount = ref(ITEMS_PER_LOAD)
 
 // Initialize local rows from props
 watch(() => props.displayData.rows, (newRows) => {
@@ -123,45 +135,20 @@ const isLibraryMode = computed(() =>
 const shouldUseCompactLayout = computed(() =>
   allOutputOnly.value || isCompact.value
 )
-const isOutputGallery = computed(() =>
-  allOutputOnly.value && rows.value.length > 1
+const isCollection = computed(() =>
+  allOutputOnly.value && !isLibraryMode.value && props.chatItemId != null
 )
-// A single shown result (agent `show`) fills the chat width so it's evaluable in
-// place. Multi-image shows use fixed tiles: full-width grids balloon the chat
-// column and fight the artifact stage. Library-mode displays keep small thumbs.
-const isFillDisplay = computed(() =>
-  allOutputOnly.value && !isLibraryMode.value && rows.value.length === 1
+const rowsContainerClass = computed(() =>
+  shouldUseCompactLayout.value ? 'flex flex-wrap gap-2' : 'space-y-3'
 )
-// Fixed tile size for multi-image shows (px)
-const GALLERY_TILE_SIZE = 200
-const galleryTileSize = computed(() =>
-  isOutputGallery.value && !isLibraryMode.value ? GALLERY_TILE_SIZE : null
-)
-const itemsPerLoad = computed(() =>
-  isOutputGallery.value ? GALLERY_ITEMS_PER_LOAD : DEFAULT_ITEMS_PER_LOAD
-)
-const rootWidthClass = computed(() => {
-  if (!isFillDisplay.value) return 'w-fit max-w-full'
-  return rows.value.length === 1 ? 'w-full max-w-[560px]' : 'w-full max-w-[1120px]'
-})
-const rowsContainerClass = computed(() => {
-  if (isOutputGallery.value) {
-    return 'flex flex-wrap gap-2'
-  }
-  return shouldUseCompactLayout.value ? 'flex flex-wrap gap-2' : 'space-y-3'
-})
 
 // Pagination computed properties
 const visibleRows = computed(() => localRows.value.slice(0, visibleCount.value))
 const hasMoreRows = computed(() => localRows.value.length > visibleCount.value)
 
 function showMore() {
-  visibleCount.value += itemsPerLoad.value
+  visibleCount.value += ITEMS_PER_LOAD
 }
-
-watch(itemsPerLoad, (newValue) => {
-  visibleCount.value = newValue
-}, { immediate: true })
 
 const statusText = computed(() => {
   if (generatingCount.value > 0) return 'Generating...'
@@ -303,11 +290,12 @@ async function cancelRow(rowId) {
       headers: { 'X-Profile-ID': getCurrentProfileId() }
     })
 
+    if (!response.ok) throw new Error(await response.text())
     if (response.ok) {
       row.output.status = 'cancelled'
     }
   } catch (error) {
-    console.error('Error cancelling job:', error)
+    reportActionError("Couldn't cancel job.", error)
   }
 }
 
@@ -321,6 +309,7 @@ async function retryRow(rowId) {
       headers: { 'X-Profile-ID': getCurrentProfileId() }
     })
 
+    if (!response.ok) throw new Error(await response.text())
     if (response.ok) {
       row.output.status = 'generating'
       row.output.error = null
@@ -332,7 +321,7 @@ async function retryRow(rowId) {
       }
     }
   } catch (error) {
-    console.error('Error retrying job:', error)
+    reportActionError("Couldn't retry job.", error)
   }
 }
 

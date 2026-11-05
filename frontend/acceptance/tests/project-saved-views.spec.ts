@@ -13,10 +13,10 @@ test('saved views are created, restored and listed within their owning context',
     name: 'Review picks', filters: {}, sort_by: 'created_desc',
   } } as any);
   await choose(page, project.name);
-  await page.getByRole('button', { name: 'Newest First', exact: true }).click();
-  await page.getByRole('option', { name: 'Oldest First', exact: true }).click();
+  await page.getByRole('button', { name: 'Newest first', exact: true }).click();
+  await page.getByRole('option', { name: 'Oldest first', exact: true }).click();
   await page.getByTitle('Filter options').click();
-  await page.getByRole('button', { name: 'Save View', exact: true }).click();
+  await page.getByRole('button', { name: 'Save view', exact: true }).click();
   await page.getByPlaceholder('View name').fill('Review picks');
   const created = page.waitForResponse(r => r.url().endsWith('/api/saved-views') && r.request().method() === 'POST');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -27,6 +27,9 @@ test('saved views are created, restored and listed within their owning context',
   await choose(page, other.name);
   await expect(sidebar(page).getByRole('button', { name: 'Review picks', exact: true })).toHaveCount(0);
   await choose(page, 'Everything');
+  // Saved views fold under Assets; open the fold when the current screen has not.
+  const fold = sidebar(page).getByTestId('saved-views-toggle');
+  if ((await fold.getAttribute('aria-expanded')) === 'false') await fold.click();
   await sidebar(page).getByRole('button', { name: 'Review picks', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/saved-view/${global.id}`));
   const scopedRequest = page.waitForRequest(r => new URL(r.url()).pathname === '/api/assets/browse' && new URL(r.url()).searchParams.get('project_id') === String(project.id));
@@ -35,5 +38,5 @@ test('saved views are created, restored and listed within their owning context',
   await expectContext(page, project.name);
   await page.reload();
   await expectContext(page, project.name);
-  await expect(page.getByRole('button', { name: 'Oldest First', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Oldest first', exact: true })).toBeVisible();
 });

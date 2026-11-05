@@ -9,7 +9,7 @@
           v-model="localName"
           type="text"
           class="w-full bg-overlay-subtle text-content text-sm rounded-md px-3 py-2 border border-transparent placeholder:text-content-muted focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
-          placeholder="Untitled Project"
+          placeholder="Untitled project"
           @blur="saveGeneral"
         />
       </div>
@@ -37,7 +37,7 @@
 
       <!-- Agent Instructions -->
       <div class="mb-6">
-        <h4 class="text-xs font-semibold text-content-secondary mb-3">Agent Instructions</h4>
+        <h4 class="text-xs font-semibold text-content-secondary mb-3">Agent instructions</h4>
         <textarea
           v-model="localInstructions"
           placeholder="Give the agent project-specific instructions..."
@@ -84,7 +84,7 @@
       <!-- Delete Project -->
       <div class="mt-10 flex items-start justify-between gap-4">
         <div>
-          <h4 class="text-xs font-semibold text-red-400">Delete Project</h4>
+          <h4 class="text-xs font-semibold text-red-400">Delete project</h4>
           <p class="mt-1 text-xs text-content-tertiary">
             Delete this project, its boards, and chats. Assets will remain in All Assets.
           </p>
@@ -98,7 +98,7 @@
 
     <ConfirmModal
       :show="showDeleteModal"
-      title="Delete Project"
+      title="Delete project"
       :message="deleteConfirmMessage"
       confirm-text="Delete"
       cancel-text="Cancel"

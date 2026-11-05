@@ -177,7 +177,7 @@
                   :style="hasMarker(item.batch.output_set_id, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
                   :title="hasMarker(item.batch.output_set_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
                 >
-                  <span class="w-4 h-4 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+                  <span class="w-4 h-4 flex items-center justify-center icon-container" :class="hasMarker(item.batch.output_set_id, marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
                 </button>
               </div>
               <!-- Compact rail (Stage) hides the marker toggles — surface

@@ -3,7 +3,7 @@
     <div
       role="button"
       tabindex="0"
-      class="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[12px] text-left cursor-pointer"
+      class="w-full flex items-center gap-2.5 coarse:gap-1.5 px-2.5 py-1.5 text-[12px] text-left cursor-pointer"
       @click="toggle"
       @keydown.enter.prevent="toggle"
       @keydown.space.prevent="toggle"
@@ -24,13 +24,13 @@
         :title="'Paused'"
       >⏸</span>
       <svg
-        v-else-if="equation.status === 'completed'"
-        class="w-4 h-4 text-green-500 flex-shrink-0"
-        fill="currentColor" viewBox="0 0 24 24"
-      >
+  v-else-if="equation.status === 'completed'"
+  class="w-3.5 h-3.5 text-content-tertiary flex-shrink-0"
+  fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"
+>
         <title>Done</title>
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm4.03-12.97a.75.75 0 00-1.06-1.06l-4.72 4.72-2.22-2.22a.75.75 0 10-1.06 1.06l2.75 2.75a.75.75 0 001.06 0l5.25-5.25z" />
-      </svg>
+  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+</svg>
       <svg
         v-else-if="equation.status === 'failed'"
         class="w-3.5 h-3.5 text-red-400 flex-shrink-0"
@@ -89,11 +89,11 @@
            model identifier. Routing/code rows that have a real subtitle
            still render it on a second line. -->
       <div class="flex-1 min-w-0 flex flex-col justify-center">
-        <div class="flex items-baseline gap-2 min-w-0">
-          <span class="truncate text-[13px] leading-tight text-content">{{ title }}</span>
+        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0">
+          <span class="min-w-0 max-w-full truncate text-sm text-content">{{ title }}</span>
           <span
             v-if="runtimePill"
-            class="flex-shrink-0 truncate text-[10px] leading-none rounded px-1.5 py-0.5 bg-overlay-faint text-content-muted"
+            class="min-w-0 max-w-full truncate text-[11px] leading-none rounded px-1.5 py-0.5 bg-overlay-faint text-content-muted"
           >
             <span v-if="runtimeModelLabel">{{ runtimeModelLabel }}</span>
             <span v-if="runtimeModelLabel && runtimeProviderLabel"> · </span>
@@ -123,8 +123,8 @@
         <div
           v-for="(mid, i) in headerMediaIds"
           :key="mid"
-          class="w-6 h-6 rounded-md border border-surface overflow-hidden ring-1 ring-edge-subtle"
-          :class="i > 0 ? '-ml-1.5' : ''"
+          class="w-10 h-10 rounded-media overflow-hidden ring-2 ring-base"
+          :class="i > 0 ? '-ml-3' : ''"
           :style="{ zIndex: headerMediaIds.length - i }"
         >
           <FlowMediaTile
@@ -165,11 +165,12 @@
         kind="equation"
         :label="title"
         :breadcrumb="parentPhaseName"
+        variant="row"
       />
       <button
         v-if="equation.status === 'completed' || equation.status === 'failed'"
         type="button"
-        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary transition-colors hover:text-content hover:bg-overlay-hover coarse:h-11 coarse:w-9"
         title="Re-run this step"
         @click.stop="$emit('invalidate-equation', equation.equation_key)"
       >
@@ -181,7 +182,7 @@
            vertically aligned across pending / running / completed states. -->
       <span
         v-else
-        class="flex-shrink-0 w-6 h-6"
+        class="flex-shrink-0 w-6 h-6 coarse:h-11 coarse:w-9"
         aria-hidden="true"
       />
     </div>

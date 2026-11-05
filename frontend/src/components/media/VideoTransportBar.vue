@@ -10,8 +10,8 @@
       class="bg-transparent border-none text-white/60 cursor-pointer p-1 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white flex-shrink-0"
       :title="paused ? 'Play video' : 'Pause video'"
     >
-      <PlayIcon v-if="paused" class="w-5 h-5" />
-      <PauseIcon v-else class="w-5 h-5" />
+      <PlayIcon v-if="paused" class="w-icon-canvas h-icon-canvas" />
+      <PauseIcon v-else class="w-icon-canvas h-icon-canvas" />
     </button>
 
     <!-- Filmstrip track -->

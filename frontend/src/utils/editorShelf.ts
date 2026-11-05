@@ -11,8 +11,10 @@
  * live binding to workspace tabs.
  */
 
-/** Chip edge and gap in px. Mirrors the w-12 / gap-1.5 classes on the shelf. */
-export const CHIP_PX = 48
+/** Chip edge and gap in px. Mirrors the w-8 / gap-1.5 classes on the shelf. */
+export const CHIP_PX = 32
+/** Touch target edge: a finger gets the full 44px+ chip. */
+export const CHIP_TOUCH_PX = 44
 export const CHIP_GAP_PX = 6
 
 /** Rows the shelf may occupy before the rest goes behind +N. */
@@ -40,9 +42,9 @@ export interface ShelfEntry {
  * Chips that fit one row at `widthPx`. The sidebar is resizable, so the shelf
  * measures its own content box rather than assuming a column count.
  */
-export function shelfColumns(widthPx: number): number {
+export function shelfColumns(widthPx: number, chipPx: number = CHIP_PX): number {
   if (!Number.isFinite(widthPx) || widthPx <= 0) return 1
-  return Math.max(1, Math.floor((widthPx + CHIP_GAP_PX) / (CHIP_PX + CHIP_GAP_PX)))
+  return Math.max(1, Math.floor((widthPx + CHIP_GAP_PX) / (chipPx + CHIP_GAP_PX)))
 }
 
 /**

@@ -1,7 +1,7 @@
 <template>
   <div data-testid="shared-links-section">
     <div class="mb-3">
-      <h3 class="text-base font-medium text-content">Shared links</h3>
+      <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Shared links</h3>
       <p class="mt-1 text-xs text-content-tertiary">Public links you’ve created. Anyone with a link can view the item.</p>
     </div>
 
@@ -71,8 +71,8 @@
                 </template>
                 <span>{{ typeLabel(link.media_type) }}</span>
                 <span aria-hidden="true">·</span>
-                <span>{{ viewsLabel(link.view_count) }}</span>
-                <template v-if="link.created_at"><span aria-hidden="true">·</span><span>{{ formatDate(link.created_at) }}</span></template>
+                <span class="font-mono tabular-nums">{{ viewsLabel(link.view_count) }}</span>
+                <template v-if="link.created_at"><span aria-hidden="true">·</span><span class="font-mono tabular-nums">{{ formatDate(link.created_at) }}</span></template>
               </p>
             </div>
             <div class="flex items-center gap-0.5">
@@ -118,6 +118,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDate as formatDateValue } from '../../../utils/timeFormat'
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
   ArrowTopRightOnSquareIcon,
@@ -192,10 +193,7 @@ function viewsLabel(n: number) {
 }
 
 function formatDate(value: string) {
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
-  const sameYear = d.getFullYear() === new Date().getFullYear()
-  return d.toLocaleDateString(undefined, sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' })
+  return formatDateValue(value, { year: 'always' })
 }
 
 async function copyLink(link: ShareLink) {

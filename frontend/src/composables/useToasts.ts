@@ -50,6 +50,12 @@ function addToast(message: string, type: ToastType = 'info', duration: number = 
   return id
 }
 
+/** Log a failed user action and show its concise failure message. */
+export function reportActionError(message: string, error: unknown): void {
+  console.error(message, error)
+  addToast(message, 'error')
+}
+
 /**
  * Remove a toast by id
  */

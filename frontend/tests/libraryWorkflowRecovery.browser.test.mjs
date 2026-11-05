@@ -95,20 +95,25 @@ for (const touch of [false, true]) test(`Settings search finds synonyms and high
   const { page } = await open(t, { touch })
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
   const search = page.getByRole('searchbox', { name: 'Search settings' })
+  // On touch the search field lives on the settings list; a section has Back only.
+  const toList = async () => { if (touch) await page.getByRole('button', { name: 'All settings', exact: true }).click() }
+  await toList()
   await search.fill('dark')
   await page.getByRole('button', { name: 'Theme Preferences' }).click()
   await expect(page.locator('[data-setting-label="Theme"]')).toBeVisible()
   await expect(page.locator('[data-setting-label="Theme"]')).toHaveClass(/ring-2/)
+  await toList()
   await search.fill('clip')
-  await page.getByRole('button', { name: 'Visual Indexing Background work' }).click()
-  await expect(page.locator('[data-setting-label="Visual Indexing"]')).toBeVisible()
-  await expect(page.locator('[data-setting-label="Visual Indexing"]')).toHaveClass(/ring-2/)
+  await page.getByRole('button', { name: 'Visual indexing Background work' }).click()
+  await expect(page.locator('[data-setting-label="Visual indexing"]')).toBeVisible()
+  await expect(page.locator('[data-setting-label="Visual indexing"]')).toHaveClass(/ring-2/)
   for (const [query, name, target] of [
     ['wildcards', 'Wildcards Prompt variables', 'prompt-wildcards'],
     ['segments', 'Segments Prompt variables', 'prompt-segments'],
     ['version', 'About About', 'about-build'],
-    ['login', 'Stimma Account Stimma account', 'stimma-account'],
+    ['login', 'Stimma account Stimma account', 'stimma-account'],
   ]) {
+    await toList()
     await search.fill(query)
     await page.getByRole('button', { name, exact: true }).click()
     const destination = page.locator(`[data-settings-target="${target}"]`)
@@ -116,6 +121,7 @@ for (const touch of [false, true]) test(`Settings search finds synonyms and high
     await expect(destination).toHaveClass(/ring-2/)
     await expect(destination).toBeFocused()
   }
+  await toList()
   await search.fill('no-such-setting')
   await expect(page.getByText('No settings match “no-such-setting”.')).toBeVisible()
   await search.press('Escape')
