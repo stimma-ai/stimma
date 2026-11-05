@@ -90,9 +90,8 @@
         <!-- Roomy (an unfolded foldable, a tablet in the phone shell): no drawer.
              Controls on the left; on the right the hero, with the phone's
              sideways strip of results (taller here) pegged to the bottom; the
-             agent docked full width beneath, as on desktop. One 8px gutter
-             around and between every block, so the hero and the strip line up
-             with the controls card and the agent dock. -->
+             agent docked full width beneath, as on desktop. Control panels share the
+             remix card’s 12px spacing; media keeps its own matte insets. -->
         <div
           ref="columnsRowEl"
           class="flex-1 min-w-0 flex min-h-0 compact:flex-col roomy:grid roomy:grid-cols-[minmax(320px,40%)_minmax(0,1fr)]"
@@ -103,10 +102,10 @@
            Stage mode a narrow LEFT sidebar (on the left specifically, to read
            differently from the slideshow). Always order-1 (leftmost). Width is
            always explicit (66.667% in Studio = old flex-1 against w-1/3 sibling)
-           so the toggle tweens. The border fades color, not presence. The
-           transition is suppressed during seam drag so the resize stays 1:1. -->
+           so the toggle tweens. No column border adds to the 12px panel gap.
+           The transition is suppressed during seam drag so the resize stays 1:1. -->
       <div
-        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out compact:hidden roomy:flex roomy:col-start-1 roomy:row-start-1 roomy:row-span-3"
+        class="flex flex-col min-h-0 min-w-0 order-1 flex-none transition-[width] duration-300 ease-out compact:hidden roomy:flex roomy:col-start-1 roomy:row-start-1 roomy:row-span-3"
         :class="[
           stageResizing ? '!transition-none' : ''
         ]"
@@ -118,7 +117,7 @@
        <Transition name="flow-expand">
        <div v-if="resChange" class="flex-none">
        <div>
-       <div class="mx-3 mt-3 rounded-lg border border-edge-subtle bg-surface px-3 py-2 flex items-center gap-3 text-[11px]">
+       <div class="mx-3 mt-3 roomy:mr-0 rounded-lg border border-edge-subtle bg-surface px-3 py-2 flex items-center gap-3 text-[11px]">
          <span class="text-content-secondary flex-1">
            <span class="font-medium font-mono tabular-nums text-content">{{ resChange.width }}×{{ resChange.height }}</span>
            · {{ resChange.reason }}
@@ -140,7 +139,7 @@
        </div>
        </Transition>
        <!-- Controls are floating panels on the matte; content sits on the matte. -->
-       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-3 pb-6 roomy:m-2 roomy:mr-0 roomy:overscroll-contain">
+       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-3 pb-6 roomy:mr-0 roomy:overscroll-contain">
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
           <!-- Title, then the tool's facts as meta. One 52px row. -->
@@ -964,13 +963,14 @@
         </div>
         </div>
         <!-- Desktop Stage: the agent is a control panel floating at the bottom of
-             the image area, the same width whatever the picture's shape. The hero
+             the image area, 12px from the controls and level with their bottom.
+             Its right inset stays with the image area. The hero
              reserves its room up front (agentReserve), so nothing the agent does
              resizes the image: anything taller, like Instructions, floats over it. -->
         <div
           id="agent-dock-result"
           v-show="!llmUnconfigured && agentDocked && agentOnResult"
-          class="absolute inset-x-4 bottom-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-lg border border-edge-subtle bg-surface p-3 empty:hidden"
+          class="absolute left-0 right-4 bottom-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-lg border border-edge-subtle bg-surface p-3 empty:hidden"
         ></div>
       </div>
 
@@ -1155,7 +1155,7 @@
         <div
           id="agent-dock"
           v-show="!llmUnconfigured && agentDocked"
-          class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface p-3 max-h-[45%] empty:hidden roomy:mx-2 roomy:mb-2 roomy:p-2 roomy:max-h-[35%] roomy:pb-safe"
+          class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface p-3 max-h-[45%] empty:hidden roomy:p-2 roomy:max-h-[35%] roomy:pb-safe"
         ></div>
       </div>
     </template>
