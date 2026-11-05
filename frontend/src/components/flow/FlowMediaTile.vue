@@ -1,10 +1,21 @@
 <template>
+  <!-- A set is drawn from its own members on the matte, as in the chat. -->
+  <div
+    v-if="stack && !stackUnavailable"
+    :class="containerClass"
+    class="cursor-pointer"
+    @click="handleClick"
+  >
+    <SetStackPreview :media-id="mediaId" :thumbnail-size="thumbnailSize" @unavailable="stackUnavailable = true" />
+  </div>
   <MediaImage
+    v-else
     :media-id="mediaId"
     :thumbnail="thumbnail"
     :thumbnail-size="thumbnailSize"
     :thumbnail-mode="thumbnailMode"
     :contain="contain"
+    background-class="bg-matte"
     :draggable="draggable"
     :enable-context-menu="enableContextMenu"
     :container-class="containerClass"
@@ -27,8 +38,9 @@
 </template>
 
 <script setup lang="ts">
-import { inject } from 'vue'
+import { inject, ref } from 'vue'
 import { MediaImage } from '../media'
+import SetStackPreview from '../chat/SetStackPreview.vue'
 import { flowMediaSlideshowKey } from './flowMediaSlideshow'
 
 interface Props {
@@ -39,6 +51,8 @@ interface Props {
   thumbnailSize?: number
   thumbnailMode?: 'crop' | 'fit'
   contain?: boolean
+  /** Draw a set from its members instead of its baked thumbnail. */
+  stack?: boolean
   draggable?: boolean | 'true' | 'false'
   enableContextMenu?: boolean
   showInfoButton?: boolean
@@ -52,6 +66,7 @@ const props = withDefaults(defineProps<Props>(), {
   thumbnailSize: 256,
   thumbnailMode: 'crop',
   contain: false,
+  stack: false,
   draggable: true,
   enableContextMenu: true,
   showInfoButton: false,
@@ -59,6 +74,7 @@ const props = withDefaults(defineProps<Props>(), {
   imgClass: '',
 })
 
+const stackUnavailable = ref(false)
 const slideshow = inject(flowMediaSlideshowKey, null)
 
 function handleClick(event: MouseEvent) {

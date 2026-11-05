@@ -264,7 +264,10 @@
          screens one compact row at rest — the sparkle names the purpose, the
          field grows with its text, the tools sit beside it. -->
     <div class="bg-overlay-subtle rounded-lg overflow-hidden md:flex md:items-center md:gap-1 md:pl-3">
-      <SparklesIcon class="hidden md:block w-4 h-4 flex-none text-accent-hi" aria-hidden="true" />
+      <span class="hidden md:inline-flex flex-none items-center gap-1.5 text-accent-hi">
+        <AgentIcon class="h-icon-nav w-icon-nav" />
+        <span class="text-ctl font-medium">Agent</span>
+      </span>
       <textarea v-no-autocorrect
         ref="feedbackInput"
         v-model="feedbackText"
@@ -538,6 +541,7 @@ import { PROMPT_EDITOR_AGENT_KEY } from '../../composables/promptEditorAgentKey'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon, BugAntIcon, ArrowPathIcon, ChevronDownIcon, LightBulbIcon } from '@heroicons/vue/24/solid'
 import { WrenchIcon, ChevronUpIcon, CheckIcon } from '@heroicons/vue/24/outline'
+import AgentIcon from '../icons/AgentIcon.vue'
 import { copyToClipboard } from '../../utils/clipboard'
 import { insertNewlineAtCaret } from '../../utils/textInput'
 import axios from 'axios'

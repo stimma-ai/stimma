@@ -125,13 +125,13 @@
           </template>
 
           <!-- Counts: two fixed cells, so messages and images each keep one
-               vertical track. On narrow layouts only one shows (images when
-               there are any, otherwise messages). -->
+               vertical track. On narrow layouts the column carries one count,
+               always messages, and stays blank for a chat with none. -->
           <template v-if="chat.message_count > 0 || chat.generated_count > 0" #trailing>
             <span class="flex items-center justify-end gap-1 text-[11px] font-mono tabular-nums text-content-muted">
               <span
                 class="flex w-11 items-center justify-end gap-1"
-                :class="chat.message_count > 0 ? (chat.generated_count > 0 ? 'narrow:hidden' : '') : 'invisible narrow:hidden'"
+                :class="chat.message_count > 0 ? '' : 'invisible narrow:hidden'"
                 :title="`${chat.message_count} ${chat.message_count === 1 ? 'message' : 'messages'}`"
               >
                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
@@ -141,7 +141,7 @@
               </span>
               <span
                 class="flex w-11 items-center justify-end gap-1"
-                :class="chat.generated_count > 0 ? '' : 'invisible narrow:hidden'"
+                :class="chat.generated_count > 0 ? 'narrow:hidden' : 'invisible narrow:hidden'"
                 :title="`${chat.generated_count} ${chat.generated_count === 1 ? 'image' : 'images'}`"
               >
                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">

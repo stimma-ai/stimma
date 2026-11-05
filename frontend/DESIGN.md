@@ -701,12 +701,18 @@ Until a kit component exists, new code uses these exact patterns:
   tint runs full bleed; the preview truncates before any fact. Narrow (< 600)
   moves the facts level with the preview under the date and shows one count.
   A flow row shows no extra output strip; its thumbnail is the first output.
+  On a phone a chat row's count column carries one count, always messages, and
+  stays blank for a chat with none; the image count returns at the fold.
 - **Tools list** (All tools): plain rows in the same grammar, no icon and no
-  card fill. Name with the variant beside it in a lighter weight, then only the
+  card fill. Name with the variant beside it at primary
+  contrast, then only the
   facts that tell a tool from its neighbours in one fixed right-aligned column
   (at most two, `+N` for the rest, the full list in the tooltip). Facts every
   tool in a section shares sit once on the section label. Related variants of
-  one tool sit together with the repeated title dimmed. The lightning mark is
+  one tool sit together, even-spaced inside the family with a larger gap
+  between families; only the repeated family name is dimmed (never a whole
+  variant, and never a title that has no variant), so selectable alternatives
+  never read as disabled. The facts column is left-aligned at one fixed start. The lightning mark is
   the word `fast`, accent-coloured.
 - **Modal**: backdrop `fixed inset-0 z-modal bg-overlay-backdrop
   backdrop-blur-sm` (token, never bg-black/NN); card `bg-surface border
@@ -838,7 +844,9 @@ Stage mode swaps proportions, same grammar.
 
 **Header strip:** the compact-tier PageHeader (§2): tool icon chip (accent-wash
 square) + name (General Sans 600, 16px) + hop-to-tool disclosure, then the
-provider and task types as meta on the same row. Presets and the layout
+provider and the first task as meta on the same row (the other tasks and the
+output destination are the tooltip; a destination chip shows only when a
+project is set). Presets and the layout
 toggle are ghosts on the right; the layout toggle is neutral raised while
 Stage is on. RemixBanner, when active,
 is a single hairline row under the header (purple text accent per §1.9
@@ -1151,8 +1159,13 @@ the media menu stay in one place.
   the assistant says or shows, media included, starts on the column's left edge
   (bubble fill, step chevron and artwork card line up) and keeps its own cap on
   the right. On a phone the column sits on `--page-margin`.
-- **Home and project overview share one spacing scale:** top offset 80px (32px
-  on compact), hero to composer 32px (24px), composer to content 56px (40px).
+- **Home and project overview share one spacing scale** (the `--hub-*` tokens in
+  style.css): top offset 80px (24px on compact), hero to composer 32px (20px),
+  composer to content 56px (32px), hero size 32px (24px). Hero, composer, tool
+  shortcuts, section headings and recent work share one 840px column
+  (`--hub-column`); nothing on the page starts further left than the composer.
+  Media on the page (recent assets, project art, jump-back covers, flow output
+  previews) sits on `bg-matte`, never on the page colour.
   The hero floats in spare height only when nothing sits below it. Inside a
   project the composer carries no "Working in" line (the heading and header say
   it). Recent media sits on the matte and fills the rest of the fold. On compact,
@@ -1177,11 +1190,19 @@ the media menu stay in one place.
   `ChatMarkdown`). Step labels in the transcript are UI sans; mono stays for
   facts and previews.
 - **A set is drawn from its own members** (`SetStackPreview`): the first image
-  as the picture, the next two as quiet layers faded into the matte, no outlines,
-  on the ordinary matte. It falls back to the server's baked thumbnail only when
+  as the picture (78% of the square), the next two as narrow 3% reveals faded
+  into the matte, no outlines, on the ordinary matte. The fade is theme-specific:
+  light is a light scrim plus a soft shadow so a pale layer stays visible on
+  paper; dark is a heavy scrim so it does not glow grey. Flow output groups draw
+  a set the same way. It falls back to the server's baked thumbnail only when
   no member can be read. **Grids sit on the backdrop their thumbnail was drawn
   on**, so a preview never shows two mattes. On a phone the chips live in bands above and
   below the artwork instead of on it.
+- **The agent glyph** is the bot (`components/icons/AgentIcon.vue`), the one
+  glyph for opening the agent in tool, chat and flow workspaces (tool header
+  and sheet, the dock row with the label "Agent", the flow's Chat segment,
+  Settings > Agent). Sparkles stay with prompt enhancement, the wand with
+  Enhance, the wrench with configuration.
 - **Flow header:** the workspace (Flow | Chat) and the view (Steps | Workflow |
   Code) are both the kit `SegmentedControl`. Start/Resume is the one accent
   action; Pause is a ghost while the run is live and moves into the entity menu

@@ -263,10 +263,10 @@
           <div
             v-for="row in group.rows"
             :key="row.tool.full_tool_id"
-            class="group relative cursor-pointer px-page py-1.5 transition-colors hover:bg-overlay-subtle"
+            class="group relative cursor-pointer px-page py-1 transition-colors hover:bg-overlay-subtle compact:py-1.5"
             :class="[
               row.tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : '',
-              row.clusterStart && !row.first ? 'mt-2' : '',
+              row.clusterStart && !row.first ? 'mt-3' : '',
             ]"
             @click="openTool(row.tool)"
             @contextmenu.prevent="isUserTool(row.tool) ? openToolMenu($event, row.tool) : null"
@@ -282,13 +282,13 @@
                    weight. A repeated title is dimmed so the variants read as
                    one tool. Wraps before it truncates. -->
               <h3 class="col-start-1 row-start-1 min-w-0 break-words text-sm leading-5 line-clamp-2" :title="row.tool.name">
-                <span class="font-medium" :class="row.repeat ? 'text-content-tertiary' : 'text-content'">{{ row.title }}</span><span v-if="row.variant" class="ml-1.5 text-content-secondary">{{ row.variant }}</span>
+                <span class="font-medium" :class="row.repeat && row.variant ? 'text-content-tertiary' : 'text-content'">{{ row.title }}</span><span v-if="row.variant" class="ml-1.5 font-medium text-content">{{ row.variant }}</span>
               </h3>
 
               <!-- Distinguishing facts, fixed right-aligned column. -->
               <div
                 v-if="row.facts.length || row.hidden > 0"
-                class="col-start-2 row-start-1 flex min-w-0 items-center justify-end gap-1.5 text-[11px] leading-5 text-content-muted narrow:col-start-1 narrow:row-start-3 narrow:col-span-2 narrow:justify-start"
+                class="col-start-2 row-start-1 flex min-w-0 items-center justify-start gap-1.5 text-[11px] leading-5 text-content-muted narrow:col-start-1 narrow:row-start-3 narrow:col-span-2"
                 :title="row.allFacts.join(' · ')"
               >
                 <template v-for="(fact, i) in row.facts" :key="fact.text">

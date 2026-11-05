@@ -20,6 +20,7 @@
         :thumbnail="true"
         :thumbnail-size="large ? 640 : size === 'full' ? 256 : 160"
         :contain="!isCompositePrimary"
+        :stack="iteration.primary?.equation_type === 'create_set'"
         :container-class="tileAspectClass"
       />
     </template>

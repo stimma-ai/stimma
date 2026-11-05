@@ -46,10 +46,12 @@ watch(() => props.mediaId, async (mediaId) => {
   if (ids.length === 0) emit('unavailable')
 }, { immediate: true })
 
-// Layers sit back to front. Each steps 5% of the square up and to the right of the picture; the
-// whole pile is centred in the square, with the scrim fading the layers into the matte.
-const CARD = 68
-const STEP = 5
+// Layers sit back to front. Each steps 3% of the square up and to the right of the picture, so
+// only a narrow edge of each shows; the whole pile is centred in the square. The scrim fades the
+// layers into the matte: lighter on the paper matte, where a heavy scrim erases them, and
+// heavier on the near-black one, where a pale image would otherwise glow grey.
+const CARD = 78
+const STEP = 3
 const cards = computed(() => {
   const ids = members.value || []
   const margin = (100 - CARD - STEP * (ids.length - 1)) / 2
@@ -58,7 +60,7 @@ const cards = computed(() => {
       id,
       depth,
       style: { width: `${CARD}%`, height: `${CARD}%`, left: `${margin + STEP * depth}%`, bottom: `${margin + STEP * depth}%` },
-      scrim: depth === 0 ? 0 : depth === 1 ? 0.6 : 0.8,
+      scrim: depth === 0 ? '' : depth === 1 ? 'opacity-[.15] dark:opacity-[.78]' : 'opacity-[.35] dark:opacity-[.9]',
     }))
     .reverse()
 })
@@ -67,7 +69,7 @@ const cards = computed(() => {
 <template>
   <div class="h-full w-full bg-matte [container-type:size]" data-testid="set-stack-preview">
     <div v-if="cards.length" class="relative mx-auto" style="width: min(100cqw, 100cqh); height: min(100cqw, 100cqh)">
-      <div v-for="card in cards" :key="card.id" class="absolute overflow-hidden rounded-media bg-matte" :style="card.style">
+      <div v-for="card in cards" :key="card.id" class="absolute overflow-hidden rounded-media bg-matte shadow-[0_1px_4px_rgb(0_0_0/0.22)] dark:shadow-none" :style="card.style">
         <MediaImage
           :media-id="card.id"
           :thumbnail="true"
@@ -77,7 +79,7 @@ const cards = computed(() => {
           container-class="h-full w-full"
           img-class="h-full w-full object-cover"
         />
-        <span v-if="card.scrim" class="pointer-events-none absolute inset-0 bg-matte" :style="{ opacity: card.scrim }"></span>
+        <span v-if="card.scrim" class="pointer-events-none absolute inset-0 bg-matte" :class="card.scrim"></span>
       </div>
     </div>
   </div>

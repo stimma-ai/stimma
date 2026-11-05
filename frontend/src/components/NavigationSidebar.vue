@@ -97,7 +97,7 @@
             <span class="truncate text-sm">{{ savedView.name }}</span>
           </button>
 
-          <div class="h-2 flex-shrink-0" aria-hidden="true"></div>
+          <div class="h-1 flex-shrink-0" aria-hidden="true"></div>
 
           <!-- All Assets -->
           <button
@@ -211,7 +211,7 @@
           <SidebarProjects v-if="activeProjectId == null" @selected="props.isMobile && emit('close')" />
 
           <!-- ==================== ZONE 2: Workspace Tabs ==================== -->
-          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="mt-3 flex flex-col gap-1 border-t border-edge-subtle">
+          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="mt-2 flex flex-col gap-1 border-t border-edge-subtle [&>:first-child]:mt-2">
 
             <!-- Pinned, Editing and Open share the section label recipe. -->
             <SidebarSectionHeader v-if="pinnedTabs.length > 0" id="pinned" label="Pinned" />

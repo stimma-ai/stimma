@@ -340,6 +340,15 @@ body {
   --page-margin: 16px;
   --section-gap: 20px;
 
+  /* Hub rhythm (DESIGN.md §3 home): offset above the greeting, greeting to
+     composer, composer to recent work, and the greeting's size. The compact
+     chrome takes a tighter set so recent work sits higher. */
+  --hub-top: 80px;
+  --hub-hero-gap: 32px;
+  --hub-content-gap: 56px;
+  --hub-hero-size: 32px;
+  --hub-column: 840px;        /* the one measure for the hub: hero, composer, tool shortcuts, section headings and recent work */
+
   /* Page header tiers (ui/PageHeader.vue). standard = collections (boards,
      chats, flows, tools, board detail); compact = workspaces (chat, flow,
      tool, editor). The phone header is --header-h-mobile. */
@@ -362,6 +371,12 @@ body {
   --strip-gap-sm: 6px;
   --strip-gap-lg: 8px;
   --strip-gutter: 8px;        /* strip edge to the first tile; room for the ring */
+}
+:root[data-viewport="compact"] {
+  --hub-top: 24px;
+  --hub-hero-gap: 20px;
+  --hub-content-gap: 32px;
+  --hub-hero-size: 24px;
 }
 :root[data-width="medium"] {
   --page-margin: 20px;

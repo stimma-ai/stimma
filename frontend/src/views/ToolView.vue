@@ -155,16 +155,16 @@
             <!-- Provider, task types, attribution, output project. Renamed
                  instances condense the tool name onto this row (mirrors the
                  sidebar row contract). -->
-            <div class="flex min-w-0 items-center gap-1.5 truncate text-xs text-content-tertiary">
+            <div class="flex min-w-0 items-center gap-1.5 truncate text-xs text-content-tertiary" :title="headerMetaTitle">
             <template v-if="instanceCustomName">
               <span>{{ tool.name }}</span>
               <span>·</span>
             </template>
             <span v-if="isStimmaCloudTool" class="stimma-cloud-text font-medium">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
             <span v-else class="text-content-muted">{{ providerDisplayName }}</span>
-            <template v-if="taskTypesDisplay">
+            <template v-if="primaryTaskLabel">
               <span>·</span>
-              <span>{{ taskTypesDisplay }}</span>
+              <span>{{ primaryTaskLabel }}</span>
             </template>
             <template v-if="toolAttribution">
               <span>·</span>
@@ -175,14 +175,13 @@
                 @click="openAttributionUrl"
               >{{ toolAttribution.label }}</button>
             </template>
-            <span class="contents">
+            <!-- The output destination is a fact, not a control: it shows at
+                 rest only when a project is set, and always in the tooltip. -->
+            <span v-if="projectScopeId != null" class="contents">
               <span>·</span>
-              <span class="inline-flex items-center gap-1.5">
-                <span>Output:</span>
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-overlay-subtle px-2 py-0.5 text-[11px] font-medium text-content-secondary">
-                  <ArchiveBoxIcon class="h-3.5 w-3.5 flex-shrink-0" />
-                  <span class="truncate max-w-[180px]">{{ projectScopeId == null ? 'No project' : projectScopeName }}</span>
-                </span>
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-overlay-subtle px-2 py-0.5 text-[11px] font-medium text-content-secondary">
+                <ArchiveBoxIcon class="h-3.5 w-3.5 flex-shrink-0" />
+                <span class="truncate max-w-[180px]">{{ projectScopeName }}</span>
               </span>
             </span>
             </div>
@@ -1100,7 +1099,7 @@
             :aria-pressed="roomyAgentDockable ? agentDocked : undefined"
             @click="onCompactAgentButton"
           >
-            <SparklesIcon class="w-6 h-6" />
+            <AgentIcon class="h-icon-canvas w-icon-canvas" />
           </button>
           <ToolRunControl
             :output-destination="projectScopeId == null ? 'No project' : projectScopeName"
@@ -1149,7 +1148,7 @@
                 <span class="rounded-full bg-overlay-light" style="width: var(--sheet-handle-w); height: var(--sheet-handle-h)"></span>
               </div>
               <div class="flex-none flex items-center gap-2 px-4 pb-1">
-                <SparklesIcon class="w-icon-nav h-icon-nav text-accent-hi" />
+                <AgentIcon class="w-icon-nav h-icon-nav text-accent-hi" />
                 <h2 class="text-[15px] font-semibold text-content">Agent</h2>
                 <button type="button" class="ml-auto w-11 h-11 -mr-2 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent" aria-label="Close" @click="compactAgentOpen = false">
                   <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1263,6 +1262,7 @@ const props = defineProps<{
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import { ArchiveBoxIcon, ArrowsPointingOutIcon, PencilIcon, PhotoIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import AgentIcon from '../components/icons/AgentIcon.vue'
 import { pageHeaderClass } from '../components/ui/pageHeader'
 import IconButton from '../components/ui/IconButton.vue'
 import Caret from '../components/ui/Caret.vue'
@@ -2341,6 +2341,24 @@ const taskTypesDisplay = computed(() => {
   return taskTypes
     .map(t => formatTaskTypeLabel(t))
     .join(' · ')
+})
+
+// Resting meta shows the first task; the whole line, with every task and the
+// output destination, is the tooltip.
+const primaryTaskLabel = computed(() => {
+  const taskTypes = tool.value?.task_types
+  if (!taskTypes || taskTypes.length === 0) return null
+  const first = formatTaskTypeLabel(taskTypes[0])
+  return taskTypes.length > 1 ? `${first} +${taskTypes.length - 1}` : first
+})
+
+const headerMetaTitle = computed(() => {
+  const parts = []
+  if (instanceCustomName.value) parts.push(tool.value?.name)
+  parts.push(isStimmaCloudTool.value ? STIMMA_TOOL_PROVIDER_DISPLAY_NAME : providerDisplayName.value)
+  if (taskTypesDisplay.value) parts.push(taskTypesDisplay.value)
+  parts.push(`Output: ${projectScopeId.value == null ? 'No project' : projectScopeName.value}`)
+  return parts.filter(Boolean).join(' · ')
 })
 
 const unavailableTitle = computed(() => {

@@ -224,7 +224,7 @@
 
         <!-- Chat menu: new session, switch session, show/hide panel -->
         <div class="relative" ref="chatMenuContainerRef">
-          <div class="flex items-center rounded-md bg-overlay-faint p-0.5">
+          <div class="flex items-center rounded-md bg-overlay-faint p-0.5 compact:bg-transparent compact:p-0">
             <SegmentedControl
               :model-value="chatPanelOpen ? 'chat' : 'flow'"
               :options="WORKSPACE_MODES"
@@ -796,6 +796,7 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import ConnectionError from '../components/ConnectionError.vue'
+import AgentIcon from '../components/icons/AgentIcon.vue'
 import PhaseTree from '../components/flow/PhaseTree.vue'
 import DeliveryPanel from '../components/flow/DeliveryPanel.vue'
 import EquationGraph from '../components/flow/EquationGraph.vue'
@@ -859,7 +860,7 @@ const VIEW_MODES = [
 ]
 const WORKSPACE_MODES = [
   { label: 'Flow', value: 'flow' },
-  { label: 'Chat', value: 'chat' },
+  { label: 'Chat', value: 'chat', icon: AgentIcon },
 ]
 const GRAPH_DETAIL_MODES = [
   { label: 'Collapsed', value: 'collapsed' },

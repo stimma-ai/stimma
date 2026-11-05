@@ -21,14 +21,14 @@
         <!-- Spacing scale: top offset pt-20 (compact pt-8), hero to composer
              mb-8 (compact mb-6), composer to content pb-14 (compact pb-10).
              The hero only floats in spare height when there is nothing below it. -->
-        <div class="relative flex flex-col items-center justify-center w-full pt-20 pb-14 compact:pt-8 compact:pb-10" :class="hasBelowHero ? 'flex-none' : 'flex-1'">
-          <div class="relative mb-8 compact:mb-6 text-center">
-            <h1 class="font-brand text-[32px] compact:text-[26px] compact:leading-tight font-bold tracking-tight text-content">{{ projectId ? 'What shall we make?' : (greetingParts.pre + greetingParts.word + greetingParts.post) }}</h1>
+        <div class="relative flex flex-col items-center justify-center w-full pt-[var(--hub-top)] pb-[var(--hub-content-gap)]" :class="hasBelowHero ? 'flex-none' : 'flex-1'">
+          <div class="relative mb-[var(--hub-hero-gap)] text-center">
+            <h1 class="font-brand text-[length:var(--hub-hero-size)] compact:leading-tight font-bold tracking-tight text-content">{{ projectId ? 'What shall we make?' : (greetingParts.pre + greetingParts.word + greetingParts.post) }}</h1>
             <!-- Scope feedback stays with the Home content. -->
             <p v-if="projectId" class="mt-1.5 text-sm text-content-muted compact:hidden">{{ `In ${project.name || 'Untitled project'}` }}</p>
           </div>
 
-          <div class="relative w-full max-w-[720px]">
+          <div class="relative w-full max-w-[var(--hub-column)]">
             <!-- No chat model configured (deliberate opt-out): tools take the
                  hero slot instead of the composer, so home reads as the front
                  door to what works. The cutoff is one quiet footnote line.
@@ -80,7 +80,7 @@
             </div>
 
             <!-- Tool launchers docked to the prompt (recent tools, starter picks as cold-start fill) -->
-            <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-center gap-2 mt-4 compact:hidden">
+            <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-start gap-2 mt-4 compact:hidden">
               <button
                 v-for="tool in launcherTools"
                 :key="tool.full_tool_id"
@@ -104,7 +104,7 @@
           <!-- First run: recommended starting points instead of empty sections.
                Skipped when no chat model is configured — the hero grid above
                already fills this role. -->
-          <div v-if="!showToolHero && isFirstRun && starterTools.length > 0" class="relative w-full max-w-[720px] mt-12">
+          <div v-if="!showToolHero && isFirstRun && starterTools.length > 0" class="relative w-full max-w-[var(--hub-column)] mt-12">
             <div class="flex items-center gap-4 mb-4">
               <div class="h-px flex-1 bg-edge-subtle"></div>
               <span class="text-xs font-semibold text-content-secondary">Or start with a tool</span>
@@ -123,7 +123,7 @@
         </div>
 
         <!-- Content sections -->
-        <div ref="contentRef" class="w-full max-w-[960px] pb-12 compact:pb-20 space-y-section" :data-recents-state="recentsState">
+        <div ref="contentRef" class="w-full max-w-[var(--hub-column)] pb-12 compact:pb-20 space-y-section" :data-recents-state="recentsState">
 
           <p v-if="failedRecentsLabel" class="text-center text-xs text-content-muted" data-recents-error>
             Couldn't load recent {{ failedRecentsLabel }}.
@@ -132,7 +132,7 @@
 
           <!-- Jump back in: boards, flows, and chats merged into one recency row -->
           <div v-if="jumpBackIn.length > 0">
-            <div class="flex items-center justify-between mb-2">
+            <div class="mb-2 flex items-center justify-between">
               <h2 class="text-xs font-semibold text-content-secondary">Jump back in</h2>
             </div>
             <div class="grid gap-3" :class="jumpColumns === 1 ? 'grid-cols-1' : jumpColumns === 2 ? 'grid-cols-2' : 'grid-cols-3'">
@@ -178,7 +178,8 @@
                           :object-position="faceObjectPosition(mediaIdOf(previewItem))"
                           :draggable="false"
                           :enable-context-menu="false"
-                          container-class="w-full h-full"
+                          background-class="bg-matte"
+                  container-class="w-full h-full"
                           class="w-full h-full object-cover"
                         />
                       </div>
@@ -203,7 +204,8 @@
                         :object-position="faceObjectPosition(media.media_id)"
                         :draggable="false"
                         :enable-context-menu="false"
-                        container-class="w-full h-full"
+                        background-class="bg-matte"
+                  container-class="w-full h-full"
                         class="w-full h-full object-cover"
                       />
                     </div>
@@ -225,7 +227,8 @@
                     :object-position="faceObjectPosition(item.chat.recent_media[0].media_id)"
                     :draggable="false"
                     :enable-context-menu="false"
-                    container-class="w-full h-full"
+                    background-class="bg-matte"
+                  container-class="w-full h-full"
                     class="w-full h-full object-cover"
                   />
                   <!-- Fallback: entity icon centered -->
@@ -262,7 +265,7 @@
 
           <!-- Library strip -->
           <div v-if="recentMedia.length > 0">
-            <div class="flex items-center justify-between mb-2">
+            <div class="mb-2 flex items-center justify-between">
               <h2 class="text-xs font-semibold text-content-secondary">{{ projectId ? 'Fresh from this project' : 'Recent assets' }}</h2>
               <router-link :to="contextRoute('browse', projectId)" class="text-xs text-content-muted hover:text-content-secondary transition-colors coarse:inline-flex coarse:min-h-11 coarse:min-w-11 coarse:items-center coarse:px-2 coarse:-mr-2">
                 View all
@@ -280,6 +283,7 @@
                   :file-hash="media.file_hash"
                   :thumbnail="true"
                   :thumbnail-size="256"
+                  background-class="bg-matte"
                   container-class="w-full h-full"
                   class="w-full h-full object-cover"
                 />
@@ -418,14 +422,14 @@ const failedRecentsLabel = computed(() => {
 const heroReady = ref(false)
 const HERO_WAIT_MS = 1500
 const dragOverBoardId = ref(null)
-const contentWidth = ref(960)
+const contentWidth = ref(840)
 
 const isCompact = computed(() => contentWidth.value < 700)
 // "Jump back in" columns follow what the card text needs, not the layout tier:
 // a card wants about 280px (an 80px cover plus a title that wraps to two lines
 // and a preview), so a phone gets single-column rows, a fold two columns and
 // a desktop pane three.
-const JUMP_CARD_MIN = 280
+const JUMP_CARD_MIN = 264
 const jumpColumns = computed(() => {
   const w = contentWidth.value
   return Math.min(3, Math.max(1, Math.floor((w + 12) / (JUMP_CARD_MIN + 12))))
