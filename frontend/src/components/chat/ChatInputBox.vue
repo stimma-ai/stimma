@@ -46,7 +46,7 @@
            whole typing region, including empty context. -->
       <slot v-if="!agentUnavailable" name="context-header" />
 
-      <div v-if="context && !agentUnavailable" class="mx-4 truncate pt-2.5 text-[11px] leading-4 text-content-muted" data-composer-context>{{ context }}</div>
+      <div v-if="context && !agentUnavailable" class="mx-4 truncate pt-3 text-[11px] leading-4 text-content-muted" data-composer-context>{{ context }}</div>
 
       <!-- Attachments preview -->
       <ChatInputAttachments
@@ -59,7 +59,7 @@
 
       <!-- Textarea scroll wrapper -->
       <div v-else ref="scrollWrapRef" class="chat-input-scroll-wrap overflow-y-auto mx-4 coarse:mt-0"
-        :class="context ? 'mt-1' : 'mt-2.5'">
+        :class="context ? 'mt-1.5' : 'mt-3'">
         <textarea v-no-autocorrect
           ref="textareaRef"
           :value="inputText"
@@ -78,7 +78,7 @@
            send on the right. The utilities (attach, skills, voice) are one
            cluster; send stands apart from it. -->
       <div
-        class="flex items-center justify-between gap-3 px-2 pb-1.5 pt-0 coarse:pb-1"
+        class="flex items-center justify-between gap-3 px-2 pb-2 pt-2 coarse:pb-1.5 coarse:pt-1"
         :class="agentUnavailable ? 'border-t border-edge-subtle' : ''"
       >
         <!-- Left: model picker -->

@@ -568,8 +568,8 @@ that a desktop-sized window never trips.
   The strip and a slice of the hero stay visible at every
   height. Only the prompt is pinned; resolution is the first control under
   it, and the output settings (auto-markers, auto-delete) live in the sheet
-  Run's long-press opens. Compact shows their state in words on a New outputs row in
-  the controls (tap opens that sheet) and a small settings glyph inside Run's fill (a trailing mark, with the batch size; nothing straddles its corner) while either is on. Roomy: no drawer. Controls on the left; on the right the hero, with
+  Run's long-press opens. Compact shows them on an Every new output row in
+  the controls (markers toggle in place; delete opens that sheet) and a small settings glyph inside Run's fill (a trailing mark, with the batch size; nothing straddles its corner) while either is on. Roomy: no drawer. Controls on the left; on the right the hero, with
   the same sideways strip of results as the phone (taller) directly under its
   action band as one media unit. A wrap of results scrolling under the hero read as a second
   scroll region. The agent is opt-in: the header's agent
@@ -807,31 +807,7 @@ Until a kit component exists, new code uses these exact patterns:
   uses the same tile, with the title below it as on every card. The kind word ("Chat") shows on those
   cards only when the kinds in view are mixed. A fact cell (icon and number)
   starts at its own left edge so the icons line up down the page.
-- **Tools list** (Tools; `lists/ToolRow.vue`): a task section opens with its
-  heading, the board-section tier (`text-sm font-semibold text-content`, not
-  display voice), led by the task glyph at nav size; rows carry no glyph. The
-  facts the whole section shares ("ComfyUI · open weights") sit once, as one
-  quiet tertiary line under the heading, never at its right. Inside a section
-  every model is ONE row on one left edge: no rail, no indent, no family
-  header. A model with no variants is a link row: its name is the link, with a
-  hover and press tint. A model with variants shows its name as plain text in
-  the same position and weight, followed on the same row (wrapping beneath it
-  when narrow) by its variants as small chips: `bg-overlay-subtle`, neutral
-  `content-secondary` text (never teal), `rounded-md`, 28px tall and 44px on
-  touch, each the link to one tool. A chip is led by the distinguishing label:
-  the unmarked one is "Standard", the lightning mark becomes the label of its
-  speed badge ("Fast", "Turbo 4-step"), a parenthetical in the name is kept;
-  variants that still match are told apart by their full name, then by tool id
-  (mono). Capability facts sit on one quiet tertiary line under the name (the
-  facts all variants share; at most three with `+N`; "fast" is just a fact,
-  never accent); a variant's own facts are its chip tooltip. No hairlines
-  between rows (rows are tall enough to need whitespace only). Rows share one
-  pitch: a 36px minimum (44px on touch), 2px apart; sections are separated by
-  the section gap plus 12px. Heading glyphs, rows and the header share the page
-  margin; row text starts on the heading text's column. The options button
-  appears on a user's own tool. A container wide enough (60rem) lays sections in two columns, never splitting a
-  section. On a phone the filter field takes its own full-width row, with the task
-  and provider filters bare beneath it; an applied filter takes the accent fill.
+- **Tools list** (All tools): a grid of tool cards grouped by task, with jump links to each task and a provider filter. Under review; see the owner decision before restyling.
 - **Modal**: backdrop `fixed inset-0 z-modal bg-overlay-backdrop
   backdrop-blur-sm` (token, never bg-black/NN); card `bg-surface border
   border-edge rounded-lg shadow-2xl`; Esc closes; `@click.self` closes unless
@@ -1006,10 +982,10 @@ surface (`surface`) with the matte behind the result only; the strip is never
 pegged below a gap.
 The header's right side is one quiet icon group (presets, layout, forever
 mode; forever is a ghost until it runs, then `live`), then Run, then the
-queue-options menu. **New outputs** is one collapsed row in the
-subsystem grammar below, reading as its state (`Off`, `Favorite · delete 1h`);
-it opens a popover with Auto-mark and Auto-delete, one tap each, never a copy
-of the result's marker row. The result band's facts (generation time, auto-trash
+queue-options menu. **Every new output** is one always-visible row in the
+form: label left, then the auto-mark toggles and auto-delete at the right edge.
+Its label names the scope, because the result's heart, bookmark and trash look
+alike and act on one result only. The result band's facts (generation time, auto-trash
 countdown) are quiet mono readouts, not outlined actions; the time carries a
 caret because it opens details. Collapsed subsystems read value-first: label
 left; at the right edge a quiet state in the page's own sans (`2 on`, `3 steps`,

@@ -522,7 +522,7 @@ const selfHandle: PromptEditorHandle = {
 
 // Click-outside handler for the popover menus
 function handleClickOutside(event: MouseEvent) {
-  if ((showHelp.value || showEditorMenu.value) && helpPopoverContainer.value && !helpPopoverContainer.value.contains(event.target as Node)) {
+  if ((showHelp.value || showEditorMenu.value) && helpPopoverContainer.value && !event.composedPath().includes(helpPopoverContainer.value)) {
     showHelp.value = false
     showEditorMenu.value = false
   }

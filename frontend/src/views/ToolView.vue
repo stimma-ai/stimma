@@ -345,7 +345,7 @@
         </Teleport>
 
         <!-- Params-card top row: the resolution trigger, a quiet ghost control
-             (no box inside the card). New outputs (auto-markers,
+             (no box inside the card). Every new output (auto-markers,
              auto-delete) are a labelled group of their own on desktop, so they
              do not read as a second copy of the result's heart / bookmark /
              trash. Compact layouts (phone and fold) keep them in the sheet
@@ -377,10 +377,9 @@
               v-model="modelParams.megapixels"
             />
         </div>
-        <!-- New outputs: one collapsed row reading as its state; it opens a
-             popover holding auto-mark and auto-delete, so neither reads as a
-             copy of the result's heart / bookmark / trash. -->
-        <NewOutputsPopover
+        <!-- Every new output: auto-markers and auto-delete, together and always
+             visible. Distinct from the result's own heart / bookmark / trash. -->
+        <AutoOutputRow
           :sheet="isCompact"
           :markers="jobsManager?.availableMarkers.value || []"
           v-model:auto-marker-ids="globalPrefs.autoMarkerIds"
@@ -1327,7 +1326,7 @@ import {
   type ResolutionPolicy,
   type ImageDims,
 } from '../utils/resolutionPolicy'
-import NewOutputsPopover from '../components/generation/NewOutputsPopover.vue'
+import AutoOutputRow from '../components/generation/AutoOutputRow.vue'
 import ForeverModeButton from '../components/ForeverModeButton.vue'
 import BatchRunButton from '../components/BatchRunButton.vue'
 import ConnectionError from '../components/ConnectionError.vue'

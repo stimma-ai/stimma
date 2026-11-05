@@ -11,7 +11,7 @@
  * long-pressed. In the phone drawer it also carries the output settings
  * (auto-markers, auto-delete), which have no room beside the controls; a small
  * settings glyph inside Run's fill says one of them is on, and the controls area shows
- * the state in words (the New outputs row, which opens this sheet). Easter egg: a double tap starts Forever
+ * the state on the Every new output row, whose delete button opens this sheet. Easter egg: a double tap starts Forever
  * mode (the first tap has already run, so that batch still goes).
  */
 import { computed, ref } from 'vue'
@@ -166,7 +166,7 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
     </label>
     <template v-if="outputSettings">
       <div class="mx-4 my-1 border-t border-edge-subtle"></div>
-      <p class="px-4 pt-2 text-[13px] font-semibold text-content-secondary">New outputs</p>
+      <p class="px-4 pt-2 text-[13px] font-semibold text-content-secondary">Every new output</p>
       <div v-if="markers.length > 0" class="flex items-center justify-between gap-3 px-4 min-h-14">
         <span class="text-[15px] text-content flex-none">Mark new results</span>
         <AutoMarkPicker

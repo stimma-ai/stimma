@@ -544,7 +544,7 @@ onBeforeUnmount(() => {
                 :aria-checked="activeSelected"
                 aria-label="Select this image"
                 class="absolute left-2 top-2 z-chrome flex transition-opacity duration-150 coarse:left-0 coarse:top-0 coarse:h-11 coarse:w-11 coarse:p-2"
-                :class="activeSelected || selecting ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover/hero:opacity-100 [[data-pointer=coarse]_&]:hidden'"
+                :class="activeSelected || selecting ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover/hero:opacity-100 [[data-pointer=coarse]_&]:opacity-100'"
                 @click.stop="togglePickActive"
               >
                 <span class="flex h-6 w-6 items-center justify-center rounded-md border-2 backdrop-blur-md transition-colors duration-150" :class="activeSelected ? 'border-selection bg-selection' : activeIsComposite ? 'border-edge-strong bg-overlay-subtle hover:border-content-secondary' : 'border-edge-strong bg-black/60 hover:border-content-secondary'">

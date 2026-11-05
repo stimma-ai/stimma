@@ -20,7 +20,7 @@
           </button>
           <h2 ref="settingsTitle" class="truncate font-brand font-semibold text-content" :class="isCompact ? 'text-[18px] leading-6 px-1' : 'text-base'">{{ isCompact && !compactList ? activeSectionLabel : 'Settings' }}</h2>
         </div>
-        <button v-if="isCompact && compactList" type="button" :class="compactIconButton" aria-label="Close" title="Close" @click="close">
+        <button v-if="isCompact" type="button" :class="compactIconButton" aria-label="Close" title="Close" @click="close">
           <XMarkIcon :class="compactIcon" />
         </button>
         <IconButton v-else-if="!isCompact" size="lg" aria-label="Close" title="Close" @click="close">
