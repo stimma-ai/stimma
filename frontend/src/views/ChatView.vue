@@ -1307,6 +1307,7 @@
             class="flex min-w-0 flex-1 flex-col overflow-hidden bg-matte compact:absolute compact:inset-0 compact:z-chrome"
           />
           <ArtifactStage
+            :active="!slideshowState.active"
             v-else-if="artifactStage.stageOpen.value"
             class="compact:absolute compact:inset-0 compact:z-chrome"
             :workspace-file="artifactStage.workspaceFile.value"

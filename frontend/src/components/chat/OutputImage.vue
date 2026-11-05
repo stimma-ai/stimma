@@ -234,7 +234,8 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
+import { useManagedMediaElement } from '../../composables/useMediaPlayback'
 import { FilmIcon, PlayIcon } from '@heroicons/vue/24/outline'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
 import { useViewport } from '../../composables/useViewport'
@@ -414,6 +415,7 @@ const effectiveThumbnail = computed(() => {
 })
 
 const videoRef = ref(null)
+useManagedMediaElement(videoRef)
 const videoStarted = ref(false)
 const videoPlaying = ref(false)
 const videoPreview = ref(false)
@@ -479,6 +481,7 @@ function openVideoMenu(event) {
 }
 watch(() => props.row.output.media_id, resetVideo)
 onBeforeUnmount(resetVideo)
+onDeactivated(resetVideo)
 
 watch(isPlayableVideo, playable => { if (!playable) resetVideo() })
 

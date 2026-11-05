@@ -156,9 +156,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick, onBeforeUnmount, onDeactivated } from 'vue'
 import { useExpirationClock } from '../../composables/useExpirationClock'
 import { MediaImage, AppImage } from '../media'
+import { useManagedMediaElement } from '../../composables/useMediaPlayback'
 import MarkerBadges from '../MarkerBadges.vue'
 import Spinner from '../ui/Spinner.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
@@ -264,6 +265,7 @@ function getMediaHash(mediaId?: number): string { return (mediaId && props.media
 // holds a decoding video. The poster (first-frame thumbnail) carries the resting
 // state. Debounced so flicking the cursor across the strip allocates nothing.
 const videoEl = ref<HTMLVideoElement | null>(null)
+useManagedMediaElement(videoEl)
 const videoActive = ref(false)
 let hoverTimer: ReturnType<typeof setTimeout> | null = null
 let msePlayback: MseLoopPlayback | null = null
@@ -320,6 +322,7 @@ function handleVideoError() {
 }
 
 onBeforeUnmount(releaseVideo)
+onDeactivated(releaseVideo)
 const tileMarkers = computed<Marker[]>(() =>
   props.job.result_media_id ? (props.mediaMarkers[props.job.result_media_id] || []) : []
 )

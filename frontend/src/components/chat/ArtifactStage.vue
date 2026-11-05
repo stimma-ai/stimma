@@ -96,7 +96,7 @@
 
     <!-- Hero -->
     <div class="flex-1 min-h-0 flex flex-col relative" :class="workspaceFile ? '' : 'px-3 pt-3'">
-      <FileViewer v-if="workspaceFile && chatId != null" :controls-target="fileControlsRef" :key="fileUrl(chatId, workspaceFile)" :url="fileUrl(chatId, workspaceFile)" :name="workspaceFile.name" :mime="workspaceFile.mime" :size="workspaceFile.size" :workspace-file="workspaceFile" :chat-id="chatId" class="flex-1 min-h-0" @attach="$emit('attach-file', $event)" @save="$emit('save-file', $event)" />
+      <FileViewer v-if="workspaceFile && chatId != null && active !== false" :controls-target="fileControlsRef" :key="fileUrl(chatId, workspaceFile)" :url="fileUrl(chatId, workspaceFile)" :name="workspaceFile.name" :mime="workspaceFile.mime" :size="workspaceFile.size" :workspace-file="workspaceFile" :chat-id="chatId" class="flex-1 min-h-0" @attach="$emit('attach-file', $event)" @save="$emit('save-file', $event)" />
       <div v-else-if="loading && !viewedRevision" class="flex-1 flex items-center justify-center text-content-muted text-sm">
         Loading…
       </div>
@@ -132,7 +132,7 @@
           <!-- Video hero: the slideshow's player. MseLoopPlayback presents
                repeated A/V fragments on one forward-moving timeline, so loops
                never seek; the controller owns src, so none is bound here. -->
-          <template v-else-if="heroKind === 'video'">
+          <template v-else-if="heroKind === 'video' && active !== false">
             <video
               ref="videoRef"
               :key="viewedRevision.media_id"
@@ -165,7 +165,7 @@
             img-class="!object-contain !bg-none !bg-transparent"
             alt="Artifact"
           />
-          <FileViewer v-else :controls-target="fileControlsRef" :url="getMediaFileUrl(viewedRevision.media_id)" :name="viewedRevision.filename || 'artifact.' + viewedRevision.file_format" :mime="viewedRevision.mime" :size="viewedRevision.file_size" :media-id="viewedRevision.media_id" :workspace-file="artifactFile" :chat-id="chatId" class="w-full h-full" @attach="$emit('attach-file', $event)" @save="$emit('save-file', $event)" />
+          <FileViewer v-else-if="active !== false" :controls-target="fileControlsRef" :url="getMediaFileUrl(viewedRevision.media_id)" :name="viewedRevision.filename || 'artifact.' + viewedRevision.file_format" :mime="viewedRevision.mime" :size="viewedRevision.file_size" :media-id="viewedRevision.media_id" :workspace-file="artifactFile" :chat-id="chatId" class="w-full h-full" @attach="$emit('attach-file', $event)" @save="$emit('save-file', $event)" />
         </div>
 
         <!-- Chip bar beneath the hero. The vector viewer reports the document's
@@ -186,7 +186,7 @@ import FileActions from './FileActions.vue'
 import FileViewer from '../viewers/FileViewer.vue'
 import Button from '../ui/Button.vue'
 import { fileUrl, fileSize, dragWorkspaceFile, fileKind, type WorkspaceFile } from '../../utils/fileRefs'
-import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onBeforeUnmount, onActivated, onDeactivated } from 'vue'
 import {
   ChevronDownIcon,
   EllipsisVerticalIcon,
@@ -218,6 +218,7 @@ import { mobileAutoplayAllowed } from '../../composables/useMobilePlaybackLifecy
 import { MseLoopPlayback } from '../../utils/mseLoopPlayback'
 
 const props = defineProps<{
+  active?: boolean
   workspaceFile?: WorkspaceFile | null
   chatId?: number | string
   // The chat's project; the media menu acts in it. Looked up from the chat
@@ -308,19 +309,25 @@ const videoHash = computed(() => heroKind.value === 'video'
   ? (props.viewedRevision?.media_hash || videoMedia.value?.file_hash || null)
   : null)
 
+const videoActive = ref(true)
+onActivated(() => { videoActive.value = true })
+onDeactivated(() => {
+  videoActive.value = false
+  destroyMsePlayback()
+})
 let msePlayback: MseLoopPlayback | null = null
 function destroyMsePlayback() {
   msePlayback?.destroy()
   msePlayback = null
 }
 
-watch([videoRef, videoHash], ([element, fileHash]) => {
+watch([videoRef, videoHash, videoActive, () => props.active], ([element, fileHash, active, surfaceActive]) => {
   destroyMsePlayback()
-  if (!element || !fileHash) return
+  if (!element || !fileHash || !active || surfaceActive === false) return
   element.muted = videoMuted.value
   element.volume = videoVolume.value
   const playback = new MseLoopPlayback(element, getMseLoopUrls(fileHash), {
-    shouldPlay: () => mobileAutoplayAllowed.value,
+    shouldPlay: () => videoActive.value && props.active !== false && mobileAutoplayAllowed.value,
     onError: (error: unknown) => {
       if (msePlayback !== playback) return
       // Seamless looping is progressive enhancement; the original file still
@@ -330,7 +337,7 @@ watch([videoRef, videoHash], ([element, fileHash]) => {
       msePlayback = null
       element.src = getMediaFileUrl(fileHash)
       element.loop = true
-      if (mobileAutoplayAllowed.value) void element.play().catch(() => {})
+      if (videoActive.value && props.active !== false && mobileAutoplayAllowed.value) void element.play().catch(() => {})
     },
   })
   msePlayback = playback
