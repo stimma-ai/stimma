@@ -85,18 +85,13 @@
       </div>
     </div>
 
-    <!-- Ambient brand glow: the pinwheel's colours as dithered blobs (see GlowCanvas). -->
-    <GlowCanvas class="absolute inset-0" :blobs="lockGlowBlobs" />
-
     <!-- Centered lock content -->
-    <div class="relative z-[1] h-full px-6" style="padding-top: calc(var(--safe-top) + 4rem); padding-bottom: calc(var(--safe-bottom) + 1.5rem)">
-      <FitToSpace>
+    <!-- Phones anchor the stack near the top so the keypad sits mid-screen,
+         not down at the home indicator; desktop windows stay centered. -->
+    <div class="relative z-[1] h-full px-6" :style="{ paddingTop: `calc(var(--safe-top) + ${isCompact ? '5.5rem' : '4rem'})`, paddingBottom: 'calc(var(--safe-bottom) + 1.5rem)' }">
+      <FitToSpace :align="isCompact ? 'top' : 'center'">
       <div class="flex flex-col items-center gap-5 sm:gap-6">
-        <!-- Brand -->
-        <div class="flex flex-col items-center gap-3">
-          <img src="/logo.svg" alt="" class="w-14 h-14 sm:w-[72px] sm:h-[72px] drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)]" />
-          <span class="font-brand lowercase tracking-[0.12em] text-[19px] sm:text-[22px] font-semibold text-content">stimma</span>
-        </div>
+        <img src="/logo.svg" alt="" class="w-12 h-12 sm:w-14 sm:h-14" />
 
         <!-- Greeting -->
         <div class="text-center">
@@ -309,7 +304,6 @@ import { installRemoteTabClose } from './composables/useRemoteTabClose'
 import CompactHeader from './components/compact/CompactHeader.vue'
 import AccountSheet from './components/compact/AccountSheet.vue'
 import Spinner from './components/ui/Spinner.vue'
-import GlowCanvas from './components/ui/GlowCanvas.vue'
 import { useWorkingContext } from './composables/useWorkingContext'
 import { belongsToContext, contextRoute, contextSection, projectIdFrom } from './utils/workingContext'
 import TopBar from './components/TopBar.vue'
@@ -366,7 +360,7 @@ import { setCloudBaseUrl, fetchCloudAccount } from './composables/useCloudAccoun
 import { refreshAvailableModels } from './composables/useAvailableModels'
 import { useRouteRestore, getSavedRouteForProfile } from './composables/useRouteRestore'
 import { useTabNavigation } from './composables/useTabNavigation'
-import { useTheme } from './composables/useTheme'
+import './composables/useTheme' // applies data-theme at boot
 import { useWorkspaceTabs, toolTabRoute, toolRouteTabId, editorTabRoute, editorRouteTabId } from './composables/useWorkspaceTabs'
 import { useProjectRoute } from './composables/useProjectRoute'
 import { useToasts } from './composables/useToasts'
@@ -392,7 +386,6 @@ const { restoreRoute, setupPersistence } = useRouteRestore()
 const { slideshowActive } = useTabNavigation()
 watch(slideshowActive, active => { void setMobileSlideshowActive(active) }, { immediate: true })
 onUnmounted(() => { void setMobileSlideshowActive(false) })
-const { resolvedTheme } = useTheme()
 const {
   allTabs, findNextTab, removeTab,
   reopenLastClosed, getNextTab, getPrevTab
@@ -451,21 +444,6 @@ async function focusLockScreenPinInput() {
   if (isLocked.value) lockScreenPinInput.value?.focus({ preventScroll: true })
 }
 
-// The eight pinwheel colours arranged in a ring behind the brand block, in
-// canvas unit coords. Alpha drops on light surfaces where the same tint reads
-// far stronger.
-const LOCK_GLOW_COLORS = [
-  [243, 135, 36], [231, 59, 49], [188, 32, 115], [108, 58, 145],
-  [35, 118, 188], [3, 158, 150], [98, 178, 83], [248, 207, 17],
-]
-const lockGlowBlobs = computed(() => {
-  const alpha = resolvedTheme.value === 'light' ? 0.10 : 0.20
-  const cx = 0.5, cy = 0.42, ring = 0.24
-  return LOCK_GLOW_COLORS.map((color, i) => {
-    const angle = (i / LOCK_GLOW_COLORS.length) * Math.PI * 2 - Math.PI / 2
-    return { x: cx + Math.cos(angle) * ring, y: cy + Math.sin(angle) * ring * 1.15, rx: 0.22, ry: 0.30, color, alpha }
-  })
-})
 const lockScreenDotCount = computed(() => Math.max(4, lockScreenPin.value.length))
 
 // Keyboard PIN entry is handled here, at the window in the capture phase,

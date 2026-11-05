@@ -27,7 +27,7 @@ const result = await build({
         import { ref, computed } from 'vue'
         import FitToSpace from '../../src/components/FitToSpace.vue'
         const isLocked = true, isCompact = true, lockedProfileName = 'Test profile'
-        const profiles = [], lockGlowBlobs = [], currentProfileId = 'test'
+        const profiles = [], currentProfileId = 'test'
         const lockScreenPinInput = ref(null), lockScreenProfileDropdownOpen = ref(false)
         const lockScreenPin = ref(''), lockScreenError = ref(''), lockScreenSubmitting = ref(false), lockScreenShake = ref(false)
         const lockScreenDotCount = computed(() => Math.max(4, lockScreenPin.value.length))
@@ -35,7 +35,7 @@ const result = await build({
         function submitLockScreenPin() { lockScreenError.value = 'Invalid PIN. Please try again.'; lockScreenPin.value = '' }
         function toggleLockScreenProfileDropdown() { lockScreenProfileDropdownOpen.value = !lockScreenProfileDropdownOpen.value }
         function switchToProfileFromLockScreen() {}
-        const GlowCanvas = { template: '<div />' }, Spinner = { template: '<span />' }
+        const Spinner = { template: '<span />' }
       </script>`
     },
   }, vue()],
