@@ -18,10 +18,10 @@
       <div
         v-if="true"
         class="navigation-sidebar h-screen bg-surface border-r border-edge-subtle flex flex-col flex-shrink-0"
-        :class="isMobile ? 'compact-drawer relative w-[276px] !h-full pt-safe' : 'relative'"
+        :class="isMobile ? 'compact-drawer relative w-[276px] !h-full pt-safe' : focusCollapsed ? ['absolute inset-y-0 left-0 z-modal', peeking ? 'is-peeking translate-x-0 shadow-lg' : '-translate-x-full invisible pointer-events-none'] : 'relative'"
         :style="!isMobile ? { width: `${sidebarWidth}px` } : undefined"
-        :aria-hidden="isMobile && !isOpen ? 'true' : undefined"
-        :inert="isMobile && !isOpen ? true : undefined"
+        :aria-hidden="(isMobile && !isOpen) || (focusCollapsed && !peeking) ? 'true' : undefined"
+        :inert="(isMobile && !isOpen) || (focusCollapsed && !peeking) ? true : undefined"
       >
         <!-- Draggable region + fade overlay for traffic light area -->
         <div v-if="isDesktopMac" class="absolute top-0 left-0 right-3 h-9 z-10 pointer-events-none">
@@ -1074,8 +1074,20 @@ const props = defineProps({
   isMobile: {
     type: Boolean,
     default: false
+  },
+  // Focus screens (slideshow, image editor): the docked sidebar leaves the
+  // layout but stays mounted, since its drop targets and state live here.
+  // `peeking` slides it back in as an overlay for the length of a media drag.
+  collapsed: {
+    type: Boolean,
+    default: false
+  },
+  peeking: {
+    type: Boolean,
+    default: false
   }
 })
+const focusCollapsed = computed(() => props.collapsed && !props.isMobile)
 
 const emit = defineEmits(['close', 'open-settings', 'media-dropped-on-tool', 'media-dropped-on-chat', 'open-account'])
 

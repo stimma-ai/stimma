@@ -324,6 +324,8 @@ test.describe('project world', () => {
     await expectContext(page, q.name);
     await page.goto(`/edit-image/${assetId}`);
     await expect(page).toHaveURL(new RegExp(`/edit-image/${assetId}`));
+    // The image editor folds the sidebar away; open it to read the working context.
+    await page.getByRole('button', { name: 'Show sidebar', exact: true }).click();
     await expectContext(page, p.name);
 
     // An asset that Q also holds keeps Q.

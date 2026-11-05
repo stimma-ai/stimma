@@ -232,11 +232,13 @@
   </div>
 
   <!-- Normal app with sidebar and topbar -->
-  <div v-else v-scroll-guard class="w-full h-screen flex overflow-hidden bg-base">
+  <div v-else v-scroll-guard class="relative w-full h-screen flex overflow-hidden bg-base">
     <!-- Sidebar - fixed on wide screens, overlay on narrow -->
     <NavigationSidebar
       :is-open="sidebarOpen"
       :is-mobile="isMobile"
+      :collapsed="sidebarFocusCollapsed"
+      :peeking="sidebarPeeking"
       @close="closeSidebar"
       @open-settings="openSettings($event)"
     />
@@ -253,6 +255,10 @@
       <!-- Static top bar -->
       <TopBar
         class="top-bar"
+        :sidebar-toggle="focusScreen"
+        :sidebar-shown="!sidebarFocusCollapsed"
+        :clear-window-controls="isMacShell && sidebarFocusCollapsed"
+        @toggle-sidebar="toggleFocusSidebar"
         @open-settings="openSettings($event)"
       />
 
@@ -307,6 +313,7 @@ import GlowCanvas from './components/ui/GlowCanvas.vue'
 import { useWorkingContext } from './composables/useWorkingContext'
 import { belongsToContext, contextRoute, contextSection, projectIdFrom } from './utils/workingContext'
 import TopBar from './components/TopBar.vue'
+import { dragPeek, focusSidebarOpen, setFocusSidebarOpen, installDragPeek } from './composables/useSidebarFocus'
 import ToastContainer from './components/ToastContainer.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import ShareDialog from './components/ShareDialog.vue'
@@ -642,6 +649,19 @@ const sidebarDockable = computed(() => {
 })
 const sidebarDocked = computed(() => sidebarDockable.value && (sidebarPinned.value ?? viewportWidth.value === 'wide'))
 watch(sidebarDocked, (docked) => { if (docked) sidebarOpen.value = false })
+
+// Focus screens (the slideshow, the image editor) hand the docked sidebar's
+// space to the picture. It stays mounted, collapsed out of flow, because its
+// drop targets and state live in it. Opening it there is the person's choice
+// and is kept per profile; the drag peek is only a transient overlay.
+const isMacShell = isDesktop() && navigator.platform.toLowerCase().includes('mac')
+const focusScreen = computed(() => !isCompact.value && (slideshowActive.value || route.name === 'edit-image'))
+const sidebarFocusCollapsed = computed(() => focusScreen.value && !focusSidebarOpen())
+const sidebarPeeking = computed(() => sidebarFocusCollapsed.value && dragPeek.value)
+function toggleFocusSidebar() { setFocusSidebarOpen(!focusSidebarOpen()) }
+let removeDragPeek = null
+onMounted(() => { removeDragPeek = installDragPeek() })
+onUnmounted(() => { removeDragPeek?.() })
 
 // The header's menu button: on a phone it opens the drawer; where the drawer
 // can dock, it pins and unpins instead, so the same button is always "show
@@ -1443,14 +1463,14 @@ onUnmounted(() => {
 
 /* Slide out NavigationSidebar and TopBar in slideshow focus mode */
 .navigation-sidebar {
-  transition: margin-left 0.3s ease, opacity 0.3s ease;
+  transition: margin-left 0.3s ease, opacity 0.3s ease, transform 0.15s ease, visibility 0.15s;
 }
 
 .top-bar {
   transition: margin-top 0.3s ease, opacity 0.3s ease;
 }
 
-body.slideshow-focus-mode .navigation-sidebar:not(.compact-drawer) {
+body.slideshow-focus-mode .navigation-sidebar:not(.compact-drawer):not(.is-peeking) {
   margin-left: 0 !important;
   width: 0 !important; /* Override inline width style from resizable sidebar */
   flex-basis: 0 !important;
