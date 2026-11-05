@@ -1759,7 +1759,8 @@ function commitLivePan() {
 
 const viewZoomLabel = computed(() => `${Math.round(viewZoom.value * 100)}%`)
 const viewTransformStyle = computed(() => ({ transform: panTransform(viewPan.value) }))
-// Compact: the zoom read-out, Compare and Select are glass chips in two fixed
+// Compact: the zoom read-out, Compare and Select share one quiet treatment (bare
+// secondary text on the matte, a neutral fill only when pressed or on) in two fixed
 // zones, whatever the picture's shape. Zoom and Compare share the top edge of
 // the stage; Select sits on the bottom edge, just above the tool deck. The
 // viewport reserves a band above and below the fitted artwork (see its
@@ -9269,8 +9270,8 @@ watch(
         </div>
       </div>
 
-      <!-- Compact: the commit bar's zoom read-out and before/after as glass
-           chips on the stage's top edge; pinch zooms, two fingers pan.
+      <!-- Compact: the commit bar's zoom read-out and before/after as quiet
+           controls on the stage's top edge; pinch zooms, two fingers pan.
            Select sits on the bottom edge, above the tool deck. -->
       <div
         v-if="isCompact && !loading && family !== 'crop'"
@@ -9280,25 +9281,25 @@ watch(
         <!-- The 44px target is the button; the chip inside is the glass. -->
         <button
           type="button"
-          class="pointer-events-auto flex min-h-11 min-w-11 items-center justify-start focus-visible:outline-none"
+          class="group pointer-events-auto flex min-h-11 min-w-11 items-center justify-start focus-visible:outline-none"
           :aria-label="`Zoom ${viewZoomLabel}. Fit and recenter`"
           @click="resetView"
         >
-          <span class="flex h-8 items-center gap-1.5 rounded-md bg-black/55 px-2 font-mono text-[11px] tabular-nums text-white backdrop-blur">
+          <span class="flex h-8 items-center gap-1.5 rounded-md px-2 font-mono text-[11px] tabular-nums text-content-secondary transition-colors duration-150 group-active:bg-overlay-subtle">
             <ArrowsPointingInIcon class="h-icon-inline w-icon-inline" />
             {{ viewZoomLabel }}
           </span>
         </button>
         <button
           type="button"
-          class="pointer-events-auto flex min-h-11 min-w-11 items-center justify-end focus-visible:outline-none disabled:opacity-40"
+          class="group pointer-events-auto flex min-h-11 min-w-11 items-center justify-end focus-visible:outline-none disabled:opacity-40"
           :aria-pressed="comparing"
           :disabled="!composite"
           @click="toggleCompare()"
         >
           <span
-            class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium text-white backdrop-blur"
-            :class="comparing ? 'bg-black/80 ring-1 ring-white/40' : 'bg-black/55'"
+            class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium transition-colors duration-150"
+            :class="comparing ? 'bg-overlay-medium text-content' : 'text-content-secondary group-active:bg-overlay-subtle'"
           >
             <ViewColumnsIcon class="h-icon-inline w-icon-inline" />
             Compare

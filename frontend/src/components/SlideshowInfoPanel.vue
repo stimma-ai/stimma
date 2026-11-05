@@ -16,7 +16,10 @@
          beneath, in the body. Export-original lives in the Export modal
          (format defaults to Original). In Trash there are no actions. -->
     <div v-if="currentItem && !isInTrash" class="px-3 pt-3 flex-shrink-0">
-      <div class="flex flex-wrap items-center gap-x-0.5">
+      <div class="flex flex-wrap items-center gap-x-4">
+        <!-- Two roles, set apart by space: what you do to the picture (left),
+             then what you do with it (export, share) and the occasional rest
+             (overflow), quieter at the right edge. -->
         <div class="-ml-2.5 flex min-w-0 flex-wrap items-center gap-0.5">
           <ActionRow
             v-if="showEditAction && handles('edit-image') && isImageType(currentItem)"
@@ -37,21 +40,21 @@
             class="action-pair-wrap"
           />
         </div>
-        <div class="ml-auto -mr-1 flex items-center gap-0.5">
+        <div class="ml-auto -mr-1 flex items-center">
           <!-- Rail actions render only where the host handles them (Compare
                mode mounts this panel without export/share/edit/graph). -->
         <Tooltip v-if="handles('download')" text="Export">
-          <IconButton aria-label="Export" @click="$emit('download')">
+          <IconButton aria-label="Export" class="!text-content-tertiary hover:!text-content" @click="$emit('download')">
             <ArrowDownTrayIcon class="w-4 h-4" />
           </IconButton>
         </Tooltip>
         <Tooltip v-if="handles('share-to-cloud')" text="Share link">
-          <IconButton aria-label="Share link" @click="$emit('share-to-cloud')">
+          <IconButton aria-label="Share link" class="!text-content-tertiary hover:!text-content" @click="$emit('share-to-cloud')">
             <ShareIcon class="w-4 h-4" />
           </IconButton>
         </Tooltip>
         <Tooltip text="More actions">
-          <IconButton aria-label="More actions" @click.stop="openContextMenu($event)">
+          <IconButton aria-label="More actions" class="ml-1.5 !text-content-tertiary hover:!text-content" @click.stop="openContextMenu($event)">
             <EllipsisHorizontalIcon class="w-4 h-4" />
           </IconButton>
         </Tooltip>
@@ -59,7 +62,7 @@
       </div>
     </div>
 
-    <div v-if="currentItem" class="px-3 pb-3 overflow-y-auto overflow-x-hidden" :class="isInTrash ? 'pt-3' : 'pt-2'">
+    <div v-if="currentItem" class="px-3 pb-3 overflow-y-auto overflow-x-hidden" :class="isInTrash ? 'pt-3' : 'pt-4'">
       <!-- Trash actions -->
       <div v-if="isTrashView || isCurrentItemTrashed" class="flex flex-col gap-1.5 mb-6">
         <button

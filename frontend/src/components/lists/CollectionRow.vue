@@ -33,7 +33,7 @@ withDefaults(defineProps<{
 
 <template>
   <div
-    class="group relative flex cursor-pointer items-center py-3.5 transition-colors narrow:items-start narrow:py-3.5"
+    class="group relative flex cursor-pointer items-center py-3.5 transition-colors narrow:items-start narrow:py-3"
     :class="[listMeasureX, selected ? 'bg-selection/15' : 'hover:bg-overlay-subtle active:bg-overlay-light']"
   >
     <!-- Row furniture (the selection box) is placed against the measure's left
@@ -42,7 +42,7 @@ withDefaults(defineProps<{
       <slot name="overlay" />
     </div>
     <div
-      class="grid w-full grid-cols-[2.5rem_minmax(0,1fr)_var(--row-trail)_3.25rem] gap-x-4 gap-y-0.5 narrow:grid-cols-[2.5rem_minmax(0,1fr)_3rem] narrow:gap-x-3 narrow:gap-y-1 compact:gap-x-3"
+      class="grid w-full grid-cols-[2.5rem_minmax(0,1fr)_var(--row-trail)_3.25rem] gap-x-4 gap-y-0.5 narrow:grid-cols-[2.5rem_minmax(0,1fr)_3rem] narrow:gap-x-3 narrow:gap-y-0 compact:gap-x-3"
       :style="{ '--row-trail': trailingWidth }"
     >
       <div class="col-start-1 row-span-2 row-start-1 self-center narrow:row-span-3 narrow:self-start"><slot name="thumb" /></div>
@@ -55,7 +55,7 @@ withDefaults(defineProps<{
            is the space after the last line. -->
       <div
         v-if="$slots.trailing"
-        class="col-start-3 row-start-1 flex h-5 min-w-0 items-center justify-end narrow:[grid-column:2/4] narrow:row-start-3 narrow:mt-0.5 narrow:justify-start"
+        class="col-start-3 row-start-1 flex h-5 min-w-0 items-center justify-end narrow:[grid-column:2/4] narrow:row-start-3 narrow:mt-1 narrow:h-4 narrow:justify-start"
       >
         <slot name="trailing" />
       </div>

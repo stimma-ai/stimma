@@ -48,7 +48,7 @@
 
     <!-- Control strip: the compact-tier page header. Name, then status and the run
          controls as its meta, then the workspace actions, then the overflow menu. -->
-    <PageHeader tier="compact" class="relative compact:[&_h1]:hidden compact:h-auto compact:min-h-12 compact:gap-1 compact:bg-surface compact:px-3 compact:py-0">
+    <PageHeader tier="compact" class="relative compact:[&_h1]:hidden compact:h-auto compact:min-h-12 compact:gap-1 compact:bg-surface compact:px-page compact:py-0">
       <template #title>
         <template v-if="editingName">
           <input
@@ -166,7 +166,7 @@
              flow backs a tool, a caret opens a terse menu (Update <tool> / Save as
              New). A dot — on the button and on each drifted row — marks unsaved
              changes vs the saved tool. -->
-        <div class="relative" ref="linkMenuRef">
+        <div v-if="!isPhone" class="relative" ref="linkMenuRef">
           <button
             class="relative flex items-center justify-center gap-1.5 px-2 h-8 compact:h-11 compact:min-w-11 rounded-md text-xs font-medium text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors"
             :title="backingTools.length === 0 ? 'Freeze this flow into a custom tool' : 'Save / update custom tool'"
@@ -177,6 +177,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437" />
             </svg>
             <span class="compact:hidden">Save custom tool</span>
+            <span class="hidden compact:inline">Save tool</span>
             <svg v-if="backingTools.length > 0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-icon-inline h-icon-inline opacity-70 -mr-0.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
             </svg>
@@ -835,7 +836,9 @@ import { syncedStorage } from '../utils/workspaceStore'
 
 const props = defineProps<{ id?: string | number }>()
 const route = useRoute()
-const { isCompact } = useViewport()
+const { isCompact, isRoomy } = useViewport()
+// Phone: Save custom tool lives in the header menu, not beside the workspace switch.
+const isPhone = computed(() => isCompact.value && !isRoomy.value)
 const router = useRouter()
 const { fetchProvidersAndTools } = useProvidersApi()
 const api = useFlowsApi()
@@ -2428,12 +2431,18 @@ function updateCompactHeader() {
   setCompactTitle(flow.value?.name || 'Name this flow…', '', () => { renameOpen.value = true })
   setCompactMenu([
     ...(showPauseButton.value && pauseInMenu.value ? [{ label: 'Pause', run: doPause }] : []),
+    ...(isPhone.value
+      ? [
+          ...backingTools.value.filter(t => t.has_changes).map(t => ({ label: `Update ${t.name}`, run: () => updateBackingTool(t) })),
+          { label: backingTools.value.length === 0 ? 'Save custom tool' : 'Save as new tool', run: openFreezeDialog },
+        ]
+      : []),
     { label: 'Rename', run: () => { renameOpen.value = true } },
     { label: 'Move to project', run: () => { moveProjectOpen.value = true } },
     { label: 'Make a copy', run: doCopy },
     { label: 'Delete', run: handleDelete, destructive: true },
   ])
 }
-watch([() => flow.value?.id, () => flow.value?.name, () => showPauseButton.value && pauseInMenu.value], updateCompactHeader, { immediate: true })
+watch([() => flow.value?.id, () => flow.value?.name, () => showPauseButton.value && pauseInMenu.value, isPhone, () => backingTools.value.map(t => `${t.id}:${t.has_changes}`).join()], updateCompactHeader, { immediate: true })
 onActivated(updateCompactHeader)
 </script>

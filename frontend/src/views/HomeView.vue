@@ -80,21 +80,25 @@
             </div>
 
             <!-- Tool launchers docked to the prompt (recent tools, starter picks as cold-start fill) -->
-            <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-start gap-2 mt-4 compact:mt-2 compact:-mx-page compact:px-page compact:scroll-px-page compact:flex-nowrap compact:gap-1.5 compact:overflow-x-auto compact:overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <button
-                v-for="tool in launcherTools"
-                :key="tool.full_tool_id"
-                @click="openToolById(tool.full_tool_id)"
-                class="flex shrink-0 items-center gap-2 px-3 py-1.5 compact:gap-1.5 compact:px-2.5 compact:py-1 coarse:min-h-11 rounded-md bg-overlay-faint hover:bg-overlay-subtle transition-colors cursor-pointer"
-                :title="tool.name"
-              >
-                <div class="w-5 h-5 compact:w-4 compact:h-4 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
-                <span class="whitespace-nowrap text-[13px] compact:text-[12px] font-medium text-content max-w-[180px] compact:max-w-none truncate">{{ tool.name }}</span>
-                <span class="whitespace-nowrap text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
-              </button>
+            <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap items-center justify-start gap-2 mt-4 compact:mt-2 compact:flex-nowrap compact:gap-1">
+              <!-- On compact the shortcuts scroll and fade out at the edge; All tools stays beside them, never inside the scroll. -->
+              <div class="contents compact:flex compact:min-w-0 compact:flex-1 compact:gap-1.5 compact:-ml-page compact:pl-page compact:scroll-pl-page compact:pr-6 compact:overflow-x-auto compact:overscroll-x-contain compact:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <button
+                  v-for="tool in launcherTools"
+                  :key="tool.full_tool_id"
+                  @click="openToolById(tool.full_tool_id)"
+                  class="flex shrink-0 items-center gap-2 px-3 py-1.5 compact:gap-1.5 compact:px-2.5 compact:py-1 coarse:min-h-11 rounded-md bg-overlay-faint hover:bg-overlay-subtle transition-colors cursor-pointer"
+                  :title="launcherProviders.size > 1 ? tool.name : `${tool.name} · ${providerLabel(tool)}`"
+                >
+                  <div class="w-5 h-5 compact:w-4 compact:h-4 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
+                  <span class="whitespace-nowrap text-[13px] compact:text-[12px] font-medium text-content max-w-[180px] compact:max-w-none truncate">{{ tool.name }}</span>
+                  <!-- Provider only when the row mixes providers; one shared provider is said once by the tool page. -->
+                  <span v-if="launcherProviders.size > 1" class="whitespace-nowrap text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
+                </button>
+              </div>
               <router-link
                 :to="contextRoute('all-tools', projectId)"
-                class="flex shrink-0 items-center whitespace-nowrap px-3 py-1.5 compact:px-2.5 compact:py-1 coarse:min-h-11 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+                class="flex shrink-0 items-center whitespace-nowrap px-3 py-1.5 compact:px-2 compact:py-1 coarse:min-h-11 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
               >
                 All tools →
               </router-link>
@@ -144,13 +148,13 @@
                 @dragover.prevent="item.type === 'board' && (dragOverBoardId = item.id)"
                 @dragleave="item.type === 'board' && dragOverBoardId === item.id && (dragOverBoardId = null)"
                 @drop.prevent="item.type === 'board' && handleBoardDrop(item.id, $event)"
-                class="flex flex-col compact:flex-row rounded-lg border overflow-hidden text-left bg-transparent transition-colors cursor-pointer"
+                class="group flex flex-col compact:flex-row rounded-lg overflow-hidden text-left bg-transparent transition-colors cursor-pointer"
                 :class="item.type === 'board' && dragOverBoardId === item.id
-                  ? 'border-transparent ring-1 ring-accent/50 bg-accent/10'
-                  : 'border-edge-subtle hover:bg-overlay-faint'"
+                  ? 'ring-1 ring-accent/50 bg-accent/10'
+                  : ''"
               >
                 <!-- Art -->
-                <div class="w-full h-28 bg-matte compact:w-20 compact:h-auto compact:min-h-20 compact:shrink-0">
+                <div class="w-full h-28 compact:w-20 compact:h-auto compact:min-h-20 compact:shrink-0 transition-opacity group-hover:opacity-85" :class="jumpHasArt(item) ? 'bg-matte' : 'bg-overlay-faint'">
                   <!-- Board: filmstrip of tiles at natural aspect, full strip
                        height, left-aligned on matte with 2px media-grid
                        gutters. Widths follow each item's aspect ratio so
@@ -233,11 +237,11 @@
                   />
                   <!-- Fallback: entity icon centered -->
                   <div v-else class="w-full h-full flex items-center justify-center">
-                    <EntityIcon :type="item.type" size="lg" />
+                    <EntityIcon :type="item.type" size="md" class="!h-5 !w-5 !border-0 !bg-transparent !text-content-muted opacity-50" />
                   </div>
                 </div>
                 <!-- Body -->
-                <div class="px-3.5 py-3 compact:px-3 compact:py-2.5 compact:flex-1 compact:min-w-0 compact:self-center">
+                <div class="px-0 py-3 compact:px-3.5 compact:py-2.5 compact:flex-1 compact:min-w-0 compact:self-center">
                   <!-- On compact the type label rides the preview line instead of costing a line of its own. -->
                   <div class="text-[11px] text-content-muted compact:hidden">{{ jumpKindLabel(item) }}</div>
                   <div class="text-sm font-medium truncate compact:whitespace-normal compact:line-clamp-2 mt-1 compact:mt-0" :class="item.name ? 'text-content' : 'text-content-muted italic'">
@@ -464,6 +468,13 @@ let scrollerObserver = null
 
 const visibleMedia = computed(() => recentMedia.value.slice(0, mediaColumns.value * mediaRows.value))
 
+// Whether a Jump back in card has artwork (else it shows the quiet type glyph).
+function jumpHasArt(item) {
+  if (item.type === 'board') return getBoardPreviewItems(item.board).length > 0
+  if (item.type === 'flow') return getFlowPreviewMedia(item.id).length > 0
+  return item.type === 'chat' && hasChatMedia(item.chat)
+}
+
 function hasChatMedia(chat) {
   return chat.recent_media && chat.recent_media.length > 0
 }
@@ -567,6 +578,9 @@ const launcherTools = computed(() => {
   }
   return picked
 })
+
+// Distinct providers across the launcher row; the label is shown only when they differ.
+const launcherProviders = computed(() => new Set(launcherTools.value.map(t => providerLabel(t))))
 
 function providerLabel(tool) {
   return toolProviderDisplayName(tool, tool.provider_id || '')

@@ -45,10 +45,11 @@ defineEmits<{ (e: 'menu', event: MouseEvent): void }>()
 
 <template>
   <div
-    class="group relative -mx-2 grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md pr-2 py-1 transition-colors coarse:min-h-11"
+    class="group relative -mx-2 grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md pr-2 py-1 transition-colors"
     :class="[
       indent ? 'pl-5' : 'pl-2',
-      interactive ? 'cursor-pointer hover:bg-overlay-subtle active:bg-overlay-light' : '',
+      interactive ? 'cursor-pointer hover:bg-overlay-subtle active:bg-overlay-light coarse:min-h-11' : '',
+      indent ? 'before:pointer-events-none before:absolute before:inset-y-0 before:left-4 before:w-px before:bg-edge-subtle' : '',
       description ? 'min-h-[3.25rem]' : facts.length ? 'min-h-8 narrow:min-h-[3.25rem]' : 'min-h-8',
     ]"
   >

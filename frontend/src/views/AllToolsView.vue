@@ -249,9 +249,9 @@
            rows, one for two-line rows, one gap between families that is clearly larger than the (zero) gap between a family's own rows. -->
       <div v-else class="@container">
         <div class="mx-auto max-w-[44rem] px-page @[60rem]:max-w-none @[60rem]:columns-2 @[60rem]:gap-x-12">
-          <section v-for="group in toolSections" :key="group.taskType" class="mb-section break-inside-avoid">
-            <div class="flex items-baseline justify-between gap-3 pb-1.5">
-              <h2 class="shrink-0 text-xs font-semibold text-content-secondary">
+          <section v-for="group in toolSections" :key="group.taskType" class="mb-[calc(var(--section-gap)+0.75rem)] break-inside-avoid">
+            <div class="flex items-baseline justify-between gap-3 pb-2">
+              <h2 class="shrink-0 font-brand text-base font-semibold text-content">
                 {{ formatTaskType(group.taskType) }}
               </h2>
               <span

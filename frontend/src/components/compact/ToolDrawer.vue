@@ -287,7 +287,7 @@ defineExpose({
 <template>
   <div
     ref="rootEl"
-    class="tool-drawer flex-none flex flex-col min-h-0 overflow-hidden bg-surface border-t border-edge rounded-t-xl shadow-[0_-10px_30px_rgba(0,0,0,0.45)] transition-[height] duration-200 ease-out"
+    class="tool-drawer flex-none flex flex-col min-h-0 overflow-hidden bg-surface border-t border-edge rounded-t-xl shadow-[0_-10px_30px] shadow-black/25 transition-[height] duration-200 ease-out"
     :style="[style, { maxHeight: `calc(100% - ${heroReserve}px)` }]"
     :data-level="level"
     @touchstart.passive="onTouchStart"

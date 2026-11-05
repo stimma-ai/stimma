@@ -1078,19 +1078,19 @@ textarea,
 [data-viewport="compact"] .jobs-results .jobs-rail,
 [data-viewport="compact"] .jobs-results .job-tile { display: contents; }
 [data-viewport="compact"] .jobs-results .jobs-tile {
-  height: var(--strip-tile-sm);
+  height: min(var(--strip-tile-sm), 100%);
   width: auto;
   min-width: 0;
   flex: none;
 }
 [data-viewport="compact"] .jobs-results .jobs-batch-cell {
   display: flex;
-  height: var(--strip-tile-sm);
+  height: min(var(--strip-tile-sm), 100%);
   flex: none;
 }
 [data-viewport="compact"]:not([data-width="narrow"]) .jobs-results .jobs-tile,
 [data-viewport="compact"]:not([data-width="narrow"]) .jobs-results .jobs-batch-cell {
-  height: var(--strip-tile-lg);
+  height: min(var(--strip-tile-lg), 100%);
 }
 /* Progress summaries and the pagination button have no artwork aspect. */
 [data-viewport="compact"] .jobs-results > button,

@@ -30,7 +30,7 @@
         </div>
 
         <!-- Nav Menu - only show when we have data -->
-        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-0.5 flex-1 overflow-y-auto custom-scrollbar" :class="[isDesktopMac ? 'pt-10' : 'pt-3', navScrolls ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]' : '']">
+        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-0.5 coarse:gap-0 flex-1 overflow-y-auto custom-scrollbar" :class="[isDesktopMac ? 'pt-10' : 'pt-3', navScrolls ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]' : '']">
 
           <!-- ==================== ZONE 1: Library Links ==================== -->
 
@@ -97,7 +97,7 @@
             <span class="truncate text-sm">{{ displaySavedViewName(savedView.name) }}</span>
           </button>
 
-          <div class="h-3 flex-shrink-0 coarse:h-2" aria-hidden="true"></div>
+          <div class="h-3 flex-shrink-0 coarse:h-1" aria-hidden="true"></div>
 
           <!-- All Assets -->
           <button
@@ -533,7 +533,7 @@
 
             <SidebarSectionHeader v-if="openTabs.length > 0" id="open" label="Open" />
 
-            <div v-if="!isCollapsed('open')" ref="openEl" @scroll.passive="updateNavEdge" class="flex min-h-32 flex-1 flex-col gap-0.5 overflow-y-auto custom-scrollbar coarse:min-h-0 coarse:flex-none coarse:overflow-visible" :class="openFade ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]' : ''">
+            <div v-if="!isCollapsed('open')" ref="openEl" @scroll.passive="updateNavEdge" class="flex min-h-32 flex-1 flex-col gap-0.5 coarse:gap-0 overflow-y-auto custom-scrollbar coarse:min-h-0 coarse:flex-none coarse:overflow-visible" :class="openFade ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]' : ''">
             <!-- Open (unpinned) tabs -->
             <div
               v-for="(tab, index) in openTabs"

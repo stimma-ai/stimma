@@ -6,7 +6,7 @@
       :class="isOpen
         ? 'bg-surface border-accent/50 ring-2 ring-accent/40'
         : hasLocalSearch
-          ? 'border-edge-subtle bg-transparent hover:bg-overlay-faint hover:border-edge'
+          ? 'border-transparent bg-transparent hover:bg-overlay-faint hover:border-edge-subtle'
           : 'bg-overlay-subtle border-edge-subtle hover:border-edge'"
     >
       <svg class="w-3.5 h-3.5 flex-shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">

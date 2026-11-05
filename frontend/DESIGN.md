@@ -598,8 +598,9 @@ that a desktop-sized window never trips.
   row directly. Every action is at most one extra tap. Destinations keep their
   full accessible names (`Send to Chat`); only the visible label drops the
   prefix inside the group sheet. Desktop uses the same groups as hover
-  submenus: Boards and projects, Send to, Explore (and Share when it has two
-  rows) open a panel beside the menu, and a destination inside it (Boards,
+  submenus: Boards and projects, Send to, Explore (and Share and export, once
+  the OS share row makes it two or more share rows; otherwise Share link, Print
+  and Export stay inline) open a panel beside the menu, and a destination inside it (Boards,
   Tool, Chat, Flow) opens its usual submenu beside the panel. Edit, Tags and
   Boards and projects (organization) stay direct; Remix, Send to and Explore
   are one group; sharing and export are one group; the destructive row stays
@@ -713,7 +714,7 @@ Configure, Manage and Sign in share the secondary style in every state of a
 settings row; the Stimma account's gradient is the one exception and is
 cloud-reserved. A screen's global search rests quiet where the page has its own
 list field (boards, chats, flows, tools): the list field is the visible search,
-and the top bar's field keeps its geometry and shortcut but drops its fill.
+and the top bar's field keeps its geometry and shortcut but drops its fill and its resting outline (the outline returns on hover and focus). It reads the route name, no setting.
 
 A board whose only section is unnamed has no band of its own on desktop: the
 page header carries the count and Add assets, the matte starts directly below,
@@ -758,7 +759,9 @@ Until a kit component exists, new code uses these exact patterns:
   the measure is the page margin. The preview truncates before any fact. Height
   follows content: padding above the title and after the last line, a small
   gap between a record's lines, a clearly larger one between records (the
-  facts on a phone never sit near the next record's name). Narrow (< 600) gives the name first
+  facts on a phone never sit near the next record's name). Narrow tightens the
+  record's inside: no gap between name, preview and the facts line, a 16px facts
+  line, 12px padding above and below, about 84px a record. Narrow (< 600) gives the name first
   claim on width: it shares its line only with a bounded date, the preview
   takes the next line and the facts sit together beneath, both counts for a
   chat. A flow row shows no extra output strip; its thumbnail is the first
@@ -776,10 +779,15 @@ Until a kit component exists, new code uses these exact patterns:
   uses its thumbnail. With no
   art, or art that will not load, the slot holds the type's glyph alone at half
   strength: no box, no tile.
-- **Tools list** (All tools; `lists/ToolRow.vue`): inside a task section a tool
+- **Tools list** (All tools; `lists/ToolRow.vue`): a task section opens with its
+  heading in display voice (`font-brand text-base font-semibold text-content`),
+  the one strong level on the page, with the facts the whole section shares on
+  its right. Inside it a tool
   family is a header row (task glyph at nav size, the family name in semibold,
   and the facts all its variants share) with its variants as rows indented one
-  step past the name, in regular weight, each led by a distinguishing label at primary contrast: the unmarked one is
+  step past the name under a 1px `edge-subtle` rail that drops from the family
+  glyph (the family header is not a target, so it keeps 32px on touch while
+  variants take 44px), in regular weight, each led by a distinguishing label at primary contrast: the unmarked one is
   "Standard", the lightning mark becomes the label of its speed badge ("Fast",
   "Turbo 4-step"), a parenthetical in the name is kept. Variants that still
   match are told apart by their full name, then by tool id (mono). A family with
@@ -788,7 +796,7 @@ Until a kit component exists, new code uses these exact patterns:
   facts); names never wrap. Facts sit beside the name they qualify (beneath it
   when narrow), neutral tertiary text, at most three with `+N`; "fast" is just a
   fact, never accent. Facts a whole section shares sit once on the section
-  header's right. Between families the gap is 20px and inside a family it is none; sections are further apart still. A
+  header's right. Between families the gap is 20px and inside a family it is none; sections are further apart still (the section gap plus 12px). A
   tool row is a target: hover and press tint, and a chevron (the options button
   replaces it on a user's own tool). A container wide enough (60rem) lays
   sections in two columns, never splitting a section; rows there hover as

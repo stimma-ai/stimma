@@ -122,7 +122,7 @@
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
-                <span v-else class="flex items-center gap-1.5 text-xs font-normal text-content-muted transition-[color,opacity] group-hover/name:text-content-secondary opacity-0 group-hover/head:opacity-100 group-focus-visible/name:opacity-100 compact:opacity-100" :class="loneSection && loneSection.id === section.id ? 'rounded-md bg-matte/80 px-2 py-1 backdrop-blur-sm' : ''">
+                <span v-else class="flex items-center gap-1.5 text-xs font-normal text-content-muted transition-[color,opacity] group-hover/name:text-content-secondary opacity-0 group-hover/head:opacity-100 group-focus-visible/name:opacity-100 compact:opacity-100" :class="[loneSection && loneSection.id === section.id ? 'rounded-md bg-matte/80 px-2 py-1 backdrop-blur-sm' : '', compactAddSection && compactAddSection.id === section.id ? 'compact:text-[11px]' : '']">
                   <span class="truncate">Name this section…</span>
                   <PencilIcon class="h-3 w-3 flex-none opacity-70" :stroke-width="1.75" aria-hidden="true" />
                 </span>
@@ -154,10 +154,10 @@
             @drop.stop.prevent="commitSectionBodyDrop(section, $event)"
           >
             <div
-              v-if="!(layoutRows[section.id] || []).length"
+              v-if="!(layoutRows[section.id] || []).length && !(isCompact && compactAddSection)"
               class="flex h-[116px] items-center justify-center text-xs text-content-muted"
             >
-              <button v-if="isCompact && !compactAddSection" class="min-h-11 px-4 text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
+              <button v-if="isCompact" class="min-h-11 px-4 text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
               <span v-else>Drop assets here</span>
             </div>
             <div class="space-y-0.5">

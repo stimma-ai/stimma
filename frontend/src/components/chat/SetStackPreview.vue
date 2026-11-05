@@ -60,7 +60,7 @@ const cards = computed(() => {
       id,
       depth,
       style: { width: `${CARD}%`, height: `${CARD}%`, left: offset(depth), bottom: offset(depth) },
-      scrim: depth === 0 ? '' : depth === 1 ? 'opacity-[.15] dark:opacity-[.92]' : 'opacity-[.35] dark:opacity-[.965]',
+      scrim: depth === 0 ? '' : depth === 1 ? 'opacity-[.15] dark:opacity-[.74]' : 'opacity-[.35] dark:opacity-[.86]',
     }))
     .reverse()
 })

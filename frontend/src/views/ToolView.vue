@@ -335,7 +335,7 @@
             ref="aiPromptEditorRef"
             v-model="globalPrefs.prompt"
             @focusout="handlePromptFocusOut"
-            :rows="drawerMode ? 3 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
+            :rows="drawerMode ? 2 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
             external-chat
             :promptOptions="globalPrefs.promptOptions"
             @update:promptOptions="globalPrefs.promptOptions = $event"
@@ -1071,7 +1071,7 @@
              on screen at full height, so the drawer never squeezes the strip.
              Roomy hides it rather than unmounting it: the controls teleport
              back into it on a fold, and a teleport needs its target present. -->
-        <ToolDrawer v-if="isCompact" v-show="drawerMode" ref="toolDrawerRef" :initial="'half'" :half-fraction="allJobs.length === 0 ? 0.55 : 0.5" :hero-reserve="200" />
+        <ToolDrawer v-if="isCompact" v-show="drawerMode" ref="toolDrawerRef" :initial="'half'" :half-fraction="allJobs.length === 0 ? 0.62 : 0.55" :hero-reserve="200" />
         <!-- Guarded by stageViewActive AND header ownership: KeepAlive keeps
              every tool instance alive, and a teleport left mounted would leave
              a second Run and Agent in the header (pushing the real ones off the

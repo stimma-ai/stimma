@@ -408,21 +408,21 @@ function buttonClass(active: boolean, enabled = true) {
          selection it names it and carries Deselect; armed it names the tool
          in the selection color and hands the pointer back on tap. -->
     <div class="flex items-center gap-1.5">
-      <!-- The 44px target is the button; the chip inside is the glass. Selection
+      <!-- The 44px target is the button; the chip inside is the quiet matte control. Selection
            state alone wears the selection colour; viewing chips stay neutral. -->
       <button
         type="button"
-        class="flex min-h-11 min-w-11 items-center justify-start focus-visible:outline-none"
+        class="group flex min-h-11 min-w-11 items-center justify-start focus-visible:outline-none"
         :aria-label="armed ? `${armedTool?.label} armed. Done` : hasSelection ? 'Edit selection' : 'Select'"
         :aria-pressed="!!armed"
         data-select-pill
         @click="armed ? emit('done') : emit('choose', lastUsed ?? 'lasso')"
       >
         <span
-          class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12.5px] font-medium text-white backdrop-blur"
+          class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12.5px] font-medium transition-colors duration-150"
           :class="armed
-            ? 'bg-selection'
-            : hasSelection ? 'bg-black/55 ring-1 ring-selection' : 'bg-black/55'"
+            ? 'bg-selection text-white'
+            : hasSelection ? 'text-content ring-1 ring-selection' : 'text-content-secondary group-active:bg-overlay-subtle'"
         >
           <ToolIcon
             :name="armed ? armedTool!.icon : (hasSelection && lastUsed ? toolById[lastUsed].icon : 'lasso')"
@@ -434,11 +434,11 @@ function buttonClass(active: boolean, enabled = true) {
       <button
         v-if="hasSelection && !armed"
         type="button"
-        class="flex min-h-11 min-w-11 items-center justify-center focus-visible:outline-none"
+        class="group flex min-h-11 min-w-11 items-center justify-center focus-visible:outline-none"
         aria-label="Deselect"
         @click="emit('clear')"
       >
-        <span class="flex h-8 w-8 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur">
+        <span class="flex h-8 w-8 items-center justify-center rounded-md text-content-secondary transition-colors duration-150 group-active:bg-overlay-subtle">
           <XMarkIcon class="h-icon-inline w-icon-inline" />
         </span>
       </button>

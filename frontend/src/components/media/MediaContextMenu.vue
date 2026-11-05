@@ -857,7 +857,7 @@
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <ShareIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-          <span class="flex-1">Share</span>
+          <span class="flex-1">Share and export</span>
           <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
         </button>
 
@@ -870,7 +870,7 @@
         >
           <template v-if="groupedShare && isCoarsePointer">
             <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
-            <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Share</div>
+            <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Share and export</div>
           </template>
 
         <!-- Share link (public link, every media type; single item only) -->
@@ -895,9 +895,6 @@
           <span>Share file…</span>
         </button>
 
-        </div>
-        </Teleport>
-
         <!-- Print -->
         <button
           @click="handlePrint"
@@ -915,6 +912,9 @@
           <ArrowDownTrayIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>{{ isMultiple ? `Export ${targetCount}` : 'Export' }}</span>
         </button>
+
+        </div>
+        </Teleport>
 
         <div class="border-t border-edge-subtle my-1"></div>
 
@@ -1115,7 +1115,7 @@ const groupSheetRef = ref<HTMLElement | null>(null)
 const groupedOrganize = computed(() => true)
 const groupedSend = computed(() => true)
 const groupedExplore = computed(() => exploreRowCount.value >= 2)
-const groupedShare = computed(() => shareRowCount.value >= 2)
+const groupedShare = computed(() => isCoarsePointer.value || shareRowCount.value >= 2)
 const groupTriggerRect = ref<DOMRect | null>(null)
 const groupPosition = ref<Record<string, string>>({ top: '0px', left: '0px' })
 function openGroup(group: MenuGroup, event?: MouseEvent) {
@@ -1328,6 +1328,8 @@ const exploreRowCount = computed(() => (
   + Number(targetCount.value === 2 && !isVideo.value)
   + Number(!isMultiple.value)
 ))
+// Share link, Share file, Print and Export: the occasional commands. On a desktop
+// pointer they stay inline unless the OS share row makes the group long enough.
 const shareRowCount = computed(() => (
   Number(!isMultiple.value)
   + Number(!isMultiple.value && nativeShareSupported && !isMultiFileItem.value)

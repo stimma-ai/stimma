@@ -1,6 +1,6 @@
 <template>
   <!-- The parent sidebar supplies the section label and peer separator. -->
-  <div v-if="ranked.length > 0" class="py-1.5">
+  <div v-if="ranked.length > 0" class="py-1.5 coarse:py-0.5">
     <!-- The drop ring hugs the chips rather than the sidebar's full width, so
          the negative margin cancels its own padding and capacity math (which
          measures the content box) is unaffected. -->
