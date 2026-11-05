@@ -10,6 +10,7 @@
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import ToolIcon from '../../components/tools/ToolIcon.vue'
 import ToolProviderLabel from '../../components/tools/ToolProviderLabel.vue'
+import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { isRunnableTool } from '../../utils/toolHandoff'
 
 const props = withDefaults(defineProps<{
@@ -55,7 +56,7 @@ const eligible = computed(() => {
 })
 
 function isCloud(tool: any): boolean {
-  return tool.provider_type === 'stimma-cloud' || tool.is_stimma_cloud === true
+  return isStimmaCloudTool(tool)
 }
 
 function onDocumentPointerDown(event: PointerEvent) {

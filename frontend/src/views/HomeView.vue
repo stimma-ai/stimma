@@ -93,12 +93,12 @@
                   :key="tool.full_tool_id"
                   @click="openToolById(tool.full_tool_id)"
                   class="flex shrink-0 items-center gap-2 px-3 py-1.5 compact:gap-1.5 compact:px-2.5 compact:py-1 coarse:min-h-11 rounded-md bg-overlay-faint hover:bg-overlay-subtle transition-colors cursor-pointer"
-                  :title="launcherProviders.size > 1 ? tool.name : `${tool.name} · ${providerLabel(tool)}`"
+                  :title="`${tool.name} · ${providerLabel(tool)}`"
                 >
                   <div class="w-5 h-5 compact:w-4 compact:h-4 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
                   <span class="whitespace-nowrap text-[13px] compact:text-[12px] font-medium compact:font-normal text-content compact:text-content-secondary max-w-[180px] compact:max-w-none truncate">{{ tool.name }}</span>
-                  <!-- Provider only when the row mixes providers; one shared provider is said once by the tool page. -->
-                  <span v-if="launcherProviders.size > 1" class="whitespace-nowrap text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
+                  <!-- A tool is always named with its provider. -->
+                  <span class="whitespace-nowrap text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
                 </button>
               </div>
               <router-link
@@ -584,8 +584,6 @@ const launcherTools = computed(() => {
   return picked
 })
 
-// Distinct providers across the launcher row; the label is shown only when they differ.
-const launcherProviders = computed(() => new Set(launcherTools.value.map(t => providerLabel(t))))
 
 function providerLabel(tool) {
   return toolProviderDisplayName(tool, tool.provider_id || '')

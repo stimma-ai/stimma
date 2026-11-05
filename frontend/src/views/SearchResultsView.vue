@@ -189,7 +189,7 @@
                     <ProjectTag v-if="section.kind === 'preset' && scopeProjectId != null" :name="scopeProjectName" />
                   </div>
                   <div class="text-xs text-content-muted truncate mt-0.5">
-                    <template v-if="section.kind === 'preset' && toolNameById.get(hit.tool_id)">{{ toolNameById.get(hit.tool_id) }}</template>
+                    <template v-if="section.kind === 'preset' && toolById.get(hit.tool_id)">{{ toolById.get(hit.tool_id).name }} · <span :class="isStimmaCloudTool(toolById.get(hit.tool_id)) ? 'stimma-cloud-text font-medium' : ''">{{ toolProviderDisplayName(toolById.get(hit.tool_id), '') }}</span></template>
                     <template v-else-if="hit.updated_at">{{ formatRelativeTime(hit.updated_at) }}</template>
                   </div>
                 </div>
@@ -347,7 +347,7 @@ import {
   type SearchResultKind, assetDisplayTitle, type AssetGroup } from '../composables/useGlobalSearch'
 import { useProvidersApi, type ProviderToolSummary } from '../composables/useProvidersApi'
 import { useTelemetry } from '../composables/useTelemetry'
-import { isStimmaCloudTool } from '../utils/stimmaCloud'
+import { isStimmaCloudTool, toolProviderDisplayName } from '../utils/stimmaCloud'
 import { formatRelativeTime } from '../utils/timeFormat'
 import { encodeMediaType } from '../composables/useUrlState'
 import { mediaIdOf } from '../utils/assetIdentity'
@@ -410,7 +410,7 @@ interface ContextualGroup { root_kind: string; root_id: string; items: MediaSear
 const contextualGroups = ref<ContextualGroup[]>([])
 const savedContextualIds = ref<Set<number>>(new Set())
 const contextualCount = computed(() => contextualGroups.value.reduce((sum, group) => sum + group.items.length, 0))
-const toolNameById = ref<Map<string, string>>(new Map())
+const toolById = ref<Map<string, any>>(new Map())
 
 // Inline highlight renderer honoring the loose token matcher.
 const HighlightedName = defineComponent({
@@ -633,10 +633,10 @@ watch(() => route.query.slideshow, (value) => {
 })
 
 async function ensureToolNames() {
-  if (toolNameById.value.size > 0) return
+  if (toolById.value.size > 0) return
   try {
     const { tools } = await fetchProvidersAndTools()
-    toolNameById.value = new Map(tools.map(t => [t.full_tool_id, t.name]))
+    toolById.value = new Map(tools.map(t => [t.full_tool_id, t]))
   } catch {}
 }
 

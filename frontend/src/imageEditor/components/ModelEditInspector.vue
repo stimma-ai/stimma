@@ -9,6 +9,8 @@
 import { computed, watch } from 'vue'
 import Button from '../../components/ui/Button.vue'
 import ScrubValue from '../../components/ui/ScrubValue.vue'
+import ToolProviderLabel from '../../components/tools/ToolProviderLabel.vue'
+import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import ReferenceImageStrip from './ReferenceImageStrip.vue'
 import ToolAdvancedParams from './ToolAdvancedParams.vue'
 import { useLoraPool } from '../../composables/useLoraPool'
@@ -127,8 +129,9 @@ watch(
     <section class="space-y-2">
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <h3 class="text-xs font-semibold text-content-secondary">
-            {{ tool?.name || 'Tool unavailable' }}
+          <h3 class="flex min-w-0 items-baseline gap-2 text-xs font-semibold text-content-secondary">
+            <span class="min-w-0 truncate">{{ tool?.name || 'Tool unavailable' }}</span>
+            <ToolProviderLabel v-if="tool" :cloud="isStimmaCloudTool(tool)" :provider-name="tool.provider_name" />
           </h3>
           <p class="text-xs text-content-tertiary">
             Parameter changes apply the next time this edit runs.
