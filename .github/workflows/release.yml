@@ -96,7 +96,7 @@ jobs:
           echo "version=${ref_name#v}" >> "$GITHUB_OUTPUT"
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ steps.meta.outputs.ref }}
           fetch-depth: 0
@@ -138,7 +138,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       channel: ${{ needs.release-meta.outputs.channel }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-meta.outputs.ref }}
           fetch-depth: 0
@@ -226,7 +226,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
