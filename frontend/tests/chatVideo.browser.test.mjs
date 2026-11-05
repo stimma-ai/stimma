@@ -50,6 +50,7 @@ for (const phone of [false, true]) test(`chat video playback and toolbar (${phon
   const play = hero.getByRole('button', { name: 'Play video', exact: true })
   await expect(play).toBeVisible()
   await expect(hero.locator('video')).toHaveCount(0)
+  const surface = hero.locator('[data-video-surface]')
   const add = hero.getByRole('button', { name: 'Add to message' })
   await page.screenshot({ path: `/tmp/chat-video-${phone ? 'touch' : 'mouse'}.png` })
   assert.ok((await add.boundingBox()).y >= (await play.boundingBox()).y + (await play.boundingBox()).height - 1)
@@ -70,7 +71,7 @@ for (const phone of [false, true]) test(`chat video playback and toolbar (${phon
   await add.click()
   await expect(hero.getByRole('button', { name: 'In message' })).toBeVisible()
   assert.deepEqual(await page.evaluate(() => window.chatVideo.opened), [])
-  const drag = await play.evaluate(button => {
+  const drag = await surface.evaluate(button => {
     const dataTransfer = new DataTransfer()
     button.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer }))
     const payload = dataTransfer.getData('application/x-stimma-assets')
@@ -78,8 +79,13 @@ for (const phone of [false, true]) test(`chat video playback and toolbar (${phon
     return JSON.parse(payload)
   })
   assert.equal(drag.items[0].media_id, 1)
-  await play.dispatchEvent('contextmenu', { clientX: 100, clientY: 100 })
+  await surface.dispatchEvent('contextmenu', { clientX: 100, clientY: 100 })
   assert.equal(await page.evaluate(() => window.chatVideo.menu.state.value.mediaId), 1)
+
+  // The picture is still the primary slideshow affordance, even during playback.
+  await surface.click()
+  assert.deepEqual(await page.evaluate(() => window.chatVideo.opened), [1])
+  await expect(hero.locator('video')).toHaveCount(0)
 
   // Switching away tears down the decoder; ordinary images still open normally.
   await hero.getByRole('checkbox', { name: 'Select this image' }).click()
@@ -88,15 +94,15 @@ for (const phone of [false, true]) test(`chat video playback and toolbar (${phon
   await play.focus(); await page.keyboard.press('ArrowRight')
   await expect(hero.locator('video')).toHaveCount(0)
   await hero.locator('.group.cursor-pointer').click()
-  assert.deepEqual(await page.evaluate(() => window.chatVideo.opened), [2])
+  assert.deepEqual(await page.evaluate(() => window.chatVideo.opened), [1, 2])
   if (phone) {
     await page.locator('[data-tile="0"]').click()
     await expect(play).toBeVisible()
-    await play.dispatchEvent('pointerdown', { pointerType: 'touch', clientX: 300, clientY: 200 })
-    await play.dispatchEvent('pointermove', { pointerType: 'touch', clientX: 100, clientY: 200 })
-    await play.dispatchEvent('pointerup', { pointerType: 'touch', clientX: 100, clientY: 200 })
+    await surface.dispatchEvent('pointerdown', { pointerType: 'touch', clientX: 300, clientY: 200 })
+    await surface.dispatchEvent('pointermove', { pointerType: 'touch', clientX: 100, clientY: 200 })
+    await surface.dispatchEvent('pointerup', { pointerType: 'touch', clientX: 100, clientY: 200 })
     await expect(hero.getByRole('button', { name: '2 / 2' })).toBeVisible()
-    assert.deepEqual(await page.evaluate(() => window.chatVideo.opened), [2])
+    assert.deepEqual(await page.evaluate(() => window.chatVideo.opened), [1, 2])
   }
 
   if (!phone) {

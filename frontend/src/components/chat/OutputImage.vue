@@ -99,22 +99,28 @@
         @error="videoError = !videoPreview; videoPlaying = false"
         @contextmenu.prevent="openVideoMenu"
       />
-      <button
+      <!-- Artwork keeps the collection's primary click: open the slideshow. -->
+      <div
         v-if="canPlayVideo"
-        type="button"
-        data-video-playback
+        data-video-surface
+        class="absolute inset-0"
         draggable="true"
         @dragstart="onVideoDragStart"
         @dragend="handleDragEnd"
-        :aria-label="videoPlaying && !videoPreview ? 'Pause video' : 'Play video'"
-        class="absolute inset-0 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
-        @click.stop="toggleVideo"
         @contextmenu.prevent="openVideoMenu"
+      />
+      <IconButton
+        v-if="canPlayVideo"
+        data-video-playback
+        :aria-label="videoPlaying && !videoPreview ? 'Pause video' : 'Play video'"
+        :title="videoPlaying && !videoPreview ? 'Pause video' : 'Play video'"
+        class="absolute bottom-2 left-1/2 z-chrome -translate-x-1/2 !bg-black/55 backdrop-blur transition-opacity duration-150 hover:!bg-black/75 focus-visible:opacity-100 group-hover:opacity-100 coarse:opacity-100"
+        :class="videoPlaying && !videoPreview ? 'opacity-100 !text-live' : 'opacity-0 !text-white'"
+        @click.stop="toggleVideo"
       >
-        <span v-if="!videoPlaying || videoPreview" class="flex h-11 w-11 items-center justify-center rounded-md bg-black/60 text-white backdrop-blur-md">
-          <PlayIcon class="h-5 w-5" :stroke-width="1.75" />
-        </span>
-      </button>
+        <PauseIcon v-if="videoPlaying && !videoPreview" class="h-4 w-4" />
+        <PlayIcon v-else class="h-4 w-4" />
+      </IconButton>
       <span v-if="videoError" role="status" class="pointer-events-none absolute inset-x-2 bottom-2 bg-matte/90 p-2 text-center text-xs text-content-secondary">Unable to play this video. Try opening it in the slideshow.</span>
 
       <!-- Type chip (upper right): the browse TileChip, monochrome glyph, mono member count for sets and grids -->
@@ -236,7 +242,8 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { useManagedMediaElement } from '../../composables/useMediaPlayback'
-import { FilmIcon, PlayIcon } from '@heroicons/vue/24/outline'
+import IconButton from '../ui/IconButton.vue'
+import { FilmIcon, PauseIcon, PlayIcon } from '@heroicons/vue/24/outline'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
 import { useViewport } from '../../composables/useViewport'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
@@ -490,6 +497,7 @@ function handleClick() {
   if (props.row.output.deleted || isTrashed.value) return
   // Allow clicking on complete images
   if ((props.row.output.status === 'complete' || props.row.output.status === 'trashed') && props.row.output.media_id) {
+    resetVideo()
     emit('view-image', props.row.output.media_id)
   }
 }

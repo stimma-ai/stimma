@@ -1260,12 +1260,13 @@ the media menu stay in one place.
   header fit the chat together, so paging through a set never needs a vertical
   scroll. The strip crops like the slideshow strip, and the current tile takes
   the selection ring while the rest dim.
-- **Clicks.** A grid tile opens Preview; an image opens the slideshow. Video previews
-  click to play/pause; fine-pointer hover plays a silent loop after 150ms and
-  releases it on leave (grid tiles too). Click promotes a hover preview to normal
-  playback. There is a visible play control while paused and a neutral
-  film glyph for type. The explicit slideshow action stays available. Touch
-  swipes the picture and long-presses to select (§1.11).
+- **Clicks.** A grid tile opens Preview; clicking the picture (image or video)
+  opens the slideshow. Fine-pointer hover plays a silent video loop after 150ms
+  and releases it on leave (grid tiles too). A small play/pause control at bottom
+  centre starts normal playback without opening the slideshow. It appears on
+  hover, keyboard focus and touch, and stays visible during explicit playback.
+  The neutral film glyph identifies video. Touch swipes the picture and
+  long-presses to select (§1.11).
 - **Panel.** A collection can move into the artifact panel (full screen on
   compact). A chip holds its place in the transcript, and the panel's previous
   contents return when it leaves.

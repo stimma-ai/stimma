@@ -275,7 +275,7 @@ let swipe = null
 let swiped = false
 function onHeroPointerDown(event) {
   if (event.pointerType !== 'touch' || isSingle.value) return
-  if (event.target.closest?.('button,video') && !event.target.closest?.('[data-video-playback]')) return
+  if (event.target.closest?.('button,video')) return
   swipe = { x: event.clientX, y: event.clientY, axis: null }
   swiped = false
 }
