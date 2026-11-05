@@ -414,6 +414,8 @@ body {
      mode, transport/loop toggles). Never a resting button, never selection. */
   --color-live-rgb: 244 114 182;
   --color-live: rgb(var(--color-live-rgb));
+  /* Destructive/error foreground: backs `text-red-400` (tailwind.config.js). */
+  --color-danger-fg-rgb: 248 113 113;
 
   /* Lineage */
   --color-lineage-edge: #2d323d;
@@ -555,6 +557,8 @@ body {
   --color-matte: rgb(var(--color-matte-rgb));
   --color-live-rgb: 219 39 119;
   --color-live: rgb(var(--color-live-rgb));
+  /* Deepened for paper: 5.47:1 on the menu surface, 5.14:1 on its hover. */
+  --color-danger-fg-rgb: 190 38 38;
 
   /* Lineage */
   --color-lineage-edge: #c4c4c8;

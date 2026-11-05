@@ -666,7 +666,7 @@
                       v-if="hasNoStimmaBalance"
                       @click="openAISettings"
                       class="block w-full text-center text-xs text-content-muted hover:text-content-secondary transition-colors"
-                    >Configure Chat Models</button>
+                    >Configure chat models</button>
                     <div v-if="hasNoStimmaBalance" class="text-center"><RedeemCodeLink /></div>
                   </div>
                 </div>
@@ -708,7 +708,7 @@
                     <button
                       @click="openAISettings"
                       class="block w-full text-center text-xs text-content-muted hover:text-content-secondary transition-colors"
-                    >Configure Chat Models</button>
+                    >Configure chat models</button>
                     <div class="text-center"><RedeemCodeLink /></div>
                     <ChatErrorDisclosure :raw="getRawErrorDetails(item)" />
                   </div>
@@ -740,7 +740,7 @@
                       href="#"
                       @click.prevent="openCloudDashboard"
                       class="inline-flex items-center gap-1 text-xs stimma-cloud-text hover:opacity-80 transition-opacity"
-                    >Manage Account</a>
+                    >Manage account</a>
                     <ChatErrorDisclosure :raw="getRawErrorDetails(item)" />
                   </div>
                 </div>
@@ -1247,7 +1247,7 @@
     <!-- Delete Confirmation Modal -->
     <ConfirmModal
       :show="showDeleteModal"
-      title="Delete Chat"
+      title="Delete chat"
       :message="deleteConfirmMessage"
       confirm-text="Delete"
       cancel-text="Cancel"
@@ -6202,6 +6202,13 @@ onActivated(updateCompactHeader)
 </script>
 
 <style scoped>
+/* Items are flex children of a row; without this a wide code block or long
+   token stretches the bubble past the transcript column and clips at its edge. */
+.chat-item-wrapper {
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* Artifact stage enter/leave: slides along the right edge. The content area
    is overflow-hidden so the off-screen position is clipped. */
 .stage-enter-active,

@@ -63,7 +63,7 @@ async function openTileMenu(page: Page, media: Media) {
   const item = tile(page, media);
   await expect(item).toBeVisible({ timeout: 30000 });
   await item.click({ button: 'right' });
-  const menu = page.getByRole('button', { name: 'Send to Tool', exact: true }).filter({ visible: true });
+  const menu = page.getByRole('button', { name: 'Send to tool', exact: true }).filter({ visible: true });
   await expect(menu.first()).toBeVisible();
 }
 
@@ -108,14 +108,14 @@ test.describe('project world', () => {
     expect(await projectsOf(page, composerMediaId)).toEqual([q.id]);
   });
 
-  test('Send to Tool and run inside P puts the output in P only', async ({ page }) => {
+  test('Send to tool and run inside P puts the output in P only', async ({ page }) => {
     const { p, q } = await twoProjects(page);
     const source = await generateMedia(page, `world send source ${stamp()}`, p.id);
 
     await page.goto(`/projects/${p.id}/assets`);
     await expectContext(page, p.name);
     await openTileMenu(page, source);
-    await page.getByRole('button', { name: 'Send to Tool', exact: true }).filter({ visible: true }).first().hover();
+    await page.getByRole('button', { name: 'Send to tool', exact: true }).filter({ visible: true }).first().hover();
     const submenu = page.locator('div.fixed.z-submenu').filter({ visible: true }).filter({ hasText: /Image/ }).last();
     await expect(submenu).toBeVisible();
     const toolRow = submenu.getByRole('button', { name: /Test Image to Image/ }).first();

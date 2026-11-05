@@ -2,33 +2,35 @@
   <div class="h-full flex flex-col bg-base">
     <!-- Header row. Wide: title, task and provider filters, tool filter field.
          Compact (the "Tools" title is the compact header's): one 44px row with
-         the provider filter chip and the tool filter field side by side. The
+         the task and provider filters and the tool filter field side by side. The
          compact header's own search icon is global search; this field only
          filters the tools on this page. -->
     <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle compact:px-3 compact:py-1 compact:gap-2">
-      <h1 class="text-xl font-semibold leading-none text-content compact:hidden">All Tools</h1>
+      <h1 class="text-xl font-semibold leading-none text-content compact:hidden">All tools</h1>
 
       <div class="flex items-center gap-2 compact:flex-1 compact:gap-1 compact:min-w-0">
-        <!-- Task filter (wide). Multi-select, like providers. -->
-        <div v-if="availableTaskTypes.length > 0" class="relative compact:hidden" ref="taskDropdownRef">
+        <!-- Task filter. Multi-select, like providers; compact / coarse opens
+             it as a sheet, as the provider filter does. -->
+        <div v-if="availableTaskTypes.length > 0" class="relative compact:min-w-0" ref="taskDropdownRef">
           <button
             type="button"
             @click="taskDropdownOpen = !taskDropdownOpen"
-            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 compact:min-h-11 compact:max-w-full compact:gap-1.5 compact:px-2"
             :class="activeTaskFilters.size > 0
               ? 'bg-accent/15 text-accent-hi'
               : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
             aria-haspopup="listbox"
             :aria-expanded="taskDropdownOpen"
           >
+            <Squares2X2Icon class="w-4 h-4 flex-shrink-0 hidden compact:block" />
             <span class="truncate max-w-[16rem]">{{ taskFilterLabel }}</span>
-            <svg class="w-4 h-4 flex-shrink-0 transition-transform" :class="taskDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <svg class="w-4 h-4 flex-shrink-0 transition-transform compact:hidden" :class="taskDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
             </svg>
           </button>
 
           <div
-            v-if="taskDropdownOpen"
+            v-if="taskDropdownOpen && !providerSheet"
             class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu min-w-[220px] max-h-[min(26rem,70vh)] overflow-y-auto py-1"
             role="listbox"
             aria-multiselectable="true"
@@ -146,6 +148,41 @@
         />
       </div>
     </div>
+
+    <!-- Task filter as a bottom sheet (compact / coarse), same rows as the
+         wide dropdown. -->
+    <Sheet :show="taskDropdownOpen && providerSheet" title="Tasks" @close="taskDropdownOpen = false">
+      <div class="pb-2">
+        <button
+          type="button"
+          class="sheet-row"
+          :class="activeTaskFilters.size === 0 ? '!text-accent-hi' : ''"
+          @click="activeTaskFilters = new Set()"
+        >
+          <svg v-if="activeTaskFilters.size === 0" class="sheet-row-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+          <span v-else class="sheet-row-icon"></span>
+          <span class="flex-1">All tasks</span>
+        </button>
+        <div class="mx-4 my-1 border-t border-edge-subtle"></div>
+        <button
+          v-for="taskType in availableTaskTypes"
+          :key="taskType"
+          type="button"
+          class="sheet-row"
+          :class="activeTaskFilters.has(taskType) ? '!text-accent-hi' : ''"
+          @click="toggleTaskFilter(taskType)"
+        >
+          <svg v-if="activeTaskFilters.has(taskType)" class="sheet-row-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+          <span v-else class="sheet-row-icon"></span>
+          <span class="flex-1 truncate">{{ formatTaskType(taskType) }}</span>
+          <span class="sheet-row-detail">{{ taskTypeCounts[taskType] }}</span>
+        </button>
+      </div>
+    </Sheet>
 
     <!-- Provider filter as a bottom sheet (compact / coarse). Multi-select:
          rows toggle and the sheet stays; tap outside or the handle to close. -->
@@ -356,7 +393,7 @@ import { consumeEscape, hasEscapeLayer, isTopmostEscapeLayer } from '../utils/es
 import { ref, computed, nextTick, onMounted, onUnmounted, onActivated, onDeactivated, watch } from 'vue'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import { useRoute, useRouter } from 'vue-router'
-import { FunnelIcon } from '@heroicons/vue/24/outline'
+import { FunnelIcon, Squares2X2Icon } from '@heroicons/vue/24/outline'
 import { useViewport } from '../composables/useViewport'
 import Sheet from '../components/ui/Sheet.vue'
 import ListSearch from '../components/lists/ListSearch.vue'
@@ -1025,7 +1062,7 @@ function handleClickOutside(e) {
   if (!providerSheet.value && providerDropdownRef.value && !providerDropdownRef.value.contains(e.target)) {
     providerDropdownOpen.value = false
   }
-  if (taskDropdownRef.value && !taskDropdownRef.value.contains(e.target)) {
+  if (!providerSheet.value && taskDropdownRef.value && !taskDropdownRef.value.contains(e.target)) {
     taskDropdownOpen.value = false
   }
   // Close the per-tool menu when clicking outside it.

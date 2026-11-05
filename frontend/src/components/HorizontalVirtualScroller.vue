@@ -82,8 +82,6 @@ const props = defineProps({
     type: Number,
     default: 0
   },
-  // Permit first/last thumbnails to occupy the center of a compact gallery.
-  centerEdges: { type: Boolean, default: false },
   // Container height
   height: {
     type: Number,
@@ -109,7 +107,7 @@ const props = defineProps({
 const scrollContainer = ref(null)
 const scrollLeft = ref(0)
 const containerWidth = ref(0)
-const edgeGutter = computed(() => props.centerEdges ? Math.max(props.gutter, (containerWidth.value - props.itemWidth) / 2) : props.gutter)
+const edgeGutter = computed(() => props.gutter)
 let resizeObserver
 let scrollRequest = 0
 
@@ -367,7 +365,7 @@ onMounted(async () => {
       for (const entry of entries) {
         const changed = containerWidth.value !== entry.contentRect.width
         containerWidth.value = entry.contentRect.width
-        if (changed && props.centerEdges) void scrollToIndex(props.currentIndex, 'instant')
+        if (changed) void scrollToIndex(props.currentIndex, 'instant')
       }
     })
     resizeObserver.observe(scrollContainer.value)

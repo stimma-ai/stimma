@@ -186,7 +186,8 @@ style.css; fields write `placeholder:text-content-muted`, never `placeholder-whi
 - **Facts = mono**: ids, paths, seeds, dimensions, file sizes, counts,
   durations, timestamps, params. `font-mono tabular-nums`. Bordered mono =
   editable; bare/chip mono = read-only (codifying the one convention the app
-  already keeps).
+  already keeps). Names and context (project subtitle, provider and task line
+  under a tool name) are UI sans, not mono.
 - **Display = General Sans** (decided 2026-07-17; already bundled as
   `font-brand`): view heroes, empty-state titles, view titles, onboarding.
   600 default; the hero's `font-bold` also resolves to 600
@@ -252,6 +253,8 @@ fine-tuning tier, not defaults. Nothing above p-8 without a reason.
   additionally swap `border-accent` on `:focus` for pointer users.
 - Selection (tiles/rows/chips): `ring-2 ring-accent-selection` inset for media
   tiles; `bg-accent-selection/15` for rows/chips. One treatment each.
+- Browse marker filters are one chip grammar: hairline outline at rest, backing plus the marker's colour when included, red backing, red minus and struck label when excluded. Labels show wherever there is room; on a phone the chips share one track.
+- Filmstrips centre the current item only while it has neighbours on both sides; near either end the strip aligns to that edge.
 - Filter states keep the documented pair: include `bg-blue-500/15
   border-blue-500/50 text-blue-400` → migrate to accent equivalents in Phase 2;
   exclude = red equivalents.
@@ -556,7 +559,8 @@ Until a kit component exists, new code uses these exact patterns:
   destructive-in-progress.
 - **Menu/popover**: `bg-surface border border-edge-subtle rounded-lg
   shadow-lg py-1 min-w-[160px] z-menu`; rows `px-3 py-2 text-xs
-  hover:bg-overlay-subtle`; destructive rows `text-red-400`.
+  hover:bg-overlay-subtle`; destructive rows `text-red-400` (themed: `--color-danger-fg-rgb`,
+  light #be2626, 5.47:1 on the menu, 5.14:1 on hover).
 - **Media tile**: `rounded-media bg-matte overflow-hidden` + MediaImage;
   selected `ring-2 ring-accent-selection ring-inset`; NO border, NO
   hover-scale; hover = overlay controls fade-in.
@@ -567,6 +571,10 @@ Until a kit component exists, new code uses these exact patterns:
   top-right, facts bottom-left, markers bottom-right, 6px inset. Markers share
   ONE chip and are monochrome; the only color on a tile is an active favorite
   heart. No per-type icon colors, no bare counts, no dog-ears.
+- **Board section headings:** a named section's title is `text-sm font-semibold
+  text-content` with a mono asset count on the right. An unnamed section shows
+  one quiet muted line (`Name this section…` and a pencil), never a band; on
+  compact its 44px target overlaps the gutter instead of adding height.
 - **Tile grids** (`utils/tileGrid.ts`, one rule for browse and boards): the
   column count is `max(3, floor((width + 2) / (minimum + 2)))` from the pane's
   real content width, so a folded phone, an unfolded one and a desktop pane
@@ -852,8 +860,10 @@ values with one dial (iOS Photos), and the picture itself as the slider
 
 On desktop the history column folds away while a document has no edits; the
 Edits button at the end of the family row reopens it. The selection island
-groups its controls as tool, combine mode and selection action, and names the
-armed tool and the active combine mode. The phone, top to bottom:
+rests as one compact Select control, as on the phone; arming a tool (or having
+a selection) opens it into three separated groups, tool, combine mode and
+selection action (shown only once there is a selection), naming the armed tool
+and the active combine mode. The phone, top to bottom:
 
 - **One header row**: back chevron, then Edits (the stack, labelled, with
   its step count: history is the document's, not a tool), the options button

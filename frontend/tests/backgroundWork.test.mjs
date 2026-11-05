@@ -38,12 +38,12 @@ test('disabled analysis backlog stays idle and enabling a phase updates the pane
       }
     })
     assert.equal(await page.getByTestId('indicator').count(), 0)
-    assert.equal(await page.getByText('Visual Indexing', { exact: true }).count(), 0)
-    assert.equal(await page.getByText('Face Analysis', { exact: true }).count(), 0)
-    assert.equal(await page.getByText('Visual Analysis', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Visual indexing', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Face analysis', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Visual analysis', { exact: true }).count(), 0)
     await page.evaluate(() => { window.backgroundWork.stats.value.clip.enabled = true })
     try {
-      await page.getByText('Visual Indexing', { exact: true }).waitFor({ timeout: 5000 })
+      await page.getByText('Visual indexing', { exact: true }).waitFor({ timeout: 5000 })
     } catch (error) {
       assert.fail(`${error.message}; errors: ${errors.join('; ')}; body: ${await page.locator('body').innerText()}`)
     }

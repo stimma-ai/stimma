@@ -52,16 +52,16 @@
         <span>{{ isEditorTab ? 'Remove Others' : 'Close Others' }}</span>
       </button>
 
-      <!-- Close All Unpinned -->
+      <!-- Close all unpinned -->
       <button
         @click="handleCloseAllUnpinned"
         class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
       >
         <span class="w-4 h-4 flex-shrink-0"></span>
-        <span>Close All Unpinned</span>
+        <span>Close all unpinned</span>
       </button>
 
-      <!-- New / Duplicate Tab (tools) -->
+      <!-- New / Duplicate tab (tools) -->
       <template v-if="contextMenu.state.value.tabType === 'tool'">
         <div class="border-t border-edge-subtle my-1"></div>
         <button
@@ -72,7 +72,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
           <span class="flex flex-col">
-            <span>New Tab</span>
+            <span>New tab</span>
             <span class="text-[10px] leading-4 text-content-muted">Copy with default settings</span>
           </span>
         </button>
@@ -85,7 +85,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M16 8V6.5A1.5 1.5 0 0 0 14.5 5h-9A1.5 1.5 0 0 0 4 6.5v9A1.5 1.5 0 0 0 5.5 17H8" />
           </svg>
           <span class="flex flex-col">
-            <span>Duplicate Tab</span>
+            <span>Duplicate tab</span>
             <span class="text-[10px] leading-4 text-content-muted">Copy this tab's settings</span>
           </span>
         </button>

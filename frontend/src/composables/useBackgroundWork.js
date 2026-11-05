@@ -17,9 +17,9 @@ const API_URL = import.meta.env.VITE_API_URL || ''
 
 export const PHASE_NAMES = {
   metadata: 'Reading Files',
-  clip: 'Visual Indexing',
-  face_detection: 'Face Analysis',
-  vlm_caption: 'Visual Analysis',
+  clip: 'Visual indexing',
+  face_detection: 'Face analysis',
+  vlm_caption: 'Visual analysis',
 }
 
 const stats = ref({

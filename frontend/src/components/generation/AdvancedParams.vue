@@ -15,7 +15,7 @@
 
       <!-- Negative Prompt -->
       <div v-if="hasParam('negative_prompt')">
-        <label class="block text-ctl text-content-tertiary mb-2">Negative Prompt</label>
+        <label class="block text-ctl text-content-tertiary mb-2">Negative prompt</label>
         <textarea v-no-autocorrect
           :value="getNegativePrompt()"
           @input="updateNegativePrompt(($event.target as HTMLTextAreaElement).value)"

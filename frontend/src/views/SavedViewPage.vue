@@ -24,7 +24,7 @@
           type="button"
           class="px-2.5 py-1 rounded-md text-xs text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors whitespace-nowrap"
           @click="showSaveAsModal = true"
-        >Save As</button>
+        >Save as</button>
       </div>
     </div>
 
@@ -70,7 +70,7 @@
     <!-- Delete Confirmation Modal -->
     <ConfirmDialog
       :show="showDeleteConfirm"
-      title="Delete View"
+      title="Delete view"
       confirm-label="Delete"
       danger
       @confirm="deleteView"
@@ -82,7 +82,7 @@
     <!-- Rename Modal -->
     <Modal :show="showRenameModal" size="sm" @close="showRenameModal = false">
       <template #header>
-        <h3 class="text-lg font-semibold text-content">Rename View</h3>
+        <h3 class="text-lg font-semibold text-content">Rename view</h3>
       </template>
       <div class="px-6 py-5">
         <input v-no-autocorrect

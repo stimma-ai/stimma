@@ -155,7 +155,7 @@
           </div>
           <!-- Subtitle: Provider, task types. Renamed instances condense the
                tool name onto this row (mirrors the sidebar row contract). -->
-          <div class="font-mono text-[10.5px] mt-1 flex items-center gap-1.5 text-content-tertiary">
+          <div class="text-[11px] mt-1 flex items-center gap-1.5 text-content-tertiary">
             <template v-if="instanceCustomName">
               <span>{{ tool.name }}</span>
               <span>·</span>
@@ -345,7 +345,7 @@
         </Teleport>
 
         <!-- Params-card top row: the resolution trigger, a quiet ghost control
-             (no box inside the card). Output settings (auto-markers,
+             (no box inside the card). New outputs (auto-markers,
              auto-delete) are a labelled group of their own on desktop, so they
              do not read as a second copy of the result's heart / bookmark /
              trash. Compact layouts (phone and fold) keep them in the sheet
@@ -380,9 +380,9 @@
           v-if="!isCompact"
           class="flex items-center gap-2 min-h-8 mb-5"
           role="group"
-          aria-label="Output settings"
+          aria-label="New outputs"
         >
-          <span class="text-ctl font-semibold text-content-secondary shrink-0">Output settings</span>
+          <span class="text-ctl font-semibold text-content-secondary shrink-0">New outputs</span>
           <span class="flex-1"></span>
           <AutoMarkPicker
             class="min-w-0 overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0"
@@ -513,7 +513,7 @@
           :min-items="frameMinItems"
           :max-items="hasEndFrame ? 2 : 1"
           :reorderable="hasEndFrame"
-          label="Reference Frames"
+          label="Reference frames"
           :slot-labels="hasEndFrame ? ['Start Frame', 'End Frame'] : ['Start Frame']"
           :frame-grab-defaults="hasEndFrame ? ['last', 'first'] : ['last']"
           :frame-mode-key="fullToolIdFromProps"
@@ -604,7 +604,7 @@
             <!-- Frame Count -->
             <div class="flex items-center justify-between gap-4 px-4 py-3">
               <div class="min-w-0 flex-1">
-                <div class="text-sm font-medium text-content">Frame Count</div>
+                <div class="text-sm font-medium text-content">Frame count</div>
                 <div class="text-xs text-content-muted mt-0.5">Number of frames to generate</div>
               </div>
               <div class="flex min-w-0 w-[45%] max-w-[360px] flex-shrink-0 items-center justify-end gap-1.5">
@@ -945,7 +945,7 @@
             <button
               @click.stop="handleTrashMedia({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id })"
               class="result-action result-action-danger"
-              title="Move to Trash"
+              title="Move to trash"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />

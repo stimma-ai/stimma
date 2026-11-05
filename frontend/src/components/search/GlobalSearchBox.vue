@@ -418,7 +418,7 @@ const sections = computed<Section[]>(() => {
     // section split carries that meaning, so catalog rows need no per-row badge.
     if (openInstanceResults.value.length > 0) {
       result.push({
-        title: 'Active Tools',
+        title: 'Active tools',
         items: openInstanceResults.value.map(tab => {
           const catalogTool = toolById.value.get(tab.entityId)
           return next({
@@ -437,7 +437,7 @@ const sections = computed<Section[]>(() => {
     }
     if (toolResults.value.length > 0) {
       result.push({
-        title: openInstanceResults.value.length > 0 ? 'All Tools' : 'Tools',
+        title: openInstanceResults.value.length > 0 ? 'All tools' : 'Tools',
         items: toolResults.value.map(t => next({
           key: `tool:${t.full_tool_id}`,
           kind: 'tool',

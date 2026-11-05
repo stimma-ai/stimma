@@ -805,9 +805,8 @@
         :item-width="slideshowCompact ? 48 : STRIP_ROW"
         :item-height="STRIP_ROW"
         :item-gap="slideshowCompact ? 6 : 8"
-        :gutter="4"
+        :gutter="slideshowCompact ? 12 : 4"
         :height="slideshowCompact ? 62 : STRIP_ROW + 16"
-        :center-edges="slideshowCompact"
         :class="slideshowCompact ? '[&_.scroll-container]:![scrollbar-width:none] [&_.scroll-container::-webkit-scrollbar]:!hidden' : undefined"
         :chunk-size="50"
         :buffer-size="10"
@@ -974,7 +973,7 @@
             'bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]',
             { '!text-live hover:!text-live/80': isRandomized }
           ]"
-          title="Toggle Shuffle (r)"
+          title="Toggle shuffle (r)"
         >
           <ArrowsRightLeftIcon class="w-5 h-5" />
         </button>
@@ -1000,7 +999,7 @@
             { '!text-live hover:!text-live/80': loopEnabled },
             'hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]'
           ]"
-          title="Toggle Loop (l)"
+          title="Toggle loop (l)"
         >
           ↻
         </button>
@@ -1154,7 +1153,7 @@
             'bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]',
             { '!text-live hover:!text-live/80': focusMode }
           ]"
-          title="Toggle Focus Mode (f)"
+          title="Toggle focus mode (f)"
         >
           <ArrowsPointingOutIcon class="w-5 h-5" />
         </button>
@@ -1163,7 +1162,7 @@
         <button
           @click="handleViewLineage"
           class="bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]"
-          title="View Lineage (t)"
+          title="View lineage (t)"
         >
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" class="w-5 h-5">
             <circle cx="6" cy="4.5" r="1.75" stroke-width="1.5" />

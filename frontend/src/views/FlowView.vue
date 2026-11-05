@@ -497,7 +497,25 @@
                   >
                 <!-- Inputs card (headingless — the Revert/Apply cluster pins
                      to the card's top-right corner so it never reflows) -->
-                <section v-if="hasInputFields" class="relative rounded-lg bg-surface px-4 py-3">
+                <section v-if="hasInputFields" class="relative rounded-lg bg-surface px-4 py-3" data-testid="flow-inputs-card">
+                  <!-- A finished flow leads with a one-glance summary so execution and
+                       outputs own the first screen; the full form stays mounted below. -->
+                  <div v-if="inputsCollapsed" class="flex items-start gap-3" data-testid="flow-inputs-summary">
+                    <dl class="min-w-0 flex-1 space-y-1">
+                      <div v-for="row in inputsSummaryRows" :key="row.key" class="flex items-baseline gap-3 text-[13px] leading-5">
+                        <dt class="w-28 flex-shrink-0 truncate text-xs text-content-muted compact:w-24">{{ row.label }}</dt>
+                        <dd class="min-w-0 flex-1 truncate text-content-secondary">{{ row.value }}</dd>
+                      </div>
+                      <div v-if="inputsSummaryMore > 0" class="text-xs text-content-muted">+{{ inputsSummaryMore }} more</div>
+                    </dl>
+                    <button
+                      type="button"
+                      class="flex-shrink-0 -my-1 rounded-md px-2 py-1 text-xs font-medium text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:min-h-11"
+                      aria-label="Edit inputs"
+                      :aria-expanded="false"
+                      @click="inputsOpen = true"
+                    >Edit inputs</button>
+                  </div>
                   <div v-if="inputsDirty" class="absolute top-3 right-3 z-chrome flex items-center gap-1.5">
                     <button
                       type="button"
@@ -514,7 +532,16 @@
                       title="Apply the changed inputs to this flow"
                     >{{ submittingInputs ? 'Applying…' : 'Apply inputs' }}</button>
                   </div>
-                  <div class="py-1">
+                  <div v-else-if="inputsFinished && !inputsCollapsed" class="absolute top-3 right-3 z-chrome">
+                    <button
+                      type="button"
+                      class="text-[11px] px-2 py-1 rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors compact:min-h-11"
+                      aria-label="Hide inputs"
+                      :aria-expanded="true"
+                      @click="inputsOpen = false"
+                    >Hide inputs</button>
+                  </div>
+                  <div v-show="!inputsCollapsed" class="py-1">
                     <FlowInputForm
                       ref="inputFormRef"
                       :project-id="flow ? (flow.project_id ?? null) : undefined"
@@ -716,7 +743,7 @@
       </div>
 
       <!-- Chat sidebar (open by default) -->
-      <div v-if="chatPanelOpen" class="flex-shrink-0 border-l border-edge-subtle flex flex-col bg-surface compact:absolute compact:inset-0 compact:z-chrome compact:!w-full compact:border-l-0" :style="isCompact ? {} : { width: chatPanelWidth + 'px' }">
+      <div v-if="chatPanelOpen" class="flex-shrink-0 border-l border-edge-subtle flex flex-col bg-surface compact:absolute compact:inset-0 compact:z-chrome compact:!w-full compact:border-l-0" :style="isCompact ? {} : { width: chatPanelWidth + 'px', minWidth: CHAT_MIN_WIDTH + 'px', maxWidth: `max(${CHAT_MIN_WIDTH}px, calc(100% - ${STEPS_MIN_WIDTH}px))` }">
 
         <div class="flex-1 min-h-0 flex flex-col">
           <div v-if="chatLoading" class="flex-1 flex items-center justify-center text-[12px] text-content-muted">
@@ -1682,6 +1709,48 @@ const submittingInputs = ref(false)
 const inputFormRef = ref<InstanceType<typeof FlowInputForm> | null>(null)
 const inputsDirty = ref(false)
 const inputsValid = ref(true)
+// A finished flow (same status the header shows) collapses its inputs to a
+// summary; the user opens the form with "Edit inputs". Unsaved edits keep it open.
+const inputsOpen = ref(false)
+const inputsFinished = computed(() => flowStatusLabel.value === 'Done')
+const inputsCollapsed = computed(() => inputsFinished.value && !inputsOpen.value && !inputsDirty.value)
+watch(flowId, () => { inputsOpen.value = false })
+const INPUTS_SUMMARY_MAX = 4
+function summarizeInputValue(v: unknown): string {
+  if (v == null || v === '') return ''
+  if (Array.isArray(v)) {
+    if (v.length === 0) return ''
+    return v.every((x) => x == null || typeof x !== 'object') ? v.join(', ') : `${v.length} items`
+  }
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No'
+  if (typeof v === 'object') return ''
+  return String(v).replace(/\s+/g, ' ').trim()
+}
+const inputsSummaryAll = computed(() => {
+  const schema = (flow.value?.input_schema || {}) as Record<string, any>
+  const vals = (flow.value?.inputs || {}) as Record<string, any>
+  const valueOf = (k: string) => vals[k] !== undefined ? vals[k] : schema[k]?.default
+  const rows: { key: string; label: string; value: string }[] = []
+  const pairedSize = 'width' in schema && 'height' in schema
+  for (const [key, def] of Object.entries(schema)) {
+    if (pairedSize && key === 'height') continue
+    if (pairedSize && key === 'width') {
+      const w = summarizeInputValue(valueOf('width'))
+      const h = summarizeInputValue(valueOf('height'))
+      if (w && h) rows.push({ key, label: 'Resolution', value: `${w} × ${h}` })
+      continue
+    }
+    const value = summarizeInputValue(valueOf(key))
+    if (!value) continue
+    const d = (def && typeof def === 'object' ? def : {}) as Record<string, any>
+    const spaced = key.replace(/_+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim()
+    const label = d['x-label'] || d.display_name || d.label || (spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase())
+    rows.push({ key, label: String(label), value })
+  }
+  return rows
+})
+const inputsSummaryRows = computed(() => inputsSummaryAll.value.slice(0, INPUTS_SUMMARY_MAX))
+const inputsSummaryMore = computed(() => Math.max(0, inputsSummaryAll.value.length - INPUTS_SUMMARY_MAX))
 const hasInputFields = computed(() => {
   const schema = flow.value?.input_schema
   return !!schema && Object.keys(schema).length > 0
@@ -1984,9 +2053,16 @@ watch(() => state.flow.value?.program_hash, () => {
 // that they drive the flow through conversation.
 // Phones: the chat panel is a full-screen overlay, so it starts closed.
 const chatPanelOpen = ref(!isCompact.value)
-const chatPanelWidth = ref(420)
-const CHAT_MIN_WIDTH = 280
-const CHAT_MAX_WIDTH = 700
+// The transcript needs room to read before the inputs form gets any: below
+// CHAT_MIN_WIDTH the bubbles turn into slivers, so that is the floor for both
+// the default and a dragged width.
+const CHAT_DEFAULT_WIDTH = 520
+const CHAT_MIN_WIDTH = 440
+const CHAT_MAX_WIDTH = 760
+// The steps column keeps at least this much, so a narrow window squeezes the
+// chat toward its floor before the steps column goes below it.
+const STEPS_MIN_WIDTH = 480
+const chatPanelWidth = ref(CHAT_DEFAULT_WIDTH)
 
 function getChatPanelOpenKey(rid: string) {
   return makeStorageKey('flow', rid, 'chat_panel_open')

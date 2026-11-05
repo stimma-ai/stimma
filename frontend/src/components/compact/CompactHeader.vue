@@ -120,7 +120,7 @@ const sheetItems = computed(() => {
       >
         <span class="min-w-0">
           <span class="block truncate font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</span>
-          <span v-if="subtitle" class="block truncate text-[11px] font-mono text-content-tertiary leading-snug">{{ subtitle }}</span>
+          <span v-if="subtitle" class="block truncate text-[11px] text-content-tertiary leading-snug">{{ subtitle }}</span>
         </span>
         <ChevronDownIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" />
       </button>
@@ -129,7 +129,7 @@ const sheetItems = computed(() => {
       </button>
       <div v-else class="flex-1 min-w-[96px] overflow-hidden px-1">
         <h1 v-if="title" :title="title" class="truncate font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</h1>
-        <p v-if="subtitle" class="truncate text-[11px] font-mono text-content-tertiary leading-snug">{{ subtitle }}</p>
+        <p v-if="subtitle" class="truncate text-[11px] text-content-tertiary leading-snug">{{ subtitle }}</p>
       </div>
 
       <!-- Transient: only while there is work or something to look at. -->

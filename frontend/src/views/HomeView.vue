@@ -134,7 +134,7 @@
             <div class="flex items-center justify-between mb-3">
               <h2 class="text-xs font-semibold text-content-secondary">Jump back in</h2>
             </div>
-            <div class="grid gap-3" :class="isCompact ? 'grid-cols-2 narrow:grid-cols-1' : 'grid-cols-3'">
+            <div class="grid gap-3" :class="jumpColumns === 1 ? 'grid-cols-1' : jumpColumns === 2 ? 'grid-cols-2' : 'grid-cols-3'">
               <button
                 v-for="item in jumpBackIn"
                 :key="`${item.type}-${item.id}`"
@@ -411,6 +411,15 @@ const dragOverBoardId = ref(null)
 const contentWidth = ref(960)
 
 const isCompact = computed(() => contentWidth.value < 700)
+// "Jump back in" columns follow what the card text needs, not the layout tier:
+// a card wants about 280px (an 80px cover plus a title that wraps to two lines
+// and a preview), so a phone gets single-column rows, a fold two columns and
+// a desktop pane three.
+const JUMP_CARD_MIN = 280
+const jumpColumns = computed(() => {
+  const w = contentWidth.value
+  return Math.min(3, Math.max(1, Math.floor((w + 12) / (JUMP_CARD_MIN + 12))))
+})
 // With recents below, the hero sits at the top offset; alone, it centres in the spare height.
 const hasBelowHero = computed(() => recentMedia.value.length > 0 || jumpBackIn.value.length > 0)
 
@@ -588,7 +597,7 @@ const jumpBackIn = computed(() => {
   }
   return items
     .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
-    .slice(0, isCompact.value ? 2 : 3)
+    .slice(0, jumpColumns.value === 3 ? 3 : 2)
 })
 
 function jumpKindLabel(item) {

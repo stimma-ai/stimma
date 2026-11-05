@@ -75,6 +75,9 @@ export default {
         // live = autonomous/continuous operation states (forever mode,
         // transport toggles). Fun on purpose; never a resting control.
         live: 'rgb(var(--color-live-rgb) / <alpha-value>)',
+        // Destructive/error foreground. Light theme deepens it; red-500/600
+        // fills are untouched.
+        red: { 400: 'rgb(var(--color-danger-fg-rgb) / <alpha-value>)' },
         matte: 'rgb(var(--color-matte-rgb) / <alpha-value>)',
         content: {
           DEFAULT: 'rgb(var(--color-text-primary-rgb) / <alpha-value>)',

@@ -3,7 +3,9 @@
 // description on the left, ONE status or quiet verb on the right, all rows
 // sharing one right-hand column. Rows are whitespace-separated (hairline
 // budget, DESIGN.md §1.3); the whole row is the tap target, so there is no
-// chevron. The sanctioned Stimma gradient CTA goes in the `cta` slot. Three
+// chevron. A verb is the shared ghost action (a quiet fill, medium weight,
+// primary text) and a status is plain tertiary text with its dot, both inset
+// the same amount so they end on one edge. The sanctioned Stimma gradient CTA goes in the `cta` slot. Three
 // explicit columns (icon, text, trailing), centred on the row, and on compact
 // a fixed row height (room for a two-line description), so rows keep one pitch
 // whether a description wraps or not.
@@ -40,8 +42,8 @@ withDefaults(defineProps<{
     </span>
     <span v-if="$slots.cta || verb || $slots.status" class="flex w-28 shrink-0 items-center justify-end text-xs compact:w-24">
       <slot v-if="$slots.cta" name="cta" />
-      <span v-else-if="verb" class="-mr-2 whitespace-nowrap rounded-md px-2.5 py-1 text-content-secondary transition-colors group-hover:bg-overlay-light group-hover:text-content">{{ verb }}</span>
-      <span v-else class="-mr-2 inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1" :class="statusClass"><slot name="status" /></span>
+      <span v-else-if="verb" class="whitespace-nowrap rounded-md bg-overlay-subtle px-3 py-1.5 font-medium text-content transition-colors duration-150 group-hover:bg-overlay-light">{{ verb }}</span>
+      <span v-else class="inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5" :class="statusClass"><slot name="status" /></span>
     </span>
   </button>
 </template>

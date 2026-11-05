@@ -459,7 +459,7 @@
                   class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'extend')"
                 >
-                  <span class="text-[11px] text-content-secondary flex-1">Extend Canvas</span>
+                  <span class="text-[11px] text-content-secondary flex-1">Extend canvas</span>
                   <span :class="['text-[10px] font-mono', hasExtendPadding(item) ? 'text-accent-hi font-medium' : 'text-content-muted']">
                     {{ getExtendStatusText(item) }}
                   </span>

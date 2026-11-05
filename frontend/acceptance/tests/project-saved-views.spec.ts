@@ -16,7 +16,7 @@ test('saved views are created, restored and listed within their owning context',
   await page.getByRole('button', { name: 'Newest first', exact: true }).click();
   await page.getByRole('option', { name: 'Oldest first', exact: true }).click();
   await page.getByTitle('Filter options').click();
-  await page.getByRole('button', { name: 'Save View', exact: true }).click();
+  await page.getByRole('button', { name: 'Save view', exact: true }).click();
   await page.getByPlaceholder('View name').fill('Review picks');
   const created = page.waitForResponse(r => r.url().endsWith('/api/saved-views') && r.request().method() === 'POST');
   await page.getByRole('button', { name: 'Save', exact: true }).click();

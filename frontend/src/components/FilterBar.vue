@@ -24,35 +24,45 @@
              marker's own color when set, on one backing (overlay-light).
              Exclude is the same set look plus a red "−" left of the glyph. -->
         <div v-if="filterMarkers.length" class="w-px h-5 bg-edge self-center mx-1 compact:hidden" aria-hidden="true"></div>
-        <div v-if="filterMarkers.length" class="flex items-center gap-1 compact:contents" role="group" aria-label="Marker filters">
+        <!-- One filter-chip grammar. Rest: hairline outline, tertiary glyph,
+             label. Included: backing plus the marker's own colour on the glyph.
+             Excluded: red backing, red minus, struck-through label. On a phone
+             the chips share one track so the group reads as filters, not as
+             page actions; labels return once the window is roomy. -->
+        <div
+          v-if="filterMarkers.length"
+          class="flex items-center gap-1.5 compact:gap-0.5 compact:p-0.5 compact:rounded-lg compact:bg-overlay-subtle"
+          role="group"
+          aria-label="Marker filters"
+        >
         <button
           v-for="marker in filterMarkers"
           :key="marker.id"
           :class="[
-            'inline-flex items-center justify-center h-9 compact:h-11 rounded-md transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
-            isMarkerNegative(marker.id) ? 'px-2 gap-1' : 'gap-1.5 px-2 compact:px-0 compact:w-10',
-            isMarkerPositive(marker.id) || isMarkerNegative(marker.id)
-              ? 'bg-overlay-light'
-              : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
+            'inline-flex items-center justify-center h-9 compact:h-11 rounded-md border gap-1.5 px-2.5 compact:px-0 compact:min-w-11 roomy:px-2.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
+            isMarkerNegative(marker.id)
+              ? 'border-transparent bg-red-500/15 text-red-400'
+              : isMarkerPositive(marker.id)
+                ? 'border-transparent bg-overlay-light text-content'
+                : 'border-edge-subtle compact:border-transparent text-content-secondary hover:bg-overlay-subtle hover:text-content'
           ]"
-          :style="isMarkerPositive(marker.id) || isMarkerNegative(marker.id)
-            ? { color: markerColor(marker) }
-            : {}"
           :aria-pressed="isMarkerPositive(marker.id) || isMarkerNegative(marker.id)"
+          :aria-label="marker.name + (isMarkerPositive(marker.id) ? ', filtering' : isMarkerNegative(marker.id) ? ', excluded' : '')"
           :title="marker.name + (isMarkerPositive(marker.id) ? ' — filtering' : isMarkerNegative(marker.id) ? ' — excluded' : '')"
           @click="toggleMarker(marker.id)"
         >
           <span
             v-if="isMarkerNegative(marker.id)"
-            class="text-red-400 text-[16px] font-semibold leading-none select-none"
+            class="text-red-400 text-[16px] font-semibold leading-none select-none -mr-0.5"
           >−</span>
           <span
             class="w-5 h-5 flex items-center justify-center icon-container"
-            :class="isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? '' : 'marker-glyph-off'"
+            :class="isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? '' : 'marker-glyph-off text-content-tertiary'"
+            :style="isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? { color: markerColor(marker) } : {}"
             v-html="sanitizeSvg(marker.icon_svg)"
           />
           <span
-            :class="['text-xs font-medium leading-none first-letter:uppercase', isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? 'compact:hidden roomy:inline' : 'compact:hidden']"
+            :class="['text-xs font-medium leading-none first-letter:uppercase compact:hidden roomy:inline', isMarkerNegative(marker.id) ? 'line-through decoration-red-400/70' : '']"
           >{{ marker.name }}</span>
         </button>
         </div>
@@ -412,7 +422,7 @@
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
               </svg>
-              Save View
+              Save view
             </button>
             <div v-if="canSaveView && hasActiveFilters" class="border-t border-edge-subtle my-1"></div>
             <button

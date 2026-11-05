@@ -11,11 +11,13 @@
       </svg>
     </RowThumb>
 
-    <!-- Row slots, shared with chats: name + date on the first line,
-         description + status on the second. The date and the status end on
-         the same right edge; the output strip sits before the status. -->
+    <!-- Row slots, shared with chats: name (up to two lines) and the date on
+         the first line; description and its quiet facts (outputs, status) on
+         the second. The description keeps a readable measure on wide screens
+         and the facts follow it directly, so the trailing column
+         carries only the date. -->
     <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-3">
+      <div class="flex items-start gap-3">
         <template v-if="editing">
           <input
             v-no-autocorrect
@@ -32,31 +34,36 @@
         <template v-else>
           <span
             v-if="flow.name"
-            class="min-w-0 truncate text-[14px] text-content font-medium"
+            class="line-clamp-2 min-w-0 flex-1 text-[14px] font-medium leading-5 text-content"
           >
             {{ flow.name }}
           </span>
           <span
             v-else
             @click.stop="beginEdit"
-            class="min-w-0 truncate text-[14px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+            class="line-clamp-2 min-w-0 flex-1 cursor-pointer text-[14px] italic leading-5 text-content-muted hover:text-content-secondary"
           >
             Name this flow...
           </span>
-          <span class="flex-1"></span>
-          <span class="w-12 flex-shrink-0 text-right text-xs tabular-nums text-content-tertiary whitespace-nowrap">
+          <span class="w-12 flex-shrink-0 text-right text-xs leading-5 tabular-nums text-content-tertiary whitespace-nowrap">
             {{ flow.updated_at ? formatRelative(flow.updated_at) : '' }}
           </span>
         </template>
       </div>
-      <div v-if="!editing" class="flex items-center gap-3 mt-0.5">
-        <div v-if="parentName" class="flex-1 min-w-0 text-[13px] text-content-muted truncate">
+      <div v-if="!editing" class="mt-0.5 flex items-center gap-3">
+        <div v-if="parentName" class="min-w-0 max-w-[64ch] truncate text-[13px] text-content-muted">
           based on {{ parentName }}
         </div>
-        <div v-else-if="flow.description" class="flex-1 min-w-0 text-[13px] text-content-muted truncate">
+        <div v-else-if="flow.description" class="min-w-0 max-w-[64ch] truncate text-[13px] text-content-muted">
           {{ flow.description }}
         </div>
-        <span v-else class="flex-1"></span>
+        
+        <!-- Status: a quiet fact after the description. "Your turn" is the
+             actionable state, so it wears the accent and a heavier weight. -->
+        <span class="inline-flex flex-shrink-0 items-center gap-1.5" :class="statusTextClass">
+          <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="statusDotClass"></span>
+          {{ statusText }}
+        </span>
 
         <!-- Output asset strip: up to 3 tiles overlap stacked-avatar style,
              mirrors the collapsed-header treatment in EquationTraceRow /
@@ -88,13 +95,6 @@
             class="ml-1.5 text-[10.5px] font-mono text-content-muted tabular-nums"
           >+{{ extraCount }}</span>
         </div>
-
-        <!-- Status: the trailing fact. "Your turn" is the actionable state, so
-             it wears the accent and a heavier weight. -->
-        <span class="inline-flex min-w-14 flex-shrink-0 items-center justify-end gap-1.5" :class="statusTextClass">
-          <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="statusDotClass"></span>
-          {{ statusText }}
-        </span>
       </div>
     </div>
   </div>

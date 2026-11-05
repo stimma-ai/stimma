@@ -94,11 +94,13 @@
             </svg>
           </RowThumb>
 
-          <!-- Row slots, shared with flows: title + date on the first line,
-               preview + counts on the second. The date and the counts end on
-               the same right edge. -->
+          <!-- Row slots, shared with flows: title (up to two lines) and the
+               date on the first line; the preview and its quiet facts on the
+               second. The preview keeps a readable measure on wide screens and
+               the facts follow it directly, so the trailing column
+               carries only the date. -->
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-3">
+            <div class="flex items-start gap-3">
               <template v-if="editingChatId === chat.id">
                 <input v-no-autocorrect
                   v-model="editingName"
@@ -112,36 +114,36 @@
                 />
               </template>
               <template v-else>
-                <span
-                  @click="onNameTap(chat, $event)"
-                  class="min-w-0 truncate text-[14px] cursor-pointer"
-                  :class="chat.name ? 'text-content font-medium' : 'text-content-muted font-medium hover:text-content-secondary'"
-                >
-                  {{ chat.name || 'New chat' }}
+                <span class="flex min-w-0 flex-1 items-start gap-2">
+                  <span
+                    @click="onNameTap(chat, $event)"
+                    class="line-clamp-2 min-w-0 cursor-pointer text-[14px] font-medium leading-5"
+                    :class="chat.name ? 'text-content' : 'text-content-muted hover:text-content-secondary'"
+                  >
+                    {{ chat.name || 'New chat' }}
+                  </span>
+                  <span
+                    v-if="chat.generation_settings?.mcp_origin"
+                    class="shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent-hi bg-accent/10"
+                    title="Driven by a connected assistant over MCP"
+                  >MCP</span>
+                  <!-- Generating indicator -->
+                  <span v-if="isChatGenerating(chat.id)" class="mt-1 h-3 w-3 flex-shrink-0 animate-spin rounded-full border-2 border-edge-strong border-t-white"></span>
                 </span>
-                <span
-                  v-if="chat.generation_settings?.mcp_origin"
-                  class="shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent-hi bg-accent/10"
-                  title="Driven by a connected assistant over MCP"
-                >MCP</span>
               </template>
 
-              <!-- Generating indicator -->
-              <div v-if="isChatGenerating(chat.id)" class="w-3 h-3 self-center border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0"></div>
-
-              <span class="flex-1"></span>
-              <span class="w-12 flex-shrink-0 text-right text-xs tabular-nums text-content-tertiary whitespace-nowrap">
+              <span class="w-12 flex-shrink-0 text-right text-xs leading-5 tabular-nums text-content-tertiary whitespace-nowrap">
                 {{ chat.updated_at ? formatRelativeTime(chat.updated_at) : '' }}
               </span>
             </div>
 
             <div v-if="chat.last_message || chat.message_count > 0 || chat.generated_count > 0" class="mt-0.5 flex items-center gap-3">
-              <p class="min-w-0 flex-1 truncate text-[13px] text-content-muted">
+              <p class="min-w-0 max-w-[64ch] truncate text-[13px] text-content-muted">
                 <template v-if="chat.last_message">{{ chat.last_message }}</template>
                 <template v-else-if="chat.generated_count > 0">{{ chat.generated_count }} image{{ chat.generated_count !== 1 ? 's' : '' }} generated</template>
               </p>
-              <!-- Counts: quiet, compact, right-aligned in a stable trailing slot -->
-              <span class="flex min-w-14 flex-shrink-0 items-center justify-end gap-2 text-[11px] font-mono tabular-nums text-content-tertiary">
+              <!-- Counts: quiet facts that follow the preview -->
+              <span class="flex flex-shrink-0 items-center gap-2.5 text-[11px] font-mono tabular-nums text-content-muted">
                 <span v-if="chat.message_count > 0" class="flex items-center gap-1" :title="`${chat.message_count} ${chat.message_count === 1 ? 'message' : 'messages'}`">
                   <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
@@ -184,7 +186,7 @@
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
         >
           <span class="w-4 h-4 flex-shrink-0"></span>
-          <span>Select All</span>
+          <span>Select all</span>
         </button>
         <div class="border-t border-edge-subtle my-1"></div>
         <button
@@ -194,7 +196,7 @@
           <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          <span>New Chat</span>
+          <span>New chat</span>
         </button>
       </div>
     </Teleport>

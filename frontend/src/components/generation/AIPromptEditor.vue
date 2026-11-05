@@ -154,7 +154,7 @@
               class="absolute top-full right-0 mt-2 p-4 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-80"
             >
               <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-medium text-content-secondary">Prompt Syntax</span>
+                <span class="text-xs font-medium text-content-secondary">Prompt syntax</span>
                 <button @click="showHelp = false" class="text-content-muted hover:text-content-secondary p-0.5">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -209,7 +209,7 @@
               <div v-if="!hideAutoImprove">
                 <div class="flex items-center gap-1.5 mb-1">
                   <WandSparklesIcon class="w-3 h-3 text-accent" />
-                  <span class="text-xs font-medium text-content-secondary">Enhance Prompt</span>
+                  <span class="text-xs font-medium text-content-secondary">Enhance prompt</span>
                 </div>
                 <p class="text-xs text-content-tertiary leading-relaxed">
                   When enabled, your prompt is automatically enhanced by AI each time you generate. The original prompt is preserved in the editor &mdash; only the version sent to the generation tool is improved.

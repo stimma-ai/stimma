@@ -37,7 +37,7 @@
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <MagnifyingGlassIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-          <span>Find Similar</span>
+          <span>Find similar</span>
         </button>
 
         <div v-if="hasClipEmbedding && targetCount <= 3" class="border-t border-edge-subtle my-1"></div>
@@ -48,7 +48,7 @@
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <FaceSmileIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-          <span>Find Similar Faces</span>
+          <span>Find similar faces</span>
         </button>
 
         <button
@@ -552,11 +552,11 @@
         >
           <button
             ref="toolTriggerRef"
-            aria-label="Send to Tool"
+            aria-label="Send to tool"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
             <WrenchScrewdriverIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-            <span class="flex-1"><span class="coarse:hidden">Send to </span>Tool</span>
+            <span class="flex-1"><span class="coarse:hidden">Send to tool</span><span class="hidden coarse:inline">Tool</span></span>
             <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
@@ -607,11 +607,11 @@
         >
           <button
             ref="chatTriggerRef"
-            aria-label="Send to Chat"
+            aria-label="Send to chat"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
             <ChatBubbleLeftRightIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-            <span class="flex-1"><span class="coarse:hidden">Send to </span>Chat</span>
+            <span class="flex-1"><span class="coarse:hidden">Send to chat</span><span class="hidden coarse:inline">Chat</span></span>
             <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
@@ -645,7 +645,7 @@
                 :class="['w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2', chats.length > 0 ? 'border-b border-edge-subtle' : '']"
               >
                 <PlusIcon class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-                <span class="font-medium">New Chat</span>
+                <span class="font-medium">New chat</span>
               </button>
               <!-- Existing chats -->
               <button
@@ -671,11 +671,11 @@
         >
           <button
             ref="flowTriggerRef"
-            aria-label="Send to Flow"
+            aria-label="Send to flow"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
             <BoltIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-            <span class="flex-1"><span class="coarse:hidden">Send to </span>Flow</span>
+            <span class="flex-1"><span class="coarse:hidden">Send to flow</span><span class="hidden coarse:inline">Flow</span></span>
             <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
@@ -708,7 +708,7 @@
                 :class="['w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2', flows.length > 0 ? 'border-b border-edge-subtle' : '']"
               >
                 <PlusIcon class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-                <span class="font-medium">New Flow</span>
+                <span class="font-medium">New flow</span>
               </button>
               <div
                 v-for="flow in flows"
@@ -751,7 +751,7 @@
               class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
             >
               <ChatBubbleOvalLeftEllipsisIcon class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-              <span>Attach to Message</span>
+              <span>Attach to message</span>
             </button>
             <button
               v-for="field in activeFlowInputFields"
@@ -802,7 +802,7 @@
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <MagnifyingGlassIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-          <span>Find Similar</span>
+          <span>Find similar</span>
         </button>
 
         <button
@@ -811,7 +811,7 @@
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <FaceSmileIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-          <span>Find Similar Faces</span>
+          <span>Find similar faces</span>
         </button>
 
         <!-- Compare (exactly 2 images) -->
@@ -836,7 +836,7 @@
             <circle cx="10" cy="15.5" r="1.75" stroke-width="1.75" />
             <path d="M6 6.25V8.5C6 10 7.5 11 10 11M14 6.25V8.5C14 10 12.5 11 10 11M10 11V13.75" stroke-width="1.75" stroke-linecap="round" />
           </svg>
-          <span>View Lineage</span>
+          <span>View lineage</span>
         </button>
         </div>
         </Teleport>
@@ -918,7 +918,7 @@
           class="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-overlay-subtle flex items-center gap-2"
         >
           <TrashIcon class="w-4 h-4 flex-shrink-0" :stroke-width="1.75" />
-          <span>{{ isMultiple ? `Move ${targetCount} to Trash` : 'Move to Trash' }}</span>
+          <span>{{ isMultiple ? `Move ${targetCount} to trash` : 'Move to trash' }}</span>
         </button>
       </template>
 

@@ -440,7 +440,7 @@ const emptySpaceMenuActions = computed(() => {
     return [
       {
         id: 'select-all',
-        label: 'Select All',
+        label: 'Select all',
         icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 11l3 3L22 4"/></svg>'
       }
     ]
@@ -449,7 +449,7 @@ const emptySpaceMenuActions = computed(() => {
   return [
     {
       id: 'select-all',
-      label: 'Select All',
+      label: 'Select all',
       icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 11l3 3L22 4"/></svg>'
     },
     { id: 'divider' },

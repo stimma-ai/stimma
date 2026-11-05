@@ -1048,7 +1048,7 @@ const actionButtons = computed<ActionButton[]>(() => {
     if (previewMediaIds.value.length > 0) {
       out.push({
         key: 'show-generation-info',
-        label: 'Show Generation Details',
+        label: 'Show generation details',
         iconPath: INFO_ICON_BUTTON,
         class: SECONDARY_BTN,
         onClick: showGenerationDetails,

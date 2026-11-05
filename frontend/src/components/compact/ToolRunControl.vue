@@ -161,6 +161,7 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
     </label>
     <template v-if="outputSettings">
       <div class="mx-4 my-1 border-t border-edge-subtle"></div>
+      <p class="px-4 pt-2 text-[13px] font-semibold text-content-secondary">New outputs</p>
       <div v-if="markers.length > 0" class="flex items-center justify-between gap-3 px-4 min-h-14">
         <span class="text-[15px] text-content flex-none">Mark new results</span>
         <AutoMarkPicker

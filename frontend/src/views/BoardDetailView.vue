@@ -60,7 +60,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
               <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5z" clip-rule="evenodd" />
             </svg>
-            <span>Delete Board</span>
+            <span>Delete board</span>
           </button>
         </div>
       </div>
@@ -100,26 +100,26 @@
                 v-model="sectionNames[section.id]"
                 :ref="(el) => setSectionInputRef(section.id, el)"
                 :style="{ width: getSectionLabelWidth(section) }"
-                class="compact:min-h-11 rounded-md bg-overlay-subtle px-1.5 text-left text-xs font-semibold text-content-secondary outline-none"
+                class="compact:min-h-11 compact:-my-2 rounded-md bg-overlay-subtle px-1.5 text-left text-sm font-semibold text-content outline-none"
                 @blur="saveSection(section)"
                 @keydown.enter.prevent="saveSection(section)"
                 @keydown.esc.prevent="cancelSectionEdit(section)"
               />
               <button
                 v-else
-                class="group/name min-w-0 compact:min-h-11 compact:min-w-11 compact:px-2 truncate text-left text-xs font-semibold text-content-secondary transition-colors hover:text-content"
+                class="group/name min-w-0 compact:min-h-11 compact:min-w-11 compact:-my-2 compact:px-2 truncate text-left text-sm font-semibold text-content transition-colors"
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
-                <span v-else class="flex items-center gap-1.5 font-normal text-content-tertiary transition-colors group-hover/name:text-content-secondary">
+                <span v-else class="flex items-center gap-1.5 text-xs font-normal text-content-muted transition-colors group-hover/name:text-content-secondary">
                   <span class="truncate">Name this section…</span>
-                  <PencilIcon class="h-3 w-3 flex-none" :stroke-width="1.75" aria-hidden="true" />
+                  <PencilIcon class="h-3 w-3 flex-none opacity-70" :stroke-width="1.75" aria-hidden="true" />
                 </span>
               </button>
             </div>
             <div class="flex flex-none items-center gap-1">
               <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ (section.items || []).length }} {{ (section.items || []).length === 1 ? 'asset' : 'assets' }}</span>
-              <button v-if="isCompact && (section.items || []).length" class="min-h-11 min-w-11 whitespace-nowrap px-2 text-xs font-medium text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
+              <button v-if="isCompact && (section.items || []).length" class="min-h-11 min-w-11 compact:-my-2 whitespace-nowrap px-2 text-xs font-medium text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
             </div>
           </div>
 
@@ -820,7 +820,7 @@ function getSectionLabelWidth(section) {
   const text = (sectionEditingId.value === section.id ? sectionNames[section.id] : section.name) || ''
   const minWidth = 112
   const maxWidth = 288
-  const estimatedWidth = 32 + (text.length * 7.25)
+  const estimatedWidth = 32 + (text.length * 8.25)
   const clampedWidth = Math.max(minWidth, Math.min(maxWidth, estimatedWidth))
   return `${clampedWidth}px`
 }
