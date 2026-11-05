@@ -20,6 +20,7 @@
                appears. -->
           <button
             :disabled="llmUnconfigured"
+            :aria-pressed="!llmUnconfigured && promptOptions.autoImprove.enabled"
             @click="updatePromptOption('autoImprove', { ...promptOptions.autoImprove, enabled: !promptOptions.autoImprove.enabled })"
             :class="[
               'flex items-center gap-1.5 text-ctl transition-colors -mx-1.5 px-1.5 py-0.5 rounded-md',

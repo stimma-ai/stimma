@@ -12,7 +12,7 @@ test.describe('app shell acceptance', () => {
     page.on('console', message => { if (message.type() === 'error') console.error('Shell console:', message.text()); });
     const destinations = [
       { path: '/browse', text: 'Assets' },
-      { path: '/tools', text: 'All tools' },
+      { path: '/tools', text: 'Tools' },
       { path: '/boards', text: 'Boards' },
       { path: '/chats', text: 'Chats' },
       { path: '/flows', text: 'Flows' },
@@ -28,13 +28,13 @@ test.describe('app shell acceptance', () => {
 
   test('browser back and forward work across core routes', async ({ page }) => {
     await page.goto('/tools');
-    await expect(page.getByText('All tools', { exact: true })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible({ timeout: 30000 });
 
     await page.goto('/projects');
     await expect(page.getByRole('dialog', { name: 'Choose a project' })).toBeVisible({ timeout: 30000 });
 
     await page.goBack();
-    await expect(page.getByText('All tools', { exact: true })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible({ timeout: 30000 });
 
     // The legacy link opens the picker once and drops ?projects=1, so
     // Forward returns to the plain destination rather than reopening it.

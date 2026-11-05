@@ -28,7 +28,7 @@ test.describe('tool agent after a remix', () => {
 
     await openPromptToolById(page, TEST_T2I_TOOL_ID);
     const enhance = page.getByRole('button', { name: /^Enhance(?: Prompt)?$/ }).first();
-    if (!await enhance.evaluate((el) => el.className.includes('text-purple-500') || el.className.includes('text-accent'))) {
+    if (!await enhance.evaluate((el) => el.getAttribute('aria-pressed') === 'true')) {
       await enhance.click();
     }
 
@@ -72,7 +72,7 @@ test.describe('tool agent after a remix', () => {
 
     await openPromptToolById(page, TEST_T2I_TOOL_ID);
     const enhance = page.getByRole('button', { name: /^Enhance(?: Prompt)?$/ }).first();
-    if (!await enhance.evaluate((el) => el.className.includes('text-purple-500') || el.className.includes('text-accent'))) {
+    if (!await enhance.evaluate((el) => el.getAttribute('aria-pressed') === 'true')) {
       await enhance.click();
     }
     await promptInput(page).fill(ORIGINAL);
