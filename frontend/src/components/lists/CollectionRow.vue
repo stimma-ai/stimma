@@ -7,10 +7,9 @@
 // count. Every column has its own edge, so facts and dates form
 // straight vertical tracks down the page instead of following the end of each
 // preview; the preview truncates before any fact does. Rows run the pane's full
-// width so the hover target is full bleed, and pad themselves to the list
-// measure (listMeasure.ts): on a broad pane the content, the date included,
-// stops at the same width as the page header's controls instead of stretching
-// across the window.
+// width so the hover target is full bleed and the facts end at the page
+// header's right edge; the preview text alone keeps a maximum width
+// (listMeasure.ts) so its lines stay short on a broad pane.
 //
 // Height follows the content: padding above the title and after the last line
 // (the preview, or the facts on a narrow window), one small gap between the
@@ -23,7 +22,7 @@
 //
 // The root keeps `cursor-pointer group` (acceptance specs click rows by it);
 // listeners, test ids and classes fall through to it.
-import { listMeasureX, listMeasureLeft } from './listMeasure'
+import { listMeasureX, listMeasureLeft, listPreviewMax } from './listMeasure'
 
 withDefaults(defineProps<{
   /** Row is selected (indigo wash instead of the hover tint). */
@@ -50,7 +49,7 @@ withDefaults(defineProps<{
       <div class="col-start-1 row-span-2 row-start-1 self-center narrow:row-span-3 narrow:self-start"><slot name="thumb" /></div>
 
       <div class="col-start-2 row-start-1 flex min-w-0 items-start"><slot name="title" /></div>
-      <div v-if="$slots.preview" class="col-start-2 row-start-2 min-w-0 narrow:[grid-column:2/4]"><slot name="preview" /></div>
+      <div v-if="$slots.preview" class="col-start-2 row-start-2 min-w-0 narrow:[grid-column:2/4]" :class="listPreviewMax"><slot name="preview" /></div>
 
       <!-- Facts: level with the title on wider layouts, together beneath the
            name and preview on narrow ones, where the row's own bottom padding

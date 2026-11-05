@@ -1,14 +1,15 @@
-// The list-content measure for the collection lists (chats, flows). The measure
-// is anchored to the left page margin, the same edge the page header's title
-// and every other page start on. Rows keep a full-width hover target but pad
-// themselves so their content stops at one maximum width (56rem) from that edge;
-// the page header spans the full width like every other page's.
-// Below that width the padding is
-// the page margin on both sides, as everywhere else.
+// Row padding and the preview measure for the collection lists (chats, flows).
+// Rows span the pane's full width with the page margin on both sides, so each
+// row's right-aligned facts (counts, date) end at the same edge as the page
+// header's controls. Only the preview text keeps a maximum width, so lines stay
+// short on a broad pane.
 // Class strings are spelled out in full so Tailwind sees them.
 
-/** Side padding for rows: page margin on the left, the measure's remainder on the right. */
-export const listMeasureX = 'pl-page pr-[max(var(--page-margin),calc(100%-56rem-var(--page-margin)))]'
+/** Side padding for rows: the page margin on both sides. */
+export const listMeasureX = 'px-page'
 
-/** Left edge of the measure, for absolutely placed row furniture. */
+/** Left edge of the row's content, for absolutely placed row furniture. */
 export const listMeasureLeft = 'left-page'
+
+/** Longest line of a row's preview text. */
+export const listPreviewMax = 'max-w-[40rem]'
