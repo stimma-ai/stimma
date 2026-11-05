@@ -1,104 +1,72 @@
 <template>
   <div class="h-full flex flex-col bg-base">
-    <!-- Header row. Wide: title, provider dropdown, search box. Compact (the
-         "Tools" title is the compact header's): one 44px row — the provider
-         filter chip and a search icon that expands into the box. -->
+    <!-- Header row. Wide: title, filters, search box. Compact (the "Tools"
+         title is the compact header's): one 44px row of filter chips and a
+         search icon that expands into the box. -->
     <div class="flex h-header flex-none items-center justify-between border-b border-edge-subtle px-page compact:h-auto compact:gap-2 compact:py-1">
       <h1 class="font-brand text-[18px] font-semibold leading-6 text-content compact:hidden">All tools</h1>
 
-      <div class="flex items-center gap-3 compact:flex-1 compact:gap-1 compact:min-w-0">
-        <!-- Provider filter. Wide: an inline dropdown. Compact / coarse: the
-             kit Sheet — an inline dropdown converted to a sheet would sit
-             inside the app column's stacking context, under the shared sheet
-             backdrop, and no tap would ever reach it. -->
-        <div v-if="availableProviders.length > 1 || hasUnavailableTools" class="relative compact:min-w-0" :class="searchOpen ? 'compact:hidden' : ''" ref="providerDropdownRef">
-          <button
-            @click="providerDropdownOpen = !providerDropdownOpen"
-            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors compact:min-h-11 compact:max-w-full compact:gap-1.5 compact:px-2"
-            :class="activeProviderFilters.size > 0
-              ? 'bg-blue-500/15 text-blue-500'
-              : 'text-content-tertiary hover:text-content-secondary hover:bg-overlay-subtle'"
-          >
-            <FunnelIcon class="w-4 h-4 flex-shrink-0 hidden compact:block" />
-            <span class="truncate" :class="providerFilterIsStimma ? 'stimma-cloud-text font-medium' : ''">{{ providerFilterLabel }}</span>
-            <svg class="w-4 h-4 flex-shrink-0 transition-transform compact:hidden" :class="providerDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-            </svg>
-          </button>
+      <div class="flex items-center gap-2 compact:min-w-0 compact:flex-1 compact:gap-1">
+        <ToolFilterMenu
+          v-if="availableProviders.length > 1 || hasUnavailableTools"
+          :class="searchExpanded ? 'compact:hidden' : ''"
+          :label="providerFilterLabel"
+          :active="activeProviderFilters.size > 0"
+          :icon="FunnelIcon"
+          title="Providers"
+          :groups="providerGroups"
+          :selected="providerSelection"
+          @toggle="toggleProviderOption"
+        />
 
-          <!-- Dropdown menu (wide) -->
-          <div
-            v-if="providerDropdownOpen && !providerSheet"
-            class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu min-w-[180px] py-1"
-          >
-            <button
-              v-for="provider in availableProviders"
-              :key="provider.provider_id"
-              @click="toggleProviderFilter(provider.provider_id)"
-              class="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors"
-              :class="activeProviderFilters.has(provider.provider_id) ? 'text-blue-500' : 'text-content-secondary'"
-            >
-              <svg
-                v-if="activeProviderFilters.has(provider.provider_id)"
-                class="w-4 h-4 flex-shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="2"
-                stroke="currentColor"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-              <span v-else class="w-4 flex-shrink-0"></span>
-              <span :class="isStimmaCloudTool(provider) ? 'stimma-cloud-text font-medium' : ''">{{ toolProviderDisplayName(provider) }}</span>
-            </button>
-            <div class="border-t border-edge-subtle my-1"></div>
-            <button
-              @click="showUnavailable = !showUnavailable"
-              class="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors"
-              :class="showUnavailable ? 'text-blue-500' : 'text-content-secondary'"
-            >
-              <svg
-                v-if="showUnavailable"
-                class="w-4 h-4 flex-shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="2"
-                stroke="currentColor"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-              <span v-else class="w-4 flex-shrink-0"></span>
-              <span>Show unavailable</span>
-            </button>
-          </div>
-        </div>
+        <!-- Task types are the pills below on wide; a menu on compact. -->
+        <ToolFilterMenu
+          v-if="availableTaskTypes.length > 0"
+          class="hidden compact:block"
+          :class="searchExpanded ? 'compact:hidden' : ''"
+          :label="taskFilterLabel"
+          :active="activeTaskFilters.size > 0"
+          title="Task"
+          :groups="taskGroups"
+          :selected="activeTaskFilters"
+          @toggle="toggleTaskFilter"
+        />
+
+        <ToolFilterMenu
+          v-if="mediaGroups.length > 0"
+          :class="searchExpanded ? 'compact:hidden' : ''"
+          :label="mediaFilterLabel"
+          :active="activeMediaFilters.size > 0"
+          title="Media"
+          :groups="mediaGroups"
+          :selected="activeMediaFilters"
+          @toggle="toggleMediaFilter"
+        />
 
         <!-- Text search. Wide: always a box. Compact: a search icon; tapping it
-             expands the box across the row, ✕ clears and collapses. A query
+             expands the box across the row, the X clears and collapses. A query
              keeps the box open so the filter is never hidden while it applies. -->
-        <div class="relative compact:flex-1 compact:min-w-0 compact:flex compact:items-center compact:justify-end compact:gap-1">
+        <div
+          class="relative compact:flex compact:min-w-0 compact:items-center compact:justify-end compact:gap-1"
+          :class="searchExpanded ? 'compact:flex-1' : 'compact:ml-auto compact:flex-none'"
+        >
           <button
             v-if="!searchExpanded"
             type="button"
-            class="hidden compact:flex w-11 h-11 items-center justify-center rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors"
+            class="hidden compact:flex w-11 h-11 flex-shrink-0 items-center justify-center rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors"
             aria-label="Search tools"
             @click="openSearch"
           >
             <MagnifyingGlassIcon class="w-6 h-6" />
           </button>
-          <div class="relative compact:flex-1 compact:min-w-0" :class="searchExpanded ? '' : 'compact:hidden'">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
-            <input v-no-autocorrect
-              ref="searchInputRef"
-              v-model="searchQuery"
-              type="text"
-              placeholder="Search tools..."
-              class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48 compact:w-full compact:min-h-11"
-              @keydown.escape="closeSearch"
-            />
-          </div>
+          <SearchField
+            ref="searchInputRef"
+            v-model="searchQuery"
+            placeholder="Search tools..."
+            class="w-48 compact:min-w-0 compact:flex-1"
+            :class="searchExpanded ? '' : 'compact:hidden'"
+            @escape="closeSearch"
+          />
           <button
             v-if="searchExpanded"
             type="button"
@@ -112,50 +80,18 @@
       </div>
     </div>
 
-    <!-- Provider filter as a bottom sheet (compact / coarse). Multi-select:
-         rows toggle and the sheet stays; tap outside or the handle to close. -->
-    <Sheet :show="providerDropdownOpen && providerSheet" title="Providers" @close="providerDropdownOpen = false">
-      <div class="pb-2">
-        <button
-          v-for="provider in availableProviders"
-          :key="provider.provider_id"
-          type="button"
-          class="sheet-row"
-          :class="activeProviderFilters.has(provider.provider_id) ? '!text-blue-500' : ''"
-          @click="toggleProviderFilter(provider.provider_id)"
-        >
-          <svg v-if="activeProviderFilters.has(provider.provider_id)" class="sheet-row-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-          <span v-else class="sheet-row-icon"></span>
-          <span class="truncate" :class="isStimmaCloudTool(provider) ? 'stimma-cloud-text font-medium' : ''">{{ toolProviderDisplayName(provider) }}</span>
-        </button>
-        <div class="mx-4 my-1 border-t border-edge-subtle"></div>
-        <button
-          type="button"
-          class="sheet-row"
-          :class="showUnavailable ? '!text-blue-500' : ''"
-          @click="showUnavailable = !showUnavailable"
-        >
-          <svg v-if="showUnavailable" class="sheet-row-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-          <span v-else class="sheet-row-icon"></span>
-          <span>Show unavailable</span>
-        </button>
-      </div>
-    </Sheet>
-
-    <!-- Task type filter pills -->
-    <div v-if="availableTaskTypes.length > 0" class="px-page py-3 flex flex-wrap gap-2 border-b border-edge-subtle compact:hidden">
+    <!-- Task type filter pills (wide) -->
+    <div v-if="availableTaskTypes.length > 0" class="flex flex-wrap gap-1 border-b border-edge-subtle px-page py-3 compact:hidden">
       <button
         v-for="taskType in availableTaskTypes"
         :key="taskType"
-        @click="toggleTaskFilter(taskType)"
-        class="px-3 py-1 text-xs rounded-md transition-colors"
+        type="button"
+        :aria-pressed="activeTaskFilters.has(taskType)"
+        class="h-control rounded-md px-3 text-ctl transition-colors"
         :class="activeTaskFilters.has(taskType)
-          ? 'bg-blue-500/15 text-blue-500'
-          : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle'"
+          ? 'bg-selection/15 text-content'
+          : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'"
+        @click="toggleTaskFilter(taskType)"
       >
         {{ formatTaskType(taskType) }}
       </button>
@@ -185,11 +121,8 @@
 
       <!-- Empty state: No tools match filters -->
       <div v-else-if="filteredTools.length === 0" class="flex flex-col items-center justify-center h-64 text-center">
-        <svg class="w-16 h-16 text-content-muted mb-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-        </svg>
-        <p class="text-content-muted mb-2">No tools match your filters</p>
-        <p class="text-content-muted text-sm">Try adjusting your search, task type, or provider filters.</p>
+        <p class="text-content-secondary mb-1">No tools match</p>
+        <p class="text-content-muted text-sm">Change the search or the filters.</p>
       </div>
 
       <!-- Tools by Task -->
@@ -207,7 +140,7 @@
             <div
               v-for="tool in group.tools"
               :key="tool.full_tool_id"
-              class="relative group rounded-lg p-4 h-[140px] flex flex-col gap-2 transition-colors cursor-pointer bg-surface hover:bg-surface-raised compact:h-auto compact:p-3"
+              class="relative group rounded-lg p-4 flex flex-col gap-2 transition-colors cursor-pointer bg-surface hover:bg-surface-raised compact:p-3"
               :class="tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : ''"
               @click="openTool(tool)"
               @contextmenu.prevent="isUserTool(tool) ? openToolMenu($event, tool) : null"
@@ -224,7 +157,7 @@
                 </svg>
               </button>
 
-              <!-- Top: Icon + Name/Provider + Price -->
+              <!-- Icon + name and provider + price -->
               <div class="flex items-start gap-2.5">
                 <!-- Tool icon (vendor mark / task-generic, cloud vs neutral tile) -->
                 <div class="flex items-center justify-center flex-shrink-0">
@@ -248,17 +181,17 @@
                 <span v-if="getToolPrice(tool)" class="text-[11px] font-mono tabular-nums text-content-tertiary flex-shrink-0 pt-0.5">{{ getToolPrice(tool) }}</span>
               </div>
 
-              <!-- Description -->
-              <p class="text-xs text-content-tertiary line-clamp-2 leading-relaxed">{{ getToolDescription(tool) }}</p>
+              <!-- Description (only when the tool has one) -->
+              <p v-if="getToolDescription(tool)" class="text-xs text-content-tertiary line-clamp-2 leading-relaxed">{{ getToolDescription(tool) }}</p>
 
-              <!-- Bottom: capability facts in quiet mono -->
-              <div class="mt-auto flex items-center gap-2.5 overflow-hidden whitespace-nowrap text-[10.5px] font-mono">
+              <!-- Facts in quiet mono: the tool's own badges, then what media it takes -->
+              <div v-if="getToolFacts(tool).length" class="mt-auto flex flex-wrap gap-x-2.5 gap-y-0.5 text-[10.5px] font-mono lowercase">
                 <span
-                  v-for="badge in getToolBadges(tool)"
-                  :key="badge"
-                  class="flex-shrink-0 lowercase"
-                  :class="badge === 'Fast' ? 'text-accent' : 'text-content-muted'"
-                >{{ badge === 'Fast' ? '⚡ fast' : badge }}</span>
+                  v-for="fact in getToolFacts(tool)"
+                  :key="fact.text"
+                  class="after:ml-2.5 after:text-content-muted/60 after:content-['·'] last:after:hidden"
+                  :class="fact.fast ? 'text-accent' : 'text-content-muted'"
+                >{{ fact.fast ? '⚡ fast' : fact.text }}</span>
               </div>
             </div>
           </div>
@@ -328,16 +261,17 @@ import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShor
 import { useRoute, useRouter } from 'vue-router'
 import { FunnelIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useViewport } from '../composables/useViewport'
-import Sheet from '../components/ui/Sheet.vue'
+import SearchField from '../components/ui/SearchField.vue'
+import ToolFilterMenu from '../components/tools/ToolFilterMenu.vue'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { makeProfileKey } from '../utils/storageKeys'
 import {
-  STIMMA_CLOUD_PROVIDER_ID,
   STIMMA_TOOL_PROVIDER_DISPLAY_NAME,
   isStimmaCloudTool,
   toolProviderDisplayName,
 } from '../utils/stimmaCloud'
-import { formatTaskTypeLabel, TASK_TYPE_LABELS } from '../utils/taskTypeIcons'
+import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
+import { MEDIA_FILTER_OPTIONS, takesFact, toolMatchesMediaFilter, toolMatchesMediaFilters } from '../utils/toolFacets'
 import ToolIcon from '../components/tools/ToolIcon.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
@@ -369,11 +303,7 @@ let unsubscribeFromProviderChanges = null
 // Search input ref
 const searchInputRef = ref(null)
 
-// Provider dropdown. On compact or coarse pointers it renders as the kit Sheet.
-const providerDropdownRef = ref(null)
-const providerDropdownOpen = ref(false)
-const { isCompact, isCoarsePointer, allowsAutofocus } = useViewport()
-const providerSheet = computed(() => isCompact.value || isCoarsePointer.value)
+const { isCompact, allowsAutofocus } = useViewport()
 
 // Compact search: collapsed to an icon until tapped; a live query keeps it open.
 const searchOpen = ref(false)
@@ -394,6 +324,10 @@ function getSearchKey() {
 
 function getFiltersKey() {
   return makeProfileKey('allTools', 'taskFilters')
+}
+
+function getMediaFiltersKey() {
+  return makeProfileKey('allTools', 'mediaFilters')
 }
 
 function getProviderFiltersKey() {
@@ -419,6 +353,7 @@ watch(() => route.query.q, (q) => {
 
 const activeTaskFilters = ref(new Set())
 const activeProviderFilters = ref(new Set())
+const activeMediaFilters = ref(new Set())
 const showUnavailable = ref(localStorage.getItem(getShowUnavailableKey()) === '1')
 const filtersInitialized = ref(false)
 
@@ -444,6 +379,11 @@ watch(activeTaskFilters, (val) => {
 watch(activeProviderFilters, (val) => {
   if (!filtersInitialized.value) return
   safeSetItem(getProviderFiltersKey(), JSON.stringify([...val]))
+}, { deep: true })
+
+watch(activeMediaFilters, (val) => {
+  if (!filtersInitialized.value) return
+  safeSetItem(getMediaFiltersKey(), JSON.stringify([...val]))
 }, { deep: true })
 
 watch(showUnavailable, (val) => {
@@ -473,7 +413,18 @@ function handleProfileChanged() {
   } else {
     activeProviderFilters.value = new Set()
   }
+  activeMediaFilters.value = readSavedMediaFilters()
   showUnavailable.value = localStorage.getItem(getShowUnavailableKey()) === '1'
+}
+
+function readSavedMediaFilters() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(getMediaFiltersKey()) || '[]')
+    const known = new Set(MEDIA_FILTER_OPTIONS.map(option => option.id))
+    return new Set(Array.isArray(saved) ? saved.filter(id => known.has(id)) : [])
+  } catch {
+    return new Set()
+  }
 }
 
 if (typeof window !== 'undefined') {
@@ -551,16 +502,71 @@ const providerFilterLabel = computed(() => {
   const selectedNames = [...activeProviderFilters.value]
     .map(id => {
       const provider = availableProviders.value.find(p => p.provider_id === id)
-      return provider?.provider_name || provider?.provider_id || 'Provider'
+      return toolProviderDisplayName(provider)
     })
     .sort()
   return selectedNames.join(', ')
 })
 
-const providerFilterIsStimma = computed(() => (
-  activeProviderFilters.value.size === 1
-  && activeProviderFilters.value.has(STIMMA_CLOUD_PROVIDER_ID)
-))
+// The provider menu: the providers, then the unavailable-tools switch as its
+// own group. Both toggle through one handler.
+const SHOW_UNAVAILABLE_ID = '__show-unavailable'
+const providerGroups = computed(() => [
+  {
+    options: availableProviders.value.map(provider => ({
+      id: provider.provider_id,
+      label: toolProviderDisplayName(provider),
+      cloud: isStimmaCloudTool(provider),
+    })),
+  },
+  { options: [{ id: SHOW_UNAVAILABLE_ID, label: 'Show unavailable' }] },
+])
+const providerSelection = computed(() => {
+  const selected = new Set(activeProviderFilters.value)
+  if (showUnavailable.value) selected.add(SHOW_UNAVAILABLE_ID)
+  return selected
+})
+function toggleProviderOption(id) {
+  if (id === SHOW_UNAVAILABLE_ID) showUnavailable.value = !showUnavailable.value
+  else toggleProviderFilter(id)
+}
+
+// Task types as a menu (compact; wide has the pills).
+const taskGroups = computed(() => [{
+  options: availableTaskTypes.value.map(taskType => ({ id: taskType, label: formatTaskType(taskType) })),
+}])
+const taskFilterLabel = computed(() => {
+  const selected = [...activeTaskFilters.value]
+  if (selected.length === 0) return 'All tasks'
+  if (selected.length === 1) return formatTaskType(selected[0])
+  return `${selected.length} tasks`
+})
+
+// Media: what a tool takes (its declared input slots) and whether its task is
+// audio output. Only options at least one listed tool has are offered.
+const mediaGroups = computed(() => {
+  const options = MEDIA_FILTER_OPTIONS.filter(option => (
+    activeMediaFilters.value.has(option.id)
+    || visibleTools.value.some(tool => toolMatchesMediaFilter(tool, option.id))
+  ))
+  return [
+    { label: 'Takes', options: options.filter(option => option.group === 'takes') },
+    { label: 'Makes', options: options.filter(option => option.group === 'makes') },
+  ].filter(group => group.options.length > 0)
+})
+const mediaFilterLabel = computed(() => {
+  const selected = MEDIA_FILTER_OPTIONS.filter(option => activeMediaFilters.value.has(option.id))
+  if (selected.length === 0) return 'Media'
+  // One option names itself; on a phone the chip row has no room for the name.
+  if (selected.length === 1 && !isCompact.value) return `${selected[0].group === 'takes' ? 'Takes' : 'Makes'} ${selected[0].label.toLowerCase()}`
+  return `Media (${selected.length})`
+})
+function toggleMediaFilter(id) {
+  const next = new Set(activeMediaFilters.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  activeMediaFilters.value = next
+}
 
 const filteredTools = computed(() => {
   let result = [...visibleTools.value]
@@ -582,6 +588,11 @@ const filteredTools = computed(() => {
   // Filter by providers (only if any are selected - empty means show all)
   if (activeProviderFilters.value.size > 0) {
     result = result.filter(t => activeProviderFilters.value.has(t.provider_id))
+  }
+
+  // Filter by media: a tool has to match every selected option
+  if (activeMediaFilters.value.size > 0) {
+    result = result.filter(t => toolMatchesMediaFilters(t, activeMediaFilters.value))
   }
 
   // Filter by search query — name, provider, and description are all fair
@@ -720,6 +731,8 @@ function initializeFilters() {
   }
   // else: leave empty (show all tools)
 
+  activeMediaFilters.value = readSavedMediaFilters()
+
   filtersInitialized.value = true
 }
 
@@ -770,8 +783,16 @@ function getToolPrice(tool) {
   return tool.metadata?.display_price || ''
 }
 
-function getToolBadges(tool) {
-  return tool.metadata?.badges || []
+// The facts under a card's description: the tool's own badges, then the media
+// it takes (read from its schema). Absent facts leave no slot.
+function getToolFacts(tool) {
+  const facts = (tool.metadata?.badges || []).map(badge => ({
+    text: badge,
+    fast: badge === 'Fast',
+  }))
+  const takes = takesFact(tool)
+  if (takes) facts.push({ text: takes, fast: false })
+  return facts
 }
 
 
@@ -935,16 +956,9 @@ function handleKeydown(e) {
 useGlobalKeyboardShortcuts({ onKeydown: handleKeydown })
 onDeactivated(() => {
   closeToolMenu()
-  providerSheet.value = false
-  providerDropdownOpen.value = false
 })
 
 function handleClickOutside(e) {
-  // The Sheet teleports to body (outside providerDropdownRef) and dismisses
-  // itself; treating its taps as outside clicks would close it on every pick.
-  if (!providerSheet.value && providerDropdownRef.value && !providerDropdownRef.value.contains(e.target)) {
-    providerDropdownOpen.value = false
-  }
   // Close the per-tool menu when clicking outside it.
   if (toolMenu.value.visible && toolMenuRef.value && !toolMenuRef.value.contains(e.target)) {
     closeToolMenu()
@@ -961,7 +975,7 @@ onMounted(() => {
   })
 
   // Focus search input on mount (wide only: on a phone that pops the keyboard)
-  if (allowsAutofocus.value) searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focusQuietly()
 
   // Listen for click outside to close dropdown
   document.addEventListener('click', handleClickOutside)
@@ -969,7 +983,7 @@ onMounted(() => {
 
 onActivated(() => {
   // Focus search input when returning to the page (KeepAlive reactivation)
-  if (allowsAutofocus.value) searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focusQuietly()
 })
 
 onUnmounted(() => {
