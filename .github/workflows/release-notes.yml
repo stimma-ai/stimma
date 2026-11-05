@@ -33,7 +33,7 @@ jobs:
       # Always publish from main: notes edits often land after the promoted
       # commit was tagged, and main is the source of truth for their content.
       # Tags are needed to compute each version's "released" flag.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
