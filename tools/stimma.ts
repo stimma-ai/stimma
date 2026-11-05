@@ -625,6 +625,8 @@ Commands:
   test release-cleanup  Verify release retention and current-feed protection
   test release-pipeline  Verify release version planning and publication gates
   test frontend   Run all frontend unit and browser regression tests
+                  --file=tests/example.browser.test.mjs runs just that file
+                  --list lists matching files without starting tests
   test desktop    Build and test the Electron shell (--unit for unit tests only)
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --electron  Run the same lane inside the Electron shell (Tier B)

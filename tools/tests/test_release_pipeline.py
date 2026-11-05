@@ -146,7 +146,7 @@ class PublicationTests(unittest.TestCase):
         self.assertIn('--test-shard=${{ matrix.shard }}/2', frontend['run'])
         self.assertEqual(jobs['acceptance-tests']['strategy']['matrix']['lane'], ['desktop', 'phone-1', 'phone-2', 'phone-3'])
         phone = next(s for s in jobs['acceptance-tests']['steps'] if s.get('name') == 'Run phone lane (route audit)')
-        self.assertIn('--shard="${LANE#phone-}/3"', phone['run'])
+        self.assertIn('STIMMA_ACCEPTANCE_PHONE_SHARD="${LANE#phone-}/3"', phone['run'])
 
     def test_headless_workers_have_separate_capability_and_unique_docker_images(self):
         job = workflow('headless-package.yml')['jobs']['package']

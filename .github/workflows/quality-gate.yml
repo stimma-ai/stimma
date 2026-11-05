@@ -243,7 +243,7 @@ jobs:
         if: matrix.lane != 'desktop'
         env:
           LANE: ${{ matrix.lane }}
-        run: tools/stimma test acceptance --viewport=phone --shard="${LANE#phone-}/3" --timeout=30000 --retries=0
+        run: STIMMA_ACCEPTANCE_PHONE_SHARD="${LANE#phone-}/3" tools/stimma test acceptance --viewport=phone --timeout=30000 --retries=0
 
       - name: Upload phone screenshots
         if: always()

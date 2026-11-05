@@ -1,0 +1,13 @@
+{
+  "phone-chat-collection.spec.ts": 12,
+  "phone-details.spec.ts": 120,
+  "phone-entity-interactions.spec.ts": 51,
+  "phone-lockstep.spec.ts": 133,
+  "phone-media.spec.ts": 21,
+  "phone-nav.spec.ts": 21,
+  "phone-project-saved-views.spec.ts": 13,
+  "phone-provider-drawers.spec.ts": 8,
+  "phone-routes.spec.ts": 44,
+  "phone-working-context.spec.ts": 6,
+  "phone-workspace-migration.spec.ts": 76
+}

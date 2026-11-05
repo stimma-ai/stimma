@@ -1,7 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
+import { readdirSync, readFileSync } from 'node:fs';
+import { selectShard } from '../scripts/testShards.mjs';
 
 const frontendPort = process.env.STIMMA_FRONTEND_PORT || '19292';
 const slowMo = Number.parseInt(process.env.STIMMA_ACCEPTANCE_SLOW_MO || '0', 10);
+const phonePattern = /phone-.*\.spec\.ts/;
+const phoneShard = process.env.STIMMA_ACCEPTANCE_PHONE_SHARD;
+// Timings from a complete hosted run. New files get a default cost and are
+// always included; no hand-maintained allowlist can drop new coverage.
+const phoneFiles = readdirSync(new URL('./tests/', import.meta.url)).filter(file => phonePattern.test(file));
+const phoneDurations = JSON.parse(readFileSync(new URL('./phone-durations.json', import.meta.url), 'utf8'));
+const phoneMatch = phoneShard
+  ? selectShard(phoneFiles, phoneDurations, phoneShard).map(file => `**/${file}`)
+  : phonePattern;
 
 export default defineConfig({
   testDir: './tests',
@@ -40,7 +51,7 @@ export default defineConfig({
         isMobile: true,
         hasTouch: true,
       },
-      testMatch: /phone-.*\.spec\.ts/,
+      testMatch: phoneMatch,
     },
   ],
 });
