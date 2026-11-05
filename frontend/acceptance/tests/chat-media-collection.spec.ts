@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '../helpers/testbed';
 import { apiJSON, createChat, waitForShell } from '../helpers/app';
@@ -124,4 +125,44 @@ test('single results and short sets need no paging', async ({ page }) => {
   await expect(page.locator(`[data-item-id="${single.id}"] [role="radiogroup"]`)).toHaveCount(0);
   await expect(page.locator(`[data-item-id="${failed.id}"]`).getByText('Out of memory')).toBeVisible();
   await expect(page.locator(`[data-item-id="${failed.id}"]`).getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+});
+
+
+test('chat videos preview silently on hover and play on click', async ({ page }, testInfo) => {
+  const source = testInfo.outputPath('chat-video.mp4');
+  execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i',
+    'testsrc2=duration=8:size=320x180:rate=25', '-f', 'lavfi', '-i',
+    'sine=duration=8:sample_rate=48000', '-c:v', 'libx264', '-preset', 'ultrafast',
+    '-c:a', 'aac', '-shortest', source], { timeout: 15_000 });
+  await page.goto('/browse');
+  await waitForShell(page);
+  const profileId = await page.evaluate(() => localStorage.getItem('profileId'));
+  const uploaded = await page.request.post('/api/generate/upload-bulk', {
+    headers: { 'X-Profile-ID': profileId! },
+    multipart: { files: { name: 'chat-video.mp4', mimeType: 'video/mp4', buffer: await readFile(source) } },
+  });
+  expect(uploaded.ok()).toBe(true);
+  const media_id = (await uploaded.json()).results[0].media_id;
+  const chat = await createChat(page, 'Video');
+  await apiJSON(page, `/api/chats/${chat.id}/items`, {
+    method: 'POST', data: { item_type: 'media_display', item_metadata: JSON.stringify({ display_data: {
+      rows: [{ id: 1, input: { type: 'output_only' }, output: { status: 'complete', media_id } }],
+    } }) },
+  } as any);
+  await page.goto(`/chat/${chat.id}`);
+  const hero = page.getByTestId('media-collection-hero');
+  const play = hero.getByRole('button', { name: 'Play video', exact: true });
+  await expect(play).toBeVisible();
+  await play.hover();
+  await expect.poll(() => hero.locator('video').evaluate(v => !v.paused && v.muted)).toBe(true);
+  await page.mouse.move(1400, 50);
+  await expect(hero.locator('video')).toHaveCount(0);
+  await play.click();
+  await expect.poll(() => hero.locator('video').evaluate(v => !v.paused && !v.muted && v.currentTime > 0)).toBe(true);
+  await hero.getByRole('button', { name: 'Pause video' }).click();
+  await expect.poll(() => hero.locator('video').evaluate(v => v.paused)).toBe(true);
+  const toolbar = hero.getByTestId('media-collection-toolbar');
+  await toolbar.getByRole('button', { name: 'Add to message' }).click();
+  await expect(toolbar.getByRole('button', { name: 'In message' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('chat-video.png') });
 });

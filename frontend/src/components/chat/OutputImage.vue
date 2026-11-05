@@ -9,6 +9,8 @@
       'bg-red-500/10 flex flex-col items-center justify-center': row.output.status === 'failed' || row.output.status === 'cancelled'
     }"
     @click="handleClick"
+    @mouseenter="startHoverVideo"
+    @mouseleave="stopHoverVideo"
   >
     <!-- Generating spinner -->
     <div
@@ -81,6 +83,40 @@
         />
       </div>
 
+      <video
+        v-if="videoStarted"
+        :key="row.output.media_id"
+        ref="videoRef"
+        :src="videoSrc"
+        playsinline
+        :muted="videoPreview"
+        :loop="videoPreview"
+        preload="metadata"
+        class="pointer-events-none absolute inset-0 h-full w-full bg-matte object-contain"
+        @play="videoPlaying = true"
+        @pause="videoPlaying = false"
+        @ended="videoPlaying = false"
+        @error="videoError = !videoPreview; videoPlaying = false"
+        @contextmenu.prevent="openVideoMenu"
+      />
+      <button
+        v-if="canPlayVideo"
+        type="button"
+        data-video-playback
+        draggable="true"
+        @dragstart="onVideoDragStart"
+        @dragend="handleDragEnd"
+        :aria-label="videoPlaying && !videoPreview ? 'Pause video' : 'Play video'"
+        class="absolute inset-0 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
+        @click.stop="toggleVideo"
+        @contextmenu.prevent="openVideoMenu"
+      >
+        <span v-if="!videoPlaying || videoPreview" class="flex h-11 w-11 items-center justify-center rounded-md bg-black/60 text-white backdrop-blur-md">
+          <PlayIcon class="h-5 w-5" :stroke-width="1.75" />
+        </span>
+      </button>
+      <span v-if="videoError" role="status" class="pointer-events-none absolute inset-x-2 bottom-2 bg-matte/90 p-2 text-center text-xs text-content-secondary">Unable to play this video. Try opening it in the slideshow.</span>
+
       <!-- Type chip (upper right): the browse TileChip, monochrome glyph, mono member count for sets and grids -->
       <div v-if="outputMediaType && outputMediaType !== 'image' && !(hideCountChip && isComposite)" class="absolute top-1.5 right-1.5 z-chrome" :style="insetRight ? { right: `${insetRight}px` } : null">
         <TileChip>
@@ -100,10 +136,7 @@
           <svg v-else-if="outputMediaType === 'grid'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
           </svg>
-          <!-- Video icon -->
-          <svg v-else-if="outputMediaType === 'video'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
-          </svg>
+          <FilmIcon v-else-if="outputMediaType === 'video'" aria-label="Video" />
           <!-- Sprite icon (film frame) -->
           <svg v-else-if="outputMediaType === 'sprite'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m1.5 3.75C5.496 15.75 6 15.246 6 14.625v-1.5m-3.75 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5m-1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C4.254 8.25 3.75 7.746 3.75 7.125v-1.5m0 0c0-.621.504-1.125 1.125-1.125h1.5C6.996 4.5 7.5 5.004 7.5 5.625v1.5m0 0v10.5m0-10.5h9m-9 10.5h9m0 0v-10.5m0 10.5c0 .621.504 1.125 1.125 1.125h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5m1.5 2.625c.621 0 1.125-.504 1.125-1.125v-1.5m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5m-1.5-3.75C18.504 8.25 18 7.746 18 7.125v-1.5m1.125 2.625h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125h1.5c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125" />
@@ -201,7 +234,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { FilmIcon, PlayIcon } from '@heroicons/vue/24/outline'
+import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
+import { useViewport } from '../../composables/useViewport'
+import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
+
 import { MediaImage, TileChip } from '../media'
 import SetStackPreview from './SetStackPreview.vue'
 import { workspaceMediaUrl } from '../../utils/workspaceMediaUrl'
@@ -226,6 +264,7 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  playable: { type: Boolean, default: false },
   useThumbnail: {
     type: Boolean,
     default: true
@@ -256,7 +295,7 @@ const { formatRemainingTime } = useExpirationClock()
 
 const containerStyle = computed(() =>
   props.fill
-    ? { width: '100%', aspectRatio: '1 / 1' }
+    ? (props.playable ? { width: '100%', height: '100%', aspectRatio: 'auto' } : { width: '100%', aspectRatio: '1 / 1' })
     : { width: `${props.size}px`, height: `${props.size}px` }
 )
 
@@ -373,6 +412,75 @@ const effectiveThumbnail = computed(() => {
   if (outputMediaType.value && ATOMIC_IMAGE_TYPES.has(outputMediaType.value)) return false
   return true
 })
+
+const videoRef = ref(null)
+const videoStarted = ref(false)
+const videoPlaying = ref(false)
+const videoPreview = ref(false)
+const videoError = ref(false)
+const { isCoarsePointer } = useViewport()
+const { getMediaFileUrl, getThumbnailUrl } = useMediaApi()
+const videoMenu = useMediaContextMenu()
+const isPlayableVideo = computed(() => outputMediaType.value === 'video' && !isTrashed.value && !props.row.output.deleted && props.row.output.status === 'complete')
+const canPlayVideo = computed(() => props.playable && isPlayableVideo.value)
+const videoSrc = computed(() => getMediaFileUrl(props.row.output.media_id))
+let hoverTimer
+let playbackRequest = 0
+async function playVideo(preview) {
+  const request = ++playbackRequest
+  videoPreview.value = preview
+  videoStarted.value = true
+  videoError.value = false
+  await nextTick()
+  const video = videoRef.value
+  if (request !== playbackRequest || !video) return
+  video.muted = preview
+  try { await video.play() } catch {
+    if (request === playbackRequest && !preview) videoError.value = true
+  }
+}
+function toggleVideo() {
+  clearTimeout(hoverTimer)
+  if (videoPlaying.value && !videoPreview.value) {
+    ++playbackRequest
+    videoRef.value?.pause()
+  } else {
+    void playVideo(false)
+  }
+}
+function startHoverVideo() {
+  if (isCoarsePointer.value || !isPlayableVideo.value || videoStarted.value) return
+  // Same dwell as the browser: passing across a tile never opens a decoder.
+  hoverTimer = setTimeout(() => { void playVideo(true) }, 150)
+}
+function stopHoverVideo() {
+  clearTimeout(hoverTimer)
+  if (!videoPreview.value) return
+  resetVideo()
+}
+function resetVideo() {
+  clearTimeout(hoverTimer)
+  ++playbackRequest
+  videoRef.value?.pause()
+  videoStarted.value = false
+  videoPlaying.value = false
+  videoPreview.value = false
+  videoError.value = false
+}
+function onVideoDragStart(event) {
+  const id = props.row.output.media_id
+  createDragPreview(event, getThumbnailUrl(id, 128), id, props.row.output.file_format, true)
+  event.dataTransfer?.setData('application/x-stimma-assets', JSON.stringify({
+    items: [{ asset_id: props.row.output.asset_id ?? null, revision_id: null, media_id: id }],
+  }))
+}
+function openVideoMenu(event) {
+  videoMenu.show({ event, mediaId: props.row.output.media_id, assetId: props.row.output.asset_id })
+}
+watch(() => props.row.output.media_id, resetVideo)
+onBeforeUnmount(resetVideo)
+
+watch(isPlayableVideo, playable => { if (!playable) resetVideo() })
 
 function handleClick() {
   // Don't allow clicking on deleted or trashed images

@@ -1254,15 +1254,17 @@ the media menu stay in one place.
   to three rows and the last tile carries mono `+N`. While expanded, the header
   sticks to the top of the chat with Show fewer.
 - **Preview** is the picture and a strip. Everything on the picture is §3.3 black
-  glass: pick top-left, slideshow and menu top-right, facts bottom-left (the
-  position is editable). Add to message bottom-right is the only labelled chip on
-  the picture (paging and opening are bare icon glass): a secondary fill, never an
-  outline, and once added it dims and reads In message. A set or grid carries the browse `TileChip`
-  (monochrome glyph, mono member count), never a colored icon. The picture, strip and
+  glass: pick top-left, slideshow and menu top-right. The
+  position is editable. Facts and Add to message share a surface toolbar below
+  the picture, using the standard ghost button. The picture, strip and
   header fit the chat together, so paging through a set never needs a vertical
   scroll. The strip crops like the slideshow strip, and the current tile takes
   the selection ring while the rest dim.
-- **Clicks.** A grid tile opens Preview; the picture opens the slideshow. Touch
+- **Clicks.** A grid tile opens Preview; an image opens the slideshow. Video previews
+  click to play/pause; fine-pointer hover plays a silent loop after 150ms and
+  releases it on leave (grid tiles too). Click promotes a hover preview to normal
+  playback. There is a visible play control while paused and a neutral
+  film glyph for type. The explicit slideshow action stays available. Touch
   swipes the picture and long-presses to select (§1.11).
 - **Panel.** A collection can move into the artifact panel (full screen on
   compact). A chip holds its place in the transcript, and the panel's previous

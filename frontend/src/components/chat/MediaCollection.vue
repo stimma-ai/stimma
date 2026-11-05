@@ -8,6 +8,7 @@ import {
   EllipsisHorizontalIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PlusIcon, Square3Stack3DIcon, Squares2X2Icon, XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import IconButton from '../ui/IconButton.vue'
+import Button from '../ui/Button.vue'
 import SegmentedControl from '../ui/SegmentedControl.vue'
 import Sheet from '../ui/Sheet.vue'
 import Tooltip from '../ui/Tooltip.vue'
@@ -274,6 +275,7 @@ let swipe = null
 let swiped = false
 function onHeroPointerDown(event) {
   if (event.pointerType !== 'touch' || isSingle.value) return
+  if (event.target.closest?.('button,video') && !event.target.closest?.('[data-video-playback]')) return
   swipe = { x: event.clientX, y: event.clientY, axis: null }
   swiped = false
 }
@@ -497,7 +499,7 @@ onBeforeUnmount(() => {
         <!-- Preview: the picture, then the strip. All chrome is black glass on the matte (§3.3). -->
         <template v-else-if="activeRow">
           <div
-            class="group/hero relative min-h-0 select-none overflow-hidden"
+            class="group/hero relative flex min-h-0 select-none flex-col overflow-hidden"
             :class="[inPanel ? 'flex-1' : 'flex-none', activeIsGrid ? 'bg-matte' : 'bg-matte']"
             :style="inPanel ? null : { height: inlineHeroHeight + 'px' }"
             data-testid="media-collection-hero"
@@ -509,109 +511,111 @@ onBeforeUnmount(() => {
             @pointerup="onHeroPointerUp"
             @pointercancel="onHeroPointerUp"
           >
-            <div
-              class="absolute inset-0 touch-pan-y"
-              :class="swipeX ? '' : 'transition-transform duration-150'"
-              :style="swipeX ? { transform: `translateX(${swipeX}px)` } : null"
-            >
-              <OutputImage
-                :key="activeRow.id ?? activeIndex"
-                :row="activeRow"
-                fill
-                :use-thumbnail="false"
-                :fit-thumbnail="isSingle ? null : 1024"
-                :inset-left="topBand ? 48 : 36"
-                :inset-right="72"
-                :inset-bottom="heroGutters ? 2 : 8"
-                :gutter-top="gutterTop"
-                :gutter-bottom="gutterBottom"
-                :hide-count-chip="hostsHeroMenu && activeIsComposite"
-                :class="activeIsGrid ? '!rounded-media !bg-surface dark:!bg-[#181818]' : '!rounded-media !bg-matte'"
-                style="aspect-ratio: auto; height: 100%"
-                @view-image="openFullView"
-                @retry="id => $emit('retry', id)"
-                @cancel="id => $emit('cancel', id)"
-                @show-job-info="id => $emit('show-job-info', id)"
-              />
-            </div>
-
-            <span v-if="activeSelected && !isSingle" class="pointer-events-none absolute inset-0 ring-2 ring-inset ring-selection"></span>
-
-            <template v-if="activePickable">
-              <button
-                type="button"
-                role="checkbox"
-                :aria-checked="activeSelected"
-                aria-label="Select this image"
-                class="absolute left-2 top-2 z-chrome flex transition-opacity duration-150 coarse:left-0 coarse:top-0 coarse:h-11 coarse:w-11 coarse:p-2"
-                :class="activeSelected || selecting ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover/hero:opacity-100 [[data-pointer=coarse]_&]:opacity-100'"
-                @click.stop="togglePickActive"
+            <div class="relative min-h-0 flex-1">
+              <div
+                class="absolute inset-0 touch-pan-y"
+                :class="swipeX ? '' : 'transition-transform duration-150'"
+                :style="swipeX ? { transform: `translateX(${swipeX}px)` } : null"
               >
-                <span class="flex h-6 w-6 items-center justify-center rounded-md border-2 backdrop-blur-md transition-colors duration-150" :class="activeSelected ? 'border-selection bg-selection' : activeIsComposite ? 'border-edge-strong bg-overlay-subtle hover:border-content-secondary' : 'border-edge-strong bg-black/60 hover:border-content-secondary'">
-                  <svg v-if="activeSelected" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                </span>
-              </button>
-            </template>
+                <OutputImage
+                  :key="activeRow.id ?? activeIndex"
+                  :row="activeRow"
+                  fill
+                  :use-thumbnail="false"
+                  playable
+                  :fit-thumbnail="isSingle ? null : 1024"
+                  :inset-left="topBand ? 48 : 36"
+                  :inset-right="72"
+                  :inset-bottom="heroGutters ? 2 : 8"
+                  :gutter-top="gutterTop"
+                  :gutter-bottom="gutterBottom"
+                  :hide-count-chip="hostsHeroMenu && activeIsComposite"
+                  :class="activeIsGrid ? '!rounded-media !bg-surface dark:!bg-[#181818]' : '!rounded-media !bg-matte'"
+                  style="aspect-ratio: auto; height: 100%"
+                  @view-image="openFullView"
+                  @retry="id => $emit('retry', id)"
+                  @cancel="id => $emit('cancel', id)"
+                  @show-job-info="id => $emit('show-job-info', id)"
+                />
+              </div>
 
-            <div
-              v-if="activeMediaId"
-              class="absolute right-2 top-2 z-chrome flex items-center gap-1 transition-opacity duration-150 coarse:right-1 coarse:top-1"
-              :class="isCoarsePointer ? 'opacity-100' : 'opacity-0 focus-within:opacity-100 group-hover/hero:opacity-100'"
-            >
-              <Tooltip v-if="!isCoarsePointer" text="Open slideshow">
-                <button type="button" aria-label="Open slideshow" class="flex h-7 w-7 items-center justify-center rounded-md transition-colors" :class="ctl" @click.stop="openFullView">
-                  <ArrowsPointingOutIcon class="h-4 w-4" />
-                </button>
-              </Tooltip>
-              <button v-if="!hostsHeroMenu" type="button" aria-label="More actions" class="flex h-7 w-7 items-center justify-center rounded-md transition-colors coarse:h-11 coarse:w-11" :class="ctl" @click="openHeroMenu">
-                <EllipsisHorizontalIcon class="h-4 w-4" />
-              </button>
-            </div>
+              <span v-if="activeSelected && !isSingle" class="pointer-events-none absolute inset-0 ring-2 ring-inset ring-selection"></span>
 
-            <!-- Edge paging. Touch swipes the picture instead. -->
-            <template v-if="!isSingle && !isCoarsePointer">
-              <button type="button" aria-label="Previous image" :disabled="activeIndex === 0" class="absolute left-2 top-1/2 z-chrome flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-opacity duration-150 focus-visible:opacity-100 disabled:!opacity-0 group-hover/hero:opacity-100" :class="ctl" @click.stop="move(-1)">
-                <ChevronLeftIcon class="h-icon-nav w-icon-nav" />
-              </button>
-              <button type="button" aria-label="Next image" :disabled="activeIndex === count - 1" class="absolute right-2 top-1/2 z-chrome flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-opacity duration-150 focus-visible:opacity-100 disabled:!opacity-0 group-hover/hero:opacity-100" :class="ctl" @click.stop="move(1)">
-                <ChevronRightIcon class="h-icon-nav w-icon-nav" />
-              </button>
-            </template>
-
-            <!-- Facts. The position is editable, which matters at 200. -->
-            <div v-if="!isSingle || heroFacts" class="absolute z-chrome flex h-7 items-center gap-1.5 rounded-md px-2 font-mono text-xs tabular-nums coarse:h-11"
-              :class="[activeIsComposite ? 'bg-overlay-subtle text-content-secondary' : 'bg-black/55 text-white backdrop-blur', topBand ? 'left-12 top-0 max-w-[calc(100%-10rem)]' : factsTop ? 'left-10 top-2 max-w-[calc(100%-6.5rem)] coarse:left-12 coarse:top-0' : 'bottom-2 left-1/2 max-w-[40%] -translate-x-1/2']">
-              <template v-if="!isSingle">
-                <input
-                  v-if="jumping"
-                  v-model="jumpValue"
-                  data-collection-jump
-                  inputmode="numeric"
-                  aria-label="Go to image number"
-                  class="w-10 rounded-sm bg-transparent px-1 text-center outline-none ring-1 ring-white/50 focus:ring-white"
-                  @keydown.enter.prevent.stop="jumpCommit"
-                  @keydown.escape.stop="jumping = false"
-                  @blur="jumpCommit"
+              <template v-if="activePickable">
+                <button
+                  type="button"
+                  role="checkbox"
+                  :aria-checked="activeSelected"
+                  aria-label="Select this image"
+                  class="absolute left-2 top-2 z-chrome flex transition-opacity duration-150 coarse:left-0 coarse:top-0 coarse:h-11 coarse:w-11 coarse:p-2"
+                  :class="activeSelected || selecting ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover/hero:opacity-100 [[data-pointer=coarse]_&]:opacity-100'"
+                  @click.stop="togglePickActive"
                 >
-                <button v-else type="button" class="whitespace-nowrap rounded-sm hover:underline disabled:hover:no-underline coarse:min-h-11 coarse:min-w-11" :title="count > 8 ? 'Go to image number' : undefined" :disabled="count <= 8" @click.stop="jumpStart">{{ activeIndex + 1 }} / {{ count }}</button>
-                <span v-if="heroFacts" class="opacity-50">·</span>
+                  <span class="flex h-6 w-6 items-center justify-center rounded-md border-2 backdrop-blur-md transition-colors duration-150" :class="activeSelected ? 'border-selection bg-selection' : activeIsComposite ? 'border-edge-strong bg-overlay-subtle hover:border-content-secondary' : 'border-edge-strong bg-black/60 hover:border-content-secondary'">
+                    <svg v-if="activeSelected" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                  </span>
+                </button>
               </template>
-              <span v-if="heroFacts" class="truncate">{{ heroFacts }}</span>
-            </div>
 
-            <button
-              v-if="activePickable && collections.canAttach.value"
-              type="button"
-              class="absolute right-2 z-chrome flex h-7 items-center gap-1 rounded-md pl-1.5 pr-2 text-xs font-medium transition-colors coarse:h-11 coarse:pl-2.5 coarse:pr-3"
-              :class="[heroGutters ? 'bottom-0.5' : 'bottom-2', activeIsComposite
-                ? (collections.isAttached(activeMediaId) ? 'text-content-secondary hover:bg-overlay-subtle' : 'bg-overlay-light text-content hover:bg-overlay-medium')
-                : (collections.isAttached(activeMediaId) ? 'bg-black/40 text-white/85 backdrop-blur hover:bg-black/60' : 'bg-black/65 text-white backdrop-blur hover:bg-black/80')]"
-              @click.stop="collections.isAttached(activeMediaId) ? collections.detach(activeMediaId) : collections.attach([activeMediaId])"
-            >
-              <CheckIcon v-if="collections.isAttached(activeMediaId)" class="h-3.5 w-3.5 text-accent-hi" />
-              <PlusIcon v-else class="h-3.5 w-3.5" />
-              {{ collections.isAttached(activeMediaId) ? 'In message' : 'Add to message' }}
-            </button>
+              <div
+                v-if="activeMediaId"
+                class="absolute right-2 top-2 z-chrome flex items-center gap-1 transition-opacity duration-150 coarse:right-1 coarse:top-1"
+                :class="isCoarsePointer ? 'opacity-100' : 'opacity-0 focus-within:opacity-100 group-hover/hero:opacity-100'"
+              >
+                <Tooltip v-if="!isCoarsePointer" text="Open slideshow">
+                  <button type="button" aria-label="Open slideshow" class="flex h-7 w-7 items-center justify-center rounded-md transition-colors" :class="ctl" @click.stop="openFullView">
+                    <ArrowsPointingOutIcon class="h-4 w-4" />
+                  </button>
+                </Tooltip>
+                <button v-if="!hostsHeroMenu" type="button" aria-label="More actions" class="flex h-7 w-7 items-center justify-center rounded-md transition-colors coarse:h-11 coarse:w-11" :class="ctl" @click="openHeroMenu">
+                  <EllipsisHorizontalIcon class="h-4 w-4" />
+                </button>
+              </div>
+
+              <!-- Edge paging. Touch swipes the picture instead. -->
+              <template v-if="!isSingle && !isCoarsePointer">
+                <button type="button" aria-label="Previous image" :disabled="activeIndex === 0" class="absolute left-2 top-1/2 z-chrome flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-opacity duration-150 focus-visible:opacity-100 disabled:!opacity-0 group-hover/hero:opacity-100" :class="ctl" @click.stop="move(-1)">
+                  <ChevronLeftIcon class="h-icon-nav w-icon-nav" />
+                </button>
+                <button type="button" aria-label="Next image" :disabled="activeIndex === count - 1" class="absolute right-2 top-1/2 z-chrome flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-opacity duration-150 focus-visible:opacity-100 disabled:!opacity-0 group-hover/hero:opacity-100" :class="ctl" @click.stop="move(1)">
+                  <ChevronRightIcon class="h-icon-nav w-icon-nav" />
+                </button>
+              </template>
+
+            </div>
+            <div class="flex flex-none items-center justify-between gap-2 bg-surface px-2 py-1.5" data-testid="media-collection-toolbar">
+              <!-- Facts. The position is editable, which matters at 200. -->
+              <div v-if="!isSingle || heroFacts" class="flex min-w-0 items-center gap-1.5 font-mono text-xs tabular-nums text-content-tertiary">
+                <template v-if="!isSingle">
+                  <input
+                    v-if="jumping"
+                    v-model="jumpValue"
+                    data-collection-jump
+                    inputmode="numeric"
+                    aria-label="Go to image number"
+                    class="w-10 rounded-sm bg-transparent px-1 text-center outline-none ring-1 ring-white/50 focus:ring-white"
+                    @keydown.enter.prevent.stop="jumpCommit"
+                    @keydown.escape.stop="jumping = false"
+                    @blur="jumpCommit"
+                  >
+                  <button v-else type="button" class="whitespace-nowrap rounded-sm hover:underline disabled:hover:no-underline coarse:min-h-11 coarse:min-w-11" :title="count > 8 ? 'Go to image number' : undefined" :disabled="count <= 8" @click.stop="jumpStart">{{ activeIndex + 1 }} / {{ count }}</button>
+                  <span v-if="heroFacts" class="opacity-50">·</span>
+                </template>
+                <span v-if="heroFacts" class="truncate">{{ heroFacts }}</span>
+              </div>
+
+              <Button
+                v-if="activePickable && collections.canAttach.value"
+                variant="ghost"
+                size="sm"
+                class="ml-auto flex-none coarse:min-h-11"
+                @click.stop="collections.isAttached(activeMediaId) ? collections.detach(activeMediaId) : collections.attach([activeMediaId])"
+              >
+                <CheckIcon v-if="collections.isAttached(activeMediaId)" class="h-3.5 w-3.5 text-accent-hi" />
+                <PlusIcon v-else class="h-3.5 w-3.5" />
+                {{ collections.isAttached(activeMediaId) ? 'In message' : 'Add to message' }}
+              </Button>
+            </div>
           </div>
 
           <!-- Strip -->
