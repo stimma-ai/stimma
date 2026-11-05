@@ -242,18 +242,16 @@
                   container-class="w-full h-full"
                     class="w-full h-full object-cover"
                   />
-                  <!-- No art: the raised tile with the type's glyph. On a wide card the tile
-                       carries the title too, so the card is not a vacant rectangle. -->
-                  <div v-else class="flex h-full w-full flex-col justify-between p-3 compact:items-center compact:justify-center compact:p-0">
+                  <!-- No art: the raised tile with the type's glyph. The title stays below, as on every card. -->
+                  <div v-else class="flex h-full w-full items-center justify-center">
                     <EntityIcon :type="item.type" size="md" class="!h-5 !w-5 !border-0 !bg-transparent !text-content-tertiary" />
-                    <span class="line-clamp-2 text-sm font-medium compact:hidden" :class="item.name ? 'text-content' : 'text-content-muted italic'">{{ item.name || jumpUntitledLabel(item) }}</span>
                   </div>
                 </div>
                 <!-- Body -->
                 <div class="px-0 py-3 compact:px-3.5 compact:py-2.5 compact:flex-1 compact:min-w-0 compact:self-center">
                   <!-- On compact the type label rides the preview line instead of costing a line of its own. -->
                                     <div v-if="jumpKindsMixed" class="text-[11px] text-content-muted compact:hidden">{{ jumpKindLabel(item) }}</div>
-                  <div class="text-sm font-medium truncate compact:whitespace-normal compact:line-clamp-2 mt-1 compact:mt-0" :class="[item.name ? 'text-content' : 'text-content-muted italic', jumpHasArt(item) ? '' : 'hidden compact:block', jumpKindsMixed ? '' : '!mt-0']">
+                  <div class="text-sm font-medium truncate compact:whitespace-normal compact:line-clamp-2 mt-1 compact:mt-0" :class="[item.name ? 'text-content' : 'text-content-muted italic', jumpKindsMixed ? '' : '!mt-0']">
                     {{ item.name || jumpUntitledLabel(item) }}
                   </div>
                   <div class="flex items-baseline gap-1.5 min-w-0 mt-0.5">

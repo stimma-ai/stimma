@@ -804,8 +804,7 @@ Until a kit component exists, new code uses these exact patterns:
   art, or art that will not load, the slot is a real 40px square on
   `surface-raised` with the type's glyph in `content-tertiary` (the same tile as
   an unavailable thumbnail), so the column has no holes. Home's Jump back in
-  uses the same tile; on a wide card with no art it also carries the title, so
-  the card is not a vacant rectangle. The kind word ("Chat") shows on those
+  uses the same tile, with the title below it as on every card. The kind word ("Chat") shows on those
   cards only when the kinds in view are mixed. A fact cell (icon and number)
   starts at its own left edge so the icons line up down the page.
 - **Tools list** (Tools; `lists/ToolRow.vue`): a task section opens with its
