@@ -337,7 +337,9 @@ test('a hidden operation keeps polling while minimized and runs the client stage
   await setAppActive(page, false)
   // Status requests fail past the grace window; the cached status says ready.
   server.status = null
-  await advance(page, 11 * 60_000)
+  // The grace is ten minutes, but failed reads can be 72s apart (60s
+  // backoff plus jitter). Let a read update the reactive clock past grace.
+  await advance(page, 12 * 60_000)
   assert.equal((await snapshot()).pending, null, 'hidden once past the grace')
   const hidden = server.statusRequests
   await advance(page, 3 * 60_000)
