@@ -58,9 +58,6 @@
             :style="isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? { color: markerColor(marker) } : {}"
             v-html="sanitizeSvg(marker.icon_svg)"
           />
-          <span
-            :class="['text-ctl font-medium leading-none first-letter:uppercase compact:hidden roomy:inline', isMarkerNegative(marker.id) ? 'line-through decoration-red-400/70' : '']"
-          >{{ marker.name }}</span>
         </button>
         </div>
 

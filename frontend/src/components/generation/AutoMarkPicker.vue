@@ -18,12 +18,10 @@
     >
       <span v-html="sanitizeSvg(marker.icon_svg)" class="w-icon-nav h-icon-nav flex-shrink-0 icon-container" :class="isSelected(marker.id) ? '' : 'marker-glyph-off'"></span>
     </button>
-    <span v-if="showState" class="ml-1.5 min-w-0 truncate text-xs text-content-muted">{{ stateLabel }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
 interface Marker {
@@ -36,16 +34,9 @@ interface Marker {
 interface Props {
   markers: Marker[]
   modelValue: number[]  // Selected marker IDs
-  /** Write the state beside the toggles: the names that are set, or Off. */
-  showState?: boolean
 }
 
 const props = defineProps<Props>()
-
-const stateLabel = computed(() => {
-  const names = props.markers.filter(m => props.modelValue.includes(m.id)).map(m => m.name)
-  return names.length ? names.join(', ') : 'Off'
-})
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: number[]): void

@@ -6610,8 +6610,7 @@ async function toggleMarker(markerId) {
     markerUpdateTrigger.value++
 
     if (restoring) {
-      const markerName = availableMarkers.value.find((marker) => marker.id === markerId)?.name
-      addToast(markerName ? `Restored and marked ${markerName}` : 'Restored and marked', 'success')
+      addToast('Restored and marked', 'success')
       if (props.isTrashView) removeRestoredItemLocally(itemId)
     }
   } catch (error) {

@@ -17,7 +17,7 @@
       <p class="text-[13px] text-content-secondary">Connect generation tools to generate media.</p>
     </div>
 
-    <div>
+    <div class="divide-y divide-edge-subtle">
       <ProviderRow
         :name="STIMMA_TOOL_PROVIDER_DISPLAY_NAME"
         :description="stimmaProviderDescription"

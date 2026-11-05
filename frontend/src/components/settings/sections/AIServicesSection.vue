@@ -17,7 +17,7 @@
         <p class="text-[13px] text-content-secondary">Connect a chat model to use chat, the agent, and AI-assisted features.</p>
       </div>
 
-      <div>
+      <div class="divide-y divide-edge-subtle">
         <ProviderRow
           name="Stimma"
           :error="cloudStatus === 'available' || cloudStatus === 'not_logged_in' ? '' : (cloudMessage || cloudConnectError)"

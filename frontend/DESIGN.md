@@ -100,7 +100,8 @@ Radius signals *what a thing is*; never mix roles for visual taste.
 boundaries, not every row. Single-line fact rows (KeyValueList) may keep
 per-row hairlines; any row tall enough to carry a description separates by
 whitespace only — a rule under the group label, none between rows. A stack
-of full-width rules between two-line rows reads as a wall of <hr>s.
+of full-width rules between two-line rows reads as a wall of <hr>s. Settings
+lists are the exception: every setting is a hairline row, description or not.
 
 ### 1.3a The separator law (added 2026-07-18, distilled from the review)
 

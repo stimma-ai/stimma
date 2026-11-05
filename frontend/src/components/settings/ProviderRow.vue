@@ -4,8 +4,8 @@ import { computed, nextTick, onMounted, onUpdated, ref, useSlots } from 'vue'
 // description on the left; on the right the same structure in every state, a
 // quiet secondary status (when there is one) and ONE action in a fixed column
 // (the verb or the sign-in CTA when not connected, "Manage" once connected).
-// Rows are whitespace-separated (hairline budget, DESIGN.md 1.3); the whole row
-// is the tap target, so there is no chevron. The sanctioned Stimma gradient CTA
+// Rows are hairline-separated by their list (every setting is a hairline row,
+// DESIGN.md); the whole row is the tap target, so there is no chevron. The sanctioned Stimma gradient CTA
 // goes in the `cta` slot. Three explicit columns (icon, text, trailing),
 // centred on the row, and on compact a grid: the name, the status and the action share the first line
 // (the action in one fixed-width column) and the description runs the full row
