@@ -9334,8 +9334,10 @@ watch(
       <!-- Compact: the commit bar's zoom read-out, Select and before/after as
            quiet controls in one row on the stage's top edge; pinch zooms, two
            fingers pan. -->
+      <!-- Hidden, not removed: Select is teleported into this row and a teleport
+           keeps pointing at the slot it first found. -->
       <div
-        v-if="isCompact && !loading && family !== 'crop'"
+        v-show="isCompact && !loading && family !== 'crop'"
         class="absolute z-chrome flex items-center justify-between pointer-events-none"
         :style="{ top: COMPACT_CHIP_ZONE.edge, left: COMPACT_CHIP_ZONE.inset, right: COMPACT_CHIP_ZONE.inset }"
       >
