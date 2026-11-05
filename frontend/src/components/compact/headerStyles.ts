@@ -8,6 +8,6 @@ export const compactIconButton =
 export const compactIconButtonOn = 'bg-overlay-light text-content'
 // The one filled button: a solid accent 36px square inside the 44px target.
 // Its edge (not the glyph) sits on the page margin when it is last in the strip.
-export const compactPrimaryCreate = 'relative isolate last:!mr-0 text-accent-on before:absolute before:inset-1 before:-z-10 before:rounded-md before:bg-accent before:transition-colors hover:before:bg-accent/90'
+export const compactPrimaryCreate = 'relative isolate last:!mr-0 !text-accent-on hover:!text-accent-on before:absolute before:inset-1 before:-z-10 before:rounded-md before:bg-accent before:transition-colors hover:before:bg-accent/90'
 export const compactIcon = 'h-icon-canvas w-icon-canvas'
 export const compactTitle = 'font-brand text-[18px] font-semibold leading-6 text-content'

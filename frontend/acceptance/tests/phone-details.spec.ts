@@ -184,14 +184,14 @@ test.describe('phone lane: detail screens', () => {
       await page.waitForTimeout(600);
       const layer = page.locator('[data-modal-layer]').last();
       const heading = await layer.locator('h2').first().boundingBox();
-      const close = await layer.getByRole('button', { name: 'Close', exact: true }).boundingBox();
+      const close = await layer.getByRole('button', { name: 'All settings', exact: true }).boundingBox();
       expect(heading!.y).toBeGreaterThanOrEqual(59);
       expect(close!.y).toBeGreaterThanOrEqual(59);
       const scrollArea = await layer.locator('[data-settings-content]').boundingBox();
       expect(scrollArea!.y + scrollArea!.height).toBeLessThanOrEqual(page.viewportSize()!.height - 34);
       // Scrolling the section must never move the header into the status bar.
       await layer.locator('[data-settings-content]').evaluate(el => { el.scrollTop = el.scrollHeight });
-      expect((await layer.getByRole('button', { name: 'Close', exact: true }).boundingBox())!.y).toBeGreaterThanOrEqual(59);
+      expect((await layer.getByRole('button', { name: 'All settings', exact: true }).boundingBox())!.y).toBeGreaterThanOrEqual(59);
       const slug = section.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       await page.screenshot({ path: `acceptance/phone-shots/settings-${slug}.png` });
       const overflow = await auditHorizontalOverflow(page);
