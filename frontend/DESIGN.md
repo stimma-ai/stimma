@@ -29,7 +29,7 @@ New:
 --accent-selection(-rgb)  selection accent, DECIDED 2026-07-17: indigo family
                           (dark ~#818cf8, light #6366f1). Never an alias of
                           teal: selection ≠ action.
---color-matte(-rgb)       media matte. Dark: near-black (7 9 13). Light: paper (245 245 244).
+--color-matte(-rgb)       media matte. Dark: near-black (7 8 10). Light: paper (245 245 244).
 --color-live(-rgb)        DECIDED 2026-07-18: magenta (dark 244 114 182 /
                           light 219 39 119). "Live" = autonomous/continuous
                           operation the user set running: forever mode armed,
@@ -145,7 +145,11 @@ are identical in both, but render differently because the physics differ:
 
 Practically: panels/menus/modals carry BOTH a border token and a shadow
 token; dark resolves the shadow to none, light resolves the border to
-transparent. Radius scale in both themes: controls 6px, containers 10px,
+transparent. Shadow strength is a token: `--shadow-page-a` (sm, default, md)
+and `--shadow-pop-a` (lg, xl, 2xl, `shadow-black/NN`) scale opacity per theme;
+light is 0.4 / 0.55 of dark, so in-page lift is a whisper and true overlays
+stay distinguishable. A surface never carries a visible border AND a shadow
+beyond `shadow-sm` in the light theme; pick one. Radius scale in both themes: controls 6px, containers 10px,
 overlays 12px, media `radius-media` (2px). KV rows are hairline-separated
 in both (no zebra). Rows use a soft 6px hover tint in both.
 
@@ -160,6 +164,15 @@ one background step, not border+fill.
 
 ### 1.5 Type scale & voices
 
+**Text contrast (measured, WCAG AA 4.5:1 on base/surface/raised).** The text
+ladder is primary > secondary > tertiary > muted, and every step is readable;
+disabled state is `disabled:opacity-50`, never a text token. Dark
+(base 13 15 20, surface 18 20 26, raised 26 29 37): secondary 8.4 / 7.7,
+tertiary 6.5 / 6.0, muted 5.2 / 4.7 (surface / raised). Light (white, 244,
+228): secondary 9.5 / 8.2, tertiary 7.3 / 6.3, muted 5.5 / 4.8. Light
+`accent-hi` is teal-700 (5.5 on white) so teal text passes; `accent` is the
+fill. Muted on a hover/active fill can dip toward 4.1.
+
 - UI sans (system): `text-xs` default dense UI, `text-sm` primary content,
   `text-lg font-semibold` in-page headings, `text-xl font-semibold` view
   titles. `font-medium` is the emphasis weight; `font-bold` is banned outside
@@ -170,7 +183,11 @@ one background step, not border+fill.
   already keeps).
 - **Display = General Sans** (decided 2026-07-17; already bundled as
   `font-brand`): view heroes, empty-state titles, view titles, onboarding.
-  600 default, 700 for heroes. Never in controls, menus, or body text.
+  600 default; the hero's `font-bold` also resolves to 600
+  (`--display-weight-hero`; 700 crowded the counters). Tracking is
+  `--display-tracking` (-0.005em), applied to every `font-brand` element that
+  doesn't set its own `tracking-[..]` (the wordmark does), so `tracking-tight`
+  is a no-op there. Never in controls, menus, or body text.
   Network fonts stay banned in-app.
 - Section micro-label, THE one variant (replaces all five found):
   **sentence case** — `text-xs font-semibold
@@ -483,6 +500,18 @@ Until a kit component exists, new code uses these exact patterns:
 - **Media tile**: `rounded-media bg-matte overflow-hidden` + MediaImage;
   selected `ring-2 ring-accent-selection ring-inset`; NO border, NO
   hover-scale; hover = overlay controls fade-in.
+- **Tile signals** (`TileChip`, `TileMarkers` in `components/media/`): every
+  signal on a browse or board tile (type, duration, member count, revisions,
+  similarity, time left, markers) is one black-glass chip: `h-5`, `bg-black/55
+  backdrop-blur`, mono facts, white glyphs, same in both themes. Corners: type
+  top-right, facts bottom-left, markers bottom-right, 6px inset. Markers share
+  ONE chip and are monochrome; the only color on a tile is an active favorite
+  heart. No per-type icon colors, no bare counts, no dog-ears.
+- **Board grids**: columns from the real content width (3 on a phone, 200px
+  minimum otherwise), tiles share the remaining width, 2px gutters equal the 2px
+  outer matte padding, tiles sit on `bg-matte` with no separate fill. A short
+  last row keeps the tile size. Board landing covers use 1, 2 or 4 tiles by
+  asset count; the name takes its own line above the mono facts.
 - **Empty state**: EmptyState.vue (extended for display-serif titles in
   Phase 3); errors keep ConnectionError but gain a red-tinted icon circle to
   stop reading identical to empty.
@@ -709,7 +738,7 @@ parameter rows (§3.3) — value-first rows are ONE pattern app-wide:
 
 - **The media is the slot's hero**: square (`radius-media`), on matte,
   slot-header row above it (micro-label + mono dims + hover-revealed
-  replace/remove ghosts). Empty slot = dashed `border-edge` drop zone.
+  replace/remove ghosts). Empty slot = fill-only drop zone (`bg-overlay-faint`, no border, no dashes); drag-over takes the §1.8 drop-target ring.
 - **Prep row grammar (value-first):** icon (content-tertiary) + label
   (12px content-secondary) + **current value in mono, right-aligned** +
   chevron. Value color IS the modified signal: `accent` when non-default,

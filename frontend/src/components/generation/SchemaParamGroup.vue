@@ -11,10 +11,10 @@
           v-if="paramGroup.collapsible && !disableCollapse"
           @click="toggleCollapsed(paramGroup.group)"
           type="button"
-          class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content transition-colors duration-150 focus:outline-none focus-visible:ring-2 ring-accent/60 rounded"
+          class="flex items-center gap-1.5 text-xs font-semibold text-content-secondary hover:text-content transition-colors duration-150 focus:outline-none focus-visible:ring-2 ring-accent/60 rounded"
         >
-          <span :class="['transition-transform duration-150 text-[10px]', isCollapsed(paramGroup.group) ? '' : 'rotate-90']">&#9654;</span>
           {{ displayGroupLabel(paramGroup.label) }}
+          <svg viewBox="0 0 20 20" fill="currentColor" :class="['w-3 h-3 text-content-muted transition-transform duration-150', !isCollapsed(paramGroup.group) ? 'rotate-180' : '']" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
         </button>
         <span v-else class="text-xs font-semibold text-content-secondary">{{ displayGroupLabel(paramGroup.label) }}</span>
       </div>

@@ -326,17 +326,18 @@
 
         <!-- Compact: the card's controls render inside ToolDrawer's body. -->
         <Teleport to="#tool-drawer-panels" :disabled="!drawerMode" defer>
-        <!-- Params-card top row: resolution | markers ... auto-trash. When it
-             doesn't fit, the markers + auto-trash group drops to its own line as
-             one unit (never a lone trash button), and a long marker set scrolls
-             sideways inside it rather than wrapping again. In the phone drawer
-             markers + auto-trash live in the Run sheet (they are output
-             settings), leaving resolution as the first control under the
-             pinned prompt. -->
-        <div class="flex flex-wrap items-center gap-2 mb-3 empty:hidden">
+        <!-- Params-card top row: the resolution trigger, a quiet ghost control
+             (no box inside the card). Output settings (auto-markers,
+             auto-delete) are a labelled group of their own on desktop, so they
+             do not read as a second copy of the result's heart / bookmark /
+             trash. Compact layouts (phone and fold) keep them in the sheet
+             Run's long-press opens, with a dot on Run while either is on. -->
+        <div class="flex flex-wrap items-center gap-2 mb-4 empty:hidden">
             <!-- Resolution picker: width/height tools, freeform or fixed list -->
             <ResolutionPicker
               v-if="allowedDimensions || (hasWidthHeight && !hasMegapixels)"
+              compact
+              class="-ml-2.5"
               :policy="resolutionPolicy"
               :image="drivingImage"
               :has-image-input="!isFromScratch"
@@ -358,19 +359,25 @@
               v-if="hasMegapixels"
               v-model="modelParams.megapixels"
             />
-            <div v-if="!drawerMode" class="flex-auto min-w-0 flex items-center gap-2">
-              <AutoMarkPicker
-                class="min-w-0 overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0"
-                :markers="jobsManager?.availableMarkers.value || []"
-                v-model="globalPrefs.autoMarkerIds"
-              />
-              <span class="flex-1"></span>
-              <AutoDeletePicker
-                class="shrink-0"
-                :model-value="autoDeleteDuration"
-                @update:model-value="setAutoDeleteDuration"
-              />
-            </div>
+        </div>
+        <div
+          v-if="!isCompact"
+          class="flex items-center gap-2 mb-6"
+          role="group"
+          aria-label="Output settings"
+        >
+          <span class="text-xs font-semibold text-content-secondary shrink-0">Output settings</span>
+          <span class="flex-1"></span>
+          <AutoMarkPicker
+            class="min-w-0 overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0"
+            :markers="jobsManager?.availableMarkers.value || []"
+            v-model="globalPrefs.autoMarkerIds"
+          />
+          <AutoDeletePicker
+            class="shrink-0"
+            :model-value="autoDeleteDuration"
+            @update:model-value="setAutoDeleteDuration"
+          />
         </div>
 
 
@@ -822,7 +829,7 @@
             <video
               ref="stageVideoRef"
               :poster="getThumbnailUrl(stageCurrentHash, 1024, { mode: 'fit' })"
-              class="w-full h-full object-contain object-top"
+              class="w-full h-full object-contain object-top compact:object-center"
               muted
               playsinline
               draggable="true"
@@ -847,7 +854,7 @@
             :thumbnail="false"
             :contain="false"
             container-class="w-full h-full !bg-transparent"
-            img-class="!object-contain object-top !bg-none !bg-transparent"
+            img-class="!object-contain object-top compact:object-center !bg-none !bg-transparent"
             alt="Current generation"
           />
         </div>
@@ -1058,7 +1065,7 @@
             @stop-forever="stopForeverMode"
             @update:concurrency="uiState.generateForeverConcurrency = $event"
             @update:idle-limit="uiState.generateForeverIdleLimit = $event"
-            :output-settings="drawerMode"
+            :output-settings="isCompact"
             :markers="jobsManager?.availableMarkers.value || []"
             :auto-marker-ids="globalPrefs.autoMarkerIds"
             :auto-delete="autoDeleteDuration"

@@ -39,9 +39,9 @@
           v-if="hasAnyItems"
           @click="showRaw = !showRaw"
           type="button"
-          :class="['h-6 px-1.5 coarse:h-11 coarse:min-w-11 coarse:px-2 flex items-center justify-center rounded-md font-mono text-[9px] tracking-wide transition-colors', showRaw ? 'bg-accent/12 text-accent-hi' : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle']"
+          :class="['h-6 px-1.5 coarse:h-11 coarse:min-w-11 coarse:px-2 flex items-center justify-center rounded-md font-mono text-[10px] transition-colors', showRaw ? 'bg-accent/12 text-accent-hi' : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle']"
           title="Show raw file names"
-        >RAW</button>
+        >Raw</button>
         <div v-if="hasAnyItems" class="relative">
           <button
             @click.stop="onHeaderMenuClick"

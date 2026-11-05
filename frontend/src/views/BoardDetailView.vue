@@ -30,7 +30,7 @@
         <span v-else-if="editedName" class="min-w-0 truncate text-lg font-semibold text-content compact:hidden">{{ editedName }}</span>
         <button
           v-else
-          class="bg-transparent text-left text-lg font-semibold italic text-content-muted outline-none transition-colors hover:text-content-secondary"
+          class="bg-transparent text-left text-lg font-semibold text-content-muted/70 outline-none transition-colors hover:text-content-secondary"
           @click="!isCompact && startBoardNameEdit()"
         >
           Name this board...
@@ -107,11 +107,11 @@
               />
               <button
                 v-else
-                class="min-w-0 compact:min-h-11 compact:min-w-11 compact:px-2 truncate text-left text-xs font-semibold text-content-secondary transition-colors hover:text-content"
+                class="group/name min-w-0 compact:min-h-11 compact:min-w-11 compact:px-2 truncate text-left text-xs font-semibold text-content-secondary transition-colors hover:text-content"
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
-                <span v-else class="font-normal italic text-content-muted">Name this section…</span>
+                <span v-else class="font-normal text-content-muted/70 transition-colors group-hover/name:text-content-secondary">Name this section…</span>
               </button>
             </div>
             <button v-if="isCompact && (section.items || []).length" class="min-h-11 min-w-11 px-2 text-xs text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
@@ -168,8 +168,9 @@
                       :is-video="item.file_format && ['mp4','webm','mov','avi','mkv','ogg'].includes(item.file_format)"
                       thumbnail
                       thumbnail-mode="fit"
-                      :thumbnail-size="256"
+                      :thumbnail-size="512"
                       :contain="true"
+                      background-class="bg-matte"
                       :draggable="false"
                       :enable-context-menu="false"
                       container-class="h-full w-full"
@@ -181,22 +182,22 @@
                     class="pointer-events-none absolute inset-0 rounded-media ring-2 ring-inset ring-selection/70"
                   />
                   <!-- Marker badges -->
-                  <MarkerBadges
+                  <TileMarkers
                     v-if="!item.__placeholder && item.markers && item.markers.length > 0"
                     :markers="item.markers"
-                    class="absolute bottom-2 right-2 z-chrome"
+                    class="absolute bottom-1.5 right-1.5 z-chrome"
                   />
                   <!-- Selection checkbox - visible on hover or when selected -->
                   <div
                     v-if="!item.__placeholder"
                     :class="[
-                      'absolute top-2 left-2 z-10 transition-opacity',
+                      'absolute top-1.5 left-1.5 z-10 transition-opacity',
                       selectedItemIds.includes(item.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                     ]"
                     @click.stop="handleCheckboxClick(section, item, $event)"
                   >
                     <div :class="[
-                      'w-6 h-6 bg-black/60 backdrop-blur-md border-2 rounded-md flex items-center justify-center transition-all cursor-pointer',
+                      'w-5 h-5 bg-black/55 backdrop-blur-md border-2 rounded-md flex items-center justify-center transition-all cursor-pointer',
                       selectedItemIds.includes(item.id) ? 'bg-selection border-selection' : 'border-edge-strong hover:border-edge-strong'
                     ]">
                       <svg v-if="selectedItemIds.includes(item.id)" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
@@ -354,12 +355,11 @@ import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
 import { useEntityMove } from '../composables/useEntityMove'
 import AssetSelectionSheet from '../components/AssetSelectionSheet.vue'
 import { useRoute, useRouter } from 'vue-router'
-import MarkerBadges from '../components/MarkerBadges.vue'
 import MultiSelectActionBar from '../components/MultiSelectActionBar.vue'
 import BoardPicker from '../components/BoardPicker.vue'
 import TagPickerPopover from '../components/TagPickerPopover.vue'
 import ExportModal from '../components/ExportModal.vue'
-import { MediaContextMenu, MediaImage } from '../components/media'
+import { MediaContextMenu, MediaImage, TileMarkers } from '../components/media'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import { useBoardMultiSelect } from '../composables/useBoardMultiSelect'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
@@ -431,6 +431,7 @@ const tileRefs = new Map()
 const sectionMetrics = reactive({})
 const sectionElementIds = new WeakMap()
 let sectionResizeObserver = null
+let scrollerResizeObserver = null
 let pendingItemDragCleanup = null
 let pendingSectionFallbackCommit = null
 const sectionDragCollapsed = ref(false) // delayed flag so collapse doesn't abort the drag
@@ -516,36 +517,25 @@ function aspectRatio(item) {
   return width / height
 }
 
+// One contact sheet: the column count comes from the real content width, the
+// tiles share what is left after the 2px gutters, and the matte's own 2px
+// padding gives equal outer gutters. A short last row keeps the same tile size.
+const GRID_GAP_PX = 2
+const MIN_TILE_PX = 200
+const MIN_TILE_COMPACT_PX = 110
+
 function buildRows(items, width) {
-  const maxWidth = Math.max(width - 52, 320)
-  const targetHeight = 190
-  const gap = 2
+  const inner = Math.max(width - GRID_GAP_PX * 2, 1)
+  const minTile = isCompact.value ? MIN_TILE_COMPACT_PX : MIN_TILE_PX
+  const columns = Math.max(1, Math.floor((inner + GRID_GAP_PX) / (minTile + GRID_GAP_PX)))
+  const tile = Math.floor(((inner - GRID_GAP_PX * (columns - 1)) / columns) * 100) / 100
   const rows = []
-  let pending = []
-  let ratioSum = 0
-
-  const flush = (justify) => {
-    if (pending.length === 0) return
-    const rowGap = gap * Math.max(pending.length - 1, 0)
-    const height = justify
-      ? Math.max(120, Math.min(260, Math.floor((maxWidth - rowGap) / Math.max(ratioSum, 0.1))))
-      : targetHeight
-    const rowItems = pending.map((item) => ({
-      ...item,
-      _layoutWidth: Math.max(96, Math.floor(height * aspectRatio(item)))
-    }))
-    rows.push({ items: rowItems, height })
-    pending = []
-    ratioSum = 0
+  for (let i = 0; i < items.length; i += columns) {
+    rows.push({
+      items: items.slice(i, i + columns).map((item) => ({ ...item, _layoutWidth: tile })),
+      height: tile
+    })
   }
-
-  for (const item of items) {
-    pending.push(item)
-    ratioSum += aspectRatio(item)
-    const estimatedWidth = ratioSum * targetHeight + gap * Math.max(pending.length - 1, 0)
-    if (estimatedWidth >= maxWidth) flush(true)
-  }
-  flush(false)
   return rows
 }
 
@@ -656,8 +646,14 @@ async function loadBoard() {
   }
 }
 
+// Width the tiles can actually use: the scroller minus its own padding. A hidden
+// board (slideshow open, KeepAlive) measures 0, so keep the last good width.
 function measureWidth() {
-  containerWidth.value = scrollerRef.value?.clientWidth || 1200
+  const el = scrollerRef.value
+  if (!el || !el.clientWidth) return
+  const style = getComputedStyle(el)
+  const width = el.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0)
+  if (width > 0) containerWidth.value = width
 }
 
 function updateSectionMetrics(sectionId, el) {
@@ -1937,6 +1933,10 @@ onMounted(async () => {
   window.addEventListener('resize', measureWidth)
   await nextTick()
   measureWidth()
+  if (typeof ResizeObserver !== 'undefined' && scrollerRef.value) {
+    scrollerResizeObserver = new ResizeObserver(measureWidth)
+    scrollerResizeObserver.observe(scrollerRef.value)
+  }
 })
 
 onUnmounted(() => {
@@ -1955,6 +1955,7 @@ onUnmounted(() => {
     pendingItemDragCleanup = null
   }
   sectionResizeObserver?.disconnect()
+  scrollerResizeObserver?.disconnect()
   document.removeEventListener('mousedown', handleDocumentClick)
   window.removeEventListener('resize', measureWidth)
 })

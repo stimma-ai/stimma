@@ -1,3 +1,5 @@
 export { default as AppImage } from './AppImage.vue'
 export { default as MediaImage } from './MediaImage.vue'
 export { default as MediaContextMenu } from './MediaContextMenu.vue'
+export { default as TileChip } from './TileChip.vue'
+export { default as TileMarkers } from './TileMarkers.vue'

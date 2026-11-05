@@ -100,6 +100,16 @@ body {
   overflow: hidden;
 }
 
+/* Display voice tokens. The wordmark keeps its own explicit tracking
+   (tracking-[..]); everything else in General Sans takes the display
+   tracking, which overrides tracking-tight/tighter. */
+.font-brand:not([class*="tracking-["]) {
+  letter-spacing: var(--display-tracking);
+}
+.font-brand.font-bold {
+  font-weight: var(--display-weight-hero);
+}
+
 #app {
   width: 100vw;
   height: 100vh;
@@ -288,6 +298,18 @@ body {
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
 
+  /* Display type (General Sans, `font-brand`). Near-zero tracking: the face is
+     already tightly spaced, and negative tracking smears it at header sizes.
+     Weight 600 is the display default; the hero's 700 is --display-weight-hero. */
+  --display-tracking: -0.005em;
+  --display-weight-hero: 600;
+
+  /* Shadow strength per theme (see boxShadow in tailwind.config.js).
+     page = in-page elevation (sm, default, md); pop = true overlays
+     (lg, xl, 2xl, shadow-black/NN). Each scales shadow opacity. */
+  --shadow-page-a: 1;
+  --shadow-pop-a: 1;
+
   /* Slider thumb colors (used in pseudo-elements that can't use Tailwind classes) */
   --slider-thumb: rgb(99 102 241); /* indigo-500 */
   --slider-thumb-hover: rgb(129 140 248); /* indigo-400 */
@@ -320,48 +342,48 @@ body {
      makes `bg-surface/50`, `border-edge/30`, etc. resolve. The matching
      `--color-*` var derives the full color via `rgb(var(--*-rgb))` so the ~80
      places that read `var(--color-surface)` directly keep working unchanged. */
-  --color-base-rgb: 11 14 20;
+  --color-base-rgb: 13 15 20;
   --color-base: rgb(var(--color-base-rgb));
-  --color-surface-rgb: 19 23 32;
+  --color-surface-rgb: 18 20 26;
   --color-surface: rgb(var(--color-surface-rgb));
-  --color-surface-raised-rgb: 28 34 48;
+  --color-surface-raised-rgb: 26 29 37;
   --color-surface-raised: rgb(var(--color-surface-raised-rgb));
-  --color-surface-overlay-rgb: 8 10 15;
+  --color-surface-overlay-rgb: 8 9 12;
   --color-surface-overlay: rgb(var(--color-surface-overlay-rgb));
-  --color-surface-hover-rgb: 35 42 58;
+  --color-surface-hover-rgb: 33 37 47;
   --color-surface-hover: rgb(var(--color-surface-hover-rgb));
-  --color-surface-active-rgb: 49 58 79;
+  --color-surface-active-rgb: 45 50 63;
   --color-surface-active: rgb(var(--color-surface-active-rgb));
 
   /* Text — softened off-white instead of pure #fff to kill the glare. */
   --color-text-primary-rgb: 232 234 240;
   --color-text-primary: rgb(var(--color-text-primary-rgb));
-  --color-text-secondary-rgb: 154 163 180;
+  --color-text-secondary-rgb: 168 175 190;
   --color-text-secondary: rgb(var(--color-text-secondary-rgb));
-  --color-text-tertiary-rgb: 124 133 151;
+  --color-text-tertiary-rgb: 146 154 171;
   --color-text-tertiary: rgb(var(--color-text-tertiary-rgb));
-  --color-text-muted-rgb: 86 94 110;
+  --color-text-muted-rgb: 128 136 153;
   --color-text-muted: rgb(var(--color-text-muted-rgb));
 
   /* Borders */
-  --color-border-rgb: 35 42 54;
+  --color-border-rgb: 34 37 46;
   --color-border: rgb(var(--color-border-rgb));
-  --color-border-subtle: rgba(148,163,184,0.12);
-  --color-border-strong-rgb: 51 61 77;
+  --color-border-subtle: rgba(152,160,176,0.12);
+  --color-border-strong-rgb: 49 54 66;
   --color-border-strong: rgb(var(--color-border-strong-rgb));
 
   /* Overlays — slate-tinted so hover/active states stay in the family. */
-  --color-overlay-faint: rgba(148,163,184,0.03);
-  --color-overlay-subtle: rgba(148,163,184,0.06);
-  --color-overlay-hover: rgba(148,163,184,0.09);
-  --color-overlay-light: rgba(148,163,184,0.13);
-  --color-overlay-medium: rgba(148,163,184,0.18);
-  --color-overlay-strong: rgba(148,163,184,0.24);
-  --color-backdrop: rgba(7,9,15,0.65);
+  --color-overlay-faint: rgba(152,160,176,0.03);
+  --color-overlay-subtle: rgba(152,160,176,0.06);
+  --color-overlay-hover: rgba(152,160,176,0.09);
+  --color-overlay-light: rgba(152,160,176,0.13);
+  --color-overlay-medium: rgba(152,160,176,0.18);
+  --color-overlay-strong: rgba(152,160,176,0.24);
+  --color-backdrop: rgba(6,7,10,0.65);
 
   /* Slideshow — matt stays pure black for distraction-free viewing. */
   --color-slideshow-matt: #000000;
-  --color-surface-elevated: rgba(19,23,32,0.95);
+  --color-surface-elevated: rgba(18,20,26,0.95);
 
   /* Atelier accents (see frontend/DESIGN.md).
      accent      = THE interactive accent (fills: buttons, toggles-on).
@@ -374,7 +396,7 @@ body {
   --color-accent-hi: rgb(var(--color-accent-hi-rgb));
   --color-selection-rgb: 129 140 248;
   --color-selection: rgb(var(--color-selection-rgb));
-  --color-matte-rgb: 8 9 12;
+  --color-matte-rgb: 7 8 10;
   --color-matte: rgb(var(--color-matte-rgb));
   /* live = autonomous/continuous operation the user set running (forever
      mode, transport/loop toggles). Never a resting button, never selection. */
@@ -382,7 +404,7 @@ body {
   --color-live: rgb(var(--color-live-rgb));
 
   /* Lineage */
-  --color-lineage-edge: #2e3645;
+  --color-lineage-edge: #2d323d;
   --color-lineage-edge-inspired: #6d3a9e;
   --color-lineage-minimap-bg: rgba(0,0,0,0.6);
   --color-lineage-minimap-edge: rgba(255,255,255,0.25);
@@ -459,6 +481,11 @@ body {
   --file-type-image-rgb: 174 58 93;
   color-scheme: light;
 
+  /* Light elevation is a soft diffuse lift, not a dark drop. In-page lift is
+     barely there; overlays keep enough shadow to separate from the page. */
+  --shadow-page-a: 0.4;
+  --shadow-pop-a: 0.55;
+
   /* Surfaces — channels for `<alpha-value>` support; see the dark block. */
   --color-base-rgb: 255 255 255;
   --color-base: rgb(var(--color-base-rgb));
@@ -476,11 +503,11 @@ body {
   /* Text */
   --color-text-primary-rgb: 24 24 27;
   --color-text-primary: rgb(var(--color-text-primary-rgb));
-  --color-text-secondary-rgb: 82 82 91;
+  --color-text-secondary-rgb: 63 63 70;
   --color-text-secondary: rgb(var(--color-text-secondary-rgb));
-  --color-text-tertiary-rgb: 113 113 122;
+  --color-text-tertiary-rgb: 80 80 89;
   --color-text-tertiary: rgb(var(--color-text-tertiary-rgb));
-  --color-text-muted-rgb: 161 161 170;
+  --color-text-muted-rgb: 98 98 107;
   --color-text-muted: rgb(var(--color-text-muted-rgb));
 
   /* Borders */
@@ -506,7 +533,7 @@ body {
   /* Atelier accents (light: site CTA teal; selection indigo-500; paper matte) */
   --color-accent-rgb: 13 148 136;
   --color-accent: rgb(var(--color-accent-rgb));
-  --color-accent-hi-rgb: 13 148 136;
+  --color-accent-hi-rgb: 15 118 110;
   --color-accent-hi: rgb(var(--color-accent-hi-rgb));
   --color-selection-rgb: 99 102 241;
   --color-selection: rgb(var(--color-selection-rgb));

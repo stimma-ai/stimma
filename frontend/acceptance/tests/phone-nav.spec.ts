@@ -86,7 +86,7 @@ test.describe('phone lane: drawer navigation', () => {
     await settleAnyViewport(page);
     await page.locator('.cursor-pointer.group').filter({ hasText: 'Nav stack chat' }).first().click({ position: { x: 300, y: 24 } });
     await expect(page).toHaveURL(new RegExp(`/chat/${chat.id}$`));
-    await expect(menu).toBeVisible();
+    await expect(menu).toHaveCount(0);
     await back.click();
     await expect(page).toHaveURL(/\/chats$/);
     await expect(back).toHaveCount(0);

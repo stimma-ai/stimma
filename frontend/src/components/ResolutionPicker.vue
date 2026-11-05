@@ -16,7 +16,7 @@
       <span class="border-[1.5px] border-current flex-shrink-0 rounded-media opacity-80" :style="previewStyle(resolved.width, resolved.height, 14)"></span>
       <span class="flex items-center gap-2 min-w-0">
         <span class="font-mono tabular-nums">{{ triggerValue }}</span>
-        <span v-if="lockTag" :class="[tagClass, lockArmed ? 'border border-dashed border-accent/45 bg-transparent' : 'bg-accent/15']" :title="explanation">
+        <span v-if="lockTag" :class="[tagClass, lockArmed ? 'bg-transparent text-content-secondary' : 'bg-overlay-subtle text-content-secondary']" :title="explanation">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" :class="compact ? 'w-[11px] h-[11px]' : 'w-3 h-3'" aria-hidden="true">
             <path d="M8 1.5a3.5 3.5 0 0 0-3.5 3.5V7H4a1.5 1.5 0 0 0-1.5 1.5v5A1.5 1.5 0 0 0 4 15h8a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 12 7h-.5V5A3.5 3.5 0 0 0 8 1.5ZM6 5a2 2 0 1 1 4 0v2H6V5Z" />
           </svg>
@@ -254,9 +254,9 @@ const sizeLabel = computed(() => tiers.value ? tierLabel(resolved.value.tier ?? 
 const triggerValue = computed(() => tiers.value
   ? `${resolved.value.ratioLabel} · ${sizeLabel.value.replace('MP', ' MP')}`
   : `${resolved.value.width} × ${resolved.value.height}`)
-const tagClass = 'inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-md text-accent'
+const tagClass = 'inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-md'
 // The pill names the axis the reference image locks. With following armed but
-// no image yet, it is outlined instead of filled.
+// no image yet, it has no fill.
 const lockTag = computed(() => {
   const r = resolved.value
   const p = props.policy

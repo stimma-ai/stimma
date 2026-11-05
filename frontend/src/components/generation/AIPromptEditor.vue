@@ -1,13 +1,13 @@
 <template>
   <div class="relative" :style="sizeVars">
     <!-- Main Prompt Editor -->
-    <div class="relative rounded-md border border-edge-subtle focus-within:border-accent transition-colors">
+    <div class="relative rounded-md border border-transparent bg-overlay-faint focus-within:border-accent transition-colors [&_.cm-editor]:!bg-transparent">
       <div ref="editorMount"></div>
 
       <!-- Bottom Action Bar (flows below textarea): a single quiet ghost row
            (DESIGN.md §3.3). Every control here is monochrome text/icons, 11px,
            no pills — the AI sparkle is the only colored glyph in the bar. -->
-      <div class="px-3 py-1.5 flex items-center justify-between bg-surface rounded-b-md border-t border-edge-subtle">
+      <div class="px-3 py-1.5 flex items-center justify-between rounded-b-md">
         <!-- Left: generate-time prompt pipeline (hidden in flow context — flows
              execute the literal prompt, so rewriting it would diverge from the
              declared input). Reads left→right: Enhance Prompt → Translate Prompt.
@@ -119,7 +119,7 @@
             ]"
             :title="vimEnabled ? 'Switch to regular keybindings' : 'Switch to Vim keybindings'"
           >
-            {{ vimEnabled ? 'VIM' : 'STD' }}
+            {{ vimEnabled ? 'Vim' : 'Std' }}
           </button>
 
           <!-- Mono/Sans toggle -->
@@ -132,7 +132,7 @@
             ]"
             :title="monospaceEnabled ? 'Switch to proportional font' : 'Switch to monospace font'"
           >
-            {{ monospaceEnabled ? 'MONO' : 'SANS' }}
+            {{ monospaceEnabled ? 'Mono' : 'Sans' }}
           </button>
 
           <!-- Help button -->
@@ -145,7 +145,7 @@
               ]"
               title="Prompt syntax help"
             >
-              HELP
+              Help
             </button>
 
             <!-- Help popover -->

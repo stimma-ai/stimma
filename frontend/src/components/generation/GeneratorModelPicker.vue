@@ -38,7 +38,7 @@
           ]"
         >
           <span class="truncate">{{ model.name }}</span>
-          <span v-if="model.family" class="text-[10px] px-1.5 py-0.5 rounded bg-surface-raised/50 text-content-tertiary font-mono uppercase flex-shrink-0">
+          <span v-if="model.family" class="text-[10px] px-1.5 py-0.5 rounded bg-surface-raised/50 text-content-tertiary font-mono flex-shrink-0">
             {{ model.family }}
           </span>
         </button>

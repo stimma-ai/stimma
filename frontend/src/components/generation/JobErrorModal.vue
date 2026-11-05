@@ -29,7 +29,7 @@
             <!-- Error Message -->
             <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
               <div class="flex items-center justify-between mb-1">
-                <div class="text-xs text-red-500 uppercase font-semibold">Error</div>
+                <div class="text-xs text-red-500 font-semibold">Error</div>
                 <button
                   @click="copyError"
                   class="text-red-500 hover:text-red-600 transition-colors p-1 -m-1"

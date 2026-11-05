@@ -23,7 +23,7 @@
         <span
           v-for="chip in secondaryChips"
           :key="chip"
-          class="shrink-0 text-[9px] leading-none px-1 py-0.5 rounded bg-overlay-subtle text-content-tertiary font-mono uppercase"
+          class="shrink-0 text-[9px] leading-none px-1 py-0.5 rounded bg-overlay-subtle text-content-tertiary font-mono"
         >{{ chip }}</span>
       </div>
       <div v-if="showRaw" class="font-mono text-[10px] text-content-muted truncate mt-0.5">

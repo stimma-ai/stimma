@@ -86,41 +86,35 @@
           @click="openBoard(board.id)"
           @contextmenu="handleBoardContextMenu($event, board)"
         >
-          <!-- Contact-sheet cover: mini masonry on matte, 2px media-grid
-               gutters, clipped by a fixed-height frame at radius-media.
-               No card, no border — hover draws a hairline ring. -->
+          <!-- Contact-sheet cover: 1, 2 or 4 tiles chosen by how many assets the
+               board holds, so a small board never leaves empty matte. Fixed
+               4:3 frame at radius-media on matte, 2px gutters, no card, no
+               border - hover draws a hairline ring. -->
           <div class="relative aspect-[4/3] overflow-hidden rounded-media bg-matte transition-shadow group-hover:ring-1 group-hover:ring-edge">
             <div
-              v-if="getBoardPreviewItems(board).length > 0"
-              class="h-full overflow-hidden p-0.5"
+              v-if="getBoardCover(board).length > 0"
+              class="grid h-full w-full gap-0.5 p-0.5"
+              :class="getBoardCover(board).length === 1 ? 'grid-cols-1' : getBoardCover(board).length === 2 ? 'grid-cols-2' : 'grid-cols-2 grid-rows-2'"
             >
-              <div class="flex h-full items-start gap-0.5">
-                <div
-                  v-for="(column, columnIndex) in getBoardPreviewColumns(board)"
-                  :key="`${board.id}-column-${columnIndex}`"
-                  class="flex min-w-0 flex-1 flex-col gap-0.5"
-                >
-                  <div
-                    v-for="(item, index) in column"
-                    :key="`${board.id}-${columnIndex}-${item.id}-${index}`"
-                    class="overflow-hidden bg-overlay-faint"
-                    :style="getPreviewTileStyle(item)"
-                  >
-                    <MediaImage
-                      :media-id="item.id"
-                      :file-hash="item.file_hash"
-                      :file-path="item.file_path"
-                      :file-format="item.file_format"
-                      :is-video="isVideo(item.file_format)"
-                      thumbnail
-                      :thumbnail-size="256"
-                      :draggable="false"
-                      :enable-context-menu="false"
-                      container-class="h-full w-full"
-                      img-class="h-full w-full object-cover"
-                    />
-                  </div>
-                </div>
+              <div
+                v-for="(item, index) in getBoardCover(board)"
+                :key="`${board.id}-${item.id}-${index}`"
+                class="min-h-0 min-w-0 overflow-hidden rounded-media bg-matte"
+              >
+                <MediaImage
+                  :media-id="item.id"
+                  :file-hash="item.file_hash"
+                  :file-path="item.file_path"
+                  :file-format="item.file_format"
+                  :is-video="isVideo(item.file_format)"
+                  thumbnail
+                  :thumbnail-size="512"
+                  :draggable="false"
+                  :enable-context-menu="false"
+                  background-class="bg-matte"
+                  container-class="h-full w-full"
+                  img-class="h-full w-full object-cover"
+                />
               </div>
             </div>
             <div v-else class="flex h-full items-center justify-center">
@@ -130,15 +124,16 @@
             </div>
           </div>
 
-          <!-- Print-label caption: name left, mono facts right, one baseline -->
-          <div class="flex items-baseline gap-2.5 px-0.5 pt-2">
+          <!-- Print-label caption: the name owns its own line, so metadata can
+               never cut it short; mono facts sit under it. -->
+          <div class="px-0.5 pt-2">
             <h2
-              class="min-w-0 flex-1 truncate text-[13px] font-medium"
-              :class="board.name ? 'text-content' : 'italic font-normal text-content-muted'"
+              class="truncate text-[13px] font-medium"
+              :class="board.name ? 'text-content' : 'font-normal text-content-muted'"
             >
               {{ board.name || 'Name this board...' }}
             </h2>
-            <p class="flex-none whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ board.asset_count || 0 }} {{ (board.asset_count || 0) === 1 ? 'asset' : 'assets' }}<span v-if="board.updated_at"> · {{ formatRelativeTime(board.updated_at) }}</span></p>
+            <p class="mt-0.5 truncate font-mono text-[11px] tabular-nums text-content-tertiary">{{ board.asset_count || 0 }} {{ (board.asset_count || 0) === 1 ? 'asset' : 'assets' }}<span v-if="board.updated_at"> · {{ formatRelativeTime(board.updated_at) }}</span></p>
           </div>
         </button>
       </div>
@@ -298,21 +293,11 @@ function getBoardPreviewItems(board) {
     .slice(0, 9)
 }
 
-function getBoardPreviewColumns(board) {
+// 1, 2 or 4 cover tiles: the largest layout the board can fill completely.
+function getBoardCover(board) {
   const items = getBoardPreviewItems(board)
-  const columns = [[], [], []]
-  items.forEach((item, index) => {
-    columns[index % columns.length].push(item)
-  })
-  return columns
-}
-
-function getPreviewTileStyle(item) {
-  const width = Math.max(item?.width || 1, 1)
-  const height = Math.max(item?.height || 1, 1)
-  return {
-    aspectRatio: `${width} / ${height}`
-  }
+  const count = items.length >= 4 ? 4 : items.length >= 2 ? 2 : items.length
+  return items.slice(0, count)
 }
 
 function isVideo(fileFormat) {

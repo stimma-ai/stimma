@@ -48,7 +48,7 @@
               </p>
             </template>
 
-            <div v-else class="rounded-lg shadow-lg shadow-black/20">
+            <div v-else class="rounded-lg">
               <ChatInputBox
                 ref="chatInputBoxRef"
                 v-model="inputText"

@@ -1,11 +1,14 @@
 <script setup lang="ts">
 /**
- * The compact header (DESIGN.md §1.11): menu (the sidebar drawer) or back
- * chevron, title, and the right-hand strip. Hubs carry what the desktop top bar's right side
- * carries — the transient background-work indicator, provider managers
- * (ComfyUI), search — plus the hub's create action. Detail routes show a
- * back chevron. The Library hub's title opens the scope sheet; Workspace
- * hub routes carry the Tools / Flows / Boards / Projects segmented control.
+ * The compact header (DESIGN.md §1.11): Menu (hubs) or Back (details), title,
+ * and the right-hand strip. One contextual action per screen: a hub's create
+ * button, a detail's entity menu (or the tool view's Run). Hubs also carry
+ * what the desktop top bar's right side carries — the transient
+ * background-work indicator, provider managers (ComfyUI) — and a quiet
+ * Search. On a detail route Search lives in the entity menu. Where the
+ * drawer can dock, the left button is the dock toggle. The Library hub's
+ * title opens the scope sheet; Workspace hub routes carry the Tools / Flows /
+ * Boards / Projects segmented control.
  * The working set (open tools, chats, boards, edits) is the tab bar's
  * trailing switcher control, not a header action.
  */
@@ -53,24 +56,40 @@ function back() {
 function openSearch() {
   router.push({ name: 'search' })
 }
+
+// Search is a quiet icon on hubs. A detail with an entity menu carries it in
+// that menu instead, ahead of the destructive rows, so the strip holds one
+// action. A detail without a menu keeps the icon. The tool view's strip is
+// Agent and Run, so it has none.
+const detailHasMenu = computed(() => !isHub.value && menuItems.value.length > 0)
+const showSearchButton = computed(() => route.name !== 'search' && route.name !== 'tool' && !detailHasMenu.value)
+const sheetItems = computed(() => {
+  const items = [...menuItems.value]
+  if (route.name === 'search') return items
+  const at = items.findIndex((i) => i.destructive)
+  const search = { label: 'Search', run: openSearch, destructive: false }
+  items.splice(at < 0 ? items.length : at, 0, search)
+  return items
+})
 </script>
 
 <template>
-  <header class="compact-header flex-none bg-base pt-safe">
+  <header class="compact-header flex-none bg-surface pt-safe">
     <div class="h-[60px] pt-2 flex items-center gap-0.5 px-3">
-      <!-- The menu (the sidebar drawer: library, working set, account) is on
-           every screen — it is the multitasking switcher. Details add a back
-           chevron beside it. -->
+      <!-- Left slot: Menu on hubs, Back on details, never both. The drawer
+           stays reachable from a detail through Back (to the hub) and the edge
+           swipe. Where the drawer can dock (a hub when roomy, a detail at
+           wide), the button is the dock toggle instead and a detail keeps
+           Back beside it, since there is room. -->
       <button
+        v-if="isHub || sidebarDockable"
         type="button"
-        class="w-11 h-11 flex items-center justify-center border-none bg-transparent"
+        class="w-11 h-11 flex-none flex items-center justify-center border-none bg-transparent"
         :aria-label="menuLabel"
         :aria-pressed="sidebarDockable ? sidebarDocked : undefined"
         @click="emit('openMenu')"
       >
         <span class="w-9 h-9 rounded-full flex items-center justify-center" :class="sidebarDocked ? 'bg-overlay-hover text-content' : 'bg-overlay-subtle text-content'">
-          <!-- Where the drawer can dock, the glyph is a sidebar, not a
-               hamburger: the button now toggles a panel that stays. -->
           <svg v-if="sidebarDockable" class="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="2.5" y="4" width="15" height="12" rx="2" />
             <path d="M7.5 4v12" />
@@ -83,11 +102,13 @@ function openSearch() {
       <button
         v-if="!isHub"
         type="button"
-        class="w-9 h-11 -ml-1 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+        class="w-11 h-11 flex-none flex items-center justify-center border-none bg-transparent"
         aria-label="Back"
         @click="back"
       >
-        <ChevronLeftIcon class="w-6 h-6" />
+        <span class="w-9 h-9 rounded-full flex items-center justify-center bg-overlay-subtle text-content">
+          <ChevronLeftIcon class="w-5 h-5" />
+        </span>
       </button>
 
       <button
@@ -98,17 +119,17 @@ function openSearch() {
         @click="scopeOpen = true"
       >
         <span class="min-w-0">
-          <span class="block truncate text-[17px] font-semibold tracking-tight text-content leading-tight">{{ title }}</span>
-          <span v-if="subtitle" class="block truncate text-[11px] font-mono text-content-tertiary leading-tight">{{ subtitle }}</span>
+          <span class="block truncate font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</span>
+          <span v-if="subtitle" class="block truncate text-[11px] font-mono text-content-tertiary leading-snug">{{ subtitle }}</span>
         </span>
         <ChevronDownIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" />
       </button>
       <button v-else-if="titleAction" type="button" class="flex-1 min-w-0 h-11 px-1 text-left border-none bg-transparent" :aria-label="`Rename ${title}`" @click="titleAction()">
-        <h1 class="truncate text-[17px] font-semibold tracking-tight text-content leading-tight">{{ title }}</h1>
+        <h1 class="truncate font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</h1>
       </button>
       <div v-else class="flex-1 min-w-0 px-1">
-        <h1 v-if="title" class="truncate text-[17px] font-semibold tracking-tight text-content leading-tight">{{ title }}</h1>
-        <p v-if="subtitle" class="truncate text-[11px] font-mono text-content-tertiary leading-tight">{{ subtitle }}</p>
+        <h1 v-if="title" class="truncate font-brand text-[18px] font-semibold leading-6 text-content">{{ title }}</h1>
+        <p v-if="subtitle" class="truncate text-[11px] font-mono text-content-tertiary leading-snug">{{ subtitle }}</p>
       </div>
 
       <!-- Transient: only while there is work or something to look at. -->
@@ -127,7 +148,7 @@ function openSearch() {
       <!-- Screens with a primary control (the tool view's Run) teleport it here. -->
       <div id="compact-header-actions" class="flex items-center gap-1 empty:hidden"></div>
       <button
-        v-if="route.name !== 'search' && route.name !== 'tool'"
+        v-if="showSearchButton"
         type="button"
         class="w-11 h-11 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
         aria-label="Search"
@@ -161,7 +182,7 @@ function openSearch() {
     <Sheet :show="menuOpen" @close="menuOpen = false">
       <div class="pb-2">
         <button
-          v-for="item in menuItems"
+          v-for="item in sheetItems"
           :key="item.label"
           type="button"
           class="sheet-row"

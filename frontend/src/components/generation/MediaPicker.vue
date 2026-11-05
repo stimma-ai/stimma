@@ -711,7 +711,7 @@
         </div>
       </template>
 
-      <!-- Add: dashed tile only when EMPTY; ghost row once items exist.
+      <!-- Add: fill-only tile when EMPTY; ghost row once items exist.
            Both stay live drop targets (accent chrome on drag-over). -->
       <div
         v-if="!batchMode && items.length < maxItems && items.length === 0"
@@ -721,9 +721,9 @@
         @dragleave.stop="onDragLeave"
         @drop.prevent.stop="onDrop($event)"
         :class="[
-          'border border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer h-24 w-full',
+          'rounded-md flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer h-24 w-full',
           reorderable ? '' : 'col-span-full',
-          isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10 border-transparent' : 'border-edge text-content-muted hover:border-accent'
+          isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10' : 'bg-overlay-faint text-content-muted hover:bg-overlay-subtle'
         ]"
       >
         <span class="text-xs text-content-muted flex items-center gap-1.5">
@@ -745,7 +745,7 @@
       @drop.prevent.stop="onDrop($event)"
       :class="[
         'mt-1.5 w-full flex items-center gap-1.5 rounded-md px-1 py-1.5 text-xs cursor-pointer transition-colors',
-        isDragging || pickerPopoverOpen ? 'border border-dashed border-accent/50 bg-accent/10 text-accent-hi justify-center' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
+        isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10 text-accent-hi justify-center' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
       ]"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">

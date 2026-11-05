@@ -31,7 +31,7 @@
         <!-- Placeholder for loading items -->
         <div v-if="item.isPlaceholder" class="overflow-visible box-border w-full min-w-0" :style="rowStyle">
           <div class="grid min-w-0" :style="gridStyle">
-            <div v-for="i in itemsPerRow" :key="`placeholder-${item.startIndex}-${i}`" class="grid-cell-placeholder relative aspect-square bg-surface-raised rounded-media overflow-hidden cursor-pointer flex items-center justify-center">
+            <div v-for="i in itemsPerRow" :key="`placeholder-${item.startIndex}-${i}`" class="grid-cell-placeholder relative aspect-square bg-matte rounded-media overflow-hidden cursor-pointer flex items-center justify-center">
               <div class="loading-skeleton w-6 h-6 border-2 border-edge border-t-zinc-600 rounded-full"></div>
             </div>
           </div>
@@ -69,6 +69,7 @@
                   :has-alpha="rowItem.has_alpha"
                   loading="eager"
                   queued
+                  background-class="bg-matte"
                   container-class="w-full h-full"
                 />
                 <video
@@ -85,13 +86,13 @@
               <!-- Selection checkbox - visible on hover or when selected -->
               <div
                 :class="[
-                  'absolute top-2 left-2 z-10 transition-opacity',
+                  'absolute top-1.5 left-1.5 z-10 transition-opacity',
                   isSelected(assetIdOf(rowItem)) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                 ]"
                 @click.stop="handleCheckboxClick(assetIdOf(rowItem), rowItem._gridIndex, $event)"
               >
                 <div :class="[
-                  'w-6 h-6 bg-black/60 backdrop-blur-md border-2 rounded-md flex items-center justify-center transition-all cursor-pointer',
+                  'w-5 h-5 bg-black/55 backdrop-blur-md border-2 rounded-md flex items-center justify-center transition-all cursor-pointer',
                   isSelected(assetIdOf(rowItem)) ? 'bg-selection border-selection' : 'border-edge-strong hover:border-edge-strong'
                 ]">
                   <svg v-if="isSelected(assetIdOf(rowItem))" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
@@ -101,92 +102,85 @@
               </div>
 
               <!-- Marker badges (only show standalone when no title bar) -->
-              <MarkerBadges
+              <TileMarkers
                 v-if="rowItem.markers && rowItem.markers.length > 0"
                 :markers="rowItem.markers"
-                class="absolute bottom-2 right-2 z-chrome"
+                class="absolute bottom-1.5 right-1.5 z-chrome"
               />
 
-              <!-- Document dog ear (upper right corner fold) -->
-              <div v-if="getMediaType(rowItem) === 'text'" class="absolute top-0 right-0 z-chrome pointer-events-none">
-                <div class="document-dog-ear"></div>
-              </div>
-
               <!-- Media type badge (upper right) - only for types that need it and not hidden -->
-              <div v-if="getMediaType(rowItem) !== 'image' && getMediaType(rowItem) !== 'text'" class="absolute top-2 right-2 z-chrome">
-                <div class="bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1">
+              <div v-if="getMediaType(rowItem) !== 'image'" class="absolute top-1.5 right-1.5 z-chrome">
+                <TileChip>
+                  <!-- Document icon -->
+                  <svg v-if="getMediaType(rowItem) === 'text'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                  </svg>
                   <!-- Video icon -->
-                  <svg v-if="getMediaType(rowItem) === 'video'" class="w-4 h-4 flex-shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <svg v-else-if="getMediaType(rowItem) === 'video'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
                   </svg>
                   <!-- Audio icon (music note) -->
-                  <svg v-else-if="getMediaType(rowItem) === 'audio'" class="w-4 h-4 flex-shrink-0 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <svg v-else-if="getMediaType(rowItem) === 'audio'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
                   </svg>
                   <!-- Set icon (layers) -->
-                  <svg v-else-if="getMediaType(rowItem) === 'set'" class="w-4 h-4 flex-shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <svg v-else-if="getMediaType(rowItem) === 'set'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" />
                   </svg>
                   <!-- Grid icon -->
-                  <svg v-else-if="getMediaType(rowItem) === 'grid'" class="w-4 h-4 flex-shrink-0 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <svg v-else-if="getMediaType(rowItem) === 'grid'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
                   </svg>
                   <!-- Sprite icon (film frame, monochrome like vector) -->
-                  <svg v-else-if="getMediaType(rowItem) === 'sprite'" class="w-4 h-4 flex-shrink-0 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <svg v-else-if="getMediaType(rowItem) === 'sprite'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m1.5 3.75C5.496 15.75 6 15.246 6 14.625v-1.5m-3.75 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5m-1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C4.254 8.25 3.75 7.746 3.75 7.125v-1.5m0 0c0-.621.504-1.125 1.125-1.125h1.5C6.996 4.5 7.5 5.004 7.5 5.625v1.5m0 0v10.5m0-10.5h9m-9 10.5h9m0 0v-10.5m0 10.5c0 .621.504 1.125 1.125 1.125h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5m1.5 2.625c.621 0 1.125-.504 1.125-1.125v-1.5m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5m-1.5-3.75C18.504 8.25 18 7.746 18 7.125v-1.5m1.125 2.625h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125h1.5c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125" />
                   </svg>
                   <!-- Package icon (archive box: a package, not a cube; monochrome like vector/sprite) -->
-                  <svg v-else-if="getMediaType(rowItem) === 'package'" class="w-4 h-4 flex-shrink-0 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                  <svg v-else-if="getMediaType(rowItem) === 'package'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
                   </svg>
                   <!-- Layout icon (newspaper) -->
-                  <svg v-else-if="getMediaType(rowItem) === 'layout'" class="w-4 h-4 flex-shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <svg v-else-if="getMediaType(rowItem) === 'layout'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3Z" />
                   </svg>
                   <!-- Vector icon (pen nib) -->
-                  <svg v-else-if="getMediaType(rowItem) === 'vector'" class="w-4 h-4 flex-shrink-0 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                  <svg v-else-if="getMediaType(rowItem) === 'vector'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 20l4.5-1.5M4 20l1.5-4.5m0 0L15.44 5.56a2.25 2.25 0 0 1 3.182 0l.318.318a2.25 2.25 0 0 1 0 3.182L8.5 18.5m-3-3 3 3" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 7.5l3 3" />
                   </svg>
                   <!-- Count for set/grid -->
-                  <span v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid') && rowItem.member_count" class="text-xs font-semibold text-white leading-none whitespace-nowrap">
+                  <span v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid') && rowItem.member_count" >
                     {{ rowItem.member_count }}
                   </span>
                   <!-- Duration for video/audio -->
-                  <span v-if="(getMediaType(rowItem) === 'video' || getMediaType(rowItem) === 'audio') && rowItem.duration" class="text-xs font-semibold text-white leading-none whitespace-nowrap">
+                  <span v-if="(getMediaType(rowItem) === 'video' || getMediaType(rowItem) === 'audio') && rowItem.duration" >
                     {{ formatDuration(rowItem.duration) }}
                   </span>
-                </div>
+                </TileChip>
               </div>
 
-              <!-- Bottom-left stack: contextual state, bottom-up -->
-              <div class="absolute left-2 z-chrome flex flex-col-reverse items-start gap-1.5" :class="hasPackageLabel(rowItem) ? 'bottom-[46px]' : 'bottom-2'">
-                <!-- Similarity score badge -->
-                <div v-if="rowItem.similarity_score !== null && rowItem.similarity_score !== undefined" class="bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 text-xs font-semibold text-white">
+              <!-- Bottom-left stack: contextual state, bottom-up. Same chip as every other tile signal. -->
+              <div class="absolute left-1.5 z-chrome flex flex-col-reverse items-start gap-1" :class="hasPackageLabel(rowItem) ? 'bottom-[46px]' : 'bottom-1.5'">
+                <TileChip v-if="rowItem.similarity_score !== null && rowItem.similarity_score !== undefined">
                   {{ formatSimilarity(rowItem.similarity_score) }}
-                </div>
+                </TileChip>
 
-                <!-- Version depth: ambient fact, no chip. Persistent so sweeping the grid doesn't flicker. -->
-                <div
-                  v-if="rowItem.revision_count > 1"
-                  class="pointer-events-none flex items-center gap-1 pl-px text-white/65 transition-colors duration-150 group-hover:text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]"
-                >
-                  <svg class="w-3 h-3 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <!-- Version depth: persistent so sweeping the grid doesn't flicker. -->
+                <TileChip v-if="rowItem.revision_count > 1" class="pointer-events-none" title="Revisions">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M5.75 3.25h6a1 1 0 0 1 1 1v6" opacity="0.55" />
                     <rect x="2.75" y="5.75" width="7.5" height="7.5" rx="1.25" />
                   </svg>
-                  <span class="font-mono text-[10px] leading-none tabular-nums">{{ rowItem.revision_count }}</span>
-                </div>
+                  {{ rowItem.revision_count }}
+                </TileChip>
 
-                <!-- Auto-delete time remaining badge -->
-                <div v-if="rowItem.expires_at && formatRemainingTime(rowItem.expires_at)" class="bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3 text-amber-500">
+                <!-- Auto-delete time remaining -->
+                <TileChip v-if="rowItem.expires_at && formatRemainingTime(rowItem.expires_at)">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor">
                     <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
                   </svg>
-                  <span class="text-xs font-semibold text-amber-500 leading-none whitespace-nowrap">
-                    {{ formatRemainingTime(rowItem.expires_at) }}
-                  </span>
-                </div>
+                  {{ formatRemainingTime(rowItem.expires_at) }}
+                </TileChip>
               </div>
 
               <!-- Set/Grid/Sprite name pill (hover only) -->
@@ -194,7 +188,7 @@
                 v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid' || getMediaType(rowItem) === 'sprite') && itemTitle(rowItem)"
                 class="absolute inset-0 z-chrome flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
               >
-                <span class="bg-black/80 backdrop-blur-md rounded-lg px-3 py-1.5 text-xs font-medium text-white text-center line-clamp-2 max-w-[80%]">
+                <span class="bg-black/55 backdrop-blur-md rounded-md px-3 py-1.5 text-xs font-medium text-white text-center line-clamp-2 max-w-[80%]">
                   {{ itemTitle(rowItem) }}
                 </span>
               </div>
@@ -204,7 +198,7 @@
                    scrim over the cover. Title plus recency; badges lift above it. -->
               <div
                 v-if="hasPackageLabel(rowItem)"
-                class="absolute inset-x-0 bottom-0 z-chrome pointer-events-none bg-matte/90 border-t border-white/[0.06] px-2 pt-1.5 pb-1.5"
+                class="absolute inset-x-0 bottom-0 z-chrome pointer-events-none bg-matte/90 border-t border-edge-subtle px-2 pt-1.5 pb-1.5"
               >
                 <div class="text-[11px] font-medium text-content leading-tight truncate">{{ itemTitle(rowItem) }}</div>
                 <div class="font-mono text-[10px] text-content-muted leading-tight mt-0.5 truncate">{{ packageAge(rowItem) }}</div>
@@ -241,8 +235,7 @@ import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import { useMediaApi } from '../composables/useMediaApi'
 import { formatRelativeTime } from '../utils/timeFormat'
 import { useWebSocket } from '../composables/useWebSocket'
-import { AppImage, MediaContextMenu } from './media'
-import MarkerBadges from './MarkerBadges.vue'
+import { AppImage, MediaContextMenu, TileChip, TileMarkers } from './media'
 import ActionMenu from './ActionMenu.vue'
 import EmptyState from './EmptyState.vue'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
@@ -1972,16 +1965,5 @@ onActivated(async () => {
 
 .media-grid-container::-webkit-scrollbar-thumb:active {
   background: var(--color-scrollbar-thumb-hover);
-}
-
-
-/* Document dog ear effect */
-.document-dog-ear {
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 0 24px 24px 0;
-  border-color: transparent #9ca3af transparent transparent;
-  filter: drop-shadow(-2px 2px 2px rgba(0, 0, 0, 0.3));
 }
 </style>

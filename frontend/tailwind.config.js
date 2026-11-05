@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+// Shadow ink at a theme-scaled opacity (see --shadow-*-a in style.css).
+const ink = (alpha, tier) => `rgb(0 0 0 / calc(${alpha} * var(--shadow-${tier}-a)))`
 export default {
   // Hover styles only where the primary pointer can hover. On a phone the
   // first tap would otherwise "hover" a tile (revealing its checkbox) and
@@ -29,6 +31,12 @@ export default {
         // Always use `font-brand` for the wordmark so the fallback stack
         // applies — a bare font-family with no fallback degrades to serif.
         brand: ['General Sans', 'system-ui', 'sans-serif'],
+      },
+      // shadow-black/NN is the app's one "ink" shadow color; scale it with the
+      // theme like the shadow scale so a light page isn't dragged down by it.
+      boxShadowColor: {
+        black: ({ opacityValue }) =>
+          `rgb(0 0 0 / calc(${opacityValue === undefined ? 1 : opacityValue} * var(--shadow-pop-a)))`,
       },
       colors: {
         // Solid tokens are stored as RGB channels in style.css so the
@@ -120,6 +128,17 @@ export default {
           'create-tint':  'var(--color-flow-type-create-tint)',
           'create-strong':'var(--color-flow-type-create-strong)',
         },
+      },
+      // Elevation tokens: tighter than Tailwind's defaults (less spread), with
+      // opacity scaled by the per-theme --shadow-*-a vars in style.css (light is
+      // much softer). Literal lengths keep shadow-<color> utilities working.
+      boxShadow: {
+        sm: `0 1px 2px 0 ${ink(0.05, 'page')}`,
+        DEFAULT: `0 1px 3px 0 ${ink(0.1, 'page')}, 0 1px 2px -1px ${ink(0.1, 'page')}`,
+        md: `0 4px 6px -1px ${ink(0.1, 'page')}, 0 2px 4px -2px ${ink(0.1, 'page')}`,
+        lg: `0 8px 12px -4px ${ink(0.1, 'pop')}, 0 3px 5px -3px ${ink(0.1, 'pop')}`,
+        xl: `0 14px 20px -6px ${ink(0.1, 'pop')}, 0 6px 8px -5px ${ink(0.1, 'pop')}`,
+        '2xl': `0 20px 40px -12px ${ink(0.25, 'pop')}`,
       },
       // Atelier z-scale — the ONLY sanctioned z-index values. Arbitrary
       // z-[NNNN] is banned in new code; migrate stragglers onto these tiers.
