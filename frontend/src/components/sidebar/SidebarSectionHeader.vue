@@ -2,7 +2,7 @@
 import { ChevronDownIcon } from '@heroicons/vue/24/outline'
 import { useSidebarSections } from '../../composables/useSidebarSections'
 
-// One label recipe for every sidebar section (Projects, Pinned, Editing,
+// One label recipe for every sidebar section (Projects, Pinned,
 // Open): small and muted, click to collapse, the section's action on hover.
 // The label starts on the glyph column (row px-3 + the 4px glyph margin), and
 // the gap above it matches the spacer between the places and the destinations

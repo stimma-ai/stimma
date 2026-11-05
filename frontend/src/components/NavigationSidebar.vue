@@ -230,7 +230,7 @@
           <!-- ==================== ZONE 2: Workspace Tabs ==================== -->
           <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="contents">
 
-            <!-- Pinned, Editing and Open share the section label recipe. -->
+            <!-- Pinned and Open share the section label recipe. -->
             <SidebarSectionHeader v-if="pinnedTabs.length > 0" id="pinned" label="Pinned" />
 
             <template v-if="!isCollapsed('pinned')">
@@ -537,11 +537,12 @@
             </div>
             </template>
 
-            <!-- Open editors are a working set, not documents with names. -->
-            <SidebarSectionHeader v-if="editorTabs.length > 0" id="editing" label="Editing" />
+            <!-- Open holds both kinds of working set. Images have no names, so open
+                 editors stay a wrap panel at the top; named rows follow below. -->
+            <SidebarSectionHeader v-if="openTabs.length > 0 || editorTabs.length > 0" id="open" label="Open" />
 
             <EditorShelf
-              v-if="!isCollapsed('editing')"
+              v-if="!isCollapsed('open')"
               :tabs="editorTabs"
               @open="navigateToTabId"
               @remove="closeTab"
@@ -549,9 +550,7 @@
               @media-drop="handleShelfMediaDrop"
             />
 
-            <SidebarSectionHeader v-if="openTabs.length > 0" id="open" label="Open" />
-
-            <div v-if="!isCollapsed('open')" ref="openEl" @scroll.passive="updateNavEdge" class="flex min-h-32 flex-1 scroll-pb-6 flex-col gap-0.5 coarse:gap-0 overflow-y-auto custom-scrollbar coarse:min-h-0 coarse:flex-none coarse:overflow-visible" :class="openFade ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]' : ''">
+            <div v-if="!isCollapsed('open') && openTabs.length > 0" ref="openEl" @scroll.passive="updateNavEdge" class="flex min-h-32 flex-1 scroll-pb-6 flex-col gap-0.5 coarse:gap-0 overflow-y-auto custom-scrollbar coarse:min-h-0 coarse:flex-none coarse:overflow-visible" :class="openFade ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]' : ''">
             <!-- Open (unpinned) tabs -->
             <div
               v-for="(tab, index) in openTabs"
