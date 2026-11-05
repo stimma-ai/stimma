@@ -600,7 +600,7 @@
                 </template>
                 <div
                   v-if="getDisplayText(item)"
-                  class="bg-surface text-content rounded-lg px-4 py-2.5 prose prose-sm compact:prose-read max-w-none select-text"
+                  class="text-content py-2.5 prose prose-sm compact:prose-read max-w-none select-text"
                 >
                   <template v-for="(seg, segIdx) in parseMarkdownSegments(getDisplayText(item))" :key="segIdx">
                     <ChatMarkdown v-if="seg.type === 'html'" :html="seg.content" />
