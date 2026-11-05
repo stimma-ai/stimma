@@ -9,7 +9,7 @@
       <div class="flex items-center justify-between">
         <h2 class="text-base font-semibold text-content">Send feedback</h2>
         <IconButton aria-label="Close" title="Close" @click="close">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </IconButton>
@@ -82,7 +82,7 @@
       <button
         @click="submit"
         :disabled="submitting || !message.trim()"
-        class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors flex items-center gap-2"
+        class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-accent-on rounded-md transition-colors flex items-center gap-2"
       >
         <Spinner v-if="submitting" size="sm" hue="border-t-white" />
         <span>{{ submitting ? 'Sending…' : 'Send feedback' }}</span>

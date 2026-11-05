@@ -1,6 +1,6 @@
 <template>
   <!-- The parent sidebar supplies the section label and peer separator. -->
-  <div v-if="ranked.length > 0" class="py-2.5">
+  <div v-if="ranked.length > 0" class="py-1.5 coarse:py-0.5">
     <!-- The drop ring hugs the chips rather than the sidebar's full width, so
          the negative margin cancels its own padding and capacity math (which
          measures the content box) is unaffected. -->
@@ -28,7 +28,7 @@
         <button
           v-if="overflow.length > 0"
           ref="moreEl"
-          class="relative w-12 h-12 rounded-media overflow-hidden cursor-pointer border-none p-0 bg-matte"
+          class="relative w-8 h-8 coarse:w-11 coarse:h-11 rounded-media overflow-hidden cursor-pointer border-none p-0 bg-matte"
           :title="`${overflow.length} more`"
           @click.stop="toggleFlyout"
         >
@@ -47,7 +47,7 @@
             />
           </span>
           <span class="absolute inset-0 transition-colors" :class="flyoutOpen ? 'bg-matte/50' : 'bg-matte/70'"></span>
-          <span class="absolute inset-0 flex items-center justify-center text-sm font-semibold tabular-nums text-content">
+          <span class="absolute inset-0 flex items-center justify-center text-[11px] font-semibold tabular-nums text-content">
             +{{ overflow.length }}
           </span>
         </button>
@@ -106,7 +106,8 @@ import EditorShelfChip from './EditorShelfChip.vue'
 import { useSubmenuPosition } from '../composables/useContextMenuPosition'
 import { useEditorShelf } from '../composables/useEditorShelf'
 import type { WorkspaceTab } from '../composables/useWorkspaceTabs'
-import { orderByRecency, orderForDisplay, shelfColumns, splitShelf, SHELF_ROWS, type ShelfEntry } from '../utils/editorShelf'
+import { orderByRecency, orderForDisplay, shelfColumns, splitShelf, CHIP_TOUCH_PX, SHELF_ROWS, type ShelfEntry } from '../utils/editorShelf'
+import { useViewport } from '../composables/useViewport'
 
 const props = defineProps<{
   tabs: readonly WorkspaceTab[]
@@ -148,7 +149,8 @@ watch(shelfEl, (el) => {
 })
 onBeforeUnmount(() => observer?.disconnect())
 
-const capacity = computed(() => shelfColumns(shelfWidth.value) * SHELF_ROWS)
+const { isCoarsePointer } = useViewport()
+const capacity = computed(() => shelfColumns(shelfWidth.value, isCoarsePointer.value ? CHIP_TOUCH_PX : undefined) * SHELF_ROWS)
 const split = computed(() => splitShelf(ranked.value, capacity.value))
 // Membership comes from rank; position is newest-opened first. Activating an
 // existing chip therefore never makes the shelf rearrange under the cursor.

@@ -12,7 +12,7 @@ Object.assign(window, { galleryTest: {
 createApp({ render: () => h('div', { class: 'bg-matte text-content', style: 'width:100%;padding:12px' }, [
   h(HorizontalVirtualScroller, {
     totalCount: items.length, currentIndex: current.value, itemWidth: 48, itemHeight: 54,
-    height: 62, itemGap: 6, gutter: 4, centerEdges: true,
+    height: 62, itemGap: 6, gutter: 4,
     itemGetter: (index: number) => pending.value ? null : items[index],
     pageProvider: () => pending.value ? new Promise(() => {}) : Promise.resolve(items),
   }, { default: ({ index }: { index: number }) => h('button', {

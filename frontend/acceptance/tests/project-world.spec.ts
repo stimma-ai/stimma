@@ -63,8 +63,12 @@ async function openTileMenu(page: Page, media: Media) {
   const item = tile(page, media);
   await expect(item).toBeVisible({ timeout: 30000 });
   await item.click({ button: 'right' });
-  const menu = page.getByRole('button', { name: 'Send to Tool', exact: true }).filter({ visible: true });
-  await expect(menu.first()).toBeVisible();
+  await expect(page.getByTestId('menu-group-send').filter({ visible: true })).toBeVisible();
+}
+
+/** Hovers a root menu group row (send, explore) so its panel opens. */
+async function openMenuGroup(page: Page, group: 'send' | 'explore') {
+  await page.getByTestId(`menu-group-${group}`).filter({ visible: true }).hover();
 }
 
 function dropMedia(mediaId: number) {
@@ -108,14 +112,15 @@ test.describe('project world', () => {
     expect(await projectsOf(page, composerMediaId)).toEqual([q.id]);
   });
 
-  test('Send to Tool and run inside P puts the output in P only', async ({ page }) => {
+  test('Send to tool and run inside P puts the output in P only', async ({ page }) => {
     const { p, q } = await twoProjects(page);
     const source = await generateMedia(page, `world send source ${stamp()}`, p.id);
 
     await page.goto(`/projects/${p.id}/assets`);
     await expectContext(page, p.name);
     await openTileMenu(page, source);
-    await page.getByRole('button', { name: 'Send to Tool', exact: true }).filter({ visible: true }).first().hover();
+    await openMenuGroup(page, 'send');
+    await page.getByRole('button', { name: 'Send to tool', exact: true }).filter({ visible: true }).first().hover();
     const submenu = page.locator('div.fixed.z-submenu').filter({ visible: true }).filter({ hasText: /Image/ }).last();
     await expect(submenu).toBeVisible();
     const toolRow = submenu.getByRole('button', { name: /Test Image to Image/ }).first();
@@ -317,6 +322,8 @@ test.describe('project world', () => {
     await expectContext(page, q.name);
     await page.goto(`/edit-image/${assetId}`);
     await expect(page).toHaveURL(new RegExp(`/edit-image/${assetId}`));
+    // The image editor folds the sidebar away; open it to read the working context.
+    await page.getByRole('button', { name: 'Show sidebar', exact: true }).click();
     await expectContext(page, p.name);
 
     // An asset that Q also holds keeps Q.

@@ -17,7 +17,7 @@
     >
       <ModelVendorIcon v-if="showVendorIcons && selectedOption" :model="selectedOption.vendor" size="sm" />
       <span class="flex min-w-0 flex-1 items-baseline gap-1.5">
-        <span :class="['truncate', quiet ? 'text-xs font-mono tabular-nums' : 'font-medium text-content']">{{ selectedOption?.triggerLabel || selectedOption?.label || placeholder || modelValue }}</span>
+        <span :class="['truncate', quiet ? 'text-xs font-mono tabular-nums' : secondary ? 'text-content-secondary' : 'font-medium text-content']">{{ selectedOption?.triggerLabel || selectedOption?.label || placeholder || modelValue }}</span>
         <span
           v-if="!hideTriggerDetails && selectedOption?.description"
           class="shrink-0 text-[11px]"
@@ -32,15 +32,8 @@
         class="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
         aria-hidden="true"
       />
-      <span v-if="!hideTriggerDetails && selectedOption?.meta" class="shrink-0 text-[11px] tabular-nums text-content-muted">{{ selectedOption.meta }}</span>
-      <svg
-        class="w-3 h-3 text-content-muted transition-transform"
-        :class="{ 'rotate-180': isOpen }"
-        viewBox="0 0 12 12"
-        fill="currentColor"
-      >
-        <path d="M3 4.5L6 8l3-3.5H3z"/>
-      </svg>
+      <span v-if="!hideTriggerDetails && selectedOption?.meta" class="shrink-0 text-[11px] font-mono tabular-nums text-content-muted">{{ selectedOption.meta }}</span>
+      <Caret :open="isOpen" class="text-content-muted" />
     </button>
 
     <Teleport to="body">
@@ -94,9 +87,9 @@
               option.disabled
                 ? 'cursor-not-allowed text-content-muted opacity-60'
                 : index === highlightedIndex
-                  ? 'bg-accent/15'
+                  ? 'bg-overlay-hover'
                   : option.value === modelValue
-                    ? 'bg-accent/10'
+                    ? 'bg-selection/15'
                     : 'hover:bg-surface-raised',
             ]"
             role="option"
@@ -113,7 +106,7 @@
                     class="shrink-0 rounded border border-edge-subtle px-1 text-[9.5px] uppercase tracking-wide text-content-muted"
                   >{{ option.tag }}</span>
                 </span>
-                <span v-if="option.meta" class="shrink-0 text-[11px] tabular-nums text-content-muted">{{ option.meta }}</span>
+                <span v-if="option.meta" class="shrink-0 text-[11px] font-mono tabular-nums text-content-muted">{{ option.meta }}</span>
               </span>
               <span
                 v-if="option.description"
@@ -158,6 +151,7 @@ import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { useViewport } from '../../composables/useViewport'
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import ModelVendorIcon from '../models/ModelVendorIcon.vue'
+import Caret from './Caret.vue'
 import type { ModelVendorId } from '../../utils/modelVendors'
 
 const { allowsAutofocus } = useViewport()
@@ -187,6 +181,8 @@ const props = defineProps<{
       as a quiet small value that inherits the secondary/hover color instead
       of the bold bright settings-page treatment. */
   quiet?: boolean
+  /** Secondary-weight label for a toolbar value (a sort order): regular weight, secondary colour. */
+  secondary?: boolean
   hideTriggerDetails?: boolean
   /** Show a status dot: this value was set on this screen, not inherited. */
   marked?: boolean

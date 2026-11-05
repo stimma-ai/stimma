@@ -22,7 +22,7 @@ from core.logging import get_logger
 from database import Chat, ChatItem, MediaItem
 from utils.websocket import WebSocketManager
 
-from .conversation import build_messages, response_reserve
+from .conversation import build_messages, max_output_tokens
 from .agent_config import resolve_agent_config
 from .llm_options import agent_llm_options
 from ..hitl import HumanActionRequired
@@ -281,6 +281,10 @@ async def _finalize_thinking_item(
         "thinking_status": "completed",
         "thinking_content": reasoning or "",
         "thinking_duration_seconds": round(duration_seconds, 2),
+    }
+    metadata["llm_call_size"] = {
+        "context_tokens": int(context_tokens),
+        "estimated_prompt_tokens": int(estimated_prompt_tokens),
     }
     if usage:
         metadata["llm_usage"] = {
@@ -1367,7 +1371,7 @@ async def _run_agentic_loop_inner(
     effective_effort = resolve_chat_effort(chat.reasoning_effort, project_effort)
 
     # Build system prompt once — stimpacks and other volatile context are delivered
-    # via system reminders (injected into the last user message per turn)
+    # via reminders appended to the conversation when they change.
     from .stimpacks import list_skills
     from .system_reminders import (
         build_artifact_context_reminder,
@@ -1376,7 +1380,6 @@ async def _run_agentic_loop_inner(
         build_user_program_edit_reminder,
     )
     all_skills = list_skills()
-    notepad_state = format_notepad_for_prompt(str(workspace_dir))
     # Flow chats get a specialized system prompt + the flow directory as
     # the workspace for program.py edits. Everything else (tools, LLM,
     # broadcast) is shared with the main agent loop.
@@ -1397,7 +1400,6 @@ async def _run_agentic_loop_inner(
             additional_instructions=resolved_config.additional_instructions,
             global_memory=resolved_config.global_memory,
             project_memory=resolved_config.project_memory,
-            notepad_state=notepad_state,
         )
 
     # Materialize the read-only .stimma/ tool catalog into the workspace so the
@@ -1628,6 +1630,11 @@ async def _run_agentic_loop_inner(
             program_edit_reminder = build_user_program_edit_reminder(chat.flow_id)
             if program_edit_reminder:
                 system_reminders.append(program_edit_reminder)
+        system_reminders.append(
+            "<system-reminder>\n"
+            + format_notepad_for_prompt(str(workspace_dir))
+            + "\n</system-reminder>"
+        )
         if artifact_context:
             artifact_reminder = await build_artifact_context_reminder(session, artifact_context)
             if artifact_reminder:
@@ -1654,7 +1661,9 @@ async def _run_agentic_loop_inner(
         llm_started_at = time.monotonic()
 
         tools = tools_schema if tools_enabled and tools_schema else None
-        max_response_tokens = response_reserve(llm_config.max_context_tokens)
+        max_response_tokens = max_output_tokens(
+            llm_config.max_context_tokens, getattr(llm_config, "max_output_tokens", None),
+        )
 
         try:
             resp = await llm_completion(
@@ -1729,6 +1738,10 @@ async def _run_agentic_loop_inner(
                 # Store cumulative usage for the entire agent loop (not just this call),
                 # so the session bar correctly totals all tokens across tool-call turns.
                 usage_metadata = {
+                    "llm_call_size": {
+                        "context_tokens": int(context_tokens),
+                        "estimated_prompt_tokens": int(estimated_prompt_tokens),
+                    },
                     "llm_usage": {
                         "prompt_tokens": cumulative_usage["prompt_tokens"],
                         "completion_tokens": cumulative_usage["completion_tokens"],
@@ -1805,7 +1818,7 @@ async def _run_agentic_loop_inner(
                 # is its closing remark; finish just ends the loop. Any tool
                 # calls the model batched *before* finish have already run
                 # above; anything after it is intentionally dropped.
-                if fn_name == "finish":
+                if fn_name == "finish" and resp.finish_reason != FinishReason.LENGTH:
                     finish_requested = True
                     break
 
@@ -1819,7 +1832,7 @@ async def _run_agentic_loop_inner(
                     })
 
                 # Permission check before execution
-                if await _needs_permission(fn_name, fn_arguments or "", chat, session):
+                if resp.finish_reason != FinishReason.LENGTH and await _needs_permission(fn_name, fn_arguments or "", chat, session):
                     try:
                         await _pause_for_permission(
                             fn_name, fn_arguments, tool_call_id,
@@ -1847,6 +1860,23 @@ async def _run_agentic_loop_inner(
                     "chat_id": chat_id,
                     "item": call_item.to_dict(),
                 })
+
+                if resp.finish_reason == FinishReason.LENGTH:
+                    result_item = ChatItem(
+                        chat_id=chat_id,
+                        item_type="tool_result",
+                        tool_call_id=tool_call_id,
+                        tool_result=(
+                            "This call was cut off at the output limit and was not run. "
+                            "Split the work into smaller steps, then try again."
+                        ),
+                    )
+                    session.add(result_item)
+                    await session.commit()
+                    await ws_manager.broadcast("chat_item_created", {
+                        "chat_id": chat_id, "item": result_item.to_dict(),
+                    })
+                    continue
 
                 # ask_user: pause with HITL prompt instead of executing the tool.
                 # The tool_result (with the user's answer) is saved on resume.

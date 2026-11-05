@@ -60,7 +60,7 @@
             </button>
             <button
               @click="nextStep"
-              class="px-3 py-1 rounded-md text-xs font-medium text-white bg-accent hover:bg-accent/90 border-none cursor-pointer"
+              class="px-3 py-1 rounded-md text-xs font-medium text-accent-on bg-accent hover:bg-accent/90 border-none cursor-pointer"
             >
               {{ stepIndex >= activeSteps.length - 1 ? 'Done' : 'Next' }}
             </button>

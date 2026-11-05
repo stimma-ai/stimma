@@ -6,7 +6,7 @@
       @click="toggle"
       aria-haspopup="dialog"
       :aria-expanded="isOpen"
-      class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors min-w-0 coarse:min-h-11 coarse:min-w-11"
+      class="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors min-w-0 coarse:min-h-11 coarse:min-w-11"
       :class="triggerDisabled
         ? 'text-content-muted opacity-60 cursor-not-allowed'
         : currentUnavailable
@@ -105,7 +105,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                 </svg>
               </button>
-              <div v-if="recentModels.length > 0 || displayPickerModels.length > 0 || displayCollapsedCloudModels.length > 0" class="my-1 border-t border-edge" />
+              <div v-if="recentModels.length > 0 || displayPickerModels.length > 0 || filteredCollapsedModels.length > 0" class="my-1 border-t border-edge" />
             </template>
 
           <template v-if="recentModels.length">
@@ -131,7 +131,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
               </svg>
             </button>
-            <div v-if="displayPickerModels.length > 0 || displayCollapsedCloudModels.length > 0" class="my-1 border-t border-edge" />
+            <div v-if="displayPickerModels.length > 0 || filteredCollapsedModels.length > 0" class="my-1 border-t border-edge" />
           </template>
 
           <!-- Models (cloud + local, one flat list; provenance lives in the subtitle) -->
@@ -163,35 +163,36 @@
             </svg>
           </button>
 
-          <template v-if="displayCollapsedCloudModels.length">
+          <!-- The same models through other accounts: reachable, never in the way -->
+          <template v-if="filteredCollapsedModels.length">
             <button
               v-if="!hasSearch"
               type="button"
-              @click="showCollapsedCloud = !showCollapsedCloud"
+              @click="showCollapsedRoutes = !showCollapsedRoutes"
               class="flex w-full items-center justify-between border-t border-edge px-3 py-2 text-left text-[11px] text-content-muted hover:text-content-secondary"
             >
-              <span>Also on your Stimma Account ({{ displayCollapsedCloudModels.length }})</span>
-              <svg class="h-3 w-3 transition-transform" :class="showCollapsedCloud ? 'rotate-180' : ''" viewBox="0 0 12 12" fill="currentColor">
+              <span>Same models on other accounts ({{ filteredCollapsedModels.length }})</span>
+              <svg class="h-3 w-3 transition-transform" :class="showCollapsedRoutes ? 'rotate-180' : ''" viewBox="0 0 12 12" fill="currentColor">
                 <path d="M3 4.5L6 8l3-3.5H3z" />
               </svg>
             </button>
             <div v-else class="border-t border-edge px-3 pb-1 pt-2 text-xs font-semibold text-content-secondary">
-              Also on your Stimma Account
+              Same models on other accounts
             </div>
             <button
-              v-if="showCollapsedCloud || hasSearch"
-              v-for="model in displayCollapsedCloudModels"
+              v-if="showCollapsedRoutes || hasSearch"
+              v-for="model in filteredCollapsedModels"
               :key="model.slug"
               @click="selectModel(model)"
               class="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
-              :class="modelButtonClass(model, 'bg-cyan-500/10')"
+              :class="modelButtonClass(model, model.source === 'stimma_cloud' ? 'bg-cyan-500/10' : 'bg-blue-500/10')"
             >
               <ModelVendorIcon :model="model" size="sm" />
               <div class="min-w-0 flex-1">
                 <div class="text-sm text-content">{{ model.name }}</div>
-                <div class="text-[11px] text-content-muted">{{ modelVendorLabel(model) }} · {{ modelSourceLine(model) }}<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span><span v-if="model.shadowed_by_provider"> · also on {{ model.shadowed_by_provider }}</span></div>
+                <div class="text-[11px] text-content-muted">{{ modelVendorLabel(model) }} · {{ modelSourceLine(model) }}<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span></div>
               </div>
-              <svg v-if="isSelectedModel(model)" class="h-4 w-4 flex-shrink-0 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <svg v-if="isSelectedModel(model)" class="h-4 w-4 flex-shrink-0" :class="model.source === 'stimma_cloud' ? 'text-cyan-400' : 'text-blue-400'" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
               </svg>
             </button>
@@ -222,6 +223,7 @@
 </template>
 
 <script setup>
+import { reportActionError } from '../../composables/useToasts'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { useViewport } from '../../composables/useViewport'
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
@@ -256,7 +258,7 @@ const container = ref(null)
 const dropdown = ref(null)
 const searchInput = ref(null)
 const isOpen = ref(false)
-const showCollapsedCloud = ref(false)
+const showCollapsedRoutes = ref(false)
 const searchQuery = ref('')
 const recentModelSlugs = ref(loadRecentModelSlugs())
 const dropdownStyle = ref({})
@@ -329,29 +331,42 @@ const currentTitle = computed(() => {
 const autoModels = computed(() => selectableModels.value.filter(m => m.source === 'auto'))
 const visibleAutoModels = computed(() => autoModels.value.filter(m => !m.resolved_slug))
 const cloudModels = computed(() => selectableModels.value.filter(m => m.source === 'stimma_cloud' && !m.collapsed))
-const collapsedCloudModels = computed(() => selectableModels.value.filter(m => m.source === 'stimma_cloud' && m.collapsed))
-const providerModels = computed(() => selectableModels.value.filter(m => m.source === 'provider'))
+// Yours before Stimma's, the same order the routes rank in.
+const collapsedModels = computed(() => sortModelsByBrand([
+  ...selectableModels.value.filter(m => m.source === 'provider' && m.collapsed),
+  ...selectableModels.value.filter(m => m.source === 'stimma_cloud' && m.collapsed),
+]))
+const providerModels = computed(() => selectableModels.value.filter(m => m.source === 'provider' && !m.collapsed))
 const localModels = computed(() => selectableModels.value.filter(m => m.source === 'endpoint'))
 const pickerModels = computed(() => sortModelsByBrand([...providerModels.value, ...cloudModels.value, ...localModels.value]))
 const searchTokens = computed(() => searchQuery.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean))
 const hasSearch = computed(() => searchTokens.value.length > 0)
 const filteredAutoModels = computed(() => visibleAutoModels.value.filter(modelMatchesSearch))
 const filteredPickerModels = computed(() => pickerModels.value.filter(modelMatchesSearch))
-const filteredCollapsedCloudModels = computed(() => collapsedCloudModels.value.filter(modelMatchesSearch))
+const filteredCollapsedModels = computed(() => collapsedModels.value.filter(modelMatchesSearch))
 const recentModels = computed(() => {
   if (hasSearch.value) return []
+  // A recent that a better route has since overtaken comes back on that route,
+  // so a model used before connecting an account doesn't keep spending the old one.
+  const seen = new Set()
   return recentModelSlugs.value
-    .map(slug => selectableModels.value.find(model => model.slug === slug))
-    .filter(model => model && model.source !== 'auto')
+    .map(slug => {
+      const model = selectableModels.value.find(candidate => candidate.slug === slug)
+      return model?.collapsed ? selectableModels.value.find(candidate => candidate.slug === model.preferred_slug) : model
+    })
+    .filter(model => {
+      if (!model || model.source === 'auto' || seen.has(model.slug)) return false
+      seen.add(model.slug)
+      return true
+    })
 })
 const recentSlugSet = computed(() => new Set(recentModels.value.map(model => model.slug)))
 const displayPickerModels = computed(() => filteredPickerModels.value.filter(model => !recentSlugSet.value.has(model.slug)))
-const displayCollapsedCloudModels = computed(() => filteredCollapsedCloudModels.value.filter(model => !recentSlugSet.value.has(model.slug)))
 const hasModelResults = computed(() => (
   filteredAutoModels.value.length > 0
   || recentModels.value.length > 0
   || displayPickerModels.value.length > 0
-  || displayCollapsedCloudModels.value.length > 0
+  || filteredCollapsedModels.value.length > 0
 ))
 
 onMounted(() => {
@@ -378,6 +393,8 @@ function open() {
   if (triggerDisabled.value) return
   fetchModels(props.projectId)
   recentModelSlugs.value = loadRecentModelSlugs()
+  // A chat on one of the tucked-away routes has to be able to see its own check.
+  showCollapsedRoutes.value = Boolean(selectedModel.value?.collapsed)
   isOpen.value = true
   document.addEventListener('keydown', handleKeydown)
   nextTick(() => {
@@ -390,7 +407,7 @@ function close() {
   document.removeEventListener('keydown', handleKeydown)
   isOpen.value = false
   searchQuery.value = ''
-  showCollapsedCloud.value = false
+  showCollapsedRoutes.value = false
 }
 
 async function selectModel(model) {
@@ -413,7 +430,7 @@ async function selectModel(model) {
     }
     await fetchModels(props.projectId, true)
   } catch (err) {
-    console.error('Failed to update chat model:', err)
+    reportActionError("Couldn't save model.", err)
   }
 }
 
@@ -431,7 +448,7 @@ async function selectReasoning(level) {
       reasoning_effort: level,
     })
   } catch (err) {
-    console.error('Failed to update chat reasoning effort:', err)
+    reportActionError("Couldn't save reasoning effort.", err)
   }
 }
 

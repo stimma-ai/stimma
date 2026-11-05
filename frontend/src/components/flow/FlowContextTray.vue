@@ -1,16 +1,11 @@
 <template>
-  <!-- Empty state: a dashed-border hint strip so the user can see where to
-       drop references. When populated, becomes a flex-wrapped chip strip. -->
+  <!-- Attached references are a flex-wrapped chip strip. With none the tray
+       renders nothing: the composer's placeholder carries the hint, so the
+       field never changes height when typing starts. -->
   <div
-    class="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 border-b border-edge-subtle bg-surface/60"
-    :class="refs.items.value.length === 0 ? 'border-dashed' : ''"
+    v-if="refs.items.value.length > 0"
+    class="flex flex-wrap items-center gap-1.5 border-b border-edge-subtle px-4 py-2"
   >
-    <span
-      v-if="refs.items.value.length === 0"
-      class="text-[11px] text-content-muted italic"
-    >
-      Reference items from the flow to give the agent context
-    </span>
     <FlowRefChip
       v-for="r in refs.items.value"
       :key="r.refKey"

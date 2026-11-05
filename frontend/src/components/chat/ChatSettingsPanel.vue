@@ -75,6 +75,7 @@
 </template>
 
 <script setup lang="ts">
+import { reportActionError } from '../../composables/useToasts'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import ToolConfigRow from './ToolConfigRow.vue'
 import TextEditorModal from './TextEditorModal.vue'
@@ -161,7 +162,7 @@ async function saveInstructions() {
       additional_instructions: localInstructions.value || null,
     })
   } catch (err) {
-    console.error('Failed to save instructions:', err)
+    reportActionError("Couldn't save instructions.", err)
   }
 }
 
@@ -172,7 +173,7 @@ async function handleToolConfigUpdate(config: ToolConfig) {
       tool_config: config,
     })
   } catch (err) {
-    console.error('Failed to save tool config:', err)
+    reportActionError("Couldn't save permissions.", err)
   }
 }
 
@@ -231,7 +232,7 @@ async function handleStimpackSave(data: { name: string; display_name: string; de
     showStimpackEditor.value = false
     editingStimpack.value = null
   } catch (err) {
-    console.error('Failed to save stimpack:', err)
+    reportActionError("Couldn't save stimpack.", err)
   }
 }
 

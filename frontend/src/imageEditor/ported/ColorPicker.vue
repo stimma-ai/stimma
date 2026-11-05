@@ -573,7 +573,7 @@ const TABS = [
           :style="{ left: `${editOpacity}%` }"
         />
       </div>
-      <span class="w-7 text-right text-[11px] tabular-nums text-content-secondary">
+      <span class="w-7 text-right text-[11px] font-mono tabular-nums text-content-secondary">
         {{ editOpacity }}
       </span>
     </div>

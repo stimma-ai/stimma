@@ -69,7 +69,7 @@
               @click="selectGroupedOption(activeQuestion.question, opt.label)"
               class="w-full text-left px-3 py-2 rounded-lg transition-colors"
               :class="currentAnswer === opt.label
-                ? 'bg-accent-selection/15 border border-accent-selection/40'
+                ? 'bg-selection/15 border border-selection/40'
                 : 'hover:bg-overlay-light border border-transparent'"
             >
               <div class="flex items-start gap-2">
@@ -103,7 +103,7 @@
           <div v-if="allAnswered" class="px-4 pb-3">
             <button
               @click="submitAllGroupedAnswers"
-              class="w-full rounded-lg bg-accent-selection/15 border border-accent-selection/40 px-3 py-2 text-xs font-medium text-accent-selection hover:bg-accent-selection/20 transition-colors"
+              class="w-full rounded-lg bg-selection/15 border border-selection/40 px-3 py-2 text-xs font-medium text-accent-selection hover:bg-selection/20 transition-colors"
             >
               Submit answers
             </button>
@@ -127,7 +127,7 @@
         @click="selectOption(index)"
         class="w-full text-left px-3 py-2 rounded-lg transition-colors group"
         :class="selectedIndex === index
-          ? 'bg-accent-selection/15 border border-accent-selection/40'
+          ? 'bg-selection/15 border border-selection/40'
           : 'hover:bg-overlay-light border border-transparent'"
       >
         <div class="flex items-start gap-2">
@@ -294,7 +294,7 @@ function goToTab(index: number) {
 }
 
 function tabClass(index: number) {
-  if (index === activeTabIndex.value) return 'bg-accent-selection/15 border-accent-selection/40 text-accent-selection'
+  if (index === activeTabIndex.value) return 'bg-selection/15 border-selection/40 text-accent-selection'
   if (isTabAnswered(index)) return 'bg-overlay-subtle border-edge-subtle text-content hover:bg-overlay-light'
   return 'bg-overlay-faint border-edge-subtle text-content-muted hover:bg-overlay-subtle hover:text-content'
 }

@@ -37,7 +37,7 @@
         <!-- Main chat area -->
         <div class="flex-1 flex flex-col min-w-0">
     <!-- Chat Messages Area -->
-    <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 custom-scrollbar compact:p-3" ref="messagesContainer">
+    <div class="flex-1 min-h-0 overflow-y-auto px-page pt-4 pb-2 space-y-4 custom-scrollbar compact:pt-3 compact:pb-1" ref="messagesContainer" data-chat-scroller>
       <!-- Connection Error -->
       <ConnectionError
         v-if="loadError"
@@ -55,7 +55,7 @@
 
       <!-- Also shown when only older history remains (e.g. every recent item
            was deleted), so the load-more sentinel can still reach it. -->
-      <div v-if="items.length > 0 || hasMore">
+      <div v-if="items.length > 0 || hasMore" class="mx-auto w-full" :class="chatColumnClass">
         <!-- Load more trigger (scroll-based) -->
         <div v-if="hasMore" ref="loadMoreSentinel" class="text-center mb-4 py-2">
           <span class="text-content-tertiary text-sm">Loading older messages...</span>
@@ -253,7 +253,7 @@
           <template v-else-if="isFirstInActivityGroup(item.id) && !getActivityGroupSummary(getActivityGroup(item.id)).isRunning && getActivityGroupSummary(getActivityGroup(item.id)).toolNames.length === 0"></template>
 
           <div v-else-if="isFirstInActivityGroup(item.id)" class="flex justify-start">
-            <div class="activity-group" :class="{ 'activity-group--running': getActivityGroupSummary(getActivityGroup(item.id)).isRunning }">
+            <div class="activity-group" :class="[getActivityGroupSummary(getActivityGroup(item.id)).isRunning && activityLive ? 'activity-group--running' : '[&_.activity-tool-name]:text-content-tertiary']">
               <!-- Collapsed summary line -->
               <div
                 class="activity-summary"
@@ -263,7 +263,7 @@
                   class="activity-chevron"
                   :class="{ 'rotate-90': isActivityGroupExpanded(getActivityGroup(item.id).id) }"
                 />
-                <template v-if="getActivityGroupSummary(getActivityGroup(item.id)).isRunning">
+                <template v-if="getActivityGroupSummary(getActivityGroup(item.id)).isRunning && activityLive">
                   <span class="activity-pulse"></span>
                 </template>
                 <span class="activity-tool-list">
@@ -488,7 +488,7 @@
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
-              <div class="bg-surface-raised text-content rounded-lg px-4 py-2">
+              <div class="bg-surface-raised text-content rounded-lg px-4 py-2.5 compact:text-read">
                 <!-- Attachments -->
                 <div v-if="getMessageAttachments(item).length > 0" class="flex gap-2 mb-2">
                   <div
@@ -600,7 +600,7 @@
                 </template>
                 <div
                   v-if="getDisplayText(item)"
-                  class="bg-surface border border-edge-subtle text-content rounded-lg px-4 py-2 prose prose-sm max-w-none select-text"
+                  class="text-content py-2.5 prose prose-sm compact:prose-read max-w-none select-text"
                 >
                   <template v-for="(seg, segIdx) in parseMarkdownSegments(getDisplayText(item))" :key="segIdx">
                     <ChatMarkdown v-if="seg.type === 'html'" :html="seg.content" />
@@ -666,7 +666,7 @@
                       v-if="hasNoStimmaBalance"
                       @click="openAISettings"
                       class="block w-full text-center text-xs text-content-muted hover:text-content-secondary transition-colors"
-                    >Configure Chat Models</button>
+                    >Configure chat models</button>
                     <div v-if="hasNoStimmaBalance" class="text-center"><RedeemCodeLink /></div>
                   </div>
                 </div>
@@ -708,7 +708,7 @@
                     <button
                       @click="openAISettings"
                       class="block w-full text-center text-xs text-content-muted hover:text-content-secondary transition-colors"
-                    >Configure Chat Models</button>
+                    >Configure chat models</button>
                     <div class="text-center"><RedeemCodeLink /></div>
                     <ChatErrorDisclosure :raw="getRawErrorDetails(item)" />
                   </div>
@@ -740,7 +740,7 @@
                       href="#"
                       @click.prevent="openCloudDashboard"
                       class="inline-flex items-center gap-1 text-xs stimma-cloud-text hover:opacity-80 transition-opacity"
-                    >Manage Account</a>
+                    >Manage account</a>
                     <ChatErrorDisclosure :raw="getRawErrorDetails(item)" />
                   </div>
                 </div>
@@ -884,7 +884,7 @@
               <details class="activity-details inline-block">
                 <summary class="activity-summary" style="display: inline-flex;">
                   <ChevronRightIcon class="activity-chevron" />
-                  <span v-if="getToolCallStatus(item) === 'running'" class="activity-pulse"></span>
+                  <span v-if="getToolCallStatus(item) === 'running' && activityLive" class="activity-pulse"></span>
                   <span class="activity-tool-name">{{ getToolCallDisplayName(item) }}</span>
                   <span v-if="getToolCallStatus(item) === 'failed'" :class="ACTIVITY_FAILED_BADGE_CLASS">failed</span>
                 </summary>
@@ -1144,7 +1144,9 @@
     </div>
 
     <!-- Input Area -->
-    <div class="px-4 pb-4 pt-2 flex-shrink-0">
+    <div class="px-page pb-4 pt-1 compact:pb-3 flex-shrink-0">
+      <!-- Same column as the transcript above, so the composer lines up with it. -->
+      <div class="mx-auto w-full" :class="chatColumnClass">
       <div
         v-if="chatInterrupted"
         class="mb-2 flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-amber-500/40 bg-amber-500/[0.08]"
@@ -1176,13 +1178,15 @@
         @edit="editQueuedMessage"
         @remove="removeQueuedMessage"
       />
+      <MediaSelectionBar v-if="mediaCollections.selection.selecting.value" :class="messageQueue.length > 0 ? 'rounded-t-none' : ''" />
       <ChatInputBox
         ref="chatInputBoxRef"
-        :attached-top="messageQueue.length > 0"
+        :attached-top="messageQueue.length > 0 || mediaCollections.selection.selecting.value"
         :project-id="chat ? (chat.project_id ?? null) : undefined"
         :draft="composerDraft"
         :attachments="inputAttachments"
         :voice-surface="chat?.flow_id ? 'flow_chat' : 'main_chat'"
+        :placeholder="chat?.flow_id ? 'Type a message, or reference flow items...' : undefined"
         :disabled="sending"
         :agent-unavailable="noUsableChatModels"
         @update:attachments="inputAttachments = $event"
@@ -1215,35 +1219,22 @@
           />
         </template>
         <template #actions="{ text }">
-          <button
-            v-if="showStopButton"
-            @click="stopAgent"
-            class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface transition-colors hover:opacity-80"
-            title="Stop"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5">
-              <rect x="6" y="6" width="12" height="12" rx="1" />
-            </svg>
-          </button>
-          <button
+          <SendButton v-if="showStopButton" icon="stop" title="Stop" @click="stopAgent" />
+          <SendButton
             v-else
-            @click="sendMessage()"
             :disabled="(!text.trim() && inputAttachments.length === 0) || sending || isChatModelUnavailable || Boolean(imageUnsupportedMessage)"
-            class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
             :title="modelUnavailableMessage || 'Send'"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-              <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" transform="rotate(-90 12 12)" />
-            </svg>
-          </button>
+            @click="sendMessage()"
+          />
         </template>
       </ChatInputBox>
+      </div>
     </div>
 
     <!-- Delete Confirmation Modal -->
     <ConfirmModal
       :show="showDeleteModal"
-      title="Delete Chat"
+      title="Delete chat"
       :message="deleteConfirmMessage"
       confirm-text="Delete"
       cancel-text="Cancel"
@@ -1310,8 +1301,14 @@
           @mousedown="artifactStage.startResize"
         />
         <Transition name="stage" @enter="freezeStageForEnter" @after-enter="unfreezeStage" @enter-cancelled="unfreezeStage" @before-leave="freezeStageForLeave">
+          <div
+            v-if="artifactStage.stageOpen.value && artifactStage.collectionItemId.value != null"
+            :ref="el => { mediaCollections.panel.target.value = el }"
+            class="flex min-w-0 flex-1 flex-col overflow-hidden bg-matte compact:absolute compact:inset-0 compact:z-chrome"
+          />
           <ArtifactStage
-            v-if="artifactStage.stageOpen.value"
+            :active="!slideshowState.active"
+            v-else-if="artifactStage.stageOpen.value"
             class="compact:absolute compact:inset-0 compact:z-chrome"
             :workspace-file="artifactStage.workspaceFile.value"
             :chat-id="chatId"
@@ -1368,7 +1365,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, computed, toRaw } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, computed, toRaw, provide } from 'vue'
 import { useViewport } from '../composables/useViewport'
 import { useBackOverride } from '../composables/useBackOverride'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
@@ -1383,6 +1380,7 @@ import { MediaImage, AppImage, MediaContextMenu } from '../components/media'
 import ChatImageStrip from '../components/chat/ChatImageStrip.vue'
 import ChatInputAttachments from '../components/chat/ChatInputAttachments.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
+import SendButton from '../components/ui/SendButton.vue'
 import ChatMessageQueue, { type QueuedMessage } from '../components/chat/ChatMessageQueue.vue'
 import SkillsMenuButton from '../components/chat/SkillsMenuButton.vue'
 import FlowRefChip from '../components/flow/FlowRefChip.vue'
@@ -1406,6 +1404,8 @@ defineOptions({
   name: 'ChatView'
 })
 import MediaDisplay from '../components/chat/MediaDisplay.vue'
+import MediaSelectionBar from '../components/chat/MediaSelectionBar.vue'
+import { CHAT_MEDIA_COLLECTIONS, useChatMediaCollections } from '../composables/useChatMediaCollections'
 import FileChips from '../components/chat/FileChips.vue'
 import { fileUrl, type WorkspaceFile } from '../utils/fileRefs'
 import ArtifactStage from '../components/chat/ArtifactStage.vue'
@@ -1433,7 +1433,7 @@ import PlanVisualization from '../components/PlanVisualization.vue'
 import NotepadDisplay from '../components/chat/NotepadDisplay.vue'
 import TraceModal from '../components/chat/TraceModal.vue'
 import { copyToClipboard } from '../utils/clipboard'
-import { addToast } from '../composables/useToasts'
+import { addToast, reportActionError } from '../composables/useToasts'
 import { useAuth } from '../composables/useAuth'
 import { useAvailableModels } from '../composables/useAvailableModels'
 import {
@@ -1503,6 +1503,9 @@ const items = ref([])
 // and sendMessage). Instantiated unconditionally — cheap when there's no
 // artifact in the chat — so embedded usage never has to special-case it.
 const artifactStage = useArtifactStage(chatId, items)
+// The one transcript column: messages, media and composer share it. A chat
+// docked beside a tool or flow (embedded) gets the narrower variant.
+const chatColumnClass = computed(() => (props.embedded && !isCompact.value ? 'max-w-[640px]' : 'max-w-[880px]'))
 useBackOverride(() => artifactStage.stageOpen.value, artifactStage.close)
 function refreshStagedFile(file: WorkspaceFile) {
   const staged = artifactStage.workspaceFile.value
@@ -1539,6 +1542,17 @@ const brokenMediaIds = ref(new Set<number>()) // Track media that failed to load
 const hasMore = ref(false)
 // Keep draft reads inside ChatInputBox's render effect, away from history.
 const { draft: composerDraft, text: messageInput, attachments: inputAttachments } = useChatDraft(chatId)
+const mediaCollections = useChatMediaCollections({
+  attachments: inputAttachments,
+  canAttach: () => !noUsableChatModels.value,
+  compare: (leftMediaId, rightMediaId) => enterCompare({ leftMediaId, rightMediaId }),
+  panelAvailable: !props.embedded,
+  panelItemId: artifactStage.collectionItemId,
+  openPanel: artifactStage.openCollection,
+  closePanel: artifactStage.closeCollection,
+})
+provide(CHAT_MEDIA_COLLECTIONS, mediaCollections)
+watch(chatId, () => mediaCollections.selection.clear())
 const { resolvedTheme } = useTheme()
 const textRenderCache = createBoundedTextCache()
 watch(chatId, () => textRenderCache.clear())
@@ -1958,40 +1972,40 @@ function getToolCallStatusLabel(toolCallItem) {
 const TOOL_DISPLAY_NAMES = {
   call_tool: null,       // Special: uses tool_args._display_name or tool_id
   run_code: 'Working…',  // Special: uses tool_args._display_name (agent-supplied label)
-  bash: 'Running Command',
-  ask_user: 'Asking You',
-  browse_web: 'Browsing Web',
+  bash: 'Running command',
+  ask_user: 'Asking you',
+  browse_web: 'Browsing web',
   library: null,         // Special: varies by action arg
   skill: null,           // Special: "Skill: <display_name>"
   stimpack: null,        // backward compat for old chats: "Skill: <display_name>"
   delegate: null,        // Special: shows specialist or truncated task
-  glob: 'Finding Files',
-  grep: 'Searching Files',
-  read_file: 'Reading File',
-  write_file: 'Saving File',
-  edit_file: 'Editing File',
-  create_parameter_sweep: 'Creating Parameter Sweep',
-  assemble_grid: 'Creating Grid',  // backward compat for old chats
-  assemble_set: 'Creating Set',
-  create_layout: 'Creating Layout',
-  render_html: 'Rendering Layout',  // backward compat for old chats
-  analyze_flow: 'Analyzing Flow',
-  flow_inspect: 'Analyzing Flow',  // backward compat: renamed from flow_inspect
-  flow_update: 'Updating Flow',
+  glob: 'Finding files',
+  grep: 'Searching files',
+  read_file: 'Reading file',
+  write_file: 'Saving file',
+  edit_file: 'Editing file',
+  create_parameter_sweep: 'Creating parameter sweep',
+  assemble_grid: 'Creating grid',  // backward compat for old chats
+  assemble_set: 'Creating set',
+  create_layout: 'Creating layout',
+  render_html: 'Rendering layout',  // backward compat for old chats
+  analyze_flow: 'Analyzing flow',
+  flow_inspect: 'Analyzing flow',  // backward compat: renamed from flow_inspect
+  flow_update: 'Updating flow',
 }
 
 // Library action → display copy
 const LIBRARY_ACTION_NAMES = {
-  search: 'Searching Library',
-  browse: 'Browsing Library',
-  browse_schema: 'Browsing Library',
-  browse_options: 'Browsing Library',
-  get: 'Looking Up Asset',
-  save: 'Saving to Library',
-  lineage: 'Checking Lineage',
+  search: 'Searching library',
+  browse: 'Browsing library',
+  browse_schema: 'Browsing library',
+  browse_options: 'Browsing library',
+  get: 'Looking up asset',
+  save: 'Saving to library',
+  lineage: 'Checking lineage',
   tag: 'Tagging',
   marker: 'Marking',
-  board: 'Organizing Board',
+  board: 'Organizing board',
 }
 
 // Infrastructure tools hidden from pill summary (still shown in expanded timeline)
@@ -2001,14 +2015,14 @@ const HIDDEN_TOOLS = new Set(['list_tools', 'get_schema', 'discover', 'view_imag
 const ALL_TOOL_DISPLAY_NAMES = {
   ...Object.fromEntries(Object.entries(TOOL_DISPLAY_NAMES).filter(([, v]) => v !== null)),
   // Hidden tools get friendly names in expanded timeline
-  list_tools: 'Exploring Tools',
-  get_schema: 'Exploring Tools',
-  discover: 'Exploring Tools',
-  view_image: 'Viewing Image',
-  notepad: 'Taking Notes',
-  sdk_help: 'Reading Docs',
-  show: 'Showing Work',
-  share_files: 'Show Files',
+  list_tools: 'Exploring tools',
+  get_schema: 'Exploring tools',
+  discover: 'Exploring tools',
+  view_image: 'Viewing image',
+  notepad: 'Taking notes',
+  sdk_help: 'Reading docs',
+  show: 'Showing work',
+  share_files: 'Show files',
 }
 
 function formatToolCallName(name) {
@@ -2234,13 +2248,14 @@ async function activateSkill(name) {
   try {
     // The resulting stimpack_injection item arrives via WebSocket and flips
     // the status dot through invokedSkillKeySet.
-    await fetch(`/api/chats/${chatId.value}/invoke-skill`, {
+    const response = await fetch(`/api/chats/${chatId.value}/invoke-skill`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
     })
+    if (!response.ok) throw new Error(await response.text())
   } catch (err) {
-    console.error('Failed to activate skill:', err)
+    reportActionError("Couldn't activate skill.", err)
   } finally {
     invokingSkillName.value = null
   }
@@ -3052,12 +3067,13 @@ async function updateAutoDeleteDuration(_duration) {
         })
       })
 
+      if (!response.ok) throw new Error(await response.text())
       if (response.ok) {
         const updatedChat = await response.json()
         chat.value = updatedChat
       }
     } catch (error) {
-      console.error('Error saving auto-delete duration to chat:', error)
+      reportActionError("Couldn't save retention.", error)
     }
   }
 }
@@ -3553,6 +3569,11 @@ async function navigateHistory(direction) {
   }
 }
 
+// One liveness gate for every transcript activity dot: a tool call or thought
+// that never recorded a result only reads as running while a turn is. After
+// that it settles into the quiet terminal look (no dot, tertiary label).
+const activityLive = computed(() => !!(agentRunning.value || agentPlanning.value))
+
 // While a turn runs (or a send is in flight), the composer adds to the queue
 // instead of sending.
 function agentBusyForComposer() {
@@ -3941,7 +3962,7 @@ async function sendMessage(queuedMessage = null) {
         // Sent while pinned to an older artifact revision: tells the agent
         // which version the user means so an edit branches from there
         // instead of continuing off the latest.
-        artifact_context: (!props.embedded && !artifactStage.workspaceFile.value && artifactStage.stageOpen.value && !artifactStage.onNewest.value && artifactStage.assetId.value != null)
+        artifact_context: (!props.embedded && !artifactStage.workspaceFile.value && artifactStage.stageOpen.value && artifactStage.collectionItemId.value == null && !artifactStage.onNewest.value && artifactStage.assetId.value != null)
           ? {
               asset_id: artifactStage.assetId.value,
               revision_id: artifactStage.viewedRevisionId.value,
@@ -3962,7 +3983,8 @@ async function sendMessage(queuedMessage = null) {
     await nextTick()
     scrollToBottom()
   } catch (error) {
-    console.error('Error sending message:', error)
+    if (queuedMessage) console.error('Error sending queued message:', error)
+    else reportActionError("Couldn't send.", error)
     if (!sent) {
       // The POST never committed, so no agent run is coming — roll back the
       // optimistic running flag, otherwise the composer and queue deadlock
@@ -4124,10 +4146,10 @@ async function retryJob(jobId) {
       closeJobModals()
       // The job status will be updated on next poll - grids will show loading state
     } else {
-      console.error('Failed to retry job:', await response.text())
+      reportActionError("Couldn't retry job.", await response.text())
     }
   } catch (error) {
-    console.error('Error retrying job:', error)
+    reportActionError("Couldn't retry job.", error)
   }
 }
 
@@ -4187,6 +4209,7 @@ async function handleToggleMarker({ mediaId, marker }) {
         method: 'DELETE',
         headers: { 'X-Profile-ID': getCurrentProfileId() }
       })
+      if (!response.ok) throw new Error(await response.text())
       if (response.ok) {
         mediaMarkers.value = {
           ...mediaMarkers.value,
@@ -4199,6 +4222,7 @@ async function handleToggleMarker({ mediaId, marker }) {
         method: 'POST',
         headers: { 'X-Profile-ID': getCurrentProfileId() }
       })
+      if (!response.ok) throw new Error(await response.text())
       if (response.ok) {
         mediaMarkers.value = {
           ...mediaMarkers.value,
@@ -4207,7 +4231,7 @@ async function handleToggleMarker({ mediaId, marker }) {
       }
     }
   } catch (error) {
-    console.error('Error toggling marker:', error)
+    reportActionError("Couldn't update marker.", error)
   }
 }
 
@@ -4554,7 +4578,7 @@ async function retryAfterError() {
       headers: { 'Content-Type': 'application/json' }
     })
     if (!response.ok) {
-      console.error('Failed to retry:', await response.text())
+      reportActionError("Couldn't retry.", await response.text())
       // Retry never started — put the error items back so the user
       // still sees what happened and can try again.
       items.value = [...items.value, ...removed]
@@ -4565,7 +4589,7 @@ async function retryAfterError() {
     agentRunning.value = true
     lastSendStartedAt = Date.now()
   } catch (error) {
-    console.error('Error retrying:', error)
+    reportActionError("Couldn't retry.", error)
     items.value = [...items.value, ...removed]
   }
 }
@@ -4595,17 +4619,19 @@ async function deleteItem(itemId) {
       items.value = items.value.filter(item => item.id !== itemId)
       refreshInvokedSkills()
     } else {
-      console.error('Failed to delete item:', await response.text())
+      reportActionError("Couldn't delete message.", await response.text())
     }
   } catch (error) {
-    console.error('Error deleting item:', error)
+    reportActionError("Couldn't delete message.", error)
   }
 }
 
 // Delete an item and all items after it
 async function deleteFromHere(itemId) {
   const index = items.value.findIndex(item => item.id === itemId)
-  if (index === -1) return
+  if (index === -1) return false
+  const deletingChatId = chatId.value
+  const removed = items.value.slice(index)
 
   // Optimistically remove from local items list immediately to avoid race
   // conditions where WebSocket events (e.g. chat_item_created from a running
@@ -4617,10 +4643,18 @@ async function deleteFromHere(itemId) {
   // client-computed id list can leave an orphaned tool_call row that makes
   // providers reject the conversation on replay.
   try {
-    await fetch(`/api/chats/${chatId.value}/items/${itemId}/delete-from-here`, { method: 'POST' })
-    refreshInvokedSkills()
+    const response = await fetch(`/api/chats/${deletingChatId}/items/${itemId}/delete-from-here`, { method: 'POST' })
+    if (!response.ok) throw new Error(await response.text())
+    if (chatId.value === deletingChatId) refreshInvokedSkills()
+    return true
   } catch (error) {
-    console.error('Error deleting items:', error)
+    if (chatId.value === deletingChatId) {
+      // Keep items received during the request, without duplicating restored rows.
+      const currentIds = new Set(items.value.map(item => item.id))
+      items.value.splice(index, 0, ...removed.filter(item => !currentIds.has(item.id)))
+    }
+    reportActionError("Couldn't delete messages.", error)
+    return false
   }
 }
 
@@ -4683,10 +4717,10 @@ async function replayFromHere(item) {
   // resend lands in the client-side queue behind a run whose completion event
   // may never arrive (or that we're about to orphan by deleting its items),
   // leaving the message stuck "queued" forever.
-  await cancelAgent()
+  if (!await cancelAgent()) return
 
   // Delete this item and all items after it
-  await deleteFromHere(item.id)
+  if (!await deleteFromHere(item.id)) return
 
   // Set the message input and attachments, then send
   messageInput.value = message
@@ -4750,17 +4784,27 @@ async function submitEditedMessage(item) {
   }
 
   const newMessage = editingText.value
+  const editingChatId = chatId.value
   // Copy — see replayFromHere: don't alias the stored message's metadata array.
   const attachments = getMessageAttachments(item).map(a => ({ ...a }))
 
-  // Clear editing state
-  cancelEditing()
-
   // Abort any running agent first — see replayFromHere for why.
-  await cancelAgent()
+  if (!await cancelAgent()) return
 
   // Delete this item and all items after it
-  await deleteFromHere(item.id)
+  if (!await deleteFromHere(item.id)) {
+    if (chatId.value !== editingChatId) return
+    // Removing the optimistic row blurs its editor. Restore the draft after
+    // the row returns, including any text that differs from the saved message.
+    editingItemId.value = item.id
+    editingText.value = newMessage
+    await nextTick()
+    document.querySelector<HTMLTextAreaElement>('[data-edit-input]')?.focus()
+    autoResizeEditTextarea(null)
+    return
+  }
+
+  cancelEditing()
 
   // Set the message input and attachments, then send
   messageInput.value = newMessage
@@ -4874,12 +4918,13 @@ async function renameChatFromStrip(newName) {
       })
     })
 
+    if (!response.ok) throw new Error(await response.text())
     if (response.ok) {
       const updatedChat = await response.json()
       chat.value = updatedChat
     }
   } catch (error) {
-    console.error('Error renaming chat:', error)
+    reportActionError("Couldn't rename chat.", error)
   }
 }
 
@@ -4939,10 +4984,10 @@ async function cloneChat() {
       router.push({ name: 'chat', params: { id: newChat.id } })
     } else {
       const errorText = await response.text()
-      console.error('Clone failed:', response.status, errorText)
+      reportActionError("Couldn't clone chat.", errorText)
     }
   } catch (error) {
-    console.error('Error cloning chat:', error)
+    reportActionError("Couldn't clone chat.", error)
   }
 }
 
@@ -4972,6 +5017,7 @@ async function clearChat() {
       method: 'POST'
     })
 
+    if (!response.ok) throw new Error(await response.text())
     if (response.ok) {
       // Clear local items array
       items.value = []
@@ -4980,7 +5026,7 @@ async function clearChat() {
       skillsGeneration++
     }
   } catch (error) {
-    console.error('Error clearing chat:', error)
+    reportActionError("Couldn't clear chat.", error)
   }
 }
 
@@ -5001,12 +5047,12 @@ async function stopAgent() {
       headers: { 'Content-Type': 'application/json' }
     })
     if (!response.ok) {
-      console.error('Failed to stop agent:', await response.text())
+      reportActionError("Couldn't stop.", await response.text())
       suppressingPostStop.value = false
     }
     // suppressingPostStop is cleared when the agent's response arrives (chat_item_created handler)
   } catch (error) {
-    console.error('Error stopping agent:', error)
+    reportActionError("Couldn't stop.", error)
     suppressingPostStop.value = false
   }
 }
@@ -5019,7 +5065,7 @@ async function interruptPendingHITLRequest() {
     })
 
     if (!response.ok) {
-      console.error('Failed to interrupt pending HITL request:', await response.text())
+      reportActionError("Couldn't stop.", await response.text())
       return false
     }
 
@@ -5029,7 +5075,7 @@ async function interruptPendingHITLRequest() {
     runningNodes.value = []
     return true
   } catch (error) {
-    console.error('Error interrupting pending HITL request:', error)
+    reportActionError("Couldn't stop.", error)
     return false
   }
 }
@@ -5045,12 +5091,14 @@ async function cancelAgent() {
       agentPlanning.value = false
       agentPaused.value = false
       runningNodes.value = []
+      return true
     } else {
-      console.error('Failed to cancel agent:', await response.text())
+      reportActionError("Couldn't stop.", await response.text())
     }
   } catch (error) {
-    console.error('Error cancelling agent:', error)
+    reportActionError("Couldn't stop.", error)
   }
+  return false
 }
 
 async function rerunPlan() {
@@ -5063,10 +5111,10 @@ async function rerunPlan() {
       agentRunning.value = true
       agentPaused.value = false
     } else {
-      console.error('Failed to rerun plan:', await response.text())
+      reportActionError("Couldn't rerun plan.", await response.text())
     }
   } catch (error) {
-    console.error('Error rerunning plan:', error)
+    reportActionError("Couldn't rerun plan.", error)
   }
 }
 
@@ -5491,10 +5539,10 @@ async function abortPlan() {
     })
 
     if (!response.ok) {
-      console.error('Failed to abort plan')
+      throw new Error(await response.text())
     }
   } catch (error) {
-    console.error('Error aborting plan:', error)
+    reportActionError("Couldn't stop.", error)
   }
 }
 
@@ -5526,7 +5574,7 @@ async function updateParameter(name, value) {
     const updatedChat = await response.json()
     chat.value = updatedChat
   } catch (error) {
-    console.error('Error updating parameter:', error)
+    reportActionError("Couldn't save parameter.", error)
   }
 }
 
@@ -5564,7 +5612,7 @@ async function updateSetting(name, value) {
     const updatedChat = await response.json()
     chat.value = updatedChat
   } catch (error) {
-    console.error('Error updating setting:', error)
+    reportActionError("Couldn't save setting.", error)
   }
 }
 
@@ -5614,7 +5662,7 @@ async function toggleLock(param) {
     const updatedChat = await response.json()
     chat.value = updatedChat
   } catch (error) {
-    console.error('Error toggling lock:', error)
+    reportActionError("Couldn't save lock.", error)
   }
 }
 
@@ -6143,6 +6191,13 @@ onActivated(updateCompactHeader)
 </script>
 
 <style scoped>
+/* Items are flex children of a row; without this a wide code block or long
+   token stretches the bubble past the transcript column and clips at its edge. */
+.chat-item-wrapper {
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* Artifact stage enter/leave: slides along the right edge. The content area
    is overflow-hidden so the off-screen position is clipped. */
 .stage-enter-active,
@@ -6155,6 +6210,9 @@ onActivated(updateCompactHeader)
 .stage-leave-to {
   transform: translateX(100%);
 }
+/* Fade only. A slide offsets the item's box while it runs, and the browser
+   replays this whenever an item is rendered again (content-visibility), so a
+   reader parked mid-transcript would see the text move by up to 10px. */
 .chat-item {
   animation: fadeIn 0.2s ease-in;
 }
@@ -6162,11 +6220,9 @@ onActivated(updateCompactHeader)
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -6283,7 +6339,10 @@ onActivated(updateCompactHeader)
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px 5px 6px;
+  /* The chevron's stroke sits on the column's left edge, the same edge the
+     bubbles and artwork start on; the hover wash reaches past it. */
+  margin-left: -7px;
+  padding: 5px 10px 5px 2px;
   border-radius: 6px;
   cursor: pointer;
   user-select: none;
@@ -6325,8 +6384,7 @@ onActivated(updateCompactHeader)
 }
 
 .activity-tool-name {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -6441,8 +6499,7 @@ onActivated(updateCompactHeader)
 }
 
 .activity-step-name {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-primary, #e5e7eb);
 }

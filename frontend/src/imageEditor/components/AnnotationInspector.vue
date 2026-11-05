@@ -315,7 +315,7 @@ const opacityMixed = computed(() => fieldMixed('opacity'))
           @input="setTextScale(Number(($event.target as HTMLInputElement).value))"
           @change="emit('commit')"
         />
-        <span class="w-8 text-right tabular-nums">{{ textScale.toFixed(1) }}×</span>
+        <span class="w-8 text-right font-mono tabular-nums">{{ textScale.toFixed(1) }}×</span>
       </label>
     </section>
 
@@ -349,7 +349,7 @@ const opacityMixed = computed(() => fieldMixed('opacity'))
           )"
           @change="emit('commit')"
         />
-        <span class="w-10 text-right tabular-nums">
+        <span class="w-10 text-right font-mono tabular-nums">
           {{ fieldMixed('strokeWidth') ? 'Mixed' : Math.round(any.strokeWidth ?? 8) }}
         </span>
       </label>
@@ -375,7 +375,7 @@ const opacityMixed = computed(() => fieldMixed('opacity'))
           )"
           @change="emit('commit')"
         />
-        <span class="w-10 text-right tabular-nums">
+        <span class="w-10 text-right font-mono tabular-nums">
           {{ fieldMixed(control.key) ? 'Mixed' : numberOr(control.key, control.fallback) }}
         </span>
       </label>
@@ -419,7 +419,7 @@ const opacityMixed = computed(() => fieldMixed('opacity'))
           )"
           @change="emit('commit')"
         />
-        <span class="w-10 text-right tabular-nums">
+        <span class="w-10 text-right font-mono tabular-nums">
           {{ fieldMixed('cornerRadius') ? 'Mixed' : numberOr('cornerRadius', 0) }}
         </span>
       </label>
@@ -490,7 +490,7 @@ const opacityMixed = computed(() => fieldMixed('opacity'))
           @input="setGlowIntensity(Number(($event.target as HTMLInputElement).value))"
           @change="emit('commit')"
         />
-        <span class="w-10 text-right tabular-nums">
+        <span class="w-10 text-right font-mono tabular-nums">
           {{ glowIntensityMixed ? 'Mixed' : glowIntensity }}
         </span>
       </label>
@@ -506,7 +506,7 @@ const opacityMixed = computed(() => fieldMixed('opacity'))
           )"
           @change="emit('commit')"
         />
-        <span v-if="opacityMixed" class="w-10 text-right tabular-nums">Mixed</span>
+        <span v-if="opacityMixed" class="w-10 text-right font-mono tabular-nums">Mixed</span>
       </label>
     </section>
   </div>

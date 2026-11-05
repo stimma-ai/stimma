@@ -17,6 +17,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import ToolIcon from '../../components/tools/ToolIcon.vue'
 import ToolProviderLabel from '../../components/tools/ToolProviderLabel.vue'
+import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import SchemaParamGroup from '../../components/generation/SchemaParamGroup.vue'
 import OutputSizeControl from './OutputSizeControl.vue'
 import ToolPicker from './ToolPicker.vue'
@@ -49,7 +50,7 @@ const tool = computed(() =>
   props.tools.find(t => t.full_tool_id === props.output.tool_id) ?? null
 )
 
-const isCloud = (t: any) => t?.provider_type === 'stimma-cloud' || t?.is_stimma_cloud === true
+const isCloud = (t: any) => isStimmaCloudTool(t)
 
 // The same schema-driven feature set ToolView and chain steps get, for
 // whichever tool is selected. A tool ref is all it needs.

@@ -2,12 +2,12 @@
   <div>
     <div class="mb-3">
       <div class="flex items-center gap-3">
-        <h3 class="text-base font-medium text-content">Privacy</h3>
+        <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Privacy</h3>
       </div>
     </div>
 
     <div class="mt-6 max-w-[680px]">
-      <SettingRow v-if="isOfficial" label="Usage Analytics">
+      <SettingRow v-if="isOfficial" label="Usage analytics">
         <template #description>
           Help improve Stimma with first-party usage telemetry. Events do not include prompts, files, images, generation parameters, file names, or content you create. If you are signed in, telemetry can be associated with your Stimma account.
           <span v-if="privacyLockdownActive" class="block mt-1">Privacy Lockdown is active. Usage telemetry and Stimma services are disabled.</span>
@@ -26,12 +26,12 @@
         </button>
       </SettingRow>
       <div v-else class="py-2.5 border-b border-edge-subtle">
-        <span class="block text-[13px] text-content">Usage Analytics</span>
+        <span class="block text-[13px] text-content">Usage analytics</span>
         <span class="block text-[11.5px] text-content-tertiary mt-0.5">Telemetry is disabled in source builds and cannot send events.</span>
       </div>
 
       <div v-if="isOfficial" class="pt-4">
-        <div class="text-xs font-semibold text-content-secondary">Feedback Sharing</div>
+        <div class="text-xs font-semibold text-content-secondary">Feedback sharing</div>
         <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">
           Thumbs ratings include the conversation. Crash reports include the error, stack trace, and recent log lines.
         </p>
@@ -40,7 +40,7 @@
         </div>
       </div>
       <div v-else class="py-2.5">
-        <span class="block text-[13px] text-content">Feedback Sharing</span>
+        <span class="block text-[13px] text-content">Feedback sharing</span>
         <span class="block text-[11.5px] text-content-tertiary mt-0.5">Sharing feedback is disabled in source builds.</span>
       </div>
     </div>
@@ -48,6 +48,7 @@
 </template>
 
 <script setup>
+import { reportActionError } from '../../../composables/useToasts'
 import { ref, watch } from 'vue'
 import { getApiBase } from '../../../apiConfig'
 import { isOfficialBuild } from '../../../distribution'
@@ -81,15 +82,16 @@ async function toggleTelemetry() {
   localTelemetryEnabled.value = newValue
   telemetrySaving.value = true
   try {
-    await fetch(`${getApiBase()}/settings/telemetry`, {
+    const response = await fetch(`${getApiBase()}/settings/telemetry`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: newValue }),
     })
+    if (!response.ok) throw new Error(await response.text())
     emit('telemetry-updated', newValue)
   } catch (err) {
     localTelemetryEnabled.value = previous
-    console.error('Failed to update telemetry setting:', err)
+    reportActionError("Couldn't save privacy setting.", err)
   } finally {
     telemetrySaving.value = false
   }

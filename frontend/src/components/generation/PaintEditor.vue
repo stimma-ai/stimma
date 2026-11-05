@@ -56,7 +56,7 @@
         >
           <PaintToolIcon name="zoomOut" />
         </button>
-        <span class="text-[10px] tabular-nums text-white/80 w-9 text-center select-none">{{ Math.round(zoomLevel * 100) }}%</span>
+        <span class="text-[10px] font-mono tabular-nums text-white/80 w-9 text-center select-none">{{ Math.round(zoomLevel * 100) }}%</span>
         <button
           @click="zoomIn"
           :disabled="zoomLevel >= ZOOM_MAX"
@@ -72,13 +72,13 @@
     <div class="w-[230px] flex-shrink-0 border-l border-edge-subtle flex flex-col">
       <!-- Tools section -->
       <div class="px-3 py-3 border-b border-edge-subtle">
-        <h4 class="text-xs font-semibold text-content-secondary mb-2">Tools</h4>
+        <h4 class="text-ctl font-semibold text-content-secondary mb-2">Tools</h4>
         <div class="flex items-center gap-1">
           <button
             @click="activeTool = 'brush'"
             :class="[
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
-              activeTool === 'brush' ? 'bg-accent text-white' : 'text-content hover:bg-overlay-subtle'
+              activeTool === 'brush' ? 'bg-accent text-accent-on' : 'text-content hover:bg-overlay-subtle'
             ]"
             title="Brush"
           >
@@ -88,7 +88,7 @@
             @click="activeTool = 'eyedropper'"
             :class="[
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
-              activeTool === 'eyedropper' ? 'bg-accent text-white' : 'text-content hover:bg-overlay-subtle'
+              activeTool === 'eyedropper' ? 'bg-accent text-accent-on' : 'text-content hover:bg-overlay-subtle'
             ]"
             title="Eyedropper (sample color from image)"
           >
@@ -98,7 +98,7 @@
             @click="activeTool = 'eraser'"
             :class="[
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
-              activeTool === 'eraser' ? 'bg-accent text-white' : 'text-content hover:bg-overlay-subtle'
+              activeTool === 'eraser' ? 'bg-accent text-accent-on' : 'text-content hover:bg-overlay-subtle'
             ]"
             title="Eraser"
           >
@@ -143,7 +143,7 @@
 
       <!-- Color section -->
       <div class="px-3 py-3 border-b border-edge-subtle">
-        <h4 class="text-xs font-semibold text-content-secondary mb-2">Color</h4>
+        <h4 class="text-ctl font-semibold text-content-secondary mb-2">Color</h4>
         <!-- Current color -->
         <div class="flex items-center gap-2 mb-2.5">
           <div
@@ -169,7 +169,7 @@
 
       <!-- Brush section -->
       <div class="px-3 py-3 border-b border-edge-subtle">
-        <h4 class="text-xs font-semibold text-content-secondary mb-2">Brush</h4>
+        <h4 class="text-ctl font-semibold text-content-secondary mb-2">Brush</h4>
         <div class="flex items-center gap-1.5 mb-2">
           <span class="text-[11px] text-content-muted w-10">Size</span>
           <input
@@ -180,7 +180,7 @@
             step="1"
             class="flex-1 slider cursor-pointer"
           />
-          <span class="text-[11px] tabular-nums text-content-muted w-6 text-right">{{ brushSize }}</span>
+          <span class="text-[11px] font-mono tabular-nums text-content-muted w-6 text-right">{{ brushSize }}</span>
         </div>
         <div class="flex items-center gap-1.5">
           <span class="text-[11px] text-content-muted w-10">Hardness</span>
@@ -193,7 +193,7 @@
             class="flex-1 slider cursor-pointer"
             title="Lower hardness feathers the brush edge"
           />
-          <span class="text-[11px] tabular-nums text-content-muted w-6 text-right">{{ brushHardness }}</span>
+          <span class="text-[11px] font-mono tabular-nums text-content-muted w-6 text-right">{{ brushHardness }}</span>
         </div>
       </div>
 
@@ -202,7 +202,7 @@
       <div class="px-3 py-3">
         <button
           @click="$emit('done')"
-          class="w-full py-2 rounded-md bg-accent hover:bg-accent/90 text-white text-xs font-semibold transition-colors"
+          class="w-full py-2 rounded-md bg-accent hover:bg-accent/90 text-accent-on text-xs font-semibold transition-colors"
         >
           Done
         </button>

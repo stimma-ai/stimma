@@ -9,7 +9,7 @@
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-base font-semibold text-content">{{ heading }}</h2>
         <IconButton aria-label="Close" class="coarse:min-h-11 coarse:min-w-11 -mr-1.5" :disabled="busy" @click="requestClose">
-          <XMarkIcon class="w-5 h-5" :stroke-width="1.75" />
+          <XMarkIcon class="w-icon-nav h-icon-nav" :stroke-width="1.75" />
         </IconButton>
       </div>
     </template>
@@ -25,7 +25,7 @@
       <template v-else-if="session.phase.value === 'cant-share'">
         <div class="flex min-h-[220px] flex-col items-center justify-center px-6 py-6 text-center compact:px-4">
           <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-overlay-subtle text-content-secondary">
-            <component :is="blockedCopy.icon" class="h-5 w-5" :stroke-width="1.75" />
+            <component :is="blockedCopy.icon" class="h-icon-nav w-icon-nav" :stroke-width="1.75" />
           </div>
           <p class="text-sm font-medium text-content">{{ blockedCopy.title }}</p>
           <p class="mt-1 max-w-[340px] text-xs leading-relaxed text-content-tertiary">{{ blockedCopy.body }}</p>
@@ -334,7 +334,7 @@
       <template v-else-if="session.phase.value === 'error'">
         <div class="flex min-h-[200px] flex-col items-center justify-center px-6 py-6 text-center compact:px-4">
           <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full" :class="bgClass('failed')">
-            <ExclamationTriangleIcon class="h-5 w-5" :class="textClass('failed')" :stroke-width="1.75" />
+            <ExclamationTriangleIcon class="h-icon-nav w-icon-nav" :class="textClass('failed')" :stroke-width="1.75" />
           </div>
           <p class="text-sm font-medium text-content">Couldn’t create the link</p>
           <p class="mt-1 max-w-[340px] text-xs leading-relaxed text-content-tertiary" data-testid="share-error">{{ session.error.value }}</p>
@@ -366,6 +366,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDate as formatDateValue } from '../utils/timeFormat'
 import { computed, defineComponent, h, onBeforeUnmount, ref, shallowRef, watch, type PropType } from 'vue'
 import {
   ArrowTopRightOnSquareIcon,
@@ -514,10 +515,7 @@ function viewsLabel(n: number) {
 }
 
 function formatDate(value: string) {
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
-  const sameYear = d.getFullYear() === new Date().getFullYear()
-  return d.toLocaleDateString(undefined, sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' })
+  return formatDateValue(value, { year: 'always' })
 }
 
 async function loadMedia(mediaId: number, seed: ShareMedia | null) {

@@ -70,7 +70,8 @@ test.describe('phone lane: detail screens', () => {
     await expect(page.locator('.editor-compact-header')).toBeVisible({ timeout: 30000 });
     const row = page.locator('.editor-tool-strip');
     await expect(row).toBeVisible({ timeout: 30000 });
-    await expect(row.getByRole('button', { name: 'Edits', exact: true })).toBeVisible();
+    const header = page.locator('.editor-compact-header');
+    await expect(header.getByRole('button', { name: 'Edits', exact: true })).toBeVisible();
     await audit(page, 'editor');
 
     // Crop: the row becomes ‹ plus aspects and turns; the straighten dial above.
@@ -102,7 +103,7 @@ test.describe('phone lane: detail screens', () => {
     await expect(page.locator('[data-select-panel]')).toBeHidden();
 
     // The stack: a sheet behind Edits, with Edits / Output / Info.
-    await row.getByRole('button', { name: 'Edits', exact: true }).click();
+    await header.getByRole('button', { name: 'Edits', exact: true }).click();
     await expect(page.locator('#editor-stack-body')).toContainText('Original image', { timeout: 15000 });
     await audit(page, 'editor-stack-sheet', '[data-sheet-layer]');
     await page.keyboard.press('Escape');
@@ -183,14 +184,14 @@ test.describe('phone lane: detail screens', () => {
       await page.waitForTimeout(600);
       const layer = page.locator('[data-modal-layer]').last();
       const heading = await layer.locator('h2').first().boundingBox();
-      const close = await layer.getByRole('button', { name: 'Close', exact: true }).boundingBox();
+      const close = await layer.getByRole('button', { name: 'All settings', exact: true }).boundingBox();
       expect(heading!.y).toBeGreaterThanOrEqual(59);
       expect(close!.y).toBeGreaterThanOrEqual(59);
       const scrollArea = await layer.locator('[data-settings-content]').boundingBox();
       expect(scrollArea!.y + scrollArea!.height).toBeLessThanOrEqual(page.viewportSize()!.height - 34);
       // Scrolling the section must never move the header into the status bar.
       await layer.locator('[data-settings-content]').evaluate(el => { el.scrollTop = el.scrollHeight });
-      expect((await layer.getByRole('button', { name: 'Close', exact: true }).boundingBox())!.y).toBeGreaterThanOrEqual(59);
+      expect((await layer.getByRole('button', { name: 'All settings', exact: true }).boundingBox())!.y).toBeGreaterThanOrEqual(59);
       const slug = section.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       await page.screenshot({ path: `acceptance/phone-shots/settings-${slug}.png` });
       const overflow = await auditHorizontalOverflow(page);

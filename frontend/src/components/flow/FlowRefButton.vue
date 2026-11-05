@@ -38,10 +38,12 @@ interface Props {
   label: string
   breadcrumb?: string
   // `inline` — lives in a row's trailing action cluster alongside the rerun
-  //   button. Always rendered (low opacity at rest, brighter on row hover).
+  //   button. Always rendered.
+  // `row` — same slot as `inline`, drawn in the quiet tertiary colour at rest
+  //   and raised to full contrast on hover; an attached reference is filled.
   // `tile` — absolute-positioned corner button for iteration tiles. Hidden
   //   until the tile is hovered; filled-blue persists once attached.
-  variant?: 'inline' | 'tile'
+  variant?: 'inline' | 'row' | 'tile'
 }
 const props = withDefaults(defineProps<Props>(), {
   breadcrumb: '',
@@ -66,16 +68,19 @@ const buttonClass = computed<string>(() => {
   if (props.variant === 'tile') {
     const base = 'absolute top-1 left-1 z-10 w-6 h-6 flex items-center justify-center rounded transition-opacity'
     if (isAttached.value) {
-      return `${base} bg-accent text-white opacity-100`
+      return `${base} bg-accent text-accent-on opacity-100`
     }
-    return `${base} bg-black/55 text-white/85 hover:bg-accent/80 hover:text-white opacity-0 group-hover/iteration-card:opacity-100`
+    return `${base} bg-black/55 text-white/85 hover:bg-accent/80 hover:text-white opacity-0 group-hover/iteration-card:opacity-100 coarse:opacity-100`
   }
   // inline — match rerun button chrome (24×24 bordered rounded box), but
   // low-opacity at rest so the column doesn't feel crowded. Filled-blue
   // when attached so the attached state is visible without hovering.
   const base = 'flex-shrink-0 w-6 h-6 flex items-center justify-center rounded border transition-colors'
   if (isAttached.value) {
-    return `${base} bg-accent text-white opacity-100`
+    return `${base} bg-accent text-accent-on opacity-100`
+  }
+  if (props.variant === 'row') {
+    return `${base} border-transparent text-content-tertiary hover:bg-overlay-hover hover:text-content coarse:h-11 coarse:w-9`
   }
   return `${base} border-transparent text-content hover:bg-overlay-hover hover:border-edge-subtle`
 })

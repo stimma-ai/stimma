@@ -3,7 +3,7 @@
     <section>
       <div class="mb-3">
         <div class="flex items-center gap-3">
-          <h3 class="text-xs font-semibold text-content-secondary">Preferences</h3>
+          <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Preferences</h3>
         </div>
       </div>
 
@@ -64,6 +64,7 @@
 </template>
 
 <script setup>
+import { reportActionError } from '../../../composables/useToasts'
 import { useTheme } from '../../../composables/useTheme'
 import { useSettingsApi } from '../../../composables/useSettingsApi'
 import SettingRow from '../SettingRow.vue'
@@ -80,7 +81,7 @@ const { updateGenerationPreviews } = useSettingsApi()
 function updatePreviewSetting(kinds) {
   setGenerationPreviews(kinds)
   updateGenerationPreviews(kinds).catch(err => {
-    console.error('Failed to persist generation preview settings:', err)
+    reportActionError("Couldn't save preview settings.", err)
   })
 }
 

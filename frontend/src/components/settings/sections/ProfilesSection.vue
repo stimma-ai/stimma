@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary">Profiles</h3>
+      <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Profiles</h3>
       <p class="mt-1 text-xs text-content-tertiary">
         Manage workspace profiles. Each profile has its own media library, markers, and settings.
       </p>
@@ -24,7 +24,7 @@
         <div class="min-w-0 flex-1">
           <div class="truncate text-[13px] text-content">{{ profile.name }}</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">
-            {{ profile.media_count?.toLocaleString() || 0 }} media file{{ profile.media_count !== 1 ? 's' : '' }}<template v-if="profile.has_pin"> · PIN</template>
+            <span class="font-mono tabular-nums">{{ profile.media_count?.toLocaleString() || 0 }} media file{{ profile.media_count !== 1 ? 's' : '' }}</span><template v-if="profile.has_pin"> · PIN</template>
           </div>
         </div>
         <div v-if="profile.id === currentProfileId" class="shrink-0 inline-flex items-center gap-1.5 text-[11px] text-content-tertiary">
@@ -52,10 +52,10 @@
            separates it from the list, nothing trails it. -->
       <button type="button" @click="openCreateModal" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04]">
         <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+          <svg class="h-icon-nav w-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-[13px] font-medium text-accent-hi">Create Profile</div>
+          <div class="text-[13px] font-medium text-accent-hi">Create profile</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">Start a separate library with its own markers and settings.</div>
         </div>
       </button>
@@ -120,7 +120,7 @@
       <template #header>
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <svg class="w-icon-nav h-icon-nav text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
           </div>
@@ -169,7 +169,7 @@
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <svg
-                  class="w-5 h-5"
+                  class="w-icon-nav h-icon-nav"
                   :class="pinSettingsProfile.has_pin ? 'text-accent' : 'text-content-muted'"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -185,7 +185,7 @@
               <button
                 v-if="!pinSettingsProfile.has_pin"
                 @click="showSetPinForm = true"
-                class="px-3 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm rounded-md font-medium transition-colors"
+                class="px-3 py-1.5 bg-accent hover:bg-accent/90 text-accent-on text-sm rounded-md font-medium transition-colors"
               >
                 Set PIN
               </button>
@@ -239,7 +239,7 @@
               <button
                 @click="submitSetPin"
                 :disabled="!canSetPin || savingPin"
-                class="px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded-md font-medium transition-colors"
+                class="px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-accent-on text-sm rounded-md font-medium transition-colors"
               >
                 {{ savingPin ? 'Setting...' : 'Set PIN' }}
               </button>
@@ -266,7 +266,7 @@
               placeholder="Enter new PIN"
               class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent mb-2"
             />
-            <label class="block text-xs text-content-tertiary mb-1">Confirm New PIN</label>
+            <label class="block text-xs text-content-tertiary mb-1">Confirm new PIN</label>
             <input
               v-model="confirmPin"
               type="password"
@@ -287,7 +287,7 @@
               <button
                 @click="submitChangePin"
                 :disabled="!canChangePin || savingPin"
-                class="px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded-md font-medium transition-colors"
+                class="px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-accent-on text-sm rounded-md font-medium transition-colors"
               >
                 {{ savingPin ? 'Changing...' : 'Change PIN' }}
               </button>

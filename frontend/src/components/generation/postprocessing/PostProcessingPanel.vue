@@ -1,22 +1,18 @@
 <template>
-  <div class="mb-6">
+  <div class="mb-3 coarse:mb-1">
     <!-- Panel header: label + icon strip (mirrors the LoRAs header). The
          chain enable is the mock's quiet `On ▾` value dropdown, not a switch —
          a bright toggle here outshone the whole column. -->
-    <div class="flex items-center gap-2 pb-1 mb-1.5">
-      <span class="text-xs font-semibold text-content-secondary">Post-processing</span>
-      <div class="ml-auto flex items-center gap-1.5">
-        <button
-          ref="addBtnRef"
-          @click="toggleAddMenu"
-          type="button"
-          class="w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
-          title="Add step"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-          </svg>
-        </button>
+    <ToolSectionHeader
+      ref="headerRef"
+      label="Post-processing"
+      :state="chain.steps.length ? `${chain.steps.length} ${chain.steps.length === 1 ? 'step' : 'steps'}` : 'None'"
+      addable
+      add-title="Add step"
+      :class="chain.steps.length ? 'mb-1.5' : ''"
+      @add="toggleAddMenu"
+    >
+      <template #trailing>
         <SettingsDropdown
           v-if="chain.steps.length"
           :model-value="chain.enabled ? 'on' : 'off'"
@@ -24,8 +20,8 @@
           :options="[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]"
           quiet
         />
-      </div>
-    </div>
+      </template>
+    </ToolSectionHeader>
     <AddStepMenu
       v-if="addMenuOpen"
       :anchor-rect="addMenuAnchor"
@@ -85,6 +81,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import ChainStepCard from './ChainStepCard.vue'
+import ToolSectionHeader from '../ToolSectionHeader.vue'
 import ChainStepSettings from './ChainStepSettings.vue'
 import AddStepMenu from './AddStepMenu.vue'
 import SettingsDropdown from '../../ui/SettingsDropdown.vue'
@@ -235,7 +232,8 @@ function updateStepResolutionLock(id: string, resolutionLock: ChainStepResolutio
 }
 
 const addMenuOpen = ref(false)
-const addBtnRef = ref<HTMLElement | null>(null)
+const headerRef = ref<InstanceType<typeof ToolSectionHeader> | null>(null)
+const addBtnRef = computed<HTMLElement | null>(() => headerRef.value?.addEl ?? null)
 const addMenuAnchor = ref<{ left: number; bottom: number; top: number; width: number } | null>(null)
 function toggleAddMenu() {
   if (!addMenuOpen.value && addBtnRef.value) {

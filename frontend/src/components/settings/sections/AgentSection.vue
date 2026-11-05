@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary">Agent</h3>
+      <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Agent</h3>
       <p class="mt-1 max-w-xl text-xs text-content-tertiary">
         Configure default agent behavior for all chats in this profile. Per-chat settings can override these defaults.
       </p>
@@ -39,7 +39,7 @@
 
       <!-- Default Instructions -->
       <div>
-        <h4 class="text-xs font-semibold text-content-secondary">Default Instructions</h4>
+        <h4 class="text-xs font-semibold text-content-secondary">Default instructions</h4>
         <textarea
           v-model="localInstructions"
           placeholder="Give the agent default instructions..."
@@ -71,7 +71,7 @@
 
       <!-- Tool Permissions -->
       <div v-else>
-        <h4 class="text-xs font-semibold text-content-secondary">Tool Permissions</h4>
+        <h4 class="text-xs font-semibold text-content-secondary">Tool permissions</h4>
         <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">The agent asks the first time it uses a tool. Tools you allow or block appear here.</p>
         <!-- -mx-3 cancels the rows' own px-3 so their text aligns with the
              section headings; hairlines between rows only (divide-y). -->
@@ -93,6 +93,7 @@
 </template>
 
 <script setup lang="ts">
+import { reportActionError } from '../../../composables/useToasts'
 import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
@@ -206,11 +207,13 @@ async function saveInstructions() {
   if (settings.value?.additional_instructions === localInstructions.value) return
 
   try {
+    const value = localInstructions.value
     await axios.patch(`${getApiBase()}/settings/agent`, {
-      additional_instructions: localInstructions.value,
+      additional_instructions: value,
     })
+    if (settings.value) settings.value.additional_instructions = value
   } catch (err) {
-    console.error('Failed to save instructions:', err)
+    reportActionError("Couldn't save instructions.", err)
   }
 }
 
@@ -218,11 +221,13 @@ async function saveMemory() {
   if (settings.value?.memory === localMemory.value) return
 
   try {
+    const value = localMemory.value
     await axios.patch(`${getApiBase()}/settings/agent`, {
-      memory: localMemory.value,
+      memory: value,
     })
+    if (settings.value) settings.value.memory = value
   } catch (err) {
-    console.error('Failed to save memory:', err)
+    reportActionError("Couldn't save memory.", err)
   }
 }
 
@@ -238,7 +243,7 @@ async function saveSelection(role: string, patch: Partial<RoleSelection>) {
     await axios.patch(`${getApiBase()}/settings/agent`, { models: { [role]: selection } })
     await fetchModels(null, true)
   } catch (err) {
-    console.error('Failed to save model selection:', err)
+    reportActionError("Couldn't save model.", err)
   }
 }
 
@@ -268,7 +273,7 @@ async function resetModels() {
   try {
     await axios.patch(`${getApiBase()}/settings/agent`, { models: cleared })
   } catch (err) {
-    console.error('Failed to reset models:', err)
+    reportActionError("Couldn't reset models.", err)
   }
 }
 
@@ -279,7 +284,7 @@ async function handleToolConfigUpdate(config: ToolConfig) {
       tool_config: config,
     })
   } catch (err) {
-    console.error('Failed to save tool config:', err)
+    reportActionError("Couldn't save permissions.", err)
   }
 }
 

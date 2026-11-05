@@ -1,3 +1,4 @@
+import { reportActionError } from './useToasts'
 /**
  * Background work: library processing phases (metadata, CLIP, faces,
  * captions), permanent-delete progress and system warnings, as one shared
@@ -16,9 +17,9 @@ const API_URL = import.meta.env.VITE_API_URL || ''
 
 export const PHASE_NAMES = {
   metadata: 'Reading Files',
-  clip: 'Visual Indexing',
-  face_detection: 'Face Analysis',
-  vlm_caption: 'Visual Analysis',
+  clip: 'Visual indexing',
+  face_detection: 'Face analysis',
+  vlm_caption: 'Visual analysis',
 }
 
 const stats = ref({
@@ -117,8 +118,9 @@ async function openSystemWarningAction(url) {
 }
 
 async function togglePause() {
+  const resuming = isPaused.value
   try {
-    if (isPaused.value) {
+    if (resuming) {
       await axios.post(`${API_URL}/api/processing/resume`)
       isPaused.value = false
     } else {
@@ -126,7 +128,7 @@ async function togglePause() {
       isPaused.value = true
     }
   } catch (error) {
-    console.error('Failed to toggle pause:', error)
+    reportActionError(resuming ? "Couldn't resume." : "Couldn't pause.", error)
   }
 }
 
@@ -136,7 +138,7 @@ async function triggerRescan() {
     await axios.post(`${API_URL}/api/rescan`)
     await fetchStats()
   } catch (error) {
-    console.error('Failed to trigger rescan:', error)
+    reportActionError("Couldn't rescan.", error)
   } finally {
     rescanning.value = false
   }
@@ -203,7 +205,7 @@ async function retryAll() {
     await showFailedItems(failedPhase.value)
     await fetchStats()
   } catch (error) {
-    console.error('Failed to retry items:', error)
+    reportActionError("Couldn't retry items.", error)
   } finally {
     retrying.value = false
   }
@@ -216,7 +218,7 @@ async function retryItem(itemId) {
     await showFailedItems(failedPhase.value)
     await fetchStats()
   } catch (error) {
-    console.error(`Failed to retry item ${itemId}:`, error)
+    reportActionError("Couldn't retry item.", error)
   } finally {
     retrying.value = false
   }
@@ -230,7 +232,7 @@ async function trashAll() {
     await showFailedItems(failedPhase.value)
     if (failedItems.value.length === 0) closeFailedItems()
   } catch (error) {
-    console.error('Failed to trash items:', error)
+    reportActionError("Couldn't trash items.", error)
   } finally {
     trashing.value = false
   }

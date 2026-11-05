@@ -1,13 +1,13 @@
 <template>
   <div class="relative" :style="sizeVars">
     <!-- Main Prompt Editor -->
-    <div class="relative rounded-md border border-edge-subtle focus-within:border-accent transition-colors">
+    <div class="relative rounded-md border border-transparent bg-field focus-within:border-accent transition-colors [&_.cm-editor]:!bg-transparent">
       <div ref="editorMount"></div>
 
       <!-- Bottom Action Bar (flows below textarea): a single quiet ghost row
            (DESIGN.md §3.3). Every control here is monochrome text/icons, 11px,
            no pills — the AI sparkle is the only colored glyph in the bar. -->
-      <div class="px-3 py-1.5 flex items-center justify-between bg-surface rounded-b-md border-t border-edge-subtle">
+      <div class="px-3 py-1.5 flex items-center justify-between rounded-b-md">
         <!-- Left: generate-time prompt pipeline (hidden in flow context — flows
              execute the literal prompt, so rewriting it would diverge from the
              declared input). Reads left→right: Enhance Prompt → Translate Prompt.
@@ -20,20 +20,21 @@
                appears. -->
           <button
             :disabled="llmUnconfigured"
+            :aria-pressed="!llmUnconfigured && promptOptions.autoImprove.enabled"
             @click="updatePromptOption('autoImprove', { ...promptOptions.autoImprove, enabled: !promptOptions.autoImprove.enabled })"
             :class="[
-              'flex items-center gap-1.5 text-[11px] transition-colors',
+              'flex items-center gap-1.5 text-ctl transition-colors -mx-1.5 px-1.5 py-0.5 rounded-md',
               llmUnconfigured
                 ? 'text-content-muted opacity-50 cursor-not-allowed'
                 : promptOptions.autoImprove.enabled
-                  ? 'text-accent-hi'
+                  ? 'text-content bg-overlay-subtle'
                   : 'text-content-muted hover:text-content-secondary'
             ]"
             :title="llmUnconfigured
               ? 'Requires a chat model — add one in Settings > Chat Models'
               : 'Enhance the prompt with AI when generating'"
           >
-            <WandSparklesIcon class="w-3 h-3" />
+            <WandSparklesIcon class="w-3.5 h-3.5" />
             <span>Enhance</span>
           </button>
 
@@ -46,7 +47,7 @@
               :disabled="llmUnconfigured"
               @click="toggleTranslateMenu"
               :class="[
-                'flex items-center gap-1.5 text-[11px] transition-colors',
+                'flex items-center gap-1.5 text-ctl transition-colors',
                 llmUnconfigured
                   ? 'text-content-muted opacity-50 cursor-not-allowed'
                   : translateActive
@@ -59,22 +60,22 @@
                   ? `Translating the prompt to ${activeLanguageLabel} before generating`
                   : 'Translate the prompt into another language before generating'"
             >
-              <LanguageIcon class="w-3 h-3" />
+              <LanguageIcon class="w-3.5 h-3.5" />
               <span>{{ translateActive ? activeLanguageLabel : 'Translate' }}</span>
-              <ChevronDownIcon class="w-2.5 h-2.5 opacity-70" />
+              <Caret :open="showTranslateMenu" class="opacity-70" />
             </button>
 
             <!-- Menu teleported to <body> with fixed positioning so it escapes
                  the editor's scroll/overflow clipping (which was cutting off the
-                 top "Off" row). Opens upward, anchored above the chip. -->
+                 top "Off" row). Anchored to the chip, above it when there is room. -->
             <Teleport to="body">
               <div
                 v-if="showTranslateMenu"
                 ref="translateMenuEl"
-                class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-48 max-h-80 overflow-y-auto"
-                :style="{ left: translateMenuPos.left + 'px', bottom: translateMenuPos.bottom + 'px' }"
+                class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-48 overflow-y-auto"
+                :style="translateMenuPos"
               >
-                <div class="px-3 pt-1 pb-1.5 text-xs font-semibold text-content-secondary">
+                <div class="px-3 pt-1 pb-1.5 text-ctl font-semibold text-content-secondary">
                   Translate prompt to
                 </div>
                 <button
@@ -110,43 +111,50 @@
 
         <!-- Right: Inline toggles + Help + AI Sparkle -->
         <div class="flex items-center gap-1.5 compact:hidden">
-          <!-- Vim/Reg toggle -->
-          <button
-            @click="toggleVim"
-            :class="[
-              'text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-md transition-colors',
-              'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
-            ]"
-            :title="vimEnabled ? 'Switch to regular keybindings' : 'Switch to Vim keybindings'"
-          >
-            {{ vimEnabled ? 'VIM' : 'STD' }}
-          </button>
-
-          <!-- Mono/Sans toggle -->
-          <button
-            @click="toggleMonospace"
-            :class="[
-              'text-[10px] font-medium px-1.5 py-0.5 rounded-md transition-colors',
-              'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle',
-              monospaceEnabled ? 'font-mono' : ''
-            ]"
-            :title="monospaceEnabled ? 'Switch to proportional font' : 'Switch to monospace font'"
-          >
-            {{ monospaceEnabled ? 'MONO' : 'SANS' }}
-          </button>
-
-          <!-- Help button -->
+          <!-- Editor options: keybindings, font and syntax help live behind one
+               quiet control (the labels Std / Sans / Help meant nothing on
+               their own). -->
           <div class="relative flex items-center" ref="helpPopoverContainer">
-            <button
-              @click="showHelp = !showHelp"
-              :class="[
-                'text-[10px] font-medium px-1.5 py-0.5 rounded-md transition-colors',
-                showHelp ? 'text-content hover:bg-overlay-subtle' : 'text-content-muted hover:text-content-secondary'
-              ]"
-              title="Prompt syntax help"
+            <OverflowButton
+              label="Prompt editor options"
+              :active="showEditorMenu || showHelp"
+              @click="showEditorMenu = !showEditorMenu; showHelp = false"
+            />
+            <div
+              v-if="showEditorMenu"
+              class="absolute top-full right-0 mt-1 py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-56"
+              role="menu"
             >
-              HELP
-            </button>
+              <button
+                role="menuitemcheckbox"
+                :aria-checked="vimEnabled"
+                class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle transition-colors"
+                :title="vimEnabled ? 'Switch to regular keybindings' : 'Switch to Vim keybindings'"
+                @click="toggleVim(); showEditorMenu = false"
+              >
+                <span class="flex-1 text-left">Vim keybindings</span>
+                <CheckIcon v-if="vimEnabled" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
+              </button>
+              <button
+                role="menuitemcheckbox"
+                :aria-checked="monospaceEnabled"
+                class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle transition-colors"
+                :title="monospaceEnabled ? 'Switch to proportional font' : 'Switch to monospace font'"
+                @click="toggleMonospace(); showEditorMenu = false"
+              >
+                <span class="flex-1 text-left">Monospace font</span>
+                <CheckIcon v-if="monospaceEnabled" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
+              </button>
+              <div class="my-1 border-t border-edge-subtle"></div>
+              <button
+                role="menuitem"
+                class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle transition-colors"
+                title="Prompt syntax help"
+                @click="showHelp = true; showEditorMenu = false"
+              >
+                <span class="flex-1 text-left">Prompt syntax help</span>
+              </button>
+            </div>
 
             <!-- Help popover -->
             <div
@@ -154,7 +162,7 @@
               class="absolute top-full right-0 mt-2 p-4 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-80"
             >
               <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-medium text-content-secondary">Prompt Syntax</span>
+                <span class="text-xs font-medium text-content-secondary">Prompt syntax</span>
                 <button @click="showHelp = false" class="text-content-muted hover:text-content-secondary p-0.5">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -209,7 +217,7 @@
               <div v-if="!hideAutoImprove">
                 <div class="flex items-center gap-1.5 mb-1">
                   <WandSparklesIcon class="w-3 h-3 text-accent" />
-                  <span class="text-xs font-medium text-content-secondary">Enhance Prompt</span>
+                  <span class="text-xs font-medium text-content-secondary">Enhance prompt</span>
                 </div>
                 <p class="text-xs text-content-tertiary leading-relaxed">
                   When enabled, your prompt is automatically enhanced by AI each time you generate. The original prompt is preserved in the editor &mdash; only the version sent to the generation tool is improved.
@@ -258,7 +266,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
-import { SparklesIcon, LanguageIcon, ChevronDownIcon, CheckIcon } from '@heroicons/vue/24/solid'
+import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
+import Caret from '../ui/Caret.vue'
+import OverflowButton from '../ui/OverflowButton.vue'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
@@ -317,13 +327,15 @@ const emit = defineEmits<{
   (e: 'update:promptOptions', value: PromptOptions): void
 }>()
 
-// Box height. Desktop keeps the editor's own 200–408px; phones give the
+// Box height. Desktop rests at ~5 lines and grows to 408px; phones give the
 // prompt a few lines (more on a roomy inner screen) and let it grow a little,
 // so the parameters stay in view. 21px is one 14px line at 1.5.
 const { isCompact, isRoomy } = useViewport()
 const sizeVars = computed(() => {
-  if (!isCompact.value) return undefined
-  const lines = Math.min(props.rows, isRoomy.value ? 6 : 3)
+  // Desktop rests at about five lines and grows with the text up to the
+  // editor's own cap; the controls below stay close to the placeholder.
+  if (!isCompact.value) return { '--prompt-min-h': `${Math.min(props.rows, 5) * 21 + 8}px` }
+  const lines = Math.min(props.rows, isRoomy.value ? 4 : 3)
   return {
     '--prompt-min-h': `${lines * 21 + 8}px`,
     '--prompt-max-h': isRoomy.value ? '260px' : '160px',
@@ -334,12 +346,13 @@ const sizeVars = computed(() => {
 const editorMount = ref<HTMLElement | null>(null)
 const helpPopoverContainer = ref<HTMLElement | null>(null)
 const showHelp = ref(false)
+const showEditorMenu = ref(false)
 const translateMenuContainer = ref<HTMLElement | null>(null)
 const translateButton = ref<HTMLElement | null>(null)
 const translateMenuEl = ref<HTMLElement | null>(null)
 const showTranslateMenu = ref(false)
 // Fixed coords for the teleported menu, anchored above the chip (opens upward).
-const translateMenuPos = ref({ left: 0, bottom: 0 })
+const translateMenuPos = ref<Record<string, string>>({})
 
 // No LLM configured at all (deliberate opt-out) → the generate-time pipeline
 // chips gray out and the inline chat affordance hides. A configured-but-broken
@@ -352,9 +365,16 @@ function toggleTranslateMenu() {
   if (!showTranslateMenu.value) {
     const rect = translateButton.value?.getBoundingClientRect()
     if (rect) {
+      // Opens upward unless the prompt sits too near the top of the window.
+      const roomAbove = rect.top - 14
+      const roomBelow = window.innerHeight - rect.bottom - 14
+      const up = roomAbove >= 320 || roomAbove >= roomBelow
       translateMenuPos.value = {
-        left: Math.round(rect.left),
-        bottom: Math.round(window.innerHeight - rect.top + 6),
+        left: `${Math.round(rect.left)}px`,
+        maxHeight: `${Math.min(320, up ? roomAbove : roomBelow)}px`,
+        ...(up
+          ? { bottom: `${Math.round(window.innerHeight - rect.top + 6)}px` }
+          : { top: `${Math.round(rect.bottom + 6)}px` }),
       }
     }
   }
@@ -509,8 +529,9 @@ const selfHandle: PromptEditorHandle = {
 
 // Click-outside handler for the popover menus
 function handleClickOutside(event: MouseEvent) {
-  if (showHelp.value && helpPopoverContainer.value && !helpPopoverContainer.value.contains(event.target as Node)) {
+  if ((showHelp.value || showEditorMenu.value) && helpPopoverContainer.value && !event.composedPath().includes(helpPopoverContainer.value)) {
     showHelp.value = false
+    showEditorMenu.value = false
   }
   // The menu is teleported to <body>, so check the button and the menu element
   // separately (it's no longer a DOM descendant of the chip container).

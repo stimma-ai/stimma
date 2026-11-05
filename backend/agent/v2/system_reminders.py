@@ -1,9 +1,9 @@
 """System reminder providers for the agent loop.
 
 System reminders are runtime-injected, system-authored messages that become
-model-visible conversation context. They are injected into the last user
-message (wrapped in <system-reminder> tags) rather than the system prompt,
-keeping the prompt prefix stable for caching.
+model-visible conversation context. Changed reminders are appended as new
+messages (wrapped in <system-reminder> tags), keeping earlier messages and
+cached prefixes unchanged.
 
 Each provider is a function that returns a list of reminder strings (already
 wrapped in tags). The agent loop collects reminders from all providers and

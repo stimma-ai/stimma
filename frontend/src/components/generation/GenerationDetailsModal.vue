@@ -11,7 +11,7 @@
               class="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-white"
               :class="headerIconBgClass"
             >
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+              <svg class="h-icon-nav w-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" :d="headerIconPath" />
               </svg>
             </div>
@@ -58,7 +58,7 @@
               </Tooltip>
               <Tooltip text="Close">
                 <IconButton aria-label="Close" @click="$emit('close')">
-                  <XMarkIcon class="h-5 w-5" />
+                  <XMarkIcon class="h-icon-nav w-icon-nav" />
                 </IconButton>
               </Tooltip>
             </div>
@@ -97,7 +97,7 @@
                     >
                       <div>
                         <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-overlay-subtle">
-                          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                          <svg class="h-icon-nav w-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" :d="previewPlaceholder?.iconPath || defaultPlaceholderIconPath" />
                           </svg>
                         </div>
@@ -115,7 +115,7 @@
                 <!-- Summary: micro-label + KeyValueList facts — no card, no
                      field tiles (read-only facts never look like inputs). -->
                 <div>
-                  <div class="text-xs font-semibold text-content-secondary mb-1">Summary</div>
+                  <div class="text-ctl font-semibold text-content-secondary mb-1">Summary</div>
                   <KeyValueList :rows="summaryRows" />
                 </div>
 
@@ -123,7 +123,7 @@
                      account the media details give); otherwise the call's inputs. -->
                 <slot name="details">
                 <div>
-                  <div class="text-xs font-semibold text-content-secondary mb-1">Inputs</div>
+                  <div class="text-ctl font-semibold text-content-secondary mb-1">Inputs</div>
                   <div v-if="loadingInputs" class="text-[12px] italic text-content-muted py-1.5">Loading inputs…</div>
                   <div
                     v-else-if="(prominentInputs?.length ?? 0) === 0 && (compactInputs?.length ?? 0) === 0"

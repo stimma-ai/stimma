@@ -64,7 +64,7 @@
         @click.stop
       >
         <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-medium text-content-secondary">Prompt Syntax</span>
+          <span class="text-xs font-medium text-content-secondary">Prompt syntax</span>
           <button @click="showHelp = false" class="text-content-muted hover:text-content-secondary p-0.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

@@ -25,7 +25,7 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   Squares2X2Icon,
-  ChevronUpIcon,
+  Square3Stack3DIcon,
   DocumentDuplicateIcon,
   EllipsisHorizontalIcon,
   MinusIcon,
@@ -41,6 +41,8 @@ import ToolIcon from '../imageEditor/components/ToolIcon.vue'
 import type { ActiveParam } from '../imageEditor/components/AdjustDeck.vue'
 import { addToast } from '../composables/useToasts'
 import IconButton from '../components/ui/IconButton.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import { compactIcon, compactIconButton, compactPrimaryLabel } from '../components/compact/headerStyles'
 import Tooltip from '../components/ui/Tooltip.vue'
 import ConfirmDialog from '../components/ui/ConfirmDialog.vue'
 import Spinner from '../components/ui/Spinner.vue'
@@ -1756,6 +1758,19 @@ function commitLivePan() {
 
 const viewZoomLabel = computed(() => `${Math.round(viewZoom.value * 100)}%`)
 const viewTransformStyle = computed(() => ({ transform: panTransform(viewPan.value) }))
+// Compact: the zoom read-out, Compare and Select share one quiet treatment (bare
+// secondary text on the matte, a neutral fill only when pressed or on) in two fixed
+// zones, whatever the picture's shape. Zoom, Select and Compare share one row
+// on the top edge of the stage. The viewport reserves a band above the fitted
+// artwork (see its padding) so the picture stays contained and unobscured.
+const COMPACT_CHIP_ZONE = {
+  inset: '12px', // the compact header's side padding
+  edge: '4px',
+}
+
+// Compact: Select lives in the chip row, except where that row is absent.
+const selectInChipRow = computed(() => isCompact.value && !loading.value && family.value !== 'crop')
+
 const zoomedDisplayBox = computed(() => ({
   width: Math.round(displayBox.value.width * viewZoom.value),
   height: Math.round(displayBox.value.height * viewZoom.value),
@@ -4313,14 +4328,32 @@ const sidebarWidth = ref(Number(localStorage.getItem('stimma_editor_sidebar')) |
 const propertiesHeight = ref(Number(localStorage.getItem('stimma_editor_properties')) || 0)
 const sidebarEl = ref<HTMLElement | null>(null)
 
+/** Which sidebar panel is showing. Edits owns the stack, Output owns the
+ * terminal stage, and Info reuses the library's media-information body. */
+const sidebarTab = ref<'edits' | 'output' | 'info'>('edits')
+
+/**
+ * The right-hand column is the document's history, and a fresh document has
+ * none. Until there is something to show it folds away and the picture takes
+ * the width; the Edits button in the header brings it back (and puts it away
+ * again). Once the person has chosen, their choice stands for the session.
+ * Output and Info live in the same column, so asking for either keeps it open.
+ */
+const sidebarOverride = ref<boolean | null>(null)
+const sidebarHasContent = computed(() =>
+  visibleRows.value.length > 0 || inspectorKind.value !== null || sidebarTab.value !== 'edits')
+const sidebarVisible = computed(() => sidebarOverride.value ?? sidebarHasContent.value)
+function toggleSidebar() { sidebarOverride.value = !sidebarVisible.value }
+
 /**
  * Two thirds of the sidebar by default, measured rather than guessed — a pixel
  * constant is the wrong height on every window that is not the one it was
  * picked on. Only until the user drags it, after which their number wins.
  */
-watch(sidebarEl, element => {
+watch([sidebarEl, () => sidebarVisible.value], ([element]) => {
   if (!element || propertiesHeight.value) return
-  propertiesHeight.value = Math.round(element.getBoundingClientRect().height * (2 / 3))
+  const height = element.getBoundingClientRect().height
+  if (height > 0) propertiesHeight.value = Math.round(height * (2 / 3))
 }, { flush: 'post' })
 
 /** Drag along one axis, clamped, persisted on release. */
@@ -7958,10 +7991,6 @@ async function toggleCompare() {
 const defaultUpscaleToolId = ref<string | null>(null)
 const outputPickerOpen = ref(false)
 
-/** Which sidebar panel is showing. Edits owns the stack, Output owns the
- * terminal stage, and Info reuses the library's media-information body. */
-const sidebarTab = ref<'edits' | 'output' | 'info'>('edits')
-
 async function loadEditorMediaInfo() {
   const token = ++infoLoadToken
   infoLoading.value = true
@@ -9097,44 +9126,63 @@ watch(
         class="editor-compact-header relative z-chrome pt-safe shrink-0 border-b border-edge-subtle bg-base"
         data-drawer-chrome
       >
-        <div class="flex h-[60px] items-center gap-0.5 pl-[max(8px,var(--safe-left,0px))] pr-[max(8px,var(--safe-right,0px))]">
+        <div class="flex h-header-mobile items-center gap-0.5 pl-[max(var(--page-margin),var(--safe-left,0px))] pr-[max(var(--page-margin),var(--safe-right,0px))]">
         <button
           type="button"
-          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+          :class="compactIconButton"
           aria-label="Back"
           @click="compactNav.back()"
         >
-          <ChevronLeftIcon class="w-6 h-6" />
+          <ChevronLeftIcon :class="compactIcon" />
+        </button>
+        <!-- The stack is the document's history, not a tool: it lives up here
+             with the document's other verbs, so the row below is the six
+             families and nothing else. Neutral until its sheet is open. -->
+        <button
+          type="button"
+          class="relative h-11 shrink-0 pl-2.5 pr-3 flex items-center gap-1.5 rounded-md text-[13px] font-medium border-none transition-colors"
+          :class="docSheetOpen || stackOpen ? 'bg-overlay-light text-content' : 'bg-transparent text-content-secondary'"
+          aria-label="Edits"
+          data-compact-edits
+          @click="onCompactEdits()"
+        >
+          <Square3Stack3DIcon :class="compactIcon" />
+          Edits
+          <span
+            v-if="visibleRows.length"
+            class="min-w-[16px] h-4 px-1 rounded-full bg-overlay-strong text-content text-[10px] font-mono font-semibold flex items-center justify-center"
+            aria-hidden="true"
+          >{{ visibleRows.length }}</span>
         </button>
         <div class="flex-1 min-w-0" />
         <button
           type="button"
-          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+          :class="compactIconButton"
           aria-label="Document options"
           @click="docSheetOpen = true"
         >
-          <EllipsisHorizontalIcon class="w-6 h-6" />
+          <EllipsisHorizontalIcon :class="compactIcon" />
         </button>
         <button
           type="button"
-          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent disabled:opacity-40"
+          :class="compactIconButton"
           aria-label="Undo"
           :disabled="!stack.canUndo.value"
           @click="stack.undo(); render()"
         >
-          <ArrowUturnLeftIcon class="w-5 h-5" />
+          <ArrowUturnLeftIcon :class="compactIcon" />
         </button>
         <button
           type="button"
-          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent disabled:opacity-40"
+          :class="compactIconButton"
           aria-label="Redo"
           :disabled="!stack.canRedo.value"
           @click="stack.redo(); render()"
         >
-          <ArrowUturnRightIcon class="w-5 h-5" />
+          <ArrowUturnRightIcon :class="compactIcon" />
         </button>
         <Button
-          class="ml-1 !h-11 !px-4 !text-[13px]"
+          :class="[compactPrimaryLabel, 'ml-1 !h-11 !bg-transparent hover:!bg-transparent']"
           :loading="saving"
           :disabled="saving || !composite"
           @click="save(false)"
@@ -9144,17 +9192,103 @@ watch(
         </Button>
         </div>
       </div>
-      <div v-else class="@container flex items-center gap-3 px-3 h-11 shrink-0 min-w-0 overflow-hidden border-b border-edge-subtle">
-        <h1 class="text-sm font-medium text-content shrink-0">Edit</h1>
-        <StatusDot
-          v-if="stack.dirtySinceSave.value"
-          bucket="warning"
-          class="shrink-0"
-          title="Unsaved edits"
-          aria-label="Unsaved edits"
-        />
-        <EditorToolbar :active="family" class="ml-2" @select="selectFamily" />
-      </div>
+      <PageHeader v-else tier="compact" class="@container min-w-0 overflow-x-clip">
+        <template #title>Edit</template>
+        <template #meta>
+          <StatusDot
+            v-if="stack.dirtySinceSave.value"
+            bucket="warning"
+            class="shrink-0"
+            title="Unsaved edits"
+            aria-label="Unsaved edits"
+          />
+          <EditorToolbar :active="family" class="ml-2" @select="selectFamily" />
+        </template>
+        <!-- Reopens (and puts away) the history column. It sits at the end of
+             the row, on the edge of the column it controls. Neutral until the
+             panel is open. -->
+        <template #actions>
+        <Tooltip :text="sidebarVisible ? 'Hide edits panel' : 'Show edits panel'">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+            :class="sidebarVisible ? 'bg-overlay-light text-content' : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
+            :aria-pressed="sidebarVisible"
+            aria-label="Edits panel"
+            data-testid="editor-sidebar-toggle"
+            @click="toggleSidebar"
+          >
+            <Square3Stack3DIcon class="h-icon-nav w-icon-nav" />
+            <span class="hidden @3xl:inline">Edits</span>
+            <span
+              v-if="visibleRows.length"
+              class="min-w-[15px] h-[15px] px-1 rounded-full bg-overlay-strong text-content text-[9.5px] font-mono font-semibold flex items-center justify-center"
+              aria-hidden="true"
+            >{{ visibleRows.length }}</span>
+          </button>
+        </Tooltip>
+        <!-- Save itself always commits a version. The menu exposes both save
+             destinations at equal weight; only the new-Asset section carries
+             the marker strip because those markers belong to the fork. -->
+        <div ref="saveMenuRef" class="relative flex items-stretch" data-testid="editor-save">
+          <Button
+            size="md"
+            class="rounded-r-none"
+            :loading="saving"
+            :disabled="saving || !composite"
+            @click="save(false)"
+          >
+            <i v-if="savingNote">{{ savingNote }}</i>
+            <template v-else>Save</template>
+          </Button>
+          <button
+            type="button"
+            class="h-control-main px-1.5 rounded-r-md bg-accent hover:bg-accent/90 text-accent-on
+                   border-l border-white/20 transition-colors disabled:opacity-50
+                   focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+            :disabled="saving || !composite"
+            aria-label="More save options"
+            @click="saveMenuOpen = !saveMenuOpen"
+          >
+            <ChevronDownIcon class="w-3.5 h-3.5" />
+          </button>
+
+          <!-- Opens downward from the header, under the button that opened it. -->
+          <div
+            v-if="saveMenuOpen"
+            class="absolute top-full right-0 mt-1 w-72 p-1.5 z-menu
+                   rounded-lg border border-edge-subtle bg-surface-overlay shadow-xl"
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              class="w-full !justify-start"
+              :disabled="saving"
+              @click="saveMenuOpen = false; save(false)"
+            >
+              Save a new version of this asset
+            </Button>
+            <div class="mt-1 pt-1 border-t border-edge-subtle">
+              <div v-if="availableMarkers.length" class="px-0.5 pb-1">
+                <AutoMarkPicker
+                  :markers="availableMarkers"
+                  v-model="newAssetMarkerIds"
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                class="w-full !justify-start"
+                :disabled="saving"
+                @click="saveMenuOpen = false; save(true)"
+              >
+                Save as new asset
+              </Button>
+            </div>
+          </div>
+        </div>
+        </template>
+      </PageHeader>
 
       <!-- The canvas region. relative so the sub-toolbar can FLOAT over the
            top of the matte: the viewport keeps its full height whether or not
@@ -9197,30 +9331,47 @@ watch(
         </div>
       </div>
 
-      <!-- Compact: the commit bar's zoom read-out and before/after as glass
-           chips on the matte; pinch zooms, two fingers pan. -->
-      <template v-if="isCompact && !loading && family !== 'crop'">
+      <!-- Compact: the commit bar's zoom read-out, Select and before/after as
+           quiet controls in one row on the stage's top edge; pinch zooms, two
+           fingers pan. -->
+      <!-- Hidden, not removed: Select is teleported into this row and a teleport
+           keeps pointing at the slot it first found. -->
+      <div
+        v-show="isCompact && !loading && family !== 'crop'"
+        class="absolute z-chrome flex items-center justify-between pointer-events-none"
+        :style="{ top: COMPACT_CHIP_ZONE.edge, left: COMPACT_CHIP_ZONE.inset, right: COMPACT_CHIP_ZONE.inset }"
+      >
+        <!-- The 44px target is the button; the chip inside is the glass. -->
         <button
           type="button"
-          class="absolute top-2 left-2 z-chrome min-h-11 px-3 rounded-lg bg-black/60 text-white text-[11px] font-mono tabular-nums flex items-center gap-1.5 border border-white/10 backdrop-blur"
+          class="group pointer-events-auto flex min-h-11 min-w-11 items-center justify-start focus-visible:outline-none"
           :aria-label="`Zoom ${viewZoomLabel}. Fit and recenter`"
           @click="resetView"
         >
-          <ArrowsPointingInIcon class="w-4 h-4" />
-          {{ viewZoomLabel }}
+          <span class="flex h-8 items-center gap-1.5 rounded-md px-2 font-mono text-[11px] tabular-nums text-content-secondary transition-colors duration-150 group-active:bg-overlay-subtle">
+            <ArrowsPointingInIcon class="h-icon-inline w-icon-inline" />
+            {{ viewZoomLabel }}
+          </span>
         </button>
+        <!-- Select joins the row (its pill is teleported in), so the picture
+             keeps the band the bottom edge used to take. -->
+        <div id="editor-select-slot" class="pointer-events-auto mr-auto ml-1 flex min-w-0" />
         <button
           type="button"
-          class="absolute top-2 right-2 z-chrome min-h-11 px-3 rounded-lg text-[12px] font-medium flex items-center gap-1.5 border backdrop-blur disabled:opacity-40"
-          :class="comparing ? 'bg-selection/25 text-selection border-selection/40' : 'bg-black/60 text-white border-white/10'"
+          class="group pointer-events-auto flex min-h-11 min-w-11 items-center justify-end focus-visible:outline-none disabled:opacity-40"
           :aria-pressed="comparing"
           :disabled="!composite"
           @click="toggleCompare()"
         >
-          <ViewColumnsIcon class="w-4 h-4" />
-          Compare
+          <span
+            class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium transition-colors duration-150"
+            :class="comparing ? 'bg-overlay-medium text-content' : 'text-content-secondary group-active:bg-overlay-subtle'"
+          >
+            <ViewColumnsIcon class="h-icon-inline w-icon-inline" />
+            Compare
+          </span>
         </button>
-      </template>
+      </div>
 
       <div
         v-if="scrubReadout"
@@ -9243,8 +9394,8 @@ watch(
         v-else
         ref="viewport"
         data-disable-long-press
-        class="relative flex-1 min-h-0 grid place-items-center overflow-hidden bg-matte p-6 coarse:touch-none compact:p-0"
-        :class="viewPanning ? 'cursor-grabbing' : (spacePanHeld ? 'cursor-grab' : '')"
+        class="relative flex-1 min-h-0 grid place-items-center overflow-hidden bg-matte px-6 py-16 coarse:touch-none compact:p-0"
+        :class="[viewPanning ? 'cursor-grabbing' : (spacePanHeld ? 'cursor-grab' : ''), isCompact && family !== 'crop' && 'compact:!pb-2 compact:!pt-[52px]']"
         @wheel.prevent="onViewportWheel"
         @pointerdown.capture="onViewportPointerDown"
         @pointermove.capture="onViewportPointerMove"
@@ -9256,7 +9407,7 @@ watch(
       >
         <div
           v-if="selection && family !== 'crop' && !comparing"
-          class="absolute top-2 left-1/2 -translate-x-1/2 z-chrome flex flex-col items-center gap-1"
+          class="absolute top-2 compact:top-[52px] left-1/2 -translate-x-1/2 z-chrome flex flex-col items-center gap-1"
         >
           <Button size="sm" variant="secondary"
             :aria-pressed="inspectingMask" @click="toggleMaskInspection">
@@ -9295,10 +9446,14 @@ watch(
             @commit="onCropCommit"
           />
         </div>
+        <!-- Compact: the viewport's padding is 52px above the picture and 8px
+             below, so the stage (centred on the padding box) sits (52 - 8) / 2 = 22px
+             lower to centre on the room that is left. -->
         <div
           v-else
           ref="stageTransform"
           class="absolute left-1/2 top-1/2"
+          :class="isCompact && 'compact:!top-[calc(50%+22px)]'"
           :style="[
             { width: zoomedDisplayBox.width + 'px', height: zoomedDisplayBox.height + 'px' },
             viewTransformStyle,
@@ -9475,6 +9630,7 @@ watch(
           />
         </div>
 
+        <Teleport to="#editor-select-slot" :disabled="!selectInChipRow" defer>
         <SelectIsland
           :armed="armedSelectTool"
           :last-used="lastSelectTool"
@@ -9500,9 +9656,12 @@ watch(
           :compact="isCompact"
           :panel-target="isCompact ? '#editor-deck-panel' : null"
           @done="disarmSelect"
-          :class="isCompact
-            ? ['absolute bottom-2 left-2 z-chrome', family === 'crop' && 'hidden']
-            : 'absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome'"
+          :class="selectInChipRow
+            ? ''
+            : isCompact
+              ? ['absolute z-chrome', family === 'crop' && 'hidden']
+              : 'absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome'"
+          :style="isCompact && !selectInChipRow ? { bottom: COMPACT_CHIP_ZONE.edge, left: COMPACT_CHIP_ZONE.inset } : undefined"
           @arm="armSelectTool"
           @choose="(id: SelectToolId) => armSelectTool(id, true)"
           @pointer="activatePointer"
@@ -9514,6 +9673,7 @@ watch(
           @ai-select="runAiSelect"
           @ai-cancel="cancelAiSelect"
         />
+        </Teleport>
       </div>
       </div>
     </div>
@@ -9522,7 +9682,7 @@ watch(
       <!-- Drag to widen the stack. The panels in here carry real controls, and
            how much room they deserve is the user's call, not a constant. -->
       <div
-        v-if="!isCompact"
+        v-if="!isCompact && sidebarVisible"
         class="w-1 shrink-0 cursor-col-resize bg-edge-subtle/40 hover:bg-accent/40 transition-colors"
         @pointerdown="startSidebarResize"
       />
@@ -9533,7 +9693,9 @@ watch(
       <aside
         ref="sidebarEl"
         class="shrink-0 border-l border-edge-subtle flex flex-col min-h-0 compact:hidden"
+        :class="!sidebarVisible && !isCompact && '!hidden'"
         :style="isCompact ? {} : { width: sidebarWidth + 'px' }"
+        :aria-hidden="!isCompact && !sidebarVisible ? true : undefined"
       >
         <!-- Three panels, not three lists. Edits is the stack, Output is the
              terminal stage, and Info is the shared media-information body. -->
@@ -9554,17 +9716,17 @@ watch(
             <div v-if="tab.id === 'info'" class="flex-1 compact:hidden" />
             <button
               type="button"
-              class="px-2 py-1 text-xs font-medium uppercase tracking-wide rounded-md compact:flex-1 compact:min-h-11 compact:text-[12px]
-                     transition-colors focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+              class="px-2.5 py-1 text-xs font-medium rounded-md compact:flex-1 compact:min-h-11 compact:text-[12px]
+                     transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
               :class="sidebarTab === tab.id
-                ? 'text-content bg-selection/15'
-                : 'text-content-tertiary hover:text-content-secondary'"
+                ? 'bg-surface-raised text-content'
+                : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
               @click="sidebarTab = tab.id as 'edits' | 'output' | 'info'"
             >
               {{ tab.label }}
               <span
                 v-if="tab.id === 'output' && outputLabel(outputStage)"
-                class="ml-1 text-accent normal-case tracking-normal tabular-nums"
+                class="ml-1 text-accent-hi tabular-nums"
               >{{ outputLabel(outputStage) }}</span>
             </button>
           </template>
@@ -9572,7 +9734,7 @@ watch(
         </div>
         <div
           v-else
-          class="flex rounded-md bg-overlay-subtle p-0.5 mb-2"
+          class="flex gap-0.5 rounded-md bg-overlay-faint p-0.5 mb-2"
           role="tablist"
           aria-label="Document panels"
         >
@@ -9585,15 +9747,15 @@ watch(
             :key="tab.id"
             type="button"
             role="tab"
-            class="flex-1 min-h-11 rounded text-[13px] font-medium transition-colors"
-            :class="sidebarTab === tab.id ? 'bg-surface-raised text-content shadow-sm' : 'text-content-secondary'"
+            class="flex-1 min-h-11 rounded text-[13px] font-medium transition-colors duration-150"
+            :class="sidebarTab === tab.id ? 'bg-surface-raised text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
             :aria-selected="sidebarTab === tab.id"
             @click="sidebarTab = tab.id as 'edits' | 'output' | 'info'"
           >
             {{ tab.label }}
             <span
               v-if="tab.id === 'output' && outputLabel(outputStage)"
-              class="ml-1 text-[11px] text-accent tabular-nums"
+              class="ml-1 text-[11px] font-mono text-content-tertiary tabular-nums"
             >{{ outputLabel(outputStage) }}</span>
           </button>
         </div>
@@ -9737,7 +9899,7 @@ watch(
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
                    border-b border-edge-strong compact:hidden"
           >
-            <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
+            <h2 class="text-xs font-semibold text-content-secondary">
               Properties
             </h2>
           </div>
@@ -9762,7 +9924,7 @@ watch(
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
                    border-b border-edge-strong compact:hidden"
           >
-            <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
+            <h2 class="text-xs font-semibold text-content-secondary">
               Properties
             </h2>
           </div>
@@ -9801,7 +9963,7 @@ watch(
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
                    border-b border-edge-strong compact:hidden"
           >
-            <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
+            <h2 class="text-xs font-semibold text-content-secondary">
               Properties
             </h2>
           </div>
@@ -9837,7 +9999,7 @@ watch(
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
                    border-b border-edge-strong compact:hidden"
           >
-            <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
+            <h2 class="text-xs font-semibold text-content-secondary">
               Properties
             </h2>
           </div>
@@ -9982,7 +10144,7 @@ watch(
               />
               <div v-else-if="family === 'levels' && compactLevelsMode === 'auto'" class="py-1">
                 <div class="flex gap-1 overflow-x-auto -mx-3 px-3 [scrollbar-width:none]">
-                  <Button size="sm" variant="ghost" @click="onSubbarSet({ auto: 'all' })">Auto All</Button>
+                  <Button size="sm" variant="ghost" @click="onSubbarSet({ auto: 'all' })">Auto all</Button>
                   <span role="separator" class="w-px shrink-0 bg-edge-subtle mx-1" />
                   <button
                     v-for="auto in AUTO_EDITS"
@@ -10064,12 +10226,10 @@ watch(
             :sub="sub"
             :state="subbarState"
             :armed="armedSelectTool"
-            :count="visibleRows.length"
             :active-level="activeLevelSection"
             :looks="family === 'levels' && compactLevelsMode === 'looks'"
             :auto="family === 'levels' && compactLevelsMode === 'auto'"
             @family="onCompactFamily"
-            @edits="onCompactEdits"
             @back="onCompactBack"
             @sub="onCompactSub"
             @set="onSubbarSet"
@@ -10083,7 +10243,7 @@ watch(
            IS (which version, whether it has uncommitted work), right is what
            you can do to it. One meaning per control: the chip reports, Revert
            discards, Save commits. -->
-    <footer v-if="!isCompact" class="flex items-center gap-2 px-3 h-11 shrink-0 border-t border-edge-subtle">
+    <footer v-if="!isCompact" class="flex items-center gap-2 px-page h-11 shrink-0 border-t border-edge-subtle">
       <Tooltip text="Undo">
         <IconButton :disabled="!stack.canUndo.value" @click="stack.undo(); render()">
           <ArrowUturnLeftIcon class="w-4 h-4" />
@@ -10140,8 +10300,8 @@ watch(
 
       <div class="flex-1" />
 
-      <!-- A mode toggle, not an action: lit with the selected-state indigo so
-           its on-state reads like the app's other toggles. -->
+      <!-- A mode toggle, not an action: the neutral fill one step up when on,
+           like the app's other toggles. -->
       <button
         type="button"
         :disabled="!composite"
@@ -10150,7 +10310,7 @@ watch(
                transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2
                ring-accent/60 ring-offset-1 ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed"
         :class="comparing
-          ? 'bg-selection/15 text-selection'
+          ? 'bg-surface-hover text-content'
           : 'bg-surface-raised hover:bg-surface-hover text-content'"
         @click="toggleCompare()"
       >
@@ -10169,67 +10329,6 @@ watch(
           Revert
         </Button>
       </Tooltip>
-
-      <!-- Save itself always commits a version. The menu exposes both save
-           destinations at equal weight; only the new-Asset section carries
-           the marker strip because those markers belong to the fork. -->
-      <div ref="saveMenuRef" class="relative flex items-stretch">
-        <Button
-          size="sm"
-          class="rounded-r-none"
-          :loading="saving"
-          :disabled="saving || !composite"
-          @click="save(false)"
-        >
-          <i v-if="savingNote">{{ savingNote }}</i>
-          <template v-else>Save</template>
-        </Button>
-        <button
-          type="button"
-          class="px-1.5 rounded-r-md bg-accent hover:bg-accent/90 text-white
-                 border-l border-white/20 transition-colors disabled:opacity-50
-                 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
-          :disabled="saving || !composite"
-          aria-label="More save options"
-          @click="saveMenuOpen = !saveMenuOpen"
-        >
-          <ChevronUpIcon class="w-3.5 h-3.5" />
-        </button>
-
-        <!-- Opens upward: the bar is the last row of the window. -->
-        <div
-          v-if="saveMenuOpen"
-          class="absolute bottom-full right-0 mb-1 w-72 p-1.5 z-menu
-                 rounded-lg border border-edge-subtle bg-surface-overlay shadow-xl"
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            class="w-full !justify-start"
-            :disabled="saving"
-            @click="saveMenuOpen = false; save(false)"
-          >
-            Save a new version of this asset
-          </Button>
-          <div class="mt-1 pt-1 border-t border-edge-subtle">
-            <div v-if="availableMarkers.length" class="px-0.5 pb-1">
-              <AutoMarkPicker
-                :markers="availableMarkers"
-                v-model="newAssetMarkerIds"
-              />
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              class="w-full !justify-start"
-              :disabled="saving"
-              @click="saveMenuOpen = false; save(true)"
-            >
-              Save as new asset
-            </Button>
-          </div>
-        </div>
-      </div>
     </footer>
 
     <!-- Compact: the document menu, anchored under the header title. Compare,

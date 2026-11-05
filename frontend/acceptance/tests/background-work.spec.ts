@@ -31,8 +31,8 @@ for (const enabled of [false, true]) {
     }
     await expect(indicator).toBeVisible();
     await indicator.click();
-    await expect(page.getByText('Visual Indexing', { exact: true })).toBeVisible();
-    await expect(page.getByText('Face Analysis', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Visual Analysis', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Visual indexing', { exact: true })).toBeVisible();
+    await expect(page.getByText('Face analysis', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Visual analysis', { exact: true })).toHaveCount(0);
   });
 }

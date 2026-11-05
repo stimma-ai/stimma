@@ -1,7 +1,23 @@
 <template>
-  <div class="relative grid grid-cols-[minmax(max-content,1fr)_minmax(0,420px)_minmax(max-content,1fr)] items-center gap-3 px-4 h-14 bg-surface border-b border-edge-subtle flex-shrink-0" data-window-drag-region>
+  <div class="relative grid grid-cols-[minmax(max-content,1fr)_minmax(0,420px)_minmax(max-content,1fr)] items-center gap-3 px-4 h-14 bg-surface border-b border-edge-subtle flex-shrink-0" :class="clearWindowControls ? 'pl-20' : ''" data-window-drag-region>
     <!-- Left side: navigation buttons -->
     <div class="flex items-center gap-0.5">
+      <!-- Focus screens (slideshow, image editor) fold the sidebar away; this brings it back.
+           With the sidebar gone in the desktop app the row starts clear of the window controls. -->
+      <Tooltip v-if="sidebarToggle" :text="sidebarShown ? 'Hide sidebar' : 'Show sidebar'">
+        <IconButton
+          :aria-label="sidebarShown ? 'Hide sidebar' : 'Show sidebar'"
+          :active="sidebarShown"
+          toggle
+          class="mr-1"
+          @click="onSidebarToggle"
+        >
+          <svg class="h-icon-nav w-icon-nav" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2.5" y="4" width="15" height="12" rx="2" />
+            <path d="M7.5 4v12" />
+          </svg>
+        </IconButton>
+      </Tooltip>
       <button
         class="w-7 h-7 flex items-center justify-center rounded transition-colors"
         :class="canGoBack ? 'text-content-secondary hover:bg-overlay-subtle hover:text-content cursor-pointer' : 'text-content-muted/30 cursor-default'"
@@ -157,7 +173,7 @@
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
                 </svg>
-                <span>Manage Profiles</span>
+                <span>Manage profiles</span>
               </button>
             </div>
           </div>
@@ -191,6 +207,8 @@ import WhatsNewModal from './WhatsNewModal.vue'
 import GlobalSearchBox from './search/GlobalSearchBox.vue'
 import ProviderManagerButton from './ProviderManagerButton.vue'
 import Spinner from './ui/Spinner.vue'
+import Tooltip from './ui/Tooltip.vue'
+import IconButton from './ui/IconButton.vue'
 import BackgroundWorkIndicator from './BackgroundWorkIndicator.vue'
 import BackgroundWorkPanel from './BackgroundWorkPanel.vue'
 import { useBackgroundWork } from '../composables/useBackgroundWork'
@@ -198,7 +216,18 @@ import { useBackgroundWork } from '../composables/useBackgroundWork'
 const router = useRouter()
 const route = useRoute()
 
-const emit = defineEmits(['open-settings'])
+defineProps({
+  sidebarToggle: { type: Boolean, default: false },
+  sidebarShown: { type: Boolean, default: true },
+  clearWindowControls: { type: Boolean, default: false },
+})
+const emit = defineEmits(['open-settings', 'toggle-sidebar'])
+
+// The button must not keep focus: Space and Enter belong to the slideshow and editor shortcuts.
+function onSidebarToggle(event) {
+  emit('toggle-sidebar')
+  event.currentTarget?.blur?.()
+}
 
 // Navigation history tracking
 const navHistory = ref([])

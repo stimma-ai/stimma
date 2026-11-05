@@ -22,7 +22,7 @@
          account the media details and the Info panel give for that image. -->
     <template v-if="provenance" #details>
       <div>
-        <div class="text-xs font-semibold text-content-secondary mb-3">How it was made</div>
+        <div class="text-ctl font-semibold text-content-secondary mb-3">How it was made</div>
         <ProvenanceAppHost @navigate="openMedia">
           <ProvenanceSteps :steps="provenance.steps" />
         </ProvenanceAppHost>

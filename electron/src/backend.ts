@@ -9,7 +9,8 @@
 import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import readline from 'node:readline'
+import { observeBackendOutput } from './backendOutput.ts'
+export { parseBackendPort } from './backendOutput.ts'
 import type { AppIdentity } from './identity'
 import { log } from './log'
 import { setLocalBackendPort } from './devices'
@@ -17,6 +18,7 @@ import { preparePythonRuntime } from './pythonRuntime'
 
 let backendPort: number | null = null
 let watchdogPid: number | null = null
+let saveBackendDiagnostics: (() => void) | null = null
 
 /**
  * Record the backend port and hand it to the device manager, which decides
@@ -39,17 +41,8 @@ export async function waitForBackendPort(): Promise<number> {
     if (i % 20 === 0) log.info('backend', `Waiting for port... attempt ${i}/300`)
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
+  saveBackendDiagnostics?.()
   throw new Error('Backend port not available after timeout')
-}
-
-export function parseBackendPort(line: string): number | null {
-  const idx = line.indexOf('STIMMA_BACKEND_PORT=')
-  if (idx === -1) return null
-  const after = line.slice(idx + 'STIMMA_BACKEND_PORT='.length)
-  const match = after.match(/^\d+/)
-  if (!match) return null
-  const port = Number.parseInt(match[0], 10)
-  return Number.isInteger(port) && port > 0 && port < 65536 ? port : null
 }
 
 /**
@@ -116,19 +109,14 @@ export async function startBackend(identity: AppIdentity, appVersion: string): P
   log.info('stimma', `Watchdog spawned with pid: ${child.pid}`)
   watchdogPid = child.pid ?? null
 
-  const attach = (stream: NodeJS.ReadableStream, level: 'info' | 'warn') => {
-    const rl = readline.createInterface({ input: stream })
-    rl.on('line', (line) => {
-      const port = parseBackendPort(line)
-      if (port !== null) {
-        log.info('backend', `Detected port: ${port}`)
-        setBackendPort(port)
-      }
-      log[level]('backend', line)
-    })
-  }
-  attach(child.stdout!, 'info')
-  attach(child.stderr!, 'warn')
+  saveBackendDiagnostics = observeBackendOutput(child, {
+    port: (port) => {
+      log.info('backend', `Detected port: ${port}`)
+      setBackendPort(port)
+    },
+    output: (chunk, stderr) => { (stderr ? process.stderr : process.stdout).write(chunk) },
+    diagnostic: (text) => log.error('backend', text),
+  })
 
   child.on('exit', (code, signal) => {
     if (watchdogPid === child.pid) watchdogPid = null

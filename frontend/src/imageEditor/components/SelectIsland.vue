@@ -34,6 +34,10 @@ import type { DeckParam } from './ParamDeck.vue'
 import { DEFAULT_LINEAR_SOFTNESS, DEFAULT_RADIAL_FEATHER } from '../stack/regionMask'
 import { SELECT_TOOLS, SELECT_TOOL_GROUPS, SELECTION_MODES } from '../stack/toolFamilies'
 import type { SelectToolId, SelectionMode } from '../stack/toolFamilies'
+
+// The resting pill says Select with the selection mark (a dashed marquee), not
+// whichever tool was used last: the lasso's rope loop reads as a speech bubble.
+const SELECT_MARK = 'squareDashed'
 import {
   FEATHER_SLIDER_MAX,
   featherPxFromSlider,
@@ -244,6 +248,8 @@ onBeforeUnmount(() => {
 /** Combine describes how the next gesture meets the visible selection, so its
  * state remains visible/editable after a one-shot workflow disarms the tool. */
 const combineEnabled = computed(() => props.armed !== null || props.hasSelection)
+/** The island opens once there is something to name: an armed tool or a selection. */
+const expanded = computed(() => props.armed !== null || props.hasSelection)
 
 /**
  * The armed tool's parameters, in bar order. Feather is selection-edge state
@@ -406,31 +412,39 @@ function buttonClass(active: boolean, enabled = true) {
          selection it names it and carries Deselect; armed it names the tool
          in the selection color and hands the pointer back on tap. -->
     <div class="flex items-center gap-1.5">
+      <!-- The 44px target is the button; the chip inside is the quiet matte control. Selection
+           state alone wears the selection colour; viewing chips stay neutral. -->
       <button
         type="button"
-        class="min-h-11 pl-2.5 pr-3 rounded-lg backdrop-blur border text-[12.5px] font-medium flex items-center gap-1.5"
-        :class="armed
-          ? 'bg-selection/30 text-white border-selection/50'
-          : hasSelection ? 'bg-black/60 text-selection border-selection/40' : 'bg-black/60 text-white border-white/10'"
+        class="group flex min-h-11 min-w-11 items-center justify-start focus-visible:outline-none"
         :aria-label="armed ? `${armedTool?.label} armed. Done` : hasSelection ? 'Edit selection' : 'Select'"
         :aria-pressed="!!armed"
         data-select-pill
         @click="armed ? emit('done') : emit('choose', lastUsed ?? 'lasso')"
       >
-        <ToolIcon
-          :name="armed ? armedTool!.icon : (hasSelection && lastUsed ? toolById[lastUsed].icon : 'lasso')"
-          :size="16"
-        />
-        {{ armed ? armedTool?.label : hasSelection ? 'Selection' : 'Select' }}
+        <span
+          class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12.5px] font-medium transition-colors duration-150"
+          :class="armed
+            ? 'bg-selection text-white'
+            : hasSelection ? 'text-content ring-1 ring-selection' : 'text-content-secondary group-active:bg-overlay-subtle'"
+        >
+          <ToolIcon
+            :name="armed ? armedTool!.icon : (hasSelection && lastUsed ? toolById[lastUsed].icon : SELECT_MARK)"
+            :size="16"
+          />
+          {{ armed ? armedTool?.label : hasSelection ? 'Selection' : 'Select' }}
+        </span>
       </button>
       <button
         v-if="hasSelection && !armed"
         type="button"
-        class="min-h-11 min-w-11 rounded-lg bg-black/60 backdrop-blur border border-white/10 text-white flex items-center justify-center"
+        class="group flex min-h-11 min-w-11 items-center justify-center focus-visible:outline-none"
         aria-label="Deselect"
         @click="emit('clear')"
       >
-        <XMarkIcon class="w-4 h-4" />
+        <span class="flex h-8 w-8 items-center justify-center rounded-md text-content-secondary transition-colors duration-150 group-active:bg-overlay-subtle">
+          <XMarkIcon class="h-icon-inline w-icon-inline" />
+        </span>
       </button>
     </div>
 
@@ -487,7 +501,7 @@ function buttonClass(active: boolean, enabled = true) {
               v-if="aiPrompt.trim()"
               type="button"
               class="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md
-                     flex items-center justify-center bg-accent text-white"
+                     flex items-center justify-center bg-accent text-accent-on"
               aria-label="Find"
               :disabled="aiBusy"
               @click="submitAiPrompt"
@@ -594,7 +608,7 @@ function buttonClass(active: boolean, enabled = true) {
                 v-if="aiPrompt.trim()"
                 type="button"
                 class="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md
-                       flex items-center justify-center bg-accent text-white transition-colors
+                       flex items-center justify-center bg-accent text-accent-on transition-colors
                        hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
                 aria-label="Find"
                 title="Find (Enter)"
@@ -680,11 +694,6 @@ function buttonClass(active: boolean, enabled = true) {
       </template>
 
       <div v-else class="flex items-center gap-3">
-        <span class="flex items-center gap-1.5 text-xs font-medium text-content-secondary">
-          <ToolIcon v-if="armedTool" :name="armedTool.icon" />
-          {{ armedTool?.label }}
-        </span>
-        <span class="w-px h-5 bg-edge-subtle" />
         <label
           v-for="slider in panelSliders"
           :key="slider.label"
@@ -702,7 +711,7 @@ function buttonClass(active: boolean, enabled = true) {
             @pointercancel="finishSliderAdjustment(slider)"
             @blur="finishSliderAdjustment(slider)"
           />
-          <span class="tabular-nums w-10 text-content-secondary">{{ slider.readout }}{{ slider.unit }}</span>
+          <span class="font-mono tabular-nums w-10 text-content-secondary">{{ slider.readout }}{{ slider.unit }}</span>
         </label>
         <label
           v-if="armed === 'wand'"
@@ -720,10 +729,36 @@ function buttonClass(active: boolean, enabled = true) {
     </div>
   </Transition>
 
+  <!-- Resting: one compact control, as on the phone. Nothing is armed and
+       nothing is selected, so the six tools, the combine modes and the
+       actions have nothing to say yet. One press arms the last tool and
+       opens the island. -->
+  <Tooltip v-if="!expanded" :text="`Select — ${toolById[lastUsed ?? 'lasso'].label}`">
+    <button
+      type="button"
+      class="flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 w-max rounded-lg border border-edge-subtle bg-surface
+             text-xs font-medium text-content-secondary transition-colors hover:text-content
+             hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+      aria-label="Select"
+      data-select-pill
+      @click="emit('choose', lastUsed ?? 'lasso')"
+    >
+      <ToolIcon :name="SELECT_MARK" />
+      Select
+    </button>
+  </Tooltip>
+
   <div
-    class="flex items-center gap-1 px-2.5 py-1.5 w-max
+    v-else
+    class="flex items-center gap-3 px-2 py-1.5 w-max
            bg-surface border border-edge-subtle rounded-lg shadow-lg"
   >
+    <!-- Three groups, left to right: WHICH tool, HOW its result combines
+         with what is already selected, and what to DO with the selection.
+         The armed tool and the active combine mode say their names, so the
+         glyphs never have to be decoded. The actions appear once there is a
+         selection to act on. -->
+    <span class="flex items-center gap-1" role="group" aria-label="Selection tools">
     <!-- The pointer: grab and edit the things on the canvas (annotations).
          Users think "select" is one idea whether the thing is pixels or an
          object, so it lives here with the region tools rather than inside
@@ -740,7 +775,6 @@ function buttonClass(active: boolean, enabled = true) {
         <ToolIcon name="mousePointer" />
       </button>
     </Tooltip>
-    <span class="w-px h-5 bg-edge-subtle mx-1" />
 
     <span
       v-for="group in SELECT_TOOL_GROUPS"
@@ -813,15 +847,29 @@ function buttonClass(active: boolean, enabled = true) {
       </template>
     </span>
 
-    <span class="w-px h-5 bg-edge-subtle mx-1" />
+    <span
+      v-if="armedTool"
+      class="w-[5.5rem] pl-1 pr-1.5 text-xs font-medium text-selection whitespace-nowrap truncate"
+      data-select-armed-label
+    >{{ armedTool.label }}</span>
+    <span
+      v-else
+      class="w-[5.5rem] pl-1 pr-1.5 text-xs text-content-tertiary whitespace-nowrap truncate select-none"
+      data-select-idle-label
+    >{{ pointerActive ? 'Objects' : 'Pick a tool' }}</span>
+    </span>
+
+    <span class="w-px self-stretch bg-edge-subtle" />
 
     <!-- Held modifiers preview the NEXT gesture's mode without moving the
          persistent control: the overridden option lights up while the sticky
          choice stays where the person put it. -->
+    <span class="flex items-center gap-1" role="group" aria-label="Combine mode">
+    <span class="flex items-center gap-0.5 p-0.5 rounded-md bg-overlay-faint">
     <Tooltip v-for="option in SELECTION_MODES" :key="option.id" :text="option.label">
       <button
         type="button"
-        class="p-1.5 rounded-md transition-colors"
+        class="p-1 rounded transition-colors"
         :class="buttonClass((combineOverride ?? combine) === option.id, combineEnabled)"
         :aria-label="option.label"
         :aria-pressed="combine === option.id"
@@ -831,10 +879,19 @@ function buttonClass(active: boolean, enabled = true) {
         <ToolIcon :name="option.icon" />
       </button>
     </Tooltip>
+    </span>
+    <span
+      class="w-[4.25rem] pl-0.5 text-xs whitespace-nowrap"
+      :class="combineEnabled ? 'text-content-secondary' : 'text-content-tertiary/50'"
+      data-select-combine-label
+    >{{ SELECTION_MODES.find(option => option.id === (combineOverride ?? combine))?.label }}</span>
+    </span>
 
-    <span class="w-px h-5 bg-edge-subtle mx-1" />
+    <template v-if="hasSelection">
+    <span class="w-px self-stretch bg-edge-subtle" />
 
-    <span v-if="hasSelection" class="flex items-center gap-1.5">
+    <span class="flex items-center gap-1" role="group" aria-label="Selection actions">
+    <span class="flex items-center gap-1.5">
       <Tooltip :text="`Contract selection by ${edgeAmount} pixels`">
         <button
           type="button"
@@ -872,13 +929,10 @@ function buttonClass(active: boolean, enabled = true) {
       </label>
     </span>
 
-    <span v-if="hasSelection" class="w-px h-5 bg-edge-subtle mx-1" />
-
     <button
       type="button"
       class="px-2.5 py-1.5 text-xs rounded-md whitespace-nowrap"
-      :class="buttonClass(false, hasSelection)"
-      :disabled="!hasSelection"
+      :class="buttonClass(false)"
       @click="emit('invert')"
     >
       Invert
@@ -886,12 +940,13 @@ function buttonClass(active: boolean, enabled = true) {
     <button
       type="button"
       class="px-2.5 py-1.5 text-xs rounded-md whitespace-nowrap"
-      :class="buttonClass(false, hasSelection)"
-      :disabled="!hasSelection"
+      :class="buttonClass(false)"
       @click="emit('clear')"
     >
       Deselect
     </button>
+    </span>
+    </template>
   </div>
   </template>
   </div>

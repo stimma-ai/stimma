@@ -23,7 +23,7 @@
       <template #header>
         <div class="flex items-center gap-3">
           <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent/15 border border-accent/50">
-            <BoltIcon class="h-5 w-5 text-accent" />
+            <BoltIcon class="h-icon-nav w-icon-nav text-accent" />
           </div>
           <div class="min-w-0">
             <h2 class="text-lg font-semibold text-content">You can skip the code</h2>
@@ -46,15 +46,15 @@
       </template>
     </Modal>
 
-    <!-- Control strip -->
-    <div class="relative flex items-center px-4 py-2 border-b border-edge-subtle flex-shrink-0 gap-3 compact:flex-wrap compact:px-3">
-      <!-- Left: name + meta -->
-      <div class="flex items-center gap-3 min-w-0 flex-shrink compact:hidden">
+    <!-- Control strip: the compact-tier page header. Name, then status and the run
+         controls as its meta, then the workspace actions, then the overflow menu. -->
+    <PageHeader tier="compact" class="relative compact:[&_h1]:hidden compact:h-auto compact:min-h-12 compact:gap-1 compact:bg-surface compact:px-page compact:py-0">
+      <template #title>
         <template v-if="editingName">
           <input
             ref="nameInputEl"
             v-model="editingNameValue"
-            class="bg-base border border-edge rounded-md px-2 py-1 text-sm font-medium text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40 min-w-0 max-w-xs"
+            class="min-w-0 max-w-xs rounded-md border border-transparent bg-overlay-subtle px-2 py-1 font-brand text-[18px] leading-6 font-semibold text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
             @blur="saveName"
             @keydown.enter.prevent="saveName"
             @keydown.esc.prevent="cancelEditName"
@@ -63,7 +63,7 @@
         <template v-else>
           <button
             v-if="flow?.name"
-            class="text-sm font-semibold text-content hover:text-accent transition-colors truncate max-w-[200px]"
+            class="max-w-[280px] truncate text-left transition-colors hover:text-content-secondary"
             @click="!isCompact && startEditName()"
             :title="flow.name"
           >
@@ -71,13 +71,16 @@
           </button>
           <button
             v-else
-            class="text-sm font-semibold italic text-content-muted hover:text-content-secondary transition-colors truncate max-w-[200px]"
+            class="max-w-[280px] truncate text-left text-content-muted transition-colors hover:text-content-secondary"
             @click="!isCompact && startEditName()"
           >
             Name this flow...
           </button>
         </template>
 
+      </template>
+
+      <template #meta>
         <span v-if="parentName" class="text-[11px] text-content-muted flex-shrink-0">
           Copy of
           <button class="text-accent hover:underline" @click="openParent">{{ parentName }}</button>
@@ -90,8 +93,8 @@
             :title="copies.length === 1 ? '1 copy of this flow' : `${copies.length} copies of this flow`"
           >
             <span>{{ copies.length }} {{ copies.length === 1 ? 'copy' : 'copies' }}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 opacity-70">
-              <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-icon-inline h-icon-inline opacity-70">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
             </svg>
           </button>
 
@@ -113,71 +116,74 @@
             </button>
           </div>
         </div>
-      </div>
-
-      <!-- Center: status + execution controls -->
-      <div class="flex flex-1 min-w-0 items-center justify-center gap-2 text-xs">
+        <!-- Status + execution controls -->
         <FlowStatusPill
           :flow-id="flowId"
           show-pending
-          text-class="text-xs text-content-secondary"
+          :text-class="flowStatusLabel === 'Done' ? 'text-xs text-content-tertiary' : 'text-xs text-content-secondary'"
           class="flex-shrink-0"
         />
+        <!-- Start and Resume are the one accent action while they apply. Pause is
+             a quiet ghost that stays visible for as long as the flow runs. -->
         <button
           v-if="showStartButton"
-          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
+          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-accent/15 text-accent hover:bg-accent/25 transition-colors"
           title="Start"
+          aria-label="Start"
           @click="doPlay"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-icon-nav h-icon-nav">
             <path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" />
           </svg>
         </button>
         <button
           v-if="showPauseButton"
-          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
+          class="flex h-8 w-8 items-center justify-center rounded-md text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:w-11 compact:h-11"
           title="Pause"
+          aria-label="Pause"
           @click="doPause"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-icon-nav h-icon-nav">
             <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
           </svg>
         </button>
         <button
           v-if="showResumeButton"
-          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition-colors"
+          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-accent/15 text-accent hover:bg-accent/25 transition-colors"
           title="Resume"
+          aria-label="Resume"
           @click="doPlay"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-icon-nav h-icon-nav">
             <path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" />
           </svg>
         </button>
-      </div>
+      </template>
 
-      <!-- Right: chat toggle + more menu -->
-      <div class="flex items-center gap-1.5 flex-shrink-0 justify-end">
+      <template #actions>
         <!-- Save Custom Tool. With no backing tool it freezes a new one. Once this
              flow backs a tool, a caret opens a terse menu (Update <tool> / Save as
              New). A dot — on the button and on each drifted row — marks unsaved
              changes vs the saved tool. -->
-        <div class="relative" ref="linkMenuRef">
+        <div v-if="!isPhone" class="relative" ref="linkMenuRef">
           <button
-            class="relative flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs font-medium border bg-overlay-subtle text-content border-edge hover:bg-overlay-hover transition-colors"
+            class="relative flex items-center justify-center gap-1.5 px-2 h-8 compact:h-11 compact:min-w-11 rounded-md text-xs font-medium text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors"
             :title="backingTools.length === 0 ? 'Freeze this flow into a custom tool' : 'Save / update custom tool'"
+            aria-label="Save custom tool"
             @click.stop="backingTools.length === 0 ? openFreezeDialog() : toggleLinkMenu()"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
               <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437" />
             </svg>
-            Save Custom Tool
-            <svg v-if="backingTools.length > 0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 opacity-70 -mr-0.5">
-              <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+            <span class="compact:hidden">Save custom tool</span>
+            <span class="hidden compact:inline">Save tool</span>
+            <svg v-if="backingTools.length > 0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-icon-inline h-icon-inline opacity-70 -mr-0.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
             </svg>
             <!-- Top-level unsaved-changes dot. -->
             <span
               v-if="anyStale"
-              class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent ring-2 ring-surface"
+              class="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-accent ring-2 ring-base"
               title="This flow has unsaved changes vs its custom tool"
             ></span>
           </button>
@@ -218,22 +224,45 @@
 
         <!-- Chat menu: new session, switch session, show/hide panel -->
         <div class="relative" ref="chatMenuContainerRef">
-          <button
-            class="flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs font-medium border transition-colors"
-            :class="chatPanelOpen
-              ? 'bg-accent/15 text-accent border-accent/50 hover:bg-accent/25'
-              : 'bg-overlay-subtle text-content border-edge hover:bg-overlay-hover'"
-            title="Chat options"
-            @click="toggleChatMenu"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
-            </svg>
-            Chat
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 opacity-70">
-              <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
-            </svg>
-          </button>
+          <!-- Wide screens show the flow and the chat side by side, so the chat
+               is a panel toggle. Compact shows one at a time, so it keeps the
+               Flow/Chat switch. The sessions chevron is its own bare button. -->
+          <div class="flex items-center gap-1">
+            <IconButton
+              v-if="!isCompact"
+              size="lg"
+              toggle
+              :active="chatPanelOpen"
+              :title="chatPanelOpen ? 'Hide chat panel' : 'Show chat panel'"
+              aria-label="Chat panel"
+              data-testid="flow-chat-toggle"
+              @click="chatPanelOpen = !chatPanelOpen"
+            >
+              <AgentIcon class="h-icon-nav w-icon-nav" />
+            </IconButton>
+            <SegmentedControl
+              v-else
+              :model-value="chatPanelOpen ? 'chat' : 'flow'"
+              :options="WORKSPACE_MODES"
+              aria-label="Workspace"
+              class="coarse:[&_button]:min-h-11 coarse:[&_button]:px-3.5"
+              @update:model-value="chatPanelOpen = $event === 'chat'"
+            />
+            <button
+              type="button"
+              class="w-7 h-7 compact:w-9 compact:h-11 coarse:w-9 coarse:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+              :class="showChatMenu ? 'bg-overlay-subtle text-content-secondary' : ''"
+              title="Chat sessions"
+              aria-label="Chat sessions"
+              aria-haspopup="menu"
+              :aria-expanded="showChatMenu"
+              @click="toggleChatMenu"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-icon-inline h-icon-inline opacity-70">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+          </div>
 
           <div
             v-if="showChatMenu"
@@ -299,22 +328,17 @@
           </div>
         </div>
 
-        <!-- 3-dot Menu -->
+      </template>
+
+      <template #menu>
+        <!-- Overflow menu -->
         <div class="relative compact:hidden" ref="menuContainerRef">
-          <button
-            @click="toggleMenu"
-            class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
-            title="More options"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-            </svg>
-          </button>
+          <OverflowButton size="lg" @click="toggleMenu" />
 
           <!-- Dropdown menu -->
           <div
             v-if="showMenu"
-            class="absolute right-0 mt-1 w-44 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
+            class="absolute right-0 mt-1 w-48 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
           >
             <button
               @click="doCopy"
@@ -338,6 +362,45 @@
             </button>
             <div class="border-t border-edge my-1"></div>
             <button
+              v-if="hasInputFields"
+              @click="resetInputsToDefaults"
+              class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-1.636 14.288A9 9 0 1 1 21 12.75v-3" />
+              </svg>
+              Reset inputs
+            </button>
+            <button
+              v-if="isDev"
+              @click="handleShowCodeIntroModal"
+              class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2"
+            >
+              <BoltIcon class="w-3.5 h-3.5 text-accent" />
+              Show code intro
+            </button>
+            <button
+              @click="handleReparseFlow"
+              :disabled="reparsingFlow"
+              class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-1.636 14.288A9 9 0 1 1 21 12.75v-3" />
+              </svg>
+              {{ reparsingFlow ? 'Re-processing…' : 'Re-process flow' }}
+            </button>
+            <div class="border-t border-edge my-1"></div>
+            <button
+              @click="handleClearFlow"
+              :disabled="clearingFlow"
+              class="w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+              {{ clearingFlow ? 'Clearing…' : 'Clear flow' }}
+            </button>
+            <button
               @click="handleDelete"
               class="w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2"
             >
@@ -348,120 +411,33 @@
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Main row: (main column + resize handle) wrapper + chat sidebar -->
     <div class="flex flex-1 min-h-0 relative">
       <!-- Left wrapper: tab subheader spans main column AND resize handle so its border butts against the chat panel's left divider -->
       <div class="flex-1 flex flex-col min-w-0">
-        <!-- View tabs subheader -->
-        <div class="flex items-center px-4 border-b border-edge-subtle flex-shrink-0">
-          <button
-            class="text-[12px] px-3 py-2 -mb-px border-b-2 transition-colors"
-            :class="viewMode === 'compact'
-              ? 'text-accent font-medium border-accent'
-              : 'text-content-muted hover:text-content border-transparent'"
-            @click="setViewMode('compact')"
-          >Steps</button>
-          <button
-            class="text-[12px] px-3 py-2 -mb-px border-b-2 transition-colors"
-            :class="viewMode === 'graph'
-              ? 'text-accent font-medium border-accent'
-              : 'text-content-muted hover:text-content border-transparent'"
-            @click="setViewMode('graph')"
-          >Workflow</button>
-          <button
-            class="text-[12px] px-3 py-2 -mb-px border-b-2 transition-colors"
-            :class="viewMode === 'code'
-              ? 'text-content font-medium border-content'
-              : 'text-content-muted hover:text-content border-transparent'"
-            @click="setViewMode('code')"
-          >Code</button>
+        <!-- View tabs strip: Steps / Workflow / Code sit on top of the pane they
+             switch, on every layout. -->
+        <div class="flex items-center px-page border-b border-edge-subtle flex-shrink-0">
+          <SegmentedControl
+            class="my-2"
+            :model-value="viewMode"
+            :options="VIEW_MODES"
+            aria-label="Flow view"
+            @update:model-value="setViewMode($event)"
+          />
 
           <div class="ml-auto flex items-center gap-2 py-1">
-            <!-- Graph view toggle: collapse foreaches into super-nodes vs show
-                 every iteration's equations expanded (the raw dagre layout). -->
             <div v-if="viewMode === 'graph' && !programAttentionError" class="flex items-center gap-1">
-              <div class="flex items-center rounded border border-edge-subtle overflow-hidden text-[11px]">
-                <button
-                  type="button"
-                  class="px-2 py-0.5 transition-colors"
-                  :class="graphCollapseForeach
-                    ? 'bg-accent text-white'
-                    : 'text-content-muted hover:text-content hover:bg-overlay-subtle'"
-                  title="Collapse foreach iterations into a single super-node"
-                  @click="graphCollapseForeach = true"
-                >Collapsed</button>
-                <button
-                  type="button"
-                  class="px-2 py-0.5 transition-colors border-l border-edge-subtle"
-                  :class="!graphCollapseForeach
-                    ? 'bg-accent text-white'
-                    : 'text-content-muted hover:text-content hover:bg-overlay-subtle'"
-                  title="Show every iteration's equations as raw graph nodes"
-                  @click="graphCollapseForeach = false"
-                >Expanded</button>
-              </div>
-            </div>
-
-            <div class="relative" ref="tabMenuContainerRef">
-              <button
-                @click="toggleTabMenu"
-                class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
-                title="More options"
-                aria-label="More options"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-                </svg>
-              </button>
-
-              <div
-                v-if="showTabMenu"
-                class="absolute right-0 mt-1 w-48 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
-              >
-                <button
-                  v-if="hasInputFields"
-                  @click="resetInputsToDefaults"
-                  class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-1.636 14.288A9 9 0 1 1 21 12.75v-3" />
-                  </svg>
-                  Reset Inputs
-                </button>
-                <div v-if="hasInputFields" class="border-t border-edge my-1"></div>
-                <button
-                  v-if="isDev"
-                  @click="handleShowCodeIntroModal"
-                  class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2"
-                >
-                  <BoltIcon class="w-3.5 h-3.5 text-accent" />
-                  Show code intro
-                </button>
-                <div v-if="isDev" class="border-t border-edge my-1"></div>
-                <button
-                  @click="handleReparseFlow"
-                  :disabled="reparsingFlow"
-                  class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-1.636 14.288A9 9 0 1 1 21 12.75v-3" />
-                  </svg>
-                  {{ reparsingFlow ? 'Re-processing…' : 'Re-process flow' }}
-                </button>
-                <button
-                  @click="handleClearFlow"
-                  :disabled="clearingFlow"
-                  class="w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                  </svg>
-                  {{ clearingFlow ? 'Clearing…' : 'Clear flow' }}
-                </button>
-              </div>
+              <SegmentedControl
+                :model-value="graphCollapseForeach ? 'collapsed' : 'expanded'"
+                :options="GRAPH_DETAIL_MODES"
+                aria-label="Graph detail"
+                title="Collapse foreach iterations into a single super-node, or show every iteration's equations as raw graph nodes"
+                @update:model-value="graphCollapseForeach = $event === 'collapsed'"
+              />
             </div>
           </div>
         </div>
@@ -487,35 +463,68 @@
           <div class="flex-1 flex flex-col min-w-0">
 
             <!-- Steps mode: single scroll region with Inputs, Steps, Outputs cards -->
-            <div v-if="viewMode === 'compact'" class="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
-              <div class="space-y-4">
+            <div v-if="viewMode === 'compact'" class="flex-1 overflow-y-auto px-page py-section custom-scrollbar">
+              <div class="mx-auto max-w-[960px] space-y-section">
                 <div class="relative">
-                  <!-- Headingless sections as ToolView-style cards: one raised
-                       card each for inputs, steps, and outputs. -->
+                  <!-- Inputs, steps and outputs are flat sections on the page,
+                       separated by the section gap. -->
                   <div
-                    class="space-y-3"
+                    class="space-y-section"
                     :class="programAttentionError ? 'opacity-40 grayscale pointer-events-none' : ''"
                   >
-                <!-- Inputs card (headingless — the Revert/Apply cluster pins
-                     to the card's top-right corner so it never reflows) -->
-                <section v-if="hasInputFields" class="relative rounded-lg border border-edge-subtle bg-surface px-4 py-3">
-                  <div v-if="inputsDirty" class="absolute top-3 right-3 z-chrome flex items-center gap-1.5">
+                <!-- Inputs: flat like the phases and outputs (one surface
+                     treatment down the column). The heading row carries the
+                     section's one action: Edit inputs, Revert / Apply while
+                     dirty, or Hide inputs once a finished flow is open. -->
+                <section v-if="hasInputFields" class="relative" data-testid="flow-inputs-card">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <h2 class="text-sm font-semibold text-content-secondary">Inputs</h2>
+                    <div v-if="inputsDirty" class="-my-1 -mr-2 flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        class="text-[11px] px-2 py-1 rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle disabled:opacity-40 disabled:cursor-not-allowed compact:min-h-11"
+                        :disabled="submittingInputs"
+                        @click="inputFormRef?.discardChanges()"
+                        title="Discard unsaved input changes"
+                      >Revert</button>
+                      <button
+                        type="button"
+                        class="text-[11px] px-2 py-1 rounded-md bg-accent text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium compact:min-h-11"
+                        :disabled="!inputsValid || submittingInputs"
+                        @click="inputFormRef?.applyChanges()"
+                        title="Apply the changed inputs to this flow"
+                      >{{ submittingInputs ? 'Applying…' : 'Apply inputs' }}</button>
+                    </div>
                     <button
+                      v-else-if="inputsCollapsed"
                       type="button"
-                      class="text-[11px] px-2 py-1 rounded-md bg-surface text-content-secondary hover:text-content hover:bg-overlay-subtle disabled:opacity-40 disabled:cursor-not-allowed"
-                      :disabled="submittingInputs"
-                      @click="inputFormRef?.discardChanges()"
-                      title="Discard unsaved input changes"
-                    >Revert</button>
+                      class="-my-1 -mr-2 flex-shrink-0 rounded-md px-2 py-1 text-sm font-medium text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:min-h-11"
+                      aria-label="Edit inputs"
+                      :aria-expanded="false"
+                      @click="inputsOpen = true"
+                    >Edit inputs</button>
                     <button
+                      v-else-if="inputsFinished && !inputsNeeded"
                       type="button"
-                      class="text-[11px] px-2 py-1 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                      :disabled="!inputsValid || submittingInputs"
-                      @click="inputFormRef?.applyChanges()"
-                      title="Apply the changed inputs to this flow"
-                    >{{ submittingInputs ? 'Applying…' : 'Apply inputs' }}</button>
+                      class="-my-1 -mr-2 flex-shrink-0 rounded-md px-2 py-1 text-xs font-medium text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:min-h-11"
+                      aria-label="Hide inputs"
+                      :aria-expanded="true"
+                      @click="inputsOpen = false"
+                    >Hide inputs</button>
                   </div>
-                  <div class="py-1">
+                  <!-- A finished flow leads with a one-glance summary so execution and
+                       outputs own the first screen; the full form stays mounted below. -->
+                  <dl v-if="inputsCollapsed" class="min-w-0 space-y-1.5" data-testid="flow-inputs-summary">
+                    <div v-for="row in inputsSummaryRows" :key="row.key" class="flex items-baseline gap-3 leading-5">
+                      <dt class="w-28 flex-shrink-0 truncate text-sm leading-5 text-content-tertiary compact:w-24">{{ row.label }}</dt>
+                      <dd
+                        class="min-w-0 flex-1 truncate leading-5 text-content"
+                        :class="row.mono ? 'font-mono text-[13px] tabular-nums' : 'text-sm'"
+                      >{{ row.value }}</dd>
+                    </div>
+                    <div v-if="inputsSummaryMore > 0" class="text-xs text-content-muted">+{{ inputsSummaryMore }} more</div>
+                  </dl>
+                  <div v-show="!inputsCollapsed">
                     <FlowInputForm
                       ref="inputFormRef"
                       :project-id="flow ? (flow.project_id ?? null) : undefined"
@@ -546,7 +555,7 @@
                     <button
                       v-if="!chatPanelOpen"
                       type="button"
-                      class="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-accent/90"
+                      class="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-on hover:bg-accent/90"
                       @click="chatPanelOpen = true"
                     >
                       Open chat
@@ -556,8 +565,8 @@
 
                 <template v-else>
                     <!-- Steps card (headingless) -->
-                    <section class="rounded-lg border border-edge-subtle bg-surface px-4 py-3">
-                      <div class="py-1">
+                    <section>
+                      <div>
                         <ConnectionError v-if="state.loadError.value" @retry="state.loadAll" />
                         <div v-else-if="state.loading.value && !state.phaseTree.value" class="text-content-muted text-sm py-8 text-center">
                           Loading flow…
@@ -622,7 +631,7 @@
                     <button
                       v-if="!chatPanelOpen"
                       type="button"
-                      class="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-accent/90"
+                      class="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-on hover:bg-accent/90"
                       @click="chatPanelOpen = true"
                     >
                       Open chat
@@ -677,7 +686,7 @@
                   >Revert</button>
                   <button
                     type="button"
-                    class="text-[11px] px-2 py-1 rounded bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
+                    class="text-[11px] px-2 py-1 rounded bg-accent text-accent-on hover:bg-accent/90 disabled:opacity-50"
                     :disabled="!codeDirty || savingCode"
                     @click="saveCodeEdit"
                     title="Save program.py and re-process the flow"
@@ -717,7 +726,7 @@
       </div>
 
       <!-- Chat sidebar (open by default) -->
-      <div v-if="chatPanelOpen" class="flex-shrink-0 border-l border-edge-subtle flex flex-col bg-surface compact:absolute compact:inset-0 compact:z-chrome compact:!w-full compact:border-l-0" :style="isCompact ? {} : { width: chatPanelWidth + 'px' }">
+      <div v-if="chatPanelOpen" class="flex-shrink-0 border-l border-edge-subtle flex flex-col bg-surface compact:absolute compact:inset-0 compact:z-chrome compact:!w-full compact:border-l-0" :style="isCompact ? {} : { width: chatPanelWidth + 'px', minWidth: CHAT_MIN_WIDTH + 'px', maxWidth: `max(${CHAT_MIN_WIDTH}px, calc(100% - ${STEPS_MIN_WIDTH}px))` }">
 
         <div class="flex-1 min-h-0 flex flex-col">
           <div v-if="chatLoading" class="flex-1 flex items-center justify-center text-[12px] text-content-muted">
@@ -766,6 +775,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDate, formatRelativeShort } from '../utils/timeFormat'
 import { mobileRecoveryEnabled } from '../composables/useMobileRecovery.js'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, onActivated, provide, type WatchStopHandle } from 'vue'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
@@ -778,6 +788,7 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import ConnectionError from '../components/ConnectionError.vue'
+import AgentIcon from '../components/icons/AgentIcon.vue'
 import PhaseTree from '../components/flow/PhaseTree.vue'
 import DeliveryPanel from '../components/flow/DeliveryPanel.vue'
 import EquationGraph from '../components/flow/EquationGraph.vue'
@@ -798,20 +809,28 @@ import { useFlowsApi, type Flow, type FlowTask, type FlowEquation, type PhaseNod
 import { useWebSocket } from '../composables/useWebSocket'
 import { useSlideshow } from '../composables/useSlideshow'
 import { useMediaApi } from '../composables/useMediaApi'
-import { useToasts } from '../composables/useToasts'
+import { useToasts, reportActionError } from '../composables/useToasts'
 import { devModeRef } from '../appConfig'
 import { flowMediaSlideshowKey } from '../components/flow/flowMediaSlideshow'
 import { makeStorageKey } from '../utils/storageKeys'
 import { parseFlowError } from '../utils/flowErrors'
 import { bgClass, textClass } from '../utils/statusColors'
 import { BoltIcon } from '@heroicons/vue/24/solid'
+import { BoltIcon as FlowGlyph } from '@heroicons/vue/24/outline'
 import Modal from '../components/ui/Modal.vue'
 import Button from '../components/ui/Button.vue'
+import SegmentedControl from '../components/ui/SegmentedControl.vue'
+import IconButton from '../components/ui/IconButton.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import OverflowButton from '../components/ui/OverflowButton.vue'
+import { useFlowStatus } from '../composables/useFlowStatus'
 import { syncedStorage } from '../utils/workspaceStore'
 
 const props = defineProps<{ id?: string | number }>()
 const route = useRoute()
-const { isCompact } = useViewport()
+const { isCompact, isRoomy } = useViewport()
+// Phone: Save custom tool lives in the header menu, not beside the workspace switch.
+const isPhone = computed(() => isCompact.value && !isRoomy.value)
 const router = useRouter()
 const { fetchProvidersAndTools } = useProvidersApi()
 const api = useFlowsApi()
@@ -827,6 +846,22 @@ const flowId = computed(() => {
 
 const state = useFlowState(flowId)
 const flow = state.flow
+const { label: flowStatusLabel } = useFlowStatus(flowId)
+
+// Mode switches use the kit's segmented control (DESIGN.md 2: Tabs/SegmentedControl).
+const VIEW_MODES = [
+  { label: 'Steps', value: 'compact' },
+  { label: 'Workflow', value: 'graph' },
+  { label: 'Code', value: 'code' },
+]
+const WORKSPACE_MODES = [
+  { label: 'Flow', value: 'flow', icon: FlowGlyph },
+  { label: 'Chat', value: 'chat', icon: AgentIcon },
+]
+const GRAPH_DETAIL_MODES = [
+  { label: 'Collapsed', value: 'collapsed' },
+  { label: 'Expanded', value: 'expanded' },
+]
 
 // ----- Save as Tool (freeze) -----
 const showFreezeDialog = ref(false)
@@ -1257,7 +1292,7 @@ async function saveName() {
   editingName.value = false
   if (!flow.value) return
   if (name === (flow.value.name || '')) return
-  try { await state.updateMetadata({ name }) } catch (err) { console.error(err) }
+  try { await state.updateMetadata({ name }) } catch (err) { reportActionError("Couldn't update flow.", err) }
 }
 
 const showStartButton  = computed(() => !flow.value?.execution_state || flow.value.execution_state === 'idle')
@@ -1339,10 +1374,6 @@ function onDocumentClick(e: MouseEvent) {
     const root = menuContainerRef.value
     if (root && !root.contains(target)) showMenu.value = false
   }
-  if (showTabMenu.value) {
-    const root = tabMenuContainerRef.value
-    if (root && !root.contains(target)) showTabMenu.value = false
-  }
   if (showChatMenu.value) {
     const root = chatMenuContainerRef.value
     if (root && !root.contains(target)) showChatMenu.value = false
@@ -1359,15 +1390,9 @@ onUnmounted(() => {
 // --- 3-dot menu ---
 const showMenu = ref(false)
 const menuContainerRef = ref<HTMLElement | null>(null)
-const showTabMenu = ref(false)
-const tabMenuContainerRef = ref<HTMLElement | null>(null)
 
 function toggleMenu() {
   showMenu.value = !showMenu.value
-}
-
-function toggleTabMenu() {
-  showTabMenu.value = !showTabMenu.value
 }
 
 function handleRename() {
@@ -1376,19 +1401,17 @@ function handleRename() {
 }
 
 function handleShowCodeIntroModal() {
-  showTabMenu.value = false
+  showMenu.value = false
   showCodeIntroModal.value = true
 }
 
 async function handleReparseFlow() {
   showMenu.value = false
-  showTabMenu.value = false
   await doReparseFlow()
 }
 
 async function handleClearFlow() {
   showMenu.value = false
-  showTabMenu.value = false
   await doClearFlow()
 }
 
@@ -1432,7 +1455,6 @@ const creatingChatSession = ref(false)
 watch(() => flow.value?.id, (id) => {
   copiesOpen.value = false
   showMenu.value = false
-  showTabMenu.value = false
   showChatMenu.value = false
   flowChatSessions.value = []
   if (id) loadCopies()
@@ -1476,7 +1498,7 @@ async function handleNewChatSession() {
     }
     showChatMenu.value = false
   } catch (err) {
-    console.error('Failed to start new chat session:', err)
+    reportActionError("Couldn't create chat.", err)
   } finally {
     creatingChatSession.value = false
   }
@@ -1500,24 +1522,15 @@ function sessionDisplayName(session: FlowChatSession): string {
   if (trimmed) return trimmed
   try {
     const d = new Date(session.created_at)
-    return `Session · ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+    return `Session · ${formatDate(d)}`
   } catch {
     return 'Untitled session'
   }
 }
 
 function formatSessionTime(iso: string): string {
-  const date = new Date(iso)
-  const diffMs = Date.now() - date.getTime()
-  const mins = Math.floor(diffMs / 60000)
-  if (mins < 1) return 'now'
-  if (mins < 60) return `${mins}m`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h`
-  const days = Math.floor(hours / 24)
-  if (days === 1) return 'yesterday'
-  if (days < 7) return `${days}d`
-  return date.toLocaleDateString()
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+  return days === 1 ? 'yesterday' : formatRelativeShort(iso)
 }
 
 // --- Execution controls ---
@@ -1533,30 +1546,30 @@ async function doPlay() {
   }
 }
 async function doPause() {
-  try { await state.pause() } catch (err: any) { console.error('pause failed', err) }
+  try { await state.pause() } catch (err: any) { reportActionError("Couldn't pause flow.", err) }
 }
 
 // --- Invalidation ---
 async function doInvalidateEquation(key: string) {
-  try { await state.invalidateEquation(key) } catch (err) { console.error(err) }
+  try { await state.invalidateEquation(key) } catch (err) { reportActionError("Couldn't update flow.", err) }
 }
 async function doInvalidatePhase(path: string[]) {
-  try { await state.invalidatePhase(path) } catch (err) { console.error(err) }
+  try { await state.invalidatePhase(path) } catch (err) { reportActionError("Couldn't update flow.", err) }
 }
 async function doReselectEquation(key: string, resolution: any) {
-  try { await state.reselectEquation(key, resolution) } catch (err) { console.error(err) }
+  try { await state.reselectEquation(key, resolution) } catch (err) { reportActionError("Couldn't update flow.", err) }
 }
 
 // --- Task resolution ---
 async function onResolveTask(task: FlowTask, resolution: any) {
   try {
     await state.resolveTask(task.task_id, resolution)
-  } catch (err) { console.error('resolve failed', err) }
+  } catch { /* Task state reports the failure and restores the task. */ }
 }
 async function onResolveErrorTask(task: FlowTask, action: string, value?: any) {
   try {
     await state.resolveErrorTask(task.task_id, action, value)
-  } catch (err) { console.error('resolve-error failed', err) }
+  } catch { /* Task state reports the failure and restores the task. */ }
 }
 
 // --- Slideshow approval context ---
@@ -1633,7 +1646,7 @@ async function onSlideshowApprove() {
       await state.reselectEquation(ctx.approveEquationKey, true)
     }
   }
-  catch (err) { console.error('slideshow approve failed', err) }
+  catch (err) { if (!ctx.task) reportActionError("Couldn't approve.", err) }
 }
 function slotWrapperKeyForApprove(approveEquationKey: string): string | null {
   const slash = approveEquationKey.lastIndexOf('/')
@@ -1649,13 +1662,13 @@ async function onSlideshowReject() {
       await state.invalidateEquation(ctx.replaceEquationKey)
     }
   }
-  catch (err) { console.error('slideshow reject failed', err) }
+  catch (err) { if (!ctx.task) reportActionError("Couldn't reject.", err) }
 }
 async function onSlideshowUnapprove() {
   const ctx = slideshowApprovalContext.value
   if (!ctx?.approveEquationKey) return
   try { await state.invalidateEquation(ctx.approveEquationKey) }
-  catch (err) { console.error('slideshow unapprove failed', err) }
+  catch (err) { reportActionError("Couldn't clear approval.", err) }
 }
 
 // --- Input form ---
@@ -1663,6 +1676,60 @@ const submittingInputs = ref(false)
 const inputFormRef = ref<InstanceType<typeof FlowInputForm> | null>(null)
 const inputsDirty = ref(false)
 const inputsValid = ref(true)
+// A finished flow (same status the header shows) collapses its inputs to a
+// summary; the user opens the form with "Edit inputs". Unsaved edits keep it open.
+const inputsOpen = ref(false)
+const inputsFinished = computed(() => flowStatusLabel.value === 'Done')
+// The form stays open while it still needs the person: the flow has not run
+// yet (no step has completed) or the form is invalid (a required input is empty).
+const flowHasRun = computed(() => {
+  for (const eq of state.equationsByKey.value.values()) {
+    if (eq.status === 'completed' || eq.status === 'failed') return true
+  }
+  return false
+})
+const inputsNeeded = computed(() => !flowHasRun.value || !inputsValid.value)
+const inputsCollapsed = computed(() => inputsFinished.value && !inputsNeeded.value && !inputsOpen.value && !inputsDirty.value)
+watch(flowId, () => { inputsOpen.value = false })
+const INPUTS_SUMMARY_MAX = 4
+function summarizeInputValue(v: unknown): string {
+  if (v == null || v === '') return ''
+  if (Array.isArray(v)) {
+    if (v.length === 0) return ''
+    return v.every((x) => x == null || typeof x !== 'object') ? v.join(', ') : `${v.length} items`
+  }
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No'
+  if (typeof v === 'object') return ''
+  return String(v).replace(/\s+/g, ' ').trim()
+}
+const inputsSummaryAll = computed(() => {
+  const schema = (flow.value?.input_schema || {}) as Record<string, any>
+  const vals = (flow.value?.inputs || {}) as Record<string, any>
+  const valueOf = (k: string) => vals[k] !== undefined ? vals[k] : schema[k]?.default
+  const rows: { key: string; label: string; value: string; mono: boolean }[] = []
+  const pairedSize = 'width' in schema && 'height' in schema
+  for (const [key, def] of Object.entries(schema)) {
+    if (pairedSize && key === 'height') continue
+    if (pairedSize && key === 'width') {
+      const w = summarizeInputValue(valueOf('width'))
+      const h = summarizeInputValue(valueOf('height'))
+      if (w && h) rows.push({ key, label: 'Resolution', value: `${w} × ${h}`, mono: true })
+      continue
+    }
+    const value = summarizeInputValue(valueOf(key))
+    if (!value) continue
+    const d = (def && typeof def === 'object' ? def : {}) as Record<string, any>
+    const spaced = key.replace(/_+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim()
+    const label = d['x-label'] || d.display_name || d.label || (spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase())
+    // Facts read in mono (seeds, sizes, counts); names and prose stay UI sans.
+    const raw = valueOf(key)
+    const mono = typeof raw === 'number' || d.type === 'integer' || d.type === 'number'
+    rows.push({ key, label: String(label), value, mono })
+  }
+  return rows
+})
+const inputsSummaryRows = computed(() => inputsSummaryAll.value.slice(0, INPUTS_SUMMARY_MAX))
+const inputsSummaryMore = computed(() => Math.max(0, inputsSummaryAll.value.length - INPUTS_SUMMARY_MAX))
 const hasInputFields = computed(() => {
   const schema = flow.value?.input_schema
   return !!schema && Object.keys(schema).length > 0
@@ -1695,7 +1762,7 @@ const attentionErrorSource = computed<'build' | 'runtime'>(() => programAttentio
 const showFlowAttentionBanner = computed(() => !!attentionError.value || allBlocked.value)
 
 function resetInputsToDefaults() {
-  showTabMenu.value = false
+  showMenu.value = false
   inputFormRef.value?.resetToDefaults()
 }
 
@@ -1705,7 +1772,7 @@ async function onInputSubmit(values: Record<string, any>) {
   try {
     await state.updateMetadata({ inputs: values })
   } catch (err) {
-    console.error('Apply inputs failed:', err)
+    reportActionError("Couldn't save inputs.", err)
   } finally {
     submittingInputs.value = false
   }
@@ -1722,7 +1789,7 @@ async function onPanelInputUpdate(partial: Record<string, any>) {
   try {
     await state.updateMetadata({ inputs: merged })
   } catch (err) {
-    console.error('Apply input failed:', err)
+    reportActionError("Couldn't save input.", err)
   } finally {
     submittingInputs.value = false
   }
@@ -1739,7 +1806,7 @@ async function doCopy() {
     const copy = await state.fork(flow.value.inputs || {})
     router.push({ name: 'flow', params: { id: String(copy.id) } })
   } catch (err) {
-    console.error('Copy failed:', err)
+    reportActionError("Couldn't copy flow.", err)
   } finally {
     copying.value = false
   }
@@ -1871,7 +1938,7 @@ async function doReparseFlow() {
     await state.reparse()
     if (viewMode.value === 'code') await loadProgramCode()
   } catch (err) {
-    console.error('Re-parse failed:', err)
+    reportActionError("Couldn't reparse flow.", err)
   } finally {
     reparsingFlow.value = false
   }
@@ -1887,7 +1954,7 @@ async function doClearFlow() {
     programCodeDraft.value = ''
     if (viewMode.value === 'code') await loadProgramCode()
   } catch (err) {
-    console.error('Clear flow failed:', err)
+    reportActionError("Couldn't clear flow.", err)
   } finally {
     clearingFlow.value = false
   }
@@ -1965,9 +2032,16 @@ watch(() => state.flow.value?.program_hash, () => {
 // that they drive the flow through conversation.
 // Phones: the chat panel is a full-screen overlay, so it starts closed.
 const chatPanelOpen = ref(!isCompact.value)
-const chatPanelWidth = ref(420)
-const CHAT_MIN_WIDTH = 280
-const CHAT_MAX_WIDTH = 700
+// The transcript needs room to read before the inputs form gets any: below
+// CHAT_MIN_WIDTH the bubbles turn into slivers, so that is the floor for both
+// the default and a dragged width.
+const CHAT_DEFAULT_WIDTH = 520
+const CHAT_MIN_WIDTH = 440
+const CHAT_MAX_WIDTH = 760
+// The steps column keeps at least this much, so a narrow window squeezes the
+// chat toward its floor before the steps column goes below it.
+const STEPS_MIN_WIDTH = 480
+const chatPanelWidth = ref(CHAT_DEFAULT_WIDTH)
 
 function getChatPanelOpenKey(rid: string) {
   return makeStorageKey('flow', rid, 'chat_panel_open')
@@ -2178,7 +2252,7 @@ async function askAgentToFix(_loadError: { category: string; message: string; su
       message_text: messageText,
     })
   } catch (err) {
-    console.error('Failed to send fix request to agent:', err)
+    reportActionError("Couldn't send.", err)
   } finally {
     fixingWithAgent.value = false
   }
@@ -2210,7 +2284,7 @@ async function askAgentForHelpUnblocking() {
       message_text: messageText,
     })
   } catch (err) {
-    console.error('Failed to send help request to agent:', err)
+    reportActionError("Couldn't send.", err)
   } finally {
     fixingWithAgent.value = false
   }
@@ -2234,7 +2308,7 @@ async function askAgentToFixStep(equation: { display_name?: string | null; equat
       message_text: messageText,
     })
   } catch (err) {
-    console.error('Failed to send step fix request to agent:', err)
+    reportActionError("Couldn't send.", err)
   }
 }
 
@@ -2321,7 +2395,7 @@ watch(() => state.tasks.value.map(t => t.task_id).join(','), (_new) => {
 const renameOpen = ref(false)
 async function renameFlow(name: string) {
   if (!flow.value) return
-  try { await state.updateMetadata({ name }) } catch (err) { console.error(err) }
+  try { await state.updateMetadata({ name }) } catch (err) { reportActionError("Couldn't update flow.", err) }
 }
 watch([() => route.query.rename, () => flow.value?.id], ([flag, id]) => {
   if (flag !== '1' || !id) return
@@ -2342,12 +2416,22 @@ function updateCompactHeader() {
   if (route.name !== 'flow' || String(route.params.id) !== String(flow.value?.id)) return
   setCompactTitle(flow.value?.name || 'Name this flow…', '', () => { renameOpen.value = true })
   setCompactMenu([
+    ...(isPhone.value
+      ? [
+          ...backingTools.value.filter(t => t.has_changes).map(t => ({ label: `Update ${t.name}`, run: () => updateBackingTool(t) })),
+          { label: backingTools.value.length === 0 ? 'Save custom tool' : 'Save as new tool', run: openFreezeDialog },
+        ]
+      : []),
     { label: 'Rename', run: () => { renameOpen.value = true } },
     { label: 'Move to project', run: () => { moveProjectOpen.value = true } },
     { label: 'Make a copy', run: doCopy },
+    ...(hasInputFields.value ? [{ label: 'Reset inputs', run: resetInputsToDefaults }] : []),
+    ...(isDev.value ? [{ label: 'Show code intro', run: handleShowCodeIntroModal }] : []),
+    { label: 'Re-process flow', run: handleReparseFlow },
+    { label: 'Clear flow', run: handleClearFlow, destructive: true },
     { label: 'Delete', run: handleDelete, destructive: true },
   ])
 }
-watch([() => flow.value?.id, () => flow.value?.name], updateCompactHeader, { immediate: true })
+watch([() => flow.value?.id, () => flow.value?.name, isPhone, hasInputFields, isDev, () => backingTools.value.map(t => `${t.id}:${t.has_changes}`).join()], updateCompactHeader, { immediate: true })
 onActivated(updateCompactHeader)
 </script>

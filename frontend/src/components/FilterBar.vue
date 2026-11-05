@@ -1,58 +1,71 @@
 <template>
-  <div class="bg-surface border-b border-edge flex-shrink-0">
+  <div class="bg-base border-b border-edge-subtle flex-shrink-0 compact:border-edge-subtle">
     <!-- Filter Selection Strip (Shopping Cart) -->
-    <div class="flex justify-between items-center px-2 py-2 gap-2 flex-wrap compact:justify-start compact:gap-1">
+    <div class="flex justify-between items-center px-page py-2 min-h-header gap-2 flex-wrap compact:justify-start compact:gap-1 compact:min-h-0 compact:py-0">
       <!-- Left Side: Filter Toggle Button -->
       <button
-        class="text-content-secondary px-4 h-9 rounded-md text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle compact:h-11 compact:w-11 compact:px-0 compact:justify-center"
-        :class="(showCriteriaPanel || hasActiveFilters) ? 'compact:text-accent-hi compact:bg-accent/15' : ''"
+        class="-ml-3 flex h-control flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-ctl transition-colors duration-150 compact:-ml-[14px] compact:h-11 compact:w-11 compact:justify-center compact:px-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+        :class="(showCriteriaPanel || hasActiveFilters) ? 'bg-overlay-light text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
         aria-label="Filters"
+        :aria-expanded="showCriteriaPanel"
         @click="toggleCriteriaPanel"
       >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-        </svg>
+        <FunnelIcon class="h-icon-nav w-icon-nav" aria-hidden="true" />
         <span class="compact:hidden">Filters</span>
-        <svg class="w-4 h-4 transition-transform ml-1 compact:hidden" :class="{ 'rotate-180': showCriteriaPanel }" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-        </svg>
+        <Caret :open="showCriteriaPanel" class="compact:hidden" />
       </button>
 
       <div class="flex gap-2 flex-wrap flex-1 compact:contents">
-        <!-- Marker Toggle Buttons (Always First) - 3-state: none, positive (accent), negative (red) -->
-        <!-- 3-state marker toggles. Include is the PRIMARY active look: the
-             clean native-color chip (icon + wash of the marker's own color),
-             no adornment. Exclude is the louder variant: same native chip but
-             with an explicit red "−" sitting left of the icon inside the halo.
-             Off = gray ghost. The icon itself is never recolored. -->
+        <!-- Marker toggles, 3-state: off, include, exclude. One silhouette rule
+             shared with every marker toggle: outline at rest, filled in the
+             marker's own color when set, on one backing (overlay-light).
+             Exclude is the same set look plus a red "−" left of the glyph. -->
+        <!-- One filter-chip grammar at every width: individual chips, each with
+             its own include and exclude state. Rest: a bare tertiary glyph and
+             label, no fill. Included: backing plus the marker's own colour on
+             the glyph. Excluded: red backing, red minus, struck-through label.
+             Spacing, not a group box, holds them together; labels drop on a
+             phone and return once the window is roomy. -->
+        <div
+          v-if="filterMarkers.length"
+          class="flex items-center gap-1 pl-1"
+          role="group"
+          aria-label="Marker filters"
+        >
         <button
           v-for="marker in filterMarkers"
           :key="marker.id"
           :class="[
-            'inline-flex items-center justify-center h-9 compact:h-11 rounded-md transition-colors cursor-pointer',
-            isMarkerNegative(marker.id) ? 'px-2 gap-1' : 'w-9 compact:w-10',
-            isMarkerPositive(marker.id) || isMarkerNegative(marker.id)
-              ? ''
-              : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
+            'inline-flex items-center justify-center h-control compact:h-11 rounded-md gap-1.5 px-2.5 compact:px-0 compact:min-w-11 roomy:px-2.5 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
+            isMarkerNegative(marker.id)
+              ? 'bg-red-500/15 text-red-400'
+              : isMarkerPositive(marker.id)
+                ? 'bg-overlay-light text-content'
+                : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
           ]"
-          :style="isMarkerPositive(marker.id) || isMarkerNegative(marker.id)
-            ? { color: markerColor(marker), backgroundColor: markerWash(marker) }
-            : {}"
+          :aria-pressed="isMarkerPositive(marker.id) || isMarkerNegative(marker.id)"
+          :aria-label="marker.name + (isMarkerPositive(marker.id) ? ', filtering' : isMarkerNegative(marker.id) ? ', excluded' : '')"
           :title="marker.name + (isMarkerPositive(marker.id) ? ' — filtering' : isMarkerNegative(marker.id) ? ' — excluded' : '')"
           @click="toggleMarker(marker.id)"
         >
           <span
             v-if="isMarkerNegative(marker.id)"
-            class="text-red-400 text-[16px] font-semibold leading-none select-none"
+            class="text-red-400 text-[16px] font-semibold leading-none select-none -mr-0.5"
           >−</span>
-          <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+          <span
+            class="w-icon-nav h-icon-nav flex items-center justify-center icon-container"
+            :class="isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? '' : 'marker-glyph-off text-content-tertiary'"
+            :style="isMarkerPositive(marker.id) || isMarkerNegative(marker.id) ? { color: markerColor(marker) } : {}"
+            v-html="sanitizeSvg(marker.icon_svg)"
+          />
         </button>
+        </div>
 
         <!-- Cart: every active criterion as a chip. Compact: its own row under the toggles. -->
         <div class="contents compact:flex compact:flex-wrap compact:gap-1.5 compact:basis-full compact:order-4 compact:empty:hidden">
         <!-- Similar Search Badge -->
-        <div v-if="hasSimilarSearchBadge" class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-accent/15 text-accent-hi">
-          <MagnifyingGlassCircleIcon class="w-5 h-5 flex-shrink-0" />
+        <div v-if="hasSimilarSearchBadge" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
+          <MagnifyingGlassCircleIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
           <span class="leading-none">{{ similarSearchBadgeLabel }}</span>
           <div
             v-for="item in similarSearchSourceItems"
@@ -80,7 +93,7 @@
         </div>
 
         <!-- Caption Query Badge -->
-        <div v-if="localCaptionQuery && captioningEnabledRef" class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-accent/15 text-accent-hi">
+        <div v-if="localCaptionQuery && captioningEnabledRef" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
           <span class="leading-none">Caption: {{ localCaptionQuery }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearCaptionQuery">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -90,7 +103,7 @@
         </div>
 
         <!-- Prompt Query Badge -->
-        <div v-if="localPromptQuery" class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-accent/15 text-accent-hi">
+        <div v-if="localPromptQuery" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
           <span class="leading-none">Prompt: {{ localPromptQuery }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearPromptQuery">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -100,8 +113,8 @@
         </div>
 
         <!-- Text Similarity Badge -->
-        <div v-if="localSimilarToText" class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-accent/15 text-accent-hi">
-          <MagnifyingGlassCircleIcon class="w-5 h-5 flex-shrink-0" />
+        <div v-if="localSimilarToText" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
+          <MagnifyingGlassCircleIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
           <span class="leading-none">{{ localSimilarToText }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearSimilarToText">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -113,7 +126,7 @@
         <!-- Media Type Badges -->
         <div v-for="mediaType in allMediaTypes"
              :key="mediaType"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isMediaTypeExcluded(mediaType) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isMediaTypeExcluded(mediaType) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
              @click="toggleExcludeMediaType(mediaType)">
           <span class="leading-none">{{ { images: 'Images', videos: 'Videos', audio: 'Audio', text: 'Text', vectors: 'SVG', sets: 'Sets', grids: 'Grids', sprites: 'Sprites', packages: 'Packages', layouts: 'Layouts' }[mediaType] || mediaType }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeMediaType(mediaType)">
@@ -126,7 +139,7 @@
         <!-- Resolution Badges -->
         <div v-for="resolution in allResolutions"
              :key="resolution"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isResolutionExcluded(resolution) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isResolutionExcluded(resolution) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
              @click="toggleExcludeResolution(resolution)">
           <span class="leading-none">{{ resolution.charAt(0).toUpperCase() + resolution.slice(1) }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeResolution(resolution)">
@@ -140,7 +153,7 @@
         <template v-if="captioningEnabledRef">
         <div v-for="keyword in allKeywords"
              :key="keyword"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isExcluded(keyword) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isExcluded(keyword) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
              @click="toggleExcludeKeyword(keyword)">
           <span class="leading-none">{{ keyword }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeKeyword(keyword)">
@@ -154,7 +167,7 @@
         <!-- Tag Badges -->
         <div v-for="tag in allTags"
              :key="tag.id"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isTagExcluded(tag.id) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isTagExcluded(tag.id) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
              @click="toggleExcludeTag(tag.id)">
           <span class="leading-none">{{ tag.tag }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTag(tag.id)">
@@ -168,7 +181,7 @@
         <template v-if="!isTrashMode && !inProjectScope">
           <!-- Scope chip: the top level shows unfiled assets unless project assets are included -->
           <div v-if="localIncludeProjects"
-               class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-accent/15 text-accent-hi"
+               class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi"
                data-testid="include-project-assets-chip">
             <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
             <span class="leading-none">Project assets</span>
@@ -180,10 +193,10 @@
           </div>
           <!-- Membership existence chip: accent = in any project, red = not in any project -->
           <div v-if="projectMembership"
-               :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', projectMembership === 'none' ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+               :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', projectMembership === 'none' ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
                @click="toggleProjectMembershipSign">
             <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
-            <span class="leading-none">Any Project</span>
+            <span class="leading-none">Any project</span>
             <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearProjectMembership">
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -193,7 +206,7 @@
           <!-- Specific project chips -->
           <div v-for="project in allProjects"
                :key="'proj-' + project.id"
-               :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isProjectExcluded(project.id) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+               :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isProjectExcluded(project.id) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
                @click="toggleExcludeProject(project.id)">
             <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
             <span class="leading-none">{{ project.name }}</span>
@@ -208,7 +221,7 @@
         <!-- Tool Badges -->
         <div v-for="tool in allTools"
              :key="tool.full_tool_id"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isToolExcluded(tool) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isToolExcluded(tool) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
              @click="toggleExcludeTool(tool)">
           <span class="leading-none">{{ getToolName(tool) }}</span>
           <span v-if="isToolStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
@@ -223,7 +236,7 @@
         <!-- Folder Badges -->
         <div v-for="folder in allFolders"
              :key="folder"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isFolderExcluded(folder) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isFolderExcluded(folder) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
              @click="toggleExcludeFolder(folder)">
           <span class="leading-none">{{ getFolderName(folder) }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeFolder(folder)">
@@ -235,7 +248,7 @@
 
         <!-- File Date Badge (quick ranges toggle include/exclude; custom stays include-only) -->
         <div v-if="selectedDateRange"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9', dateRangeExcluded ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi', selectedDateRange !== 'custom' ? 'cursor-pointer' : '']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9', dateRangeExcluded ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi', selectedDateRange !== 'custom' ? 'cursor-pointer' : '']"
              @click="toggleExcludeDateRange">
           <span class="leading-none">{{ getDateRangeLabel() }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearDateRange">
@@ -247,7 +260,7 @@
 
         <!-- Imported Badge (not shown in trash mode) -->
         <div v-if="!isTrashMode && localIsImported !== null"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', localIsImported === false ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', localIsImported === false ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
              @click="toggleImportedExclusion">
           <span class="leading-none">Imported</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearImportedFilter">
@@ -259,7 +272,7 @@
 
         <!-- Unused Badge (not shown in trash mode) -->
         <div v-if="!isTrashMode && localIsUnused !== null"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', localIsUnused === false ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', localIsUnused === false ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
              @click="toggleUnusedExclusion">
           <span class="leading-none">Unused</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearUnusedFilter">
@@ -271,7 +284,7 @@
 
         <!-- Expiring Badge (not shown in trash mode) -->
         <div v-if="!isTrashMode && (localShowExpiring || localExcludeExpiring)"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', localExcludeExpiring ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', localExcludeExpiring ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
              @click="toggleExpiringExclusion">
           <span class="leading-none">Expiring</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearExpiringFilter">
@@ -285,21 +298,22 @@
       </div>
 
       <!-- Right Side Controls -->
-      <div class="flex items-center gap-2 compact:order-3 compact:ml-auto">
+      <div class="flex items-center gap-2 compact:order-3 compact:ml-auto compact:gap-1">
       <!-- Unified Pill Group -->
       <div class="flex items-center gap-1">
         <!-- Item count -->
         <span v-if="totalCount !== null && (!isCompact || hasActiveFilters)" class="px-3 py-2 compact:px-1 text-xs font-mono tabular-nums text-content-tertiary whitespace-nowrap">{{ itemCountText }}</span>
         <!-- Sort dropdown (not shown in trash mode - trash always sorts by deleted date) -->
-        <div v-if="!isTrashMode" class="px-1">
+        <div v-if="!isTrashMode" class="px-1 [&_button]:text-ctl">
           <SettingsDropdown
+            secondary
             :model-value="localSortBy"
             @update:model-value="localSortBy = $event; emitUpdate()"
             :options="[
               ...(similarSearchActive || localSimilarToText ? [{ value: 'similarity', label: 'Similarity' }] : []),
-              { value: 'created_desc', label: 'Newest First', triggerLabel: isCompact ? 'Newest' : undefined },
-              { value: 'created_asc', label: 'Oldest First', triggerLabel: isCompact ? 'Oldest' : undefined },
-              { value: 'indexed_desc', label: 'Recently Imported', triggerLabel: isCompact ? 'Imported' : undefined },
+              { value: 'created_desc', label: 'Newest first', triggerLabel: isCompact ? 'Newest' : undefined },
+              { value: 'created_asc', label: 'Oldest first', triggerLabel: isCompact ? 'Oldest' : undefined },
+              { value: 'indexed_desc', label: 'Recently imported', triggerLabel: isCompact ? 'Imported' : undefined },
               { value: 'edited_desc', label: 'Recently edited', triggerLabel: isCompact ? 'Edited' : undefined },
               { value: 'random', label: 'Random' },
             ]"
@@ -307,7 +321,7 @@
         </div>
         <!-- Shuffle button - only visible when in random mode (not in trash mode) -->
         <button v-if="!isTrashMode && localSortBy === 'random'" @click="handleShuffle" class="px-3 py-2 cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle rounded-md text-content-secondary hover:text-accent" title="Shuffle order">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
           </svg>
         </button>
@@ -319,7 +333,7 @@
             class="text-content-secondary p-2 rounded-md cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle"
             title="View options"
           >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
             </svg>
           </button>
@@ -387,7 +401,7 @@
             class="text-content-secondary p-2 rounded-md cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle"
             title="Filter options"
           >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
             </svg>
           </button>
@@ -403,7 +417,7 @@
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
               </svg>
-              Save View
+              Save view
             </button>
             <div v-if="canSaveView && hasActiveFilters" class="border-t border-edge-subtle my-1"></div>
             <button
@@ -418,6 +432,32 @@
             </button>
           </div>
         </div>
+        <!-- Upload: the browse toolbar's one primary (the view's add action), at
+             every layout; on a phone a glyph in a 44px target with a 36px fill. -->
+        <button
+          v-if="!isTrashMode && isCompact"
+          type="button"
+          :class="[compactIconButton, compactPrimaryCreate, '!ml-0']"
+          aria-label="Upload assets"
+          title="Upload assets"
+          data-testid="browse-upload"
+          @click="emit('upload')"
+        >
+          <ArrowUpTrayIcon :class="compactIcon" />
+        </button>
+        <Button
+          v-else-if="!isTrashMode"
+          size="md"
+          aria-label="Upload assets"
+          title="Upload assets"
+          data-testid="browse-upload"
+          @click="emit('upload')"
+        >
+          <template #icon>
+            <ArrowUpTrayIcon class="h-icon-nav w-icon-nav" />
+          </template>
+          <span>Upload</span>
+        </Button>
       </div>
     </div>
 
@@ -525,7 +565,7 @@
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Projects</h4>
             <div class="flex flex-col gap-0.5">
               <!-- Scope: the top level shows only assets in no project unless this is on.
-                   Picking a specific project or "Any Project" implies it. -->
+                   Picking a specific project or "Any project" implies it. -->
               <div
                 role="switch"
                 :aria-checked="localIncludeProjects ? 'true' : 'false'"
@@ -541,8 +581,8 @@
                 <span :class="['text-[13px]', localIncludeProjects ? 'text-accent-hi font-medium' : 'text-content-secondary']">
                   Include project assets
                 </span>
-                <span :class="['w-3.5 h-3.5 flex-shrink-0 rounded-sm border flex items-center justify-center', localIncludeProjects ? 'bg-accent border-accent text-white' : 'border-edge']" aria-hidden="true">
-                  <svg v-if="localIncludeProjects" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                <span :class="['w-3.5 h-3.5 flex-shrink-0 rounded-sm border flex items-center justify-center', localIncludeProjects ? 'bg-accent border-accent text-accent-on' : 'border-edge']" aria-hidden="true">
+                  <svg v-if="localIncludeProjects" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </span>
@@ -558,7 +598,7 @@
                 :title="'Cycle: no constraint → in any project → not in any project'"
               >
                 <span :class="['text-[13px]', projectMembership === 'any' ? 'text-accent-hi font-medium' : projectMembership === 'none' ? 'text-red-400 font-medium' : 'text-content-secondary']">
-                  Any Project
+                  Any project
                 </span>
                 <span :class="['text-xs font-mono tabular-nums', projectMembership ? 'text-content-tertiary' : 'text-content-muted']">({{ projectMembership === 'none' ? (filterCounts.project_membership?.none || 0) : (filterCounts.project_membership?.any || 0) }})</span>
               </div>
@@ -635,7 +675,7 @@
                 @input="debouncedUpdate"
                 @keyup.enter="emitUpdate"
                 placeholder="Search"
-                class="bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
+                class="bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
               />
               <h5 class="m-0 mt-2 text-xs font-semibold text-content-secondary">Prompt filter</h5>
               <input v-no-autocorrect
@@ -643,7 +683,7 @@
                 v-model="localPromptQuery"
                 @input="debouncedUpdate"
                 placeholder="Filter"
-                class="bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
+                class="bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
               />
             </div>
           </div>
@@ -730,7 +770,7 @@
             type="date"
             v-model="customAfterDate"
             @keyup.enter="applyCustomDateRange"
-            class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
+            class="w-full bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
           />
         </div>
 
@@ -740,7 +780,7 @@
             type="date"
             v-model="customBeforeDate"
             @keyup.enter="applyCustomDateRange"
-            class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
+            class="w-full bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
           />
         </div>
       </div>
@@ -754,10 +794,13 @@
 </template>
 
 <script setup>
+import { formatDate } from '../utils/timeFormat'
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useViewport } from '../composables/useViewport'
 import { MagnifyingGlassCircleIcon } from '@heroicons/vue/24/solid'
-import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, ArrowUpTrayIcon, FunnelIcon } from '@heroicons/vue/24/outline'
+import Caret from './ui/Caret.vue'
+import { compactIcon, compactIconButton, compactPrimaryCreate } from './compact/headerStyles'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
 import { getCurrentProfileId } from '../composables/useProfile'
@@ -829,6 +872,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
+  'upload',
   'update:captionQuery',
   'update:promptQuery',
   'update:mediaTypes',
@@ -1060,10 +1104,10 @@ const itemCountText = computed(() => {
   if (hasActiveFilters.value && unfilteredTotalCount.value !== null) {
     // Compact: the bare ratio, nothing else fits on the line.
     if (isCompact.value) return `${props.totalCount} / ${unfilteredTotalCount.value}`
-    return `${props.totalCount} of ${unfilteredTotalCount.value} items`
+    return `${props.totalCount} of ${unfilteredTotalCount.value} assets`
   }
 
-  return `${props.totalCount} items`
+  return `${props.totalCount} ${props.totalCount === 1 ? 'asset' : 'assets'}`
 })
 
 // Top keywords for inline display - show selected keywords first, then top keywords
@@ -2078,14 +2122,14 @@ function getDateRangeLabel() {
     const parts = []
     if (localCreatedAfter.value) {
       const date = new Date(localCreatedAfter.value)
-      parts.push(date.toLocaleDateString())
+      parts.push(formatDate(date, { year: 'always' }))
     }
     if (localCreatedBefore.value) {
       const date = new Date(localCreatedBefore.value)
       if (parts.length > 0) {
         parts.push(' - ')
       }
-      parts.push(date.toLocaleDateString())
+      parts.push(formatDate(date, { year: 'always' }))
     }
     return parts.join('') || 'Custom range'
   }
@@ -2153,17 +2197,10 @@ function isMarkerNegative(markerId) {
   return (excludedMarkers.value || []).includes(markerId)
 }
 
-// Marker chips render in the marker's own color; fall back to the accent for
-// markers without one. Wash = ~12% alpha of the same color (hex only — the
-// accent fallback uses the rgb token form instead).
+// Set marker toggles render in the marker's own color; fall back to the accent
+// for markers without one.
 function markerColor(marker) {
   return marker.color || 'var(--color-accent-hi)'
-}
-
-function markerWash(marker) {
-  return marker.color?.startsWith('#')
-    ? marker.color + '1F'
-    : 'rgb(var(--color-accent-rgb) / 0.12)'
 }
 
 function toggleMarker(markerId) {

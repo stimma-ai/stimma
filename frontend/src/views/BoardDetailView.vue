@@ -15,61 +15,63 @@
     <AssetSelectionSheet :show="addAssetsSection !== null" :project-id="board ? (board.project_id ?? null) : undefined" :saving="addingAssets" @close="addAssetsSection = null" @select="addSectionAssets" />
     <RenameSheet :show="renameOpen" :name="board?.name || ''" label="Rename board" @close="renameOpen = false" @save="renameBoard" />
 
-    <div v-show="!isCompact && !slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3 compact:px-3 compact:py-2">
-      <div class="flex min-w-0 flex-1 items-baseline gap-3">
+    <PageHeader v-show="!isCompact && !slideshowState.active && board">
+      <template #title>
         <input
           v-if="isEditingBoardName || (editedName && !isCompact)"
           ref="boardNameInputRef"
           v-model="editedName"
-          class="min-w-0 max-w-md flex-shrink bg-transparent text-lg font-semibold text-content outline-none compact:min-h-11"
+          class="-ml-2 min-w-[6ch] max-w-80 [field-sizing:content] rounded-md border border-transparent bg-transparent px-2 py-1 font-brand text-[18px] leading-6 font-semibold text-content outline-none transition-colors hover:bg-overlay-subtle focus:bg-overlay-subtle focus:border-accent"
           placeholder="Name this board..."
           @blur="handleBoardNameBlur"
           @keydown.enter.prevent="saveBoardName"
           @keydown.esc.prevent="cancelBoardNameEdit"
         />
-        <span v-else-if="editedName" class="min-w-0 truncate text-lg font-semibold text-content compact:hidden">{{ editedName }}</span>
+        <span v-else-if="editedName">{{ editedName }}</span>
         <button
           v-else
-          class="bg-transparent text-left text-lg font-semibold italic text-content-muted outline-none transition-colors hover:text-content-secondary"
+          class="bg-transparent text-left text-content-muted/70 outline-none transition-colors hover:text-content-secondary"
           @click="!isCompact && startBoardNameEdit()"
         >
           Name this board...
         </button>
-      </div>
-      <div class="relative">
-        <button
-          ref="boardMenuButtonRef"
-          class="flex h-8 w-8 items-center justify-center rounded-md border border-edge-subtle text-content-muted transition-colors hover:bg-overlay-subtle hover:text-content compact:h-11 compact:w-11"
-          title="Board actions"
-          @click="toggleBoardMenu"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
-            <path d="M10 3a1.75 1.75 0 110 3.5A1.75 1.75 0 0110 3zm0 5.25a1.75 1.75 0 110 3.5 1.75 1.75 0 010-3.5zm0 5.25a1.75 1.75 0 110 3.5 1.75 1.75 0 010-3.5z" />
-          </svg>
-        </button>
+      </template>
+      <template v-if="loneSection" #meta>
+        <span class="whitespace-nowrap font-mono tabular-nums">{{ assetCountLabel(loneSection) }}</span>
+      </template>
+      <template v-if="loneSection" #actions>
+        <Button size="sm" class="h-9" @click="addAssetsSection = loneSection.id">
+          <template #icon><PlusIcon class="h-icon-nav w-icon-nav" /></template>
+          Add assets
+        </Button>
+      </template>
+      <template #menu>
+        <div class="relative">
+          <OverflowButton ref="boardMenuButtonRef" size="lg" label="Board actions" @click="toggleBoardMenu" />
 
-        <div
-          v-if="boardMenuOpen"
-          ref="boardMenuRef" data-escape-layer
-          class="absolute right-0 top-11 z-menu min-w-[180px] overflow-hidden rounded-lg border border-edge-subtle bg-surface shadow-lg"
-        >
-          <button
-            class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
-            @click="handleBoardMenuDeleteBoard"
+          <div
+            v-if="boardMenuOpen"
+            ref="boardMenuRef" data-escape-layer
+            class="absolute right-0 top-11 z-menu min-w-[180px] overflow-hidden rounded-lg border border-edge-subtle bg-surface shadow-lg"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-              <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5z" clip-rule="evenodd" />
-            </svg>
-            <span>Delete Board</span>
-          </button>
+            <button
+              class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
+              @click="handleBoardMenuDeleteBoard"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-icon-inline w-icon-inline">
+                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5z" clip-rule="evenodd" />
+              </svg>
+              <span>Delete board</span>
+            </button>
+          </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
-    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto px-6 py-5 compact:px-2 compact:py-3" :class="{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }">
-      <div v-if="loading" class="py-20 text-center text-content-muted">Loading board...</div>
-      <div v-else-if="!board" class="py-20 text-center text-content-muted">Board not found.</div>
-      <TransitionGroup v-else tag="div" class="space-y-5">
+    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto py-section compact:pt-0" :class="[{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }, loneSection ? '!pt-0' : '']">
+      <div v-if="loading" class="px-page py-20 text-center text-content-muted">Loading board...</div>
+      <div v-else-if="!board" class="px-page py-20 text-center text-content-muted">Board not found.</div>
+      <TransitionGroup v-else tag="div" class="space-y-section">
         <section
           v-for="section in displaySections"
           :key="section.id"
@@ -77,6 +79,7 @@
           data-board-section="true"
           class="relative transition-colors"
           :class="[
+            loneSection && loneSection.id === section.id ? 'group/head' : '',
             sectionDragCollapsed && dragState.sectionDragId === section.id ? 'opacity-40' : ''
           ]"
           @dragover.prevent="handleSectionContainerDragOver(section, $event)"
@@ -85,48 +88,83 @@
           <!-- Section micro-label row: same drag/rename handlers as the old
                pill, restyled to the sentence-case label grammar with a mono
                count on the right. -->
+          <!-- A lone unnamed section has no band of its own on desktop: its count
+               and Add assets live in the page header, and the naming affordance
+               floats over the matte's corner on hover and focus. -->
           <div
-            class="relative flex select-none items-baseline gap-2.5 px-0.5 pb-1.5"
-            :class="!dragState.item ? 'cursor-grab active:cursor-grabbing' : ''"
-            draggable="true"
+            class="group/head select-none"
+            :class="[
+              loneSection && loneSection.id === section.id
+                ? 'absolute left-2 top-2 z-chrome'
+                : quietSection && quietSection.id === section.id
+                  ? 'relative flex items-center gap-2 px-page pb-1.5 compact:min-h-11 compact:gap-1 compact:pb-0'
+                  : 'relative flex items-center gap-2 px-page pb-1.5 compact:min-h-12 compact:gap-1 compact:border-b compact:border-edge-subtle compact:bg-surface compact:pb-0',
+              !dragState.item && !(loneSection && loneSection.id === section.id) ? 'cursor-grab active:cursor-grabbing' : '',
+            ]"
+            :draggable="!(loneSection && loneSection.id === section.id)"
             @dragstart.stop="onSectionDragStart(section, $event)"
             @dragend="onSectionDragEnd"
             @dragover.stop.prevent="handleSectionHeaderDragOver(section, $event)"
             @drop.stop.prevent="commitSectionDrop()"
           >
-            <div class="flex min-w-0 flex-1 items-baseline justify-start">
+            <div class="flex min-w-0 flex-1 items-center justify-start">
               <input
                 v-if="sectionEditingId === section.id"
                 v-model="sectionNames[section.id]"
                 :ref="(el) => setSectionInputRef(section.id, el)"
                 :style="{ width: getSectionLabelWidth(section) }"
-                class="compact:min-h-11 rounded-md bg-overlay-subtle px-1.5 text-left text-xs font-semibold text-content-secondary outline-none"
+                class="compact:min-h-11 rounded-md bg-field px-1.5 text-left text-sm font-semibold text-content outline-none"
                 @blur="saveSection(section)"
                 @keydown.enter.prevent="saveSection(section)"
                 @keydown.esc.prevent="cancelSectionEdit(section)"
               />
               <button
                 v-else
-                class="min-w-0 compact:min-h-11 compact:min-w-11 compact:px-2 truncate text-left text-xs font-semibold text-content-secondary transition-colors hover:text-content"
+                class="group/name min-w-0 compact:min-h-11 compact:min-w-11 compact:px-2 truncate text-left text-sm font-semibold text-content transition-colors"
+                :class="quietSection && quietSection.id === section.id ? 'compact:-ml-2' : 'compact:-ml-1'"
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
-                <span v-else class="font-normal italic text-content-muted">Name this section…</span>
+                <span v-else class="flex items-center gap-1.5 text-xs font-normal text-content-muted transition-[color,opacity] group-hover/name:text-content-secondary opacity-0 group-hover/head:opacity-100 group-focus-visible/name:opacity-100 compact:opacity-100" :class="[loneSection && loneSection.id === section.id ? 'rounded-md bg-matte/80 px-2 py-1 backdrop-blur-sm' : '', compactAddSection && compactAddSection.id === section.id ? 'compact:text-[11px]' : '']">
+                  <span class="truncate">Name this section…</span>
+                  <PencilIcon class="h-3 w-3 flex-none opacity-70" :stroke-width="1.75" aria-hidden="true" />
+                </span>
               </button>
             </div>
-            <button v-if="isCompact && (section.items || []).length" class="min-h-11 min-w-11 px-2 text-xs text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
-            <span class="flex-none whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ (section.items || []).length }} {{ (section.items || []).length === 1 ? 'asset' : 'assets' }}</span>
+            <div v-if="!(loneSection && loneSection.id === section.id)" class="flex flex-none items-center gap-1">
+              <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary" :class="quietSection && quietSection.id === section.id ? 'text-xs' : ''">{{ assetCountLabel(section) }}</span>
+              <!-- A phone board's single unnamed section is one quiet line: the add is text, not a filled glyph. -->
+              <button
+                v-if="quietSection && quietSection.id === section.id"
+                type="button"
+                class="-mr-2 whitespace-nowrap rounded-md px-2 text-xs font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content min-h-11 min-w-11"
+                @click="addAssetsSection = section.id"
+              >Add assets</button>
+              <!-- The view's one primary add: a phone board with a single named section has no page header, so it is the filled glyph here. -->
+              <button
+                v-else-if="compactAddSection && compactAddSection.id === section.id"
+                type="button"
+                :class="[compactIconButton, compactPrimaryCreate]"
+                aria-label="Add assets"
+                title="Add assets"
+                @click="addAssetsSection = section.id"
+              >
+                <PlusIcon :class="compactIcon" />
+              </button>
+              <!-- Tertiary: a section's own add; the view's one primary is in the page header (desktop). -->
+              <button v-else-if="!isCompact || (section.items || []).length" class="-mr-2 compact:-mr-1 whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content compact:min-h-11 compact:min-w-11" @click="addAssetsSection = section.id">Add assets</button>
+            </div>
           </div>
 
           <div
             v-if="!(sectionDragCollapsed && dragState.sectionDragId === section.id)"
-            class="relative select-none rounded-media bg-matte p-0.5"
+            class="relative select-none bg-matte p-0.5"
             :class="[sectionDragCollapsed ? '' : 'min-h-[120px]']"
             @dragover.stop.prevent="handleSectionBodyDragOver(section, $event)"
             @drop.stop.prevent="commitSectionBodyDrop(section, $event)"
           >
             <div
-              v-if="!(layoutRows[section.id] || []).length"
+              v-if="!(layoutRows[section.id] || []).length && !(isCompact && compactAddSection)"
               class="flex h-[116px] items-center justify-center text-xs text-content-muted"
             >
               <button v-if="isCompact" class="min-h-11 px-4 text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
@@ -168,8 +206,9 @@
                       :is-video="item.file_format && ['mp4','webm','mov','avi','mkv','ogg'].includes(item.file_format)"
                       thumbnail
                       thumbnail-mode="fit"
-                      :thumbnail-size="256"
+                      :thumbnail-size="512"
                       :contain="true"
+                      background-class="bg-matte"
                       :draggable="false"
                       :enable-context-menu="false"
                       container-class="h-full w-full"
@@ -181,7 +220,7 @@
                     class="pointer-events-none absolute inset-0 rounded-media ring-2 ring-inset ring-selection/70"
                   />
                   <!-- Marker badges -->
-                  <MarkerBadges
+                  <TileMarkers
                     v-if="!item.__placeholder && item.markers && item.markers.length > 0"
                     :markers="item.markers"
                     class="absolute bottom-2 right-2 z-chrome"
@@ -190,16 +229,16 @@
                   <div
                     v-if="!item.__placeholder"
                     :class="[
-                      'absolute top-2 left-2 z-10 transition-opacity',
+                      'absolute top-1.5 left-1.5 z-10 transition-opacity',
                       selectedItemIds.includes(item.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                     ]"
                     @click.stop="handleCheckboxClick(section, item, $event)"
                   >
                     <div :class="[
-                      'w-6 h-6 bg-black/60 backdrop-blur-md border-2 rounded-md flex items-center justify-center transition-all cursor-pointer',
+                      'w-5 h-5 bg-black/55 backdrop-blur-md border-2 rounded-md flex items-center justify-center transition-all cursor-pointer',
                       selectedItemIds.includes(item.id) ? 'bg-selection border-selection' : 'border-edge-strong hover:border-edge-strong'
                     ]">
-                      <svg v-if="selectedItemIds.includes(item.id)" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                      <svg v-if="selectedItemIds.includes(item.id)" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                       </svg>
                     </div>
@@ -226,7 +265,7 @@
       >
         <div
           class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
-          :class="dragState.newSectionHover ? 'border-accent bg-accent text-white shadow-accent/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
+          :class="dragState.newSectionHover ? 'border-accent bg-accent text-accent-on shadow-accent/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
           @dragenter.prevent="dragState.newSectionHover = true"
           @dragover.prevent="handleNewSectionDragOver"
           @dragleave="handleNewSectionDragLeave"
@@ -265,7 +304,7 @@
         <div
           v-if="!draggedSectionIsDefault"
           class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
-          :class="dragState.explodeSectionHover ? 'border-accent bg-accent text-white shadow-accent/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
+          :class="dragState.explodeSectionHover ? 'border-accent bg-accent text-accent-on shadow-accent/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
           @dragenter.prevent="dragState.explodeSectionHover = true"
           @dragover.prevent="dragState.explodeSectionHover = true"
           @dragleave="handleExplodeSectionDragLeave"
@@ -350,16 +389,20 @@ import { useViewport } from '../composables/useViewport'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import RenameSheet from '../components/compact/RenameSheet.vue'
 import Sheet from '../components/ui/Sheet.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import OverflowButton from '../components/ui/OverflowButton.vue'
+import { PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { compactIcon, compactIconButton, compactPrimaryCreate } from '../components/compact/headerStyles'
+import Button from '../components/ui/Button.vue'
 import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
 import { useEntityMove } from '../composables/useEntityMove'
 import AssetSelectionSheet from '../components/AssetSelectionSheet.vue'
 import { useRoute, useRouter } from 'vue-router'
-import MarkerBadges from '../components/MarkerBadges.vue'
 import MultiSelectActionBar from '../components/MultiSelectActionBar.vue'
 import BoardPicker from '../components/BoardPicker.vue'
 import TagPickerPopover from '../components/TagPickerPopover.vue'
 import ExportModal from '../components/ExportModal.vue'
-import { MediaContextMenu, MediaImage } from '../components/media'
+import { MediaContextMenu, MediaImage, TileMarkers } from '../components/media'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import { useBoardMultiSelect } from '../composables/useBoardMultiSelect'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
@@ -372,6 +415,7 @@ import { useSlideshow } from '../composables/useSlideshow'
 import { useTheme } from '../composables/useTheme'
 import { useWebSocket } from '../composables/useWebSocket'
 import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
+import { TILE_GAP_PX, tileColumns, tileWidth } from '../utils/tileGrid'
 
 const { on } = useWebSocket()
 const route = useRoute()
@@ -431,6 +475,7 @@ const tileRefs = new Map()
 const sectionMetrics = reactive({})
 const sectionElementIds = new WeakMap()
 let sectionResizeObserver = null
+let scrollerResizeObserver = null
 let pendingItemDragCleanup = null
 let pendingSectionFallbackCommit = null
 const sectionDragCollapsed = ref(false) // delayed flag so collapse doesn't abort the drag
@@ -516,36 +561,22 @@ function aspectRatio(item) {
   return width / height
 }
 
+// One contact sheet: the column count comes from the real content width, the
+// tiles share what is left after the 2px gutters, and the matte's own 2px
+// padding gives equal outer gutters. A short last row keeps the same tile size.
+const GRID_GAP_PX = TILE_GAP_PX
+
 function buildRows(items, width) {
-  const maxWidth = Math.max(width - 52, 320)
-  const targetHeight = 190
-  const gap = 2
+  const inner = Math.max(width - GRID_GAP_PX * 2, 1)
+  const columns = tileColumns(inner, 'board')
+  const tile = Math.floor(tileWidth(inner, columns) * 100) / 100
   const rows = []
-  let pending = []
-  let ratioSum = 0
-
-  const flush = (justify) => {
-    if (pending.length === 0) return
-    const rowGap = gap * Math.max(pending.length - 1, 0)
-    const height = justify
-      ? Math.max(120, Math.min(260, Math.floor((maxWidth - rowGap) / Math.max(ratioSum, 0.1))))
-      : targetHeight
-    const rowItems = pending.map((item) => ({
-      ...item,
-      _layoutWidth: Math.max(96, Math.floor(height * aspectRatio(item)))
-    }))
-    rows.push({ items: rowItems, height })
-    pending = []
-    ratioSum = 0
+  for (let i = 0; i < items.length; i += columns) {
+    rows.push({
+      items: items.slice(i, i + columns).map((item) => ({ ...item, _layoutWidth: tile })),
+      height: tile
+    })
   }
-
-  for (const item of items) {
-    pending.push(item)
-    ratioSum += aspectRatio(item)
-    const estimatedWidth = ratioSum * targetHeight + gap * Math.max(pending.length - 1, 0)
-    if (estimatedWidth >= maxWidth) flush(true)
-  }
-  flush(false)
   return rows
 }
 
@@ -620,6 +651,20 @@ const draggedSectionIsDefault = computed(() => {
   return Boolean(section?.is_default)
 })
 
+const loneSection = computed(() => {
+  if (isCompact.value) return null
+  const sections = displaySections.value
+  return sections.length === 1 && !sections[0].name ? sections[0] : null
+})
+// A phone board with one section: that section's add is the board's add.
+const compactAddSection = computed(() => (isCompact.value && displaySections.value.length === 1 ? displaySections.value[0] : null))
+// ...and while it is unnamed its band drops the rule and the fill.
+const quietSection = computed(() => (compactAddSection.value && !compactAddSection.value.name ? compactAddSection.value : null))
+function assetCountLabel(section) {
+  const n = (section.items || []).length
+  return `${n} ${n === 1 ? 'asset' : 'assets'}`
+}
+
 const totalAssetCount = computed(() => (board.value?.sections || []).reduce((sum, section) => sum + (section.item_count || section.items.length || 0), 0))
 const selectedMediaIds = computed(() => selectedItems.value.map(mediaIdOf).filter(Boolean))
 const selectedPayloadItems = computed(() => selectedItems.value.map((item) => ({
@@ -656,8 +701,14 @@ async function loadBoard() {
   }
 }
 
+// Width the tiles can actually use: the scroller minus its own padding. A hidden
+// board (slideshow open, KeepAlive) measures 0, so keep the last good width.
 function measureWidth() {
-  containerWidth.value = scrollerRef.value?.clientWidth || 1200
+  const el = scrollerRef.value
+  if (!el || !el.clientWidth) return
+  const style = getComputedStyle(el)
+  const width = el.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0)
+  if (width > 0) containerWidth.value = width
 }
 
 function updateSectionMetrics(sectionId, el) {
@@ -820,7 +871,7 @@ function getSectionLabelWidth(section) {
   const text = (sectionEditingId.value === section.id ? sectionNames[section.id] : section.name) || ''
   const minWidth = 112
   const maxWidth = 288
-  const estimatedWidth = 32 + (text.length * 7.25)
+  const estimatedWidth = 32 + (text.length * 8.25)
   const clampedWidth = Math.max(minWidth, Math.min(maxWidth, estimatedWidth))
   return `${clampedWidth}px`
 }
@@ -911,7 +962,7 @@ async function handleBoardMenuDeleteBoard() {
 
 function handleDocumentClick(event) {
   const target = event.target
-  if (boardMenuOpen.value && !boardMenuRef.value?.contains(target) && !boardMenuButtonRef.value?.contains(target)) {
+  if (boardMenuOpen.value && !boardMenuRef.value?.contains(target) && !(boardMenuButtonRef.value?.$el ?? boardMenuButtonRef.value)?.contains(target)) {
     boardMenuOpen.value = false
   }
 }
@@ -1937,6 +1988,10 @@ onMounted(async () => {
   window.addEventListener('resize', measureWidth)
   await nextTick()
   measureWidth()
+  if (typeof ResizeObserver !== 'undefined' && scrollerRef.value) {
+    scrollerResizeObserver = new ResizeObserver(measureWidth)
+    scrollerResizeObserver.observe(scrollerRef.value)
+  }
 })
 
 onUnmounted(() => {
@@ -1955,6 +2010,7 @@ onUnmounted(() => {
     pendingItemDragCleanup = null
   }
   sectionResizeObserver?.disconnect()
+  scrollerResizeObserver?.disconnect()
   document.removeEventListener('mousedown', handleDocumentClick)
   window.removeEventListener('resize', measureWidth)
 })

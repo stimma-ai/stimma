@@ -7,28 +7,29 @@
     @close="close"
   >
     <template #header>
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-1 min-w-0">
+      <div class="flex items-center justify-between compact:-mx-6 compact:-my-4 compact:h-header-mobile compact:px-page">
+        <div class="flex items-center gap-0.5 min-w-0">
           <button
             v-if="isCompact && !compactList"
             type="button"
-            class="w-11 h-11 -ml-3 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+            :class="[compactIconButton, '!text-content']"
             aria-label="All settings"
             @click="compactList = true"
           >
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m15 6-6 6 6 6" /></svg>
+            <ChevronLeftIcon :class="[compactIcon, '-translate-x-1.5']" />
           </button>
-          <h2 class="text-[16px] font-semibold text-content truncate">{{ isCompact && !compactList ? activeSectionLabel : 'Settings' }}</h2>
+          <h2 ref="settingsTitle" class="truncate font-brand font-semibold text-content" :class="isCompact ? 'text-[18px] leading-6 px-1' : 'text-base'">{{ isCompact && !compactList ? activeSectionLabel : 'Settings' }}</h2>
         </div>
-        <IconButton aria-label="Close" title="Close" @click="close">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+        <button v-if="isCompact" type="button" :class="compactIconButton" aria-label="Close" title="Close" @click="close">
+          <XMarkIcon :class="compactIcon" />
+        </button>
+        <IconButton v-else-if="!isCompact" size="lg" aria-label="Close" title="Close" @click="close">
+          <XMarkIcon class="h-icon-nav w-icon-nav" />
         </IconButton>
       </div>
     </template>
 
-    <div class="shrink-0 px-6 py-3 compact:px-4">
+    <div v-if="!isCompact || compactList" class="shrink-0 px-6 pb-2 pt-3 compact:px-4 compact:pb-1">
       <input v-model="settingsQuery" type="search" aria-label="Search settings" placeholder="Search settings…"
         class="w-full rounded-md bg-overlay-subtle px-3 py-2 text-sm text-content placeholder:text-content-muted outline-none focus-visible:ring-2 ring-accent/60"
         @keydown.enter.prevent="settingsMatches[0] && openSetting(settingsMatches[0])" />
@@ -59,7 +60,7 @@
       />
 
       <!-- Main content area -->
-      <div ref="settingsContent" data-settings-content v-show="!isCompact || !compactList" class="flex-1 overflow-y-auto p-6 compact:p-4">
+      <div ref="settingsContent" data-settings-content v-show="!isCompact || !compactList" class="flex-1 overflow-y-auto px-6 pb-0 pt-4 compact:px-4 compact:pb-0 compact:pt-2">
         <!-- Loading state -->
         <div v-if="loading" class="flex items-center justify-center h-full">
           <Spinner size="md" />
@@ -215,8 +216,9 @@
                   @close-settings="close"
                 />
               </template>
-            </div>
-          </div>
+        <div class="pointer-events-none sticky bottom-0 -mx-6 h-8 flex-none bg-gradient-to-t from-surface to-transparent compact:-mx-4" aria-hidden="true"></div>
+      </div>
+    </div>
   </Modal>
 
   <!-- PIN Entry Modal for locked profiles -->
@@ -231,6 +233,8 @@
 
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
+import { ChevronLeftIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { compactIcon, compactIconButton } from '../compact/headerStyles'
 import { searchSettings } from '../../utils/settingsSearch'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { useViewport } from '../../composables/useViewport'
@@ -306,6 +310,7 @@ const pinModalProfileName = computed(() => {
 const settingsQuery = ref('')
 const settingsMatches = computed(() => searchSettings(settingsQuery.value))
 const settingsContent = ref(null)
+const settingsTitle = ref(null)
 let stopHighlight = () => {}
 
 async function openSetting(hit) {
@@ -328,8 +333,12 @@ async function openSetting(hit) {
   stopHighlight = cleanup
   const highlight = () => {
     const normalize = text => text.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
-    const target = (hit.target ? content.querySelector(`[data-settings-target="${hit.target}"]`) : null) || [...content.querySelectorAll('[data-setting-label], h2, h3, h4')].find(node =>
+    const found = (hit.target ? content.querySelector(`[data-settings-target="${hit.target}"]`) : null) || [...content.querySelectorAll('[data-setting-label], h2, h3, h4')].find(node =>
       normalize(node.dataset.settingLabel || node.textContent || '') === normalize(hit.label))
+    if (!found) return false
+    // On compact layouts the section heading is hidden because the modal
+    // title already names the section; highlight that title instead.
+    const target = found.getClientRects().length ? found : settingsTitle.value
     if (!target) return false
     highlighted = target
     target.classList.add(...classes)

@@ -54,6 +54,7 @@
 </template>
 
 <script setup>
+import { reportActionError } from '../composables/useToasts'
 import { useViewport } from '../composables/useViewport'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useMediaApi } from '../composables/useMediaApi'
@@ -224,7 +225,7 @@ async function commitAndSync(tagText) {
       emit('tags-changed', localTags.value)
     }
   } catch (error) {
-    console.error('Failed to add tag:', error)
+    reportActionError("Couldn't add tag.", error)
     // Revert optimistic add if still current
     if (opCounter.value === myOp) {
       localTags.value = localTags.value.filter(t => !(t.tag === tagText && !t.id))
@@ -248,7 +249,7 @@ async function removeAndSync(tag) {
       emit('tags-changed', [...localTags.value])
     }
   } catch (error) {
-    console.error('Failed to remove tag:', error)
+    reportActionError("Couldn't remove tag.", error)
     // Revert on failure
     if (opCounter.value === myOp) {
       localTags.value = [...localTags.value, tag]

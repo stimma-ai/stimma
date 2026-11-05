@@ -13,7 +13,7 @@
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="bg-accent text-white text-[11px] font-medium px-3 py-1 rounded-md hover:bg-accent/90 transition-colors flex items-center gap-2"
+            class="bg-accent text-accent-on text-[11px] font-medium px-3 py-1 rounded-md hover:bg-accent/90 transition-colors flex items-center gap-2"
             title="Approve (↑ or W)"
             @click.stop="$emit('approve')"
           >

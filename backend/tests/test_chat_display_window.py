@@ -429,3 +429,69 @@ async def test_media_pages_skip_trashed_and_deleted_outputs(client, db_session):
     body = (await client.get(f"/api/chats/{chat_id}/items?only=media&limit=100")).json()
     assert [item["id"] for item in body["items"]] == [image]
     assert body["has_more"] is False
+
+
+@pytest.mark.parametrize('query', ['limit=2', 'visible_limit=2', 'display_limit=2'])
+async def test_prompt_reminders_are_excluded_before_transcript_pagination(client, db_session, query):
+    chat_id = await _create_chat(client)
+    items = [ChatItem(chat_id=chat_id, item_type='system_reminder', message_text='Old context.')]
+    for n in range(2):
+        items.extend([
+            ChatItem(chat_id=chat_id, item_type='user_message', message_text=f'Request {n}'),
+            ChatItem(chat_id=chat_id, item_type='assistant_message', message_text=f'Answer {n}'),
+        ])
+        items.extend(ChatItem(chat_id=chat_id, item_type='system_reminder', message_text='Updated context.')
+                     for _ in range(205))
+    ids = await _seed(db_session, chat_id, items)
+    expected = [item.id for item in reversed(items) if item.item_type != 'system_reminder']
+    body = (await client.get(f'/api/chats/{chat_id}/items?{query}')).json()
+    seen = [item['id'] for item in body['items']]
+    assert seen[:2] == expected[:2]
+    assert all(item['item_type'] != 'system_reminder' for item in body['items'])
+    while body['has_more']:
+        body = (await client.get(f"/api/chats/{chat_id}/items?{query}&before_id={seen[-1]}")).json()
+        assert body['items']
+        seen.extend(item['id'] for item in body['items'])
+    assert seen == expected
+    # A reminder-only range cannot promise another visible page.
+    body = (await client.get(f'/api/chats/{chat_id}/items?{query}&before_id={ids[1]}')).json()
+    assert body['items'] == [] and body['has_more'] is False
+
+
+async def test_hidden_prompt_context_survives_branch_and_is_deleted_with_its_turn(client, db_session, monkeypatch):
+    from sqlalchemy import select
+    from tests.helpers.ws import MockWebSocketManager
+    from agent.v2.conversation import build_messages
+
+    ws = MockWebSocketManager()
+    monkeypatch.setattr('routes.chats.ws_manager', ws)
+    chat_id = await _create_chat(client)
+    [anchor] = await _seed(db_session, chat_id, [
+        ChatItem(chat_id=chat_id, item_type='user_message', message_text='Keep this request.'),
+    ])
+    async with db_session() as session:
+        await build_messages(chat_id, session, 'Be helpful.', system_reminders=['Remember the current context.'])
+        reminder = (await session.execute(select(ChatItem).where(
+            ChatItem.chat_id == chat_id, ChatItem.item_type == 'system_reminder',
+        ))).scalar_one()
+        reminder_id = reminder.id
+    assert not any(event == 'chat_item_created' for event, _ in ws.broadcasts)
+    [answer] = await _seed(db_session, chat_id, [
+        ChatItem(chat_id=chat_id, item_type='assistant_message', message_text='Done.'),
+    ])
+    branch = await client.post(f'/api/chats/{chat_id}/branch?from_chatitem_id={answer}')
+    assert branch.status_code == 200
+    branch_id = branch.json()['id']
+    assert [item['item_type'] for item in (await client.get(f'/api/chats/{branch_id}/items')).json()['items']] == [
+        'assistant_message', 'user_message',
+    ]
+    async with db_session() as session:
+        assert (await session.execute(select(ChatItem).where(
+            ChatItem.chat_id == branch_id, ChatItem.item_type == 'system_reminder',
+        ))).scalar_one().message_text == 'Remember the current context.'
+    clone = (await client.post(f'/api/chats/{chat_id}/clone')).json()
+    assert (await client.get(f"/api/chats/{clone['id']}/items")).json()['items'] == []
+    deleted = await client.post(f'/api/chats/{chat_id}/items/{anchor}/delete-from-here')
+    assert set(deleted.json()['deleted_ids']) == {anchor, reminder_id, answer}
+    async with db_session() as session:
+        assert (await session.execute(select(ChatItem).where(ChatItem.chat_id == chat_id))).scalars().all() == []

@@ -23,10 +23,10 @@ function chat(id, name) {
  * Serve Home's API. `respond(path, query, headers)` may return a JSON body, a status
  * number, or a promise of either (to delay); undefined falls back to empty.
  */
-async function openHome(t, { start = '/', respond = () => undefined, deadline = null } = {}) {
+async function openHome(t, { start = '/', respond = () => undefined, deadline = null, dpr = 1 } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: dpr })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   const counts = new Map()
@@ -588,7 +588,7 @@ test('Home reads its cards in one compact read, with no board or flow detail rea
   await expect(page.getByText('Compact board')).toBeVisible()
   await expect(page.getByText('Compact flow')).toBeVisible()
   await expect(page.getByText('Compact chat')).toBeVisible()
-  await expect(page.getByText(/5000 items/)).toBeVisible()
+  await expect(page.getByText(/5000 assets/)).toBeVisible()
   await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
   // Artwork comes from the compact read, by content hash.
   await expect.poll(() => thumbnailPaths(counts).filter(path => /boardhash|flowhash|chathash/.test(path)).length).toBe(5)
@@ -741,3 +741,59 @@ test('an old server gets the full lists, each board and flow read once per load,
   await expect.poll(() => counts.get('/api/home/recents')).toBe(2)
 })
 
+
+test('Home remeasures Jump back in after slideshow replacement, resize and KeepAlive return', async t => {
+  const { page, push } = await openHome(t, { respond: path => {
+    if (path === '/api/chats/previews') return { items: [chat(1, 'Resume this chat')] }
+    if (path === '/api/assets/browse') return { items: [{ id: 7, media_id: 7, file_format: 'png', width: 512, height: 512 }] }
+  } })
+  const grid = page.locator('[data-jump-grid]')
+  const cover = page.locator('[data-jump-cover]').first()
+  const columns = () => grid.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length)
+  await expect.poll(columns).toBe(3)
+  await page.locator('.aspect-square.cursor-pointer').first().click()
+  await expect(grid).toHaveCount(0)
+  await page.waitForTimeout(100) // allow the detached element's resize delivery
+  await page.getByRole('button', { name: 'Close slideshow', exact: true }).click()
+  await expect.poll(columns).toBe(3)
+  await page.setViewportSize({ width: 412, height: 900 })
+  await expect.poll(columns).toBe(1)
+  await expect(cover).toHaveCSS('width', '80px')
+  await expect(cover).toHaveCSS('height', '80px')
+  await page.setViewportSize({ width: 752, height: 900 })
+  await expect.poll(columns).toBe(2)
+  const box = await cover.boundingBox()
+  assert.ok(Math.abs(box.width / box.height - 1.5) < 0.01)
+  await push('/elsewhere')
+  await expect(page.locator('#elsewhere')).toBeVisible()
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await push('/')
+  await expect.poll(columns).toBe(3)
+  assert.ok((await cover.boundingBox()).width <= 360)
+  // Sidebar/focus-mode changes resize the pane without a window resize.
+  await recents(page).evaluate(el => { el.style.width = '400px' })
+  await expect.poll(columns).toBe(1)
+  await recents(page).evaluate(el => { el.style.width = '' })
+  await expect.poll(columns).toBe(3)
+})
+
+
+test('Jump back in requests enough pixels for DPR and the uncropped source aspect', async t => {
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  const { page } = await openHome(t, { dpr: 2, respond: async path => {
+    if (path === '/api/chats/previews') {
+      await gate
+      return { items: [{ ...chat(1, 'Landscape chat'), recent_media: [{ media_id: 77 }] }] }
+    }
+  } })
+  await page.route('**/media/77/thumbnail?*', route => route.fulfill({
+    contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"/>'
+  }))
+  release()
+  const image = page.locator('[data-jump-cover] img')
+  // The fit thumbnail's long edge must supply the crop height at DPR 2 too.
+  await expect.poll(async () => Number(new URL(await image.getAttribute('src'), 'http://home-load.test').searchParams.get('size'))).toBe(726)
+  const box = await page.locator('[data-jump-cover]').boundingBox()
+  assert.ok(726 >= Math.max(box.width, box.height) * 2)
+})

@@ -5,7 +5,9 @@
       class="flex items-center gap-1.5 h-[34px] w-full min-w-0 rounded-lg border pl-2.5 pr-1 transition-colors"
       :class="isOpen
         ? 'bg-surface border-accent/50 ring-2 ring-accent/40'
-        : 'bg-overlay-subtle border-edge-subtle hover:border-edge'"
+        : hasLocalSearch
+          ? 'border-transparent bg-transparent hover:bg-overlay-faint hover:border-edge-subtle'
+          : 'bg-overlay-subtle border-edge-subtle hover:border-edge'"
     >
       <svg class="w-3.5 h-3.5 flex-shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -61,7 +63,7 @@
         <div class="py-1.5">
           <div class="flex items-center justify-between px-3.5 pt-1 pb-0.5">
             <div class="text-xs font-semibold text-content-secondary">
-              {{ section.title }}<span v-if="section.count && section.count > section.items.length" class="ml-1.5 font-normal text-content-muted/70 tabular-nums">{{ section.count }}</span>
+              {{ section.title }}<span v-if="section.count && section.count > section.items.length" class="ml-1.5 font-normal text-content-muted/70 font-mono tabular-nums">{{ section.count }}</span>
             </div>
             <button
               v-if="section.action"
@@ -211,7 +213,7 @@
                    right-aligned time column so rows line up. -->
               <span v-if="item.provider || item.meta" class="flex-shrink-0 pl-3 inline-flex items-center gap-2 text-[11.5px] text-content-muted">
                 <ToolProviderLabel v-if="item.provider" :cloud="!!item.provider.cloud" :provider-name="item.provider.name" />
-                <span v-if="item.meta" class="w-[52px] text-right tabular-nums whitespace-nowrap">{{ item.meta }}</span>
+                <span v-if="item.meta" class="w-[52px] text-right font-mono tabular-nums whitespace-nowrap">{{ item.meta }}</span>
               </span>
             </button>
           </template>
@@ -338,6 +340,9 @@ const dropdownRef = ref<HTMLElement | null>(null)
 const voiceBtn = ref<any>(null)
 const query = ref('')
 const isOpen = ref(false)
+// A list page carries its own field, which is the primary visible search there;
+// the global one rests as an outline only (same geometry, shortcut intact).
+const hasLocalSearch = computed(() => ['boards', 'chats', 'flows', 'all-tools'].includes(String(route.name)))
 const { loading, failed: failedSearchSections, run: runSearchTasks, retry: retrySearch, cancel: cancelSearch } = useSearchTasks()
 const selectedIndex = ref(0)
 
@@ -418,7 +423,7 @@ const sections = computed<Section[]>(() => {
     // section split carries that meaning, so catalog rows need no per-row badge.
     if (openInstanceResults.value.length > 0) {
       result.push({
-        title: 'Active Tools',
+        title: 'Active tools',
         items: openInstanceResults.value.map(tab => {
           const catalogTool = toolById.value.get(tab.entityId)
           return next({
@@ -437,7 +442,7 @@ const sections = computed<Section[]>(() => {
     }
     if (toolResults.value.length > 0) {
       result.push({
-        title: openInstanceResults.value.length > 0 ? 'All Tools' : 'Tools',
+        title: openInstanceResults.value.length > 0 ? 'All tools' : 'Tools',
         items: toolResults.value.map(t => next({
           key: `tool:${t.full_tool_id}`,
           kind: 'tool',

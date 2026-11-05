@@ -155,6 +155,11 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
       sessionId.value = newSessionId()
     }
 
+    // The conversation can be started over while this run is waiting on the model
+    // or a tool. What it was doing no longer applies, so it stops at the next chance.
+    const conversation = sessionId.value
+    const startedOver = () => sessionId.value !== conversation
+
     // A transport failure must not become permanent conversation history. If
     // the provider rejects this turn (most notably for a stale context-window
     // setting), restore the pre-turn wire history so Retry is actually a retry
@@ -183,6 +188,7 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
           debug: devModeRef.value,
           project_id: ctx.getProjectId?.() ?? null,
         })
+        if (startedOver()) return
         const data = resp.data as {
           message: string
           tool_calls: AgentToolCall[]
@@ -216,6 +222,7 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
         }
 
         for (const tc of toolCalls) {
+          if (startedOver()) return
           let result: string
           const textBeforeTool = coEditedText(ctx.getStateContext())
           try {
@@ -232,12 +239,14 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
           } catch (e: any) {
             result = `Error: ${e?.message || String(e)}`
           }
+          if (startedOver()) return
           messages.value.push({ role: 'tool', tool_call_id: tc.id, content: result ?? 'ok' })
           if (seenText) seenText = afterAgentTool(seenText, textBeforeTool, coEditedText(ctx.getStateContext()))
         }
       }
       lastReply.value = 'Stopped after too many steps. Try a more specific instruction.'
     } catch (e: any) {
+      if (startedOver()) return
       messages.value.splice(turnStart)
       seenText = seenBeforeTurn
       lastDebugTrace.value = e?.response?.data?.detail?.debug || null

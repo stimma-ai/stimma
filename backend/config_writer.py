@@ -6,8 +6,10 @@ Uses ruamel.yaml to preserve comments and formatting in the config file.
 import os
 import re
 import shutil
-import tempfile
+import stat
+import uuid
 from datetime import datetime
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -59,36 +61,42 @@ def _load_config_yaml() -> tuple[Any, YAML]:
     return data, yaml
 
 
-def _atomic_write_config(data: Any, yaml: YAML) -> None:
-    """Atomically write config data to file.
+@contextmanager
+def atomic_write(path: Path, mode: str = "w", *, permissions: int | None = None):
+    """Replace durably, preserving existing permissions or using the umask.
 
-    1. Write to temp file in same directory
-    2. Backup existing config to config.yaml.bak
-    3. Atomic rename temp to config.yaml
+    Credential writers can explicitly require private permissions.
     """
+    path = Path(path)
+    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    # O_EXCL creates the temporary file safely while letting the OS apply the
+    # umask; reading/changing the process-wide umask would race other writers.
+    fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666 if permissions is None else permissions)
+    try:
+        kwargs = {} if "b" in mode else {"encoding": "utf-8"}
+        with os.fdopen(fd, mode, **kwargs) as handle:
+            if permissions is not None:
+                os.chmod(temp_path, permissions)
+            elif path.exists():
+                os.chmod(temp_path, stat.S_IMODE(path.stat().st_mode))
+            yield handle
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+    finally:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+
+
+def _atomic_write_config(data: Any, yaml: YAML) -> None:
+    """Atomically write config data, keeping the previous config as a backup."""
     global _app_initiated_write
     _app_initiated_write = True
     config_path = get_config_path()
-    config_dir = config_path.parent
-
-    # Write to temp file in same directory (for atomic rename)
-    fd, temp_path = tempfile.mkstemp(suffix='.yaml', dir=config_dir)
-    try:
-        with os.fdopen(fd, 'w') as f:
-            yaml.dump(data, f)
-
-        # Backup existing config
-        backup_path = config_path.with_suffix('.yaml.bak')
+    with atomic_write(config_path, permissions=0o600) as handle:
+        yaml.dump(data, handle)
         if config_path.exists():
-            shutil.copy2(config_path, backup_path)
-
-        # Atomic rename
-        os.replace(temp_path, config_path)
-    except Exception:
-        # Clean up temp file on error
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
-        raise
+            shutil.copy2(config_path, config_path.with_suffix('.yaml.bak'))
 
 
 def _find_profile_index(data: Any, profile_id: str) -> Optional[int]:

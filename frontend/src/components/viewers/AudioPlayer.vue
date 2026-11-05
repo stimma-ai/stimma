@@ -64,14 +64,14 @@
         class="w-10 h-10 rounded-full bg-overlay-light text-content flex items-center justify-center hover:bg-overlay-strong transition-colors"
         title="Skip back 10s"
       >
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg class="w-icon-canvas h-icon-canvas" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
         </svg>
       </button>
 
       <button
         @click="togglePlay"
-        class="w-16 h-16 rounded-full bg-accent text-white flex items-center justify-center hover:bg-accent/90 transition-colors"
+        class="w-16 h-16 rounded-full bg-accent text-accent-on flex items-center justify-center hover:bg-accent/90 transition-colors"
       >
         <svg v-if="!isPlaying" class="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24">
           <path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
@@ -86,7 +86,7 @@
         class="w-10 h-10 rounded-full bg-overlay-light text-content flex items-center justify-center hover:bg-overlay-strong transition-colors"
         title="Skip forward 10s"
       >
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg class="w-icon-canvas h-icon-canvas" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
         </svg>
       </button>
@@ -98,10 +98,10 @@
         @click="toggleAudioMute"
         class="w-8 h-8 rounded-full text-content-tertiary flex items-center justify-center hover:text-content transition-colors"
       >
-        <svg v-if="!isMuted && (systemVolume || volume > 0)" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg v-if="!isMuted && (systemVolume || volume > 0)" class="w-icon-canvas h-icon-canvas" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
         </svg>
-        <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg v-else class="w-icon-canvas h-icon-canvas" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9.75L19.5 12m0 0l2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6l4.72-4.72a.75.75 0 011.28.531V19.94a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
         </svg>
       </button>

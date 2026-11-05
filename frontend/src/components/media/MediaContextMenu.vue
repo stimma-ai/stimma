@@ -18,9 +18,10 @@
       v-if="contextMenu.state.value.visible"
       ref="menuRef" data-escape-layer
       data-context-menu
-      v-show="!isCoarsePointer || !activeSubmenu"
+      v-show="!isCoarsePointer || (!activeSubmenu && !activeGroup)"
       class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[180px]"
       :style="menuPosition"
+      @scroll.passive="updateMenuMore"
     >
       <!-- Loading state -->
       <div v-if="loadingItem" class="px-3 py-2 text-xs text-content-tertiary">
@@ -35,10 +36,8 @@
           @click="handleFindSimilar"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
-          </svg>
-          <span>Find Similar</span>
+          <MagnifyingGlassIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>Find similar</span>
         </button>
 
         <div v-if="hasClipEmbedding && targetCount <= 3" class="border-t border-edge-subtle my-1"></div>
@@ -48,20 +47,15 @@
           @click="handleFindSimilarFaces"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path d="M10 2a6 6 0 00-6 6v1.5A4.5 4.5 0 008.5 14h3A4.5 4.5 0 0016 9.5V8a6 6 0 00-6-6Zm-2 7a1 1 0 110-2 1 1 0 010 2Zm4 0a1 1 0 110-2 1 1 0 010 2Zm-3.8 2.4a.75.75 0 011.06-.1c.42.35 1.06.35 1.48 0a.75.75 0 11.96 1.16 2.65 2.65 0 01-3.4 0 .75.75 0 01-.1-1.06Z" />
-            <path d="M15.25 14.25l2.5 2.5a.75.75 0 11-1.06 1.06l-2.5-2.5a.75.75 0 111.06-1.06Z" />
-          </svg>
-          <span>Find Similar Faces</span>
+          <FaceSmileIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>Find similar faces</span>
         </button>
 
         <button
           @click="handleRestore"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path fill-rule="evenodd" d="M7.793 2.232a.75.75 0 01-.025 1.06L3.622 7.25h10.003a5.375 5.375 0 010 10.75H10.75a.75.75 0 010-1.5h2.875a3.875 3.875 0 000-7.75H3.622l4.146 3.957a.75.75 0 01-1.036 1.085l-5.5-5.25a.75.75 0 010-1.085l5.5-5.25a.75.75 0 011.06.025z" clip-rule="evenodd" />
-          </svg>
+          <ArrowUturnLeftIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>{{ isMultiple ? `Restore ${targetCount} Items` : 'Restore' }}</span>
         </button>
 
@@ -69,9 +63,7 @@
           @click="handlePermanentDelete"
           class="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0">
-            <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-          </svg>
+          <TrashIcon class="w-4 h-4 flex-shrink-0" :stroke-width="1.75" />
           <span>{{ isMultiple ? `Delete ${targetCount} Permanently` : 'Delete Permanently' }}</span>
         </button>
 
@@ -85,21 +77,46 @@
           @click="handleKeepInAllAssets"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path fill-rule="evenodd" d="M4.25 3A2.25 2.25 0 002 5.25v11.69c0 .839.968 1.306 1.624.782L10 12.62l6.376 5.102A1 1 0 0018 16.94V5.25A2.25 2.25 0 0015.75 3H4.25z" clip-rule="evenodd" />
-          </svg>
+          <BookmarkIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>{{ targetMediaIds.length === 1 ? 'Keep in All Assets' : `Keep ${targetMediaIds.length} in All Assets` }}</span>
         </button>
 
         <div v-if="targetAssetIds.length === 0 && targetMediaIds.length > 0" class="border-t border-edge-subtle my-1"></div>
 
+        <!-- Sheet: the identity and the marker toggles share one row. Elsewhere the
+             wrapper is a plain block and only the marker row shows. -->
+        <div class="coarse:flex coarse:items-center coarse:gap-3 coarse:pl-4 coarse:pr-2 coarse:border-b coarse:border-edge-subtle">
+        <!-- Sheet only, and only when the sheet has height to spare: which item(s) the actions apply to. -->
+        <div
+          v-if="isCoarsePointer && selectionSummary"
+          class="hidden min-w-0 flex-1 items-center gap-3 [@media(min-height:720px)]:flex"
+          data-testid="menu-selection-summary"
+        >
+          <MediaImage
+            v-if="targetMediaIds.length > 0"
+            :media-id="targetMediaIds[0]"
+            thumbnail
+            :thumbnail-size="128"
+            :draggable="false"
+            :enable-context-menu="false"
+            container-class="h-10 w-10 flex-none rounded-media bg-matte"
+            img-class="h-full w-full object-cover"
+          />
+          <div class="min-w-0">
+            <div class="truncate text-[14px] font-medium text-content">{{ selectionSummary.title }}</div>
+            <div class="truncate font-mono text-[12px] text-content-tertiary">{{ selectionSummary.detail }}</div>
+          </div>
+        </div>
+
         <!-- Marker toggles row -->
-        <div v-if="markers.length > 0" class="flex items-center gap-1 px-2 py-1.5 border-b border-edge-subtle coarse:gap-2 coarse:px-3">
+        <div v-if="markers.length > 0" class="flex items-center gap-1 px-2 py-1.5 border-b border-edge-subtle coarse:flex-none coarse:gap-0 coarse:px-0 coarse:py-0 coarse:border-b-0 coarse:ml-auto" role="group" aria-label="Markers">
           <button
             v-for="marker in markers"
             :key="marker.id"
             @click="handleToggleMarker(marker)"
             :title="hasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
+            :aria-label="hasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
+            :aria-pressed="hasMarker(marker.id)"
             :class="[
               'w-7 h-7 coarse:w-11 coarse:h-11 rounded-md flex items-center justify-center transition-colors',
               hasMarker(marker.id) ? 'bg-overlay-light' : 'hover:bg-overlay-subtle'
@@ -107,10 +124,12 @@
           >
             <span
               class="w-4 h-4 icon-container"
-              :style="{ color: hasMarker(marker.id) ? marker.color : '#6b7280' }"
+              :class="hasMarker(marker.id) ? '' : 'text-content-tertiary [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-[1.75] [&_svg]:[stroke-linejoin:round]'"
+              :style="hasMarker(marker.id) ? { color: marker.color } : undefined"
               v-html="sanitizeSvg(marker.icon_svg)"
             />
           </button>
+        </div>
         </div>
 
         <!-- Edit (single image only): opens the asset's own edit mode, the
@@ -121,23 +140,19 @@
           @click="handleEditImage"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
-          </svg>
+          <PencilIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>Edit</span>
         </button>
-        <div v-if="isImage && !isMultiple" class="border-t border-edge-subtle my-1"></div>
 
         <!-- Tags -->
         <button
           @click="handleEditTags"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path fill-rule="evenodd" d="M4.5 2A2.5 2.5 0 002 4.5v3.879a2.5 2.5 0 00.732 1.767l7.5 7.5a2.5 2.5 0 003.536 0l3.878-3.878a2.5 2.5 0 000-3.536l-7.5-7.5A2.5 2.5 0 008.38 2H4.5zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-          </svg>
+          <TagIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>{{ isMultiple ? `Tags (${targetCount} items)` : 'Tags' }}</span>
         </button>
+
 
         <!-- Boards -->
         <div
@@ -150,13 +165,9 @@
             ref="boardTriggerRef"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-              <path d="M3.75 3A1.75 1.75 0 002 4.75v3.5C2 9.216 2.784 10 3.75 10h3.5C8.216 10 9 9.216 9 8.25v-3.5C9 3.784 8.216 3 7.25 3h-3.5zM3.75 11A1.75 1.75 0 002 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 009 16.25v-3.5A1.75 1.75 0 007.25 11h-3.5zM11 4.75A1.75 1.75 0 0112.75 3h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0116.25 10h-3.5A1.75 1.75 0 0111 8.25v-3.5zM12.75 11A1.75 1.75 0 0011 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0018 16.25v-3.5A1.75 1.75 0 0016.25 11h-3.5z" />
-            </svg>
+            <Squares2X2Icon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
             <span class="flex-1">{{ isMultiple ? `Boards (${targetCount} items)` : 'Boards' }}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted">
-              <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
-            </svg>
+            <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
           <Teleport to="body">
@@ -178,12 +189,10 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <div class="px-2 py-1.5 border-b border-edge-subtle flex-shrink-0">
               <div class="relative">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-content-muted">
-                  <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
-                </svg>
+                <MagnifyingGlassIcon class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-content-muted" :stroke-width="1.75" />
                 <input
                   ref="boardSearchInputRef"
                   v-model="boardSearchQuery"
@@ -200,9 +209,7 @@
                 :disabled="creatingBoardQuickAdd"
                 @click="handleCreateBoardQuickAdd"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-                  <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-                </svg>
+                <PlusIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
                 <span>{{ creatingBoardQuickAdd ? 'Creating...' : 'New board' }}</span>
               </button>
 
@@ -218,9 +225,7 @@
                 :disabled="savingBoardQuickAddId === board.id"
                 @click="handleQuickAddToBoard(board.id)"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-                  <path d="M3.75 3A1.75 1.75 0 002 4.75v3.5C2 9.216 2.784 10 3.75 10h3.5C8.216 10 9 9.216 9 8.25v-3.5C9 3.784 8.216 3 7.25 3h-3.5zM3.75 11A1.75 1.75 0 002 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 009 16.25v-3.5A1.75 1.75 0 007.25 11h-3.5zM11 4.75A1.75 1.75 0 0112.75 3h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0116.25 10h-3.5A1.75 1.75 0 0111 8.25v-3.5zM12.75 11A1.75 1.75 0 0011 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0018 16.25v-3.5A1.75 1.75 0 0016.25 11h-3.5z" />
-                </svg>
+                <Squares2X2Icon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
                 <div class="min-w-0 flex-1">
                   <div class="truncate" :class="board.name ? 'text-content' : 'italic text-content-muted'">{{ board.name || 'Name this board...' }}</div>
                   <div class="truncate text-[10px] text-content-muted">{{ formatBoardSubmenuSummary(board) }}</div>
@@ -243,13 +248,9 @@
             ref="projectTriggerRef"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
-            <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-            </svg>
+            <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
             <span class="flex-1">{{ isMultiple ? `Projects (${targetCount} items)` : 'Projects' }}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted">
-              <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
-            </svg>
+            <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
           <Teleport to="body">
@@ -271,7 +272,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <ProjectPickerSubmenu
               :media-ids="targetMediaIds"
               :asset-ids="targetAssetIds"
@@ -291,9 +292,7 @@
             @click="handleRemoveFromProject"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
-            <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-            </svg>
+            <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
             <span>{{ isMultiple ? `Remove ${targetCount} from Project` : 'Remove from Project' }}</span>
           </button>
         </template>
@@ -304,9 +303,7 @@
             @click="handleRemoveFromBoard"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-              <path d="M3.75 3A1.75 1.75 0 002 4.75v3.5C2 9.216 2.784 10 3.75 10h3.5C8.216 10 9 9.216 9 8.25v-3.5C9 3.784 8.216 3 7.25 3h-3.5zM3.75 11A1.75 1.75 0 002 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 009 16.25v-3.5A1.75 1.75 0 007.25 11h-3.5zM11 4.75A1.75 1.75 0 0112.75 3h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0116.25 10h-3.5A1.75 1.75 0 0111 8.25v-3.5zM12.75 11A1.75 1.75 0 0011 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0018 16.25v-3.5A1.75 1.75 0 0016.25 11h-3.5z" />
-            </svg>
+            <Squares2X2Icon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
             <span>{{ isMultiple ? `Remove ${targetCount} from Board` : 'Remove from Board' }}</span>
           </button>
         </template>
@@ -320,9 +317,7 @@
           :disabled="creatingSet"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2 disabled:opacity-50"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" />
-          </svg>
+          <Square3Stack3DIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>{{ creatingSet ? 'Creating...' : `Create Set (${targetCount} items)` }}</span>
         </button>
 
@@ -332,9 +327,7 @@
           @click="handleExplode"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path d="M10 1a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 1zM5.05 3.05a.75.75 0 011.06 0l1.062 1.06A.75.75 0 116.11 5.173L5.05 4.11a.75.75 0 010-1.06zm9.9 0a.75.75 0 010 1.06l-1.06 1.062a.75.75 0 01-1.062-1.061l1.061-1.06a.75.75 0 011.06 0zM3 10a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 013 10zm11 0a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 0114 10zm-6.828 2.828a.75.75 0 010 1.061l-1.06 1.06a.75.75 0 01-1.061-1.06l1.06-1.06a.75.75 0 011.061 0zm5.656 0a.75.75 0 011.06 0l1.06 1.06a.75.75 0 01-1.06 1.061l-1.06-1.06a.75.75 0 010-1.061zM10 14a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 14z" />
-          </svg>
+          <ArrowDownOnSquareStackIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>Save {{ isSet ? 'members' : 'cells' }} as assets…</span>
         </button>
 
@@ -350,13 +343,9 @@
             ref="generateTriggerRef"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
-            <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
-            </svg>
+            <ArrowPathRoundedSquareIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
             <span class="flex-1">Remix</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted">
-              <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
-            </svg>
+            <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
           <!-- Invisible bridge to submenu - prevents mouseleave when traversing gap -->
@@ -380,13 +369,11 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <!-- Filter box -->
             <div class="px-2.5 py-2 border-b border-edge-subtle flex-shrink-0">
               <div class="relative">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-content-muted">
-                  <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
-                </svg>
+                <MagnifyingGlassIcon class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-content-muted" :stroke-width="1.75" />
                 <input
                   ref="generateSearchInputRef"
                   v-model="generateSearchQuery"
@@ -505,6 +492,32 @@
           </Teleport>
         </div>
 
+<button
+          v-if="groupedSend"
+          type="button"
+          data-testid="menu-group-send"
+          @click.stop="openGroup('send', $event)"
+          @mouseenter="!isCoarsePointer && openGroup('send', $event)"
+          @mouseleave="closeSubmenuDelayed"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <PaperAirplaneIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span class="flex-1">Send to</span>
+          <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
+        </button>
+
+        <Teleport to="body" :disabled="!groupedSend">
+        <div
+          v-if="!groupedSend || activeGroup === 'send'"
+          ref="groupSheetRef"
+          v-show="!groupedSend || !isCoarsePointer || !activeSubmenu"
+          v-bind="groupBind(groupedSend)"
+        >
+          <template v-if="groupedSend && isCoarsePointer">
+            <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Send to</div>
+          </template>
+
         <!-- Send to Tool - with submenu (hidden when grids are selected) -->
         <div
           v-if="!hasGridInSelection"
@@ -515,15 +528,12 @@
         >
           <button
             ref="toolTriggerRef"
+            aria-label="Send to tool"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
-            <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
-            </svg>
-            <span class="flex-1">Send to Tool</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted">
-              <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
-            </svg>
+            <WrenchScrewdriverIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+            <span class="flex-1">Tool</span>
+            <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
           <!-- Invisible bridge to submenu -->
@@ -547,7 +557,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop="lockSubmenuOpen"
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <TaskTypeToolList
               ref="toolListRef"
               :tools="sendToTools"
@@ -573,15 +583,12 @@
         >
           <button
             ref="chatTriggerRef"
+            aria-label="Send to chat"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
-            </svg>
-            <span class="flex-1">Send to Chat</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted">
-              <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
-            </svg>
+            <ChatBubbleLeftRightIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+            <span class="flex-1">Chat</span>
+            <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
           <!-- Invisible bridge to submenu -->
@@ -605,7 +612,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <div v-if="loadingChats" class="px-3 py-2 text-xs text-content-tertiary">Loading chats...</div>
             <template v-else>
               <!-- New chat option -->
@@ -613,10 +620,8 @@
                 @click="sendToNewChat"
                 :class="['w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2', chats.length > 0 ? 'border-b border-edge-subtle' : '']"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
-                  <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-                </svg>
-                <span class="font-medium">New Chat</span>
+                <PlusIcon class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+                <span class="font-medium">New chat</span>
               </button>
               <!-- Existing chats -->
               <button
@@ -625,9 +630,7 @@
                 @click="sendToChat(chat)"
                 class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
-                </svg>
+                <ChatBubbleLeftRightIcon class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
                 <span class="truncate flex-1">{{ chat.name || 'Untitled' }}</span>
               </button>
             </template>
@@ -644,15 +647,12 @@
         >
           <button
             ref="flowTriggerRef"
+            aria-label="Send to flow"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
-            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-            </svg>
-            <span class="flex-1">Send to Flow</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted">
-              <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
-            </svg>
+            <BoltIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+            <span class="flex-1">Flow</span>
+            <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
           <Teleport to="body">
@@ -675,7 +675,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <div v-if="loadingFlows" class="px-3 py-2 text-xs text-content-tertiary">Loading flows...</div>
             <template v-else>
               <button
@@ -683,10 +683,8 @@
                 @mouseenter="!isCoarsePointer && clearFlowDestination()"
                 :class="['w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2', flows.length > 0 ? 'border-b border-edge-subtle' : '']"
               >
-                <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
-                  <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-                </svg>
-                <span class="font-medium">New Flow</span>
+                <PlusIcon class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+                <span class="font-medium">New flow</span>
               </button>
               <div
                 v-for="flow in flows"
@@ -695,13 +693,9 @@
                 @click.stop="openFlowDestination(flow, $event)"
               >
                 <button class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2">
-                  <svg fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                  </svg>
+                  <BoltIcon class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
                   <span class="truncate flex-1">{{ flow.name || 'Untitled' }}</span>
-                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 flex-shrink-0 text-content-muted">
-                    <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
-                  </svg>
+                  <ChevronRightIcon class="w-3 h-3 flex-shrink-0 text-content-muted" :stroke-width="2" />
                 </button>
               </div>
             </template>
@@ -732,10 +726,8 @@
               @click="sendToFlowChat(activeFlowDestination)"
               class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
             >
-              <svg fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM21 12c0 4.556-4.03 8.25-9 8.25a9.76 9.76 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
-              </svg>
-              <span>Attach to Message</span>
+              <ChatBubbleOvalLeftEllipsisIcon class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+              <span>Attach to message</span>
             </button>
             <button
               v-for="field in activeFlowInputFields"
@@ -743,16 +735,42 @@
               @click="sendToFlowInput(activeFlowDestination, field)"
               class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
             >
-              <svg fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" />
-              </svg>
+              <PhotoIcon class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
               <span class="truncate">{{ field.label }}</span>
             </button>
           </div>
           </Teleport>
         </div>
 
-        <div v-if="hasExploreActions" class="border-t border-edge-subtle my-1"></div>
+        </div>
+        </Teleport>
+
+
+<button
+          v-if="groupedExplore"
+          type="button"
+          data-testid="menu-group-explore"
+          @click.stop="openGroup('explore', $event)"
+          @mouseenter="!isCoarsePointer && openGroup('explore', $event)"
+          @mouseleave="closeSubmenuDelayed"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <MagnifyingGlassIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span class="flex-1">Explore</span>
+          <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
+        </button>
+
+        <Teleport to="body" :disabled="!groupedExplore">
+        <div
+          v-if="!groupedExplore || activeGroup === 'explore'"
+          :ref="groupedExplore ? 'groupSheetRef' : undefined"
+          v-show="!groupedExplore || !isCoarsePointer || !activeSubmenu"
+          v-bind="groupBind(groupedExplore)"
+        >
+          <template v-if="groupedExplore && isCoarsePointer">
+            <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Explore</div>
+          </template>
 
         <!-- Find Similar (up to 3 items) -->
         <button
@@ -760,10 +778,8 @@
           @click="handleFindSimilar"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
-          </svg>
-          <span>Find Similar</span>
+          <MagnifyingGlassIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>Find similar</span>
         </button>
 
         <button
@@ -771,11 +787,8 @@
           @click="handleFindSimilarFaces"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path d="M10 2a6 6 0 00-6 6v1.5A4.5 4.5 0 008.5 14h3A4.5 4.5 0 0016 9.5V8a6 6 0 00-6-6Zm-2 7a1 1 0 110-2 1 1 0 010 2Zm4 0a1 1 0 110-2 1 1 0 010 2Zm-3.8 2.4a.75.75 0 011.06-.1c.42.35 1.06.35 1.48 0a.75.75 0 11.96 1.16 2.65 2.65 0 01-3.4 0 .75.75 0 01-.1-1.06Z" />
-            <path d="M15.25 14.25l2.5 2.5a.75.75 0 11-1.06 1.06l-2.5-2.5a.75.75 0 111.06-1.06Z" />
-          </svg>
-          <span>Find Similar Faces</span>
+          <FaceSmileIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>Find similar faces</span>
         </button>
 
         <!-- Compare (exactly 2 images) -->
@@ -784,10 +797,7 @@
           @click="handleCompare"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path d="M8 16.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75ZM3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5Zm2-.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V5a.5.5 0 0 0-.5-.5H5Z" />
-            <path d="M10 3v14" stroke="currentColor" stroke-width="1.5" />
-          </svg>
+          <ViewColumnsIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>Compare</span>
         </button>
 
@@ -798,15 +808,43 @@
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <circle cx="6" cy="4.5" r="1.75" stroke-width="1.5" />
-            <circle cx="14" cy="4.5" r="1.75" stroke-width="1.5" />
-            <circle cx="10" cy="15.5" r="1.75" stroke-width="1.5" />
-            <path d="M6 6.25V8.5C6 10 7.5 11 10 11M14 6.25V8.5C14 10 12.5 11 10 11M10 11V13.75" stroke-width="1.5" stroke-linecap="round" />
+            <circle cx="6" cy="4.5" r="1.75" stroke-width="1.75" />
+            <circle cx="14" cy="4.5" r="1.75" stroke-width="1.75" />
+            <circle cx="10" cy="15.5" r="1.75" stroke-width="1.75" />
+            <path d="M6 6.25V8.5C6 10 7.5 11 10 11M14 6.25V8.5C14 10 12.5 11 10 11M10 11V13.75" stroke-width="1.75" stroke-linecap="round" />
           </svg>
-          <span>View Lineage</span>
+          <span>View lineage</span>
         </button>
+        </div>
+        </Teleport>
 
         <div class="border-t border-edge-subtle my-1"></div>
+
+<button
+          v-if="groupedShare"
+          type="button"
+          data-testid="menu-group-share"
+          @click.stop="openGroup('share', $event)"
+          @mouseenter="!isCoarsePointer && openGroup('share', $event)"
+          @mouseleave="closeSubmenuDelayed"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <ShareIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span class="flex-1">Share and export</span>
+          <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
+        </button>
+
+        <Teleport to="body" :disabled="!groupedShare">
+        <div
+          v-if="!groupedShare || activeGroup === 'share'"
+          :ref="groupedShare ? 'groupSheetRef' : undefined"
+          v-show="!groupedShare || !isCoarsePointer || !activeSubmenu"
+          v-bind="groupBind(groupedShare)"
+        >
+          <template v-if="groupedShare && isCoarsePointer">
+            <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Share and export</div>
+          </template>
 
         <!-- Share link (public link, every media type; single item only) -->
         <button
@@ -835,9 +873,7 @@
           @click="handlePrint"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path fill-rule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.552c.377.046.752.097 1.126.153A2.212 2.212 0 0118 8.653v4.097A2.25 2.25 0 0115.75 15h-.25v2.25A2.75 2.75 0 0112.75 20h-5.5A2.75 2.75 0 014.5 17.25V15h-.25A2.25 2.25 0 012 12.75V8.653c0-1.082.775-2.034 1.874-2.198.374-.056.75-.107 1.126-.153V2.75zm1.5 0v3.36a41.778 41.778 0 017 0V2.75a.25.25 0 00-.25-.25h-6.5a.25.25 0 00-.25.25zM6.135 12.5h7.73a.25.25 0 01.25.25v4.5c0 .69-.56 1.25-1.25 1.25H7.135c-.69 0-1.25-.56-1.25-1.25v-4.5a.25.25 0 01.25-.25z" clip-rule="evenodd" />
-          </svg>
+          <PrinterIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>{{ isMultiple ? `Print ${targetCount}` : 'Print' }}</span>
         </button>
 
@@ -846,12 +882,12 @@
           @click="handleDownload"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
-            <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
-          </svg>
+          <ArrowDownTrayIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>{{ isMultiple ? `Export ${targetCount}` : 'Export' }}</span>
         </button>
+
+        </div>
+        </Teleport>
 
         <div class="border-t border-edge-subtle my-1"></div>
 
@@ -860,12 +896,17 @@
           @click="handleMoveToTrash"
           class="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0">
-            <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-          </svg>
-          <span>{{ isMultiple ? `Move ${targetCount} to Trash` : 'Move to Trash' }}</span>
+          <TrashIcon class="w-4 h-4 flex-shrink-0" :stroke-width="1.75" />
+          <span>{{ isMultiple ? `Move ${targetCount} to trash` : 'Move to trash' }}</span>
         </button>
       </template>
+
+      <!-- Sheet only: the actions run past the bottom edge. The cue is its own
+           strip with a hard edge, so no action is ever half-covered by it. -->
+      <div v-if="isCoarsePointer && menuHasMore" class="pointer-events-none sticky bottom-[calc(-0.5rem-var(--safe-bottom,0px))] z-10 flex h-[calc(2rem+var(--safe-bottom,0px))] items-center justify-center gap-1 border-t border-edge-subtle bg-surface pb-[var(--safe-bottom,0px)] text-xs text-content-tertiary" aria-hidden="true">
+        <ChevronDownIcon class="h-3.5 w-3.5" :stroke-width="2" />
+        <span>Scroll for more actions</span>
+      </div>
     </div>
     </Transition>
 
@@ -913,7 +954,7 @@
 <script setup lang="ts">
 import { useAssetTrash } from '../../composables/useAssetTrash'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, onUpdated, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMediaContextMenu, useMediaContextMenuHost, broadcastMediaContextMenuEvent } from '../../composables/useMediaContextMenu'
 import { setPendingMedia } from '../../composables/usePendingMedia'
@@ -928,13 +969,14 @@ import TagPickerPopover from '../TagPickerPopover.vue'
 import ProjectPickerSubmenu from '../ProjectPickerSubmenu.vue'
 import ExportModal from '../ExportModal.vue'
 import NativeShareDialog from '../NativeShareDialog.vue'
-import { ArrowUpTrayIcon, LinkIcon } from '@heroicons/vue/24/outline'
+import { ChevronDownIcon, ArchiveBoxIcon, ArrowDownOnSquareStackIcon, ArrowDownTrayIcon, ArrowPathRoundedSquareIcon, ArrowUpTrayIcon, ArrowUturnLeftIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronRightIcon, FaceSmileIcon, LinkIcon, MagnifyingGlassIcon, PaperAirplaneIcon, PencilIcon, PhotoIcon, PlusIcon, PrinterIcon, ShareIcon, Square3Stack3DIcon, Squares2X2Icon, TagIcon, TrashIcon, ViewColumnsIcon, WrenchScrewdriverIcon } from '@heroicons/vue/24/outline'
 import { useShareDialog } from '../../composables/useShareDialog'
 import { desktop } from '../../desktop'
 import { supportsNativeShare } from '../../utils/nativeShare'
 import ConfirmDialog from '../ui/ConfirmDialog.vue'
 import TaskTypeToolList from '../TaskTypeToolList.vue'
 import ToolIcon from '../tools/ToolIcon.vue'
+import MediaImage from './MediaImage.vue'
 import ToolProviderLabel from '../tools/ToolProviderLabel.vue'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { makeStorageKey } from '../../utils/storageKeys'
@@ -1009,6 +1051,15 @@ const { sendToTool: sendToToolComposable } = useSendToTool()
 const flowsApi = useFlowsApi()
 
 const menuRef = ref<HTMLElement | null>(null)
+
+// Sheet scroll cue: true while actions remain below the visible edge.
+const menuHasMore = ref(false)
+function updateMenuMore() {
+  const el = menuRef.value
+  menuHasMore.value = !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 8
+}
+watch(menuRef, () => nextTick(updateMenuMore), { flush: 'post' })
+onUpdated(() => nextTick(updateMenuMore))
 const generateTriggerRef = ref<HTMLElement | null>(null)
 const toolTriggerRef = ref<HTMLElement | null>(null)
 const chatTriggerRef = ref<HTMLElement | null>(null)
@@ -1024,6 +1075,49 @@ const projectSubmenuRef = ref<HTMLElement | null>(null)
 const projectTriggerRef = ref<HTMLElement | null>(null)
 
 const activeSubmenu = ref<'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'project' | null>(null)
+
+// Touch sheets fold related destinations behind one named row (a second sheet,
+// and the destination's own list a third). Elsewhere the groups are transparent
+// wrappers and every row stays where it was.
+type MenuGroup = 'send' | 'explore' | 'share'
+const activeGroup = ref<MenuGroup | null>(null)
+const groupSheetRef = ref<HTMLElement | null>(null)
+// On a desktop pointer the same groups are hover submenus beside the menu: a
+// group panel opens next to the root menu and its destinations (Boards,
+// Tool, Chat...) open as the usual submenus beside the panel.
+// Boards and Projects stay two rows of the root menu, each opening its own list.
+const groupedSend = computed(() => true)
+const groupedExplore = computed(() => exploreRowCount.value >= 2)
+const groupedShare = computed(() => isCoarsePointer.value || shareRowCount.value >= 2)
+const groupTriggerRect = ref<DOMRect | null>(null)
+const groupPosition = ref<Record<string, string>>({ top: '0px', left: '0px' })
+function openGroup(group: MenuGroup, event?: MouseEvent) {
+  if (!isCoarsePointer.value) {
+    cancelSubmenuClose()
+    const target = event?.currentTarget as HTMLElement | null
+    if (target) groupTriggerRect.value = target.getBoundingClientRect()
+    if (activeGroup.value !== group) activeSubmenu.value = null
+  }
+  activeGroup.value = group
+}
+function groupBind(grouped: boolean) {
+  if (!grouped) return { class: 'contents' }
+  if (isCoarsePointer.value) {
+    return {
+      class: 'fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1',
+      style: SHEET_MENU_STYLE,
+      'data-sheet-menu': '',
+      'data-escape-layer': '',
+    }
+  }
+  return {
+    class: 'fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[200px]',
+    style: groupPosition.value,
+    'data-escape-layer': '',
+    onMouseenter: cancelSubmenuClose,
+    onMouseleave: closeSubmenuDelayed,
+  }
+}
 const submenuCloseTimeout = ref<number | null>(null)
 const submenuTriggerRect = ref<DOMRect | null>(null)
 const submenuClickLockUntil = ref(0)
@@ -1201,14 +1295,32 @@ const hasFaceEmbeddings = computed(() => (
   (mediaItem.value?.has_face_embeddings ?? mediaFaces.value.some((face: any) => face.has_embedding))
 ))
 
-// Whether the explore group (find similar / faces / compare / lineage) has any
-// visible row — guards its leading separator so empty groups don't double rules.
-const hasExploreActions = computed(() => (
-  (hasClipEmbedding.value && targetCount.value <= 3)
-  || hasFaceEmbeddings.value
-  || (targetCount.value === 2 && !isVideo.value)
-  || !isMultiple.value
+const exploreRowCount = computed(() => (
+  Number(hasClipEmbedding.value && targetCount.value <= 3)
+  + Number(hasFaceEmbeddings.value)
+  + Number(targetCount.value === 2 && !isVideo.value)
+  + Number(!isMultiple.value)
 ))
+// Share link, Share file, Print and Export: the occasional commands. On a desktop
+// pointer they stay inline unless the OS share row makes the group long enough.
+const shareRowCount = computed(() => (
+  Number(!isMultiple.value)
+  + Number(!isMultiple.value && nativeShareSupported && !isMultiFileItem.value)
+))
+
+// What the sheet's actions apply to: one line of title and one of facts.
+const selectionSummary = computed(() => {
+  if (isMultiple.value) {
+    return { title: `${targetCount.value} items`, detail: currentSelectionMediaTypes.value.join(' · ') }
+  }
+  const item = mediaItem.value
+  if (!item) return null
+  const facts: string[] = []
+  if (item.width && item.height) facts.push(`${item.width} × ${item.height}`)
+  if (item.file_format) facts.push(String(item.file_format).split('.')[0].toUpperCase())
+  const kind = currentMediaType.value
+  return { title: item.title || kind.charAt(0).toUpperCase() + kind.slice(1), detail: facts.join(' · ') }
+})
 
 // Visibility state computed properties
 const isSet = computed(() => mediaItem.value?.file_format === 'stimmaset.json')
@@ -1458,7 +1570,9 @@ function repositionSubmenu() {
     getActiveSubmenuEl()?.setAttribute('data-sheet-menu', '')
     return
   }
-  if (!submenuTriggerRect.value || !menuRef.value) {
+  // A submenu opened from a group panel sits beside that panel, not the root menu.
+  const parentEl = activeGroup.value && groupSheetRef.value ? groupSheetRef.value : menuRef.value
+  if (!submenuTriggerRect.value || !parentEl) {
     submenuPosition.value = { top: '0px', left: '0px' }
     submenuBridgeStyle.value = { display: 'none' }
     submenuOpensLeft.value = false
@@ -1467,7 +1581,7 @@ function repositionSubmenu() {
   }
 
   const triggerRect = submenuTriggerRect.value
-  const menuRect = menuRef.value.getBoundingClientRect()
+  const menuRect = parentEl.getBoundingClientRect()
 
   // Measure actual submenu size (fall back before first render)
   const submenuEl = getActiveSubmenuEl()
@@ -1506,6 +1620,26 @@ watch(activeSubmenu, async (menu) => {
 onUnmounted(() => {
   submenuResizeObserver?.disconnect()
   submenuResizeObserver = null
+})
+
+// Desktop group panel: opens beside the root menu at the trigger row's height.
+function repositionGroup() {
+  const panel = groupSheetRef.value
+  const trigger = groupTriggerRect.value
+  const menu = menuRef.value
+  if (isCoarsePointer.value || !panel || !trigger || !menu) {
+    groupPosition.value = { top: '0px', left: '0px' }
+    return
+  }
+  const measured = measureMenu(panel, null)
+  const { x } = computeSubmenuX(menu.getBoundingClientRect(), measured.w)
+  groupPosition.value = computeSubmenuStyle(x, trigger.top, measured.h)
+}
+
+watch(activeGroup, async (group) => {
+  if (!group || isCoarsePointer.value) return
+  await nextTick()
+  repositionGroup()
 })
 
 // The clicked item as the caller already holds it, when it carries every field
@@ -1677,6 +1811,8 @@ function openSubmenu(menu: 'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'pr
   const target = event.currentTarget as HTMLElement
   if (target) {
     submenuTriggerRect.value = target.getBoundingClientRect()
+    // A root-level row (Remix, Tags...) replaces any open group panel.
+    if (!isCoarsePointer.value && activeGroup.value && !groupSheetRef.value?.contains(target)) activeGroup.value = null
   }
 
   const wasAlreadyOpen = activeSubmenu.value === menu
@@ -1726,7 +1862,7 @@ function closeSubmenuDelayed() {
     // Guard: don't close if a recent click happened (content may have resized)
     if (Date.now() < submenuClickLockUntil.value) return
     // Guard: don't close if mouse is still over any submenu
-    if (
+    const overSubmenu = (
       isMouseOverElement(generateSubmenuRef.value) ||
       isMouseOverElement(toolSubmenuRef.value) ||
       isMouseOverElement(chatSubmenuRef.value) ||
@@ -1734,8 +1870,11 @@ function closeSubmenuDelayed() {
       isMouseOverElement(flowDestinationSubmenuRef.value) ||
       isMouseOverElement(boardSubmenuRef.value) ||
       isMouseOverElement(projectSubmenuRef.value)
-    ) return
+    )
+    if (overSubmenu) return
     activeSubmenu.value = null
+    // The group panel stays while the pointer is on it.
+    if (!isMouseOverElement(groupSheetRef.value)) activeGroup.value = null
   }, 300)
 }
 
@@ -1764,10 +1903,12 @@ function handleClickOutside(event: MouseEvent) {
   if (flowDestinationSubmenuRef.value?.contains(target)) return
   if (boardSubmenuRef.value?.contains(target)) return
   if (projectSubmenuRef.value?.contains(target)) return
+  if (groupSheetRef.value?.contains(target)) return
   // The tag picker submenu lives in its own Teleport
   if (target.closest?.('[data-tag-picker]')) return
   contextMenu.hide()
   activeSubmenu.value = null
+  activeGroup.value = null
 }
 
 // Close on escape
@@ -1779,10 +1920,14 @@ function handleKeyDown(event: KeyboardEvent) {
     consumeEscape(event)
     if (activeFlowDestination.value) clearFlowDestination()
     else activeSubmenu.value = null
+  } else if (activeGroup.value && isTopmostEscapeLayer(groupSheetRef.value)) {
+    consumeEscape(event)
+    activeGroup.value = null
   } else if (isTopmostEscapeLayer(menuRef.value)) {
     consumeEscape(event)
     contextMenu.hide()
     activeSubmenu.value = null
+    activeGroup.value = null
   }
 }
 
@@ -1846,6 +1991,7 @@ watch(() => contextMenu.state.value.visible && isRenderer.value, (visible) => {
   } else {
     membershipWanted.value = false
     activeSubmenu.value = null
+    activeGroup.value = null
     submenuTriggerRect.value = null
     generateSearchQuery.value = ''
     boardSearchQuery.value = ''

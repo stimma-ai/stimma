@@ -14,7 +14,7 @@
           <p class="mt-1 text-xs text-content-tertiary">Current profile only · foreign-key references only</p>
         </div>
         <IconButton aria-label="Close database maintenance" title="Close" :disabled="busy" @click="close">
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg class="h-icon-nav w-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
         </IconButton>

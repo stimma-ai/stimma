@@ -3361,8 +3361,13 @@ class GenerationQueue:
                 output_path = preserve_remote_output_suffix(output_path, exec_result.metadata)
                 actual_output_path = output_path
                 # Write the downloaded asset data to the output path
-                with open(output_path, "wb") as f:
-                    f.write(exec_result.output_data)
+                from config_writer import atomic_write
+
+                def write_output():
+                    with atomic_write(Path(output_path), "wb") as handle:
+                        handle.write(exec_result.output_data)
+
+                await asyncio.to_thread(write_output)
                 log.info(f"Job {job.id}: Wrote {len(exec_result.output_data)} bytes to {output_path}")
             elif exec_result.metadata.get("output_path"):
                 actual_output_path = exec_result.metadata.get("output_path")

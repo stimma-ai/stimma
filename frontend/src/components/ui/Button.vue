@@ -28,7 +28,7 @@ function onClick(e: MouseEvent) {
 const isLink = computed(() => props.variant === 'link')
 
 const variantClasses: Record<string, string> = {
-  primary: 'bg-accent hover:bg-accent/90 text-white',
+  primary: 'bg-accent hover:bg-accent/90 text-accent-on',
   secondary: 'bg-surface-raised hover:bg-surface-hover text-content',
   ghost: 'text-content-secondary hover:text-content hover:bg-overlay-subtle',
   danger: 'bg-red-600 hover:bg-red-500 text-white',
@@ -37,8 +37,11 @@ const variantClasses: Record<string, string> = {
 }
 
 const sizeClasses: Record<string, string> = {
-  sm: 'px-2.5 py-1.5 text-xs',
-  md: 'px-3 py-2 text-sm',
+  // The desktop control scale (DESIGN.md §2): sm = the control height every
+  // header and toolbar control shares; md = the one main action of a surface.
+  // One label size (text-ctl). Coarse pointers get the 44px target.
+  sm: 'h-control px-3 text-ctl coarse:min-h-11',
+  md: 'h-control-main px-3.5 text-ctl coarse:min-h-11',
 }
 </script>
 
@@ -51,7 +54,7 @@ const sizeClasses: Record<string, string> = {
       variantClasses[variant],
       !isLink && 'rounded-md',
       !isLink && sizeClasses[size],
-      isLink && (size === 'sm' ? 'text-xs' : 'text-sm'),
+      isLink && 'text-ctl',
     ]"
     :disabled="disabled || loading"
     @click="onClick"

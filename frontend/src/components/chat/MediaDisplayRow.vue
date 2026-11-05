@@ -79,7 +79,7 @@
       </div>
       <!-- Arrow with operation label -->
       <div class="flex flex-col items-center gap-1 flex-shrink-0 px-2">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-content-muted">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-icon-nav h-icon-nav text-content-muted">
           <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
         </svg>
         <span v-if="row.input.operation" class="text-[10px] text-content-muted whitespace-nowrap">
@@ -136,7 +136,7 @@
 
       <!-- Arrow with operation label -->
       <div class="flex flex-col items-center gap-1 flex-shrink-0 px-2">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-content-muted">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-icon-nav h-icon-nav text-content-muted">
           <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
         </svg>
         <span v-if="row.input.operation" class="text-[10px] text-content-muted whitespace-nowrap">

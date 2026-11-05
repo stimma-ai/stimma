@@ -18,7 +18,7 @@
           :class="{ 'rotate-90': expanded }"
         />
       </div>
-      <span v-if="tasks.length" class="text-xs text-content-muted tabular-nums">
+      <span v-if="tasks.length" class="text-xs text-content-muted font-mono tabular-nums">
         {{ doneCount }}/{{ tasks.length }}
       </span>
     </div>

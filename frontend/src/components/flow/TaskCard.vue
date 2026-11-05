@@ -115,7 +115,7 @@
       </div>
       <div class="flex flex-wrap gap-2">
         <button
-          class="bg-accent text-white text-xs font-medium px-3 py-1 rounded-md hover:bg-accent/90 transition-colors"
+          class="bg-accent text-accent-on text-xs font-medium px-3 py-1 rounded-md hover:bg-accent/90 transition-colors"
           @click="$emit('fix-step-with-agent', task)"
         >Ask the agent for help</button>
         <button

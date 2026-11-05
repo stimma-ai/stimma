@@ -23,7 +23,7 @@
         <span
           v-for="chip in secondaryChips"
           :key="chip"
-          class="shrink-0 text-[9px] leading-none px-1 py-0.5 rounded bg-overlay-subtle text-content-tertiary font-mono uppercase"
+          class="shrink-0 text-[9px] leading-none px-1 py-0.5 rounded bg-overlay-subtle text-content-tertiary font-mono"
         >{{ chip }}</span>
       </div>
       <div v-if="showRaw" class="font-mono text-[10px] text-content-muted truncate mt-0.5">
@@ -105,7 +105,7 @@
       @click.stop="$emit('remove')"
       @pointerdown.stop
       type="button"
-      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-content-muted hover:!text-red-500 opacity-0 group-hover:opacity-100 transition-opacity coarse:opacity-100 coarse:w-11 coarse:h-11 coarse:mt-0 coarse:-mr-2"
+      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-content-muted hover:!text-red-500 opacity-0 group-hover:opacity-100 transition-opacity [[data-pointer=coarse]_&]:opacity-100 coarse:w-11 coarse:h-11 coarse:mt-0 coarse:-mr-2"
       title="Remove"
       aria-label="Remove"
     >

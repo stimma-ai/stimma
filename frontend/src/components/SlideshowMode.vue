@@ -3,7 +3,7 @@
     ref="overlay"
     data-escape-layer
     tabindex="-1"
-    class="[&_img]:[-webkit-touch-callout:none] [&_video]:[-webkit-touch-callout:none]"
+    class="outline-none [&_img]:[-webkit-touch-callout:none] [&_video]:[-webkit-touch-callout:none]"
     data-drop-zone
     :class="fullscreen ? 'fixed inset-0 bg-slideshow-matt flex z-overlay compact:flex-col' : 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-overlay'"
     @dragover.prevent
@@ -27,6 +27,7 @@
       v-if="showSidebar"
       ref="infoPanelRef"
       :content-only="slideshowCompact"
+      :show-markers="slideshowCompact"
       :current-item="currentPayloadItem"
       :is-trash-view="isTrashView"
       :is-current-item-trashed="isCurrentItemTrashed"
@@ -67,11 +68,11 @@
     <!-- Back button (when viewing source image) -->
     <button
       v-if="!slideshowCompact && !focusMode && isViewingSource"
-      class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
+      class="absolute top-1.5 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-3 h-9 rounded-md cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
       @click="goBackFromSource"
       title="Back to original image"
     >
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <svg class="w-icon-canvas h-icon-canvas" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
       </svg>
       Back
@@ -80,11 +81,11 @@
     <!-- Exit Set button (when browsing inside a set) -->
     <button
       v-if="!slideshowCompact && !focusMode && isViewingSet"
-      class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
+      class="absolute top-1.5 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-3 h-9 rounded-md cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
       @click="exitSetView"
       title="Exit set and return to main slideshow"
     >
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <svg class="w-icon-canvas h-icon-canvas" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
       </svg>
       Exit Set
@@ -94,11 +95,11 @@
     <!-- Visible even in focus mode so user can navigate back -->
     <button
       v-if="!slideshowCompact && isViewingGrid"
-      class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
+      class="absolute top-1.5 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-3 h-9 rounded-md cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
       @click="exitGridView"
       title="Return to grid overview (Esc)"
     >
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <svg class="w-icon-canvas h-icon-canvas" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
       </svg>
       Back to Grid
@@ -106,20 +107,20 @@
 
     <div
       v-if="!focusMode && !isViewingSet && !isViewingGrid && !isViewingSource && itemLabels[displayItem?._slideshowItemKey ?? currentPayloadId]"
-      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] left-1/2 -translate-x-1/2 z-chrome max-w-[50%] truncate rounded-md bg-matte/80 px-3 py-2 text-xs text-content-secondary"
+      class="app-no-drag absolute top-2.5 compact:top-[calc(var(--safe-top,0px)+68px)] left-1/2 -translate-x-1/2 z-chrome max-w-[50%] truncate rounded-md bg-matte/80 px-3 py-2 text-xs text-content-secondary"
     >{{ itemLabels[displayItem?._slideshowItemKey ?? currentPayloadId] }}</div>
 
     <!-- Grid view title indicator (centered over image area, accounting for sidebar) -->
     <!-- Visible even in focus mode so user can see position and navigate back -->
     <div
       v-if="isViewingGrid && currentGridView"
-      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome flex flex-col items-center"
+      class="app-no-drag absolute top-1.5 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome flex flex-col items-center"
       :style="{ left: (showSidebar && !focusMode && !slideshowCompact) ? 'calc(50% - 192px)' : '50%' }"
     >
       <!-- Compact pill indicator with editable title -->
       <div
         ref="gridTitleContainer"
-        class="bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center gap-2"
+        class="bg-black/40 backdrop-blur-md px-4 h-9 compact:h-12 compact:px-5 rounded-md compact:rounded-full flex items-center justify-center gap-2"
         :class="[
           !currentGridView.title ? 'cursor-text' : (isEditingGridTitle ? 'cursor-text' : 'cursor-pointer')
         ]"
@@ -160,7 +161,7 @@
     <div
       v-if="!focusMode && isViewingSet && currentSetView"
       ref="setTitleContainer"
-      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="app-no-drag absolute top-1.5 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-4 h-9 compact:h-12 compact:px-5 rounded-md compact:rounded-full flex items-center justify-center"
       :class="[
         !currentSetView.title ? 'cursor-text' : (isEditingSetTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
@@ -200,7 +201,7 @@
     <div
       v-if="!focusMode && isSet && !isViewingSet"
       ref="setOverviewTitleContainer"
-      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="app-no-drag absolute top-1.5 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-4 h-9 compact:h-12 compact:px-5 rounded-md compact:rounded-full flex items-center justify-center"
       :class="[
         !setOverviewData?.title ? 'cursor-text' : (isEditingSetOverviewTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
@@ -240,7 +241,7 @@
     <div
       v-if="!focusMode && isGrid && !isViewingGrid"
       ref="gridOverviewTitleContainer"
-      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="app-no-drag absolute top-1.5 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-4 h-9 compact:h-12 compact:px-5 rounded-md compact:rounded-full flex items-center justify-center"
       :class="[
         !gridOverviewData?.title ? 'cursor-text' : (isEditingGridOverviewTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
@@ -279,7 +280,7 @@
     <!-- Compare button (when viewing grid overview) -->
     <div
       v-if="!focusMode && isGrid && !isViewingGrid"
-      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] h-12 z-chrome flex items-center"
+      class="app-no-drag absolute top-1.5 compact:top-[calc(var(--safe-top,0px)+68px)] h-9 compact:h-12 z-chrome flex items-center"
       :style="{ right: (showSidebar && !focusMode && !slideshowCompact) ? '468px' : '84px' }"
     >
       <!-- Initial compare button (not in compare mode) -->
@@ -310,7 +311,7 @@
           :class="[
             'border-none text-xs px-3 h-6 rounded-full transition-all flex items-center',
             gridSelectedCells.length === 2
-              ? 'bg-accent text-white cursor-pointer hover:bg-accent/90'
+              ? 'bg-accent text-accent-on cursor-pointer hover:bg-accent/90'
               : 'bg-white/10 text-white/40 cursor-not-allowed'
           ]"
           @click="compareGridCells"
@@ -324,7 +325,7 @@
           @click="toggleGridMultiSelectMode"
           title="Cancel"
         >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
         </button>
@@ -334,15 +335,15 @@
     <!-- Gallery chrome stays separate from the image's marker actions. -->
     <div v-if="slideshowCompact && !compactImmersive" class="relative z-chrome flex shrink-0 items-center justify-between bg-slideshow-matt pb-2 pt-[calc(var(--safe-top,0px)+8px)]" :style="{ paddingLeft: 'calc(var(--safe-left, 0px) + 12px)', paddingRight: 'calc(var(--safe-right, 0px) + 12px)', WebkitAppRegion: 'no-drag' }">
       <button class="compact-bar-btn" :aria-label="isViewingSource || isViewingSet || isViewingGrid ? 'Back' : 'Close slideshow'" @click="isViewingSource ? goBackFromSource() : isViewingGrid ? exitGridView() : isViewingSet ? exitSetView() : handleCloseClick()">
-        <ArrowLeftIcon v-if="isViewingSource || isViewingSet || isViewingGrid" class="h-5 w-5" /><XMarkIcon v-else class="h-5 w-5" />
+        <ArrowLeftIcon v-if="isViewingSource || isViewingSet || isViewingGrid" class="h-icon-canvas w-icon-canvas" /><XMarkIcon v-else class="h-icon-canvas w-icon-canvas" />
       </button>
       <div class="pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-xs tabular-nums text-content-tertiary">
         <template v-if="isViewingGrid && currentGridView"><span class="text-content-secondary">{{ gridLinearPosition }}</span> / {{ gridTotalCells }}</template>
         <template v-else><span class="text-content-secondary">{{ effectiveIndex + 1 }}</span> / {{ effectiveTotalCount }}</template>
       </div>
       <div class="flex items-center">
-        <button @click="showSidebar = true" class="compact-bar-btn" aria-label="Info"><InformationCircleIcon class="h-5 w-5" /></button>
-        <button @click="compactImmersive = true" class="compact-bar-btn" aria-label="Full screen"><ArrowsPointingOutIcon class="h-5 w-5" /></button>
+        <button @click="showSidebar = true" class="compact-bar-btn" aria-label="Info"><InformationCircleIcon class="h-icon-canvas w-icon-canvas" /></button>
+        <button @click="compactImmersive = true" class="compact-bar-btn" aria-label="Full screen"><ArrowsPointingOutIcon class="h-icon-canvas w-icon-canvas" /></button>
       </div>
     </div>
 
@@ -351,7 +352,7 @@
          the stage like the grid title, shifted when the sidebar is open. -->
     <div
       v-if="isPackage && !slideshowCompact && !isViewingSource"
-      class="absolute top-4 -translate-x-1/2 z-chrome flex items-center h-12 pl-5 pr-2 rounded-full bg-black/40 backdrop-blur-md"
+      class="absolute top-1.5 -translate-x-1/2 z-chrome flex items-center h-9 pl-4 pr-1 rounded-md bg-black/40 backdrop-blur-md"
       :style="{ left: (showSidebar && !focusMode) ? 'calc(50% - 192px)' : '50%', WebkitAppRegion: 'no-drag' }"
     >
       <span class="text-white text-sm font-medium max-w-72 truncate">{{ packageTitle }}</span>
@@ -363,7 +364,7 @@
         title="Download ZIP"
         @click="downloadPackage('zip')"
       >
-        <ArchiveBoxIcon class="w-4 h-4 text-accent" />
+        <ArchiveBoxIcon class="w-icon-nav h-icon-nav text-accent" />
         Download ZIP
       </button>
       <button
@@ -373,19 +374,21 @@
         title="Download PDF"
         @click="downloadPackage('pdf')"
       >
-        <DocumentArrowDownIcon class="w-4 h-4 text-accent" />
+        <DocumentArrowDownIcon class="w-icon-nav h-icon-nav text-accent" />
         Download PDF
       </button>
     </div>
 
-    <!-- Close button -->
+    <!-- Close button: sits in the top band, off the art (floats only in focus mode) -->
     <button
       v-if="!slideshowCompact"
-      class="absolute top-4 bg-black/40 backdrop-blur-md border-none text-white text-[2rem] w-12 h-12 rounded-full cursor-pointer z-chrome transition-all compact:transition-colors hover:bg-black/60 compact:w-11 compact:h-11 compact:text-[1.5rem] compact:top-[calc(var(--safe-top,0px)+8px)]"
-      :style="{ right: slideshowCompact ? 'calc(var(--safe-right, 0px) + 12px)' : (showSidebar && !focusMode) ? '400px' : '12px', WebkitAppRegion: 'no-drag' }"
+      class="absolute top-1.5 flex h-9 w-9 items-center justify-center rounded-md border-none cursor-pointer z-chrome transition-colors"
+      :class="focusMode ? 'bg-black/40 text-white backdrop-blur-md hover:bg-black/60' : 'bg-transparent text-content-tertiary hover:bg-overlay-light hover:text-content'"
+      :style="{ right: (showSidebar && !focusMode) ? '400px' : '12px', WebkitAppRegion: 'no-drag' }"
       @click="handleCloseClick"
       title="Close slideshow"
-    >✕</button>
+      aria-label="Close slideshow"
+    ><XMarkIcon class="h-icon-canvas w-icon-canvas" /></button>
 
     <!-- Caption (bottom) -->
     <div v-if="currentItem && showCaption && currentItem.vlm_caption && captioningEnabledRef" class="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-md px-8 py-6 text-white text-sm leading-normal z-chrome">
@@ -401,7 +404,7 @@
       @touchend.capture="handleTouchEnd"
       @touchcancel.capture="cancelSlideshowTouch"
       @click.capture="suppressSlideshowSwipeClick"
-      :style="{ marginBottom: (showImageStrip && !focusMode && !isViewingGrid && !slideshowCompact) ? `${STRIP_HEIGHT}px` : '0px', paddingTop: '0px' }"
+      :style="{ marginBottom: slideshowCompact ? '0px' : `${(visibleImageStrip ? STRIP_HEIGHT : 0) + (barDocked ? DOCK_BAR_HEIGHT : 0)}px`, marginTop: (!slideshowCompact && !focusMode) ? `${TOP_BAND_HEIGHT}px` : '0px', paddingTop: '0px' }"
     >
       <div v-if="!displayItem" class="text-content">Loading...</div>
       <!-- Placeholder for deleted/trashed items (rare edge case) -->
@@ -409,7 +412,7 @@
         v-else-if="displayItem._placeholder"
         class="flex flex-col items-center justify-center gap-4 text-content-muted"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="w-24 h-24">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="w-24 h-24" data-stroke="own">
           <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
         </svg>
         <span class="text-lg">Image no longer available</span>
@@ -662,12 +665,12 @@
         @contextmenu="handleContextMenu($event, displayItem)"
         :class="[
           'absolute left-0 flex items-center justify-start cursor-pointer z-chrome group bg-transparent border-none',
-          isGrid ? 'w-12 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-20 bottom-0'
+          (isSet || isGrid) ? 'w-14 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-0 bottom-0'
         ]"
         title="Previous (← or A)"
       >
-        <div class="w-12 h-24 flex items-center justify-center rounded-r-lg bg-transparent group-hover:bg-black/30 group-hover:backdrop-blur-md transition-all">
-          <svg fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-8 h-8 text-white/0 group-hover:text-white transition-all">
+        <div class="ml-3 w-10 h-10 flex items-center justify-center rounded-md bg-transparent group-hover:bg-black/50 group-hover:backdrop-blur-md transition-all">
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-canvas h-icon-canvas text-white/0 group-hover:text-white transition-all">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
         </div>
@@ -680,12 +683,12 @@
         @contextmenu="handleContextMenu($event, displayItem)"
         :class="[
           'absolute right-0 flex items-center justify-end cursor-pointer z-chrome group bg-transparent border-none',
-          isGrid ? 'w-12 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-20 bottom-0'
+          (isSet || isGrid) ? 'w-14 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-0 bottom-0'
         ]"
         title="Next (→ or D)"
       >
-        <div class="w-12 h-24 flex items-center justify-center rounded-l-lg bg-transparent group-hover:bg-black/30 group-hover:backdrop-blur-md transition-all">
-          <svg fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-8 h-8 text-white/0 group-hover:text-white transition-all">
+        <div class="mr-3 w-10 h-10 flex items-center justify-center rounded-md bg-transparent group-hover:bg-black/50 group-hover:backdrop-blur-md transition-all">
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-canvas h-icon-canvas text-white/0 group-hover:text-white transition-all">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
         </div>
@@ -709,7 +712,7 @@
     <div
       v-if="visibleImageStrip"
       :class="slideshowCompact ? 'relative order-2 w-full shrink-0' : (fullscreen ? 'fixed' : 'absolute')"
-      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2 compact:bg-slideshow-matt compact:backdrop-blur-none compact:border-t-0 compact:pt-3 compact:pb-0"
+      class="bottom-0 left-0 bg-slideshow-matt z-chrome transition-all duration-300 py-2 px-2 compact:pt-3 compact:pb-0"
       :style="{
         paddingLeft: slideshowCompact ? 'calc(var(--safe-left, 0px) + 8px)' : undefined,
         paddingRight: slideshowCompact ? 'calc(var(--safe-right, 0px) + 8px)' : undefined,
@@ -725,7 +728,7 @@
           :style="{ height: `${STRIP_ROW}px` }"
           @contextmenu="handleContextMenu($event, currentItem)"
         >
-          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-black rounded overflow-hidden border border-edge ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated compact:ring-offset-black">
+          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] compact:w-[52px] compact:h-[52px] bg-matte rounded-none overflow-visible ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt">
             <MediaImage
               :media-id="mediaIdOf(currentItem)"
               :file-hash="currentItem.file_hash"
@@ -737,7 +740,7 @@
               :draggable="false"
               :enable-context-menu="false"
               :has-alpha="currentItem.has_alpha"
-              container-class="w-full h-full"
+              container-class="w-full h-full rounded-media overflow-hidden"
               img-class="w-full h-full object-cover"
             />
           </div>
@@ -762,8 +765,8 @@
           :title="item.vlm_caption || `Item ${index + 1}`"
         >
           <div
-            class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-black rounded overflow-hidden border border-edge transition-all"
-            :class="index === setViewIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated compact:ring-offset-black' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110'"
+            class="w-[96px] h-[96px] compact:w-[52px] compact:h-[52px] bg-matte rounded-none transition-all"
+            :class="index === setViewIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt' : 'ring-2 ring-transparent opacity-80 hover:opacity-100 hover:ring-selection/60'"
           >
             <MediaImage
               :media-id="mediaIdOf(item)"
@@ -778,7 +781,7 @@
               :thumbnail-size="256"
               :enable-context-menu="false"
               :has-alpha="item.has_alpha"
-              container-class="w-full h-full"
+              container-class="w-full h-full rounded-media overflow-hidden"
               img-class="w-full h-full object-cover"
             />
           </div>
@@ -799,12 +802,11 @@
         :page-provider="isViewingSet ? compactSetStripPage : stripPageProvider"
         :item-getter="isViewingSet ? compactSetStripItem : stripItemGetter"
         :current-index="isViewingSet ? setViewIndex : currentIndex"
-        :item-width="slideshowCompact ? 48 : STRIP_ROW"
+        :item-width="slideshowCompact ? STRIP_TILE.sm : STRIP_ROW"
         :item-height="STRIP_ROW"
-        :item-gap="slideshowCompact ? 6 : 8"
-        :gutter="4"
-        :height="slideshowCompact ? 62 : STRIP_ROW + 16"
-        :center-edges="slideshowCompact"
+        :item-gap="slideshowCompact ? STRIP_GAP.sm : 8"
+        :gutter="slideshowCompact ? STRIP_GUTTER : 4"
+        :height="slideshowCompact ? STRIP_ROW + 2 : STRIP_ROW + 16"
         :class="slideshowCompact ? '[&_.scroll-container]:![scrollbar-width:none] [&_.scroll-container::-webkit-scrollbar]:!hidden' : undefined"
         :chunk-size="50"
         :buffer-size="10"
@@ -822,15 +824,15 @@
             <!-- Placeholder skeleton while loading -->
             <div
               v-if="item._isPlaceholder"
-              class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-surface-raised rounded overflow-hidden border border-edge animate-pulse"
+              class="w-[96px] h-[96px] compact:w-[52px] compact:h-[52px] bg-surface-raised rounded-media overflow-hidden animate-pulse"
             />
             <!-- Real thumbnail -->
             <div
               v-else-if="item.file_hash"
-              class="w-[96px] h-[96px] bg-black rounded compact:bg-matte compact:rounded-media overflow-hidden border border-edge transition-all compact:h-11 compact:w-11 compact:shrink-0 compact:border-0 compact:transition-[transform,opacity] compact:duration-200 compact:ease-out motion-reduce:transition-none"
+              class="w-[96px] h-[96px] bg-matte rounded-none overflow-visible transition-all compact:h-[52px] compact:w-[52px] compact:shrink-0 compact:transition-opacity compact:duration-200 compact:ease-out motion-reduce:transition-none"
               :class="slideshowCompact
-                ? (index === (isViewingSet ? setViewIndex : currentIndex) ? 'scale-[1.2273] opacity-100 ring-1 ring-selection ring-offset-2 ring-offset-matte' : 'opacity-60')
-                : (index === currentIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110')"
+                ? (index === (isViewingSet ? setViewIndex : currentIndex) ? 'opacity-100 ring-2 ring-selection ring-offset-2 ring-offset-matte' : 'opacity-80')
+                : (index === currentIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt' : 'ring-2 ring-transparent opacity-80 hover:opacity-100 hover:ring-selection/60')"
             >
               <MediaImage
                 :media-id="mediaIdOf(item)"
@@ -845,9 +847,8 @@
                 :thumbnail-size="256"
                 :enable-context-menu="false"
                 :has-alpha="item.has_alpha"
-                container-class="w-full h-full"
+                container-class="w-full h-full rounded-media overflow-hidden"
                 img-class="w-full h-full object-cover"
-                @error="handleThumbnailError($event, item, index)"
               />
             </div>
             <!-- Marker badges -->
@@ -934,10 +935,12 @@
       :class="[
         slideshowCompact
           ? 'slideshow-control-bar relative order-3 w-full shrink-0 min-h-16 flex items-center bg-slideshow-matt z-chrome select-none'
-          : 'slideshow-control-bar absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
+          : (barDocked
+              ? 'slideshow-control-bar absolute flex h-12 items-center gap-3 px-2 z-chrome select-none'
+              : 'slideshow-control-bar absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none'),
         { 'cursor-grabbing !transition-none': isDragging && !slideshowCompact },
-        { '!bg-black/60': isHovered && !slideshowCompact },
-        { 'cursor-grab': !isDragging && !slideshowCompact },
+        { '!bg-black/60': isHovered && !slideshowCompact && !barDocked },
+        { 'cursor-grab': !isDragging && !slideshowCompact && !barDocked },
         { 'flex-col px-2 py-4': controlBarOrientation === 'vertical' && !slideshowCompact }
       ]"
       :style="slideshowCompact ? {
@@ -945,7 +948,7 @@
         paddingRight: 'calc(var(--safe-right, 0px) + 12px)',
         paddingBottom: 'var(--safe-bottom, 0px)',
         minHeight: 'calc(64px + var(--safe-bottom, 0px))',
-      } : controlBarStyle"
+      } : [controlBarStyle, barColorVars]"
       @mousedown="!slideshowCompact && startDrag($event)"
       @mouseenter="isHovered = true"
       @mouseleave="isHovered = false"
@@ -954,10 +957,10 @@
       <!-- Gallery: markers are primary; transport and disclosure are quiet chrome. -->
       <template v-if="slideshowCompact">
         <button @click="toggleSlideshow" :class="['compact-bar-btn', { '!text-live': isPlaying }]" :aria-label="isPlaying ? 'Pause' : 'Play slideshow'">
-          <PauseIcon v-if="isPlaying" class="h-5 w-5" /><PlayIcon v-else class="h-5 w-5" />
+          <PauseIcon v-if="isPlaying" class="h-icon-canvas w-icon-canvas" /><PlayIcon v-else class="h-icon-canvas w-icon-canvas" />
         </button>
         <SlideshowMarkerControls class="min-w-0 flex-1" :markers="currentItem ? availableMarkers : []" :is-active="isMarkerActive" @toggle="toggleMarker" />
-        <button @click="compactMoreOpen = true" class="compact-bar-btn" aria-label="More"><EllipsisHorizontalIcon class="h-5 w-5" /></button>
+        <button @click="compactMoreOpen = true" class="compact-bar-btn" aria-label="More"><EllipsisHorizontalIcon class="h-icon-canvas w-icon-canvas" /></button>
       </template>
       <template v-else>
       <!-- Cluster 1 — Playback: shuffle · play/pause · loop · interval · volume -->
@@ -966,36 +969,36 @@
         <button
           @click="toggleRandomize"
           :class="[
-            'bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white',
+            'bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]',
             { '!text-live hover:!text-live/80': isRandomized }
           ]"
-          title="Toggle Shuffle (r)"
+          title="Toggle shuffle (r)"
         >
-          <ArrowsRightLeftIcon class="w-5 h-5" />
+          <ArrowsRightLeftIcon class="w-icon-canvas h-icon-canvas" />
         </button>
 
         <!-- Play / Pause (explicit) -->
         <button
           @click="toggleSlideshow"
           :class="[
-            'bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white',
+            'bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]',
             { '!text-live hover:!text-live/80': isPlaying }
           ]"
           :title="isPlaying ? 'Pause (space)' : 'Play slideshow (space)'"
         >
-          <PauseIcon v-if="isPlaying" class="w-5 h-5" />
-          <PlayIcon v-else class="w-5 h-5" />
+          <PauseIcon v-if="isPlaying" class="w-icon-canvas h-icon-canvas" />
+          <PlayIcon v-else class="w-icon-canvas h-icon-canvas" />
         </button>
 
         <!-- Loop -->
         <button
           @click="toggleLoop"
           :class="[
-            'text-base text-white/60 cursor-pointer transition-all bg-transparent border-none p-1.5 rounded-md leading-none flex items-center justify-center w-8',
+            'text-[16px] text-[color:var(--bar-fg)] cursor-pointer transition-all bg-transparent border-none p-1.5 rounded-md leading-none flex items-center justify-center w-8',
             { '!text-live hover:!text-live/80': loopEnabled },
-            'hover:bg-white/10 hover:text-white'
+            'hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]'
           ]"
-          title="Toggle Loop (l)"
+          title="Toggle loop (l)"
         >
           ↻
         </button>
@@ -1011,15 +1014,15 @@
           <button
             @click="toggleMute"
             :class="[
-              'bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all',
+              'bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all',
               { '!text-live hover:!text-live/80': !isMuted },
-              'hover:bg-white/10 hover:text-white'
+              'hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]'
             ]"
             title="Mute/unmute (m) — hover for volume"
           >
-            <SpeakerWaveIcon v-if="!isMuted && volume > 0.5" class="w-5 h-5" />
-            <SpeakerWaveIcon v-else-if="!isMuted && volume > 0" class="w-5 h-5 scale-90" />
-            <SpeakerXMarkIcon v-else class="w-5 h-5" />
+            <SpeakerWaveIcon v-if="!isMuted && volume > 0.5" class="w-icon-canvas h-icon-canvas" />
+            <SpeakerWaveIcon v-else-if="!isMuted && volume > 0" class="w-icon-canvas h-icon-canvas scale-90" />
+            <SpeakerXMarkIcon v-else class="w-icon-canvas h-icon-canvas" />
           </button>
           <!-- Volume popup with mute + slider -->
           <div
@@ -1043,8 +1046,8 @@
                   isMuted ? 'text-white/40 hover:text-white' : 'text-live hover:text-live/80'
                 ]"
               >
-                <SpeakerXMarkIcon v-if="isMuted" class="w-4 h-4" />
-                <SpeakerWaveIcon v-else class="w-4 h-4" />
+                <SpeakerXMarkIcon v-if="isMuted" class="w-icon-nav h-icon-nav" />
+                <SpeakerWaveIcon v-else class="w-icon-nav h-icon-nav" />
               </button>
               <input
                 type="range"
@@ -1074,8 +1077,8 @@
                   isMuted ? 'text-white/40 hover:text-white' : 'text-live hover:text-live/80'
                 ]"
               >
-                <SpeakerXMarkIcon v-if="isMuted" class="w-4 h-4" />
-                <SpeakerWaveIcon v-else class="w-4 h-4" />
+                <SpeakerXMarkIcon v-if="isMuted" class="w-icon-nav h-icon-nav" />
+                <SpeakerWaveIcon v-else class="w-icon-nav h-icon-nav" />
               </button>
             </template>
           </div>
@@ -1087,33 +1090,33 @@
           v-if="isVideo"
           @click="toggleVideoTransport"
           :class="[
-            'bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all',
+            'bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all',
             { '!text-live hover:!text-live/80': showVideoTransport },
-            'hover:bg-white/10 hover:text-white'
+            'hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]'
           ]"
           :title="showVideoTransport ? 'Hide scrubber (v)' : 'Show scrubber (v)'"
         >
-          <FilmIcon class="w-5 h-5" />
+          <FilmIcon class="w-icon-canvas h-icon-canvas" />
         </button>
       </div>
 
       <!-- Interval — its own section, only while the slideshow is running -->
       <template v-if="isPlaying">
-        <div :class="['bg-white/20 cursor-grab', controlBarOrientation === 'vertical' ? 'w-5 h-px' : 'w-px h-5']"></div>
+        <div :class="[barDocked ? 'bg-edge cursor-grab' : 'bg-white/20 cursor-grab', controlBarOrientation === 'vertical' ? 'w-5 h-px' : 'w-px h-5']"></div>
         <button
           @click="cycleDuration"
-          class="text-sm font-medium text-white/60 flex items-center justify-center cursor-pointer transition-all bg-transparent border-none p-1.5 rounded-md min-w-[42px] hover:bg-white/10 hover:text-white"
+          class="text-sm font-medium text-[color:var(--bar-fg)] flex items-center justify-center cursor-pointer transition-all bg-transparent border-none p-1.5 rounded-md min-w-[42px] hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]"
           title="Slideshow interval — click to change (or w/s)"
         >
           <span class="pointer-events-none">{{ currentDuration }}s</span>
         </button>
       </template>
 
-      <div :class="['bg-white/20 cursor-grab', controlBarOrientation === 'vertical' ? 'w-5 h-px' : 'w-px h-5']"></div>
+      <div :class="[barDocked ? 'bg-edge cursor-grab' : 'bg-white/20 cursor-grab', controlBarOrientation === 'vertical' ? 'w-5 h-px' : 'w-px h-5']"></div>
 
       <!-- Cluster 2 — Position -->
       <div
-        class="text-xs font-semibold text-white cursor-grab"
+        class="text-xs font-semibold font-mono tabular-nums cursor-grab" :style="{ color: 'var(--bar-strong)' }"
         :class="controlBarOrientation === 'vertical' ? 'flex flex-col gap-0.5 items-center leading-none' : 'min-w-[80px] text-center'"
         @dblclick="toggleOrientation"
         :title="isViewingGrid ? 'Grid position | Arrow keys to navigate | Double-click to toggle orientation' : 'Position | Arrow keys / a/d to navigate | Double-click to toggle orientation'"
@@ -1138,7 +1141,7 @@
         </template>
       </div>
 
-      <div :class="['bg-white/20 cursor-grab', controlBarOrientation === 'vertical' ? 'w-5 h-px' : 'w-px h-5']"></div>
+      <div :class="[barDocked ? 'bg-edge cursor-grab' : 'bg-white/20 cursor-grab', controlBarOrientation === 'vertical' ? 'w-5 h-px' : 'w-px h-5']"></div>
 
       <!-- Cluster 3 — This image: focus · lineage · show in Finder · markers -->
       <div :class="['flex gap-2', { 'flex-col': controlBarOrientation === 'vertical' }]">
@@ -1146,21 +1149,21 @@
         <button
           @click="toggleFocusMode"
           :class="[
-            'bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white',
+            'bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]',
             { '!text-live hover:!text-live/80': focusMode }
           ]"
-          title="Toggle Focus Mode (f)"
+          title="Toggle focus mode (f)"
         >
-          <ArrowsPointingOutIcon class="w-5 h-5" />
+          <ArrowsPointingOutIcon class="w-icon-canvas h-icon-canvas" />
         </button>
 
         <!-- Lineage button -->
         <button
           @click="handleViewLineage"
-          class="bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white"
-          title="View Lineage (t)"
+          class="bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]"
+          title="View lineage (t)"
         >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" class="w-5 h-5">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" class="w-icon-canvas h-icon-canvas">
             <circle cx="6" cy="4.5" r="1.75" stroke-width="1.5" />
             <circle cx="14" cy="4.5" r="1.75" stroke-width="1.5" />
             <circle cx="10" cy="15.5" r="1.75" stroke-width="1.5" />
@@ -1178,27 +1181,27 @@
           @click="revealInFinder"
           @dragstart="handleExportDragStart"
           @dragend="handleDragEnd"
-          class="bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white"
+          class="bg-transparent border-none text-[color:var(--bar-fg)] cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-[color:var(--bar-hover-bg)] hover:text-[color:var(--bar-hover-fg)]"
           title="Show in file manager (⇧S); drag to copy file"
         >
-          <DocumentIcon class="w-5 h-5 pointer-events-none" />
+          <DocumentIcon class="w-icon-canvas h-icon-canvas pointer-events-none" />
         </button>
 
         <!-- Marker toggles (own sub-group, divided from the view actions) -->
         <template v-if="availableMarkers.length > 0 && currentItem">
-          <div :class="['bg-white/20 self-center', controlBarOrientation === 'vertical' ? 'w-5 h-px' : 'w-px h-5']"></div>
+          <div :class="[barDocked ? 'bg-edge self-center' : 'bg-white/20 self-center', controlBarOrientation === 'vertical' ? 'w-5 h-px' : 'w-px h-5']"></div>
           <button
             v-for="marker in availableMarkers"
             :key="marker.id"
             @click.stop="toggleMarker(marker.id)"
             :class="[
-              'bg-transparent border-none cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-white/10',
-              isMarkerActive(marker.id) ? '' : 'text-white/60 hover:text-white'
+              'bg-transparent border-none cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-[color:var(--bar-hover-bg)]',
+              isMarkerActive(marker.id) ? '' : 'text-[color:var(--bar-fg)] hover:text-[color:var(--bar-hover-fg)]'
             ]"
             :style="isMarkerActive(marker.id) ? { color: marker.color } : {}"
             :title="isMarkerActive(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
           >
-            <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+            <span class="w-icon-canvas h-icon-canvas flex items-center justify-center icon-container" :class="isMarkerActive(marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
           </button>
         </template>
       </div>
@@ -1211,7 +1214,7 @@
         <button v-if="currentPayloadId" type="button" class="sheet-row" @click="compactMoreOpen = false; openShareLink()"><LinkIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Share link…</span></button>
         <button v-if="nativeShareSupported && currentPayloadId && !isSprite && !isPackage && !isSet && !isGrid && !isLayout" type="button" class="sheet-row" @click="nativeShareMediaId = currentPayloadId; compactMoreOpen = false"><ArrowUpTrayIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Share file…</span></button>
         <button type="button" class="sheet-row" @click="toggleRandomize"><ArrowsRightLeftIcon class="sheet-row-icon" /><span class="flex-1">Shuffle</span><span class="sheet-row-detail" :class="isRandomized ? '!text-live' : ''">{{ isRandomized ? 'on' : 'off' }}</span></button>
-        <button type="button" class="sheet-row" @click="toggleLoop"><span class="sheet-row-icon flex items-center justify-center text-base leading-none">↻</span><span class="flex-1">Loop</span><span class="sheet-row-detail" :class="loopEnabled ? '!text-live' : ''">{{ loopEnabled ? 'on' : 'off' }}</span></button>
+        <button type="button" class="sheet-row" @click="toggleLoop"><span class="sheet-row-icon flex items-center justify-center text-[16px] leading-none">↻</span><span class="flex-1">Loop</span><span class="sheet-row-detail" :class="loopEnabled ? '!text-live' : ''">{{ loopEnabled ? 'on' : 'off' }}</span></button>
         <button type="button" class="sheet-row" @click="cycleDuration"><span class="sheet-row-icon flex items-center justify-center text-[11px] font-semibold">{{ currentDuration }}s</span><span class="flex-1">Slideshow interval</span><span class="sheet-row-detail">tap to change</span></button>
         <button v-if="isVideo" type="button" class="sheet-row" @click="toggleMute"><SpeakerXMarkIcon v-if="isMuted" class="sheet-row-icon" /><SpeakerWaveIcon v-else class="sheet-row-icon" /><span class="flex-1">Sound</span><span class="sheet-row-detail" :class="isMuted ? '' : '!text-live'">{{ isMuted ? 'muted' : 'on' }}</span></button>
         <button v-if="isVideo" type="button" class="sheet-row" @click="toggleVideoTransport"><FilmIcon class="sheet-row-icon" /><span class="flex-1">Scrubber</span><span class="sheet-row-detail" :class="showVideoTransport ? '!text-live' : ''">{{ showVideoTransport ? 'shown' : 'hidden' }}</span></button>
@@ -1251,7 +1254,7 @@
             class="rounded p-1 text-content-tertiary transition-colors hover:bg-overlay-light hover:text-content"
             @click="closeProjectPicker"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-icon-canvas w-icon-canvas">
               <path d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -1318,6 +1321,7 @@ import { reconcileSlideshowCollection } from '../utils/slideshowCollection'
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, unref } from 'vue'
 import { createSlideshowSwipe } from '../utils/slideshowSwipe'
 import { isDrawerEdgeTouch } from '../utils/drawerGesture'
+import { STRIP_TILE, STRIP_GAP, STRIP_GUTTER } from '../utils/filmstrip'
 import { useSlideshowPresence } from '../composables/useTabNavigation'
 
 import { createSlideshowDwell } from '../utils/slideshowDwell'
@@ -1705,13 +1709,15 @@ function pictureGesturesEnabled() {
   return !isAudio.value && !isText.value && !isLayout.value && !isVector.value && !isSprite.value && !isPackage.value && !isSet.value && !isGrid.value
 }
 // Phones: the bar lies along the bottom edge; the vertical pill was a desktop choice.
-const controlBarOrientation = ref(slideshowCompact.value ? 'horizontal' : (savedSettings.controlBarOrientation ?? 'vertical'))
+const controlBarOrientationPref = ref(slideshowCompact.value ? 'horizontal' : (savedSettings.controlBarOrientation ?? 'horizontal'))
 
 // Image strip state (shows items from current dataset)
 const showImageStrip = ref(savedSettings.showImageStrip ?? true)
 // Phones: a shorter strip, and the info panel overlays instead of taking width.
 const STRIP_HEIGHT = slideshowCompact.value ? 74 : 136
-const STRIP_ROW = slideshowCompact.value ? 54 : 104
+// Tile tiers and ring spacing are the shared filmstrip tokens (utils/filmstrip.ts):
+// 52px tiles in a 60px row on a phone, 96px tiles in a 104px row elsewhere.
+const STRIP_ROW = slideshowCompact.value ? STRIP_TILE.sm + 8 : STRIP_TILE.lg + 8
 const SIDEBAR_WIDTH = slideshowCompact.value ? 0 : 384
 const focusMode = ref(savedSettings.focusMode ?? false)
 const visibleImageStrip = computed(() => showImageStrip.value && !focusMode.value && props.showThumbnailStrip && !isViewingGrid.value && !(slideshowCompact.value && compactImmersive.value))
@@ -2002,6 +2008,16 @@ const controlBarEdgeAnchors = ref({
   horizontalDistance: savedSettings.controlBarHorizontalDistance ?? 0,
   verticalDistance: savedSettings.controlBarVerticalDistance ?? 0
 })
+// Until the bar is dragged it is docked: a horizontal band on the matte
+// between the picture and the filmstrip, never over the art. Dragging it
+// frees it as a floating pill that honours the saved orientation.
+const barDocked = computed(() => !slideshowCompact.value && (controlBarEdgeAnchors.value.horizontal === null || controlBarEdgeAnchors.value.vertical === null))
+const controlBarOrientation = computed(() => barDocked.value ? 'horizontal' : controlBarOrientationPref.value)
+const DOCK_BAR_HEIGHT = 48
+const TOP_BAND_HEIGHT = 48
+const barColorVars = computed(() => barDocked.value
+  ? { '--bar-fg': 'rgb(var(--color-text-tertiary-rgb))', '--bar-hover-fg': 'rgb(var(--color-text-primary-rgb))', '--bar-hover-bg': 'var(--color-overlay-light)', '--bar-strong': 'rgb(var(--color-text-primary-rgb))' }
+  : { '--bar-fg': 'rgb(255 255 255 / 0.6)', '--bar-hover-fg': '#fff', '--bar-hover-bg': 'rgb(255 255 255 / 0.1)', '--bar-strong': '#fff' })
 const dragStart = ref({ x: 0, y: 0 })
 const dragDistance = ref(0)
 const preventClick = ref(false)
@@ -2175,7 +2191,9 @@ const currentItem = computed(() => {
   if (props.autoAdvanceOnNew && displayItem.value) {
     return displayItem.value
   }
-  return baseCurrentItem.value
+  // The media stays visible while a provider reloads or remaps its cache. Keep
+  // its info and actions available for that same interval, too.
+  return baseCurrentItem.value || displayItem.value
 })
 const currentAssetId = computed(() => (
   currentItem.value && hasAssetIdentity(currentItem.value)
@@ -2691,6 +2709,16 @@ const controlBarStyle = computed(() => {
       maxWidth: 'calc(100% - 16px)',
     }
   }
+  if (barDocked.value) {
+    const dockSidebar = (showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0
+    return {
+      left: `calc((100% - ${dockSidebar}px) / 2)`,
+      right: 'auto',
+      top: 'auto',
+      bottom: `${visibleImageStrip.value ? STRIP_HEIGHT : 0}px`,
+      transform: 'translateX(-50%)',
+    }
+  }
   const anchors = controlBarEdgeAnchors.value
   // In focus mode, treat sidebar as if it's not there
   const sidebarWidth = (showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0
@@ -2753,7 +2781,7 @@ const transportBarStyle = computed(() => {
   return {
     left: `calc((100% - ${sidebarWidth}px) / 2)`,
     transform: 'translateX(-50%)',
-    bottom: `${relatedStripOffset + 24}px`,
+    bottom: `${relatedStripOffset + (barDocked.value ? DOCK_BAR_HEIGHT : 0) + 24}px`,
     maxWidth: `calc((100% - ${sidebarWidth}px) * 0.75)`
   }
 })
@@ -3747,39 +3775,8 @@ const effectiveIndex = computed(() => {
   return currentIndex.value
 })
 
-// Handle thumbnail loading errors with retry
-const thumbnailRetries = ref(new Map())
-async function handleThumbnailError(event, item, index) {
-  const retryKey = `${index}-${item.file_hash}`
-  const retryCount = thumbnailRetries.value.get(retryKey) || 0
-
-  if (retryCount < 3) {
-    // Retry after a delay
-    thumbnailRetries.value.set(retryKey, retryCount + 1)
-    setTimeout(async () => {
-      // Clear the cached item and reload it
-      const actualIndex = getActualIndex(index)
-      itemsCache.value.delete(actualIndex)
-
-      // Clear the page from loading cache to allow re-fetch
-      const pageNumber = Math.floor(actualIndex / 50)
-      loadingPages.value.delete(pageNumber)
-
-      // Reload the item
-      await ensureItemLoaded(actualIndex)
-
-      // Force re-render
-      if (event.target) {
-        const reloadedItem = itemsCache.value.get(actualIndex)
-        if (reloadedItem?.file_hash) {
-          event.target.src = `${getThumbnailUrl(reloadedItem.file_hash, 256)}&t=${Date.now()}`
-        }
-      }
-    }, 1000 * (retryCount + 1)) // Exponential backoff: 1s, 2s, 3s
-  } else {
-    console.error(`Failed to load thumbnail for index ${index} after 3 retries`)
-  }
-}
+// MediaImage owns thumbnail retries. A failed thumbnail must never evict the
+// media record used by the viewer's info panel and marker controls.
 
 // Slideshow controls
 // Telemetry: slideshow_control_used — closed enum pinned to the actual
@@ -4058,9 +4055,9 @@ function cleanupCursorTimeout() {
 
 function toggleOrientation() {
   if (preventClick.value) return
-  controlBarOrientation.value = controlBarOrientation.value === 'horizontal' ? 'vertical' : 'horizontal'
+  controlBarOrientationPref.value = controlBarOrientationPref.value === 'horizontal' ? 'vertical' : 'horizontal'
   const settings = loadSettings()
-  settings.controlBarOrientation = controlBarOrientation.value
+  settings.controlBarOrientation = controlBarOrientationPref.value
   saveSettings(settings)
 }
 
@@ -6583,8 +6580,7 @@ async function toggleMarker(markerId) {
     markerUpdateTrigger.value++
 
     if (restoring) {
-      const markerName = availableMarkers.value.find((marker) => marker.id === markerId)?.name
-      addToast(markerName ? `Restored and marked ${markerName}` : 'Restored and marked', 'success')
+      addToast('Restored and marked', 'success')
       if (props.isTrashView) removeRestoredItemLocally(itemId)
     }
   } catch (error) {

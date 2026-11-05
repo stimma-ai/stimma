@@ -192,6 +192,8 @@ class LLMEndpointConfig(BaseModel):
     # clamped to the client-side cap). For local endpoints it's user-
     # configured via Settings. Default targets a mid-range local setup.
     max_context_tokens: int = 128_000
+    # None means the provider has not advertised an output cap.
+    max_output_tokens: Optional[int] = Field(default=None, gt=0)
 
     # --- Local-endpoint extras (ignored for Stimma Cloud configs) ---
     # Include Stimma's content policy in the system prompt. Helps aligned
@@ -313,6 +315,8 @@ class LLMProviderModelConfig(BaseModel):
     model_vendor: Optional[str] = None
     enabled: bool = True
     max_context_tokens: int = 128_000
+    # None means the provider has not advertised an output cap.
+    max_output_tokens: Optional[int] = Field(default=None, gt=0)
     input_modalities: List[str] = Field(default_factory=lambda: ["text"])
     supports_tools: bool = True
     reasoning: LLMReasoningConfig = Field(default_factory=LLMReasoningConfig)

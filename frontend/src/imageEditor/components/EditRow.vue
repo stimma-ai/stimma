@@ -633,7 +633,7 @@ const previewTint = computed(() =>
       <IconButton
         :class="advisory
           ? 'text-amber-400/90 hover:text-amber-300'
-          : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 coarse:opacity-100'"
+          : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [[data-pointer=coarse]_&]:opacity-100'"
         :disabled="resampling"
         @click.stop="emit('resample')"
       >

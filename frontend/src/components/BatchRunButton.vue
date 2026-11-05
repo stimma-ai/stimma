@@ -10,7 +10,7 @@
         data-testid="tool-run-button"
         @click="emit('run')"
         :disabled="disabled"
-        class="px-4 py-2 text-white text-sm font-semibold transition-colors hover:bg-accent/90 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        class="px-4 py-2 text-accent-on text-sm font-semibold transition-colors hover:bg-accent/90 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         :class="disabled ? 'cursor-not-allowed' : 'cursor-pointer'"
       >
         <span>{{ mediaBatchCount ? 'Run Batch' : 'Run' }}</span>
@@ -29,7 +29,7 @@
       <!-- Caret: opens batch-size popover -->
       <button
         @click.stop="togglePopover"
-        class="px-2 py-2 text-white cursor-pointer transition-colors hover:bg-accent/90 flex items-center border-l border-edge-subtle"
+        class="px-2 py-2 text-accent-on cursor-pointer transition-colors hover:bg-accent/90 flex items-center border-l border-edge-subtle"
         title="Batch size"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"

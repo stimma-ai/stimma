@@ -131,28 +131,28 @@ export const DEFAULT_TASK_TYPE_ICON_PATH = 'M11.42 15.17L17.25 21A2.652 2.652 0 
 
 // Human-readable labels for each task type
 export const TASK_TYPE_LABELS: Record<string, string> = {
-  'text-to-image': 'Generate Image',
-  'image-to-image': 'Image to Image',
+  'text-to-image': 'Generate image',
+  'image-to-image': 'Image to image',
   'inpaint-image': 'Inpaint',
   'erase-image': 'Erase',
   'outpaint-image': 'Outpaint',
-  'text-to-video': 'Text to Video',
-  'image-to-video': 'Image to Video',
-  'reference-to-video': 'Reference to Video',
-  'video-to-video': 'Video to Video',
-  'video-stitch': 'Video Stitch',
-  'video-extend': 'Video Extend',
-  'upscale-image': 'Upscale Image',
-  'upscale-video': 'Upscale Video',
-  'remove-background': 'Background Removal',
-  'process-image': 'Process Image',
-  'text-to-audio': 'Text to Audio',
-  'text-to-music': 'Text to Music',
-  'text-to-speech': 'Text to Speech',
-  'audio-to-audio': 'Audio to Audio',
-  'speech-to-text': 'Speech to Text',
-  'lip-sync': 'Lip Sync',
-  'detect-objects': 'Detect Objects',
+  'text-to-video': 'Text to video',
+  'image-to-video': 'Image to video',
+  'reference-to-video': 'Reference to video',
+  'video-to-video': 'Video to video',
+  'video-stitch': 'Video stitch',
+  'video-extend': 'Video extend',
+  'upscale-image': 'Upscale image',
+  'upscale-video': 'Upscale video',
+  'remove-background': 'Background removal',
+  'process-image': 'Process image',
+  'text-to-audio': 'Text to audio',
+  'text-to-music': 'Text to music',
+  'text-to-speech': 'Text to speech',
+  'audio-to-audio': 'Audio to audio',
+  'speech-to-text': 'Speech to text',
+  'lip-sync': 'Lip sync',
+  'detect-objects': 'Detect objects',
   'filter': 'Filter',
   'utility': 'Utility',
 }
@@ -383,7 +383,7 @@ export function formatTaskTypeLabel(taskType: string): string {
   return taskType
     .split(/[-_]+/)
     .filter(Boolean)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .map((part, i) => (i === 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part))
     .join(' ')
 }
 

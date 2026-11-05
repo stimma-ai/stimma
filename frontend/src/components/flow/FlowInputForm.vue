@@ -10,7 +10,7 @@
       <!-- Resolution-family pickers — same controls ToolView uses, so the flow
            and the tool it freezes into look identical. -->
       <div v-if="res.allowedDimensions || (res.hasWidthHeight && !res.hasMegapixels)" class="py-2.5">
-        <label class="block text-xs font-semibold text-content-secondary mb-2">Resolution</label>
+        <label class="block text-ctl font-semibold text-content-secondary mb-2">Resolution</label>
         <ResolutionPicker
           :policy="resolutionPolicy"
           :image="firstInputImage"
@@ -21,7 +21,7 @@
       </div>
 
       <div v-if="res.hasAspectRatio" class="py-2.5">
-        <label class="block text-xs font-semibold text-content-secondary mb-2">Aspect ratio</label>
+        <label class="block text-ctl font-semibold text-content-secondary mb-2">Aspect ratio</label>
         <GeminiResolutionPicker
           :aspect-ratio="String(values.aspect_ratio ?? '1:1')"
           :image-size="String(values.image_size ?? '1K')"
@@ -32,7 +32,7 @@
       </div>
 
       <div v-if="res.hasMegapixels" class="py-2.5">
-        <label class="block text-xs font-semibold text-content-secondary mb-2">Megapixels</label>
+        <label class="block text-ctl font-semibold text-content-secondary mb-2">Megapixels</label>
         <MegapixelsPicker
           :model-value="numVal('megapixels', 1)"
           :min-megapixels="megapixelsMin"
@@ -42,7 +42,7 @@
       </div>
 
       <div v-if="res.showUpscalePicker" class="py-2.5">
-        <label class="block text-xs font-semibold text-content-secondary mb-2">Upscale</label>
+        <label class="block text-ctl font-semibold text-content-secondary mb-2">Upscale</label>
         <UpscaleResolutionPicker
           v-model="upscaleModel"
           :support-scale-factor="res.hasScaleFactor"
@@ -357,7 +357,7 @@
           @keydown.escape.stop="closeListEditor"
         >
           <div class="px-3 pt-2.5 pb-1.5 flex items-baseline justify-between gap-2">
-            <span class="text-xs font-semibold text-content-secondary truncate">{{ listEditorField?.label }}</span>
+            <span class="text-ctl font-semibold text-content-secondary truncate">{{ listEditorField?.label }}</span>
             <span class="text-[10px] font-mono tabular-nums text-content-tertiary">{{ listValue(listEditor.field).length }} item{{ listValue(listEditor.field).length === 1 ? '' : 's' }}</span>
           </div>
           <div class="max-h-72 overflow-y-auto custom-scrollbar px-1.5">
@@ -430,6 +430,7 @@
 </template>
 
 <script setup lang="ts">
+import { reportActionError } from '../../composables/useToasts'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import axios from 'axios'
 import { MediaImage } from '../media'
@@ -990,7 +991,7 @@ async function uploadFileToField(name: string, file: File, multi: boolean) {
       values[name] = mediaId
     }
   } catch (err) {
-    console.error('Failed to upload file:', err)
+    reportActionError("Couldn't upload file.", err)
   }
 }
 

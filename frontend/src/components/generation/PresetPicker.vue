@@ -4,12 +4,12 @@
     <button
       ref="buttonRef"
       @click="toggleDropdown"
-      class="relative flex items-center justify-center px-3 py-2 rounded-md bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content transition-colors"
+      class="relative inline-flex h-8 w-8 items-center justify-center rounded-md text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:h-11 coarse:w-11"
       :title="displayName === 'Presets' ? 'Presets' : `Preset: ${displayName}`"
     >
       <!-- Swatch icon: presets are saved looks. Bookmark is reserved for the
            library marker, so the trigger can't share it. -->
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" />
       </svg>
       <!-- Active/modified cue: corner dot (accent = active preset, amber = modified) -->
@@ -38,7 +38,7 @@
               <button
                 v-if="hasActivePreset"
                 @click="handleSave"
-                class="flex-1 px-3 py-1.5 text-sm text-white bg-accent hover:bg-accent/90 rounded-md transition-colors"
+                class="flex-1 px-3 py-1.5 text-sm text-accent-on bg-accent hover:bg-accent/90 rounded-md transition-colors"
               >
                 Save
               </button>
@@ -146,7 +146,7 @@
         <button
           @click="confirmSavePreset"
           :disabled="!newPresetName.trim() || saving"
-          class="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-4 py-2 bg-accent hover:bg-accent/90 text-accent-on rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {{ saving ? 'Saving...' : 'Save' }}
         </button>
@@ -156,6 +156,7 @@
 </template>
 
 <script setup lang="ts">
+import { reportActionError } from '../../composables/useToasts'
 import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue'
 import { usePresetsApi, type Preset, type PresetState } from '../../composables/usePresetsApi'
 import Modal from '../ui/Modal.vue'
@@ -303,7 +304,7 @@ async function confirmSavePreset() {
     // Refresh presets list
     await loadPresets()
   } catch (err) {
-    console.error('Failed to save preset:', err)
+    reportActionError("Couldn't save preset.", err)
   } finally {
     saving.value = false
   }

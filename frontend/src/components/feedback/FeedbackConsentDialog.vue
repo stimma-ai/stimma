@@ -27,7 +27,7 @@
       >Always send</button>
       <button
         @click="$emit('send-once')"
-        class="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-medium rounded-md transition-colors"
+        class="px-4 py-2 bg-accent hover:bg-accent/90 text-accent-on text-sm font-medium rounded-md transition-colors"
       >{{ subject === 'thumbs' ? 'Send this once' : 'Send once' }}</button>
     </template>
   </Modal>

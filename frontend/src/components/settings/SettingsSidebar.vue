@@ -1,5 +1,5 @@
 <template>
-  <div class="w-52 flex-shrink-0 border-r border-edge py-4 flex flex-col overflow-y-auto">
+  <div class="w-52 flex-shrink-0 border-r border-edge py-3 flex flex-col overflow-y-auto">
     <nav class="flex flex-col gap-0.5 px-3 flex-1">
       <!-- Profile header with dropdown -->
       <div class="relative mb-2">
@@ -39,15 +39,12 @@
         v-for="section in profileSections"
         :key="section.id"
         @click="$emit('select', section.id)"
-        class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer compact:min-h-11 compact:text-[15px]"
-        :class="activeSection === section.id
-          ? 'bg-overlay-light text-content'
-          : 'text-content-tertiary hover:text-content hover:bg-overlay-hover'"
+        :class="[navItemClass, activeSection === section.id ? navActiveClass : navIdleClass]"
       >
-        <component :is="section.icon" class="w-5 h-5 shrink-0" />
+        <component :is="section.icon" class="w-icon-nav h-icon-nav shrink-0" :class="activeSection === section.id ? 'text-selection' : ''" />
         <span class="flex min-w-0 flex-1 items-center gap-2">
           <span>{{ section.label }}</span>
-          <span v-if="section.id === 'mcp'" class="shrink-0 rounded border border-edge-subtle px-1 py-0.5 text-[8px] font-normal leading-none text-content-tertiary">EXPERIMENTAL</span>
+          <span v-if="section.id === 'mcp'" class="shrink-0 rounded border border-edge-subtle px-1 py-0.5 text-[10px] font-normal leading-none text-content-tertiary">Experimental</span>
         </span>
       </button>
 
@@ -61,20 +58,12 @@
           v-for="section in group.sections"
           :key="section.id"
           @click="$emit('select', section.id)"
-          class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all compact:min-h-11 compact:text-[15px]"
-          :class="[
-            activeSection === section.id
-              ? 'bg-overlay-light'
-              : 'hover:bg-overlay-hover',
-            section.branded
-              ? (activeSection === section.id ? 'text-cyan-600 dark:text-cyan-300' : 'text-cyan-500/70 dark:text-cyan-400/70 hover:text-cyan-600 dark:hover:text-cyan-300')
-              : (activeSection === section.id ? 'text-content' : 'text-content-tertiary hover:text-content')
-          ]"
+          :class="[navItemClass, activeSection === section.id ? navActiveClass : navIdleClass]"
         >
           <component
             :is="section.icon"
-            class="h-5 w-5"
-            :class="section.branded ? 'text-cyan-600 dark:text-cyan-400' : ''"
+            class="h-icon-nav w-icon-nav shrink-0"
+            :class="section.branded ? 'text-cyan-600 dark:text-cyan-400' : activeSection === section.id ? 'text-selection' : ''"
           />
           <span
             class="whitespace-nowrap"
@@ -82,7 +71,7 @@
           >{{ section.label }}</span>
           <span
             v-if="sectionNeedsSetup(section.id)"
-            class="ml-auto h-2 w-2 shrink-0 rounded-full bg-amber-400 ring-2 ring-yellow-400/15"
+            class="ml-auto h-2 w-2 shrink-0 rounded-full bg-amber-400"
             :title="section.id === 'ai-services' ? 'Chat model setup required' : 'Generation provider setup required'"
           ></span>
         </button>
@@ -98,23 +87,21 @@
       <button
         v-if="showDeveloper"
         @click.stop="$emit('select', 'developer')"
-        class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer w-full"
-        :class="activeSection === 'developer'
-          ? 'bg-overlay-light text-content'
-          : 'text-content-tertiary hover:text-content hover:bg-overlay-hover'"
+        :class="[navItemClass, 'w-full', activeSection === 'developer' ? navActiveClass : navIdleClass]"
       >
-        <component :is="CodeBracketIcon" class="w-5 h-5" />
+        <component :is="CodeBracketIcon" class="w-icon-nav h-icon-nav shrink-0" :class="activeSection === 'developer' ? 'text-selection' : ''" />
         <span>Developer</span>
       </button>
       <div v-else class="h-10 cursor-default select-none" />
     </div>
+    <div class="pointer-events-none sticky bottom-0 h-8 flex-none bg-gradient-to-t from-surface to-transparent" aria-hidden="true"></div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, h, onMounted, onUnmounted } from 'vue'
 import { devModeRef } from '../../appConfig'
-import { LinkIcon } from '@heroicons/vue/24/outline'
+import { ChatBubbleBottomCenterTextIcon, LinkIcon, WrenchScrewdriverIcon } from '@heroicons/vue/24/outline'
 // Monochrome Stimma pinwheel (logo.svg as a currentColor mask), matching the
 // treatment on the Generation Tools and Chat Models screens.
 const AccountIcon = () => h('span', {
@@ -147,11 +134,17 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'switch-profile'])
 
+// One nav-row treatment: row-sized text (13px, 15px on compact like every
+// other row), selection = the indigo wash DESIGN.md §1.8 prescribes.
+const navItemClass = 'flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-colors compact:min-h-11 compact:text-[15px]'
+const navActiveClass = 'bg-selection/15 text-content'
+const navIdleClass = 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
+
 const showProfileDropdown = ref(false)
 
 const currentProfileName = computed(() => {
   const profile = props.profiles.find(p => p.id === props.currentProfileId)
-  return profile?.name || 'Select Profile'
+  return profile?.name || 'Select profile'
 })
 
 function switchProfile(profileId) {
@@ -192,21 +185,12 @@ const TagIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-wid
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M6 6h.008v.008H6V6z' })
 ])
 
-const WrenchIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
-  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z' })
-])
-
 const CpuIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z' })
 ])
 
 const UserIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z' })
-])
-
-const CogIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
-  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z' }),
-  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z' })
 ])
 
 const AdjustmentsIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
@@ -222,8 +206,11 @@ const InformationCircleIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'm11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z' })
 ])
 
-const SparklesIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
-  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z' })
+// The agent glyph (components/icons/AgentIcon.vue), as a render function for this nav.
+const AgentGlyph = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+  h('path', { d: 'M12 8V4H8' }),
+  h('rect', { width: '16', height: '12', x: '4', y: '8', rx: '2' }),
+  h('path', { d: 'M2 14h2M20 14h2M15 13v2M9 13v2' })
 ])
 
 const CodeBracketIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
@@ -275,24 +262,24 @@ const BookOpenIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'strok
 const profileSections = [
   { id: 'folders', label: 'Folders', icon: FolderIcon },
   { id: 'markers', label: 'Markers', icon: TagIcon },
-  { id: 'wildcards', label: 'Prompt Variables', icon: WildcardIcon },
-  { id: 'agent', label: 'Agent', icon: SparklesIcon },
+  { id: 'wildcards', label: 'Prompt variables', icon: WildcardIcon },
+  { id: 'agent', label: 'Agent', icon: AgentGlyph },
   { id: 'mcp', label: 'MCP', icon: PlugIcon },
 ]
 
 // Global settings (applies to all profiles)
 const globalSectionGroups = [
   {
-    label: 'Settings',
+    label: 'App',
     sections: [
-      { id: 'account', label: 'Stimma Account', icon: AccountIcon },
+      { id: 'account', label: 'Stimma account', icon: AccountIcon },
       { id: 'shared-links', label: 'Shared links', icon: LinkIcon },
-      { id: 'server', label: 'Stimma Server', icon: ServerIcon },
-      { id: 'tools', label: 'Generation Tools', icon: WrenchIcon },
-      { id: 'ai-services', label: 'Chat Models', icon: CogIcon },
+      { id: 'server', label: 'Stimma server', icon: ServerIcon },
+      { id: 'tools', label: 'Generation tools', icon: WrenchScrewdriverIcon },
+      { id: 'ai-services', label: 'Chat models', icon: ChatBubbleBottomCenterTextIcon },
       { id: 'model-preferences', label: 'Preferences', icon: AdjustmentsIcon },
       { id: 'profiles', label: 'Profiles', icon: UserIcon },
-      { id: 'background', label: 'Background Work', icon: CpuIcon },
+      { id: 'background', label: 'Background work', icon: CpuIcon },
       { id: 'stimpacks', label: 'Stimpacks', icon: BookOpenIcon },
       { id: 'privacy', label: 'Privacy', icon: ShieldCheckIcon },
       { id: 'updates', label: 'About', icon: InformationCircleIcon },

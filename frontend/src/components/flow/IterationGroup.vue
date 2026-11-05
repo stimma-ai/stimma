@@ -4,7 +4,7 @@
     <div
       :role="lockedOpen ? undefined : 'button'"
       :tabindex="lockedOpen ? undefined : 0"
-      class="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[12px] text-left"
+      class="w-full flex items-center gap-2.5 coarse:gap-1.5 px-2.5 py-1.5 text-[12px] text-left"
       :class="lockedOpen ? 'cursor-default' : 'cursor-pointer'"
       @click="toggleExpanded"
       @keydown.enter.prevent="toggleExpanded"
@@ -23,7 +23,7 @@
       <span
         v-else-if="aggregateStatus === 'actionable'"
         class="w-2.5 h-2.5 rounded-full bg-accent flex-shrink-0 animate-pulse-soft"
-        :title="'Your Turn'"
+        :title="'Your turn'"
       />
       <svg
         v-else-if="aggregateStatus === 'failed'"
@@ -34,13 +34,13 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
       </svg>
       <svg
-        v-else-if="aggregateStatus === 'completed'"
-        class="w-4 h-4 text-green-500 flex-shrink-0"
-        fill="currentColor" viewBox="0 0 24 24"
-      >
+  v-else-if="aggregateStatus === 'completed'"
+  class="w-3.5 h-3.5 text-content-tertiary flex-shrink-0"
+  fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"
+>
         <title>Done</title>
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm4.03-12.97a.75.75 0 00-1.06-1.06l-4.72 4.72-2.22-2.22a.75.75 0 10-1.06 1.06l2.75 2.75a.75.75 0 001.06 0l5.25-5.25z" />
-      </svg>
+  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+</svg>
       <svg
         v-else-if="aggregateStatus === 'queued'"
         class="w-3.5 h-3.5 text-content-muted flex-shrink-0"
@@ -62,11 +62,11 @@
            row read as a model identifier. The count pill is kept visually
            distinct so rolled-up rows don't read as "candidates". -->
       <div class="flex-1 min-w-0 flex flex-col justify-center">
-        <div class="flex items-baseline gap-2 min-w-0">
-          <span class="truncate text-[13px] leading-tight text-content">{{ titleText }}</span>
+        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0">
+          <span class="min-w-0 max-w-full truncate text-sm text-content">{{ titleText }}</span>
           <span
             v-if="runtimePill"
-            class="flex-shrink-0 truncate text-[10px] leading-none rounded px-1.5 py-0.5 bg-overlay-faint text-content-muted"
+            class="min-w-0 max-w-full truncate text-[11px] leading-none rounded px-1.5 py-0.5 bg-overlay-faint text-content-muted"
           >
             <span v-if="runtimeModelLabel">{{ runtimeModelLabel }}</span>
             <span v-if="runtimeModelLabel && runtimeProviderLabel"> · </span>
@@ -97,8 +97,8 @@
         <div
           v-for="(t, i) in headerThumbs"
           :key="t.key"
-          class="w-6 h-6 rounded-md border border-surface overflow-hidden ring-1 ring-edge-subtle"
-          :class="i > 0 ? '-ml-1.5' : ''"
+          class="w-10 h-10 rounded-media overflow-hidden ring-2 ring-base"
+          :class="i > 0 ? '-ml-3' : ''"
           :style="{ zIndex: headerThumbs.length - i }"
         >
           <FlowMediaTile
@@ -123,18 +123,19 @@
         kind="iteration-group"
         :label="titleText"
         :breadcrumb="groupBreadcrumb"
+        variant="row"
       />
       <button
         v-if="pendingApproveTasks.length > 0"
         type="button"
-        class="flex-shrink-0 h-6 px-2 flex items-center justify-center rounded-md bg-accent text-white text-[10.5px] font-semibold hover:bg-accent/90 transition-colors"
+        class="flex-shrink-0 h-6 px-2 flex items-center justify-center rounded-md bg-accent text-accent-on text-[10.5px] font-semibold hover:bg-accent/90 transition-colors"
         :title="`Approve all ${pendingApproveTasks.length} pending`"
         @click.stop="approveAll"
       >Approve all</button>
       <button
         v-if="invalidateTargetKey"
         type="button"
-        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary transition-colors hover:text-content hover:bg-overlay-hover coarse:h-11 coarse:w-9"
         title="Re-run all iterations in this loop"
         @click.stop="$emit('invalidate-equation', invalidateTargetKey)"
       >
@@ -142,7 +143,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
         </svg>
       </button>
-      <span v-else class="flex-shrink-0 w-6 h-6" aria-hidden="true" />
+      <span v-else class="flex-shrink-0 w-6 h-6 coarse:h-11 coarse:w-9" aria-hidden="true" />
     </div>
 
     <!-- Body: scale-adaptive. The layout picks itself from iteration count;
@@ -243,7 +244,7 @@
 
         <!-- Actionable + recent preview -->
         <div v-if="previewIterations.length">
-          <div class="text-xs font-semibold text-content-secondary mb-1">Needs attention</div>
+          <div class="text-sm font-semibold text-content-secondary mb-1">Needs attention</div>
           <div class="grid grid-cols-8 gap-1.5">
             <IterationCard
               v-for="it in previewIterations"
@@ -309,6 +310,7 @@ import FlowRefButton from './FlowRefButton.vue'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
 import { dotClass } from '../../utils/statusColors'
+import { displayFlowStatus } from '../../utils/flowStatus'
 
 interface Props {
   group: IterationGroupItem
@@ -510,7 +512,8 @@ const titleText = computed<string>(() => {
     if (label && label !== 'Utility') return label
   }
   if (resolvedTool.value) return resolvedTool.value.name
-  return props.group.displayName
+  // "Your Turn" is the backend's step name; only its display is sentence case.
+  return displayFlowStatus(props.group.displayName)
 })
 
 const countPillText = computed<string | null>(() => {

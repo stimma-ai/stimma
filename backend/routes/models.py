@@ -42,8 +42,11 @@ from llm_provider_catalog import (
     OAUTH_MODEL_PROVIDERS,
     PROFILED_MODEL_PROVIDERS,
     PROVIDER_DEFAULTS,
+    STIMMA_ROUTE,
     branded_models,
+    canonical_model_id,
     discovered_model,
+    shadowed_routes,
 )
 
 router = APIRouter(prefix="/api/models", tags=["models"])
@@ -127,38 +130,6 @@ def _provider_response(provider: LLMProviderConfig) -> dict:
     ):
         data["last_test_passed"] = None
     return data
-
-
-def _canonical_model_id(kind: str, model_id: str) -> str:
-    if kind not in {"openrouter", "together", "fireworks"}:
-        return f"{kind}:{model_id}"
-    known = {
-        "minimax/minimax-m3": "minimax:minimax-m3",
-        "minimaxai/minimax-m3": "minimax:minimax-m3",
-        "qwen/qwen3.7-plus": "qwen:qwen-3.7-plus",
-        "moonshotai/kimi-k2.7-code": "moonshot:kimi-k2.7",
-        "moonshotai/kimi-k2.7": "moonshot:kimi-k2.7",
-        "stepfun/step-3.7-flash": "stepfun:step-3.7-flash",
-        "accounts/fireworks/models/kimi-k2p6": "moonshot:kimi-k2.6",
-        "accounts/fireworks/models/glm-5p1": "zai:glm-5.1",
-        "accounts/fireworks/models/glm-5p2": "zai:glm-5.2",
-        "accounts/fireworks/models/glm-5p3-flash": "zai:glm-5.3-flash",
-        "accounts/fireworks/models/qwen3p8-flash-next-fp8": "qwen:qwen-3.8-flash-next",
-        "accounts/fireworks/models/qwen3p8-flash-next-nvfp4": "qwen:qwen-3.8-flash-next",
-        "accounts/fireworks/models/gpt-oss-120b": "openai:gpt-oss-120b",
-        "accounts/fireworks/models/deepseek-v4-pro": "deepseek:deepseek-v4-pro",
-    }
-    normalized = model_id.lower()
-    if normalized in known:
-        return known[normalized]
-    if "/" not in model_id:
-        return f"{kind}:{model_id}"
-    upstream, upstream_model = model_id.split("/", 1)
-    upstream = {
-        "minimaxai": "minimax", "moonshotai": "moonshot",
-        "qwen": "qwen", "zai-org": "zai", "x-ai": "xai",
-    }.get(upstream.lower(), upstream.lower())
-    return f"{upstream}:{upstream_model}"
 
 
 def _save_providers(providers: list[LLMProviderConfig]) -> None:
@@ -1038,9 +1009,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             })
 
     # 2. Add user-owned providers. Provider-qualified model IDs avoid actual
-    # collisions; canonical IDs let the picker collapse the Stimma route when
-    # the same underlying model is available through the user's own key.
-    user_canonical_ids: dict[str, str] = {}
+    # collisions; canonical IDs let the picker lead with one route per model.
     for provider in _active_providers():
         if not provider.enabled:
             continue
@@ -1048,8 +1017,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         for provider_model in provider.models:
             if not provider_model.enabled:
                 continue
-            canonical_id = _canonical_model_id(provider.kind, provider_model.model_id)
-            user_canonical_ids[canonical_id] = provider_name
+            canonical_id = canonical_model_id(provider.kind, provider_model.model_id)
             models.append({
                 "slug": provider_model.id,
                 "source": "provider",
@@ -1067,13 +1035,18 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
                 "supports_tools": provider_model.supports_tools,
                 "input_modalities": provider_model.input_modalities,
             })
+    preferred = shadowed_routes(
+        (model["slug"], model.get("canonical_model_id"), model.get("provider_kind", STIMMA_ROUTE))
+        for model in models
+        if model["available"]
+    )
+    models_by_slug = {model["slug"]: model for model in models}
     for model in models:
-        if model.get("source") != "stimma_cloud":
-            continue
-        canonical_id = model.get("canonical_model_id")
-        if canonical_id and canonical_id in user_canonical_ids:
+        preferred_slug = preferred.get(model["slug"])
+        if preferred_slug:
             model["collapsed"] = True
-            model["shadowed_by_provider"] = user_canonical_ids[canonical_id]
+            model["preferred_slug"] = preferred_slug
+            model["shadowed_by_provider"] = models_by_slug[preferred_slug]["provider_name"]
 
     # 3. Keep the legacy endpoint pair available until it is migrated into a
     # provider. New local servers are represented independently above.

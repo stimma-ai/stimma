@@ -1,3 +1,4 @@
+import { reportActionError } from './useToasts'
 import { ref, computed } from 'vue'
 import { useMediaApi } from './useMediaApi'
 import { useWebSocket } from './useWebSocket'
@@ -128,7 +129,7 @@ export function useMarkers() {
         }
       }
     } catch (err) {
-      console.error('Failed to toggle marker:', err)
+      reportActionError("Couldn't update marker.", err)
     }
   }
 

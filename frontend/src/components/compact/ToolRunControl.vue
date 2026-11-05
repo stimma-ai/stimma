@@ -9,8 +9,9 @@
  * run. The badge shows the batch size, so ×4 is never a surprise. The sheet
  * has no Run button of its own: it is settings, and Run is the control you
  * long-pressed. In the phone drawer it also carries the output settings
- * (auto-markers, auto-delete), which have no room beside the controls; a dot
- * on Run says one of them is on. Easter egg: a double tap starts Forever
+ * (auto-markers, auto-delete), which have no room beside the controls; a small
+ * settings glyph inside Run's fill says one of them is on, and the controls area shows
+ * the state on the Every new output row, whose delete button opens this sheet. Easter egg: a double tap starts Forever
  * mode (the first tap has already run, so that batch still goes).
  */
 import { computed, ref } from 'vue'
@@ -49,6 +50,7 @@ const emit = defineEmits<{
 const outputSettingOn = computed(() => props.outputSettings && (props.autoMarkerIds.length > 0 || props.autoDelete !== 'never'))
 
 const sheetOpen = ref(false)
+defineExpose({ openSheet: () => { sheetOpen.value = true } })
 let pressTimer: number | null = null
 let longPressed = false
 
@@ -94,14 +96,11 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
 </script>
 
 <template>
+  <!-- A 44px target around a 36px fill; the fill's right edge is the page margin. -->
   <button
     type="button"
     data-testid="tool-run-button"
-    class="relative w-11 h-11 rounded-[10px] flex items-center justify-center border-none transition-colors select-none touch-manipulation"
-    :class="[
-      state === 'forever' ? 'bg-live text-white' : 'bg-accent text-white',
-      !canSubmit && state === 'idle' ? 'opacity-45' : '',
-    ]"
+    class="h-11 min-w-11 flex-none flex items-center justify-center border-none bg-transparent pl-0 pr-1 select-none touch-manipulation focus-visible:outline-none"
     :aria-label="state === 'forever' ? 'Stop forever mode' : `Run ×${batchSize}`"
     @pointerdown="onPointerDown"
     @pointerup="cancelPress"
@@ -110,18 +109,24 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
     @contextmenu.prevent
     @click="onClick"
   >
-    <svg v-if="state === 'forever'" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
-    <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z" /></svg>
     <span
-      v-if="batchSize > 1"
-      class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-surface border border-edge text-[10.5px] font-mono flex items-center justify-center"
-      :class="state === 'forever' ? 'text-live' : 'text-accent-hi'"
-    >×{{ batchSize }}</span>
-    <span
-      v-if="outputSettingOn"
-      class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-content ring-2 ring-surface"
-      aria-hidden="true"
-    ></span>
+      class="flex h-9 min-w-14 items-center justify-center gap-1.5 rounded-md px-3.5 text-[15px] font-semibold transition-colors"
+      :class="[
+        state === 'forever' ? 'bg-live text-accent-on' : 'bg-accent text-accent-on',
+        !canSubmit && state === 'idle' ? 'opacity-45' : '',
+      ]"
+    >
+      <svg v-if="state === 'forever'" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
+      <span>{{ state === 'forever' ? 'Stop' : 'Run' }}</span>
+      <!-- Trailing marks live inside the fill so Run keeps one clean outline. -->
+      <span v-if="batchSize > 1" class="font-mono text-[12.5px] font-medium opacity-70">×{{ batchSize }}</span>
+      <svg
+        v-if="outputSettingOn"
+        class="h-4 w-4 opacity-70"
+        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        aria-hidden="true"
+      ><title>Output settings on</title><path d="M4 8h9M17 8h3M4 16h3M11 16h9" /><circle cx="15" cy="8" r="2" /><circle cx="9" cy="16" r="2" /></svg>
+    </span>
   </button>
 
   <Sheet :show="sheetOpen" title="Run" @close="sheetOpen = false">
@@ -143,7 +148,7 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
         :aria-pressed="foreverActive"
         @click="toggleForever"
       >
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
+        <svg class="w-icon-nav h-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
         Forever mode
       </button>
     </div>
@@ -161,6 +166,7 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
     </label>
     <template v-if="outputSettings">
       <div class="mx-4 my-1 border-t border-edge-subtle"></div>
+      <p class="px-4 pt-2 text-[13px] font-semibold text-content-secondary">Every new output</p>
       <div v-if="markers.length > 0" class="flex items-center justify-between gap-3 px-4 min-h-14">
         <span class="text-[15px] text-content flex-none">Mark new results</span>
         <AutoMarkPicker

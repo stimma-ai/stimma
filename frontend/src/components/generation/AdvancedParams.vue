@@ -3,10 +3,10 @@
     <button
       @click="showAdvanced = !showAdvanced"
       type="button"
-      class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content transition-colors duration-150"
+      class="flex items-center gap-1.5 text-ctl font-semibold text-content-secondary hover:text-content transition-colors duration-150"
     >
-      <span :class="['transition-transform duration-150', showAdvanced ? 'rotate-90' : '']">&#9654;</span>
       Advanced
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" :class="['w-icon-inline h-icon-inline text-content-muted transition-transform duration-150', showAdvanced ? 'rotate-180' : '']" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
     </button>
 
     <div v-show="showAdvanced" class="space-y-4 mt-4">
@@ -15,7 +15,7 @@
 
       <!-- Negative Prompt -->
       <div v-if="hasParam('negative_prompt')">
-        <label class="block text-xs text-content-tertiary mb-2">Negative Prompt</label>
+        <label class="block text-ctl text-content-tertiary mb-2">Negative prompt</label>
         <textarea v-no-autocorrect
           :value="getNegativePrompt()"
           @input="updateNegativePrompt(($event.target as HTMLTextAreaElement).value)"
@@ -28,7 +28,7 @@
       <!-- Sampler & Scheduler Row -->
       <div class="grid grid-cols-2 gap-4" v-if="hasParam('sampler') || hasParam('scheduler')">
         <div v-if="hasParam('sampler')">
-          <label class="block text-xs text-content-tertiary mb-2">Sampler</label>
+          <label class="block text-ctl text-content-tertiary mb-2">Sampler</label>
           <select
             :value="modelValue.sampler"
             @change="updateParam('sampler', ($event.target as HTMLSelectElement).value)"
@@ -40,7 +40,7 @@
           </select>
         </div>
         <div v-if="hasParam('scheduler')">
-          <label class="block text-xs text-content-tertiary mb-2">Scheduler</label>
+          <label class="block text-ctl text-content-tertiary mb-2">Scheduler</label>
           <select
             :value="modelValue.scheduler"
             @change="updateParam('scheduler', ($event.target as HTMLSelectElement).value)"
@@ -56,7 +56,7 @@
       <!-- Seed -->
       <div v-if="hasParam('seed')">
         <div class="flex items-center justify-between mb-2">
-          <label class="text-xs text-content-tertiary">Seed</label>
+          <label class="text-ctl text-content-tertiary">Seed</label>
           <label class="flex items-center gap-1.5 text-xs text-content-muted cursor-pointer">
             <input v-no-autocorrect
               :checked="getRandomizeSeed()"
@@ -80,7 +80,7 @@
       <div class="grid grid-cols-2 gap-4">
         <div v-for="param in sliderParams" :key="param.name">
           <div class="flex items-center justify-between mb-2">
-            <label class="text-xs text-content-tertiary">{{ param.title }}</label>
+            <label class="text-ctl text-content-tertiary">{{ param.title }}</label>
             <span class="text-xs font-mono tabular-nums text-content-muted">{{ formatSliderValue(param.name, getParamValue(param.name)) }}</span>
           </div>
           <input v-no-autocorrect

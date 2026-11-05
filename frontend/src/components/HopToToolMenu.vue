@@ -6,7 +6,7 @@
       v-if="editingName !== null"
       ref="renameInputRef"
       v-model="editingName"
-      class="text-2xl font-semibold text-content bg-transparent border-b border-edge outline-none min-w-0 max-w-[420px]"
+      class="font-brand text-base font-semibold text-content bg-transparent border-b border-edge outline-none min-w-0 max-w-[420px]"
       :placeholder="toolName"
       spellcheck="false"
       @keydown.enter.prevent="saveRename"
@@ -19,15 +19,15 @@
       @dblclick.stop="startRename"
       class="flex items-center gap-1 group cursor-pointer"
     >
-      <h2 class="text-2xl font-semibold text-content">{{ customName || toolName }}</h2>
+      <h2 class="font-brand text-base font-semibold leading-tight text-content">{{ customName || toolName }}</h2>
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 20 20"
-        fill="currentColor"
-        class="w-5 h-5 text-content-muted group-hover:text-content-secondary transition-colors"
+        viewBox="0 0 24 24"
+        fill="none" stroke="currentColor"
+        class="w-icon-nav h-icon-nav text-content-muted group-hover:text-content-secondary transition-colors"
         :class="{ 'rotate-180': showMenu }"
       >
-        <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
       </svg>
     </button>
 

@@ -56,6 +56,8 @@ test.describe('two clients share one workspace', () => {
 
     await phone.reload();
     await expect(promptEditor(phone)).toBeVisible({ timeout: 30000 });
+    // A detail screen's left button is Back; the drawer opens from the hub it returns to.
+    await phone.getByRole('button', { name: 'Back', exact: true }).click();
     await phone.getByRole('button', { name: 'Menu', exact: true }).click();
     await expect(phone.locator('.navigation-sidebar').getByText('Pinned', { exact: true })).toBeVisible();
 

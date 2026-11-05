@@ -80,7 +80,7 @@
              Phones carry the title and Run in the app's compact top bar, and
              everything teleported here is compact:hidden, so the slot goes too
              (it was an empty band with a stray hairline). -->
-        <div id="tool-header-slot" class="flex-none px-6 pt-4 pb-3 border-b border-edge-subtle compact:hidden"></div>
+        <div id="tool-header-slot" :class="pageHeaderClass('compact')" data-page-header="compact" class="compact:hidden"></div>
         <!-- Transient run context (remix banners) lands here as its own card
              so the header card stays fixed-height. Hidden when the teleport
              delivers nothing. -->
@@ -90,19 +90,22 @@
         <!-- Roomy (an unfolded foldable, a tablet in the phone shell): no drawer.
              Controls on the left; on the right the hero, with the phone's
              sideways strip of results (taller here) pegged to the bottom; the
-             agent docked full width beneath, as on desktop. One 8px gutter
-             around and between every block, so the hero and the strip line up
-             with the controls card and the agent dock. -->
-        <div ref="columnsRowEl" class="flex-1 min-w-0 flex min-h-0 compact:flex-col roomy:grid roomy:grid-cols-[minmax(320px,46%)_minmax(0,1fr)] roomy:grid-rows-[minmax(0,1fr)_auto]">
+             agent docked full width beneath, as on desktop. Control panels share the
+             remix card’s 12px spacing; media keeps its own matte insets. -->
+        <div
+          ref="columnsRowEl"
+          class="flex-1 min-w-0 flex min-h-0 compact:flex-col roomy:grid roomy:grid-cols-[minmax(320px,40%)_minmax(0,1fr)]"
+          :class="roomyStacked ? 'roomy:grid-rows-[auto_auto_minmax(0,1fr)]' : 'roomy:grid-rows-[minmax(0,1fr)_auto_0px]'"
+        >
 
       <!-- Generation Controls. In Studio mode the primary column (left, wide); in
            Stage mode a narrow LEFT sidebar (on the left specifically, to read
            differently from the slideshow). Always order-1 (leftmost). Width is
            always explicit (66.667% in Studio = old flex-1 against w-1/3 sibling)
-           so the toggle tweens. The border fades color, not presence. The
-           transition is suppressed during seam drag so the resize stays 1:1. -->
+           so the toggle tweens. No column border adds to the 12px panel gap.
+           The transition is suppressed during seam drag so the resize stays 1:1. -->
       <div
-        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out compact:hidden roomy:flex roomy:col-start-1 roomy:row-start-1 roomy:row-span-2"
+        class="flex flex-col min-h-0 min-w-0 order-1 flex-none transition-[width] duration-300 ease-out compact:hidden roomy:flex roomy:col-start-1 roomy:row-start-1 roomy:row-span-3"
         :class="[
           stageResizing ? '!transition-none' : ''
         ]"
@@ -114,7 +117,7 @@
        <Transition name="flow-expand">
        <div v-if="resChange" class="flex-none">
        <div>
-       <div class="mx-3 mt-3 rounded-lg border border-edge-subtle bg-surface px-3 py-2 flex items-center gap-3 text-[11px]">
+       <div class="mx-3 mt-3 roomy:mr-0 rounded-lg border border-edge-subtle bg-surface px-3 py-2 flex items-center gap-3 text-[11px]">
          <span class="text-content-secondary flex-1">
            <span class="font-medium font-mono tabular-nums text-content">{{ resChange.width }}×{{ resChange.height }}</span>
            · {{ resChange.reason }}
@@ -135,14 +138,15 @@
        </div>
        </div>
        </Transition>
-       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-4 pb-6 roomy:m-2 roomy:mr-0 roomy:p-3 roomy:overscroll-contain">
+       <!-- Controls are floating panels on the matte; content sits on the matte. -->
+       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-3 pb-6 roomy:mr-0 roomy:overscroll-contain">
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
-        <div class="flex items-center justify-between compact:flex-wrap compact:gap-y-2">
-          <div class="min-w-0 compact:hidden">
-          <div class="flex items-center gap-3 min-w-0">
+          <!-- Title, then the tool's facts as meta. One 52px row. -->
+          <div class="flex min-w-0 flex-1 items-center gap-3 compact:hidden">
             <div class="w-7 h-7 rounded-md bg-accent/12 flex items-center justify-center flex-shrink-0 text-accent-hi p-1.5"><ToolIcon :tool="tool" bare :ring="false" /></div>
             <HopToToolMenu
+              class="min-w-0"
               :source-tool-id="tool.full_tool_id"
               :tool-name="tool.name"
               :source-task-types="tool.task_types || []"
@@ -152,19 +156,19 @@
               @hop-instance="(tab, hopTool) => handleHopToTool(hopTool, tab)"
               @rename="renameInstance"
             />
-          </div>
-          <!-- Subtitle: Provider, task types. Renamed instances condense the
-               tool name onto this row (mirrors the sidebar row contract). -->
-          <div class="font-mono text-[10.5px] mt-1 flex items-center gap-1.5 text-content-tertiary">
+            <!-- Provider, task types, attribution, output project. Renamed
+                 instances condense the tool name onto this row (mirrors the
+                 sidebar row contract). -->
+            <div class="flex min-w-0 items-center gap-1.5 truncate text-xs text-content-tertiary" :title="headerMetaTitle">
             <template v-if="instanceCustomName">
               <span>{{ tool.name }}</span>
               <span>·</span>
             </template>
             <span v-if="isStimmaCloudTool" class="stimma-cloud-text font-medium">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
             <span v-else class="text-content-muted">{{ providerDisplayName }}</span>
-            <template v-if="taskTypesDisplay">
+            <template v-if="primaryTaskLabel">
               <span>·</span>
-              <span>{{ taskTypesDisplay }}</span>
+              <span>{{ primaryTaskLabel }}</span>
             </template>
             <template v-if="toolAttribution">
               <span>·</span>
@@ -175,34 +179,26 @@
                 @click="openAttributionUrl"
               >{{ toolAttribution.label }}</button>
             </template>
-            <span class="contents">
+            <!-- The output destination is a fact, not a control: it shows at
+                 rest only when a project is set, and always in the tooltip. -->
+            <span v-if="projectScopeId != null" class="contents">
               <span>·</span>
-              <span class="inline-flex items-center gap-1.5">
-                <span>Output:</span>
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-overlay-subtle px-2 py-0.5 text-[11px] font-medium text-content-secondary">
-                  <ArchiveBoxIcon class="h-3.5 w-3.5 flex-shrink-0" />
-                  <span class="truncate max-w-[180px]">{{ projectScopeId == null ? 'No project' : projectScopeName }}</span>
-                </span>
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-overlay-subtle px-2 py-0.5 text-[11px] font-medium text-content-secondary">
+                <ArchiveBoxIcon class="h-3.5 w-3.5 flex-shrink-0" />
+                <span class="truncate max-w-[180px]">{{ projectScopeName }}</span>
               </span>
             </span>
-          </div>
+            </div>
           </div>
           <!-- Compact: hidden; Run is the header control (ToolRunControl) and
                batch/forever live in its sheet. -->
           <div class="flex items-center gap-2 compact:hidden">
             <!-- Edit (frozen-flow tools only): the tool's own page is the obvious
                  place to find "edit this tool". Matches the Presets trigger. -->
-            <button
-              v-if="isUserTool"
-              class="flex items-center gap-2 px-3 py-1.5 bg-overlay-subtle hover:bg-overlay-light border border-edge-subtle rounded text-sm text-content-secondary transition-colors"
-              title="Edit this tool"
-              @click="openEditUserTool"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-              </svg>
+            <Button v-if="isUserTool" variant="secondary" size="sm" title="Edit this tool" @click="openEditUserTool">
+              <template #icon><PencilIcon class="h-icon-nav w-icon-nav" /></template>
               Edit
-            </button>
+            </Button>
             <span
               v-if="tool.metadata?.display_price && !hidePricesRef"
               class="px-2.5 py-1 text-xs rounded-full"
@@ -210,6 +206,49 @@
                 ? 'stimma-cloud-border-solid stimma-cloud-text font-medium bg-overlay-subtle'
                 : 'text-content-tertiary bg-overlay-subtle border border-edge-subtle'"
             >{{ tool.metadata.display_price }}</span>
+            <!-- Quiet icon group: presets, layout, forever mode. Run is the only
+                 heavy object in the header and sits last, before the menu. -->
+            <div class="flex items-center gap-0.5" role="group" aria-label="Tool options">
+              <PresetPicker
+                v-if="tool.full_tool_id"
+                :tool-id="tool.full_tool_id"
+                :current-state="getCurrentState()"
+                :selected-preset-id="selectedPresetId"
+                :active-preset-name="activePreset?.name"
+                :is-modified="isModified"
+                :has-active-preset="hasActivePreset"
+                @select="handlePresetSelect"
+                @saved="handlePresetSaved"
+                @save="saveToActivePreset"
+                @revert="handleRevertToBaseState"
+                @clear="handleResetToDefaults"
+              />
+              <IconButton
+                size="lg"
+                class="compact:hidden"
+                :active="layoutMode === 'stage'"
+                :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Controls primary'"
+                @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
+              >
+                <PhotoIcon class="h-icon-nav w-icon-nav" />
+              </IconButton>
+              <!-- Forever mode: the shared split control, dressed as a quiet ghost
+                   (live magenta only while it is running). -->
+              <ForeverModeButton
+                :class="uiState.generateForeverMode
+                  ? '[&>div]:!bg-live [&>div>div.w-px]:!hidden [&>div>button]:!text-accent-on [&>div>button:hover]:!bg-transparent'
+                  : '[&>div]:!bg-transparent [&>div>div.w-px]:!hidden [&>div>button]:!text-content-secondary [&>div>button:hover]:!bg-overlay-subtle [&>div>button:hover]:!text-content'"
+                class="[&>div]:!rounded-md [&>div>button]:!h-8 [&>div>button]:!py-0 [&>div>button]:!px-2 [&>div>button]:!font-medium"
+                :is-active="uiState.generateForeverMode"
+                :concurrency="uiState.generateForeverConcurrency"
+                :idle-limit="uiState.generateForeverIdleLimit"
+                :is-stimma-cloud="isStimmaCloudTool"
+                @toggle="stopForeverMode"
+                @start="startForeverMode"
+                @update:concurrency="uiState.generateForeverConcurrency = $event"
+                @update:idle-limit="uiState.generateForeverIdleLimit = $event"
+              />
+            </div>
             <BatchRunButton
               :batch-size="uiState.batchSize"
               :disabled="!canSubmit"
@@ -218,32 +257,8 @@
               @run="submitJob"
               @update:batch-size="uiState.batchSize = $event"
             />
-            <ForeverModeButton
-              :is-active="uiState.generateForeverMode"
-              :concurrency="uiState.generateForeverConcurrency"
-              :idle-limit="uiState.generateForeverIdleLimit"
-              :is-stimma-cloud="isStimmaCloudTool"
-              @toggle="stopForeverMode"
-              @start="startForeverMode"
-              @update:concurrency="uiState.generateForeverConcurrency = $event"
-              @update:idle-limit="uiState.generateForeverIdleLimit = $event"
-            />
-            <button
-              @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
-              class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md compact:hidden"
-              :class="layoutMode === 'stage' ? 'bg-surface-raised text-accent-hi hover:bg-surface-hover' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content'"
-              :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Controls primary'"
-            >
-              <PhotoIcon class="w-5 h-5" />
-            </button>
             <div v-if="jobsManager && isFromScratch" class="relative flex items-center">
-              <button
-                @click="stageMenuOpen = !stageMenuOpen"
-                class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content"
-                title="Queue options"
-              >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
-              </button>
+              <OverflowButton size="lg" label="Queue options" :active="stageMenuOpen" @click="stageMenuOpen = !stageMenuOpen" />
               <div v-if="stageMenuOpen" class="fixed inset-0 z-menu" @click="stageMenuOpen = false"></div>
               <div v-if="stageMenuOpen" class="absolute right-0 top-full mt-2 z-menu bg-surface border border-edge-subtle rounded-md shadow-lg min-w-[160px] overflow-hidden py-1" @click.stop>
                 <template v-if="isFromScratch">
@@ -258,22 +273,7 @@
                 </template>
               </div>
             </div>
-            <PresetPicker
-              v-if="tool.full_tool_id"
-              :tool-id="tool.full_tool_id"
-              :current-state="getCurrentState()"
-              :selected-preset-id="selectedPresetId"
-              :active-preset-name="activePreset?.name"
-              :is-modified="isModified"
-              :has-active-preset="hasActivePreset"
-              @select="handlePresetSelect"
-              @saved="handlePresetSaved"
-              @save="saveToActivePreset"
-              @revert="handleRevertToBaseState"
-              @clear="handleResetToDefaults"
-            />
           </div>
-        </div>
 
         </Teleport>
 
@@ -326,17 +326,35 @@
 
         <!-- Compact: the card's controls render inside ToolDrawer's body. -->
         <Teleport to="#tool-drawer-panels" :disabled="!drawerMode" defer>
-        <!-- Params-card top row: resolution | markers ... auto-trash. When it
-             doesn't fit, the markers + auto-trash group drops to its own line as
-             one unit (never a lone trash button), and a long marker set scrolls
-             sideways inside it rather than wrapping again. In the phone drawer
-             markers + auto-trash live in the Run sheet (they are output
-             settings), leaving resolution as the first control under the
-             pinned prompt. -->
-        <div class="flex flex-wrap items-center gap-2 mb-3 empty:hidden">
+        <!-- Prompt (for task types that need it). external-chat: the editor is a
+             plain editor here — the page-level chat lives in the dock below and
+             is owned by this view, not the prompt field. -->
+        <Teleport to="#tool-drawer-prompt" :disabled="!drawerMode" defer>
+        <div v-if="hasPrompt" class="mb-6 compact:mb-0 roomy:mb-3">
+          <AIPromptEditor
+            ref="aiPromptEditorRef"
+            v-model="globalPrefs.prompt"
+            @focusout="handlePromptFocusOut"
+            :rows="drawerMode ? 2 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
+            external-chat
+            :promptOptions="globalPrefs.promptOptions"
+            @update:promptOptions="globalPrefs.promptOptions = $event"
+            :placeholder="promptPlaceholder"
+          />
+        </div>
+        </Teleport>
+
+        <!-- Params-card top row: the resolution trigger, a quiet ghost control
+             (no box inside the card). Every new output (auto-markers,
+             auto-delete) are a labelled group of their own on desktop, so they
+             do not read as a second copy of the result's heart / bookmark /
+             trash. Compact layouts (phone and fold) keep them in the sheet
+             Run's long-press opens, with a settings glyph on Run while either is on and a New outputs row that opens that sheet. -->
+        <div class="flex flex-wrap items-center gap-2 mb-5 coarse:mb-4 empty:hidden">
             <!-- Resolution picker: width/height tools, freeform or fixed list -->
             <ResolutionPicker
               v-if="allowedDimensions || (hasWidthHeight && !hasMegapixels)"
+              class="!block w-full [&>button]:w-full [&>button>svg:last-child]:ml-auto"
               :policy="resolutionPolicy"
               :image="drivingImage"
               :has-image-input="!isFromScratch"
@@ -358,45 +376,23 @@
               v-if="hasMegapixels"
               v-model="modelParams.megapixels"
             />
-            <div v-if="!drawerMode" class="flex-auto min-w-0 flex items-center gap-2">
-              <AutoMarkPicker
-                class="min-w-0 overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0"
-                :markers="jobsManager?.availableMarkers.value || []"
-                v-model="globalPrefs.autoMarkerIds"
-              />
-              <span class="flex-1"></span>
-              <AutoDeletePicker
-                class="shrink-0"
-                :model-value="autoDeleteDuration"
-                @update:model-value="setAutoDeleteDuration"
-              />
-            </div>
         </div>
-
-
-        <!-- Prompt (for task types that need it). external-chat: the editor is a
-             plain editor here — the page-level chat lives in the dock below and
-             is owned by this view, not the prompt field. -->
-        <Teleport to="#tool-drawer-prompt" :disabled="!drawerMode" defer>
-        <div v-if="hasPrompt" class="mb-6 compact:mb-0 roomy:mb-4">
-          <AIPromptEditor
-            ref="aiPromptEditorRef"
-            v-model="globalPrefs.prompt"
-            @focusout="handlePromptFocusOut"
-            :rows="drawerMode ? 3 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
-            external-chat
-            :promptOptions="globalPrefs.promptOptions"
-            @update:promptOptions="globalPrefs.promptOptions = $event"
-            :placeholder="promptPlaceholder"
-          />
-        </div>
-        </Teleport>
+        <!-- Every new output: auto-markers and auto-delete, together and always
+             visible. Distinct from the result's own heart / bookmark / trash. -->
+        <AutoOutputRow
+          :sheet="isCompact"
+          :markers="jobsManager?.availableMarkers.value || []"
+          v-model:auto-marker-ids="globalPrefs.autoMarkerIds"
+          :auto-delete="autoDeleteDuration"
+          @update:auto-delete="setAutoDeleteDuration"
+          @configure="runControlRef?.openSheet()"
+        />
 
         <!-- Lyrics (audio music tools): a second, prompt-like input. Sits right
              under the main prompt — the prompt is the production brief (genre,
              mood), the lyrics are the words sung. Bound to modelParams like the
              other special params; empty → instrumental / auto-written lyrics. -->
-        <div v-if="hasLyrics" class="mb-6">
+        <div v-if="hasLyrics" class="mb-5">
           <label class="block text-sm font-medium text-content mb-1.5">Lyrics</label>
           <textarea
             v-model="modelParams.lyrics"
@@ -410,12 +406,13 @@
              the single full-width dock so it survives layout switches without
              ever changing target — the chat stays put while the studio/stage
              toggle animates the columns above it. -->
-        <Teleport defer :to="agentDocked ? '#agent-dock' : '#agent-dock-compact'">
+        <Teleport defer :to="agentDocked ? (agentOnResult ? '#agent-dock-result' : '#agent-dock') : '#agent-dock-compact'">
           <PromptAgentChat
             ref="promptAgentChatRef"
             :prompt="globalPrefs.prompt"
             :has-prompt="hasPrompt"
             hide-empty-ideas
+            :ideas-max-height="agentOnResult ? AGENT_IDEAS_MAX_H : undefined"
             :active-skills="activeToolSkills"
             :project-id="projectScopeId"
             v-model:instructions="globalPrefs.agentInstructions"
@@ -508,7 +505,7 @@
           :min-items="frameMinItems"
           :max-items="hasEndFrame ? 2 : 1"
           :reorderable="hasEndFrame"
-          label="Reference Frames"
+          label="Reference frames"
           :slot-labels="hasEndFrame ? ['Start Frame', 'End Frame'] : ['Start Frame']"
           :frame-grab-defaults="hasEndFrame ? ['last', 'first'] : ['last']"
           :frame-mode-key="fullToolIdFromProps"
@@ -594,12 +591,12 @@
         </div>
 
         <!-- Video Parameters: Frame Count + FPS (legacy, for VACE tools) -->
-        <div v-else-if="hasFrameCount" class="mb-6">
+        <div v-else-if="hasFrameCount" class="mb-5">
           <div class="rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]">
             <!-- Frame Count -->
             <div class="flex items-center justify-between gap-4 px-4 py-3">
               <div class="min-w-0 flex-1">
-                <div class="text-sm font-medium text-content">Frame Count</div>
+                <div class="text-sm font-medium text-content">Frame count</div>
                 <div class="text-xs text-content-muted mt-0.5">Number of frames to generate</div>
               </div>
               <div class="flex min-w-0 w-[45%] max-w-[360px] flex-shrink-0 items-center justify-end gap-1.5">
@@ -635,7 +632,7 @@
         <!-- Upscale Resolution (for tools with x-control: "upscale_resolution") -->
         <UpscaleResolutionPicker
           v-if="showUpscalePicker"
-          class="my-6"
+          class="mb-5"
           :model-value="resolutionPickerValue"
           @update:model-value="onResolutionPickerUpdate"
           :input-width="inputImageWidth"
@@ -738,8 +735,10 @@
            Stays mounted across the toggle so the matte/image tween smoothly. -->
       <div
         v-if="jobsManager"
-        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden compact:order-1 compact:flex-1 compact:min-h-[96px] compact:!p-0 roomy:col-start-2 roomy:row-start-1 roomy:min-h-0 roomy:mt-2 roomy:mx-2"
-        :class="layoutMode === 'stage' ? 'pt-[21px] px-[9px] pb-2' : 'p-0'"
+        ref="heroBoxRef"
+        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden narrow:justify-center compact:order-1 compact:flex-1 compact:min-h-[96px] compact:!p-0 roomy:col-start-2 roomy:row-start-1 roomy:min-h-0 roomy:!px-page roomy:!pt-4 roomy:!pb-3"
+        :class="layoutMode === 'stage' ? 'pt-3 px-4 pb-3' : 'p-0'"
+        :style="agentReserve ? { paddingBottom: `${agentReserve + 24}px` } : undefined"
       >
         <!-- Live generation preview: the in-flight frames at full hero size.
              Presentation-only (raw <img> over an ephemeral blob: URL — never a
@@ -802,9 +801,22 @@
              is smaller than the hero) by using cover mode with an !object-contain
              override on the img — fills the hero, then object-fit does the
              aspect-ratio work. Container forced transparent so the matte shows. -->
+        <!-- The artwork and its action band share one centred column. Once the
+             picture's natural size is known the frame shrinks to the artwork's
+             bounds (contain, nothing cropped) and the band takes the same width,
+             so the controls sit against the picture, not the viewport corners. -->
         <div
           v-else
-          class="relative flex-1 min-h-0 rounded-media overflow-hidden cursor-zoom-in"
+          ref="heroColRef"
+          class="min-h-0 flex flex-col items-center"
+          :class="heroArt ? 'flex-none' : 'flex-1'"
+          @load.capture="onHeroMediaMeasure"
+          @loadedmetadata.capture="onHeroMediaMeasure"
+        >
+        <div
+          class="relative min-h-0 rounded-media overflow-hidden cursor-zoom-in"
+          :class="heroArt ? 'flex-none' : 'flex-1 w-full'"
+          :style="heroArt ? { width: `${heroArt.w}px`, height: `${heroArt.h}px` } : undefined"
           @click="openSlideshow(stageCurrentJob)"
           title="Open in slideshow"
         >
@@ -822,7 +834,7 @@
             <video
               ref="stageVideoRef"
               :poster="getThumbnailUrl(stageCurrentHash, 1024, { mode: 'fit' })"
-              class="w-full h-full object-contain object-top"
+              class="w-full h-full object-contain object-top compact:object-center"
               muted
               playsinline
               draggable="true"
@@ -847,55 +859,74 @@
             :thumbnail="false"
             :contain="false"
             container-class="w-full h-full !bg-transparent"
-            img-class="!object-contain object-top !bg-none !bg-transparent"
+            img-class="!object-contain object-top compact:object-center !bg-none !bg-transparent"
             alt="Current generation"
           />
+          <!-- Phone: the picture opens full screen by tap; this glyph says so.
+               Black glass in a 44px target, top-right, like the slideshow's. -->
+          <button
+            v-if="isCompact && !stageLiveShowing"
+            type="button"
+            class="absolute right-0 top-0 z-10 flex h-11 w-11 items-center justify-center focus-visible:outline-none"
+            title="Open in slideshow"
+            aria-label="Open in slideshow"
+            @click.stop="openSlideshow(stageCurrentJob)"
+          >
+            <span class="flex h-8 w-8 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur-sm">
+              <ArrowsPointingOutIcon class="h-icon-canvas w-icon-canvas" />
+            </span>
+          </button>
+          <!-- Jump to newest (top-left, on the image) -->
+          <button
+            v-if="stageCurrentJob && !stageOnNewest && !stageLiveShowing"
+            @click.stop="stageJumpToNewest()"
+            class="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-black/55 backdrop-blur-sm text-white font-mono text-[11px] px-3 py-1.5 rounded hover:bg-black/70 transition-colors"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19.5v-15m0 0-6.75 6.75M12 4.5l6.75 6.75" /></svg>
+            Jump to newest
+          </button>
         </div>
 
-        <!-- Jump to newest (top-left, on the image) -->
-        <button
-          v-if="stageCurrentJob && !stageOnNewest && !stageLiveShowing"
-          @click.stop="stageJumpToNewest()"
-          class="absolute top-7 left-7 z-10 flex items-center gap-1.5 bg-black/55 backdrop-blur-sm text-white font-mono text-[11px] px-3 py-1.5 rounded hover:bg-black/70 transition-colors"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19.5v-15m0 0-6.75 6.75M12 4.5l6.75 6.75" /></svg>
-          Jump to newest
-        </button>
-
         <!-- Control bar beneath the image: markers · facts | volume · remix · trash -->
-        <div v-if="stageCurrentJob && !stageLiveShowing" class="flex-none flex items-center gap-1.5 pt-2">
+        <div
+          v-if="stageCurrentJob && !stageLiveShowing"
+          class="flex-none flex items-center gap-1.5 pt-2 compact:pt-1"
+          :class="[!heroArt || (heroColSize && heroArt.barW >= heroColSize.w) ? 'compact:px-2' : '', heroArt ? '' : 'w-full']"
+          :style="heroArt ? { width: `${heroArt.barW + 2 * heroBarBleed}px` } : undefined"
+        >
           <template v-if="stageMarkers.length">
             <button
               v-for="marker in stageMarkers"
               :key="marker.id"
               @click.stop="handleToggleMarker({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id, marker })"
-              :class="['w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center transition-all border-2', stageHasMarker(marker.id) ? 'bg-black/55' : 'bg-black/55 border-transparent hover:bg-black/70 text-white/50 hover:text-white']"
-              :style="stageHasMarker(marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
+              :class="[RESULT_ACTION, stageHasMarker(marker.id) ? 'bg-overlay-light' : 'hover:bg-overlay-subtle hover:text-content']"
+              :aria-pressed="stageHasMarker(marker.id)"
+              :style="stageHasMarker(marker.id) ? { color: marker.color } : {}"
               :title="stageHasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
             >
-              <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+              <span class="w-icon-nav h-icon-nav flex items-center justify-center icon-container" :class="stageHasMarker(marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
             </button>
           </template>
 
-          <!-- Facts: generation time/details + auto-delete countdown -->
+          <!-- Facts: generation time and auto-delete countdown. A fact is a quiet
+               mono readout, not an outlined action; the time opens the details,
+               which the small caret says. -->
           <button
             @click.stop="showJobInfo(stageCurrentJob)"
-            class="h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/55 backdrop-blur-sm hover:bg-accent/80 rounded text-[11px] font-mono text-white/80 hover:text-white transition-colors"
+            class="inline-flex h-9 items-center gap-1 rounded-md px-2 font-mono text-xs tabular-nums text-content-tertiary transition-colors duration-150 hover:bg-overlay-subtle hover:text-content coarse:min-h-11 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
             title="Generation details"
+            aria-label="Generation details"
           >
             <span v-if="stageGenerationTime">{{ stageGenerationTime }}s</span>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
-            </svg>
+            <span v-else>Details</span>
+            <Caret class="opacity-70" />
           </button>
           <div
             v-if="stageAutoDeleteTime"
-            class="h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/55 backdrop-blur-sm rounded text-[11px] font-mono text-amber-300/90"
+            class="inline-flex h-9 items-center gap-1.5 px-1 font-mono text-xs tabular-nums text-amber-500 coarse:min-h-11"
             title="Auto-trash time remaining"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5">
-              <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
-            </svg>
+            <TrashIcon class="h-icon-inline w-icon-inline" aria-hidden="true" />
             <span class="leading-none whitespace-nowrap">{{ stageAutoDeleteTime }}</span>
           </div>
 
@@ -912,24 +943,35 @@
             />
             <button
               @click.stop="handleRemixMedia(stageCurrentMediaId)"
-              class="w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-accent/80 text-white/50 hover:text-white transition-all"
+              :class="[RESULT_ACTION, 'hover:bg-overlay-subtle hover:text-accent-hi']"
               title="Remix: load this image's settings"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-nav h-icon-nav">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
               </svg>
             </button>
             <button
               @click.stop="handleTrashMedia({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id })"
-              class="w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-red-500/80 text-white/50 hover:text-white transition-all"
-              title="Move to Trash"
+              :class="[RESULT_ACTION, 'hover:bg-red-500/10 hover:text-red-400']"
+              title="Move to trash"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-nav h-icon-nav">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
               </svg>
             </button>
           </div>
         </div>
+        </div>
+        <!-- Desktop Stage: the agent is a control panel floating at the bottom of
+             the image area, 12px from the controls and level with their bottom.
+             Its right inset stays with the image area. The hero
+             reserves its room up front (agentReserve), so nothing the agent does
+             resizes the image: anything taller, like Instructions, floats over it. -->
+        <div
+          id="agent-dock-result"
+          v-show="!llmUnconfigured && agentDocked && agentOnResult"
+          class="absolute left-0 right-4 bottom-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-lg border border-edge-subtle bg-surface p-3 empty:hidden"
+        ></div>
       </div>
 
       <!-- Queue rail (RIGHT): same JobsGrid in both modes — width tweens from
@@ -938,9 +980,10 @@
            pins the thumbnail to the hero (current-media-id highlights it). -->
       <div
         v-if="jobsManager"
-        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!py-0.5 compact:!px-0.5 roomy:col-start-2 roomy:row-start-2 roomy:!h-24 roomy:!max-h-24 roomy:!w-auto roomy:!p-0 roomy:border-t-0 roomy:mx-2 roomy:mt-1 roomy:mb-2"
+        ref="railBoxEl"
+        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!px-2 compact:!py-0 roomy:col-start-2 roomy:row-start-2 roomy:!h-28 roomy:!max-h-28 roomy:!w-auto roomy:!pl-page roomy:!pr-0 roomy:!pt-0 roomy:!pb-2 roomy:border-t-0"
         :class="[
-          layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent py-3 px-0',
+          layoutMode === 'stage' ? 'border-surface px-2 pt-3 pb-2' : 'border-transparent py-3 px-0 mb-3 roomy:mb-0',
           stageResizing ? '!transition-none' : '',
           // Phones: an empty strip is a dead band under the hero's own empty state.
           isCompact && allJobs.length === 0 && jobsManager.activeChainRuns.value.length === 0 ? '!hidden' : ''
@@ -961,7 +1004,7 @@
           :job-progress="jobsManager.jobProgress.value"
           :is-video="outputsVideo"
           :is-audio="outputsAudio"
-          :image-mode="uiState.imageMode"
+          :image-mode="isCompact || layoutMode === 'stage' ? 'cover' : uiState.imageMode"
           :current-media-id="layoutMode === 'stage' && !stageLiveShowing ? stageCurrentMediaId : null"
           :live-job-id="layoutMode === 'stage' && stageLiveShowing ? stageLiveJobId : null"
           :live-selectable="layoutMode === 'stage'"
@@ -1017,6 +1060,8 @@
           </template>
         </JobsGrid>
       </div>
+      <!-- Roomy: the matte continues under the stacked media unit. -->
+      <div class="hidden roomy:block roomy:col-start-2 roomy:row-start-3 bg-matte" aria-hidden="true"></div>
         </div>
 
         <!-- Compact: the drawer (prompt pinned, controls beneath) sits under the
@@ -1026,7 +1071,7 @@
              on screen at full height, so the drawer never squeezes the strip.
              Roomy hides it rather than unmounting it: the controls teleport
              back into it on a fold, and a teleport needs its target present. -->
-        <ToolDrawer v-if="isCompact" v-show="drawerMode" ref="toolDrawerRef" :initial="allJobs.length === 0 ? 'half' : 'collapsed'" :hero-reserve="200" />
+        <ToolDrawer v-if="isCompact" v-show="drawerMode" ref="toolDrawerRef" :initial="'half'" :half-fraction="allJobs.length === 0 ? 0.62 : 0.55" :hero-reserve="200" />
         <!-- Guarded by stageViewActive AND header ownership: KeepAlive keeps
              every tool instance alive, and a teleport left mounted would leave
              a second Run and Agent in the header (pushing the real ones off the
@@ -1037,14 +1082,15 @@
             v-if="!llmUnconfigured"
             type="button"
             class="w-11 h-11 flex items-center justify-center rounded-md border-none bg-transparent transition-colors"
-            :class="compactAgentOpen || (roomyAgentDockable && agentDocked) ? 'text-accent-hi bg-accent/15' : 'text-content-secondary'"
+            :class="compactAgentOpen || (roomyAgentDockable && agentDocked) ? 'text-content bg-overlay-subtle' : 'text-content-secondary'"
             aria-label="Agent"
             :aria-pressed="roomyAgentDockable ? agentDocked : undefined"
             @click="onCompactAgentButton"
           >
-            <SparklesIcon class="w-6 h-6" />
+            <AgentIcon class="h-icon-canvas w-icon-canvas" />
           </button>
           <ToolRunControl
+            ref="runControlRef"
             :output-destination="projectScopeId == null ? 'No project' : projectScopeName"
             :batch-size="uiState.batchSize"
             :can-submit="canSubmit"
@@ -1058,7 +1104,7 @@
             @stop-forever="stopForeverMode"
             @update:concurrency="uiState.generateForeverConcurrency = $event"
             @update:idle-limit="uiState.generateForeverIdleLimit = $event"
-            :output-settings="drawerMode"
+            :output-settings="isCompact"
             :markers="jobsManager?.availableMarkers.value || []"
             :auto-marker-ids="globalPrefs.autoMarkerIds"
             :auto-delete="autoDeleteDuration"
@@ -1091,10 +1137,10 @@
                 <span class="rounded-full bg-overlay-light" style="width: var(--sheet-handle-w); height: var(--sheet-handle-h)"></span>
               </div>
               <div class="flex-none flex items-center gap-2 px-4 pb-1">
-                <SparklesIcon class="w-5 h-5 text-accent-hi" />
+                <AgentIcon class="w-icon-nav h-icon-nav text-accent-hi" />
                 <h2 class="text-[15px] font-semibold text-content">Agent</h2>
                 <button type="button" class="ml-auto w-11 h-11 -mr-2 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent" aria-label="Close" @click="compactAgentOpen = false">
-                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
               <div id="agent-dock-compact" class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-4"></div>
@@ -1109,7 +1155,7 @@
         <div
           id="agent-dock"
           v-show="!llmUnconfigured && agentDocked"
-          class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface px-4 pt-3 pb-4 max-h-[45%] roomy:mx-2 roomy:mb-2 roomy:px-3 roomy:pt-2 roomy:pb-2 roomy:max-h-[35%] roomy:pb-safe"
+          class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface p-3 max-h-[45%] empty:hidden roomy:p-2 roomy:max-h-[35%] roomy:pb-safe"
         ></div>
       </div>
     </template>
@@ -1204,7 +1250,12 @@ const props = defineProps<{
 
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
-import { ArchiveBoxIcon, PhotoIcon, SparklesIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, ArrowsPointingOutIcon, PencilIcon, PhotoIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import AgentIcon from '../components/icons/AgentIcon.vue'
+import { pageHeaderClass } from '../components/ui/pageHeader'
+import IconButton from '../components/ui/IconButton.vue'
+import Caret from '../components/ui/Caret.vue'
+import OverflowButton from '../components/ui/OverflowButton.vue'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useRealtimeTopic } from '../composables/useRealtimeTopic'
 import { useGenerationPreferences } from '../composables/useGenerationPreferences'
@@ -1275,7 +1326,7 @@ import {
   type ResolutionPolicy,
   type ImageDims,
 } from '../utils/resolutionPolicy'
-import AutoDeletePicker from '../components/AutoDeletePicker.vue'
+import AutoOutputRow from '../components/generation/AutoOutputRow.vue'
 import ForeverModeButton from '../components/ForeverModeButton.vue'
 import BatchRunButton from '../components/BatchRunButton.vue'
 import ConnectionError from '../components/ConnectionError.vue'
@@ -1295,7 +1346,6 @@ import {
   MaskEditor,
   MaskEditorModal,
   MediaPicker,
-  AutoMarkPicker,
   PresetPicker,
   MegapixelsPicker,
   UpscaleResolutionPicker
@@ -1328,7 +1378,7 @@ import { useCloudAccount } from '../composables/useCloudAccount'
 const API_BASE = '/api'
 const router = useRouter()
 const route = useRoute()
-const { isCompact, isRoomy, isShort } = useViewport()
+const { isCompact, isRoomy, isShort, isCoarsePointer } = useViewport()
 // Phone layouts: a narrow phone gets the bottom drawer; a roomy one (an
 // unfolded foldable) gets side-by-side columns with the agent docked below,
 // when asked for. The docked agent is opt-in there (the header's agent button
@@ -1341,6 +1391,9 @@ const roomyAgentWanted = ref(localStorage.getItem(ROOMY_AGENT_KEY) === '1')
 watch(roomyAgentWanted, (on) => { localStorage.setItem(ROOMY_AGENT_KEY, on ? '1' : '0') })
 const roomyAgentDockable = computed(() => roomyTool.value && !isShort.value)
 const agentDocked = computed(() => !isCompact.value || (roomyAgentDockable.value && roomyAgentWanted.value))
+// On desktop in Stage the agent prompt sits under the result, at the result's
+// width; in Studio (no hero) and on a fold it spans the bottom of the page.
+const agentOnResult = computed(() => !isCompact.value && layoutMode.value === 'stage')
 function onCompactAgentButton() {
   if (roomyAgentDockable.value) roomyAgentWanted.value = !roomyAgentWanted.value
   else compactAgentOpen.value = true
@@ -1362,6 +1415,7 @@ watch(compactAgentOpen, (open) => {
 })
 onUnmounted(() => window.removeEventListener('keydown', onAgentSheetKeydown))
 const toolDrawerRef = ref<InstanceType<typeof ToolDrawer> | null>(null)
+const runControlRef = ref<InstanceType<typeof ToolRunControl> | null>(null)
 const { isAuthenticated } = useAuth()
 const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 // A session owns its destination for its whole lifetime, including queued runs.
@@ -1839,6 +1893,99 @@ const stageOnNewest = computed(() => {
   return !!stageCurrentJob.value && list.length > 0 && stageCurrentJob.value.id === list[0].id
 })
 const stageMarkers = computed(() => jobsManager?.availableMarkers.value || [])
+
+// Artwork bounds. The hero column measures itself and the result's natural
+// size; the frame and its action band are then sized to the contained picture
+// so the controls hug it. Unknown size (audio, not loaded yet) keeps the
+// full-column layout.
+// Band height: the 32px action row plus its 8px gap; 44px targets on touch.
+// The phone's band hugs the picture: 44px targets and a 4px gap.
+const heroBarH = computed(() => (isCompact.value ? 48 : isCoarsePointer.value ? 52 : 44))
+// The one media-action treatment of a result band (the slideshow's rail and the
+// chat's preview use it too): a bare target at rest, a backing only when set.
+const RESULT_ACTION = 'inline-flex h-9 w-9 flex-none items-center justify-center rounded-md text-content-tertiary transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:h-11 coarse:w-11'
+const HERO_BAR_MIN_W = 232
+// The band's bare 36/44px targets reach past the artwork by their own padding,
+// so the glyphs, not the invisible targets, line up with the picture's edges.
+const heroBarBleed = computed(() => {
+  const art = heroArt.value
+  const col = heroColSize.value
+  if (!art || !col) return 0
+  const inset = isCompact.value || isCoarsePointer.value ? 14 : 10
+  return art.barW + 2 * inset <= col.w ? inset : 0
+})
+const heroColRef = ref<HTMLElement | null>(null)
+// Room the hero keeps for the Stage agent panel: the composer plus the most its
+// suggestions take (AGENT_IDEAS_MAX_H), or just the composer when a tool has no
+// prompt. It depends only on the column's width, so the image never changes size
+// with the agent's state. The composer stacks below 480px (PromptAgentChat).
+const AGENT_IDEAS_MAX_H = 96
+const agentReserve = computed(() => {
+  if (!agentOnResult.value || llmUnconfigured.value) return 0
+  const panelChrome = 26
+  const composerH = (heroColSize.value?.w ?? 0) - panelChrome < 480 ? 84 : 40
+  return panelChrome + composerH + (hasPrompt.value ? 12 + AGENT_IDEAS_MAX_H : 0)
+})
+const heroColSize = ref<{ w: number, h: number } | null>(null)
+const heroNatural = ref<{ w: number, h: number } | null>(null)
+const heroArt = computed(() => {
+  const col = heroColSize.value
+  const nat = heroNatural.value
+  if (!col || !nat || outputsAudio.value || stageCurrentMediaId.value == null) return null
+  const availH = col.h - heroBarH.value
+  if (col.w <= 0 || availH <= 0) return null
+  const scale = Math.min(col.w / nat.w, availH / nat.h)
+  const w = Math.max(1, Math.floor(nat.w * scale))
+  const h = Math.max(1, Math.floor(nat.h * scale))
+  return { w, h, barW: Math.min(col.w, Math.max(w, HERO_BAR_MIN_W)) }
+})
+function onHeroMediaMeasure(e: Event) {
+  const t = e.target
+  let w = 0
+  let h = 0
+  if (t instanceof HTMLImageElement) { w = t.naturalWidth; h = t.naturalHeight }
+  else if (t instanceof HTMLVideoElement) { w = t.videoWidth; h = t.videoHeight }
+  if (w > 0 && h > 0) heroNatural.value = { w, h }
+}
+// The hero box is measured, not the column: the column is sized to the artwork
+// and sits at the top, like the form beside it.
+const heroBoxRef = ref<HTMLElement | null>(null)
+const railBoxEl = ref<HTMLElement | null>(null)
+// Roomy with a picture on screen: the hero, its action band and the strip stack
+// from the top as one media unit.
+const roomyStacked = computed(() => roomyTool.value && !!heroArt.value)
+let heroColObserver: ResizeObserver | null = null
+function measureHeroBox(el: HTMLElement) {
+  const cs = getComputedStyle(el)
+  const px = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
+  const py = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
+  // Roomy stacks the hero, its band and the strip as one unit from the top, so
+  // the hero's own height depends on its content: its room is the row minus the
+  // strip instead.
+  const row = columnsRowEl.value
+  const rail = railBoxEl.value
+  const h = roomyTool.value && row && rail ? row.clientHeight - rail.offsetHeight : el.clientHeight
+  heroColSize.value = { w: Math.max(0, el.clientWidth - px), h: Math.max(0, h - py) }
+}
+watch(heroBoxRef, (el) => {
+  heroColObserver?.disconnect()
+  heroColObserver = null
+  if (!el) { heroColSize.value = null; return }
+  heroColObserver = new ResizeObserver(() => measureHeroBox(el))
+  heroColObserver.observe(el)
+  if (columnsRowEl.value) heroColObserver.observe(columnsRowEl.value)
+  measureHeroBox(el)
+})
+watch(roomyTool, () => { if (heroBoxRef.value) nextTick(() => measureHeroBox(heroBoxRef.value!)) })
+// Images served from cache may finish before the capture listener exists.
+watch(heroColRef, (el) => {
+  if (!el) return
+  nextTick(() => {
+    const m = el.querySelector('img, video') as HTMLImageElement | HTMLVideoElement | null
+    if (m) onHeroMediaMeasure({ target: m } as unknown as Event)
+  })
+})
+onBeforeUnmount(() => { heroColObserver?.disconnect() })
 function stageHasMarker(markerId: number): boolean {
   if (stageCurrentMediaId.value == null) return false
   const ms: any[] = jobsManager?.mediaMarkers.value?.[stageCurrentMediaId.value] || []
@@ -2200,6 +2347,24 @@ const taskTypesDisplay = computed(() => {
   return taskTypes
     .map(t => formatTaskTypeLabel(t))
     .join(' · ')
+})
+
+// Resting meta shows the first task; the whole line, with every task and the
+// output destination, is the tooltip.
+const primaryTaskLabel = computed(() => {
+  const taskTypes = tool.value?.task_types
+  if (!taskTypes || taskTypes.length === 0) return null
+  const first = formatTaskTypeLabel(taskTypes[0])
+  return taskTypes.length > 1 ? `${first} +${taskTypes.length - 1}` : first
+})
+
+const headerMetaTitle = computed(() => {
+  const parts = []
+  if (instanceCustomName.value) parts.push(tool.value?.name)
+  parts.push(isStimmaCloudTool.value ? STIMMA_TOOL_PROVIDER_DISPLAY_NAME : providerDisplayName.value)
+  if (taskTypesDisplay.value) parts.push(taskTypesDisplay.value)
+  parts.push(`Output: ${projectScopeId.value == null ? 'No project' : projectScopeName.value}`)
+  return parts.filter(Boolean).join(' · ')
 })
 
 const unavailableTitle = computed(() => {
@@ -3330,10 +3495,18 @@ function handleRemixUseSeed() {
   modelParams.value.randomizeSeed = false
 }
 
+// A remix replaces the prompt the agent's conversation was about. That conversation
+// is the only copy of the old text the agent can read, and a model that fails an
+// edit rewrites the prompt from it. Asking it not to isn't reliable, so don't send it.
+function startAgentConversationOver() {
+  promptMiniAgent.clearHistory()
+}
+
 // Use the remix source's original prompt. The intent is to reproduce the source,
 // so restore the enhance + translate settings it was generated with (when known).
 function handleRemixUsePrompt() {
   if (!remixSource.value) return
+  startAgentConversationOver()
   globalPrefs.value.prompt = remixSource.value.promptSnippet
   const meta = remixSource.value.promptMetadata
   if (meta) {
@@ -3357,6 +3530,7 @@ function handleRemixUsePrompt() {
 // prompt verbatim, also turn off enhance + translate so it isn't rewritten.
 function handleRemixUseExactPrompt() {
   if (remixSource.value?.renderedPrompt == null) return
+  startAgentConversationOver()
   globalPrefs.value.prompt = remixSource.value.renderedPrompt
   globalPrefs.value.promptOptions = {
     ...globalPrefs.value.promptOptions,
@@ -4006,10 +4180,13 @@ const canSubmit = computed(() => {
 
 // Job counts from jobs manager
 const allJobs = computed(() => jobsManager?.allJobs.value || [])
-// An empty tool starts with the drawer half-open (the form is the screen);
-// the first result collapses it so the image takes over.
+// The drawer always starts half-open so the prompt and the first controls show.
+// An empty tool gives the form most of the screen; once there is a result the
+// half height shrinks to what the hero's matte can spare (see the drawer's
+// half-fraction), so the first result settles the drawer without shrinking
+// the picture.
 watch(() => allJobs.value.length, (n, prev) => {
-  if (prev === 0 && n > 0) toolDrawerRef.value?.open('collapsed')
+  if (prev === 0 && n > 0) toolDrawerRef.value?.open('half')
 })
 
 // Keep the stage pin honest as the completed-jobs list changes. Declared here
@@ -4964,6 +5141,7 @@ async function loadRemix(mediaId: string) {
     // then immediately reinstate the resolved source images, so the picker goes
     // straight from old → restored with no empty intermediate frame.
     if (loadRemixSeq !== mySeq) return
+    startAgentConversationOver()
     applyAdaptedConfig(update)
     if (restoreVideoFrames) {
       videoImages.startImage = resolvedStart
@@ -7450,6 +7628,9 @@ onUnmounted(async () => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 
-// Compact header title follows the tool (cleared per route by App.vue).
-watch(() => tool.value?.name, (name) => { if (name) setCompactTitle(name) }, { immediate: true })
+// Compact header title follows the tool (cleared per route by App.vue); the
+// provider is the subtitle, as the desktop header carries it beside the name.
+watch(() => [tool.value?.name, providerDisplayName.value, isStimmaCloudTool.value] as const, ([name, provider, cloud]) => {
+  if (name) setCompactTitle(name, cloud ? STIMMA_TOOL_PROVIDER_DISPLAY_NAME : provider, null, cloud)
+}, { immediate: true })
 </script>

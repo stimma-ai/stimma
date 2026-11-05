@@ -15,6 +15,7 @@ import { computed } from 'vue'
 import { TOOL_FAMILIES } from '../stack/toolFamilies'
 import type { FamilyId } from '../stack/toolFamilies'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
+import { familyIconSvg } from './familyIconSvg'
 import Tooltip from '../../components/ui/Tooltip.vue'
 
 const props = withDefaults(defineProps<{
@@ -31,26 +32,14 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ select: [FamilyId]; unavailable: [FamilyId]; edits: [] }>()
 
 const families = computed(() =>
-  TOOL_FAMILIES.map(family => ({
-    ...family,
-    svg: sanitizeSvg(
-      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-        stroke-linecap="round" stroke-linejoin="round">${family.icon}</svg>`
-    ),
-  }))
+  TOOL_FAMILIES.map(family => ({ ...family, svg: familyIconSvg(family.id, family.icon) }))
 )
 
-/**
- * The phone dock's order: the three photo tools, then Generate and Adjust,
- * Annotate, and Paint last — the family a phone reaches for least.
- */
-const PHONE_ORDER: FamilyId[] = ['crop', 'retouch', 'generate', 'levels', 'annotate', 'paint']
-const barFamilies = computed(() =>
-  PHONE_ORDER.map(id => families.value.find(family => family.id === id)!).filter(Boolean)
-)
+/** One order everywhere: TOOL_FAMILIES'. */
+const barFamilies = families
 
 const STACK_ICON = sanitizeSvg(
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" data-stroke="own"
     stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5 12 22l9-4.5"/>
   </svg>`
@@ -80,7 +69,7 @@ function tap(id: FamilyId) {
       type="button"
       class="flex-1 min-w-0 min-h-12 py-1 flex flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-medium leading-none border-none transition-colors"
       :class="[
-        active === family.id ? 'text-accent-hi bg-accent/15' : 'text-content-secondary bg-transparent',
+        active === family.id ? 'text-content bg-overlay-medium' : 'text-content-secondary bg-transparent',
         unavailable.includes(family.id) && 'opacity-35',
       ]"
       :aria-label="family.label"
@@ -121,9 +110,10 @@ function tap(id: FamilyId) {
         type="button"
         class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors compact:min-h-11 compact:text-[13px] focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
         :class="active === family.id
-          ? 'bg-accent/15 text-accent-hi'
+          ? 'bg-overlay-medium text-content'
           : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
         :aria-label="family.label"
+        :aria-pressed="active === family.id"
         @click="emit('select', family.id)"
       >
         <span class="w-[15px] h-[15px] shrink-0" v-html="family.svg" />

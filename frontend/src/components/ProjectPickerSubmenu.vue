@@ -39,7 +39,7 @@
         <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span>No Project</span>
+        <span>No project</span>
         <svg v-if="currentProjectId == null" class="w-3.5 h-3.5 ml-auto text-accent" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
@@ -92,7 +92,7 @@
 
 <script setup>
 import { useViewport } from '../composables/useViewport'
-import { addToast } from '../composables/useToasts'
+import { addToast, reportActionError } from '../composables/useToasts'
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
@@ -223,7 +223,7 @@ async function handleCreateProject() {
     projects.value.unshift(project)
     emit('select', project.id)
   } catch (err) {
-    console.error('Failed to create project:', err)
+    reportActionError("Couldn't create project.", err)
   } finally {
     creating.value = false
   }

@@ -12,18 +12,23 @@
     />
 
     <!-- Main content -->
-    <div v-else class="h-full overflow-y-auto custom-scrollbar">
+    <div v-else ref="scrollerRef" class="h-full overflow-y-auto custom-scrollbar">
       <!-- Fades in once the model check says which hero to show; recents and
            their artwork fill in below as they arrive. -->
-      <div class="min-h-full flex flex-col items-center px-8 lg:px-16 compact:px-4" :class="heroReady ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
+      <div class="min-h-full flex flex-col items-center px-page" :class="heroReady ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
 
         <!-- Hero area — centered in space above content -->
-        <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16 compact:pt-12 compact:pb-12">
-          <h1 class="relative font-brand text-[32px] compact:text-[26px] compact:leading-tight font-bold tracking-tight text-content mb-2 compact:mb-9 text-center">{{ projectId ? 'What shall we make?' : (greetingParts.pre + greetingParts.word + greetingParts.post) }}</h1>
-          <!-- Scope feedback stays with the Home content. -->
-          <p class="relative h-[20px] mb-10 text-sm text-content-muted compact:hidden">{{ projectId ? `In ${project.name || 'Untitled project'}` : '' }}</p>
+        <!-- Spacing scale: top offset pt-20 (compact pt-8), hero to composer
+             mb-8 (compact mb-6), composer to content pb-14 (compact pb-10).
+             The hero only floats in spare height when there is nothing below it. -->
+        <div class="relative flex flex-col items-center justify-center w-full pt-[var(--hub-top)] pb-[var(--hub-content-gap)]" :class="hasBelowHero ? 'flex-none' : 'flex-1'">
+          <div class="relative mb-[var(--hub-hero-gap)] text-center">
+            <h1 class="font-brand text-[length:var(--hub-hero-size)] compact:leading-tight font-medium tracking-tight text-content">{{ projectId ? 'What shall we make?' : (greetingParts.pre + greetingParts.word + greetingParts.post) }}</h1>
+            <!-- Scope feedback stays with the Home content. -->
+            <p v-if="projectId" class="mt-1.5 text-sm text-content-muted compact:hidden">{{ `In ${project.name || 'Untitled project'}` }}</p>
+          </div>
 
-          <div class="relative w-full max-w-[720px]">
+          <div class="relative w-full max-w-[var(--hub-column)]">
             <!-- No chat model configured (deliberate opt-out): tools take the
                  hero slot instead of the composer, so home reads as the front
                  door to what works. The cutoff is one quiet footnote line.
@@ -48,19 +53,19 @@
               </p>
             </template>
 
-            <div v-else class="rounded-lg shadow-lg shadow-black/20">
+            <div v-else class="rounded-lg">
               <ChatInputBox
                 ref="chatInputBoxRef"
                 v-model="inputText"
                 :attachments="inputAttachments"
-                :rows="3"
+                :rows="1"
                 :disabled="submitting"
                 :agent-unavailable="agentModelUnavailable"
-                @update:attachments="inputAttachments = $event"
+                                @update:attachments="inputAttachments = $event"
                 @submit="submitMessage"
               >
                 <template #context-header>
-                  <div class="px-4 pt-3 text-xs text-content-muted">{{ projectId ? `Working in ${project.name || 'Untitled project'}` : 'New chat · No project' }}</div>
+                  <!-- Inside a project the page already says where you are (heading, header). -->
                   <div v-if="newChatImageUnsupported" class="px-4 pt-2 text-xs text-amber-500">{{ newChatImageUnsupported }}</div>
                 </template>
                 <template #model-picker>
@@ -69,26 +74,36 @@
                     :model-slug="selectedNewChatModel"
                     @update:model-slug="selectedNewChatModel = $event"
                   />
+                  <!-- Where the message lands, beside the model rather than on a line of its own,
+                       so the empty composer is as tall as a project's. -->
+                  <template v-if="!projectId">
+                    <span class="mx-2 h-3 w-px shrink-0 bg-edge-subtle" aria-hidden="true"></span>
+                    <span class="min-w-0 truncate text-[11px] text-content-muted" data-composer-context><span class="narrow:hidden">New chat · </span>No project</span>
+                  </template>
                 </template>
               </ChatInputBox>
             </div>
 
             <!-- Tool launchers docked to the prompt (recent tools, starter picks as cold-start fill) -->
-            <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-center gap-2 mt-4 compact:hidden">
-              <button
-                v-for="tool in launcherTools"
-                :key="tool.full_tool_id"
-                @click="openToolById(tool.full_tool_id)"
-                class="flex items-center gap-2 px-3 py-1.5 compact:gap-1.5 compact:px-2.5 compact:py-1 rounded-md bg-overlay-faint hover:bg-overlay-subtle transition-colors cursor-pointer"
-                :title="tool.name"
-              >
-                <div class="w-5 h-5 compact:w-4 compact:h-4 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
-                <span class="text-[13px] compact:text-[12px] font-medium text-content max-w-[180px] compact:max-w-[128px] truncate">{{ tool.name }}</span>
-                <span class="text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
-              </button>
+            <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap items-center justify-start gap-2 mt-4 compact:mt-2 compact:flex-nowrap compact:gap-1">
+              <!-- On compact the shortcuts scroll and fade out under a soft trailing edge; All tools stays beside them, never inside the scroll. -->
+              <div class="contents compact:flex compact:min-w-0 compact:flex-initial compact:gap-1.5 compact:-ml-page compact:pl-page compact:scroll-pl-page compact:pr-6 compact:overflow-x-auto compact:[mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] compact:overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <button
+                  v-for="tool in launcherTools"
+                  :key="tool.full_tool_id"
+                  @click="openToolById(tool.full_tool_id)"
+                  class="flex shrink-0 items-center gap-2 px-3 py-1.5 compact:gap-1.5 compact:px-2.5 compact:py-1 coarse:min-h-11 rounded-md bg-overlay-faint hover:bg-overlay-subtle transition-colors cursor-pointer"
+                  :title="`${tool.name} · ${providerLabel(tool)}`"
+                >
+                  <div class="w-5 h-5 compact:w-4 compact:h-4 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
+                  <span class="whitespace-nowrap text-[13px] compact:text-[12px] font-medium compact:font-normal text-content compact:text-content-secondary max-w-[180px] compact:max-w-none truncate">{{ tool.name }}</span>
+                  <!-- A tool is always named with its provider. -->
+                  <span class="whitespace-nowrap text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
+                </button>
+              </div>
               <router-link
                 :to="contextRoute('all-tools', projectId)"
-                class="flex items-center px-3 py-1.5 compact:px-2.5 compact:py-1 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+                class="flex shrink-0 items-center whitespace-nowrap px-3 py-1.5 compact:px-2 compact:py-1 coarse:min-h-11 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
               >
                 All tools →
               </router-link>
@@ -98,7 +113,7 @@
           <!-- First run: recommended starting points instead of empty sections.
                Skipped when no chat model is configured — the hero grid above
                already fills this role. -->
-          <div v-if="!showToolHero && isFirstRun && starterTools.length > 0" class="relative w-full max-w-[720px] mt-12">
+          <div v-if="!showToolHero && isFirstRun && starterTools.length > 0" class="relative w-full max-w-[var(--hub-column)] mt-12">
             <div class="flex items-center gap-4 mb-4">
               <div class="h-px flex-1 bg-edge-subtle"></div>
               <span class="text-xs font-semibold text-content-secondary">Or start with a tool</span>
@@ -117,7 +132,7 @@
         </div>
 
         <!-- Content sections -->
-        <div ref="contentRef" class="w-full max-w-[960px] pb-12 compact:pb-20 space-y-10" :data-recents-state="recentsState">
+        <div ref="contentRef" class="w-full max-w-[var(--hub-column)] pb-12 compact:pb-20 space-y-section" :data-recents-state="recentsState">
 
           <p v-if="failedRecentsLabel" class="text-center text-xs text-content-muted" data-recents-error>
             Couldn't load recent {{ failedRecentsLabel }}.
@@ -126,10 +141,10 @@
 
           <!-- Jump back in: boards, flows, and chats merged into one recency row -->
           <div v-if="jumpBackIn.length > 0">
-            <div class="flex items-center justify-between mb-3">
+            <div class="mb-2 flex items-center justify-between">
               <h2 class="text-xs font-semibold text-content-secondary">Jump back in</h2>
             </div>
-            <div class="grid gap-3" :class="isCompact ? 'grid-cols-2' : 'grid-cols-3'">
+            <div data-jump-grid class="grid" :class="jumpColumns === 1 ? 'grid-cols-1 divide-y divide-edge-subtle' : jumpColumns === 2 ? 'grid-cols-2 gap-3' : 'grid-cols-3 gap-3'">
               <button
                 v-for="item in jumpBackIn"
                 :key="`${item.type}-${item.id}`"
@@ -138,20 +153,20 @@
                 @dragover.prevent="item.type === 'board' && (dragOverBoardId = item.id)"
                 @dragleave="item.type === 'board' && dragOverBoardId === item.id && (dragOverBoardId = null)"
                 @drop.prevent="item.type === 'board' && handleBoardDrop(item.id, $event)"
-                class="flex flex-col rounded-lg border overflow-hidden text-left bg-transparent transition-colors cursor-pointer"
-                :class="item.type === 'board' && dragOverBoardId === item.id
-                  ? 'border-transparent ring-1 ring-accent/50 bg-accent/10'
-                  : 'border-edge-subtle hover:bg-overlay-faint'"
+                class="group flex min-w-0 w-full rounded-media text-left bg-transparent transition-colors cursor-pointer"
+                :class="[jumpColumns === 1 ? 'flex-row items-center gap-3 py-3 hover:bg-overlay-subtle' : 'flex-col max-w-[360px]', item.type === 'board' && dragOverBoardId === item.id
+                  ? 'ring-1 ring-accent/50 bg-accent/10'
+                  : '']"
               >
                 <!-- Art -->
-                <div class="w-full h-28 bg-matte">
+                <div data-jump-cover class="relative shrink-0 overflow-hidden rounded-media transition-opacity group-hover:opacity-85" :class="[jumpColumns === 1 ? 'w-20 h-20' : 'w-full aspect-[3/2]', jumpHasArt(item) ? 'bg-matte' : 'bg-surface-raised']">
                   <!-- Board: filmstrip of tiles at natural aspect, full strip
                        height, left-aligned on matte with 2px media-grid
                        gutters. Widths follow each item's aspect ratio so
                        sparse boards read as tiles on a shelf. -->
                   <div
                     v-if="item.type === 'board' && getBoardPreviewItems(item.board).length > 0"
-                    class="h-full overflow-hidden p-0.5"
+                    class="absolute inset-0 overflow-hidden p-0.5"
                   >
                     <div class="flex h-full gap-0.5">
                       <div
@@ -166,12 +181,14 @@
                           :file-path="previewItem.file_path"
                           :file-format="previewItem.file_format"
                           :is-video="isVideoFormat(previewItem.file_format)"
-                          :thumbnail="true"
-                          :thumbnail-size="256"
+                          :thumbnail="jumpImageThumbnailSize(mediaIdOf(previewItem)) <= 1024"
+                          :thumbnail-size="jumpImageThumbnailSize(mediaIdOf(previewItem))"
+                          @load="rememberJumpAspect(mediaIdOf(previewItem), $event)"
                           thumbnail-mode="fit"
                           :object-position="faceObjectPosition(mediaIdOf(previewItem))"
                           :draggable="false"
                           :enable-context-menu="false"
+                          background-class="bg-matte"
                           container-class="w-full h-full"
                           class="w-full h-full object-cover"
                         />
@@ -181,7 +198,7 @@
                   <!-- Flow: filmstrip of surfaced output media -->
                   <div
                     v-else-if="item.type === 'flow' && getFlowPreviewMedia(item.id).length > 0"
-                    class="flex w-full h-full gap-0.5"
+                    class="absolute inset-0 flex gap-0.5"
                   >
                     <div
                       v-for="media in getFlowPreviewMedia(item.id)"
@@ -191,54 +208,70 @@
                       <MediaImage
                         :media-id="media.media_id"
                         :file-hash="media.file_hash || undefined"
-                        :thumbnail="true"
-                        :thumbnail-size="256"
+                        :thumbnail="jumpImageThumbnailSize(media.media_id) <= 1024"
+                        :thumbnail-size="jumpImageThumbnailSize(media.media_id)"
+                        @load="rememberJumpAspect(media.media_id, $event)"
                         thumbnail-mode="fit"
                         :object-position="faceObjectPosition(media.media_id)"
                         :draggable="false"
                         :enable-context-menu="false"
+                        background-class="bg-matte"
                         container-class="w-full h-full"
                         class="w-full h-full object-cover"
                       />
                     </div>
                   </div>
-                  <!-- Chat: latest media as cover -->
-                  <MediaImage
-                    v-else-if="item.type === 'chat' && hasChatMedia(item.chat)"
-                    :media-id="item.chat.recent_media[0].media_id"
-                    :file-hash="item.chat.recent_media[0].file_hash"
-                    :thumbnail="true"
-                    :thumbnail-size="256"
-                    thumbnail-mode="fit"
-                    :object-position="faceObjectPosition(item.chat.recent_media[0].media_id)"
-                    :draggable="false"
-                    :enable-context-menu="false"
-                    container-class="w-full h-full"
-                    class="w-full h-full object-cover"
-                  />
-                  <!-- Fallback: entity icon centered -->
-                  <div v-else class="w-full h-full flex items-center justify-center">
-                    <EntityIcon :type="item.type" size="lg" />
+                  <div v-else-if="item.type === 'chat' && hasChatMedia(item.chat)" class="absolute inset-0">
+                    <!-- Chat whose latest media is a set: drawn from its members -->
+                    <SetStackPreview
+                      v-if="chatCoverIsSet(item.chat)"
+                      :media-id="item.chat.recent_media[0].media_id"
+                      :thumbnail-size="jumpThumbnailSize"
+                    />
+                    <!-- Chat: latest media as cover -->
+                    <MediaImage
+                      v-else
+                      :media-id="item.chat.recent_media[0].media_id"
+                      :file-hash="item.chat.recent_media[0].file_hash"
+                      :thumbnail="jumpImageThumbnailSize(item.chat.recent_media[0].media_id) <= 1024"
+                      :thumbnail-size="jumpImageThumbnailSize(item.chat.recent_media[0].media_id)"
+                      @load="rememberJumpAspect(item.chat.recent_media[0].media_id, $event)"
+                      thumbnail-mode="fit"
+                      :object-position="faceObjectPosition(item.chat.recent_media[0].media_id)"
+                      :draggable="false"
+                      :enable-context-menu="false"
+                      background-class="bg-matte"
+                      container-class="w-full h-full"
+                      class="w-full h-full object-cover"
+                    />
+                  </div>
+                  <!-- No art: the raised tile with the type's glyph. -->
+                  <div v-if="!jumpHasArt(item)" class="absolute inset-0 flex items-center justify-center">
+                    <EntityIcon :type="item.type" size="md" class="!h-5 !w-5 !border-0 !bg-transparent !text-content-tertiary" />
                   </div>
                 </div>
                 <!-- Body -->
-                <div class="px-3.5 py-3">
-                  <div class="text-xs font-semibold text-content-secondary">{{ jumpKindLabel(item) }}</div>
-                  <div class="text-sm font-medium truncate mt-1" :class="item.name ? 'text-content' : 'text-content-muted italic'">
+                <div class="min-w-0" :class="jumpColumns === 1 ? 'flex-1' : 'w-full py-3'">
+                  <!-- In a row the type label rides the preview line instead of costing a line of its own. -->
+                  <div v-if="jumpKindsMixed && jumpColumns > 1" class="text-[11px] text-content-muted">{{ jumpKindLabel(item) }}</div>
+                  <div class="text-sm font-medium" :class="[item.name ? 'text-content' : 'text-content-muted italic', jumpColumns === 1 ? 'line-clamp-2' : 'truncate', jumpKindsMixed && jumpColumns > 1 ? 'mt-1' : '']">
                     {{ item.name || jumpUntitledLabel(item) }}
                   </div>
-                  <FlowStatusPill
-                    v-if="item.type === 'flow'"
-                    :flow-id="item.id"
-                    show-pending
-                    text-class="truncate text-xs text-content-muted"
-                    class="mt-0.5"
-                  />
-                  <div
-                    v-else
-                    class="text-xs truncate mt-0.5"
-                    :class="item.type === 'board' ? 'font-mono tabular-nums text-content-tertiary' : 'text-content-muted'"
-                  >{{ item.sub }}</div>
+                  <div class="flex items-baseline gap-1.5 min-w-0 mt-0.5">
+                    <span v-if="jumpKindsMixed && jumpColumns === 1" class="shrink-0 text-[11px] text-content-muted">{{ jumpKindLabel(item) }}<span class="ml-1.5" aria-hidden="true">·</span></span>
+                    <FlowStatusPill
+                      v-if="item.type === 'flow'"
+                      :flow-id="item.id"
+                      show-pending
+                      text-class="truncate text-xs text-content-muted"
+                      class="min-w-0"
+                    />
+                    <div
+                      v-else
+                      class="text-xs truncate min-w-0"
+                      :class="item.type === 'board' ? 'font-mono tabular-nums text-content-tertiary' : 'text-content-muted'"
+                    >{{ item.sub }}</div>
+                  </div>
                 </div>
               </button>
             </div>
@@ -246,17 +279,17 @@
 
           <!-- Library strip -->
           <div v-if="recentMedia.length > 0">
-            <div class="flex items-center justify-between mb-3">
+            <div class="mb-2 flex items-center justify-between">
               <h2 class="text-xs font-semibold text-content-secondary">{{ projectId ? 'Fresh from this project' : 'Recent assets' }}</h2>
-              <router-link :to="contextRoute('browse', projectId)" class="text-xs text-content-muted hover:text-content-secondary transition-colors coarse:inline-flex coarse:min-h-11 coarse:min-w-11 coarse:items-center coarse:px-2">
+              <router-link :to="contextRoute('browse', projectId)" class="text-xs text-content-muted hover:text-content-secondary transition-colors coarse:inline-flex coarse:min-h-11 coarse:min-w-11 coarse:items-center coarse:px-2 coarse:-mr-2">
                 View all
               </router-link>
             </div>
-            <div class="grid gap-0.5" :style="{ gridTemplateColumns: `repeat(${mediaColumns}, 1fr)` }">
+            <div ref="mediaGridRef" class="grid gap-0.5" :style="{ gridTemplateColumns: `repeat(${mediaColumns}, minmax(0, 1fr))` }">
               <div
                 v-for="(media, index) in visibleMedia"
                 :key="media.id"
-                class="aspect-square rounded-media overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                class="aspect-square rounded-media bg-matte overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                 @click="openMediaSlideshow(index)"
               >
                 <MediaImage
@@ -264,6 +297,7 @@
                   :file-hash="media.file_hash"
                   :thumbnail="true"
                   :thumbnail-size="256"
+                  background-class="bg-matte"
                   container-class="w-full h-full"
                   class="w-full h-full object-cover"
                 />
@@ -286,16 +320,20 @@
 </template>
 
 <script setup>
+import { formatRelativeTime } from '../utils/timeFormat'
 import { useEntityMove } from '../composables/useEntityMove'
 import { fetchScopedJson } from '../utils/scopedList'
 import { fetchHomeRecents } from '../utils/homeRecents'
+import { tileColumns } from '../utils/tileGrid'
 import { useViewport } from '../composables/useViewport'
-import { ref, computed, onMounted, onActivated, onDeactivated, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onActivated, onDeactivated, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { MediaContextMenu, MediaImage } from '../components/media'
 import EntityIcon from '../components/EntityIcon.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
+import SetStackPreview from '../components/chat/SetStackPreview.vue'
+import { useMediaState } from '../composables/useMediaState'
 import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import FlowStatusPill from '../components/flow/FlowStatusPill.vue'
@@ -311,7 +349,7 @@ import { useAssetApi } from '../composables/useAssetApi'
 import { useFlowsApi } from '../composables/useFlowsApi'
 import { computeFlowOutputs } from '../composables/useFlowOutputs'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
-import { useToasts } from '../composables/useToasts'
+import { useToasts, reportActionError } from '../composables/useToasts'
 import { getDroppedAssetRefs, getDroppedMediaIds } from '../composables/useDragPreview'
 import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedia'
 import { useAgentModelAvailability } from '../composables/useAgentModelAvailability'
@@ -398,24 +436,83 @@ const failedRecentsLabel = computed(() => {
 const heroReady = ref(false)
 const HERO_WAIT_MS = 1500
 const dragOverBoardId = ref(null)
-const contentWidth = ref(960)
+const contentWidth = ref(840)
 
 const isCompact = computed(() => contentWidth.value < 700)
+// Measure the available column, independently of the viewport/sidebar tier.
+const JUMP_CARD_MIN = 264
+const JUMP_CARD_MAX = 360
+const jumpColumns = computed(() => Math.min(3, Math.max(1,
+  Math.floor((contentWidth.value + 12) / (JUMP_CARD_MIN + 12)))))
+const jumpCoverWidth = computed(() => jumpColumns.value === 1 ? 80
+  : Math.min(JUMP_CARD_MAX, (contentWidth.value - (jumpColumns.value - 1) * 12) / jumpColumns.value))
+const pixelRatio = ref(window.devicePixelRatio || 1)
+const jumpThumbnailSize = computed(() => Math.ceil(jumpCoverWidth.value * pixelRatio.value))
+// Fit thumbnails preserve the whole source. Their *long* edge must also
+// cover the short edge of our crop; learn the source ratio from the image
+// itself without another metadata read. Use the original above the API's
+// 1024px thumbnail limit rather than requesting an invalid size.
+const jumpSourceAspects = ref(new Map())
+function rememberJumpAspect(id, event) {
+  const image = event.target
+  if (!image?.naturalWidth || !image.naturalHeight) return
+  const ratio = image.naturalWidth / image.naturalHeight
+  if (Math.abs((jumpSourceAspects.value.get(id) || 0) - ratio) > 0.01) {
+    jumpSourceAspects.value = new Map(jumpSourceAspects.value).set(id, ratio)
+  }
+}
+function jumpImageThumbnailSize(id) {
+  const width = jumpCoverWidth.value
+  const height = jumpColumns.value === 1 ? 80 : width * 2 / 3
+  const ratio = jumpSourceAspects.value.get(id) || 1
+  return Math.ceil(Math.max(width, height, height * ratio, width / ratio) * pixelRatio.value)
+}
+// With recents below, the hero sits at the top offset; alone, it centres in the spare height.
+const hasBelowHero = computed(() => recentMedia.value.length > 0 || jumpBackIn.value.length > 0)
 
-const mediaColumns = computed(() => {
-  if (isCompact.value) return 3
-  return 6
-})
+// The same width rule as browse (utils/tileGrid.ts), so the strip's tiles match.
+const mediaColumns = computed(() => tileColumns(contentWidth.value, 'browse'))
 
 // Phones get two rows so the home screen has enough below the fold to
 // scroll a little; every other home screen does, and a page that fits
 // exactly reads as stuck.
-const mediaRows = computed(() => (isCompact.value ? 2 : 1))
+const mediaRows = computed(() => Math.max(isCompact.value ? 2 : 1, fillRows.value))
+
+// The strip takes as many rows as the fold has room for, so a tall window is
+// not left with an empty band under the last row. The last row may run past the fold.
+const scrollerRef = ref(null)
+const mediaGridRef = ref(null)
+const fillRows = ref(0)
+function measureFillRows() {
+  const scroller = scrollerRef.value
+  const grid = mediaGridRef.value
+  if (!scroller || !grid || !grid.clientWidth) return
+  const columns = mediaColumns.value
+  const tile = (grid.clientWidth - (columns - 1) * 2) / columns
+  const top = grid.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+  const room = scroller.clientHeight - top
+  fillRows.value = Math.max(1, Math.ceil((room + 2) / (tile + 2)))
+}
+let scrollerObserver = null
 
 const visibleMedia = computed(() => recentMedia.value.slice(0, mediaColumns.value * mediaRows.value))
 
+// Whether a Jump back in card has artwork (else it shows the quiet type glyph).
+function jumpHasArt(item) {
+  if (item.type === 'board') return getBoardPreviewItems(item.board).length > 0
+  if (item.type === 'flow') return getFlowPreviewMedia(item.id).length > 0
+  return item.type === 'chat' && hasChatMedia(item.chat)
+}
+
 function hasChatMedia(chat) {
   return chat.recent_media && chat.recent_media.length > 0
+}
+
+// A chat's cover that is a set is drawn from its members, as in the transcript.
+const { mediaState, init: initMediaState, loadStateForMedia } = useMediaState()
+function chatCoverIsSet(chat) {
+  const format = mediaState.value[chat.recent_media[0].media_id]?.file_format
+  return !!format && format.toLowerCase() === 'stimmaset.json'
 }
 
 // ==================== Greeting ====================
@@ -511,6 +608,7 @@ const launcherTools = computed(() => {
   return picked
 })
 
+
 function providerLabel(tool) {
   return toolProviderDisplayName(tool, tool.provider_id || '')
 }
@@ -578,8 +676,11 @@ const jumpBackIn = computed(() => {
   }
   return items
     .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
-    .slice(0, isCompact.value ? 2 : 3)
+    .slice(0, jumpColumns.value === 3 ? 3 : 2)
 })
+
+// The kind word ("Chat") is said only where it tells cards apart.
+const jumpKindsMixed = computed(() => new Set(jumpBackIn.value.map(item => item.type)).size > 1)
 
 function jumpKindLabel(item) {
   return { board: 'Board', flow: 'Flow', chat: 'Chat' }[item.type] || item.type
@@ -603,25 +704,48 @@ function handleJumpContextMenu(event, item) {
   else handleChatContextMenu(event, item.chat)
 }
 
+initMediaState()
+watch(() => jumpBackIn.value, (cards) => {
+  const ids = cards.filter(card => card.type === 'chat' && hasChatMedia(card.chat)).map(card => card.chat.recent_media[0].media_id)
+  if (ids.length) loadStateForMedia(ids)
+}, { immediate: true })
+watch([contentWidth, mediaColumns, heroReady, () => recentMedia.value.length, () => jumpBackIn.value.length, () => failedRecentsLabel.value], measureFillRows, { flush: 'post' })
+
 // ==================== Content width tracking ====================
 
 let resizeObserver = null
 
+function measureContent() {
+  const width = contentRef.value?.getBoundingClientRect().width
+  // A cached/detached Home has no layout. Keep its last usable measurement.
+  if (width > 0) contentWidth.value = width
+  pixelRatio.value = window.devicePixelRatio || 1
+  measureFillRows()
+}
+
 function setupResizeObserver() {
-  if (resizeObserver || !contentRef.value) return
-  resizeObserver = new ResizeObserver((entries) => {
-    for (const entry of entries) {
-      contentWidth.value = entry.contentRect.width
-    }
-  })
+  cleanupResizeObserver()
+  if (!active || !contentRef.value) return
+  measureContent()
+  resizeObserver = new ResizeObserver(measureContent)
   resizeObserver.observe(contentRef.value)
+  if (scrollerRef.value) {
+    scrollerObserver = new ResizeObserver(measureContent)
+    scrollerObserver.observe(scrollerRef.value)
+  }
 }
 
 function cleanupResizeObserver() {
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-    resizeObserver = null
-  }
+  scrollerObserver?.disconnect()
+  scrollerObserver = null
+  resizeObserver?.disconnect()
+  resizeObserver = null
+}
+
+// Slideshow replaces the v-else subtree; observe its new elements on return.
+watch([contentRef, scrollerRef], setupResizeObserver, { flush: 'post' })
+function handleVisibilityChange() {
+  if (active && document.visibilityState === 'visible') void nextTick(measureContent)
 }
 
 // ==================== Data loading ====================
@@ -821,7 +945,7 @@ async function submitMessage() {
       query
     })
   } catch (err) {
-    console.error('Failed to create chat:', err)
+    reportActionError("Couldn't send.", err)
   } finally {
     submitting.value = false
   }
@@ -1035,7 +1159,7 @@ async function handleBoardDrop(boardId, event) {
     else await addMediaToBoard(boardId, mediaIds)
     await reloadJumpBackIn('board')
   } catch (err) {
-    console.error('Failed to add media to board:', err)
+    reportActionError("Couldn't add to board.", err)
   }
 }
 
@@ -1049,17 +1173,11 @@ function getBoardPreviewItems(board) {
     .slice(0, 6)
 }
 
-// Tile width is computed from the item's aspect ratio against the fixed strip
-// height (h-28 card art minus py-2 padding = 6rem). aspect-ratio CSS can't be
-// used here: in a flex row the width resolves before the stretched height, so
-// the tile collapses. Wide panoramas are capped at 16:9, object-cover crops.
+// Natural-aspect board tiles follow the cover height, including compact rows.
 function getPreviewTileStyle(item) {
-  const width = Math.max(item?.width || 1, 1)
-  const height = Math.max(item?.height || 1, 1)
-  const ratio = Math.min(width / height, 16 / 9)
-  return {
-    width: `${(6 * ratio).toFixed(3)}rem`
-  }
+  const ratio = Math.min(Math.max(item?.width || 1, 1) / Math.max(item?.height || 1, 1), 16 / 9)
+  const height = jumpColumns.value === 1 ? 80 : jumpCoverWidth.value * 2 / 3
+  return { width: `${(height - 4) * ratio}px` }
 }
 
 function isVideoFormat(fileFormat) {
@@ -1068,26 +1186,11 @@ function isVideoFormat(fileFormat) {
 
 function formatBoardMeta(board) {
   const assetCount = board.asset_count || 0
-  const assetLabel = `${assetCount} ${assetCount === 1 ? 'item' : 'items'}`
+  const assetLabel = `${assetCount} ${assetCount === 1 ? 'asset' : 'assets'}`
   if (!board.updated_at) return assetLabel
   return `${assetLabel} • ${formatRelativeTime(board.updated_at)}`
 }
 
-function formatRelativeTime(dateStr) {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now - date
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString()
-}
 
 // Attach any media handed off to the home input (sidebar drag-drop).
 // One-shot consumption from the store — see usePendingMedia for why this isn't
@@ -1196,14 +1299,14 @@ let active = false
 function activate() {
   if (active) return
   active = true
-  setupResizeObserver()
+  void nextTick(setupResizeObserver)
   void refreshHome()
   void loadTools()
   recentToolEntities.value = recentEntities(60).filter(e => e.type === 'tool')
   void checkModels()
   revealHeroSoon()
   checkPendingMedia()
-  if (allowsAutofocus.value) chatInputBoxRef.value?.focus()
+  if (allowsAutofocus.value) chatInputBoxRef.value?.focusQuietly()
 }
 
 function handleProfileChanged() {
@@ -1252,12 +1355,15 @@ onMounted(() => {
   for (const event of HOME_LOCAL_CHANGE_EVENTS) window.addEventListener(event, invalidateHome)
   window.addEventListener('stimma:transport-resumed', invalidateHome)
   window.addEventListener('profile-changed', handleProfileChanged)
+  window.addEventListener('resize', measureContent)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onActivated(activate)
 
 onDeactivated(() => {
   active = false
+  cleanupResizeObserver()
 })
 
 onUnmounted(() => {
@@ -1273,5 +1379,7 @@ onUnmounted(() => {
   if (heroTimer) clearTimeout(heroTimer)
   heroTimer = null
   window.removeEventListener('profile-changed', handleProfileChanged)
+  window.removeEventListener('resize', measureContent)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>

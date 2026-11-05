@@ -119,7 +119,7 @@ const openSection = ref<string>('levels')
           @input="emit('change', { filterAmount: Number(($event.target as HTMLInputElement).value) }, 'adjust:filterAmount')"
           @change="emit('commit')"
         />
-        <span class="w-8 text-right tabular-nums">{{ params.filterAmount ?? 100 }}</span>
+        <span class="w-8 text-right font-mono tabular-nums">{{ params.filterAmount ?? 100 }}</span>
       </label>
     </section>
 
@@ -135,7 +135,7 @@ const openSection = ref<string>('levels')
           @input="setValue(effectControl.key, Number(($event.target as HTMLInputElement).value))"
           @change="emit('commit')"
         />
-        <span class="w-8 text-right tabular-nums">{{ valueOf(effectControl) }}</span>
+        <span class="w-8 text-right font-mono tabular-nums">{{ valueOf(effectControl) }}</span>
       </label>
       <label
         v-for="control in effectLook.supporting ?? []"
@@ -151,7 +151,7 @@ const openSection = ref<string>('levels')
           @input="setValue(control.key, Number(($event.target as HTMLInputElement).value))"
           @change="emit('commit')"
         />
-        <span class="w-8 text-right tabular-nums">{{ valueOf(control) }}</span>
+        <span class="w-8 text-right font-mono tabular-nums">{{ valueOf(control) }}</span>
       </label>
     </section>
 
@@ -231,7 +231,7 @@ const openSection = ref<string>('levels')
               @input="setValue(control.key, Number(($event.target as HTMLInputElement).value))"
               @change="emit('commit')"
             />
-            <span class="w-10 text-right text-xs text-content-tertiary tabular-nums">
+            <span class="w-10 text-right text-xs text-content-tertiary font-mono tabular-nums">
               {{ valueOf(control) }}
             </span>
           </label>

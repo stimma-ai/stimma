@@ -67,7 +67,7 @@ watch(() => props.show, show => {
     </div>
     <div class="flex flex-none gap-2 justify-end p-3">
       <button class="min-h-11 px-4 text-content-secondary" :disabled="saving" @click="emit('close')">Cancel</button>
-      <button class="min-h-11 px-4 rounded-md bg-accent text-white disabled:opacity-40" :disabled="!selected.length || saving" @click="emit('select', selected)">{{ saving ? 'Adding…' : selected.length ? `Add ${selected.length} ${selected.length === 1 ? 'asset' : 'assets'}` : 'Add assets' }}</button>
+      <button class="min-h-11 px-4 rounded-md bg-accent text-accent-on disabled:opacity-40" :disabled="!selected.length || saving" @click="emit('select', selected)">{{ saving ? 'Adding…' : selected.length ? `Add ${selected.length} ${selected.length === 1 ? 'asset' : 'assets'}` : 'Add assets' }}</button>
     </div>
   </Sheet>
 </template>

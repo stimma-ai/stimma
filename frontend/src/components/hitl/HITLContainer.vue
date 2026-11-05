@@ -51,6 +51,7 @@
 </template>
 
 <script setup>
+import { reportActionError } from '../../composables/useToasts'
 import { ref } from 'vue'
 import RetryPrompt from './RetryPrompt.vue'
 import PlanApproval from './PlanApproval.vue'
@@ -90,14 +91,13 @@ async function submitResponse(responseData) {
     })
 
     if (!response.ok) {
-      const error = await response.text()
-      console.error('HITL response failed:', error)
-      return
+      throw new Error(await response.text())
     }
 
     emit('responded')
   } catch (error) {
-    console.error('Error submitting HITL response:', error)
+    localResolved.value = null
+    reportActionError("Couldn't submit answer.", error)
   } finally {
     isSubmitting.value = false
   }

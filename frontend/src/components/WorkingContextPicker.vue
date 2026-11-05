@@ -254,7 +254,7 @@ defineExpose({ toggle, manage, openForDrop })
                     <CheckIcon v-if="activeProjectId === project.id" class="h-3.5 w-3.5" />
                   </span>
                 </button>
-                <button :aria-label="`Manage ${project.name || 'Untitled'}`" class="mr-1 flex h-6 w-6 items-center justify-center rounded text-content-muted opacity-0 transition-opacity hover:bg-overlay-light hover:text-content focus-visible:opacity-100 group-hover:opacity-100 coarse:h-11 coarse:w-11 coarse:opacity-100" @click="edit(project)"><EllipsisHorizontalIcon class="h-3.5 w-3.5" /></button>
+                <button :aria-label="`Manage ${project.name || 'Untitled'}`" class="mr-1 flex h-6 w-6 items-center justify-center rounded text-content-muted opacity-0 transition-opacity hover:bg-overlay-light hover:text-content focus-visible:opacity-100 group-hover:opacity-100 coarse:h-11 coarse:w-11 [[data-pointer=coarse]_&]:opacity-100" @click="edit(project)"><EllipsisHorizontalIcon class="h-3.5 w-3.5" /></button>
               </div>
               <p v-if="query && !filtered.length" class="px-2.5 py-3 text-xs text-content-muted">No matching projects</p>
               <p v-else-if="!projects.length && !loading && !error" class="px-2.5 py-3 text-xs text-content-muted">No projects yet</p>
