@@ -10,7 +10,7 @@
  * has no Run button of its own: it is settings, and Run is the control you
  * long-pressed. In the phone drawer it also carries the output settings
  * (auto-markers, auto-delete), which have no room beside the controls; a small
- * settings glyph on Run says one of them is on, and the controls area shows
+ * settings glyph inside Run's fill says one of them is on, and the controls area shows
  * the state in words (the New outputs row, which opens this sheet). Easter egg: a double tap starts Forever
  * mode (the first tap has already run, so that batch still goes).
  */
@@ -110,7 +110,7 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
     @click="onClick"
   >
     <span
-      class="relative flex h-9 min-w-14 items-center justify-center gap-1.5 rounded-md px-3.5 text-[15px] font-semibold transition-colors"
+      class="flex h-9 min-w-14 items-center justify-center gap-1.5 rounded-md px-3.5 text-[15px] font-semibold transition-colors"
       :class="[
         state === 'forever' ? 'bg-live text-accent-on' : 'bg-accent text-accent-on',
         !canSubmit && state === 'idle' ? 'opacity-45' : '',
@@ -118,19 +118,14 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
     >
       <svg v-if="state === 'forever'" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
       <span>{{ state === 'forever' ? 'Stop' : 'Run' }}</span>
-      <span
-        v-if="batchSize > 1"
-        class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-surface border border-edge text-[10.5px] font-mono flex items-center justify-center"
-        :class="state === 'forever' ? 'text-live' : 'text-accent-hi'"
-      >×{{ batchSize }}</span>
-      <span
+      <!-- Trailing marks live inside the fill so Run keeps one clean outline. -->
+      <span v-if="batchSize > 1" class="font-mono text-[12.5px] font-medium opacity-70">×{{ batchSize }}</span>
+      <svg
         v-if="outputSettingOn"
-        class="absolute -bottom-1.5 -right-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-edge bg-surface text-content-secondary"
-        title="Output settings on"
+        class="h-4 w-4 opacity-70"
+        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
         aria-hidden="true"
-      >
-        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h9M17 8h3M4 16h3M11 16h9" /><circle cx="15" cy="8" r="2" /><circle cx="9" cy="16" r="2" /></svg>
-      </span>
+      ><title>Output settings on</title><path d="M4 8h9M17 8h3M4 16h3M11 16h9" /><circle cx="15" cy="8" r="2" /><circle cx="9" cy="16" r="2" /></svg>
     </span>
   </button>
 

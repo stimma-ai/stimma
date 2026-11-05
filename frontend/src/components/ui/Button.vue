@@ -37,8 +37,11 @@ const variantClasses: Record<string, string> = {
 }
 
 const sizeClasses: Record<string, string> = {
-  sm: 'px-2.5 py-1.5 text-xs coarse:min-h-11',
-  md: 'px-3 py-2 text-sm coarse:min-h-11',
+  // The desktop control scale (DESIGN.md §2): sm = the control height every
+  // header and toolbar control shares; md = the one main action of a surface.
+  // One label size (text-ctl). Coarse pointers get the 44px target.
+  sm: 'h-control px-3 text-ctl coarse:min-h-11',
+  md: 'h-control-main px-3.5 text-ctl coarse:min-h-11',
 }
 </script>
 
@@ -51,7 +54,7 @@ const sizeClasses: Record<string, string> = {
       variantClasses[variant],
       !isLink && 'rounded-md',
       !isLink && sizeClasses[size],
-      isLink && (size === 'sm' ? 'text-xs' : 'text-sm'),
+      isLink && 'text-ctl',
     ]"
     :disabled="disabled || loading"
     @click="onClick"

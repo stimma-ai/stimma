@@ -21,7 +21,7 @@
           v-if="isEditingBoardName || (editedName && !isCompact)"
           ref="boardNameInputRef"
           v-model="editedName"
-          class="-ml-2 min-w-[6ch] max-w-80 [field-sizing:content] rounded-md border border-transparent bg-transparent px-2 py-1 font-brand text-xl font-semibold text-content outline-none transition-colors hover:bg-overlay-subtle focus:bg-overlay-subtle focus:border-accent"
+          class="-ml-2 min-w-[6ch] max-w-80 [field-sizing:content] rounded-md border border-transparent bg-transparent px-2 py-1 font-brand text-[18px] leading-6 font-semibold text-content outline-none transition-colors hover:bg-overlay-subtle focus:bg-overlay-subtle focus:border-accent"
           placeholder="Name this board..."
           @blur="handleBoardNameBlur"
           @keydown.enter.prevent="saveBoardName"
@@ -96,7 +96,9 @@
             :class="[
               loneSection && loneSection.id === section.id
                 ? 'absolute left-2 top-2 z-chrome'
-                : 'relative flex items-center gap-2 px-page pb-1.5 compact:min-h-12 compact:gap-1 compact:border-b compact:border-edge-subtle compact:bg-surface compact:px-3 compact:pb-0',
+                : quietSection && quietSection.id === section.id
+                  ? 'relative flex items-center gap-2 px-page pb-1.5 compact:min-h-11 compact:gap-1 compact:pb-0'
+                  : 'relative flex items-center gap-2 px-page pb-1.5 compact:min-h-12 compact:gap-1 compact:border-b compact:border-edge-subtle compact:bg-surface compact:pb-0',
               !dragState.item && !(loneSection && loneSection.id === section.id) ? 'cursor-grab active:cursor-grabbing' : '',
             ]"
             :draggable="!(loneSection && loneSection.id === section.id)"
@@ -118,7 +120,8 @@
               />
               <button
                 v-else
-                class="group/name min-w-0 compact:min-h-11 compact:min-w-11 compact:-ml-1 compact:px-2 truncate text-left text-sm font-semibold text-content transition-colors"
+                class="group/name min-w-0 compact:min-h-11 compact:min-w-11 compact:px-2 truncate text-left text-sm font-semibold text-content transition-colors"
+                :class="quietSection && quietSection.id === section.id ? 'compact:-ml-2' : 'compact:-ml-1'"
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
@@ -129,12 +132,19 @@
               </button>
             </div>
             <div v-if="!(loneSection && loneSection.id === section.id)" class="flex flex-none items-center gap-1">
-              <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ assetCountLabel(section) }}</span>
-              <!-- The view's one primary add: a phone board with a single section has no page header, so it is the filled glyph here. -->
+              <span class="whitespace-nowrap text-[11px] tabular-nums text-content-tertiary" :class="quietSection && quietSection.id === section.id ? 'text-xs' : 'font-mono'">{{ assetCountLabel(section) }}</span>
+              <!-- A phone board's single unnamed section is one quiet line: the add is text, not a filled glyph. -->
               <button
-                v-if="compactAddSection && compactAddSection.id === section.id"
+                v-if="quietSection && quietSection.id === section.id"
                 type="button"
-                :class="[compactIconButton, compactPrimaryCreate, '!ml-0 !mr-0']"
+                class="-mr-2 whitespace-nowrap rounded-md px-2 text-xs font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content min-h-11 min-w-11"
+                @click="addAssetsSection = section.id"
+              >Add assets</button>
+              <!-- The view's one primary add: a phone board with a single named section has no page header, so it is the filled glyph here. -->
+              <button
+                v-else-if="compactAddSection && compactAddSection.id === section.id"
+                type="button"
+                :class="[compactIconButton, compactPrimaryCreate]"
                 aria-label="Add assets"
                 title="Add assets"
                 @click="addAssetsSection = section.id"
@@ -648,6 +658,8 @@ const loneSection = computed(() => {
 })
 // A phone board with one section: that section's add is the board's add.
 const compactAddSection = computed(() => (isCompact.value && displaySections.value.length === 1 ? displaySections.value[0] : null))
+// ...and while it is unnamed its band drops the rule and the fill.
+const quietSection = computed(() => (compactAddSection.value && !compactAddSection.value.name ? compactAddSection.value : null))
 function assetCountLabel(section) {
   const n = (section.items || []).length
   return `${n} ${n === 1 ? 'asset' : 'assets'}`

@@ -1504,7 +1504,7 @@ const items = ref([])
 const artifactStage = useArtifactStage(chatId, items)
 // The one transcript column: messages, media and composer share it. A chat
 // docked beside a tool or flow (embedded) gets the narrower variant.
-const chatColumnClass = computed(() => (props.embedded ? 'max-w-[640px]' : 'max-w-[880px]'))
+const chatColumnClass = computed(() => (props.embedded && !isCompact.value ? 'max-w-[640px]' : 'max-w-[880px]'))
 useBackOverride(() => artifactStage.stageOpen.value, artifactStage.close)
 function refreshStagedFile(file: WorkspaceFile) {
   const staged = artifactStage.workspaceFile.value

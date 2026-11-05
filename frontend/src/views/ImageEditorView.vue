@@ -26,7 +26,6 @@ import {
   ChevronLeftIcon,
   Squares2X2Icon,
   Square3Stack3DIcon,
-  ChevronUpIcon,
   DocumentDuplicateIcon,
   EllipsisHorizontalIcon,
   MinusIcon,
@@ -43,7 +42,7 @@ import type { ActiveParam } from '../imageEditor/components/AdjustDeck.vue'
 import { addToast } from '../composables/useToasts'
 import IconButton from '../components/ui/IconButton.vue'
 import PageHeader from '../components/ui/PageHeader.vue'
-import { compactIcon, compactIconButton } from '../components/compact/headerStyles'
+import { compactIcon, compactIconButton, compactPrimaryLabel } from '../components/compact/headerStyles'
 import Tooltip from '../components/ui/Tooltip.vue'
 import ConfirmDialog from '../components/ui/ConfirmDialog.vue'
 import Spinner from '../components/ui/Spinner.vue'
@@ -1761,14 +1760,16 @@ const viewZoomLabel = computed(() => `${Math.round(viewZoom.value * 100)}%`)
 const viewTransformStyle = computed(() => ({ transform: panTransform(viewPan.value) }))
 // Compact: the zoom read-out, Compare and Select share one quiet treatment (bare
 // secondary text on the matte, a neutral fill only when pressed or on) in two fixed
-// zones, whatever the picture's shape. Zoom and Compare share the top edge of
-// the stage; Select sits on the bottom edge, just above the tool deck. The
-// viewport reserves a band above and below the fitted artwork (see its
-// padding) so the picture stays contained and unobscured.
+// zones, whatever the picture's shape. Zoom, Select and Compare share one row
+// on the top edge of the stage. The viewport reserves a band above the fitted
+// artwork (see its padding) so the picture stays contained and unobscured.
 const COMPACT_CHIP_ZONE = {
   inset: '12px', // the compact header's side padding
   edge: '4px',
 }
+
+// Compact: Select lives in the chip row, except where that row is absent.
+const selectInChipRow = computed(() => isCompact.value && !loading.value && family.value !== 'crop')
 
 const zoomedDisplayBox = computed(() => ({
   width: Math.round(displayBox.value.width * viewZoom.value),
@@ -9125,7 +9126,7 @@ watch(
         class="editor-compact-header relative z-chrome pt-safe shrink-0 border-b border-edge-subtle bg-base"
         data-drawer-chrome
       >
-        <div class="flex h-header-mobile items-center gap-0.5 pl-[max(12px,var(--safe-left,0px))] pr-[max(12px,var(--safe-right,0px))]">
+        <div class="flex h-header-mobile items-center gap-0.5 pl-[max(var(--page-margin),var(--safe-left,0px))] pr-[max(var(--page-margin),var(--safe-right,0px))]">
         <button
           type="button"
           :class="compactIconButton"
@@ -9181,7 +9182,7 @@ watch(
           <ArrowUturnRightIcon :class="compactIcon" />
         </button>
         <Button
-          class="ml-1 !h-11 !px-4 !text-[13px]"
+          :class="[compactPrimaryLabel, 'ml-1 !h-11 !bg-transparent hover:!bg-transparent']"
           :loading="saving"
           :disabled="saving || !composite"
           @click="save(false)"
@@ -9191,7 +9192,7 @@ watch(
         </Button>
         </div>
       </div>
-      <PageHeader v-else tier="compact" class="@container min-w-0 overflow-hidden">
+      <PageHeader v-else tier="compact" class="@container min-w-0 overflow-x-clip">
         <template #title>Edit</template>
         <template #meta>
           <StatusDot
@@ -9226,6 +9227,66 @@ watch(
             >{{ visibleRows.length }}</span>
           </button>
         </Tooltip>
+        <!-- Save itself always commits a version. The menu exposes both save
+             destinations at equal weight; only the new-Asset section carries
+             the marker strip because those markers belong to the fork. -->
+        <div ref="saveMenuRef" class="relative flex items-stretch" data-testid="editor-save">
+          <Button
+            size="md"
+            class="rounded-r-none"
+            :loading="saving"
+            :disabled="saving || !composite"
+            @click="save(false)"
+          >
+            <i v-if="savingNote">{{ savingNote }}</i>
+            <template v-else>Save</template>
+          </Button>
+          <button
+            type="button"
+            class="h-control-main px-1.5 rounded-r-md bg-accent hover:bg-accent/90 text-accent-on
+                   border-l border-white/20 transition-colors disabled:opacity-50
+                   focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+            :disabled="saving || !composite"
+            aria-label="More save options"
+            @click="saveMenuOpen = !saveMenuOpen"
+          >
+            <ChevronDownIcon class="w-3.5 h-3.5" />
+          </button>
+
+          <!-- Opens downward from the header, under the button that opened it. -->
+          <div
+            v-if="saveMenuOpen"
+            class="absolute top-full right-0 mt-1 w-72 p-1.5 z-menu
+                   rounded-lg border border-edge-subtle bg-surface-overlay shadow-xl"
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              class="w-full !justify-start"
+              :disabled="saving"
+              @click="saveMenuOpen = false; save(false)"
+            >
+              Save a new version of this asset
+            </Button>
+            <div class="mt-1 pt-1 border-t border-edge-subtle">
+              <div v-if="availableMarkers.length" class="px-0.5 pb-1">
+                <AutoMarkPicker
+                  :markers="availableMarkers"
+                  v-model="newAssetMarkerIds"
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                class="w-full !justify-start"
+                :disabled="saving"
+                @click="saveMenuOpen = false; save(true)"
+              >
+                Save as new asset
+              </Button>
+            </div>
+          </div>
+        </div>
         </template>
       </PageHeader>
 
@@ -9270,9 +9331,9 @@ watch(
         </div>
       </div>
 
-      <!-- Compact: the commit bar's zoom read-out and before/after as quiet
-           controls on the stage's top edge; pinch zooms, two fingers pan.
-           Select sits on the bottom edge, above the tool deck. -->
+      <!-- Compact: the commit bar's zoom read-out, Select and before/after as
+           quiet controls in one row on the stage's top edge; pinch zooms, two
+           fingers pan. -->
       <div
         v-if="isCompact && !loading && family !== 'crop'"
         class="absolute z-chrome flex items-center justify-between pointer-events-none"
@@ -9290,6 +9351,9 @@ watch(
             {{ viewZoomLabel }}
           </span>
         </button>
+        <!-- Select joins the row (its pill is teleported in), so the picture
+             keeps the band the bottom edge used to take. -->
+        <div id="editor-select-slot" class="pointer-events-auto mr-auto ml-1 flex min-w-0" />
         <button
           type="button"
           class="group pointer-events-auto flex min-h-11 min-w-11 items-center justify-end focus-visible:outline-none disabled:opacity-40"
@@ -9329,7 +9393,7 @@ watch(
         ref="viewport"
         data-disable-long-press
         class="relative flex-1 min-h-0 grid place-items-center overflow-hidden bg-matte px-6 py-16 coarse:touch-none compact:p-0"
-        :class="[viewPanning ? 'cursor-grabbing' : (spacePanHeld ? 'cursor-grab' : ''), isCompact && family !== 'crop' && 'compact:!py-[52px]']"
+        :class="[viewPanning ? 'cursor-grabbing' : (spacePanHeld ? 'cursor-grab' : ''), isCompact && family !== 'crop' && 'compact:!pb-2 compact:!pt-[52px]']"
         @wheel.prevent="onViewportWheel"
         @pointerdown.capture="onViewportPointerDown"
         @pointermove.capture="onViewportPointerMove"
@@ -9341,7 +9405,7 @@ watch(
       >
         <div
           v-if="selection && family !== 'crop' && !comparing"
-          class="absolute top-2 left-1/2 -translate-x-1/2 z-chrome flex flex-col items-center gap-1"
+          class="absolute top-2 compact:top-[52px] left-1/2 -translate-x-1/2 z-chrome flex flex-col items-center gap-1"
         >
           <Button size="sm" variant="secondary"
             :aria-pressed="inspectingMask" @click="toggleMaskInspection">
@@ -9380,10 +9444,14 @@ watch(
             @commit="onCropCommit"
           />
         </div>
+        <!-- Compact: the viewport's padding is 52px above the picture and 8px
+             below, so the stage (centred on the padding box) sits (52 - 8) / 2 = 22px
+             lower to centre on the room that is left. -->
         <div
           v-else
           ref="stageTransform"
           class="absolute left-1/2 top-1/2"
+          :class="isCompact && 'compact:!top-[calc(50%+22px)]'"
           :style="[
             { width: zoomedDisplayBox.width + 'px', height: zoomedDisplayBox.height + 'px' },
             viewTransformStyle,
@@ -9560,6 +9628,7 @@ watch(
           />
         </div>
 
+        <Teleport to="#editor-select-slot" :disabled="!selectInChipRow" defer>
         <SelectIsland
           :armed="armedSelectTool"
           :last-used="lastSelectTool"
@@ -9585,10 +9654,12 @@ watch(
           :compact="isCompact"
           :panel-target="isCompact ? '#editor-deck-panel' : null"
           @done="disarmSelect"
-          :class="isCompact
-            ? ['absolute z-chrome', family === 'crop' && 'hidden']
-            : 'absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome'"
-          :style="isCompact ? { bottom: COMPACT_CHIP_ZONE.edge, left: COMPACT_CHIP_ZONE.inset } : undefined"
+          :class="selectInChipRow
+            ? ''
+            : isCompact
+              ? ['absolute z-chrome', family === 'crop' && 'hidden']
+              : 'absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome'"
+          :style="isCompact && !selectInChipRow ? { bottom: COMPACT_CHIP_ZONE.edge, left: COMPACT_CHIP_ZONE.inset } : undefined"
           @arm="armSelectTool"
           @choose="(id: SelectToolId) => armSelectTool(id, true)"
           @pointer="activatePointer"
@@ -9600,6 +9671,7 @@ watch(
           @ai-select="runAiSelect"
           @ai-cancel="cancelAiSelect"
         />
+        </Teleport>
       </div>
       </div>
     </div>
@@ -10255,67 +10327,6 @@ watch(
           Revert
         </Button>
       </Tooltip>
-
-      <!-- Save itself always commits a version. The menu exposes both save
-           destinations at equal weight; only the new-Asset section carries
-           the marker strip because those markers belong to the fork. -->
-      <div ref="saveMenuRef" class="relative flex items-stretch">
-        <Button
-          size="sm"
-          class="rounded-r-none"
-          :loading="saving"
-          :disabled="saving || !composite"
-          @click="save(false)"
-        >
-          <i v-if="savingNote">{{ savingNote }}</i>
-          <template v-else>Save</template>
-        </Button>
-        <button
-          type="button"
-          class="px-1.5 rounded-r-md bg-accent hover:bg-accent/90 text-accent-on
-                 border-l border-white/20 transition-colors disabled:opacity-50
-                 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
-          :disabled="saving || !composite"
-          aria-label="More save options"
-          @click="saveMenuOpen = !saveMenuOpen"
-        >
-          <ChevronUpIcon class="w-3.5 h-3.5" />
-        </button>
-
-        <!-- Opens upward: the bar is the last row of the window. -->
-        <div
-          v-if="saveMenuOpen"
-          class="absolute bottom-full right-0 mb-1 w-72 p-1.5 z-menu
-                 rounded-lg border border-edge-subtle bg-surface-overlay shadow-xl"
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            class="w-full !justify-start"
-            :disabled="saving"
-            @click="saveMenuOpen = false; save(false)"
-          >
-            Save a new version of this asset
-          </Button>
-          <div class="mt-1 pt-1 border-t border-edge-subtle">
-            <div v-if="availableMarkers.length" class="px-0.5 pb-1">
-              <AutoMarkPicker
-                :markers="availableMarkers"
-                v-model="newAssetMarkerIds"
-              />
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              class="w-full !justify-start"
-              :disabled="saving"
-              @click="saveMenuOpen = false; save(true)"
-            >
-              Save as new asset
-            </Button>
-          </div>
-        </div>
-      </div>
     </footer>
 
     <!-- Compact: the document menu, anchored under the header title. Compare,

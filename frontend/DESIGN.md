@@ -186,8 +186,8 @@ style.css; fields write `placeholder:text-content-muted`, never `placeholder-whi
 
 - UI sans (system): `text-xs` default dense UI, `text-sm` primary content,
   `text-lg font-semibold` in-page headings. View titles are display voice
-  (`font-brand font-semibold`), 20px on a collection header and 16px on a
-  workspace header (§2 PageHeader). `font-medium` is the emphasis weight; `font-bold` is banned outside
+  (`font-brand font-semibold`), 18px on every desktop page header and on the
+  phone header (§2 PageHeader). `font-medium` is the emphasis weight; `font-bold` is banned outside
   display voice.
 - **Facts = mono**: ids, paths, seeds, dimensions, file sizes, counts,
   durations, timestamps, params. `font-mono tabular-nums`. Bordered mono =
@@ -259,7 +259,7 @@ fine-tuning tier, not defaults. Nothing above p-8 without a reason.
 | Band | `--page-margin` | `--section-gap` |
 |---|---|---|
 | narrow (< 600) | 16px | 20px |
-| medium (600–839) | 20px | 24px |
+| medium (600–839, the fold) | 20px | 24px |
 | wide (≥ 840, every desktop window) | 24px | 28px |
 
 Every non-media block (headers, titles, rows, cards, section labels, form
@@ -324,7 +324,9 @@ margin only as its minimum side padding.
 - **Secondary toolbar on a phone** (browse filters, tools filters, a board's
   section row, the flow's status and workspace row): one band under the header,
   `bg-surface`, a 48px minimum height with 44px targets and no vertical
-  padding, 12px side padding, 4px gaps inside a group, a `border-edge-subtle`
+  padding, side padding of `--page-margin` (the same edge as the header's
+  glyphs; a bare first or last button pulls its target back so its glyph sits
+  on it), 4px gaps inside a group, a `border-edge-subtle`
   hairline underneath. Each surface keeps its own controls.
 - **Fields** (`bg-field`): text fields, selects and the composer take one small
   luminance step above the surface in dark (`--color-field`), and the same quiet
@@ -488,9 +490,15 @@ that a desktop-sized window never trips.
   the neutral raised fill, and the only filled button is a primary create
   or Run. One vertical centre for every phone header (hub, detail, Settings,
   editor, slideshow): the title never moves between routes. The first and last
-  button are pulled into the row's padding so their glyphs sit on the 16px page
-  margin, not on the button edge. A filled primary is a 36px fill inside its
-  44px target; when it is last in the strip, the fill's edge sits on the margin.
+  button are pulled into the row's padding so their glyphs sit on
+  `--page-margin` (16px on a phone, 20px at fold width), not on the button edge:
+  the row pads by the token (`px-page`) and `compactIconButton` pulls back the
+  13px between the 44px target and its 18px glyph. One filled style in
+  `headerStyles.ts`: solid accent, 36px tall inside the 44px target, whether it
+  is the icon create (`compactPrimaryCreate`, a 36px square) or a labelled
+  primary such as Save (`compactPrimaryLabel`, 36px tall, as wide as its label
+  needs). Last in the strip, the FILL's edge sits on the margin, so Add, Upload
+  and Save end on the same edge as the glyphs beside them.
   Settings is the same row (back and close). On a project's Home the title is
   the project's name; the other project screens keep it as the subtitle.
 - **Touch targets.** Interactive controls are ≥ 44×44 px on coarse pointers
@@ -561,7 +569,7 @@ that a desktop-sized window never trips.
   height. Only the prompt is pinned; resolution is the first control under
   it, and the output settings (auto-markers, auto-delete) live in the sheet
   Run's long-press opens. Compact shows their state in words on a New outputs row in
-  the controls (tap opens that sheet) and a small settings glyph on Run while either is on. Roomy: no drawer. Controls on the left; on the right the hero, with
+  the controls (tap opens that sheet) and a small settings glyph inside Run's fill (a trailing mark, with the batch size; nothing straddles its corner) while either is on. Roomy: no drawer. Controls on the left; on the right the hero, with
   the same sideways strip of results as the phone (taller) directly under its
   action band as one media unit. A wrap of results scrolling under the hero read as a second
   scroll region. The agent is opt-in: the header's agent
@@ -662,13 +670,25 @@ click-to-type in one place), `LoraRow` + `LoraPool` (§3.4 — replaces
 LoraChip/LoraGroupBox).
 
 **PageHeader** (`ui/PageHeader.vue`, desktop; phones use CompactHeader) is the
-one header. Two tiers, one height and one title size per tier, one left inset
-(`--page-margin`), one slot order: **title, meta, actions, menu**.
+one header: ONE height (56px, `h-header`), ONE title (`font-brand text-lg
+font-semibold`, 18px, the phone header's size), one fill (`bg-base`), one left
+edge (`--page-margin`) on every desktop page, collection or workspace, and one
+slot order: **title, meta, actions, menu**. The `tier` prop is accepted for
+existing callers and changes nothing. Browse has no title, but its filter strip
+is the same band (`min-h-header`, same margin, same controls). A list measure
+(chats, flows: rows capped at 56rem) is anchored to the LEFT margin, never
+centred, so the title and the rows share one edge; the header's actions end on
+the measure's right edge, level with the rows' date column, and the rows' hover
+tint still runs full bleed (`components/lists/listMeasure.ts`).
 
-| Tier | Screens | Height | Title |
-|---|---|---|---|
-| standard | collections: boards, chats, flows, tools, board detail, trash | 64px (`h-header`) | `font-brand text-xl font-semibold` |
-| compact | workspaces: chat, flow, tool, editor | 52px (`h-header-compact`) | `font-brand text-base font-semibold` |
+**The desktop control scale: two heights, one label size.** Every control in a
+header or toolbar is `h-control` (32px: Button `sm`, Select, SearchField,
+filter chips, marker toggles, the Filters toggle, icon buttons `lg`); the single
+main action of a surface (New, Add assets, Upload, Run, Save) is `h-control-main`
+(36px: Button `md`). Tokens `--control-h` and `--control-h-main` (style.css),
+Tailwind `h-control` / `h-control-main`. One label size across a bar: `text-ctl`
+(13px); mono facts (counts, dates) keep `text-xs`. Coarse pointers lift every
+control to 44px (`coarse:min-h-11`); a view never invents a third height.
 
 Rules: the title is the entity's name (editable in place where it can be
 renamed); meta is quiet `text-xs` tertiary (status, provider and task, an
@@ -703,7 +723,7 @@ own field is it, so the phone header drops its global-search icon there
 
 | Role | Treatment | Used for |
 |---|---|---|
-| Primary | solid accent (`Button` primary; on a phone a 36px fill in a 44px target) | the one create or run action of a view: New (collections), Add assets (a board), Upload (browse), Run, Start. At most one per view. |
+| Primary | solid accent (`Button` primary at the main-action height; on a phone a 36px fill in a 44px target) | the one create or run action of a view: New (collections), Add assets (a board), Upload (browse), Run, Start. At most one per view. |
 | Secondary | raised fill, primary text (`Button` secondary; `ProviderRow`'s action) | a labelled supporting action: Configure, Manage, Sign in, Edit inputs |
 | Tertiary | bare glyph or secondary-colour text, fill only on hover or when on | toggles, filters, per-section adds, overflow, anything repeated down a list |
 
@@ -719,6 +739,10 @@ and the top bar's field keeps its geometry and shortcut but drops its fill and i
 A board whose only section is unnamed has no band of its own on desktop: the
 page header carries the count and Add assets, the matte starts directly below,
 and "Name this section…" floats over the matte's corner on hover and focus.
+On a phone the same board has one quiet line instead: no rule and no fill,
+"Name this section…" at the page margin on the left, the count and a text
+Add assets (tertiary, 44px target) on the right. Once the section is named, or
+a second one exists, the band and its filled add return.
 
 Kit-wide contracts: both themes from day one; focus-visible built in;
 disabled = `disabled:opacity-50 disabled:cursor-not-allowed` (the one
@@ -777,30 +801,37 @@ Until a kit component exists, new code uses these exact patterns:
   art is centred and enlarged to fill the slot, by at most 1.6x, so a sticker
   with empty margin does not read as a tiny mark beside a photo. Anything else
   uses its thumbnail. With no
-  art, or art that will not load, the slot holds the type's glyph alone at half
-  strength: no box, no tile.
-- **Tools list** (All tools; `lists/ToolRow.vue`): a task section opens with its
-  heading in display voice (`font-brand text-base font-semibold text-content`),
-  the one strong level on the page, with the facts the whole section shares on
-  its right. Inside it a tool
-  family is a header row (task glyph at nav size, the family name in semibold,
-  and the facts all its variants share) with its variants as rows indented one
-  step past the name under a 1px `edge-subtle` rail that drops from the family
-  glyph (the family header is not a target, so it keeps 32px on touch while
-  variants take 44px), in regular weight, each led by a distinguishing label at primary contrast: the unmarked one is
-  "Standard", the lightning mark becomes the label of its speed badge ("Fast",
-  "Turbo 4-step"), a parenthetical in the name is kept. Variants that still
-  match are told apart by their full name, then by tool id (mono). A family with
-  one variant is one row. Rows come in two heights only: one line (32px, 44px
-  on touch) and two lines (52px, for a description or, on a narrow window,
-  facts); names never wrap. Facts sit beside the name they qualify (beneath it
-  when narrow), neutral tertiary text, at most three with `+N`; "fast" is just a
-  fact, never accent. Facts a whole section shares sit once on the section
-  header's right. Between families the gap is 20px and inside a family it is none; sections are further apart still (the section gap plus 12px). A
-  tool row is a target: hover and press tint, and a chevron (the options button
-  replaces it on a user's own tool). A container wide enough (60rem) lays
-  sections in two columns, never splitting a section; rows there hover as
-  inset rounded tints rather than full bleed.
+  art, or art that will not load, the slot is a real 40px square on
+  `surface-raised` with the type's glyph in `content-tertiary` (the same tile as
+  an unavailable thumbnail), so the column has no holes. Home's Jump back in
+  uses the same tile; on a wide card with no art it also carries the title, so
+  the card is not a vacant rectangle. The kind word ("Chat") shows on those
+  cards only when the kinds in view are mixed. A fact cell (icon and number)
+  starts at its own left edge so the icons line up down the page.
+- **Tools list** (Tools; `lists/ToolRow.vue`): a task section opens with its
+  heading, the board-section tier (`text-sm font-semibold text-content`, not
+  display voice), led by the task glyph at nav size; rows carry no glyph. The
+  facts the whole section shares ("ComfyUI · open weights") sit once, as one
+  quiet tertiary line under the heading, never at its right. Inside a section a
+  tool family is a header row (the family name in semibold and the facts all its
+  variants share) with its variants as rows indented one step under a 1px
+  `edge-subtle` rail on the family name's left edge (the family header is not a
+  target), in regular weight, each led by a distinguishing label at primary
+  contrast: the unmarked one is "Standard", the lightning mark becomes the label
+  of its speed badge ("Fast", "Turbo 4-step"), a parenthetical in the name is
+  kept. Variants that still match are told apart by their full name, then by
+  tool id (mono). A family with one variant is one row. Rows come in two heights
+  only: one line (32px, 44px on touch) and two lines (52px, for a description);
+  names and facts never wrap, facts truncate first. Facts sit beside the name
+  they qualify, neutral tertiary text, at most three with `+N`; "fast" is just a
+  fact, never accent. Gaps are fixed per level: the section gap plus 12px between
+  sections, 8px from heading to first family, 12px between families, none between
+  a family's rows. Heading glyphs, rows and the header share the page margin; row
+  text starts on the heading text's column. A tool row is plainly a link: hover
+  and press tint, no chevron (the options button appears on a user's own tool).
+  A container wide enough (60rem) lays sections in two columns, never splitting a
+  section. On a phone the filter field takes its own full-width row, with the task
+  and provider filters bare beneath it; an applied filter takes the accent fill.
 - **Modal**: backdrop `fixed inset-0 z-modal bg-overlay-backdrop
   backdrop-blur-sm` (token, never bg-black/NN); card `bg-surface border
   border-edge rounded-lg shadow-2xl`; Esc closes; `@click.self` closes unless
@@ -939,7 +970,7 @@ no fills, no borders-in-borders — so the run bar and results carry the
 energy. **Exactly one solid-accent button on the whole screen: Run.**
 Stage mode swaps proportions, same grammar.
 
-**Header strip:** the compact-tier PageHeader (§2): tool icon chip (accent-wash
+**Header strip:** the PageHeader (§2): tool icon chip (accent-wash
 square) + name (General Sans 600, 16px) + hop-to-tool disclosure, then the
 provider and the first task as meta on the same row (the other tasks and the
 output destination are the tooltip; a destination chip shows only when a
@@ -981,12 +1012,12 @@ it opens a popover with Auto-mark and Auto-delete, one tap each, never a copy
 of the result's marker row. The result band's facts (generation time, auto-trash
 countdown) are quiet mono readouts, not outlined actions; the time carries a
 caret because it opens details. Collapsed subsystems read value-first: label
-left; at the right edge a quiet mono state (`None`, `2 on`, `3 steps`,
-`4 settings`) and then either a labelled `+ Add` (it adds) or the one caret
+left; at the right edge a quiet state in the page's own sans (`2 on`, `3 steps`,
+`4 settings`, `Delete after 30m`) and then either a labelled `+ Add` (it adds) or the one caret
 (it discloses). One row height (32px, 44px on touch) and one gap
 (`ToolSectionHeader`) serve reference images, LoRAs, post-processing, advanced
 settings and new outputs; an optional input with nothing in it is that row
-(`None` + `Add`, and still a drop target), and its media tile with its height
+(the label and `Add` only, lighter than a row that holds something, and still a drop target), and its media tile with its height
 appears only once there is media or the tool requires one. The prompt editor's keybinding, font and syntax-help
 controls sit behind one overflow button.
 
@@ -1320,11 +1351,17 @@ the media menu stay in one place.
 - **Flow header:** the workspace (Flow | Chat) and the view (Steps | Workflow |
   Code) are both the kit `SegmentedControl`. Start/Resume is the one accent
   action; Pause is a ghost while the run is live and moves into the entity menu
-  once the run is done. Status is a quiet label beside the name (dot plus text,
+  once the run is done. Status is a quiet label beside the name (the word, with a dot only when it needs attention;
   left-aligned; the compact strip leads with it), never a control. Save custom
-  tool is a ghost (icon only on compact). The workspace switch and its sessions
-  chevron are one group on one fill at every width, and both segments carry a
-  glyph (bolt for Flow, the bot for Chat). Inputs, phases and outputs are all flat
+  tool is a ghost (icon only on compact). The workspace switch is one
+  segmented control whose segments both carry a glyph (bolt for Flow, the bot
+  for Chat); its sessions chevron is a separate bare button beside it, never
+  inside the track. Where the flow and chat sit side by side, an open chat marks
+  both segments; compact keeps the exclusive choice. On wide screens the view
+  switch (Steps | Workflow | Code) sits in the header beside the status and the
+  header's one overflow menu carries the flow's housekeeping (reset inputs,
+  re-process, clear); compact keeps the view switch in a strip under the header
+  and those items in the compact menu. Inputs, phases and outputs are all flat
   sections on the page (the §3.1 rail for phases, no cards), separated by the
   section gap; the Steps column holds a 960px measure and every section shares
   one left edge. Inputs is a quiet label with its one action (Edit inputs) at
@@ -1332,7 +1369,9 @@ the media menu stay in one place.
   sans when they are names. Each output group has one heading with a mono
   count and its artwork sized around the content (a lone result is large); a
   group with nothing to show leaves no heading or gap. The chat's context hint
-  is the composer's placeholder, so nothing changes height when typing starts. A step title never
+  is the composer's placeholder, so nothing changes height when typing starts. Steps and the chat share one body size (`text-sm`). A finished step carries a small outline check in tertiary
+  text; colour stays for states that need action. A step's output strip uses 40px thumbnails on one
+  matte (the tile's own; no outline or second frame). A step title never
   truncates for its provider pill: the pill wraps below. The compact header's
   title slot keeps a 96px minimum, ellipsizes at the end and never shrinks the
   action buttons.

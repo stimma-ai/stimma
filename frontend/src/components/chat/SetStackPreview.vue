@@ -47,10 +47,12 @@ watch(() => props.mediaId, async (mediaId) => {
 }, { immediate: true })
 
 // Layers sit back to front. Each steps up and to the right of the picture (3% of the square;
-// 2% in dark, where less of it is exposed) so only a narrow edge of each shows; the whole pile
+// 1.5% in dark, where less of it is exposed) so only a narrow edge of each shows; the whole pile
 // is centred in the square. The scrim fades the layers into the matte: lighter on the paper
-// matte, where a heavy scrim erases them, and much heavier on the near-black one, where a pale
-// image would otherwise read as a grey plane instead of a trace.
+// matte, where a heavy scrim erases them, and much heavier on the near-black one. The layers
+// do draw their members; but a product shot on white is a white plane, and white under a
+// moderate scrim is the brightest grey on a near-black screen. On the dark matte the scrim is
+// strong enough that even a white member leaves a dim edge with a trace of its picture.
 const CARD = 78
 const cards = computed(() => {
   const ids = members.value || []
@@ -60,7 +62,7 @@ const cards = computed(() => {
       id,
       depth,
       style: { width: `${CARD}%`, height: `${CARD}%`, left: offset(depth), bottom: offset(depth) },
-      scrim: depth === 0 ? '' : depth === 1 ? 'opacity-[.15] dark:opacity-[.74]' : 'opacity-[.35] dark:opacity-[.86]',
+      scrim: depth === 0 ? '' : depth === 1 ? 'opacity-[.15] dark:opacity-[.9]' : 'opacity-[.35] dark:opacity-[.95]',
     }))
     .reverse()
 })
@@ -68,7 +70,7 @@ const cards = computed(() => {
 
 <template>
   <div class="h-full w-full bg-matte [container-type:size]" data-testid="set-stack-preview">
-    <div v-if="cards.length" class="relative mx-auto [--set-step:3%] dark:[--set-step:2%]" style="width: min(100cqw, 100cqh); height: min(100cqw, 100cqh)">
+    <div v-if="cards.length" class="relative mx-auto [--set-step:3%] dark:[--set-step:1.5%]" style="width: min(100cqw, 100cqh); height: min(100cqw, 100cqh)">
       <div v-for="card in cards" :key="card.id" class="absolute overflow-hidden rounded-media bg-matte shadow-[0_1px_4px_rgb(0_0_0/0.22)] dark:shadow-none" :style="card.style">
         <MediaImage
           :media-id="card.id"

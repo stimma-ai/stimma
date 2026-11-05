@@ -1,22 +1,25 @@
 <template>
   <div class="h-full flex flex-col bg-base">
     <!-- Header row. Wide: title, task and provider filters, tool filter field.
-         Compact (the "Tools" title is the compact header's): one 44px row with
-         the task and provider filters and the tool filter field side by side.
-         This field is the page's one search entry; the compact header drops its
-         own search icon here, and global search stays reachable from the other hubs. -->
-    <PageHeader class="compact:h-auto compact:min-h-12 compact:gap-1 compact:bg-surface compact:px-3 compact:py-0 compact:[&>:first-child]:hidden compact:[&>:nth-child(2)]:min-w-0 compact:[&>:nth-child(2)]:flex-1">
-      <template #title>All tools</template>
+         Compact (the "Tools" title is the compact header's): the filter field
+         takes a full-width row, with the task and provider filters in a quieter
+         bare row beneath it, an applied filter wearing the accent fill. All of
+         it sits on the page margin. This field is the page's one search entry;
+         the compact header drops its own search icon here, and global search
+         stays reachable from the other hubs. -->
+    <PageHeader class="compact:h-auto compact:flex-col compact:items-stretch compact:gap-1 compact:bg-surface compact:py-2 compact:[&>:first-child]:hidden compact:[&>:nth-child(2)]:w-full compact:[&>:nth-child(2)]:flex-wrap compact:[&>:nth-child(2)]:gap-x-1 compact:[&>:nth-child(2)]:gap-y-1">
+      <template #title>Tools</template>
       <template #actions>
         <!-- Task filter. Multi-select, like providers; compact / coarse opens
              it as a sheet, as the provider filter does. -->
-        <div v-if="availableTaskTypes.length > 0" class="relative compact:min-w-0" ref="taskDropdownRef">
+        <div v-if="availableTaskTypes.length > 0" class="relative compact:order-2 compact:-ml-2 compact:min-w-0" ref="taskDropdownRef">
           <Select
             :label="taskFilterLabel"
             :open="taskDropdownOpen"
             :active="activeTaskFilters.size > 0"
             :caret="!isCompact"
             class="compact:max-w-full compact:gap-1.5 compact:px-2"
+            :class="activeTaskFilters.size > 0 ? '' : 'compact:!bg-transparent'"
             @click="taskDropdownOpen = !taskDropdownOpen"
           >
             <template #icon><Squares2X2Icon class="h-icon-nav w-icon-nav flex-shrink-0 hidden compact:block" /></template>
@@ -67,13 +70,13 @@
              kit Sheet — an inline dropdown converted to a sheet would sit
              inside the app column's stacking context, under the shared sheet
              backdrop, and no tap would ever reach it. -->
-        <div v-if="availableProviders.length > 1 || hasUnavailableTools" class="relative compact:min-w-0" ref="providerDropdownRef">
+        <div v-if="availableProviders.length > 1 || hasUnavailableTools" class="relative compact:order-2 compact:min-w-0" ref="providerDropdownRef">
           <Select
             :label="providerFilterLabel"
             :open="providerDropdownOpen"
             :active="activeProviderFilters.size > 0"
             :caret="!isCompact"
-            :class="providerFilterIsStimma ? 'stimma-cloud-text font-medium' : ''"
+            :class="[providerFilterIsStimma ? 'stimma-cloud-text font-medium' : '', activeProviderFilters.size > 0 ? '' : 'compact:!bg-transparent']"
             class="compact:max-w-full compact:gap-1.5 compact:px-2"
             @click="providerDropdownOpen = !providerDropdownOpen"
           >
@@ -134,7 +137,7 @@
           v-model="searchQuery"
           placeholder="Filter tools..."
           aria-label="Filter tools"
-          class="w-48 compact:w-full compact:flex-1 compact:min-w-0"
+          class="w-48 compact:order-1 compact:w-full compact:min-w-0"
           @escape="closeSearch"
         />
       </template>
@@ -240,23 +243,31 @@
         <p class="text-content-muted text-sm">Try adjusting your search, task type, or provider filters.</p>
       </div>
 
-      <!-- Tools by task. Inside a section a tool family is a header (glyph, the
-           family name, the facts all its variants share) with its variants as
-           indented rows under it, each led by a distinguishing label. A family
-           with one variant is one row. Facts every tool in a section shares
-           (provider, "open weights") sit once on the section header. Two
-           columns once the page is wide enough; one row height for one-line
-           rows, one for two-line rows, one gap between families that is clearly larger than the (zero) gap between a family's own rows. -->
+      <!-- Tools by task. A section opens with its heading (task glyph, task
+           name) and one quiet line for the facts every tool in it shares.
+           Inside it a tool family is a header (the family name and the facts
+           all its variants share) with its variants as rows indented under a
+           hairline rail. A family with one variant is one row. Fixed gaps per
+           level: sections, then families, then rows. Everything sits on the
+           page margin, two columns once the page is wide enough. -->
       <div v-else class="@container">
-        <div class="mx-auto max-w-[44rem] px-page @[60rem]:max-w-none @[60rem]:columns-2 @[60rem]:gap-x-12">
+        <div class="px-page @[60rem]:columns-2 @[60rem]:gap-x-12">
           <section v-for="group in toolSections" :key="group.taskType" class="mb-[calc(var(--section-gap)+0.75rem)] break-inside-avoid">
-            <div class="flex items-baseline justify-between gap-3 pb-2">
-              <h2 class="shrink-0 font-brand text-base font-semibold text-content">
-                {{ formatTaskType(group.taskType) }}
+            <div class="mb-2">
+              <h2 class="flex items-center gap-2 text-sm font-semibold leading-5 text-content">
+                <svg
+                  v-if="group.glyph"
+                  class="h-icon-nav w-icon-nav flex-none text-content-tertiary"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" :d="group.glyph" />
+                </svg>
+                <span v-else class="w-icon-nav flex-none" aria-hidden="true"></span>
+                <span class="min-w-0 truncate">{{ formatTaskType(group.taskType) }}</span>
               </h2>
-              <span
+              <p
                 v-if="group.sharedFacts.length"
-                class="min-w-0 truncate text-xs text-content-tertiary"
+                class="truncate pl-6 text-xs leading-5 text-content-tertiary"
                 :title="'Shared by every tool in this section: ' + group.sharedFacts.map((f) => f.text).join(' · ')"
               >
                 <template v-for="(fact, i) in group.sharedFacts.slice(0, 3)" :key="fact.text">
@@ -264,43 +275,39 @@
                   <span :class="fact.cloud ? 'stimma-cloud-text font-medium' : ''">{{ fact.text }}</span>
                 </template>
                 <span v-if="group.sharedFacts.length > 3" class="font-mono tabular-nums"> +{{ group.sharedFacts.length - 3 }}</span>
-              </span>
+              </p>
             </div>
 
-            <div
-              v-for="family in group.families"
-              :key="family.key"
-              class="pb-5 last:pb-0"
-            >
-              <ToolRow
-                v-if="family.rows.length > 1"
-                :interactive="false"
-                :name="family.title"
-                :glyph="group.glyph"
-                :facts="family.facts"
-                :hidden="family.hidden"
-                :facts-title="family.allFacts"
-                :description="family.description"
-              />
-              <ToolRow
-                v-for="row in family.rows"
-                :key="row.tool.full_tool_id"
-                :class="row.tool.availability !== 'available' ? 'pointer-events-none opacity-40' : ''"
-                :name="family.rows.length > 1 ? row.tool.name : family.title"
-                :label="row.label"
-                :tag="row.tag"
-                :indent="family.rows.length > 1"
-                :glyph="group.glyph"
-                :facts="row.facts"
-                :hidden="row.hidden"
-                :facts-title="row.allFacts"
-                :price="row.price"
-                :description="family.rows.length > 1 ? '' : row.description"
-                :menu="isUserTool(row.tool)"
-                @click="openTool(row.tool)"
-                @contextmenu.prevent="isUserTool(row.tool) ? openToolMenu($event, row.tool) : null"
-                @menu="openToolMenu($event, row.tool)"
-              />
+            <div class="space-y-3">
+              <div v-for="family in group.families" :key="family.key">
+                <ToolRow
+                  v-if="family.rows.length > 1"
+                  :interactive="false"
+                  :name="family.title"
+                  :facts="family.facts"
+                  :hidden="family.hidden"
+                  :facts-title="family.allFacts"
+                  :description="family.description"
+                />
+                <ToolRow
+                  v-for="row in family.rows"
+                  :key="row.tool.full_tool_id"
+                  :class="row.tool.availability !== 'available' ? 'pointer-events-none opacity-40' : ''"
+                  :name="family.rows.length > 1 ? row.tool.name : family.title"
+                  :label="row.label"
+                  :tag="row.tag"
+                  :indent="family.rows.length > 1"
+                  :facts="row.facts"
+                  :hidden="row.hidden"
+                  :facts-title="row.allFacts"
+                  :price="row.price"
+                  :description="family.rows.length > 1 ? '' : row.description"
+                  :menu="isUserTool(row.tool)"
+                  @click="openTool(row.tool)"
+                  @contextmenu.prevent="isUserTool(row.tool) ? openToolMenu($event, row.tool) : null"
+                  @menu="openToolMenu($event, row.tool)"
+                />
+              </div>
             </div>
           </section>
         </div>

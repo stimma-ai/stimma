@@ -2,8 +2,8 @@
 // The one Select trigger (DESIGN.md §2). Fill-only (§1.4), the label, then the
 // one caret. It draws the trigger only: the menu or sheet it opens stays with
 // the caller, which owns `open`. `active` marks a filter that is narrowing the
-// list (accent tint, as a set filter reads everywhere else). Coarse pointers
-// get a 44px target.
+// list (accent tint, as a set filter reads everywhere else). One control height (`h-control`) and the
+// control label size. Coarse pointers get a 44px target.
 import Caret from './Caret.vue'
 
 defineOptions({ inheritAttrs: false })
@@ -24,7 +24,7 @@ withDefaults(defineProps<{
     :disabled="disabled"
     aria-haspopup="listbox"
     :aria-expanded="open"
-    class="inline-flex min-w-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 disabled:opacity-50 disabled:cursor-not-allowed coarse:min-h-11"
+    class="inline-flex min-w-0 items-center gap-2 h-control rounded-md px-3 text-ctl transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 disabled:opacity-50 disabled:cursor-not-allowed coarse:min-h-11"
     :class="active ? 'bg-accent/15 text-accent-hi' : 'bg-field text-content-secondary hover:bg-overlay-hover hover:text-content'"
   >
     <slot name="icon" />

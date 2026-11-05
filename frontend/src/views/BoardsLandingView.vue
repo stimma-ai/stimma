@@ -33,7 +33,7 @@
           </div>
         </div>
         <SearchField v-model="searchQuery" placeholder="Search boards..." class="w-48" />
-        <Button variant="primary" size="sm" @click="createNewBoard">
+        <Button variant="primary" @click="createNewBoard">
           <template #icon><PlusIcon class="h-icon-inline w-icon-inline" /></template>
           New
         </Button>

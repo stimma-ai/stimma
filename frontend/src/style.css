@@ -349,11 +349,19 @@ body {
   --hub-hero-size: 32px;
   --hub-column: 840px;        /* the one measure for the hub: hero, composer, tool shortcuts, section headings and recent work */
 
-  /* Page header tiers (ui/PageHeader.vue). standard = collections (boards,
-     chats, flows, tools, board detail); compact = workspaces (chat, flow,
-     tool, editor). The phone header is --header-h-mobile. */
-  --header-h: 64px;
-  --header-h-compact: 52px;
+  /* One desktop page header height (ui/PageHeader.vue) for every page,
+     collection or workspace; the Browse strip is the same band. The phone
+     header is --header-h-mobile. --header-h-compact is kept as an alias so
+     callers that still say `compact` land on the same height. */
+  --header-h: 56px;
+  --header-h-compact: var(--header-h);
+
+  /* Desktop control scale (DESIGN.md §2): two heights. --control-h for every
+     control in a header or toolbar (buttons, selects, search, chips, toggles,
+     icon buttons); --control-h-main only for a surface's single main action.
+     One label size (text-ctl, 13px) across both. Coarse pointers take 44px. */
+  --control-h: 32px;
+  --control-h-main: 36px;
   --header-h-mobile: 60px;
   --header-pb: 12px;          /* header bottom padding where a header holds a second row */
 

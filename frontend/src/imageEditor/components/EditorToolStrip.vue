@@ -16,7 +16,7 @@ import type { IconName } from '../ported/icons'
 import { familyById, PAINT_ENGINES, SELECT_TOOLS, TOOL_FAMILIES } from '../stack/toolFamilies'
 import type { FamilyId, SelectToolId } from '../stack/toolFamilies'
 import { CREATIVE_LEVEL_EDITS, CROP_ASPECTS, PHOTOGRAPHIC_LEVEL_EDITS } from '../stack/adjustSections'
-import { sanitizeSvg } from '../../utils/sanitizeHtml'
+import { familyIconSvg } from './familyIconSvg'
 
 const props = defineProps<{
   family: FamilyId | null
@@ -56,9 +56,7 @@ interface Cell {
 type Item = Cell | 'sep'
 
 const SHORT: Record<string, string> = { remove: 'Remove', cutout: 'Cut out', repaint: 'Repaint', expand: 'Expand' }
-const familySvg = Object.fromEntries(TOOL_FAMILIES.map(f => [f.id, sanitizeSvg(
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${f.icon}</svg>`
-)]))
+const familySvg = Object.fromEntries(TOOL_FAMILIES.map(f => [f.id, familyIconSvg(f.id, f.icon)]))
 
 const level = computed<'root' | 'family' | 'selection'>(() => props.armed ? 'selection' : props.family ? 'family' : 'root')
 
@@ -176,7 +174,9 @@ watch([activeId, () => props.family, () => props.armed], () => {
                focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
         :class="[
           level === 'root' ? 'flex-1 min-w-0' : 'flex-none min-w-[58px]',
-          item.active ? (item.selection ? 'text-selection' : 'text-accent-hi') : 'text-content-secondary',
+          item.active
+            ? (item.selection ? 'bg-selection/15 text-content [&>:first-child]:text-selection' : 'bg-overlay-medium text-content')
+            : 'text-content-secondary',
         ]"
         :aria-label="item.label"
         :aria-pressed="item.active"

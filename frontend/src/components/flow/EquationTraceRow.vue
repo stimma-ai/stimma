@@ -24,13 +24,13 @@
         :title="'Paused'"
       >⏸</span>
       <svg
-        v-else-if="equation.status === 'completed'"
-        class="w-4 h-4 text-green-500 flex-shrink-0"
-        fill="currentColor" viewBox="0 0 24 24"
-      >
+  v-else-if="equation.status === 'completed'"
+  class="w-3.5 h-3.5 text-content-tertiary flex-shrink-0"
+  fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"
+>
         <title>Done</title>
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm4.03-12.97a.75.75 0 00-1.06-1.06l-4.72 4.72-2.22-2.22a.75.75 0 10-1.06 1.06l2.75 2.75a.75.75 0 001.06 0l5.25-5.25z" />
-      </svg>
+  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+</svg>
       <svg
         v-else-if="equation.status === 'failed'"
         class="w-3.5 h-3.5 text-red-400 flex-shrink-0"
@@ -90,7 +90,7 @@
            still render it on a second line. -->
       <div class="flex-1 min-w-0 flex flex-col justify-center">
         <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0">
-          <span class="min-w-0 max-w-full truncate text-ctl text-content">{{ title }}</span>
+          <span class="min-w-0 max-w-full truncate text-sm text-content">{{ title }}</span>
           <span
             v-if="runtimePill"
             class="min-w-0 max-w-full truncate text-[11px] leading-none rounded px-1.5 py-0.5 bg-overlay-faint text-content-muted"
@@ -123,8 +123,8 @@
         <div
           v-for="(mid, i) in headerMediaIds"
           :key="mid"
-          class="w-6 h-6 rounded-md border border-surface overflow-hidden ring-1 ring-edge-subtle"
-          :class="i > 0 ? '-ml-1.5' : ''"
+          class="w-10 h-10 rounded-media overflow-hidden ring-2 ring-base"
+          :class="i > 0 ? '-ml-3' : ''"
           :style="{ zIndex: headerMediaIds.length - i }"
         >
           <FlowMediaTile

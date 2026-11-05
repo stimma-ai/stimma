@@ -1,17 +1,19 @@
 <script setup lang="ts">
 // The one collapsed-row grammar of a tool's form sections (reference images,
 // LoRAs, post-processing, advanced settings; DESIGN.md §3.3): label at the left,
-// a quiet mono state at the right edge, then either a labelled "Add" (the row
-// adds something) or the one caret (the row discloses). One row height (32px,
-// 44px on touch) and one state alignment. Sections sit `mb-3` apart
-// (`coarse:mb-2`).
-import { ref } from 'vue'
+// a quiet state in the page's own sans at the right edge, then either a labelled
+// "Add" (the row adds something) or the one caret (the row discloses). One row
+// height (32px, 44px on touch) and one state alignment. An empty addable row
+// ("None") drops the word and keeps the Add: it reads as an offer, with a
+// lighter label than a row that holds something. Sections sit `mb-3` apart
+// (`coarse:mb-1`).
+import { computed, ref } from 'vue'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import Caret from '../ui/Caret.vue'
 
-defineProps<{
+const props = defineProps<{
   label: string
-  /** Quiet mono state: `None`, `2 on`, `3 steps`, `4 settings`, `0/10`. */
+  /** Quiet state: `None`, `2 on`, `3 steps`, `4 settings`, `0/10`. */
   state?: string
   /** Shows the labelled Add action. */
   addable?: boolean
@@ -21,6 +23,9 @@ defineProps<{
   open?: boolean
 }>()
 const emit = defineEmits<{ add: [event: MouseEvent]; toggle: [] }>()
+
+/** An empty, addable row: the Add says it is empty, so the word is dropped. */
+const empty = computed(() => !!props.addable && props.state === 'None')
 
 const addEl = ref<HTMLElement | null>(null)
 defineExpose({ addEl })
@@ -35,10 +40,10 @@ defineExpose({ addEl })
     :class="disclosure ? 'rounded-md transition-colors duration-150 hover:text-content focus-visible:outline-none focus-visible:ring-2 ring-accent/60' : ''"
     @click="disclosure && emit('toggle')"
   >
-    <span class="text-ctl font-semibold text-content-secondary">{{ label }}</span>
+    <span class="text-ctl text-content-secondary" :class="empty ? 'font-medium' : 'font-semibold'">{{ label }}</span>
     <slot name="label-extra" />
     <div class="ml-auto flex items-center gap-1.5" :class="disclosure ? '' : '-mr-2'">
-      <span v-if="state" class="font-mono text-xs font-normal tabular-nums text-content-tertiary">{{ state }}</span>
+      <span v-if="state && !empty" class="min-w-0 truncate text-ctl font-normal tabular-nums text-content-tertiary">{{ state }}</span>
       <button
         v-if="addable"
         ref="addEl"

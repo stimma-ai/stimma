@@ -5,7 +5,7 @@
       <template #title>Flows</template>
       <template #actions>
         <SearchField v-model="searchQuery" placeholder="Search flows..." class="w-48" />
-        <Button variant="primary" size="sm" @click="createFlow">
+        <Button variant="primary" @click="createFlow">
           <template #icon><PlusIcon class="h-icon-inline w-icon-inline" /></template>
           New
         </Button>

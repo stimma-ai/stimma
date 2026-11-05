@@ -8,7 +8,7 @@
       :key="group.key"
     >
       <div class="mb-2 flex items-baseline gap-2">
-        <h2 class="truncate text-ctl font-semibold text-content-secondary">{{ group.label }}</h2>
+        <h2 class="truncate text-sm font-semibold text-content-secondary">{{ group.label }}</h2>
         <span class="flex-shrink-0 font-mono text-xs tabular-nums text-content-muted">{{ group.iterations.length }}</span>
       </div>
 

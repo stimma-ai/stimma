@@ -2,7 +2,7 @@
   <template v-for="paramGroup in groups" :key="paramGroup.group || 'ungrouped'">
     <!-- Skip the whole section if hidden_when is active -->
     <template v-if="!isSectionHidden(paramGroup.hiddenWhen, values)">
-    <div :class="flat ? 'mb-3 last:mb-0' : 'mb-3 coarse:mb-2 last:mb-0'">
+    <div :class="flat ? 'mb-3 last:mb-0' : 'mb-3 coarse:mb-1 last:mb-0'">
       <!-- Group header - collapsible if paramGroup.collapsible is true.
            pt-2 keeps it off the preceding row's hairline when this group sits
            inside a divide-y host (e.g. chain step settings). -->

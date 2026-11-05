@@ -1,5 +1,5 @@
 <template>
-  <div class="mb-3 coarse:mb-2">
+  <div class="mb-3 coarse:mb-1">
     <!-- Panel header: label + icon strip (mirrors the LoRAs header). The
          chain enable is the mock's quiet `On ▾` value dropdown, not a switch —
          a bright toggle here outshone the whole column. -->

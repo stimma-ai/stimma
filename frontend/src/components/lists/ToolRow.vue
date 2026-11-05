@@ -1,21 +1,22 @@
 <script setup lang="ts">
 // One row of the tools catalog. Two heights only: a one-line row (32px, 44px on
-// touch) and a two-line row (52px) for a row that carries a description, or on
-// a narrow window one that carries facts. Names are single-line and truncate
-// (the full name is the tooltip) so a row never grows past its height.
+// touch) and a two-line row (52px) for a row that carries a description. Names
+// and facts are single-line and truncate (the full name is the tooltip), facts
+// first, so a row never grows past its height at any width.
 //
 // A row is one of three things:
-//   - a family header (`interactive` off): glyph, the family name in the
-//     semibold weight, and the facts every variant shares. Not a target, so no
-//     hover tint and no chevron.
+//   - a family header (`interactive` off): the family name in the semibold
+//     weight and the facts every variant shares. Not a target.
 //   - a variant (`indent` on): the distinguishing label in regular weight,
-//     indented one step past the family name, with only the facts that tell it
-//     from its siblings.
-//   - a single tool: glyph, name, optional label, facts.
+//     indented one step past the family name under a hairline rail, with only
+//     the facts that tell it from its siblings.
+//   - a single tool: name, optional label, facts.
 //
-// Facts sit beside the name they qualify; on a narrow window they drop beneath
-// it. Listeners and classes fall through to the root.
-import { ChevronRightIcon, EllipsisVerticalIcon } from '@heroicons/vue/24/outline'
+// The section heading above carries the task glyph, so rows carry none, and a
+// row is plainly a link: it takes a hover tint (a press tint on touch) and no
+// chevron. Text starts on the column the section heading's text starts on.
+// Listeners and classes fall through to the root.
+import { EllipsisVerticalIcon } from '@heroicons/vue/24/outline'
 
 interface Fact { text: string; cloud?: boolean }
 
@@ -30,54 +31,44 @@ withDefaults(defineProps<{
   factsTitle?: string
   price?: string
   description?: string
-  /** Inner SVG path data (outline, 24px grid) for the leading glyph. */
-  glyph?: string
-  /** A variant row: name starts on the family name's edge, no glyph. */
+  /** A variant row: starts one step past the family name, under the rail. */
   indent?: boolean
   /** A tool that opens on click. Off for a family header. */
   interactive?: boolean
   /** The row has its own options menu (user tools). */
   menu?: boolean
-}>(), { label: '', tag: '', facts: () => [], hidden: 0, factsTitle: '', price: '', description: '', glyph: '', indent: false, interactive: true, menu: false })
+}>(), { label: '', tag: '', facts: () => [], hidden: 0, factsTitle: '', price: '', description: '', indent: false, interactive: true, menu: false })
 
 defineEmits<{ (e: 'menu', event: MouseEvent): void }>()
 </script>
 
 <template>
   <div
-    class="group relative -mx-2 grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md pr-2 py-1 transition-colors"
+    class="group relative -mx-2 flex items-center gap-3 rounded-md py-1 pr-2 transition-colors duration-150"
     :class="[
-      indent ? 'pl-5' : 'pl-2',
+      indent ? 'pl-12' : 'pl-8',
       interactive ? 'cursor-pointer hover:bg-overlay-subtle active:bg-overlay-light coarse:min-h-11' : '',
-      indent ? 'before:pointer-events-none before:absolute before:inset-y-0 before:left-4 before:w-px before:bg-edge-subtle' : '',
-      description ? 'min-h-[3.25rem]' : facts.length ? 'min-h-8 narrow:min-h-[3.25rem]' : 'min-h-8',
+      indent ? 'before:pointer-events-none before:absolute before:inset-y-0 before:left-8 before:w-px before:bg-edge-subtle' : '',
+      description ? 'min-h-[3.25rem]' : 'min-h-8',
+      menu ? 'coarse:pr-12' : '',
     ]"
   >
-    <svg
-      v-if="glyph && !indent"
-      class="h-icon-nav w-icon-nav text-content-tertiary"
-      fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"
-    >
-      <path stroke-linecap="round" stroke-linejoin="round" :d="glyph" />
-    </svg>
-    <span v-else aria-hidden="true"></span>
-
-    <div class="min-w-0" :title="name">
-      <div class="flex min-w-0 items-baseline gap-x-2 narrow:flex-wrap">
+    <div class="min-w-0 flex-1" :title="name">
+      <div class="flex min-w-0 items-baseline gap-x-2">
         <span
           v-if="!indent"
-          class="min-w-0 max-w-full truncate text-sm leading-5 text-content"
+          class="max-w-full flex-none truncate text-sm leading-5 text-content"
           :class="interactive ? 'font-medium' : 'font-semibold'"
         >{{ name }}</span>
         <span
           v-if="label"
-          class="min-w-0 max-w-full truncate text-sm leading-5"
+          class="max-w-full flex-none truncate text-sm leading-5"
           :class="indent ? 'text-content' : 'text-content-secondary'"
         >{{ label }}</span>
-        <span v-if="tag" class="shrink-0 font-mono text-[11px] leading-5 text-content-muted">{{ tag }}</span>
+        <span v-if="tag" class="flex-none font-mono text-[11px] leading-5 text-content-muted">{{ tag }}</span>
         <span
           v-if="facts.length || hidden > 0"
-          class="flex min-w-0 shrink items-baseline gap-x-1.5 text-xs leading-5 text-content-tertiary narrow:w-full"
+          class="flex min-w-0 shrink items-baseline gap-x-1.5 text-xs leading-5 text-content-tertiary"
           :title="factsTitle"
         >
           <template v-for="(fact, i) in facts" :key="fact.text">
@@ -90,15 +81,11 @@ defineEmits<{ (e: 'menu', event: MouseEvent): void }>()
       <p v-if="description" class="truncate text-xs leading-5 text-content-secondary">{{ description }}</p>
     </div>
 
-    <div v-if="interactive || price" class="flex items-center gap-3">
-      <span v-if="price" class="font-mono text-[11px] leading-5 tabular-nums text-content-tertiary">{{ price }}</span>
-      <ChevronRightIcon
-        v-if="interactive"
-        class="h-icon-inline w-icon-inline text-content-muted opacity-60 transition-opacity group-hover:opacity-100"
-        :class="menu ? 'group-hover:!opacity-0 coarse:!hidden' : ''"
-        aria-hidden="true"
-      />
-    </div>
+    <span
+      v-if="price"
+      class="flex-none font-mono text-[11px] leading-5 tabular-nums text-content-tertiary"
+      :class="menu ? 'group-hover:opacity-0 coarse:group-hover:opacity-100' : ''"
+    >{{ price }}</span>
 
     <button
       v-if="menu"

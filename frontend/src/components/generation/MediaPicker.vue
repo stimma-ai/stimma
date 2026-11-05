@@ -1,7 +1,7 @@
 <template>
   <div
     class="relative"
-    :class="[collapsedEmpty ? 'mb-3 coarse:mb-2' : 'space-y-2 mb-5', disabled ? 'opacity-40 pointer-events-none' : '']"
+    :class="[collapsedEmpty ? 'mb-3 coarse:mb-1' : 'space-y-2 mb-5', disabled ? 'opacity-40 pointer-events-none' : '']"
     :data-drop-zone="`media-picker-${accept}`"
     @dragover.prevent="onDragOver"
     @dragleave="onDragLeave"

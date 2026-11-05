@@ -23,7 +23,7 @@
         v-if="isTopLevelPhase && phaseIndex != null"
         class="flex-shrink-0 font-mono text-[11px] text-content-muted"
       >Phase {{ phaseIndex }}</span>
-      <span class="text-ctl font-semibold text-content truncate narrow:whitespace-normal narrow:leading-snug">{{ displayName }}</span>
+      <span class="text-sm font-semibold text-content truncate narrow:whitespace-normal narrow:leading-snug">{{ displayName }}</span>
 
       <StatusDot
         v-if="phaseNeedsAttention"
@@ -159,12 +159,12 @@
                 />
                 <span v-else-if="eq.status === 'computing' && isPaused" class="text-amber-400/80 text-[11px] flex-shrink-0">⏸</span>
                 <svg
-                  v-else-if="eq.status === 'completed'"
-                  class="w-4 h-4 text-green-500 flex-shrink-0"
-                  fill="currentColor" viewBox="0 0 24 24"
-                >
-                  <path fill-rule="evenodd" clip-rule="evenodd" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm4.03-12.97a.75.75 0 00-1.06-1.06l-4.72 4.72-2.22-2.22a.75.75 0 10-1.06 1.06l2.75 2.75a.75.75 0 001.06 0l5.25-5.25z" />
-                </svg>
+  v-else-if="eq.status === 'completed'"
+  class="w-3.5 h-3.5 text-content-tertiary flex-shrink-0"
+  fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"
+>
+  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+</svg>
                 <svg
                   v-else-if="eq.status === 'failed'"
                   class="w-3.5 h-3.5 text-red-400 flex-shrink-0"
@@ -182,7 +182,7 @@
                 <span v-else class="w-2 h-2 rounded-full border border-content-muted/40 flex-shrink-0" />
 
                 <div class="flex-1 min-w-0 flex flex-col justify-center">
-                  <span class="truncate text-ctl text-content">{{ eq.display_name }}</span>
+                  <span class="truncate text-sm text-content">{{ eq.display_name }}</span>
                   <span
                     v-if="eq.description"
                     class="truncate text-[11px] leading-tight text-content-muted"
@@ -320,12 +320,12 @@
               >
                 <!-- Status icon — matches EquationTraceRow -->
                 <svg
-                  v-if="eq.status === 'completed'"
-                  class="w-4 h-4 text-green-500 flex-shrink-0"
-                  fill="currentColor" viewBox="0 0 24 24"
-                >
-                  <path fill-rule="evenodd" clip-rule="evenodd" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm4.03-12.97a.75.75 0 00-1.06-1.06l-4.72 4.72-2.22-2.22a.75.75 0 10-1.06 1.06l2.75 2.75a.75.75 0 001.06 0l5.25-5.25z" />
-                </svg>
+  v-if="eq.status === 'completed'"
+  class="w-3.5 h-3.5 text-content-tertiary flex-shrink-0"
+  fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"
+>
+  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+</svg>
                 <StatusDot
                   v-else-if="isEquationActionable(eq) && getTasksForEquation(eq.equation_key).length > 0"
                   bucket="awaiting"
@@ -341,7 +341,7 @@
                 <!-- Title + optional subtitle. Actionable HITL reads as
                      "Your Turn" / "Pick one"; other states are single-line. -->
                 <div class="flex-1 min-w-0 flex flex-col justify-center">
-                  <span class="truncate text-ctl text-content">{{ hitlTitle(eq) }}</span>
+                  <span class="truncate text-sm text-content">{{ hitlTitle(eq) }}</span>
                   <span
                     v-if="hitlSubtitle(eq)"
                     class="truncate text-[11px] leading-tight text-content-muted"

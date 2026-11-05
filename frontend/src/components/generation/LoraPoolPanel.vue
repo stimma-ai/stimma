@@ -1,5 +1,5 @@
 <template>
-  <div :class="compact ? 'my-1' : 'mb-3 coarse:mb-2'">
+  <div :class="compact ? 'my-1' : 'mb-3 coarse:mb-1'">
     <!-- Header: label + count + compact icon strip (＋ · ⌕ · disable-all · RAW · ⋯) -->
     <ToolSectionHeader
       label="LoRAs"

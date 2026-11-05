@@ -23,7 +23,7 @@
              The hero only floats in spare height when there is nothing below it. -->
         <div class="relative flex flex-col items-center justify-center w-full pt-[var(--hub-top)] pb-[var(--hub-content-gap)]" :class="hasBelowHero ? 'flex-none' : 'flex-1'">
           <div class="relative mb-[var(--hub-hero-gap)] text-center">
-            <h1 class="font-brand text-[length:var(--hub-hero-size)] compact:leading-tight font-bold tracking-tight text-content">{{ projectId ? 'What shall we make?' : (greetingParts.pre + greetingParts.word + greetingParts.post) }}</h1>
+            <h1 class="font-brand text-[length:var(--hub-hero-size)] compact:leading-tight font-medium tracking-tight text-content">{{ projectId ? 'What shall we make?' : (greetingParts.pre + greetingParts.word + greetingParts.post) }}</h1>
             <!-- Scope feedback stays with the Home content. -->
             <p v-if="projectId" class="mt-1.5 text-sm text-content-muted compact:hidden">{{ `In ${project.name || 'Untitled project'}` }}</p>
           </div>
@@ -61,8 +61,7 @@
                 :rows="1"
                 :disabled="submitting"
                 :agent-unavailable="agentModelUnavailable"
-                :context="projectId ? '' : 'New chat · No project'"
-                @update:attachments="inputAttachments = $event"
+                                @update:attachments="inputAttachments = $event"
                 @submit="submitMessage"
               >
                 <template #context-header>
@@ -75,14 +74,20 @@
                     :model-slug="selectedNewChatModel"
                     @update:model-slug="selectedNewChatModel = $event"
                   />
+                  <!-- Where the message lands, beside the model rather than on a line of its own,
+                       so the empty composer is as tall as a project's. -->
+                  <template v-if="!projectId">
+                    <span class="mx-2 h-3 w-px shrink-0 bg-edge-subtle" aria-hidden="true"></span>
+                    <span class="min-w-0 truncate text-[11px] text-content-muted" data-composer-context><span class="narrow:hidden">New chat · </span>No project</span>
+                  </template>
                 </template>
               </ChatInputBox>
             </div>
 
             <!-- Tool launchers docked to the prompt (recent tools, starter picks as cold-start fill) -->
             <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap items-center justify-start gap-2 mt-4 compact:mt-2 compact:flex-nowrap compact:gap-1">
-              <!-- On compact the shortcuts scroll and fade out at the edge; All tools stays beside them, never inside the scroll. -->
-              <div class="contents compact:flex compact:min-w-0 compact:flex-1 compact:gap-1.5 compact:-ml-page compact:pl-page compact:scroll-pl-page compact:pr-6 compact:overflow-x-auto compact:overscroll-x-contain compact:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <!-- On compact the shortcuts scroll and are cut at a rule; All tools stays beside them, never inside the scroll. -->
+              <div class="contents compact:flex compact:min-w-0 compact:flex-initial compact:gap-1.5 compact:-ml-page compact:pl-page compact:scroll-pl-page compact:overflow-x-auto compact:overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <button
                   v-for="tool in launcherTools"
                   :key="tool.full_tool_id"
@@ -91,14 +96,16 @@
                   :title="launcherProviders.size > 1 ? tool.name : `${tool.name} · ${providerLabel(tool)}`"
                 >
                   <div class="w-5 h-5 compact:w-4 compact:h-4 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
-                  <span class="whitespace-nowrap text-[13px] compact:text-[12px] font-medium text-content max-w-[180px] compact:max-w-none truncate">{{ tool.name }}</span>
+                  <span class="whitespace-nowrap text-[13px] compact:text-[12px] font-medium compact:font-normal text-content compact:text-content-secondary max-w-[180px] compact:max-w-none truncate">{{ tool.name }}</span>
                   <!-- Provider only when the row mixes providers; one shared provider is said once by the tool page. -->
                   <span v-if="launcherProviders.size > 1" class="whitespace-nowrap text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
                 </button>
               </div>
+              <!-- On compact the shortcuts end at this rule: a chip cut by it reads as a scroll edge, and All tools stays fixed. -->
+              <span class="hidden compact:block h-4 w-px shrink-0 bg-edge" aria-hidden="true"></span>
               <router-link
                 :to="contextRoute('all-tools', projectId)"
-                class="flex shrink-0 items-center whitespace-nowrap px-3 py-1.5 compact:px-2 compact:py-1 coarse:min-h-11 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+                class="flex shrink-0 items-center whitespace-nowrap px-3 py-1.5 compact:px-2 compact:py-1 compact:ml-1 coarse:min-h-11 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
               >
                 All tools →
               </router-link>
@@ -148,13 +155,13 @@
                 @dragover.prevent="item.type === 'board' && (dragOverBoardId = item.id)"
                 @dragleave="item.type === 'board' && dragOverBoardId === item.id && (dragOverBoardId = null)"
                 @drop.prevent="item.type === 'board' && handleBoardDrop(item.id, $event)"
-                class="group flex flex-col compact:flex-row rounded-lg overflow-hidden text-left bg-transparent transition-colors cursor-pointer"
+                class="group flex flex-col compact:flex-row rounded-media text-left bg-transparent transition-colors cursor-pointer"
                 :class="item.type === 'board' && dragOverBoardId === item.id
                   ? 'ring-1 ring-accent/50 bg-accent/10'
                   : ''"
               >
                 <!-- Art -->
-                <div class="w-full h-28 compact:w-20 compact:h-auto compact:min-h-20 compact:shrink-0 transition-opacity group-hover:opacity-85" :class="jumpHasArt(item) ? 'bg-matte' : 'bg-overlay-faint'">
+                <div class="w-full h-28 compact:w-20 compact:h-auto compact:min-h-20 compact:shrink-0 overflow-hidden rounded-media transition-opacity group-hover:opacity-85" :class="jumpHasArt(item) ? 'bg-matte' : 'bg-surface-raised'">
                   <!-- Board: filmstrip of tiles at natural aspect, full strip
                        height, left-aligned on matte with 2px media-grid
                        gutters. Widths follow each item's aspect ratio so
@@ -235,20 +242,22 @@
                   container-class="w-full h-full"
                     class="w-full h-full object-cover"
                   />
-                  <!-- Fallback: entity icon centered -->
-                  <div v-else class="w-full h-full flex items-center justify-center">
-                    <EntityIcon :type="item.type" size="md" class="!h-5 !w-5 !border-0 !bg-transparent !text-content-muted opacity-50" />
+                  <!-- No art: the raised tile with the type's glyph. On a wide card the tile
+                       carries the title too, so the card is not a vacant rectangle. -->
+                  <div v-else class="flex h-full w-full flex-col justify-between p-3 compact:items-center compact:justify-center compact:p-0">
+                    <EntityIcon :type="item.type" size="md" class="!h-5 !w-5 !border-0 !bg-transparent !text-content-tertiary" />
+                    <span class="line-clamp-2 text-sm font-medium compact:hidden" :class="item.name ? 'text-content' : 'text-content-muted italic'">{{ item.name || jumpUntitledLabel(item) }}</span>
                   </div>
                 </div>
                 <!-- Body -->
                 <div class="px-0 py-3 compact:px-3.5 compact:py-2.5 compact:flex-1 compact:min-w-0 compact:self-center">
                   <!-- On compact the type label rides the preview line instead of costing a line of its own. -->
-                  <div class="text-[11px] text-content-muted compact:hidden">{{ jumpKindLabel(item) }}</div>
-                  <div class="text-sm font-medium truncate compact:whitespace-normal compact:line-clamp-2 mt-1 compact:mt-0" :class="item.name ? 'text-content' : 'text-content-muted italic'">
+                                    <div v-if="jumpKindsMixed" class="text-[11px] text-content-muted compact:hidden">{{ jumpKindLabel(item) }}</div>
+                  <div class="text-sm font-medium truncate compact:whitespace-normal compact:line-clamp-2 mt-1 compact:mt-0" :class="[item.name ? 'text-content' : 'text-content-muted italic', jumpHasArt(item) ? '' : 'hidden compact:block', jumpKindsMixed ? '' : '!mt-0']">
                     {{ item.name || jumpUntitledLabel(item) }}
                   </div>
                   <div class="flex items-baseline gap-1.5 min-w-0 mt-0.5">
-                    <span class="hidden compact:inline shrink-0 text-[11px] text-content-muted">{{ jumpKindLabel(item) }}<span class="ml-1.5" aria-hidden="true">·</span></span>
+                    <span v-if="jumpKindsMixed" class="hidden compact:inline shrink-0 text-[11px] text-content-muted">{{ jumpKindLabel(item) }}<span class="ml-1.5" aria-hidden="true">·</span></span>
                     <FlowStatusPill
                       v-if="item.type === 'flow'"
                       :flow-id="item.id"
@@ -651,6 +660,9 @@ const jumpBackIn = computed(() => {
     .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
     .slice(0, jumpColumns.value === 3 ? 3 : 2)
 })
+
+// The kind word ("Chat") is said only where it tells cards apart.
+const jumpKindsMixed = computed(() => new Set(jumpBackIn.value.map(item => item.type)).size > 1)
 
 function jumpKindLabel(item) {
   return { board: 'Board', flow: 'Flow', chat: 'Chat' }[item.type] || item.type

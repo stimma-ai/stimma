@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // "New outputs": what happens to every result automatically (markers to set,
 // when to trash). One collapsed row in the form's section grammar, reading as
-// its state (`Off`, `Favorite · delete 1h`); it opens a small popover holding
+// its state in words (`Off`, `Delete after 1h`, `Favorite · delete after 1h`); it opens a small popover holding
 // both controls, each one tap away.
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import ToolSectionHeader from './ToolSectionHeader.vue'
@@ -39,7 +39,7 @@ const state = computed(() => {
   const parts: string[] = []
   const names = props.markers.filter(m => props.autoMarkerIds.includes(m.id)).map(m => m.name)
   if (names.length) parts.push(names.join(', '))
-  if (props.autoDelete !== 'never') parts.push(`delete ${props.autoDelete}`)
+  if (props.autoDelete !== 'never') parts.push(`${names.length ? 'delete' : 'Delete'} after ${props.autoDelete}`)
   return parts.length ? parts.join(' · ') : 'Off'
 })
 
@@ -81,7 +81,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div role="group" aria-label="New outputs" class="mb-3 coarse:mb-2">
+  <div role="group" aria-label="New outputs" class="mb-3 coarse:mb-1">
     <ToolSectionHeader
       ref="headerRef"
       disclosure

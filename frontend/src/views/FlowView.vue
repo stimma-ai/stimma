@@ -54,7 +54,7 @@
           <input
             ref="nameInputEl"
             v-model="editingNameValue"
-            class="min-w-0 max-w-xs rounded-md border border-transparent bg-overlay-subtle px-2 py-1 text-base font-semibold text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
+            class="min-w-0 max-w-xs rounded-md border border-transparent bg-overlay-subtle px-2 py-1 font-brand text-[18px] leading-6 font-semibold text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
             @blur="saveName"
             @keydown.enter.prevent="saveName"
             @keydown.esc.prevent="cancelEditName"
@@ -159,9 +159,28 @@
             <path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" />
           </svg>
         </button>
+        <!-- The view switch lives in the header on wide screens (one row of
+             navigation); compact keeps it in the strip under the header. -->
+        <SegmentedControl
+          v-if="!isCompact"
+          class="ml-3 flex-shrink-0"
+          :model-value="viewMode"
+          :options="VIEW_MODES"
+          aria-label="Flow view"
+          @update:model-value="setViewMode($event)"
+        />
       </template>
 
       <template #actions>
+        <div v-if="!isCompact && viewMode === 'graph' && !programAttentionError" class="flex items-center gap-1">
+          <SegmentedControl
+            :model-value="graphCollapseForeach ? 'collapsed' : 'expanded'"
+            :options="GRAPH_DETAIL_MODES"
+            aria-label="Graph detail"
+            title="Collapse foreach iterations into a single super-node, or show every iteration's equations as raw graph nodes"
+            @update:model-value="graphCollapseForeach = $event === 'collapsed'"
+          />
+        </div>
         <!-- Save Custom Tool. With no backing tool it freezes a new one. Once this
              flow backs a tool, a caret opens a terse menu (Update <tool> / Save as
              New). A dot — on the button and on each drifted row — marks unsaved
@@ -225,18 +244,24 @@
 
         <!-- Chat menu: new session, switch session, show/hide panel -->
         <div class="relative" ref="chatMenuContainerRef">
-          <div class="flex items-center rounded-md bg-overlay-subtle p-0.5 compact:p-0 coarse:p-0">
+          <!-- On wide screens the flow and the chat are open side by side, so
+               an open chat marks both segments; compact is the exclusive
+               choice. The sessions chevron is its own bare button. -->
+          <div class="flex items-center gap-1">
             <SegmentedControl
               :model-value="chatPanelOpen ? 'chat' : 'flow'"
               :options="WORKSPACE_MODES"
               aria-label="Workspace"
-              class="!bg-transparent !p-0 coarse:[&_button]:min-h-11 coarse:[&_button]:px-3.5"
+              :class="[
+                'coarse:[&_button]:min-h-11 coarse:[&_button]:px-3.5',
+                chatPanelOpen && !isCompact ? '[&_button:first-child]:bg-overlay-medium [&_button:first-child]:text-content' : '',
+              ]"
               @update:model-value="chatPanelOpen = $event === 'chat'"
             />
             <button
               type="button"
-              class="w-6 h-7 compact:w-9 compact:h-11 coarse:w-9 coarse:h-11 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-hover transition-colors"
-              :class="showChatMenu ? 'bg-overlay-hover text-content-secondary' : ''"
+              class="w-7 h-7 compact:w-9 compact:h-11 coarse:w-9 coarse:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+              :class="showChatMenu ? 'bg-overlay-subtle text-content-secondary' : ''"
               title="Chat sessions"
               aria-label="Chat sessions"
               aria-haspopup="menu"
@@ -323,7 +348,7 @@
           <!-- Dropdown menu -->
           <div
             v-if="showMenu"
-            class="absolute right-0 mt-1 w-44 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
+            class="absolute right-0 mt-1 w-48 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
           >
             <template v-if="showPauseButton && pauseInMenu">
               <button
@@ -359,6 +384,45 @@
             </button>
             <div class="border-t border-edge my-1"></div>
             <button
+              v-if="hasInputFields"
+              @click="resetInputsToDefaults"
+              class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-1.636 14.288A9 9 0 1 1 21 12.75v-3" />
+              </svg>
+              Reset inputs
+            </button>
+            <button
+              v-if="isDev"
+              @click="handleShowCodeIntroModal"
+              class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2"
+            >
+              <BoltIcon class="w-3.5 h-3.5 text-accent" />
+              Show code intro
+            </button>
+            <button
+              @click="handleReparseFlow"
+              :disabled="reparsingFlow"
+              class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-1.636 14.288A9 9 0 1 1 21 12.75v-3" />
+              </svg>
+              {{ reparsingFlow ? 'Re-processing…' : 'Re-process flow' }}
+            </button>
+            <div class="border-t border-edge my-1"></div>
+            <button
+              @click="handleClearFlow"
+              :disabled="clearingFlow"
+              class="w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+              {{ clearingFlow ? 'Clearing…' : 'Clear flow' }}
+            </button>
+            <button
               @click="handleDelete"
               class="w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2"
             >
@@ -376,8 +440,9 @@
     <div class="flex flex-1 min-h-0 relative">
       <!-- Left wrapper: tab subheader spans main column AND resize handle so its border butts against the chat panel's left divider -->
       <div class="flex-1 flex flex-col min-w-0">
-        <!-- View tabs subheader -->
-        <div class="flex items-center px-page border-b border-edge-subtle flex-shrink-0">
+        <!-- View tabs strip: compact only. Wide screens carry the view switch in
+             the header. -->
+        <div v-if="isCompact" class="flex items-center px-page border-b border-edge-subtle flex-shrink-0">
           <SegmentedControl
             class="my-2"
             :model-value="viewMode"
@@ -387,8 +452,6 @@
           />
 
           <div class="ml-auto flex items-center gap-2 py-1">
-            <!-- Graph view toggle: collapse foreaches into super-nodes vs show
-                 every iteration's equations expanded (the raw dagre layout). -->
             <div v-if="viewMode === 'graph' && !programAttentionError" class="flex items-center gap-1">
               <SegmentedControl
                 :model-value="graphCollapseForeach ? 'collapsed' : 'expanded'"
@@ -397,56 +460,6 @@
                 title="Collapse foreach iterations into a single super-node, or show every iteration's equations as raw graph nodes"
                 @update:model-value="graphCollapseForeach = $event === 'collapsed'"
               />
-            </div>
-
-            <div class="relative" ref="tabMenuContainerRef">
-              <OverflowButton size="lg" @click="toggleTabMenu" />
-
-              <div
-                v-if="showTabMenu"
-                class="absolute right-0 mt-1 w-48 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
-              >
-                <button
-                  v-if="hasInputFields"
-                  @click="resetInputsToDefaults"
-                  class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-1.636 14.288A9 9 0 1 1 21 12.75v-3" />
-                  </svg>
-                  Reset Inputs
-                </button>
-                <div v-if="hasInputFields" class="border-t border-edge my-1"></div>
-                <button
-                  v-if="isDev"
-                  @click="handleShowCodeIntroModal"
-                  class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2"
-                >
-                  <BoltIcon class="w-3.5 h-3.5 text-accent" />
-                  Show code intro
-                </button>
-                <div v-if="isDev" class="border-t border-edge my-1"></div>
-                <button
-                  @click="handleReparseFlow"
-                  :disabled="reparsingFlow"
-                  class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-1.636 14.288A9 9 0 1 1 21 12.75v-3" />
-                  </svg>
-                  {{ reparsingFlow ? 'Re-processing…' : 'Re-process flow' }}
-                </button>
-                <button
-                  @click="handleClearFlow"
-                  :disabled="clearingFlow"
-                  class="w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                  </svg>
-                  {{ clearingFlow ? 'Clearing…' : 'Clear flow' }}
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -487,7 +500,7 @@
                      dirty, or Hide inputs once a finished flow is open. -->
                 <section v-if="hasInputFields" class="relative" data-testid="flow-inputs-card">
                   <div class="mb-2 flex items-center justify-between gap-3">
-                    <h2 class="text-ctl font-semibold text-content-secondary">Inputs</h2>
+                    <h2 class="text-sm font-semibold text-content-secondary">Inputs</h2>
                     <div v-if="inputsDirty" class="-my-1 -mr-2 flex items-center gap-1.5">
                       <button
                         type="button"
@@ -507,7 +520,7 @@
                     <button
                       v-else-if="inputsCollapsed"
                       type="button"
-                      class="-my-1 -mr-2 flex-shrink-0 rounded-md px-2 py-1 text-xs font-medium text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:min-h-11"
+                      class="-my-1 -mr-2 flex-shrink-0 rounded-md px-2 py-1 text-sm font-medium text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:min-h-11"
                       aria-label="Edit inputs"
                       :aria-expanded="false"
                       @click="inputsOpen = true"
@@ -525,10 +538,10 @@
                        outputs own the first screen; the full form stays mounted below. -->
                   <dl v-if="inputsCollapsed" class="min-w-0 space-y-1.5" data-testid="flow-inputs-summary">
                     <div v-for="row in inputsSummaryRows" :key="row.key" class="flex items-baseline gap-3 leading-5">
-                      <dt class="w-28 flex-shrink-0 truncate text-xs leading-5 text-content-tertiary compact:w-24">{{ row.label }}</dt>
+                      <dt class="w-28 flex-shrink-0 truncate text-sm leading-5 text-content-tertiary compact:w-24">{{ row.label }}</dt>
                       <dd
                         class="min-w-0 flex-1 truncate leading-5 text-content"
-                        :class="row.mono ? 'font-mono text-xs tabular-nums' : 'text-[13px]'"
+                        :class="row.mono ? 'font-mono text-[13px] tabular-nums' : 'text-sm'"
                       >{{ row.value }}</dd>
                     </div>
                     <div v-if="inputsSummaryMore > 0" class="text-xs text-content-muted">+{{ inputsSummaryMore }} more</div>
@@ -1384,10 +1397,6 @@ function onDocumentClick(e: MouseEvent) {
     const root = menuContainerRef.value
     if (root && !root.contains(target)) showMenu.value = false
   }
-  if (showTabMenu.value) {
-    const root = tabMenuContainerRef.value
-    if (root && !root.contains(target)) showTabMenu.value = false
-  }
   if (showChatMenu.value) {
     const root = chatMenuContainerRef.value
     if (root && !root.contains(target)) showChatMenu.value = false
@@ -1404,15 +1413,9 @@ onUnmounted(() => {
 // --- 3-dot menu ---
 const showMenu = ref(false)
 const menuContainerRef = ref<HTMLElement | null>(null)
-const showTabMenu = ref(false)
-const tabMenuContainerRef = ref<HTMLElement | null>(null)
 
 function toggleMenu() {
   showMenu.value = !showMenu.value
-}
-
-function toggleTabMenu() {
-  showTabMenu.value = !showTabMenu.value
 }
 
 function handleRename() {
@@ -1421,19 +1424,17 @@ function handleRename() {
 }
 
 function handleShowCodeIntroModal() {
-  showTabMenu.value = false
+  showMenu.value = false
   showCodeIntroModal.value = true
 }
 
 async function handleReparseFlow() {
   showMenu.value = false
-  showTabMenu.value = false
   await doReparseFlow()
 }
 
 async function handleClearFlow() {
   showMenu.value = false
-  showTabMenu.value = false
   await doClearFlow()
 }
 
@@ -1477,7 +1478,6 @@ const creatingChatSession = ref(false)
 watch(() => flow.value?.id, (id) => {
   copiesOpen.value = false
   showMenu.value = false
-  showTabMenu.value = false
   showChatMenu.value = false
   flowChatSessions.value = []
   if (id) loadCopies()
@@ -1776,7 +1776,7 @@ const attentionErrorSource = computed<'build' | 'runtime'>(() => programAttentio
 const showFlowAttentionBanner = computed(() => !!attentionError.value || allBlocked.value)
 
 function resetInputsToDefaults() {
-  showTabMenu.value = false
+  showMenu.value = false
   inputFormRef.value?.resetToDefaults()
 }
 
@@ -2440,9 +2440,13 @@ function updateCompactHeader() {
     { label: 'Rename', run: () => { renameOpen.value = true } },
     { label: 'Move to project', run: () => { moveProjectOpen.value = true } },
     { label: 'Make a copy', run: doCopy },
+    ...(hasInputFields.value ? [{ label: 'Reset inputs', run: resetInputsToDefaults }] : []),
+    ...(isDev.value ? [{ label: 'Show code intro', run: handleShowCodeIntroModal }] : []),
+    { label: 'Re-process flow', run: handleReparseFlow },
+    { label: 'Clear flow', run: handleClearFlow, destructive: true },
     { label: 'Delete', run: handleDelete, destructive: true },
   ])
 }
-watch([() => flow.value?.id, () => flow.value?.name, () => showPauseButton.value && pauseInMenu.value, isPhone, () => backingTools.value.map(t => `${t.id}:${t.has_changes}`).join()], updateCompactHeader, { immediate: true })
+watch([() => flow.value?.id, () => flow.value?.name, () => showPauseButton.value && pauseInMenu.value, isPhone, hasInputFields, isDev, () => backingTools.value.map(t => `${t.id}:${t.has_changes}`).join()], updateCompactHeader, { immediate: true })
 onActivated(updateCompactHeader)
 </script>

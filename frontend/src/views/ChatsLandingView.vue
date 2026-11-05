@@ -10,7 +10,7 @@
           placeholder="Search chats..."
           class="w-48"
         />
-        <Button variant="primary" size="sm" @click="createNewChat">
+        <Button variant="primary" @click="createNewChat">
           <template #icon><PlusIcon class="h-icon-inline w-icon-inline" /></template>
           New
         </Button>

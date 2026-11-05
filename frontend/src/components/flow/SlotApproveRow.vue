@@ -16,12 +16,12 @@
         class="w-2 h-2 mt-1 rounded-full bg-accent"
       />
       <svg
-        v-else-if="cellState === 'approved'"
-        class="w-4 h-4 text-green-500"
-        fill="currentColor" viewBox="0 0 24 24"
-      >
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm4.03-12.97a.75.75 0 00-1.06-1.06l-4.72 4.72-2.22-2.22a.75.75 0 10-1.06 1.06l2.75 2.75a.75.75 0 001.06 0l5.25-5.25z" />
-      </svg>
+  v-else-if="cellState === 'approved'"
+  class="w-3.5 h-3.5 text-content-tertiary"
+  fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"
+>
+  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+</svg>
       <svg
         v-else-if="cellState === 'failed'"
         class="w-4 h-4 text-red-400"

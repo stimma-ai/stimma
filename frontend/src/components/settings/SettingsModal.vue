@@ -7,12 +7,12 @@
     @close="close"
   >
     <template #header>
-      <div class="flex items-center justify-between compact:-mx-6 compact:-my-4 compact:h-header-mobile compact:px-3">
+      <div class="flex items-center justify-between compact:-mx-6 compact:-my-4 compact:h-header-mobile compact:px-page">
         <div class="flex items-center gap-0.5 min-w-0">
           <button
             v-if="isCompact && !compactList"
             type="button"
-            :class="compactIconButton"
+            :class="[compactIconButton, '!text-content']"
             aria-label="All settings"
             @click="compactList = true"
           >

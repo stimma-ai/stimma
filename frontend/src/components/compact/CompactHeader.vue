@@ -80,7 +80,7 @@ const sheetItems = computed(() => {
 
 <template>
   <header class="compact-header flex-none bg-surface pt-safe">
-    <div class="h-header-mobile flex items-center gap-0.5 px-3">
+    <div class="h-header-mobile flex items-center gap-0.5 px-page">
       <!-- Left slot: Menu on hubs, Back on details, never both. The drawer
            stays reachable from a detail through Back (to the hub) and the edge
            swipe. Where the drawer can dock (a hub when roomy, a detail at

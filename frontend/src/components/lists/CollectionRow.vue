@@ -2,7 +2,9 @@
 // One row grammar for the collection lists (chats, flows). A leading
 // thumbnail, then a content column (title, and a one-line preview under it),
 // then a fixed-width trailing column for the row's facts (a status or counts),
-// then the date. Every column has its own edge, so facts and dates form
+// then the date. A fact cell (an icon and its number) starts at its own left
+// edge, so the icons stand in straight tracks down the page whatever the digit
+// count. Every column has its own edge, so facts and dates form
 // straight vertical tracks down the page instead of following the end of each
 // preview; the preview truncates before any fact does. Rows run the pane's full
 // width so the hover target is full bleed, and pad themselves to the list
@@ -55,7 +57,7 @@ withDefaults(defineProps<{
            is the space after the last line. -->
       <div
         v-if="$slots.trailing"
-        class="col-start-3 row-start-1 flex h-5 min-w-0 items-center justify-end narrow:[grid-column:2/4] narrow:row-start-3 narrow:mt-1 narrow:h-4 narrow:justify-start"
+        class="col-start-3 row-start-1 flex h-5 min-w-0 items-center justify-end [&_[title]]:!justify-start narrow:[grid-column:2/4] narrow:row-start-3 narrow:mt-1 narrow:h-4 narrow:justify-start"
       >
         <slot name="trailing" />
       </div>

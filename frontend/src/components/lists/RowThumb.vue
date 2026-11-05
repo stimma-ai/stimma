@@ -6,8 +6,8 @@ const infoCache = new Map<number, Promise<{ format: string; hasAlpha: boolean } 
 <script setup lang="ts">
 // The leading thumbnail of a list row, a 40px slot. With media it is a square
 // on the matte (media law). Without media, or when it will not load, the slot
-// holds the row type's glyph (slot) alone: quiet, no box, so a list of rows
-// without art does not read as a column of dark tiles.
+// is a real square of the same size on the raised surface holding the row
+// type's glyph (slot), so the thumbnail column has no holes.
 //
 // What is drawn depends on what the media is, which the list payload does not
 // say, so the format is read once per media id (cached across rows):
@@ -144,9 +144,9 @@ const showImage = computed(() => props.mediaId != null && infoReady.value && !fa
 <template>
   <div
     class="relative flex h-10 w-10 flex-shrink-0 items-center justify-center"
-    :class="showImage && loaded ? 'overflow-hidden rounded-media bg-matte' : 'text-content-muted'"
+    :class="showImage && loaded ? 'overflow-hidden rounded-media bg-matte' : 'rounded-media bg-surface-raised text-content-tertiary'"
   >
-    <span v-if="!showImage || !loaded" class="flex h-5 w-5 items-center justify-center opacity-50" aria-hidden="true">
+    <span v-if="!showImage || !loaded" class="flex h-5 w-5 items-center justify-center" aria-hidden="true">
       <slot />
     </span>
     <div v-if="showImage" class="absolute inset-0 overflow-hidden rounded-media" :class="loaded ? '' : 'opacity-0'">

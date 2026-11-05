@@ -330,7 +330,7 @@
              plain editor here — the page-level chat lives in the dock below and
              is owned by this view, not the prompt field. -->
         <Teleport to="#tool-drawer-prompt" :disabled="!drawerMode" defer>
-        <div v-if="hasPrompt" class="mb-6 compact:mb-0 roomy:mb-4">
+        <div v-if="hasPrompt" class="mb-6 compact:mb-0 roomy:mb-3">
           <AIPromptEditor
             ref="aiPromptEditorRef"
             v-model="globalPrefs.prompt"
@@ -350,10 +350,11 @@
              do not read as a second copy of the result's heart / bookmark /
              trash. Compact layouts (phone and fold) keep them in the sheet
              Run's long-press opens, with a settings glyph on Run while either is on and a New outputs row that opens that sheet. -->
-        <div class="flex flex-wrap items-center gap-2 mb-3 empty:hidden">
+        <div class="flex flex-wrap items-center gap-2 mb-5 coarse:mb-4 empty:hidden">
             <!-- Resolution picker: width/height tools, freeform or fixed list -->
             <ResolutionPicker
               v-if="allowedDimensions || (hasWidthHeight && !hasMegapixels)"
+              class="!block w-full [&>button]:w-full [&>button>svg:last-child]:ml-auto"
               :policy="resolutionPolicy"
               :image="drivingImage"
               :has-image-input="!isFromScratch"
@@ -981,7 +982,7 @@
       <div
         v-if="jobsManager"
         ref="railBoxEl"
-        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!px-2 compact:!py-0 roomy:col-start-2 roomy:row-start-2 roomy:!h-28 roomy:!max-h-28 roomy:!w-auto roomy:!px-page roomy:!pt-0 roomy:!pb-2 roomy:border-t-0"
+        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!px-2 compact:!py-0 roomy:col-start-2 roomy:row-start-2 roomy:!h-28 roomy:!max-h-28 roomy:!w-auto roomy:!pl-page roomy:!pr-0 roomy:!pt-0 roomy:!pb-2 roomy:border-t-0"
         :class="[
           layoutMode === 'stage' ? 'border-surface px-2 pt-4 pb-2' : 'border-transparent py-3 px-0',
           stageResizing ? '!transition-none' : '',

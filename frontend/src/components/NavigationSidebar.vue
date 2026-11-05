@@ -97,7 +97,7 @@
             <span class="truncate text-sm">{{ displaySavedViewName(savedView.name) }}</span>
           </button>
 
-          <div class="h-3 flex-shrink-0 coarse:h-1" aria-hidden="true"></div>
+          <div class="h-3.5 flex-shrink-0 coarse:h-2" aria-hidden="true"></div>
 
           <!-- All Assets -->
           <button
@@ -241,6 +241,7 @@
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
                 class="coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
+                :aria-current="isTabActive(tab) ? 'page' : undefined"
                 :class="[
                   isTwoLineTab(tab) ? 'min-h-10' : 'min-h-8',
                   isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
@@ -533,7 +534,7 @@
 
             <SidebarSectionHeader v-if="openTabs.length > 0" id="open" label="Open" />
 
-            <div v-if="!isCollapsed('open')" ref="openEl" @scroll.passive="updateNavEdge" class="flex min-h-32 flex-1 flex-col gap-0.5 coarse:gap-0 overflow-y-auto custom-scrollbar coarse:min-h-0 coarse:flex-none coarse:overflow-visible" :class="openFade ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]' : ''">
+            <div v-if="!isCollapsed('open')" ref="openEl" @scroll.passive="updateNavEdge" class="flex min-h-32 flex-1 scroll-pb-6 flex-col gap-0.5 coarse:gap-0 overflow-y-auto custom-scrollbar coarse:min-h-0 coarse:flex-none coarse:overflow-visible" :class="openFade ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]' : ''">
             <!-- Open (unpinned) tabs -->
             <div
               v-for="(tab, index) in openTabs"
@@ -558,6 +559,7 @@
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
                 class="coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
+                :aria-current="isTabActive(tab) ? 'page' : undefined"
                 :class="[
                   isTwoLineTab(tab) ? 'min-h-10' : 'min-h-8',
                   isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
@@ -1251,6 +1253,16 @@ function isContextTab(tab: WorkspaceTab) {
 const pinnedTabs = computed(() => allPinnedTabs.value.filter(isContextTab))
 const openTabs = computed(() => allOpenTabs.value.filter(isContextTab))
 const editorTabs = computed(() => allEditorTabs.value.filter(isContextTab))
+// The open row for the current page stays in view: the Open list scrolls, and
+// a page opened from elsewhere (a link, a search hit) would otherwise sit below
+// the fold with nothing in the rail marking where the user is.
+watch(
+  () => [route.fullPath, openTabs.value.length],
+  () => nextTick(() => {
+    openEl.value?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest' })
+  }),
+  { flush: 'post' },
+)
 const visibleTabIds = computed(() => allTabs.value.filter(isContextTab).map(t => t.id))
 // Drag-drop state
 const dragHoverTabId = ref<string | null>(null)

@@ -34,6 +34,10 @@ import type { DeckParam } from './ParamDeck.vue'
 import { DEFAULT_LINEAR_SOFTNESS, DEFAULT_RADIAL_FEATHER } from '../stack/regionMask'
 import { SELECT_TOOLS, SELECT_TOOL_GROUPS, SELECTION_MODES } from '../stack/toolFamilies'
 import type { SelectToolId, SelectionMode } from '../stack/toolFamilies'
+
+// The resting pill says Select with the selection mark (a dashed marquee), not
+// whichever tool was used last: the lasso's rope loop reads as a speech bubble.
+const SELECT_MARK = 'squareDashed'
 import {
   FEATHER_SLIDER_MAX,
   featherPxFromSlider,
@@ -425,7 +429,7 @@ function buttonClass(active: boolean, enabled = true) {
             : hasSelection ? 'text-content ring-1 ring-selection' : 'text-content-secondary group-active:bg-overlay-subtle'"
         >
           <ToolIcon
-            :name="armed ? armedTool!.icon : (hasSelection && lastUsed ? toolById[lastUsed].icon : 'lasso')"
+            :name="armed ? armedTool!.icon : (hasSelection && lastUsed ? toolById[lastUsed].icon : SELECT_MARK)"
             :size="16"
           />
           {{ armed ? armedTool?.label : hasSelection ? 'Selection' : 'Select' }}
@@ -739,7 +743,7 @@ function buttonClass(active: boolean, enabled = true) {
       data-select-pill
       @click="emit('choose', lastUsed ?? 'lasso')"
     >
-      <ToolIcon :name="toolById[lastUsed ?? 'lasso'].icon" />
+      <ToolIcon :name="SELECT_MARK" />
       Select
     </button>
   </Tooltip>

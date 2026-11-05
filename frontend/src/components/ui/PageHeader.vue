@@ -1,9 +1,8 @@
 <script setup lang="ts">
-// The one page header (DESIGN.md §1.6 "Page header"). Two tiers:
-//   standard: collections (boards, chats, flows, tools, board detail), 64px,
-//             display title at 20px.
-//   compact:  workspaces (chat, flow, tool, editor), 52px, display title at 16px.
-// One left inset (--page-margin), one slot order: title, meta, actions, menu.
+// The one page header (DESIGN.md §2 PageHeader): one height, one title style
+// (18px display), one fill, one left inset (--page-margin) on every desktop
+// page. `tier` is accepted for existing callers and changes nothing.
+// One slot order: title, meta, actions, menu.
 // The menu slot holds the overflow button (ui/OverflowButton.vue), last on the
 // right. Phones use CompactHeader instead; callers hide this with `compact:hidden`.
 import { pageHeaderClass, pageHeaderTitleClass } from './pageHeader'

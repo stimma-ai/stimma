@@ -49,11 +49,15 @@ export default {
         'icon-canvas': 'var(--icon-canvas)',
       },
       height: {
+        control: 'var(--control-h)',
+        'control-main': 'var(--control-h-main)',
         header: 'var(--header-h)',
         'header-compact': 'var(--header-h-compact)',
         'header-mobile': 'var(--header-h-mobile)',
       },
       minHeight: {
+        control: 'var(--control-h)',
+        'control-main': 'var(--control-h-main)',
         header: 'var(--header-h)',
         'header-compact': 'var(--header-h-compact)',
         'header-mobile': 'var(--header-h-mobile)',
