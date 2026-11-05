@@ -30,7 +30,7 @@
         </div>
 
         <!-- Nav Menu - only show when we have data -->
-        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-0.5 coarse:gap-0 flex-1 overflow-y-auto custom-scrollbar" :class="[isDesktopMac ? 'pt-10' : 'pt-3', navScrolls ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]' : '']">
+        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-0.5 coarse:gap-0 flex-1 overflow-y-auto custom-scrollbar" :class="isDesktopMac ? 'pt-10' : 'pt-3'">
 
           <!-- ==================== ZONE 1: Library Links ==================== -->
 
@@ -550,7 +550,7 @@
               @media-drop="handleShelfMediaDrop"
             />
 
-            <div v-if="!isCollapsed('open') && openTabs.length > 0" ref="openEl" @scroll.passive="updateNavEdge" class="flex min-h-32 flex-1 scroll-pb-6 flex-col gap-0.5 coarse:gap-0 overflow-y-auto custom-scrollbar coarse:min-h-0 coarse:flex-none coarse:overflow-visible" :class="openFade ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]' : ''">
+            <template v-if="!isCollapsed('open')">
             <!-- Open (unpinned) tabs -->
             <div
               v-for="(tab, index) in openTabs"
@@ -864,7 +864,7 @@
                 class="absolute left-0 right-0 h-0.5 bg-accent-hi top-0 z-10"
               ></div>
             </div>
-            </div>
+            </template>
           </div>
 
         </nav>
@@ -1149,25 +1149,13 @@ function openSettingsFromFooter() {
 // content is scrolled under it, and disappears at scroll-bottom.
 const navEl = ref<HTMLElement | null>(null)
 const navScrolledUnder = ref(false)
-// The Open list takes the space the rest of the rail leaves and scrolls inside
-// it; the nav itself only scrolls in a window too short to leave it a few rows.
-const openEl = ref<HTMLElement | null>(null)
-const openFade = ref(false)
-const navScrolls = ref(false)
 
 function updateNavEdge() {
   const el = navEl.value
-  const list = openEl.value
-  openFade.value = !!list && list.scrollHeight - list.scrollTop - list.clientHeight > 1
-  navScrolls.value = !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 1
-  navScrolledUnder.value = openFade.value || navScrolls.value
+  navScrolledUnder.value = !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 1
 }
 
 let navResizeObserver: ResizeObserver | null = null
-watch(openEl, (el) => {
-  if (el) navResizeObserver?.observe(el)
-  updateNavEdge()
-})
 watch(navEl, (el) => {
   navResizeObserver?.disconnect()
   navResizeObserver = null
@@ -1281,16 +1269,6 @@ function isContextTab(tab: WorkspaceTab) {
 const pinnedTabs = computed(() => allPinnedTabs.value.filter(isContextTab))
 const openTabs = computed(() => allOpenTabs.value.filter(isContextTab))
 const editorTabs = computed(() => allEditorTabs.value.filter(isContextTab))
-// The open row for the current page stays in view: the Open list scrolls, and
-// a page opened from elsewhere (a link, a search hit) would otherwise sit below
-// the fold with nothing in the rail marking where the user is.
-watch(
-  () => [route.fullPath, openTabs.value.length],
-  () => nextTick(() => {
-    openEl.value?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest' })
-  }),
-  { flush: 'post' },
-)
 const visibleTabIds = computed(() => allTabs.value.filter(isContextTab).map(t => t.id))
 // Drag-drop state
 const dragHoverTabId = ref<string | null>(null)
