@@ -3,7 +3,7 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { chromium } from '@playwright/test'
+import { chromium, expect } from '@playwright/test'
 
 const buildResult = await build({
   configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), logLevel: 'silent', plugins: [vue()],
@@ -212,8 +212,12 @@ test('an idle response that arrives after backgrounding starts nothing more', as
   const { page, server } = await fixture(t)
   let release
   server.gate = new Promise(resolve => { release = resolve })
+  const before = server.statusRequests
   await dropSockets(server) // Reconnect wakes an idle refresh that is held in flight.
   await advance(page, 2_000)
+  // The socket reconnect crosses the browser/fixture boundary asynchronously;
+  // wait until the held request has actually arrived before backgrounding it.
+  await expect.poll(() => server.statusRequests).toBe(before + 1)
   const started = server.statusRequests
   await setAppActive(page, false)
   await page.evaluate(() => window.dispatchEvent(new Event('offline')))
