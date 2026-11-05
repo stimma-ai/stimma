@@ -260,27 +260,15 @@
     </div>
 
     <!-- Feedback input box, in the shared composer grammar (ChatInputBox): one
-         fill, no hairline. At rest on wide screens it is one row: Agent label,
-         an uninterrupted text field, a quiet utilities group and Send at the
-         trailing edge. Focus or text opens it into the composer shape: the
-         field on its own full-width row, the controls row beneath (label at the
-         left, utilities and Send at the trailing edge). Undo and redo only
-         show at rest while there is something to undo. -->
+         fill, no hairline. One shape in every state, so no control moves under
+         the pointer: wide, one row of label, field, utilities and Send, with the
+         field growing as it wraps; narrow, the field above the controls. -->
+    <div class="@container">
     <div
-      ref="dockEl"
-      class="grid grid-cols-[1fr_auto] [grid-template-areas:'text_text'_'utils_send'] bg-field rounded-lg overflow-hidden transition-shadow duration-150 md:grid-cols-[auto_1fr_auto_auto] md:items-center"
-      :class="[
-        dockOpen
-          ? `md:[grid-template-areas:'text_text_text_text'_'label_._utils_send']`
-          : `md:[grid-template-areas:'label_text_utils_send']`,
-        dockFocused ? 'ring-1 ring-accent/40' : '',
-      ]"
+      class="grid grid-cols-[1fr_auto] [grid-template-areas:'text_text'_'utils_send'] bg-field rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-accent/40 @[480px]:grid-cols-[auto_1fr_auto_auto] @[480px]:items-end @[480px]:[grid-template-areas:'label_text_utils_send']"
       data-testid="agent-dock"
-      :data-state="dockOpen ? 'open' : 'rest'"
-      @focusin="dockFocused = true"
-      @focusout="onDockFocusOut"
     >
-      <span class="hidden md:inline-flex [grid-area:label] items-center gap-1.5 text-content-secondary" :class="dockOpen ? 'md:pl-4 md:pb-2' : 'md:pl-3'">
+      <span class="hidden @[480px]:inline-flex [grid-area:label] h-10 items-center gap-1.5 pl-3 text-content-secondary">
         <AgentIcon class="h-icon-nav w-icon-nav" />
         <span class="text-ctl font-medium">Agent</span>
       </span>
@@ -296,13 +284,11 @@
         @keydown="voiceBtn?.handleInputKeydown($event)"
         @keyup="voiceBtn?.handleInputKeyup($event)"
         :placeholder="inputPlaceholder"
-        class="[grid-area:text] w-full min-w-0 bg-transparent text-content text-sm px-4 pt-3 pb-1 focus:outline-none font-sans resize-none block max-h-40 overflow-y-auto"
-        :class="dockOpen ? 'md:pt-3 md:pb-1 md:px-4' : 'md:px-2 md:py-2.5'"
+        class="[grid-area:text] w-full min-w-0 bg-transparent text-content text-sm px-4 pt-3 pb-1 focus:outline-none font-sans resize-none block max-h-40 overflow-y-auto @[480px]:px-2 @[480px]:py-2.5"
       />
 
       <!-- Utilities, grouped at the trailing edge -->
-      <div class="[grid-area:utils] flex items-center gap-0.5 pl-2.5 pb-2 pt-2" :class="dockOpen ? 'md:pb-2 md:pt-0 md:pl-0' : 'md:p-0 md:pr-1'">
-        <template v-if="dockOpen || canUndo() || canRedo()">
+      <div class="[grid-area:utils] flex items-center gap-0.5 pl-2.5 pb-2 pt-2 @[480px]:h-10 @[480px]:p-0 @[480px]:pr-1">
           <button
             @click="undo"
             :disabled="!canUndo()"
@@ -319,7 +305,6 @@
           >
             <ArrowUturnRightIcon class="w-4 h-4" />
           </button>
-        </template>
         <VoiceInputButton ref="voiceBtn" icon-class="w-4 h-4" :get-text="getFeedbackText" :set-text="setFeedbackText" :focus="focusFeedback" surface="prompt_agent" />
         <!-- Agent settings (Instructions) — expands the drawer above. -->
         <button
@@ -336,13 +321,13 @@
       </div>
 
       <SendButton
-        class="[grid-area:send] mr-2.5 mb-2 mt-2"
-        :class="dockOpen ? 'md:mt-0' : 'md:my-0 md:mr-1.5'"
+        class="[grid-area:send] mr-2.5 mb-2 mt-2 @[480px]:my-1 @[480px]:mr-1.5"
         :icon="feedbackBusy() ? 'stop' : 'send'"
         :disabled="feedbackBusy() || !feedbackText.trim()"
         :title="feedbackBusy() ? 'Working…' : 'Send'"
         @click="enhance"
       />
+    </div>
     </div>
 
     <div v-if="error" class="mt-2 flex items-center gap-2">
@@ -369,7 +354,7 @@
     <Transition name="flow-expand">
       <div v-if="showIdeasPanel">
         <div>
-          <div class="mt-3 max-h-[300px] overflow-y-auto">
+          <div class="mt-3 overflow-y-auto" :style="{ maxHeight: `${ideasMaxHeight}px` }">
             <!-- The inline prompt helper keeps its guidance; Tool View opts out
                  by hiding this entire region when there is no meaningful state. -->
             <div v-if="!prompt.trim()" class="py-4 flex items-center justify-center">
@@ -608,6 +593,8 @@ interface Props {
   hasPrompt?: boolean
   /** Hide the ideas region until it has suggestions, loading, or failure feedback. */
   hideEmptyIdeas?: boolean
+  /** Tallest the ideas region gets before it scrolls. */
+  ideasMaxHeight?: number
   /** Placeholder for the feedback input. */
   placeholder?: string
   /** Per-tool Instructions — standing guidance, co-edited by user + agent. */
@@ -623,6 +610,7 @@ const props = withDefaults(defineProps<Props>(), {
   prompt: '',
   hasPrompt: false,
   hideEmptyIdeas: false,
+  ideasMaxHeight: 300,
   placeholder: '',
   instructions: '',
   activeSkills: () => [],
@@ -790,14 +778,6 @@ function prettyArgs(args: string): string {
 
 // Refs
 const feedbackInput = ref<HTMLTextAreaElement | null>(null)
-// The dock opens into the composer shape while it holds focus or text.
-const dockEl = ref<HTMLElement | null>(null)
-const dockFocused = ref(false)
-const dockOpen = computed(() => dockFocused.value || feedbackText.value.length > 0)
-function onDockFocusOut(e: FocusEvent) {
-  const next = e.relatedTarget as Node | null
-  if (!next || !dockEl.value?.contains(next)) dockFocused.value = false
-}
 const voiceBtn = ref<any>(null)
 
 // State

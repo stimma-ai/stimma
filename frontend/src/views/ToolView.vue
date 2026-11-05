@@ -106,7 +106,7 @@
            so the toggle tweens. The border fades color, not presence. The
            transition is suppressed during seam drag so the resize stays 1:1. -->
       <div
-        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out compact:hidden roomy:flex roomy:col-start-1 roomy:row-start-1 roomy:row-span-3 bg-base roomy:bg-surface"
+        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out compact:hidden roomy:flex roomy:col-start-1 roomy:row-start-1 roomy:row-span-3"
         :class="[
           stageResizing ? '!transition-none' : ''
         ]"
@@ -139,7 +139,8 @@
        </div>
        </div>
        </Transition>
-       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable mt-4 mb-3 px-page pb-6 roomy:overscroll-contain">
+       <!-- Controls are floating panels on the matte; content sits on the matte. -->
+       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-3 pb-6 roomy:m-2 roomy:mr-0 roomy:overscroll-contain">
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
           <!-- Title, then the tool's facts as meta. One 52px row. -->
@@ -412,6 +413,7 @@
             :prompt="globalPrefs.prompt"
             :has-prompt="hasPrompt"
             hide-empty-ideas
+            :ideas-max-height="agentOnResult ? AGENT_IDEAS_MAX_H : undefined"
             :active-skills="activeToolSkills"
             :project-id="projectScopeId"
             v-model:instructions="globalPrefs.agentInstructions"
@@ -736,7 +738,8 @@
         v-if="jobsManager"
         ref="heroBoxRef"
         class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden narrow:justify-center compact:order-1 compact:flex-1 compact:min-h-[96px] compact:!p-0 roomy:col-start-2 roomy:row-start-1 roomy:min-h-0 roomy:!px-page roomy:!pt-4 roomy:!pb-3"
-        :class="layoutMode === 'stage' ? 'pt-4 px-4 pb-3' : 'p-0'"
+        :class="layoutMode === 'stage' ? 'pt-3 px-4 pb-3' : 'p-0'"
+        :style="agentReserve ? { paddingBottom: `${agentReserve + 24}px` } : undefined"
       >
         <!-- Live generation preview: the in-flight frames at full hero size.
              Presentation-only (raw <img> over an ephemeral blob: URL — never a
@@ -960,17 +963,14 @@
           </div>
         </div>
         </div>
-        <!-- Desktop Stage: the agent prompt belongs to the result, so it sits
-             directly under the band at the artwork's width (the page-level dock
-             below takes it in Studio and on a fold). With no result showing it
-             rests at the bottom of the matte. -->
+        <!-- Desktop Stage: the agent is a control panel floating at the bottom of
+             the image area, the same width whatever the picture's shape. The hero
+             reserves its room up front (agentReserve), so nothing the agent does
+             resizes the image: anything taller, like Instructions, floats over it. -->
         <div
           id="agent-dock-result"
-          ref="agentDockColEl"
           v-show="!llmUnconfigured && agentDocked && agentOnResult"
-          class="flex-none self-center w-full max-h-[45%] overflow-y-auto empty:hidden"
-          :class="agentOnResult ? 'mt-3' : ''"
-          :style="agentResultWidth ? { width: `${agentResultWidth}px` } : undefined"
+          class="absolute inset-x-4 bottom-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-lg border border-edge-subtle bg-surface p-3 empty:hidden"
         ></div>
       </div>
 
@@ -983,7 +983,7 @@
         ref="railBoxEl"
         class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!px-2 compact:!py-0 roomy:col-start-2 roomy:row-start-2 roomy:!h-28 roomy:!max-h-28 roomy:!w-auto roomy:!pl-page roomy:!pr-0 roomy:!pt-0 roomy:!pb-2 roomy:border-t-0"
         :class="[
-          layoutMode === 'stage' ? 'border-surface px-2 pt-4 pb-2' : 'border-transparent py-3 px-0',
+          layoutMode === 'stage' ? 'border-surface px-2 pt-3 pb-2' : 'border-transparent py-3 px-0 mb-3 roomy:mb-0',
           stageResizing ? '!transition-none' : '',
           // Phones: an empty strip is a dead band under the hero's own empty state.
           isCompact && allJobs.length === 0 && jobsManager.activeChainRuns.value.length === 0 ? '!hidden' : ''
@@ -1155,7 +1155,7 @@
         <div
           id="agent-dock"
           v-show="!llmUnconfigured && agentDocked"
-          class="flex-none overflow-y-auto mx-6 mb-3 px-0 pt-0 pb-0 max-h-[45%] empty:hidden roomy:mx-5 roomy:mb-2 roomy:max-h-[35%] roomy:pb-safe"
+          class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface p-3 max-h-[45%] empty:hidden roomy:mx-2 roomy:mb-2 roomy:p-2 roomy:max-h-[35%] roomy:pb-safe"
         ></div>
       </div>
     </template>
@@ -1915,17 +1915,16 @@ const heroBarBleed = computed(() => {
   return art.barW + 2 * inset <= col.w ? inset : 0
 })
 const heroColRef = ref<HTMLElement | null>(null)
-// The agent prompt docked under the result takes height out of the artwork's.
-const agentDockColEl = ref<HTMLElement | null>(null)
-const agentDockH = ref(0)
-let agentDockObserver: ResizeObserver | null = null
-watch(agentDockColEl, (el) => {
-  agentDockObserver?.disconnect()
-  agentDockObserver = null
-  if (!el) { agentDockH.value = 0; return }
-  agentDockObserver = new ResizeObserver(() => { agentDockH.value = el.offsetHeight })
-  agentDockObserver.observe(el)
-  agentDockH.value = el.offsetHeight
+// Room the hero keeps for the Stage agent panel: the composer plus the most its
+// suggestions take (AGENT_IDEAS_MAX_H), or just the composer when a tool has no
+// prompt. It depends only on the column's width, so the image never changes size
+// with the agent's state. The composer stacks below 480px (PromptAgentChat).
+const AGENT_IDEAS_MAX_H = 96
+const agentReserve = computed(() => {
+  if (!agentOnResult.value || llmUnconfigured.value) return 0
+  const panelChrome = 26
+  const composerH = (heroColSize.value?.w ?? 0) - panelChrome < 480 ? 84 : 40
+  return panelChrome + composerH + (hasPrompt.value ? 12 + AGENT_IDEAS_MAX_H : 0)
 })
 const heroColSize = ref<{ w: number, h: number } | null>(null)
 const heroNatural = ref<{ w: number, h: number } | null>(null)
@@ -1933,18 +1932,12 @@ const heroArt = computed(() => {
   const col = heroColSize.value
   const nat = heroNatural.value
   if (!col || !nat || outputsAudio.value || stageCurrentMediaId.value == null) return null
-  const dockH = agentOnResult.value && agentDockH.value > 0 ? agentDockH.value + 12 : 0
-  const availH = col.h - heroBarH.value - dockH
+  const availH = col.h - heroBarH.value
   if (col.w <= 0 || availH <= 0) return null
   const scale = Math.min(col.w / nat.w, availH / nat.h)
   const w = Math.max(1, Math.floor(nat.w * scale))
   const h = Math.max(1, Math.floor(nat.h * scale))
   return { w, h, barW: Math.min(col.w, Math.max(w, HERO_BAR_MIN_W)) }
-})
-const agentResultWidth = computed(() => {
-  const col = heroColSize.value
-  if (!heroArt.value || !col) return null
-  return Math.min(col.w, Math.max(heroArt.value.barW, 320))
 })
 function onHeroMediaMeasure(e: Event) {
   const t = e.target
@@ -1955,7 +1948,7 @@ function onHeroMediaMeasure(e: Event) {
   if (w > 0 && h > 0) heroNatural.value = { w, h }
 }
 // The hero box is measured, not the column: the column is sized to the artwork
-// (plus the docked agent prompt) and sits at the top, like the form beside it.
+// and sits at the top, like the form beside it.
 const heroBoxRef = ref<HTMLElement | null>(null)
 const railBoxEl = ref<HTMLElement | null>(null)
 // Roomy with a picture on screen: the hero, its action band and the strip stack
@@ -1992,7 +1985,7 @@ watch(heroColRef, (el) => {
     if (m) onHeroMediaMeasure({ target: m } as unknown as Event)
   })
 })
-onBeforeUnmount(() => { heroColObserver?.disconnect(); agentDockObserver?.disconnect() })
+onBeforeUnmount(() => { heroColObserver?.disconnect() })
 function stageHasMarker(markerId: number): boolean {
   if (stageCurrentMediaId.value == null) return false
   const ms: any[] = jobsManager?.mediaMarkers.value?.[stageCurrentMediaId.value] || []

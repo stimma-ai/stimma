@@ -67,13 +67,13 @@
 
             <!-- Menu teleported to <body> with fixed positioning so it escapes
                  the editor's scroll/overflow clipping (which was cutting off the
-                 top "Off" row). Opens upward, anchored above the chip. -->
+                 top "Off" row). Anchored to the chip, above it when there is room. -->
             <Teleport to="body">
               <div
                 v-if="showTranslateMenu"
                 ref="translateMenuEl"
-                class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-48 max-h-80 overflow-y-auto"
-                :style="{ left: translateMenuPos.left + 'px', bottom: translateMenuPos.bottom + 'px' }"
+                class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-48 overflow-y-auto"
+                :style="translateMenuPos"
               >
                 <div class="px-3 pt-1 pb-1.5 text-ctl font-semibold text-content-secondary">
                   Translate prompt to
@@ -352,7 +352,7 @@ const translateButton = ref<HTMLElement | null>(null)
 const translateMenuEl = ref<HTMLElement | null>(null)
 const showTranslateMenu = ref(false)
 // Fixed coords for the teleported menu, anchored above the chip (opens upward).
-const translateMenuPos = ref({ left: 0, bottom: 0 })
+const translateMenuPos = ref<Record<string, string>>({})
 
 // No LLM configured at all (deliberate opt-out) → the generate-time pipeline
 // chips gray out and the inline chat affordance hides. A configured-but-broken
@@ -365,9 +365,16 @@ function toggleTranslateMenu() {
   if (!showTranslateMenu.value) {
     const rect = translateButton.value?.getBoundingClientRect()
     if (rect) {
+      // Opens upward unless the prompt sits too near the top of the window.
+      const roomAbove = rect.top - 14
+      const roomBelow = window.innerHeight - rect.bottom - 14
+      const up = roomAbove >= 320 || roomAbove >= roomBelow
       translateMenuPos.value = {
-        left: Math.round(rect.left),
-        bottom: Math.round(window.innerHeight - rect.top + 6),
+        left: `${Math.round(rect.left)}px`,
+        maxHeight: `${Math.min(320, up ? roomAbove : roomBelow)}px`,
+        ...(up
+          ? { bottom: `${Math.round(window.innerHeight - rect.top + 6)}px` }
+          : { top: `${Math.round(rect.bottom + 6)}px` }),
       }
     }
   }
