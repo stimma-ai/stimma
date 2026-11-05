@@ -364,7 +364,7 @@
                         {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
                       </span>
                       <span
-                        v-else-if="showToolSubtitle(tab)"
+                        v-else
                         class="truncate text-[11px] leading-[14px]"
                         :class="getToolSubtitleClass(tab.entityId)"
                       >
@@ -682,7 +682,7 @@
                         {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
                       </span>
                       <span
-                        v-else-if="showToolSubtitle(tab)"
+                        v-else
                         class="truncate text-[11px] leading-[14px]"
                         :class="getToolSubtitleClass(tab.entityId)"
                       >
@@ -1392,19 +1392,12 @@ function getToolSubtitle(fullToolId: string): string {
   return provider
 }
 
-// A tool row is one line. The provider line appears only where it tells
-// something: a name another tool row shares, a cloud tool, or a tool that is not ready.
-function showToolSubtitle(tab: WorkspaceTab): boolean {
-  if (getToolAvailability(tab.entityId) !== 'available') return true
-  if (isToolStimmaCloud(tab.entityId)) return true
-  return allTabs.value.some(t => t.type === 'tool' && t.entityId !== tab.entityId && t.displayName === tab.displayName)
-}
-
 // The rail has one row height (32px, 44px on touch) and one two-line variant
 // (40px): rows that carry a second line of detail. Mirrors the row template.
 function isTwoLineTab(tab: WorkspaceTab): boolean {
   switch (tab.type) {
-    case 'tool': return !!tab.customName || showToolSubtitle(tab)
+    // Every tool row names its provider: provider changes cost, privacy and speed.
+    case 'tool': return true
     case 'board': return !!tab.displayName
     case 'chat': return !!formatChatTabSubtitle(tab.entityId)
     case 'flow':
