@@ -744,7 +744,7 @@ const packageRows = computed(() => {
   if (extras) rows.push({ key: 'extras', label: 'Extras', value: fileCountLabel(extras) })
   if (!rows.length) {
     const count = (status.members || []).length
-    rows.push({ key: 'contents', label: 'Contents', value: `${count} ${count === 1 ? 'item' : 'items'}` })
+    rows.push({ key: 'contents', label: 'Contents', value: `${count} ${count === 1 ? 'asset' : 'assets'}` })
   }
   return rows
 })

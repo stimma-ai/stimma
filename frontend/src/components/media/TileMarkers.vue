@@ -1,19 +1,23 @@
 <template>
-  <TileChip v-if="markers.length" :title="names" class="gap-1.5">
+  <!--
+    Display-only state markers: bare glyphs with a soft shadow, no plate, so a
+    marker reads as a property of the picture and never as a button. White in
+    both themes; the one colour is an active favorite heart.
+  -->
+  <span v-if="markers.length" :title="names" class="inline-flex max-w-full shrink-0 items-center gap-1.5">
     <span
       v-for="marker in markers"
       :key="marker.id"
-      class="flex h-3 w-3 items-center justify-center [&>svg]:h-full [&>svg]:w-full"
+      class="flex h-4 w-4 items-center justify-center [filter:drop-shadow(0_0_1px_rgb(0_0_0/0.6))_drop-shadow(0_1px_2px_rgb(0_0_0/0.65))] [&>svg]:h-full [&>svg]:w-full"
       :class="isFavorite(marker) ? '' : 'text-white/90'"
       :style="isFavorite(marker) ? { color: colorOf(marker) } : undefined"
       v-html="iconSvg(marker)"
     />
-  </TileChip>
+  </span>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import TileChip from './TileChip.vue'
 import { useMarkers } from '../../composables/useMarkers'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
 

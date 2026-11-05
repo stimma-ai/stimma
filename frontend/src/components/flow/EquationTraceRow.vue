@@ -3,7 +3,7 @@
     <div
       role="button"
       tabindex="0"
-      class="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[12px] text-left cursor-pointer"
+      class="w-full flex items-center gap-2.5 coarse:gap-1.5 px-2.5 py-1.5 text-[12px] text-left cursor-pointer"
       @click="toggle"
       @keydown.enter.prevent="toggle"
       @keydown.space.prevent="toggle"
@@ -165,11 +165,12 @@
         kind="equation"
         :label="title"
         :breadcrumb="parentPhaseName"
+        variant="row"
       />
       <button
         v-if="equation.status === 'completed' || equation.status === 'failed'"
         type="button"
-        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary opacity-0 transition-opacity hover:text-content hover:bg-overlay-hover focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 coarse:h-11 coarse:w-9 coarse:opacity-100"
         title="Re-run this step"
         @click.stop="$emit('invalidate-equation', equation.equation_key)"
       >
@@ -181,7 +182,7 @@
            vertically aligned across pending / running / completed states. -->
       <span
         v-else
-        class="flex-shrink-0 w-6 h-6"
+        class="flex-shrink-0 w-6 h-6 coarse:h-11 coarse:w-9"
         aria-hidden="true"
       />
     </div>

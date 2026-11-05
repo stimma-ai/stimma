@@ -211,7 +211,7 @@
           <SidebarProjects v-if="activeProjectId == null" @selected="props.isMobile && emit('close')" />
 
           <!-- ==================== ZONE 2: Workspace Tabs ==================== -->
-          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="flex flex-col gap-1">
+          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="mt-3 flex flex-col gap-1 border-t border-edge-subtle">
 
             <!-- Pinned, Editing and Open share the section label recipe. -->
             <SidebarSectionHeader v-if="pinnedTabs.length > 0" id="pinned" label="Pinned" />
@@ -240,7 +240,7 @@
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
-                class="min-h-10 coarse:min-h-11 flex items-center gap-2 px-3 py-1 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
+                class="min-h-9 coarse:min-h-11 flex items-center gap-2 px-3 py-1 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
                 :class="[
                   isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
@@ -362,7 +362,7 @@
                         {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
                       </span>
                       <span
-                        v-else
+                        v-else-if="showToolSubtitle(tab)"
                         class="truncate text-[11px] leading-[14px]"
                         :class="getToolSubtitleClass(tab.entityId)"
                       >
@@ -556,7 +556,7 @@
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
-                class="min-h-10 coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
+                class="min-h-9 coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
                 :class="[
                   isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
@@ -679,7 +679,7 @@
                         {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
                       </span>
                       <span
-                        v-else
+                        v-else-if="showToolSubtitle(tab)"
                         class="truncate text-[11px] leading-[14px]"
                         :class="getToolSubtitleClass(tab.entityId)"
                       >
@@ -938,6 +938,16 @@
 
       </div>
     </Transition>
+
+    <!-- The pushed app dims while the drawer is open: the drawer is the one
+         bright surface. Taps are caught by the app's own closer; docked
+         drawers sit beside the app and leave it lit. -->
+    <div
+      v-if="isMobile"
+      class="pointer-events-none absolute inset-y-0 left-[276px] z-modal w-screen bg-overlay-backdrop transition-opacity duration-200 [.is-docked_&]:hidden"
+      :class="isOpen ? 'opacity-100' : 'opacity-0'"
+      aria-hidden="true"
+    ></div>
 
     <!-- Workspace Tabs Context Menu -->
     <WorkspaceTabsContextMenu @rename="handleRenameFromContextMenu" @rename-tab="handleRenameTabFromContextMenu" @refresh="loadPinnedTools" />
@@ -1347,6 +1357,14 @@ function getToolSubtitle(fullToolId: string): string {
   if (availability === 'needs_setup') return `${provider} · not ready`
   if (availability !== 'available') return `${provider} · not configured`
   return provider
+}
+
+// A tool row is one line. The provider line appears only where it tells
+// something: a name another tool row shares, a cloud tool, or a tool that is not ready.
+function showToolSubtitle(tab: WorkspaceTab): boolean {
+  if (getToolAvailability(tab.entityId) !== 'available') return true
+  if (isToolStimmaCloud(tab.entityId)) return true
+  return allTabs.value.some(t => t.type === 'tool' && t.entityId !== tab.entityId && t.displayName === tab.displayName)
 }
 
 function getToolSubtitleClass(fullToolId: string): string {

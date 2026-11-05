@@ -6,7 +6,7 @@
       @click="toggle"
       aria-haspopup="dialog"
       :aria-expanded="isOpen"
-      class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors min-w-0 coarse:min-h-11 coarse:min-w-11"
+      class="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors min-w-0 coarse:min-h-11 coarse:min-w-11"
       :class="triggerDisabled
         ? 'text-content-muted opacity-60 cursor-not-allowed'
         : currentUnavailable

@@ -95,6 +95,7 @@
       :inProjectScope="projectId != null"
       :project-id="projectId"
       @update="loadMedia"
+      @upload="goToUpload"
       @clear-similar="clearSimilarSearch"
       @shuffle="handleShuffle"
       @save-view="showSaveViewModal = true"
@@ -242,17 +243,6 @@
       @close="showEmptyTrashConfirm = false"
       @confirm="emptyTrash"
     />
-    <!-- Upload FAB (only in browse mode, not trash) -->
-    <button
-      v-if="!isTrashMode"
-      class="fixed right-6 bottom-6 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center z-chrome bg-accent hover:bg-accent/90 text-accent-on compact:hidden"
-      @click="goToUpload"
-      title="Upload assets"
-    >
-      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-      </svg>
-    </button>
     </div>
     <!-- End of grid view wrapper -->
   </div>

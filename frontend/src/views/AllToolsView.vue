@@ -210,7 +210,7 @@
     </Sheet>
 
     <!-- Tools Grid -->
-    <div class="flex-1 overflow-y-auto p-page">
+    <div class="flex-1 overflow-y-auto py-page">
       <!-- Connection Error -->
       <ConnectionError
         v-if="loadError"
@@ -240,87 +240,91 @@
         <p class="text-content-muted text-sm">Try adjusting your search, task type, or provider filters.</p>
       </div>
 
-      <!-- Tools by Task -->
+      <!-- Tools by task. Plain rows in the chats and flows grammar: name (the
+           variant beside it, lighter), then only the facts that tell a tool
+           from its neighbours in one fixed right-aligned column. Facts every
+           tool in a section shares (provider, "open weights") sit once on the
+           section label; related variants of one tool sit together, the
+           repeats of the title dimmed. The full list stays in the tooltip. -->
       <div v-else class="space-y-section">
-        <div v-for="group in groupedByTask" :key="group.taskType">
-          <!-- Task type header -->
-          <div class="mb-3">
+        <section v-for="group in toolSections" :key="group.taskType">
+          <div class="mb-1 flex max-w-[56rem] items-baseline gap-3 px-page">
             <h2 class="text-xs font-semibold text-content-secondary">
               {{ formatTaskType(group.taskType) }}
             </h2>
+            <span v-if="group.sharedFacts.length" class="min-w-0 truncate text-[11px] text-content-muted">
+              <template v-for="(fact, i) in group.sharedFacts" :key="fact.text">
+                <span v-if="i > 0" aria-hidden="true"> · </span>
+                <span :class="fact.cloud ? 'stimma-cloud-text font-medium' : ''">{{ fact.text }}</span>
+              </template>
+            </span>
           </div>
 
-          <!-- Tools grid for this task type -->
-          <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2 compact:grid-cols-1 roomy:grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
+          <div
+            v-for="row in group.rows"
+            :key="row.tool.full_tool_id"
+            class="group relative cursor-pointer px-page py-1.5 transition-colors hover:bg-overlay-subtle"
+            :class="[
+              row.tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : '',
+              row.clusterStart && !row.first ? 'mt-2' : '',
+            ]"
+            @click="openTool(row.tool)"
+            @contextmenu.prevent="isUserTool(row.tool) ? openToolMenu($event, row.tool) : null"
+          >
             <div
-              v-for="tool in group.tools"
-              :key="tool.full_tool_id"
-              class="relative group rounded-lg px-3 py-2 flex items-start gap-2.5 transition-colors cursor-pointer bg-surface hover:bg-surface-raised"
-              :class="tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : ''"
-              @click="openTool(tool)"
-              @contextmenu.prevent="isUserTool(tool) ? openToolMenu($event, tool) : null"
+              class="grid max-w-[56rem] gap-x-4 narrow:grid-cols-[minmax(0,1fr)_auto] narrow:gap-x-3"
+              :class="[
+                group.hasPrice ? 'grid-cols-[minmax(0,1fr)_15rem_3.5rem]' : 'grid-cols-[minmax(0,1fr)_15rem]',
+                isUserTool(row.tool) ? 'pr-8' : '',
+              ]"
             >
-              <!-- Per-tool menu (user tools only) -->
-              <button
-                v-if="isUserTool(tool)"
-                class="absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Tool options"
-                @click.stop="openToolMenu($event, tool)"
+              <!-- Identity: name, with the variant beside it in a lighter
+                   weight. A repeated title is dimmed so the variants read as
+                   one tool. Wraps before it truncates. -->
+              <h3 class="col-start-1 row-start-1 min-w-0 break-words text-sm leading-5 line-clamp-2" :title="row.tool.name">
+                <span class="font-medium" :class="row.repeat ? 'text-content-tertiary' : 'text-content'">{{ row.title }}</span><span v-if="row.variant" class="ml-1.5 text-content-secondary">{{ row.variant }}</span>
+              </h3>
+
+              <!-- Distinguishing facts, fixed right-aligned column. -->
+              <div
+                v-if="row.facts.length || row.hidden > 0"
+                class="col-start-2 row-start-1 flex min-w-0 items-center justify-end gap-1.5 text-[11px] leading-5 text-content-muted narrow:col-start-1 narrow:row-start-3 narrow:col-span-2 narrow:justify-start"
+                :title="row.allFacts.join(' · ')"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-                </svg>
-              </button>
-
-              <!-- Tool icon: the mark or task glyph alone, no tile, so the
-                   names and tags carry the comparison. -->
-              <div class="w-5 h-5 mt-px flex-shrink-0 text-content-tertiary">
-                <ToolIcon :tool="tool" bare />
+                <template v-for="(fact, i) in row.facts" :key="fact.text">
+                  <span v-if="i > 0" class="flex-shrink-0" aria-hidden="true">·</span>
+                  <span
+                    class="min-w-0 truncate whitespace-nowrap"
+                    :class="fact.cloud ? 'stimma-cloud-text font-medium' : fact.fast ? 'text-accent-hi' : ''"
+                  >{{ fact.text }}</span>
+                </template>
+                <span v-if="row.hidden > 0" class="flex-shrink-0 font-mono tabular-nums">+{{ row.hidden }}</span>
               </div>
 
-              <div class="flex-1 min-w-0">
-                <!-- Identity: name, with the variant beside it in a lighter
-                     weight (task label dropped, the group heading carries it);
-                     price is a trailing slot. Wraps before it truncates. -->
-                <div class="flex items-baseline gap-2">
-                  <h3 class="flex-1 min-w-0 text-sm leading-snug line-clamp-2 break-words" :title="tool.name">
-                    <span class="font-medium text-content">{{ toolTitleParts(tool, group.taskType).title }}</span><span v-if="toolTitleParts(tool, group.taskType).variant" class="ml-1.5 text-content-secondary">{{ toolTitleParts(tool, group.taskType).variant }}</span>
-                  </h3>
-                  <span v-if="getToolPrice(tool)" class="text-[11px] font-mono tabular-nums text-content-tertiary flex-shrink-0">{{ getToolPrice(tool) }}</span>
-                </div>
+              <span
+                v-if="group.hasPrice"
+                class="col-start-3 row-start-1 text-right font-mono text-[11px] leading-5 tabular-nums text-content-tertiary narrow:col-start-2"
+              >{{ row.price }}</span>
 
-                <!-- Technical facts, subordinate: provider, then at most two
-                     capabilities. The rest collapse into +N; the full list is
-                     its title. -->
-                <div class="mt-0.5 flex items-center gap-1.5 min-w-0 text-[11px] text-content-muted">
-                  <span
-                    class="w-[5px] h-[5px] rounded-full flex-shrink-0"
-                    :class="isStimmaCloudTool(tool) ? 'bg-accent' : 'bg-content-muted/70'"
-                  ></span>
-                  <span v-if="isUserTool(tool)" class="truncate min-w-0">Custom tool</span>
-                  <span v-else-if="isStimmaCloudTool(tool)" class="stimma-cloud-text font-medium truncate min-w-0">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
-                  <span v-else class="truncate min-w-0">{{ tool.provider_name || tool.provider_id }}</span>
-                  <template v-if="toolTitleParts(tool, group.taskType).fast && !visibleBadges(tool).some((b) => b === 'Fast' || b.includes('⚡'))">
-                    <span class="flex-shrink-0" aria-hidden="true">·</span>
-                    <span class="flex-shrink-0" aria-hidden="true">⚡</span>
-                  </template>
-                  <template v-for="badge in visibleBadges(tool)" :key="badge">
-                    <span class="flex-shrink-0" aria-hidden="true">·</span>
-                    <span class="flex-shrink-0 lowercase whitespace-nowrap">{{ badge === 'Fast' ? '⚡ fast' : badge }}</span>
-                  </template>
-                  <span
-                    v-if="hiddenBadgeCount(tool) > 0"
-                    class="flex-shrink-0 font-mono tabular-nums"
-                    :title="getToolBadges(tool).join(', ')"
-                  >+{{ hiddenBadgeCount(tool) }}</span>
-                </div>
-
-                <!-- Description -->
-                <p v-if="getToolDescription(tool)" class="mt-1 text-xs leading-relaxed text-content-secondary line-clamp-2">{{ getToolDescription(tool) }}</p>
-              </div>
+              <p
+                v-if="row.description"
+                class="col-start-1 row-start-2 min-w-0 truncate text-xs leading-5 text-content-secondary narrow:col-span-2"
+              >{{ row.description }}</p>
             </div>
+
+            <!-- Per-tool menu (user tools only) -->
+            <button
+              v-if="isUserTool(row.tool)"
+              class="absolute right-page top-1/2 -mr-2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-content-muted opacity-0 transition-opacity hover:bg-overlay-light hover:text-content group-hover:opacity-100 compact:opacity-100"
+              title="Tool options"
+              @click.stop="openToolMenu($event, row.tool)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+              </svg>
+            </button>
           </div>
-        </div>
+        </section>
       </div>
     </div>
 
@@ -399,7 +403,6 @@ import {
   toolProviderDisplayName,
 } from '../utils/stimmaCloud'
 import { formatTaskTypeLabel, TASK_TYPE_LABELS } from '../utils/taskTypeIcons'
-import ToolIcon from '../components/tools/ToolIcon.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import FreezeToolDialog from '../components/flow/FreezeToolDialog.vue'
@@ -874,15 +877,95 @@ function getToolBadges(tool) {
   return tool.metadata?.badges || []
 }
 
-// Cards show the first two capabilities; the rest fold into a quiet +N.
-const VISIBLE_BADGES = 2
-function visibleBadges(tool) {
-  return getToolBadges(tool).slice(0, VISIBLE_BADGES)
-}
-function hiddenBadgeCount(tool) {
-  return Math.max(0, getToolBadges(tool).length - VISIBLE_BADGES)
+// Rows show only what tells a tool from its neighbours: at most two facts, the
+// rest fold into a quiet +N (the full list is the row's tooltip). Facts every
+// tool in a section shares are lifted onto the section label.
+const VISIBLE_FACTS = 2
+
+function toolProviderFact(tool) {
+  if (isUserTool(tool)) return { text: 'Custom tool' }
+  if (isStimmaCloudTool(tool)) return { text: STIMMA_TOOL_PROVIDER_DISPLAY_NAME, cloud: true }
+  return { text: tool.provider_name || tool.provider_id || '' }
 }
 
+// Capability facts for display: the lightning mark (on the title or in a
+// badge) is the word "fast", leading.
+function toolCapabilityFacts(tool, parts) {
+  const out = []
+  const seen = new Set()
+  const add = (text, extra = {}) => {
+    const t = String(text).replace(/⚡/g, '').trim().toLowerCase()
+    const key = t
+    if (!t || seen.has(key)) return
+    seen.add(key)
+    out.push({ text: t, ...extra })
+  }
+  const badges = getToolBadges(tool)
+  if (parts.fast || badges.some((b) => String(b).toLowerCase().replace(/⚡/g, '').trim() === 'fast' || String(b).includes('⚡'))) {
+    add('fast', { fast: true })
+  }
+  for (const b of badges) add(b)
+  return out
+}
+
+const toolSections = computed(() => {
+  return groupedByTask.value.map((group) => {
+    const items = group.tools.map((tool) => {
+      const parts = toolTitleParts(tool, group.taskType)
+      const provider = toolProviderFact(tool)
+      const caps = toolCapabilityFacts(tool, parts)
+      return { tool, parts, provider, caps }
+    })
+
+    // Facts shared by every tool in the section (only meaningful with 2+).
+    const shared = []
+    if (items.length > 1) {
+      if (items.every((i) => i.provider.text === items[0].provider.text) && items[0].provider.text) {
+        shared.push(items[0].provider)
+      }
+      for (const cap of items[0].caps) {
+        if (items.every((i) => i.caps.some((c) => c.text.toLowerCase() === cap.text.toLowerCase()))) shared.push(cap)
+      }
+    }
+    const sharedKeys = new Set(shared.map((f) => f.text.toLowerCase()))
+
+    // Related variants of one tool sit together, in order of first appearance.
+    const clusters = new Map()
+    for (const item of items) {
+      const key = item.parts.title.toLowerCase()
+      if (!clusters.has(key)) clusters.set(key, [])
+      clusters.get(key).push(item)
+    }
+
+    const rows = []
+    for (const cluster of clusters.values()) {
+      cluster.forEach((item, ci) => {
+        const own = [item.provider, ...item.caps].filter((f) => f.text && !sharedKeys.has(f.text.toLowerCase()))
+        // Provider only distinguishes when it is not the section's.
+        const all = [item.provider.text, ...item.caps.map((c) => c.text)].filter(Boolean)
+        rows.push({
+          tool: item.tool,
+          title: item.parts.title,
+          variant: item.parts.variant,
+          repeat: ci > 0,
+          clusterStart: ci === 0,
+          first: rows.length === 0,
+          facts: own.slice(0, VISIBLE_FACTS),
+          hidden: Math.max(0, own.length - VISIBLE_FACTS),
+          allFacts: all,
+          price: getToolPrice(item.tool),
+          description: getToolDescription(item.tool),
+        })
+      })
+    }
+    return {
+      taskType: group.taskType,
+      sharedFacts: shared,
+      hasPrice: rows.some((r) => r.price),
+      rows,
+    }
+  })
+})
 
 // ==========================================================================
 // User Tools — "Yours" badge + per-tool Edit/Delete

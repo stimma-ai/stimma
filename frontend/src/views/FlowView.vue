@@ -474,59 +474,65 @@
             <div v-if="viewMode === 'compact'" class="flex-1 overflow-y-auto px-page py-section custom-scrollbar">
               <div class="mx-auto max-w-[960px] space-y-section">
                 <div class="relative">
-                  <!-- Headingless sections as ToolView-style cards: one raised
-                       card each for inputs, steps, and outputs. -->
+                  <!-- Inputs, steps and outputs are flat sections on the page,
+                       separated by the section gap. -->
                   <div
-                    class="space-y-3"
+                    class="space-y-section"
                     :class="programAttentionError ? 'opacity-40 grayscale pointer-events-none' : ''"
                   >
-                <!-- Inputs card (headingless — the Revert/Apply cluster pins
-                     to the card's top-right corner so it never reflows) -->
-                <section v-if="hasInputFields" class="relative rounded-lg bg-surface px-4 py-3" data-testid="flow-inputs-card">
-                  <!-- A finished flow leads with a one-glance summary so execution and
-                       outputs own the first screen; the full form stays mounted below. -->
-                  <div v-if="inputsCollapsed" class="flex items-start gap-3" data-testid="flow-inputs-summary">
-                    <dl class="min-w-0 flex-1 space-y-1">
-                      <div v-for="row in inputsSummaryRows" :key="row.key" class="flex items-baseline gap-3 text-[13px] leading-5">
-                        <dt class="w-28 flex-shrink-0 truncate text-xs text-content-muted compact:w-24">{{ row.label }}</dt>
-                        <dd class="min-w-0 flex-1 truncate text-content-secondary">{{ row.value }}</dd>
-                      </div>
-                      <div v-if="inputsSummaryMore > 0" class="text-xs text-content-muted">+{{ inputsSummaryMore }} more</div>
-                    </dl>
+                <!-- Inputs: flat like the phases and outputs (one surface
+                     treatment down the column). The heading row carries the
+                     section's one action: Edit inputs, Revert / Apply while
+                     dirty, or Hide inputs once a finished flow is open. -->
+                <section v-if="hasInputFields" class="relative" data-testid="flow-inputs-card">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <h2 class="text-ctl font-semibold text-content-secondary">Inputs</h2>
+                    <div v-if="inputsDirty" class="-my-1 -mr-2 flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        class="text-[11px] px-2 py-1 rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle disabled:opacity-40 disabled:cursor-not-allowed compact:min-h-11"
+                        :disabled="submittingInputs"
+                        @click="inputFormRef?.discardChanges()"
+                        title="Discard unsaved input changes"
+                      >Revert</button>
+                      <button
+                        type="button"
+                        class="text-[11px] px-2 py-1 rounded-md bg-accent text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium compact:min-h-11"
+                        :disabled="!inputsValid || submittingInputs"
+                        @click="inputFormRef?.applyChanges()"
+                        title="Apply the changed inputs to this flow"
+                      >{{ submittingInputs ? 'Applying…' : 'Apply inputs' }}</button>
+                    </div>
                     <button
+                      v-else-if="inputsCollapsed"
                       type="button"
-                      class="flex-shrink-0 -my-1 rounded-md px-2 py-1 text-xs font-medium text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:min-h-11"
+                      class="-my-1 -mr-2 flex-shrink-0 rounded-md px-2 py-1 text-xs font-medium text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:min-h-11"
                       aria-label="Edit inputs"
                       :aria-expanded="false"
                       @click="inputsOpen = true"
                     >Edit inputs</button>
-                  </div>
-                  <div v-if="inputsDirty" class="absolute top-3 right-3 z-chrome flex items-center gap-1.5">
                     <button
+                      v-else-if="inputsFinished"
                       type="button"
-                      class="text-[11px] px-2 py-1 rounded-md bg-surface text-content-secondary hover:text-content hover:bg-overlay-subtle disabled:opacity-40 disabled:cursor-not-allowed"
-                      :disabled="submittingInputs"
-                      @click="inputFormRef?.discardChanges()"
-                      title="Discard unsaved input changes"
-                    >Revert</button>
-                    <button
-                      type="button"
-                      class="text-[11px] px-2 py-1 rounded-md bg-accent text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                      :disabled="!inputsValid || submittingInputs"
-                      @click="inputFormRef?.applyChanges()"
-                      title="Apply the changed inputs to this flow"
-                    >{{ submittingInputs ? 'Applying…' : 'Apply inputs' }}</button>
-                  </div>
-                  <div v-else-if="inputsFinished && !inputsCollapsed" class="absolute top-3 right-3 z-chrome">
-                    <button
-                      type="button"
-                      class="text-[11px] px-2 py-1 rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors compact:min-h-11"
+                      class="-my-1 -mr-2 flex-shrink-0 rounded-md px-2 py-1 text-xs font-medium text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:min-h-11"
                       aria-label="Hide inputs"
                       :aria-expanded="true"
                       @click="inputsOpen = false"
                     >Hide inputs</button>
                   </div>
-                  <div v-show="!inputsCollapsed" class="py-1">
+                  <!-- A finished flow leads with a one-glance summary so execution and
+                       outputs own the first screen; the full form stays mounted below. -->
+                  <dl v-if="inputsCollapsed" class="min-w-0 space-y-1.5" data-testid="flow-inputs-summary">
+                    <div v-for="row in inputsSummaryRows" :key="row.key" class="flex items-baseline gap-3 leading-5">
+                      <dt class="w-28 flex-shrink-0 truncate text-xs leading-5 text-content-tertiary compact:w-24">{{ row.label }}</dt>
+                      <dd
+                        class="min-w-0 flex-1 truncate leading-5 text-content"
+                        :class="row.mono ? 'font-mono text-xs tabular-nums' : 'text-[13px]'"
+                      >{{ row.value }}</dd>
+                    </div>
+                    <div v-if="inputsSummaryMore > 0" class="text-xs text-content-muted">+{{ inputsSummaryMore }} more</div>
+                  </dl>
+                  <div v-show="!inputsCollapsed">
                     <FlowInputForm
                       ref="inputFormRef"
                       :project-id="flow ? (flow.project_id ?? null) : undefined"
@@ -567,8 +573,8 @@
 
                 <template v-else>
                     <!-- Steps card (headingless) -->
-                    <section class="px-4">
-                      <div class="py-1">
+                    <section>
+                      <div>
                         <ConnectionError v-if="state.loadError.value" @retry="state.loadAll" />
                         <div v-else-if="state.loading.value && !state.phaseTree.value" class="text-content-muted text-sm py-8 text-center">
                           Loading flow…
@@ -1709,14 +1715,14 @@ const inputsSummaryAll = computed(() => {
   const schema = (flow.value?.input_schema || {}) as Record<string, any>
   const vals = (flow.value?.inputs || {}) as Record<string, any>
   const valueOf = (k: string) => vals[k] !== undefined ? vals[k] : schema[k]?.default
-  const rows: { key: string; label: string; value: string }[] = []
+  const rows: { key: string; label: string; value: string; mono: boolean }[] = []
   const pairedSize = 'width' in schema && 'height' in schema
   for (const [key, def] of Object.entries(schema)) {
     if (pairedSize && key === 'height') continue
     if (pairedSize && key === 'width') {
       const w = summarizeInputValue(valueOf('width'))
       const h = summarizeInputValue(valueOf('height'))
-      if (w && h) rows.push({ key, label: 'Resolution', value: `${w} × ${h}` })
+      if (w && h) rows.push({ key, label: 'Resolution', value: `${w} × ${h}`, mono: true })
       continue
     }
     const value = summarizeInputValue(valueOf(key))
@@ -1724,7 +1730,10 @@ const inputsSummaryAll = computed(() => {
     const d = (def && typeof def === 'object' ? def : {}) as Record<string, any>
     const spaced = key.replace(/_+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim()
     const label = d['x-label'] || d.display_name || d.label || (spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase())
-    rows.push({ key, label: String(label), value })
+    // Facts read in mono (seeds, sizes, counts); names and prose stay UI sans.
+    const raw = valueOf(key)
+    const mono = typeof raw === 'number' || d.type === 'integer' || d.type === 'number'
+    rows.push({ key, label: String(label), value, mono })
   }
   return rows
 })

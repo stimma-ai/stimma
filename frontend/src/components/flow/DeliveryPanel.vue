@@ -1,51 +1,53 @@
 <template>
-  <!-- Outputs card (headingless, ToolView card shell; self-hides when empty) -->
-  <div v-if="groups.length > 0" class="rounded-lg bg-surface px-4 py-3">
-    <div class="py-1 space-y-8">
-      <div
-        v-for="group in groups"
-        :key="group.key"
-      >
-        <div class="flex items-center gap-2 px-2 pb-1.5">
-          <span class="text-ctl font-semibold text-content-secondary truncate">{{ group.label }}</span>
-        </div>
-
-        <!-- Text-shaped outputs (llm() strings, code() returning a value) get
-             the full-width row stack so multi-line content reads cleanly.
-             Media outputs keep the tile grid. Mirrors IterationGroup so the
-             Outputs panel and the per-step group treat the same iteration
-             the same way. -->
-        <div
-          v-if="group.contentKind === 'text'"
-          class="flex flex-col gap-1.5 p-2"
-          :style="groupLayout(group) === 'compact' ? 'max-height: 420px; overflow-y: auto;' : undefined"
-        >
-          <FlowIterationRow
-            v-for="it in group.iterations"
-            :key="it.wrapperKey"
-            :iteration="it"
-            :render-markdown="group.outputType === 'markdown'"
-            @open="openedIteration = $event"
-            @invalidate="(k) => $emit('invalidate-equation', k)"
-          />
-        </div>
-        <div
-          v-else
-          class="grid gap-0.5 p-2"
-          :class="gridColsClass(group)"
-          :style="groupLayout(group) === 'compact' ? 'max-height: 420px; overflow-y: auto;' : undefined"
-        >
-          <IterationCard
-            v-for="it in group.iterations"
-            :key="it.wrapperKey"
-            :iteration="it"
-            :size="groupLayout(group) === 'inline' ? 'full' : 'compact'"
-            @open="openedIteration = $event"
-            @invalidate="(k) => $emit('invalidate-equation', k)"
-          />
-        </div>
+  <!-- Outputs: flat sections like the phases above (self-hides when empty).
+       One heading per output group with its count, then the artwork sized
+       around what there is to show. Groups with nothing to show collapse. -->
+  <div v-if="groups.length > 0" class="space-y-section">
+    <section
+      v-for="group in groups"
+      :key="group.key"
+    >
+      <div class="mb-2 flex items-baseline gap-2">
+        <h2 class="truncate text-ctl font-semibold text-content-secondary">{{ group.label }}</h2>
+        <span class="flex-shrink-0 font-mono text-xs tabular-nums text-content-muted">{{ group.iterations.length }}</span>
       </div>
-    </div>
+
+      <!-- Text-shaped outputs (llm() strings, code() returning a value) get
+           the full-width row stack so multi-line content reads cleanly.
+           Media outputs keep the tile grid. Mirrors IterationGroup so the
+           Outputs panel and the per-step group treat the same iteration
+           the same way. -->
+      <div
+        v-if="group.contentKind === 'text'"
+        class="flex flex-col gap-1.5"
+        :style="groupLayout(group) === 'compact' ? 'max-height: 420px; overflow-y: auto;' : undefined"
+      >
+        <FlowIterationRow
+          v-for="it in group.iterations"
+          :key="it.wrapperKey"
+          :iteration="it"
+          :render-markdown="group.outputType === 'markdown'"
+          @open="openedIteration = $event"
+          @invalidate="(k) => $emit('invalidate-equation', k)"
+        />
+      </div>
+      <div
+        v-else
+        class="grid gap-0.5"
+        :class="gridColsClass(group)"
+        :style="groupLayout(group) === 'compact' ? 'max-height: 420px; overflow-y: auto;' : undefined"
+      >
+        <IterationCard
+          v-for="it in group.iterations"
+          :key="it.wrapperKey"
+          :iteration="it"
+          :size="groupLayout(group) === 'inline' ? 'full' : 'compact'"
+          :large="group.iterations.length <= 3"
+          @open="openedIteration = $event"
+          @invalidate="(k) => $emit('invalidate-equation', k)"
+        />
+      </div>
+    </section>
 
     <FlowIterationModal
       :iteration="openedIteration"
@@ -215,7 +217,9 @@ const groups = computed<OutputGroup[]>(() => {
     g.contentKind = classifyGroupContentKind(g.iterations.map((i) => i.primary))
   }
 
-  return order.map((k) => byKey.get(k)!)
+  // A group with no iterations has nothing to show; drop it so it leaves no
+  // heading and no gap.
+  return order.map((k) => byKey.get(k)!).filter((g) => g.iterations.length > 0)
 })
 
 function titleCaseOutputLabel(label: string): string {
@@ -246,6 +250,12 @@ function groupLayout(g: OutputGroup): 'inline' | 'compact' | 'summary' {
   return 'summary'
 }
 function gridColsClass(g: OutputGroup): string {
+  // Sized around the content: a lone result is shown large, a pair or trio
+  // fills at most a few large columns, and bigger sets use the dense grids.
+  const n = g.iterations.length
+  if (n === 1) return 'grid-cols-1 max-w-[20rem]'
+  if (n === 2) return 'grid-cols-2 max-w-[32rem]'
+  if (n === 3) return 'grid-cols-3 max-w-[42rem]'
   switch (groupLayout(g)) {
     case 'inline':  return 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6'
     case 'compact': return 'grid-cols-6 sm:grid-cols-8'

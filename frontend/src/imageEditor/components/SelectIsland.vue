@@ -408,31 +408,39 @@ function buttonClass(active: boolean, enabled = true) {
          selection it names it and carries Deselect; armed it names the tool
          in the selection color and hands the pointer back on tap. -->
     <div class="flex items-center gap-1.5">
+      <!-- The 44px target is the button; the chip inside is the glass. Selection
+           state alone wears the selection colour; viewing chips stay neutral. -->
       <button
         type="button"
-        class="min-h-11 pl-2.5 pr-3 rounded-lg backdrop-blur border text-[12.5px] font-medium flex items-center gap-1.5"
-        :class="armed
-          ? 'bg-selection/30 text-content border-selection/50'
-          : hasSelection ? 'bg-surface/90 text-selection border-selection/40' : 'bg-surface/90 text-content border-edge-subtle'"
+        class="flex min-h-11 min-w-11 items-center justify-start focus-visible:outline-none"
         :aria-label="armed ? `${armedTool?.label} armed. Done` : hasSelection ? 'Edit selection' : 'Select'"
         :aria-pressed="!!armed"
         data-select-pill
         @click="armed ? emit('done') : emit('choose', lastUsed ?? 'lasso')"
       >
-        <ToolIcon
-          :name="armed ? armedTool!.icon : (hasSelection && lastUsed ? toolById[lastUsed].icon : 'lasso')"
-          :size="16"
-        />
-        {{ armed ? armedTool?.label : hasSelection ? 'Selection' : 'Select' }}
+        <span
+          class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12.5px] font-medium text-white backdrop-blur"
+          :class="armed
+            ? 'bg-selection'
+            : hasSelection ? 'bg-black/55 ring-1 ring-selection' : 'bg-black/55'"
+        >
+          <ToolIcon
+            :name="armed ? armedTool!.icon : (hasSelection && lastUsed ? toolById[lastUsed].icon : 'lasso')"
+            :size="16"
+          />
+          {{ armed ? armedTool?.label : hasSelection ? 'Selection' : 'Select' }}
+        </span>
       </button>
       <button
         v-if="hasSelection && !armed"
         type="button"
-        class="min-h-11 min-w-11 rounded-lg bg-surface/90 backdrop-blur border border-edge-subtle text-content flex items-center justify-center"
+        class="flex min-h-11 min-w-11 items-center justify-center focus-visible:outline-none"
         aria-label="Deselect"
         @click="emit('clear')"
       >
-        <XMarkIcon class="w-4 h-4" />
+        <span class="flex h-8 w-8 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur">
+          <XMarkIcon class="h-icon-inline w-icon-inline" />
+        </span>
       </button>
     </div>
 
@@ -725,7 +733,7 @@ function buttonClass(active: boolean, enabled = true) {
     <button
       type="button"
       class="flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 w-max rounded-lg border border-edge-subtle bg-surface
-             shadow-lg text-xs font-medium text-content-secondary transition-colors hover:text-content
+             text-xs font-medium text-content-secondary transition-colors hover:text-content
              hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
       aria-label="Select"
       data-select-pill

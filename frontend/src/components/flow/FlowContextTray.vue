@@ -1,13 +1,14 @@
 <template>
-  <!-- Empty state: a dashed-border hint strip so the user can see where to
-       drop references. When populated, becomes a flex-wrapped chip strip. -->
+  <!-- With no references the tray is only a hint, shown while the message
+       field is empty (the shell's textarea shows its placeholder) so a
+       message being written doesn't carry a permanent extra line. Once
+       references are attached it becomes a flex-wrapped chip strip. -->
   <div
-    class="flex flex-wrap items-center gap-1.5 px-4 py-2"
-    :class="refs.items.value.length === 0 ? '' : 'border-b border-edge-subtle'"
+    :class="refs.items.value.length === 0 ? 'px-4' : 'flex flex-wrap items-center gap-1.5 border-b border-edge-subtle px-4 py-2'"
   >
     <span
       v-if="refs.items.value.length === 0"
-      class="text-[11px] text-content-muted"
+      class="-mb-1 hidden pt-2.5 text-[11px] text-content-muted [[data-composer-shell]:has(textarea:placeholder-shown)_&]:block"
     >
       Reference items from the flow to give the agent context
     </span>

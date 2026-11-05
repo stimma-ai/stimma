@@ -71,53 +71,60 @@
         />
       </div>
 
-      <!-- Action bar -->
+      <!-- Action bar: two groups, the model on the left and the utilities with
+           send on the right. The utilities (attach, skills, voice) are one
+           cluster; send stands apart from it. -->
       <div
-        class="flex items-center justify-between px-2 pb-1.5 pt-0 coarse:pb-1"
+        class="flex items-center justify-between gap-3 px-2 pb-1.5 pt-0 coarse:pb-1"
         :class="agentUnavailable ? 'border-t border-edge-subtle' : ''"
       >
-        <!-- Left: model picker + upload button -->
-        <div class="flex items-center gap-1">
+        <!-- Left: model picker -->
+        <div class="flex min-w-0 items-center">
           <div v-if="agentUnavailable" class="pointer-events-none opacity-50">
             <slot name="model-picker" />
           </div>
           <slot v-else name="model-picker" />
-          <button
-            :disabled="agentUnavailable"
-            @click="openUploadPicker"
-            class="w-8 h-8 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors disabled:pointer-events-none disabled:opacity-50"
-            title="Add image"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-icon-nav h-icon-nav">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-          </button>
-          <!-- Extra toolbar controls (e.g. the skills menu) between plus and mic -->
-          <slot v-if="!agentUnavailable" name="toolbar-extra" />
-          <button
-            v-if="agentUnavailable"
-            type="button"
-            disabled
-            class="flex h-8 w-8 items-center justify-center rounded-full text-content-muted opacity-50"
-            title="Voice input unavailable"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-icon-nav w-icon-nav">
-              <rect x="9" y="3" width="6" height="12" rx="3" />
-              <path stroke-linecap="round" d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" />
-            </svg>
-          </button>
-          <VoiceInputButton v-else ref="voiceBtn" :get-text="getText" :set-text="setText" :focus="focusTextarea" :surface="voiceSurface" />
         </div>
 
-        <!-- Right: slot for custom buttons, or default send -->
-        <SendButton v-if="agentUnavailable" disabled title="Send unavailable" />
-        <slot v-else name="actions" :text="inputText">
-          <SendButton
-            title="Send"
-            :disabled="(!inputText.trim() && attachments.length === 0) || disabled"
-            @click="$emit('submit')"
-          />
-        </slot>
+        <div class="flex flex-none items-center gap-3">
+          <!-- Utilities: attach, extra toolbar controls (the skills menu), voice -->
+          <div class="flex items-center gap-0.5">
+            <button
+              :disabled="agentUnavailable"
+              @click="openUploadPicker"
+              class="w-8 h-8 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors disabled:pointer-events-none disabled:opacity-50"
+              title="Add image"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-icon-nav h-icon-nav">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
+            <slot v-if="!agentUnavailable" name="toolbar-extra" />
+            <button
+              v-if="agentUnavailable"
+              type="button"
+              disabled
+              class="flex h-8 w-8 items-center justify-center rounded-md text-content-muted opacity-50"
+              title="Voice input unavailable"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-icon-nav w-icon-nav">
+                <rect x="9" y="3" width="6" height="12" rx="3" />
+                <path stroke-linecap="round" d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" />
+              </svg>
+            </button>
+            <VoiceInputButton v-else ref="voiceBtn" :get-text="getText" :set-text="setText" :focus="focusTextarea" :surface="voiceSurface" />
+          </div>
+
+          <!-- Right: slot for custom buttons, or default send -->
+          <SendButton v-if="agentUnavailable" disabled title="Send unavailable" />
+          <slot v-else name="actions" :text="inputText">
+            <SendButton
+              title="Send"
+              :disabled="(!inputText.trim() && attachments.length === 0) || disabled"
+              @click="$emit('submit')"
+            />
+          </slot>
+        </div>
       </div>
     </div>
 

@@ -6337,7 +6337,10 @@ onActivated(updateCompactHeader)
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px 5px 6px;
+  /* The chevron's stroke sits on the column's left edge, the same edge the
+     bubbles and artwork start on; the hover wash reaches past it. */
+  margin-left: -7px;
+  padding: 5px 10px 5px 2px;
   border-radius: 6px;
   cursor: pointer;
   user-select: none;

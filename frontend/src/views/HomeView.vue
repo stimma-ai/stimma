@@ -12,7 +12,7 @@
     />
 
     <!-- Main content -->
-    <div v-else class="h-full overflow-y-auto custom-scrollbar">
+    <div v-else ref="scrollerRef" class="h-full overflow-y-auto custom-scrollbar">
       <!-- Fades in once the model check says which hero to show; recents and
            their artwork fill in below as they arrive. -->
       <div class="min-h-full flex flex-col items-center px-page" :class="heroReady ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
@@ -25,7 +25,7 @@
           <div class="relative mb-8 compact:mb-6 text-center">
             <h1 class="font-brand text-[32px] compact:text-[26px] compact:leading-tight font-bold tracking-tight text-content">{{ projectId ? 'What shall we make?' : (greetingParts.pre + greetingParts.word + greetingParts.post) }}</h1>
             <!-- Scope feedback stays with the Home content. -->
-            <p v-if="projectId" class="mt-2 text-sm text-content-muted compact:hidden">{{ `In ${project.name || 'Untitled project'}` }}</p>
+            <p v-if="projectId" class="mt-1.5 text-sm text-content-muted compact:hidden">{{ `In ${project.name || 'Untitled project'}` }}</p>
           </div>
 
           <div class="relative w-full max-w-[720px]">
@@ -65,7 +65,8 @@
                 @submit="submitMessage"
               >
                 <template #context-header>
-                  <div class="px-4 pt-3 text-xs text-content-muted">{{ projectId ? `Working in ${project.name || 'Untitled project'}` : 'New chat · No project' }}</div>
+                  <!-- Inside a project the page already says where you are (heading, header). -->
+                  <div v-if="!projectId" class="px-4 pt-3 text-xs text-content-muted">New chat · No project</div>
                   <div v-if="newChatImageUnsupported" class="px-4 pt-2 text-xs text-amber-500">{{ newChatImageUnsupported }}</div>
                 </template>
                 <template #model-picker>
@@ -122,7 +123,7 @@
         </div>
 
         <!-- Content sections -->
-        <div ref="contentRef" class="w-full max-w-[960px] pb-12 compact:pb-20 space-y-10 compact:space-y-8" :data-recents-state="recentsState">
+        <div ref="contentRef" class="w-full max-w-[960px] pb-12 compact:pb-20 space-y-section" :data-recents-state="recentsState">
 
           <p v-if="failedRecentsLabel" class="text-center text-xs text-content-muted" data-recents-error>
             Couldn't load recent {{ failedRecentsLabel }}.
@@ -131,7 +132,7 @@
 
           <!-- Jump back in: boards, flows, and chats merged into one recency row -->
           <div v-if="jumpBackIn.length > 0">
-            <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center justify-between mb-2">
               <h2 class="text-xs font-semibold text-content-secondary">Jump back in</h2>
             </div>
             <div class="grid gap-3" :class="jumpColumns === 1 ? 'grid-cols-1' : jumpColumns === 2 ? 'grid-cols-2' : 'grid-cols-3'">
@@ -207,6 +208,12 @@
                       />
                     </div>
                   </div>
+                  <!-- Chat whose latest media is a set: drawn from its members -->
+                  <SetStackPreview
+                    v-else-if="item.type === 'chat' && hasChatMedia(item.chat) && chatCoverIsSet(item.chat)"
+                    :media-id="item.chat.recent_media[0].media_id"
+                    :thumbnail-size="256"
+                  />
                   <!-- Chat: latest media as cover -->
                   <MediaImage
                     v-else-if="item.type === 'chat' && hasChatMedia(item.chat)"
@@ -255,17 +262,17 @@
 
           <!-- Library strip -->
           <div v-if="recentMedia.length > 0">
-            <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center justify-between mb-2">
               <h2 class="text-xs font-semibold text-content-secondary">{{ projectId ? 'Fresh from this project' : 'Recent assets' }}</h2>
               <router-link :to="contextRoute('browse', projectId)" class="text-xs text-content-muted hover:text-content-secondary transition-colors coarse:inline-flex coarse:min-h-11 coarse:min-w-11 coarse:items-center coarse:px-2 coarse:-mr-2">
                 View all
               </router-link>
             </div>
-            <div class="grid gap-0.5" :style="{ gridTemplateColumns: `repeat(${mediaColumns}, minmax(0, 1fr))` }">
+            <div ref="mediaGridRef" class="grid gap-0.5" :style="{ gridTemplateColumns: `repeat(${mediaColumns}, minmax(0, 1fr))` }">
               <div
                 v-for="(media, index) in visibleMedia"
                 :key="media.id"
-                class="aspect-square rounded-media overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                class="aspect-square rounded-media bg-matte overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                 @click="openMediaSlideshow(index)"
               >
                 <MediaImage
@@ -307,6 +314,8 @@ import { MediaContextMenu, MediaImage } from '../components/media'
 import EntityIcon from '../components/EntityIcon.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
+import SetStackPreview from '../components/chat/SetStackPreview.vue'
+import { useMediaState } from '../composables/useMediaState'
 import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import FlowStatusPill from '../components/flow/FlowStatusPill.vue'
@@ -430,12 +439,36 @@ const mediaColumns = computed(() => tileColumns(contentWidth.value, 'browse'))
 // Phones get two rows so the home screen has enough below the fold to
 // scroll a little; every other home screen does, and a page that fits
 // exactly reads as stuck.
-const mediaRows = computed(() => (isCompact.value ? 2 : 1))
+const mediaRows = computed(() => Math.max(isCompact.value ? 2 : 1, fillRows.value))
+
+// The strip takes as many rows as the fold has room for, so a tall window is
+// not left with an empty band under the last row. The last row may run past the fold.
+const scrollerRef = ref(null)
+const mediaGridRef = ref(null)
+const fillRows = ref(0)
+function measureFillRows() {
+  const scroller = scrollerRef.value
+  const grid = mediaGridRef.value
+  if (!scroller || !grid || !grid.clientWidth) return
+  const columns = mediaColumns.value
+  const tile = (grid.clientWidth - (columns - 1) * 2) / columns
+  const top = grid.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+  const room = scroller.clientHeight - top
+  fillRows.value = Math.max(1, Math.ceil((room + 2) / (tile + 2)))
+}
+let scrollerObserver = null
 
 const visibleMedia = computed(() => recentMedia.value.slice(0, mediaColumns.value * mediaRows.value))
 
 function hasChatMedia(chat) {
   return chat.recent_media && chat.recent_media.length > 0
+}
+
+// A chat's cover that is a set is drawn from its members, as in the transcript.
+const { mediaState, init: initMediaState, loadStateForMedia } = useMediaState()
+function chatCoverIsSet(chat) {
+  const format = mediaState.value[chat.recent_media[0].media_id]?.file_format
+  return !!format && format.toLowerCase() === 'stimmaset.json'
 }
 
 // ==================== Greeting ====================
@@ -623,6 +656,13 @@ function handleJumpContextMenu(event, item) {
   else handleChatContextMenu(event, item.chat)
 }
 
+initMediaState()
+watch(() => jumpBackIn.value, (cards) => {
+  const ids = cards.filter(card => card.type === 'chat' && hasChatMedia(card.chat)).map(card => card.chat.recent_media[0].media_id)
+  if (ids.length) loadStateForMedia(ids)
+}, { immediate: true })
+watch([contentWidth, mediaColumns, heroReady, () => recentMedia.value.length, () => jumpBackIn.value.length, () => failedRecentsLabel.value], measureFillRows, { flush: 'post' })
+
 // ==================== Content width tracking ====================
 
 let resizeObserver = null
@@ -635,9 +675,15 @@ function setupResizeObserver() {
     }
   })
   resizeObserver.observe(contentRef.value)
+  if (scrollerRef.value) {
+    scrollerObserver = new ResizeObserver(() => measureFillRows())
+    scrollerObserver.observe(scrollerRef.value)
+  }
 }
 
 function cleanupResizeObserver() {
+  scrollerObserver?.disconnect()
+  scrollerObserver = null
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null

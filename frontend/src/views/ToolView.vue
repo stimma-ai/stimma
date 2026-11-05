@@ -203,6 +203,49 @@
                 ? 'stimma-cloud-border-solid stimma-cloud-text font-medium bg-overlay-subtle'
                 : 'text-content-tertiary bg-overlay-subtle border border-edge-subtle'"
             >{{ tool.metadata.display_price }}</span>
+            <!-- Quiet icon group: presets, layout, forever mode. Run is the only
+                 heavy object in the header and sits last, before the menu. -->
+            <div class="flex items-center gap-0.5" role="group" aria-label="Tool options">
+              <PresetPicker
+                v-if="tool.full_tool_id"
+                :tool-id="tool.full_tool_id"
+                :current-state="getCurrentState()"
+                :selected-preset-id="selectedPresetId"
+                :active-preset-name="activePreset?.name"
+                :is-modified="isModified"
+                :has-active-preset="hasActivePreset"
+                @select="handlePresetSelect"
+                @saved="handlePresetSaved"
+                @save="saveToActivePreset"
+                @revert="handleRevertToBaseState"
+                @clear="handleResetToDefaults"
+              />
+              <IconButton
+                size="lg"
+                class="compact:hidden"
+                :active="layoutMode === 'stage'"
+                :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Controls primary'"
+                @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
+              >
+                <PhotoIcon class="h-icon-nav w-icon-nav" />
+              </IconButton>
+              <!-- Forever mode: the shared split control, dressed as a quiet ghost
+                   (live magenta only while it is running). -->
+              <ForeverModeButton
+                :class="uiState.generateForeverMode
+                  ? '[&>div]:!bg-live [&>div>div.w-px]:!hidden [&>div>button]:!text-accent-on [&>div>button:hover]:!bg-transparent'
+                  : '[&>div]:!bg-transparent [&>div>div.w-px]:!hidden [&>div>button]:!text-content-secondary [&>div>button:hover]:!bg-overlay-subtle [&>div>button:hover]:!text-content'"
+                class="[&>div]:!rounded-md [&>div>button]:!h-8 [&>div>button]:!py-0 [&>div>button]:!px-2 [&>div>button]:!font-medium"
+                :is-active="uiState.generateForeverMode"
+                :concurrency="uiState.generateForeverConcurrency"
+                :idle-limit="uiState.generateForeverIdleLimit"
+                :is-stimma-cloud="isStimmaCloudTool"
+                @toggle="stopForeverMode"
+                @start="startForeverMode"
+                @update:concurrency="uiState.generateForeverConcurrency = $event"
+                @update:idle-limit="uiState.generateForeverIdleLimit = $event"
+              />
+            </div>
             <BatchRunButton
               :batch-size="uiState.batchSize"
               :disabled="!canSubmit"
@@ -211,26 +254,6 @@
               @run="submitJob"
               @update:batch-size="uiState.batchSize = $event"
             />
-            <ForeverModeButton
-              :is-active="uiState.generateForeverMode"
-              :concurrency="uiState.generateForeverConcurrency"
-              :idle-limit="uiState.generateForeverIdleLimit"
-              :is-stimma-cloud="isStimmaCloudTool"
-              @toggle="stopForeverMode"
-              @start="startForeverMode"
-              @update:concurrency="uiState.generateForeverConcurrency = $event"
-              @update:idle-limit="uiState.generateForeverIdleLimit = $event"
-            />
-            <IconButton
-              size="lg"
-              class="compact:hidden"
-              :active="layoutMode === 'stage'"
-              :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Controls primary'"
-              :aria-label="layoutMode === 'stage' ? 'Stage layout' : 'Studio layout'"
-              @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
-            >
-              <PhotoIcon class="h-icon-nav w-icon-nav" />
-            </IconButton>
             <div v-if="jobsManager && isFromScratch" class="relative flex items-center">
               <OverflowButton size="lg" label="Queue options" :active="stageMenuOpen" @click="stageMenuOpen = !stageMenuOpen" />
               <div v-if="stageMenuOpen" class="fixed inset-0 z-menu" @click="stageMenuOpen = false"></div>
@@ -247,20 +270,6 @@
                 </template>
               </div>
             </div>
-            <PresetPicker
-              v-if="tool.full_tool_id"
-              :tool-id="tool.full_tool_id"
-              :current-state="getCurrentState()"
-              :selected-preset-id="selectedPresetId"
-              :active-preset-name="activePreset?.name"
-              :is-modified="isModified"
-              :has-active-preset="hasActivePreset"
-              @select="handlePresetSelect"
-              @saved="handlePresetSaved"
-              @save="saveToActivePreset"
-              @revert="handleRevertToBaseState"
-              @clear="handleResetToDefaults"
-            />
           </div>
 
         </Teleport>
@@ -364,24 +373,34 @@
               v-model="modelParams.megapixels"
             />
         </div>
+        <!-- New outputs: a labelled setting of its own, each automatic action
+             with its state, so it never reads as a copy of the result's
+             heart / bookmark / trash. -->
         <div
           v-if="!isCompact"
-          class="flex items-center gap-2 min-h-8 mb-5"
+          class="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1"
           role="group"
           aria-label="New outputs"
         >
           <span class="text-ctl font-semibold text-content-secondary shrink-0">New outputs</span>
-          <span class="flex-1"></span>
-          <AutoMarkPicker
-            class="min-w-0 overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0"
-            :markers="jobsManager?.availableMarkers.value || []"
-            v-model="globalPrefs.autoMarkerIds"
-          />
-          <AutoDeletePicker
-            class="shrink-0"
-            :model-value="autoDeleteDuration"
-            @update:model-value="setAutoDeleteDuration"
-          />
+          <div class="flex min-w-0 items-center gap-1.5">
+            <span class="text-xs text-content-tertiary">Auto-mark</span>
+            <AutoMarkPicker
+              class="min-w-0"
+              show-state
+              :markers="jobsManager?.availableMarkers.value || []"
+              v-model="globalPrefs.autoMarkerIds"
+            />
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-content-tertiary">Auto-delete</span>
+            <AutoDeletePicker
+              size="small"
+              :model-value="autoDeleteDuration"
+              @update:model-value="setAutoDeleteDuration"
+            />
+            <span v-if="autoDeleteDuration === 'never'" class="text-xs text-content-muted">Off</span>
+          </div>
         </div>
 
 
@@ -403,7 +422,7 @@
              the single full-width dock so it survives layout switches without
              ever changing target — the chat stays put while the studio/stage
              toggle animates the columns above it. -->
-        <Teleport defer :to="agentDocked ? '#agent-dock' : '#agent-dock-compact'">
+        <Teleport defer :to="agentDocked ? (agentOnResult ? '#agent-dock-result' : '#agent-dock') : '#agent-dock-compact'">
           <PromptAgentChat
             ref="promptAgentChatRef"
             :prompt="globalPrefs.prompt"
@@ -731,8 +750,9 @@
            Stays mounted across the toggle so the matte/image tween smoothly. -->
       <div
         v-if="jobsManager"
-        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden compact:order-1 compact:flex-1 compact:min-h-[96px] compact:!p-0 roomy:col-start-2 roomy:row-start-1 roomy:min-h-0 roomy:mt-2 roomy:mx-2"
-        :class="layoutMode === 'stage' ? 'pt-[21px] px-[9px] pb-2' : 'p-0'"
+        ref="heroBoxRef"
+        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden narrow:justify-center compact:order-1 compact:flex-1 compact:min-h-[96px] compact:!p-0 roomy:col-start-2 roomy:row-start-1 roomy:min-h-0 roomy:!px-page roomy:!pt-4 roomy:!pb-3"
+        :class="layoutMode === 'stage' ? 'pt-4 px-4 pb-3' : 'p-0'"
       >
         <!-- Live generation preview: the in-flight frames at full hero size.
              Presentation-only (raw <img> over an ephemeral blob: URL — never a
@@ -802,8 +822,8 @@
         <div
           v-else
           ref="heroColRef"
-          class="flex-1 min-h-0 flex flex-col items-center"
-          :class="heroArt ? 'justify-center' : ''"
+          class="min-h-0 flex flex-col items-center"
+          :class="heroArt ? 'flex-none' : 'flex-1'"
           @load.capture="onHeroMediaMeasure"
           @loadedmetadata.capture="onHeroMediaMeasure"
         >
@@ -879,7 +899,7 @@
               v-for="marker in stageMarkers"
               :key="marker.id"
               @click.stop="handleToggleMarker({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id, marker })"
-              class="result-action"
+              class="result-action coarse:min-h-11 coarse:min-w-11"
               :data-on="stageHasMarker(marker.id)"
               :style="stageHasMarker(marker.id) ? { borderColor: marker.color, color: marker.color, backgroundColor: 'transparent' } : {}"
               :title="stageHasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
@@ -888,25 +908,25 @@
             </button>
           </template>
 
-          <!-- Facts: generation time/details + auto-delete countdown -->
+          <!-- Facts: generation time and auto-delete countdown. A fact is a quiet
+               mono readout, not an outlined action; the time opens the details,
+               which the small caret says. -->
           <button
             @click.stop="showJobInfo(stageCurrentJob)"
-            class="result-action result-action-accent gap-1.5 px-2.5 text-xs font-mono"
+            class="inline-flex h-8 items-center gap-1 rounded-md px-2 font-mono text-xs tabular-nums text-content-tertiary transition-colors duration-150 hover:bg-overlay-subtle hover:text-content focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
             title="Generation details"
+            aria-label="Generation details"
           >
             <span v-if="stageGenerationTime">{{ stageGenerationTime }}s</span>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
-            </svg>
+            <span v-else>Details</span>
+            <Caret class="opacity-70" />
           </button>
           <div
             v-if="stageAutoDeleteTime"
-            class="result-action gap-1.5 px-2.5 text-xs font-mono !text-amber-500 !border-amber-500/40"
+            class="inline-flex h-8 items-center gap-1.5 px-1 font-mono text-xs tabular-nums text-amber-500 coarse:min-h-11"
             title="Auto-trash time remaining"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5">
-              <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
-            </svg>
+            <TrashIcon class="h-icon-inline w-icon-inline" aria-hidden="true" />
             <span class="leading-none whitespace-nowrap">{{ stageAutoDeleteTime }}</span>
           </div>
 
@@ -923,7 +943,7 @@
             />
             <button
               @click.stop="handleRemixMedia(stageCurrentMediaId)"
-              class="result-action result-action-accent"
+              class="result-action result-action-accent coarse:min-h-11 coarse:min-w-11"
               title="Remix: load this image's settings"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-nav h-icon-nav">
@@ -932,7 +952,7 @@
             </button>
             <button
               @click.stop="handleTrashMedia({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id })"
-              class="result-action result-action-danger"
+              class="result-action result-action-danger coarse:min-h-11 coarse:min-w-11"
               title="Move to trash"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-nav h-icon-nav">
@@ -942,6 +962,18 @@
           </div>
         </div>
         </div>
+        <!-- Desktop Stage: the agent prompt belongs to the result, so it sits
+             directly under the band at the artwork's width (the page-level dock
+             below takes it in Studio and on a fold). With no result showing it
+             rests at the bottom of the matte. -->
+        <div
+          id="agent-dock-result"
+          ref="agentDockColEl"
+          v-show="!llmUnconfigured && agentDocked && agentOnResult"
+          class="flex-none self-center w-full max-h-[45%] overflow-y-auto empty:hidden"
+          :class="agentOnResult ? 'mt-3' : ''"
+          :style="agentResultWidth ? { width: `${agentResultWidth}px` } : undefined"
+        ></div>
       </div>
 
       <!-- Queue rail (RIGHT): same JobsGrid in both modes — width tweens from
@@ -950,9 +982,9 @@
            pins the thumbnail to the hero (current-media-id highlights it). -->
       <div
         v-if="jobsManager"
-        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!py-0.5 compact:!px-0.5 roomy:col-start-2 roomy:row-start-2 roomy:!h-24 roomy:!max-h-24 roomy:!w-auto roomy:!p-0 roomy:border-t-0 roomy:mx-2 roomy:mt-1 roomy:mb-2"
+        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!py-0.5 compact:!px-0.5 roomy:col-start-2 roomy:row-start-2 roomy:!h-28 roomy:!max-h-28 roomy:!w-auto roomy:!px-page roomy:!pt-0 roomy:!pb-3 roomy:border-t-0"
         :class="[
-          layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent py-3 px-0',
+          layoutMode === 'stage' ? 'border-surface px-2 pt-4 pb-2' : 'border-transparent py-3 px-0',
           stageResizing ? '!transition-none' : '',
           // Phones: an empty strip is a dead band under the hero's own empty state.
           isCompact && allJobs.length === 0 && jobsManager.activeChainRuns.value.length === 0 ? '!hidden' : ''
@@ -973,7 +1005,7 @@
           :job-progress="jobsManager.jobProgress.value"
           :is-video="outputsVideo"
           :is-audio="outputsAudio"
-          :image-mode="uiState.imageMode"
+          :image-mode="isCompact ? 'cover' : uiState.imageMode"
           :current-media-id="layoutMode === 'stage' && !stageLiveShowing ? stageCurrentMediaId : null"
           :live-job-id="layoutMode === 'stage' && stageLiveShowing ? stageLiveJobId : null"
           :live-selectable="layoutMode === 'stage'"
@@ -1216,9 +1248,10 @@ const props = defineProps<{
 
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
-import { ArchiveBoxIcon, PencilIcon, PhotoIcon, SparklesIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, PencilIcon, PhotoIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { pageHeaderClass } from '../components/ui/pageHeader'
 import IconButton from '../components/ui/IconButton.vue'
+import Caret from '../components/ui/Caret.vue'
 import OverflowButton from '../components/ui/OverflowButton.vue'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useRealtimeTopic } from '../composables/useRealtimeTopic'
@@ -1343,7 +1376,7 @@ import { useCloudAccount } from '../composables/useCloudAccount'
 const API_BASE = '/api'
 const router = useRouter()
 const route = useRoute()
-const { isCompact, isRoomy, isShort } = useViewport()
+const { isCompact, isRoomy, isShort, isCoarsePointer } = useViewport()
 // Phone layouts: a narrow phone gets the bottom drawer; a roomy one (an
 // unfolded foldable) gets side-by-side columns with the agent docked below,
 // when asked for. The docked agent is opt-in there (the header's agent button
@@ -1356,6 +1389,9 @@ const roomyAgentWanted = ref(localStorage.getItem(ROOMY_AGENT_KEY) === '1')
 watch(roomyAgentWanted, (on) => { localStorage.setItem(ROOMY_AGENT_KEY, on ? '1' : '0') })
 const roomyAgentDockable = computed(() => roomyTool.value && !isShort.value)
 const agentDocked = computed(() => !isCompact.value || (roomyAgentDockable.value && roomyAgentWanted.value))
+// On desktop in Stage the agent prompt sits under the result, at the result's
+// width; in Studio (no hero) and on a fold it spans the bottom of the page.
+const agentOnResult = computed(() => !isCompact.value && layoutMode.value === 'stage')
 function onCompactAgentButton() {
   if (roomyAgentDockable.value) roomyAgentWanted.value = !roomyAgentWanted.value
   else compactAgentOpen.value = true
@@ -1859,21 +1895,40 @@ const stageMarkers = computed(() => jobsManager?.availableMarkers.value || [])
 // size; the frame and its action band are then sized to the contained picture
 // so the controls hug it. Unknown size (audio, not loaded yet) keeps the
 // full-column layout.
-const HERO_BAR_H = 40
+// Band height: the 32px action row plus its 8px gap; 44px targets on touch.
+const heroBarH = computed(() => (isCoarsePointer.value ? 52 : 40))
 const HERO_BAR_MIN_W = 232
 const heroColRef = ref<HTMLElement | null>(null)
+// The agent prompt docked under the result takes height out of the artwork's.
+const agentDockColEl = ref<HTMLElement | null>(null)
+const agentDockH = ref(0)
+let agentDockObserver: ResizeObserver | null = null
+watch(agentDockColEl, (el) => {
+  agentDockObserver?.disconnect()
+  agentDockObserver = null
+  if (!el) { agentDockH.value = 0; return }
+  agentDockObserver = new ResizeObserver(() => { agentDockH.value = el.offsetHeight })
+  agentDockObserver.observe(el)
+  agentDockH.value = el.offsetHeight
+})
 const heroColSize = ref<{ w: number, h: number } | null>(null)
 const heroNatural = ref<{ w: number, h: number } | null>(null)
 const heroArt = computed(() => {
   const col = heroColSize.value
   const nat = heroNatural.value
   if (!col || !nat || outputsAudio.value || stageCurrentMediaId.value == null) return null
-  const availH = col.h - HERO_BAR_H
+  const dockH = agentOnResult.value && agentDockH.value > 0 ? agentDockH.value + 12 : 0
+  const availH = col.h - heroBarH.value - dockH
   if (col.w <= 0 || availH <= 0) return null
   const scale = Math.min(col.w / nat.w, availH / nat.h)
   const w = Math.max(1, Math.floor(nat.w * scale))
   const h = Math.max(1, Math.floor(nat.h * scale))
   return { w, h, barW: Math.min(col.w, Math.max(w, HERO_BAR_MIN_W)) }
+})
+const agentResultWidth = computed(() => {
+  const col = heroColSize.value
+  if (!heroArt.value || !col) return null
+  return Math.min(col.w, Math.max(heroArt.value.barW, 320))
 })
 function onHeroMediaMeasure(e: Event) {
   const t = e.target
@@ -1883,23 +1938,33 @@ function onHeroMediaMeasure(e: Event) {
   else if (t instanceof HTMLVideoElement) { w = t.videoWidth; h = t.videoHeight }
   if (w > 0 && h > 0) heroNatural.value = { w, h }
 }
+// The hero box is measured, not the column: the column is sized to the artwork
+// (plus the docked agent prompt) and sits at the top, like the form beside it.
+const heroBoxRef = ref<HTMLElement | null>(null)
 let heroColObserver: ResizeObserver | null = null
-watch(heroColRef, (el) => {
+function measureHeroBox(el: HTMLElement) {
+  const cs = getComputedStyle(el)
+  const px = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
+  const py = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
+  heroColSize.value = { w: Math.max(0, el.clientWidth - px), h: Math.max(0, el.clientHeight - py) }
+}
+watch(heroBoxRef, (el) => {
   heroColObserver?.disconnect()
   heroColObserver = null
   if (!el) { heroColSize.value = null; return }
-  heroColObserver = new ResizeObserver(() => {
-    heroColSize.value = { w: el.clientWidth, h: el.clientHeight }
-  })
+  heroColObserver = new ResizeObserver(() => measureHeroBox(el))
   heroColObserver.observe(el)
-  heroColSize.value = { w: el.clientWidth, h: el.clientHeight }
-  // Images served from cache may finish before the capture listener exists.
+  measureHeroBox(el)
+})
+// Images served from cache may finish before the capture listener exists.
+watch(heroColRef, (el) => {
+  if (!el) return
   nextTick(() => {
     const m = el.querySelector('img, video') as HTMLImageElement | HTMLVideoElement | null
     if (m) onHeroMediaMeasure({ target: m } as unknown as Event)
   })
 })
-onBeforeUnmount(() => { heroColObserver?.disconnect() })
+onBeforeUnmount(() => { heroColObserver?.disconnect(); agentDockObserver?.disconnect() })
 function stageHasMarker(markerId: number): boolean {
   if (stageCurrentMediaId.value == null) return false
   const ms: any[] = jobsManager?.mediaMarkers.value?.[stageCurrentMediaId.value] || []

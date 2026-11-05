@@ -4,7 +4,7 @@
     <button
       ref="buttonRef"
       @click="toggleDropdown"
-      class="relative flex items-center justify-center px-3 py-2 rounded-md bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content transition-colors"
+      class="relative inline-flex h-8 w-8 items-center justify-center rounded-md text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:h-11 coarse:w-11"
       :title="displayName === 'Presets' ? 'Presets' : `Preset: ${displayName}`"
     >
       <!-- Swatch icon: presets are saved looks. Bookmark is reserved for the

@@ -39,9 +39,12 @@ interface Props {
   breadcrumb?: string
   // `inline` — lives in a row's trailing action cluster alongside the rerun
   //   button. Always rendered (low opacity at rest, brighter on row hover).
+  // `row` — same slot as `inline`, but on fine pointers it appears only while
+  //   the row is hovered or holds focus; touch pointers always see it, and an
+  //   attached reference stays visible.
   // `tile` — absolute-positioned corner button for iteration tiles. Hidden
   //   until the tile is hovered; filled-blue persists once attached.
-  variant?: 'inline' | 'tile'
+  variant?: 'inline' | 'row' | 'tile'
 }
 const props = withDefaults(defineProps<Props>(), {
   breadcrumb: '',
@@ -68,7 +71,7 @@ const buttonClass = computed<string>(() => {
     if (isAttached.value) {
       return `${base} bg-accent text-accent-on opacity-100`
     }
-    return `${base} bg-black/55 text-white/85 hover:bg-accent/80 hover:text-white opacity-0 group-hover/iteration-card:opacity-100`
+    return `${base} bg-black/55 text-white/85 hover:bg-accent/80 hover:text-white opacity-0 group-hover/iteration-card:opacity-100 coarse:opacity-100`
   }
   // inline — match rerun button chrome (24×24 bordered rounded box), but
   // low-opacity at rest so the column doesn't feel crowded. Filled-blue
@@ -76,6 +79,9 @@ const buttonClass = computed<string>(() => {
   const base = 'flex-shrink-0 w-6 h-6 flex items-center justify-center rounded border transition-colors'
   if (isAttached.value) {
     return `${base} bg-accent text-accent-on opacity-100`
+  }
+  if (props.variant === 'row') {
+    return `${base} border-transparent text-content-tertiary opacity-0 hover:bg-overlay-hover hover:text-content focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 coarse:h-11 coarse:w-9 coarse:opacity-100`
   }
   return `${base} border-transparent text-content hover:bg-overlay-hover hover:border-edge-subtle`
 })

@@ -1,15 +1,16 @@
 <script setup lang="ts">
+import { computed, useSlots } from 'vue'
 // The settings list-row grammar for providers and services: icon, name and
-// description on the left, ONE status or quiet verb on the right, all rows
-// sharing one right-hand column. Rows are whitespace-separated (hairline
-// budget, DESIGN.md §1.3); the whole row is the tap target, so there is no
-// chevron. A verb is the shared ghost action (a quiet fill, medium weight,
-// primary text) and a status is plain tertiary text with its dot, both inset
-// the same amount so they end on one edge. The sanctioned Stimma gradient CTA goes in the `cta` slot. Three
-// explicit columns (icon, text, trailing), centred on the row, and on compact
-// a fixed row height (room for a two-line description), so rows keep one pitch
-// whether a description wraps or not.
-withDefaults(defineProps<{
+// description on the left; on the right the same structure in every state, a
+// quiet secondary status (when there is one) and ONE action in a fixed column
+// (the verb or the sign-in CTA when not connected, "Manage" once connected).
+// Rows are whitespace-separated (hairline budget, DESIGN.md 1.3); the whole row
+// is the tap target, so there is no chevron. The sanctioned Stimma gradient CTA
+// goes in the `cta` slot. Three explicit columns (icon, text, trailing),
+// centred on the row, and on compact a fixed row height (room for a two-line
+// description), so rows keep one pitch whether a description wraps or not.
+const slots = useSlots()
+const props = withDefaults(defineProps<{
   name: string
   /** Quiet one-line-or-two description under the name. */
   description?: string
@@ -25,6 +26,9 @@ withDefaults(defineProps<{
   /** Leading icon is the primary action colour (the "Add" row). */
   accentIcon?: boolean
 }>(), { descriptionClass: 'text-content-tertiary', statusClass: 'text-content-tertiary' })
+
+// A status shows only when the row is not wearing a verb or the sign-in CTA.
+const showStatus = computed(() => !!slots.status && !props.verb && !slots.cta)
 </script>
 
 <template>
@@ -38,12 +42,21 @@ withDefaults(defineProps<{
     <span class="min-w-0 flex-1">
       <span class="block truncate text-[13px] compact:text-[15px]" :class="accentIcon ? 'font-medium text-accent-hi' : dimmed ? 'text-content-muted' : 'text-content'"><slot name="name">{{ name }}</slot></span>
       <span v-if="description || $slots.description" class="mt-0.5 line-clamp-2 block text-xs" :class="descriptionClass"><slot name="description">{{ description }}</slot></span>
+      <!-- On a phone the status moves under the description so the right-hand
+           column is the action alone. -->
+      <span v-if="showStatus" class="mt-0.5 hidden items-center gap-1.5 text-xs compact:flex" :class="statusClass"><slot name="status" /></span>
       <span v-if="error" class="mt-1 line-clamp-2 block text-xs text-red-400">{{ error }}</span>
     </span>
-    <span v-if="$slots.cta || verb || $slots.status" class="flex w-28 shrink-0 items-center justify-end text-xs compact:w-24">
-      <slot v-if="$slots.cta" name="cta" />
-      <span v-else-if="verb" class="whitespace-nowrap rounded-md bg-overlay-subtle px-3 py-1.5 font-medium text-content transition-colors duration-150 group-hover:bg-overlay-light">{{ verb }}</span>
-      <span v-else class="inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5" :class="statusClass"><slot name="status" /></span>
+    <!-- One trailing structure for every state: the status (when there is
+         one) as quiet secondary text, then ONE action in a fixed column: the
+         call to action or verb when not connected, "Manage" once it is. -->
+    <span v-if="$slots.cta || verb || $slots.status" class="flex shrink-0 items-center justify-end gap-3 text-xs">
+      <span v-if="showStatus" class="inline-flex items-center gap-1.5 whitespace-nowrap compact:hidden" :class="statusClass"><slot name="status" /></span>
+      <span class="flex w-24 items-center justify-end compact:w-20">
+        <slot v-if="$slots.cta" name="cta" />
+        <span v-else-if="verb" class="whitespace-nowrap rounded-md bg-overlay-subtle px-3 py-1.5 font-medium text-content transition-colors duration-150 group-hover:bg-overlay-light">{{ verb }}</span>
+        <span v-else class="whitespace-nowrap rounded-md px-3 py-1.5 font-medium text-content-secondary transition-colors duration-150 group-hover:bg-overlay-light group-hover:text-content">Manage</span>
+      </span>
     </span>
   </button>
 </template>

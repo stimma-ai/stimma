@@ -5,14 +5,17 @@
   >
     <!-- Header row. Always-expanded: no chevron, no click toggle. Structure =
          indentation + a status rail, never a nested box (DESIGN.md §3.1):
-         mono phase index + title + StatusDot, mono rollup right. Top-level
-         pr matches the step rows' px-2.5 so the duration/ref/re-run columns
-         align between the phase header and its rail rows. -->
+         quiet mono phase index + row-size semibold title, mono rollup right.
+         Status shows once per level: the dot and its label appear only when
+         the phase needs attention; a finished phase is silent because its
+         steps carry the checks. The right cluster uses the same fixed
+         columns as the step rows (output strip, duration, actions) so the
+         metrics line up down the page. -->
     <div
       v-if="node.name || depth > 0"
-      class="relative flex items-baseline gap-2.5 group"
+      class="relative flex items-center gap-2.5 coarse:gap-1.5 group"
       :class="[
-        isTopLevelPhase ? 'pb-2 pr-2.5' : 'py-1.5 px-2 rounded',
+        isTopLevelPhase ? 'pb-1.5 pr-2.5' : 'py-1.5 px-2 rounded',
         phaseIsEchoed ? 'ring-1 ring-blue-500/40 bg-blue-500/5' : '',
       ]"
     >
@@ -20,16 +23,16 @@
         v-if="isTopLevelPhase && phaseIndex != null"
         class="flex-shrink-0 font-mono text-[11px] text-content-muted"
       >Phase {{ phaseIndex }}</span>
-      <span
-        class="text-content truncate"
-        :class="isTopLevelPhase ? 'text-[15px] font-semibold' : 'text-[14px] font-semibold'"
-      >{{ displayName }}</span>
+      <span class="text-ctl font-semibold text-content truncate narrow:whitespace-normal narrow:leading-snug">{{ displayName }}</span>
 
-      <StatusDot :bucket="phaseStatusBucket" :pulse="phaseStatus.kind === 'tasks' || phaseStatus.kind === 'running'" />
+      <StatusDot
+        v-if="phaseNeedsAttention"
+        :bucket="phaseStatusBucket"
+        :pulse="phaseStatus.kind === 'tasks' || phaseStatus.kind === 'running'"
+      />
 
-      <!-- Phase status label — kept for the states that need more than a
-           color (Running / Your Turn / Error / Waiting); "Done" is
-           intentionally silent since the dot + duration already say it. -->
+      <!-- Phase status label — only for the states that need more than
+           silence (Running / Your turn / Error / Waiting / Tool unavailable). -->
       <span
         v-if="phaseStatus.kind === 'running'"
         class="flex-shrink-0 flex items-center gap-1 text-[10.5px] font-medium text-blue-500"
@@ -56,24 +59,25 @@
 
       <span class="flex-1"></span>
 
-      <!-- Right-aligned metadata columns. Ratio shows progress across steps
-           ("3/3", "1/4"); duration is total wall-clock; re-run is always
-           visible so users don't have to hover-hunt to retry. -->
+      <!-- Right-aligned metric columns. The ratio ("3/3", "1/4") sits at the
+           right edge of the step rows' output strip; duration is total
+           wall-clock in the same column the steps use. Both columns keep
+           their width when empty so a phase without a duration doesn't pull
+           its ratio into the duration column. -->
       <span
-        v-if="phaseRatioLabel"
-        class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums"
-      >{{ phaseRatioLabel }}</span>
+        class="flex-shrink-0 w-10 sm:w-32 text-right font-mono text-[11px] text-content-tertiary tabular-nums"
+      >{{ phaseRatioLabel || '' }}</span>
       <span
-        v-if="phaseDurationLabel"
-        class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums w-14 text-right"
-      >{{ phaseDurationLabel }}</span>
+        class="flex-shrink-0 w-14 text-right font-mono text-[11px] text-content-tertiary tabular-nums"
+      >{{ phaseDurationLabel || '' }}</span>
       <FlowRefButton
         :ref-key="phaseRefKey"
         kind="phase"
         :label="displayName"
+        variant="row"
       />
       <button
-        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-hover"
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary opacity-0 transition-opacity hover:text-content hover:bg-overlay-hover focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 coarse:h-11 coarse:w-9 coarse:opacity-100"
         title="Re-run all steps in this section"
         @click.stop="$emit('invalidate-phase', node.path)"
       >
@@ -142,7 +146,7 @@
               <div
                 role="button"
                 tabindex="0"
-                class="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[12px] text-left cursor-pointer"
+                class="w-full flex items-center gap-2.5 coarse:gap-1.5 px-2.5 py-1.5 text-[12px] text-left cursor-pointer"
                 @click="toggleInfoExpanded(eq)"
                 @keydown.enter.prevent="toggleInfoExpanded(eq)"
                 @keydown.space.prevent="toggleInfoExpanded(eq)"
@@ -186,9 +190,10 @@
                 </div>
 
                 <span
-                  class="flex-shrink-0 font-mono text-[10.5px] font-semibold tabular-nums w-[72px] text-right"
+                  v-if="equationStatusLabel(eq)"
+                  class="flex-shrink-0 font-mono text-[10.5px] font-semibold tabular-nums text-right"
                   :class="equationStatusColor(eq)"
-                >{{ equationStatusLabel(eq) || '' }}</span>
+                >{{ equationStatusLabel(eq) }}</span>
                 <span
                   class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums w-14 text-right"
                 >{{ equationDurationLabel(eq) || '' }}</span>
@@ -197,11 +202,12 @@
                   kind="equation"
                   :label="eq.display_name || 'Info'"
                   :breadcrumb="eqBreadcrumb(eq)"
+                  variant="row"
                 />
                 <button
                   v-if="eq.status === 'completed' || eq.status === 'failed'"
                   type="button"
-                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-hover"
+                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary opacity-0 transition-opacity hover:text-content hover:bg-overlay-hover focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 coarse:h-11 coarse:w-9 coarse:opacity-100"
                   title="Re-run this step"
                   @click.stop="$emit('invalidate-equation', eq.equation_key)"
                 >
@@ -209,7 +215,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                   </svg>
                 </button>
-                <span v-else class="flex-shrink-0 w-6 h-6" aria-hidden="true" />
+                <span v-else class="flex-shrink-0 w-6 h-6 coarse:h-11 coarse:w-9" aria-hidden="true" />
               </div>
 
               <!-- Expanded = the ONE wash inset, deepest level only (§3.1). -->
@@ -306,7 +312,7 @@
               <div
                 :role="isHitlLockedOpen(eq) ? undefined : 'button'"
                 :tabindex="isHitlLockedOpen(eq) ? undefined : 0"
-                class="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[12px] text-left"
+                class="w-full flex items-center gap-2.5 coarse:gap-1.5 px-2.5 py-1.5 text-[12px] text-left"
                 :class="isHitlLockedOpen(eq) ? 'cursor-default' : 'cursor-pointer'"
                 @click="toggleHitlExpanded(eq)"
                 @keydown.enter.prevent="toggleHitlExpanded(eq)"
@@ -343,9 +349,10 @@
                 </div>
 
                 <span
-                  class="flex-shrink-0 font-mono text-[10.5px] font-semibold tabular-nums w-[72px] text-right"
+                  v-if="equationStatusLabel(eq)"
+                  class="flex-shrink-0 font-mono text-[10.5px] font-semibold tabular-nums text-right"
                   :class="equationStatusColor(eq)"
-                >{{ equationStatusLabel(eq) || '' }}</span>
+                >{{ equationStatusLabel(eq) }}</span>
                 <span
                   class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums w-14 text-right"
                 >{{ equationDurationLabel(eq) || '' }}</span>
@@ -354,11 +361,12 @@
                   kind="equation"
                   :label="hitlTitle(eq)"
                   :breadcrumb="eqBreadcrumb(eq)"
+                  variant="row"
                 />
                 <button
                   v-if="eq.status === 'completed' || eq.status === 'failed'"
                   type="button"
-                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-hover"
+                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary opacity-0 transition-opacity hover:text-content hover:bg-overlay-hover focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 coarse:h-11 coarse:w-9 coarse:opacity-100"
                   title="Re-run this step"
                   @click.stop="$emit('invalidate-equation', eq.equation_key)"
                 >
@@ -366,7 +374,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                   </svg>
                 </button>
-                <span v-else class="flex-shrink-0 w-6 h-6" aria-hidden="true" />
+                <span v-else class="flex-shrink-0 w-6 h-6 coarse:h-11 coarse:w-9" aria-hidden="true" />
               </div>
 
               <!-- Expanded content. Actionable-with-task defers all elevation
@@ -650,6 +658,11 @@ const phaseStatus = computed(() => {
   if (completed > 0) return { kind: 'done', label: 'Done' }
   return { kind: 'empty', label: '' }
 })
+
+// The dot (and its label) mark a phase only while it needs attention.
+const phaseNeedsAttention = computed(() =>
+  ['error', 'tasks', 'running', 'unavailable'].includes(phaseStatus.value.kind),
+)
 
 // StatusDot bucket for the phase header dot (DESIGN.md §1.9).
 const phaseStatusBucket = computed<StatusBucket>(() => {

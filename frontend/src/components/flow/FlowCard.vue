@@ -1,103 +1,65 @@
 <template>
-  <div
-    class="flex items-center gap-4 px-page py-3 transition-colors cursor-pointer hover:bg-overlay-subtle compact:gap-3"
+  <CollectionRow
+    trailing-width="10.5rem"
     @click="handleClick"
     @contextmenu="$emit('contextmenu', $event, flow)"
   >
-    <!-- Thumbnail -->
-    <RowThumb :media-id="heroMediaId" :thumbnail-size="128">
-      <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-      </svg>
-    </RowThumb>
+    <template #thumb>
+      <RowThumb :media-id="heroMediaId" :thumbnail-size="128">
+        <svg class="w-icon-nav h-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+        </svg>
+      </RowThumb>
+    </template>
 
-    <!-- Row slots, shared with chats: name (up to two lines) and the date on
-         the first line; description and its quiet facts (outputs, status) on
-         the second. The description keeps a readable measure on wide screens
-         and the facts follow it directly, so the trailing column
-         carries only the date. -->
-    <div class="flex-1 min-w-0">
-      <div class="flex items-start gap-3">
-        <template v-if="editing">
-          <input
-            v-no-autocorrect
-            ref="editInputRef"
-            v-model="editingName"
-            @blur="saveName"
-            @keydown.enter="saveName"
-            @keydown.esc.prevent="cancelEdit"
-            @click.stop
-            class="text-sm text-content font-medium bg-surface-raised border border-transparent rounded-md px-2 py-0.5 outline-none focus:border-accent focus-visible:ring-2 ring-accent/40 flex-1 min-w-0"
-            placeholder="Name this flow..."
-          />
-        </template>
-        <template v-else>
-          <span
-            v-if="flow.name"
-            class="line-clamp-2 min-w-0 flex-1 text-[14px] font-medium leading-5 text-content"
-          >
-            {{ flow.name }}
-          </span>
-          <span
-            v-else
-            @click.stop="beginEdit"
-            class="line-clamp-2 min-w-0 flex-1 cursor-pointer text-[14px] italic leading-5 text-content-muted hover:text-content-secondary"
-          >
-            Name this flow...
-          </span>
-          <span class="w-14 flex-shrink-0 text-right font-mono text-xs leading-5 tabular-nums text-content-tertiary whitespace-nowrap">
-            {{ flow.updated_at ? formatRelativeShort(flow.updated_at) : '' }}
-          </span>
-        </template>
-      </div>
-      <div v-if="!editing" class="mt-0.5 flex items-center gap-3">
-        <div v-if="parentName" class="min-w-0 max-w-[64ch] truncate text-[13px] text-content-muted">
-          based on {{ parentName }}
-        </div>
-        <div v-else-if="flow.description" class="min-w-0 max-w-[64ch] truncate text-[13px] text-content-muted">
-          {{ flow.description }}
-        </div>
-        
-        <!-- Status: a quiet fact after the description. "Your turn" is the
-             actionable state, so it wears the accent and a heavier weight. -->
-        <span class="inline-flex flex-shrink-0 items-center gap-1.5" :class="statusTextClass">
-          <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="statusDotClass"></span>
-          {{ statusText }}
-        </span>
+    <template #title>
+      <input
+        v-if="editing"
+        v-no-autocorrect
+        ref="editInputRef"
+        v-model="editingName"
+        @blur="saveName"
+        @keydown.enter="saveName"
+        @keydown.esc.prevent="cancelEdit"
+        @click.stop
+        class="text-sm text-content font-medium bg-surface-raised border border-transparent rounded-md px-2 py-0.5 outline-none focus:border-accent focus-visible:ring-2 ring-accent/40 flex-1 min-w-0"
+        placeholder="Name this flow..."
+      />
+      <span
+        v-else-if="flow.name"
+        class="line-clamp-2 min-w-0 flex-1 text-[14px] font-medium leading-5 text-content"
+      >
+        {{ flow.name }}
+      </span>
+      <span
+        v-else
+        @click.stop="beginEdit"
+        class="line-clamp-2 min-w-0 flex-1 cursor-pointer text-[14px] italic leading-5 text-content-muted hover:text-content-secondary"
+      >
+        Name this flow...
+      </span>
+    </template>
 
-        <!-- Output asset strip: up to 3 tiles overlap stacked-avatar style,
-             mirrors the collapsed-header treatment in EquationTraceRow /
-             IterationGroup so a flow row reads as a live preview of its
-             surfaced outputs, not just a generic bolt glyph. -->
-        <div
-          v-if="stripMediaIds.length > 0"
-          class="hidden sm:flex flex-shrink-0 items-center justify-end -my-1.5"
-        >
-          <div
-            v-for="(mid, i) in stripMediaIds"
-            :key="mid"
-            class="w-7 h-7 rounded-media border border-surface overflow-hidden bg-matte"
-            :class="i > 0 ? '-ml-2' : ''"
-            :style="{ zIndex: stripMediaIds.length - i }"
-          >
-            <MediaImage
-              :media-id="mid"
-              :thumbnail="true"
-              :thumbnail-size="128"
-              :draggable="false"
-              :enable-context-menu="false"
-              container-class="w-full h-full"
-              img-class="w-full h-full object-cover"
-            />
-          </div>
-          <span
-            v-if="extraCount > 0"
-            class="ml-1.5 text-[10.5px] font-mono text-content-muted tabular-nums"
-          >+{{ extraCount }}</span>
-        </div>
-      </div>
-    </div>
-  </div>
+    <template v-if="!editing && (parentName || flow.description)" #preview>
+      <p class="truncate text-[13px] leading-5 text-content-muted">
+        <template v-if="parentName">based on {{ parentName }}</template>
+        <template v-else>{{ flow.description }}</template>
+      </p>
+    </template>
+
+    <!-- Status: the row's one fact, in the shared trailing column. "Your turn"
+         is the actionable state, so it wears the accent and a heavier weight. -->
+    <template v-if="!editing" #trailing>
+      <span class="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[11.5px]" :class="statusTextClass">
+        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="statusDotClass"></span>
+        <span class="truncate">{{ statusText }}</span>
+      </span>
+    </template>
+
+    <template v-if="!editing" #date>
+      {{ flow.updated_at ? formatRelativeShort(flow.updated_at) : '' }}
+    </template>
+  </CollectionRow>
 </template>
 
 <script setup lang="ts">
@@ -108,7 +70,7 @@ import { useFlowsApi, type Flow, type FlowEquation } from '../../composables/use
 import { computeFlowOutputs } from '../../composables/useFlowOutputs'
 import { useWebSocket } from '../../composables/useWebSocket'
 import { useFlowCounts } from '../../composables/useFlowCounts'
-import { MediaImage } from '../media'
+import CollectionRow from '../lists/CollectionRow.vue'
 import RowThumb from '../lists/RowThumb.vue'
 import { useFlowStatus } from '../../composables/useFlowStatus'
 import { useViewport } from '../../composables/useViewport'
@@ -141,25 +103,21 @@ const statusText = computed(() => {
 })
 const statusTextClass = computed(() =>
   statusLabel.value === 'Your Turn'
-    ? 'text-[11.5px] font-semibold text-accent-hi whitespace-nowrap'
-    : 'text-[11.5px] text-content-tertiary whitespace-nowrap',
+    ? 'font-semibold text-accent-hi'
+    : 'text-content-tertiary',
 )
 
 const editing = ref(false)
 const editingName = ref('')
 const editInputRef = ref<HTMLInputElement | null>(null)
 
-// Output media for the hero avatar + strip. Populated by a lazy listEquations
+// Output media for the hero thumbnail. Populated by a lazy listEquations
 // fetch per row — the flow list endpoint doesn't aggregate output media, so
 // each card pulls its own equations and derives outputs via the same
 // computeFlowOutputs helper the flow detail view uses.
 const outputMediaIds = ref<number[]>([])
 
 const heroMediaId = computed<number | null>(() => outputMediaIds.value[0] ?? null)
-const stripMediaIds = computed<number[]>(() => outputMediaIds.value.slice(1, 4))
-const extraCount = computed<number>(() =>
-  Math.max(0, outputMediaIds.value.length - 1 - stripMediaIds.value.length)
-)
 
 let loadSeq = 0
 let reloadTimer: ReturnType<typeof setTimeout> | null = null

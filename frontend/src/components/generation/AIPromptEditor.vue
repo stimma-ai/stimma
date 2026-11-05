@@ -61,7 +61,7 @@
             >
               <LanguageIcon class="w-3.5 h-3.5" />
               <span>{{ translateActive ? activeLanguageLabel : 'Translate' }}</span>
-              <ChevronDownIcon class="w-3 h-3 opacity-70" />
+              <Caret :open="showTranslateMenu" class="opacity-70" />
             </button>
 
             <!-- Menu teleported to <body> with fixed positioning so it escapes
@@ -110,43 +110,50 @@
 
         <!-- Right: Inline toggles + Help + AI Sparkle -->
         <div class="flex items-center gap-1.5 compact:hidden">
-          <!-- Vim/Reg toggle -->
-          <button
-            @click="toggleVim"
-            :class="[
-              'text-xs font-mono font-medium px-2 py-1 rounded-md transition-colors',
-              'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
-            ]"
-            :title="vimEnabled ? 'Switch to regular keybindings' : 'Switch to Vim keybindings'"
-          >
-            {{ vimEnabled ? 'Vim' : 'Std' }}
-          </button>
-
-          <!-- Mono/Sans toggle -->
-          <button
-            @click="toggleMonospace"
-            :class="[
-              'text-xs font-medium px-2 py-1 rounded-md transition-colors',
-              'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle',
-              monospaceEnabled ? 'font-mono' : ''
-            ]"
-            :title="monospaceEnabled ? 'Switch to proportional font' : 'Switch to monospace font'"
-          >
-            {{ monospaceEnabled ? 'Mono' : 'Sans' }}
-          </button>
-
-          <!-- Help button -->
+          <!-- Editor options: keybindings, font and syntax help live behind one
+               quiet control (the labels Std / Sans / Help meant nothing on
+               their own). -->
           <div class="relative flex items-center" ref="helpPopoverContainer">
-            <button
-              @click="showHelp = !showHelp"
-              :class="[
-                'text-xs font-medium px-2 py-1 rounded-md transition-colors',
-                showHelp ? 'text-content hover:bg-overlay-subtle' : 'text-content-muted hover:text-content-secondary'
-              ]"
-              title="Prompt syntax help"
+            <OverflowButton
+              label="Prompt editor options"
+              :active="showEditorMenu || showHelp"
+              @click="showEditorMenu = !showEditorMenu; showHelp = false"
+            />
+            <div
+              v-if="showEditorMenu"
+              class="absolute top-full right-0 mt-1 py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-56"
+              role="menu"
             >
-              Help
-            </button>
+              <button
+                role="menuitemcheckbox"
+                :aria-checked="vimEnabled"
+                class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle transition-colors"
+                :title="vimEnabled ? 'Switch to regular keybindings' : 'Switch to Vim keybindings'"
+                @click="toggleVim(); showEditorMenu = false"
+              >
+                <span class="flex-1 text-left">Vim keybindings</span>
+                <CheckIcon v-if="vimEnabled" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
+              </button>
+              <button
+                role="menuitemcheckbox"
+                :aria-checked="monospaceEnabled"
+                class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle transition-colors"
+                :title="monospaceEnabled ? 'Switch to proportional font' : 'Switch to monospace font'"
+                @click="toggleMonospace(); showEditorMenu = false"
+              >
+                <span class="flex-1 text-left">Monospace font</span>
+                <CheckIcon v-if="monospaceEnabled" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
+              </button>
+              <div class="my-1 border-t border-edge-subtle"></div>
+              <button
+                role="menuitem"
+                class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle transition-colors"
+                title="Prompt syntax help"
+                @click="showHelp = true; showEditorMenu = false"
+              >
+                <span class="flex-1 text-left">Prompt syntax help</span>
+              </button>
+            </div>
 
             <!-- Help popover -->
             <div
@@ -258,7 +265,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
-import { SparklesIcon, LanguageIcon, ChevronDownIcon, CheckIcon } from '@heroicons/vue/24/solid'
+import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
+import Caret from '../ui/Caret.vue'
+import OverflowButton from '../ui/OverflowButton.vue'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
@@ -336,6 +345,7 @@ const sizeVars = computed(() => {
 const editorMount = ref<HTMLElement | null>(null)
 const helpPopoverContainer = ref<HTMLElement | null>(null)
 const showHelp = ref(false)
+const showEditorMenu = ref(false)
 const translateMenuContainer = ref<HTMLElement | null>(null)
 const translateButton = ref<HTMLElement | null>(null)
 const translateMenuEl = ref<HTMLElement | null>(null)
@@ -511,8 +521,9 @@ const selfHandle: PromptEditorHandle = {
 
 // Click-outside handler for the popover menus
 function handleClickOutside(event: MouseEvent) {
-  if (showHelp.value && helpPopoverContainer.value && !helpPopoverContainer.value.contains(event.target as Node)) {
+  if ((showHelp.value || showEditorMenu.value) && helpPopoverContainer.value && !helpPopoverContainer.value.contains(event.target as Node)) {
     showHelp.value = false
+    showEditorMenu.value = false
   }
   // The menu is teleported to <body>, so check the button and the menu element
   // separately (it's no longer a DOM descendant of the chip container).

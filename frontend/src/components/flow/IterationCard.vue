@@ -18,7 +18,7 @@
         :media-id="primaryMediaId"
         :media-ids="primaryMediaIds"
         :thumbnail="true"
-        :thumbnail-size="size === 'full' ? 256 : 160"
+        :thumbnail-size="large ? 640 : size === 'full' ? 256 : 160"
         :contain="!isCompositePrimary"
         :container-class="tileAspectClass"
       />
@@ -109,7 +109,7 @@
     <button
       v-if="!isRunning"
       type="button"
-      class="absolute bottom-1 right-1 z-10 h-6 w-6 flex items-center justify-center rounded bg-black/60 text-white/85 opacity-0 transition-all hover:bg-accent/80 hover:text-white group-hover/iteration-card:opacity-100"
+      class="absolute bottom-1 right-1 z-10 h-6 w-6 flex items-center justify-center rounded bg-black/60 text-white/85 opacity-0 transition-all hover:bg-accent/80 hover:text-white group-hover/iteration-card:opacity-100 coarse:opacity-100"
       title="Show iteration details"
       @click.stop="$emit('open', iteration)"
     >
@@ -121,7 +121,7 @@
     <button
       v-if="invalidateKey"
       type="button"
-      class="absolute top-1 right-1 opacity-0 group-hover/iteration-card:opacity-100 text-sm w-6 h-6 flex items-center justify-center rounded bg-black/55 text-white/85 hover:bg-black/75 transition-opacity"
+      class="absolute top-1 right-1 opacity-0 group-hover/iteration-card:opacity-100 coarse:opacity-100 text-sm w-6 h-6 flex items-center justify-center rounded bg-black/55 text-white/85 hover:bg-black/75 transition-opacity"
       title="Re-run this iteration"
       @click.stop="$emit('invalidate', invalidateKey)"
     >↻</button>
@@ -154,8 +154,10 @@ import { mapEquationStatus, mapBlockReason, tileBgClass } from '../../utils/stat
 interface Props {
   iteration: GroupedIteration
   size?: 'full' | 'compact'
+  // A lone or near-lone result shown large: asks for a bigger thumbnail.
+  large?: boolean
 }
-const props = withDefaults(defineProps<Props>(), { size: 'full' })
+const props = withDefaults(defineProps<Props>(), { size: 'full', large: false })
 const emit = defineEmits<{
   (e: 'open', iteration: GroupedIteration): void
   (e: 'invalidate', equationKey: string): void

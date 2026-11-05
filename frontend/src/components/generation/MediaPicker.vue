@@ -730,7 +730,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          {{ isDragging ? 'Drop here' : (useSlotLabels ? slotName(items.length) : 'Add — drop, paste, or browse') }}
+          {{ isDragging ? 'Drop here' : (useSlotLabels ? slotName(items.length) : (isCoarsePointer ? 'Add — tap to choose' : 'Add — drop, paste, or browse')) }}
         </span>
       </div>
     </div>
@@ -869,6 +869,7 @@ import { recordMediaInputUse, removeRecentMediaInput, type RecentInputKind } fro
 import { removeRecentMediaPick } from '../../composables/useRecentMediaPicks'
 import { getMediaType } from '../../utils/mediaTypes'
 import Spinner from '../ui/Spinner.vue'
+import { useViewport } from '../../composables/useViewport'
 import Modal from '../ui/Modal.vue'
 import { useOwnerProject } from '../../composables/useProjectScope'
 import { appendProjectId } from '../../utils/projectScope'
@@ -985,6 +986,7 @@ interface Props {
   disabledReason?: string
 }
 
+const { isCoarsePointer } = useViewport()
 const props = withDefaults(defineProps<Props>(), {
   minItems: 1,
   maxItems: 1,

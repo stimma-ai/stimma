@@ -437,6 +437,24 @@
             </button>
           </div>
         </div>
+        <!-- Upload: the one create action of the browse toolbar, at every layout (icon only on compact). -->
+        <Button
+          v-if="!isTrashMode"
+          variant="secondary"
+          size="sm"
+          class="h-9 compact:h-11 compact:w-11 compact:px-0"
+          aria-label="Upload assets"
+          title="Upload assets"
+          data-testid="browse-upload"
+          @click="emit('upload')"
+        >
+          <template #icon>
+            <svg class="h-icon-nav w-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+          </template>
+          <span class="compact:hidden">Upload</span>
+        </Button>
       </div>
     </div>
 
@@ -849,6 +867,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
+  'upload',
   'update:captionQuery',
   'update:promptQuery',
   'update:mediaTypes',

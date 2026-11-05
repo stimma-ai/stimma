@@ -61,7 +61,8 @@
               @dragstart="handleDragStart($event, rowItem)"
               @dragend="handleGridDragEnd"
             >
-              <div class="w-full h-full overflow-hidden rounded-media">
+              <div class="w-full h-full overflow-hidden rounded-media" :style="coverBackdrop(rowItem)">
+                <div class="h-full w-full" :style="coverTransform(rowItem)">
                 <AppImage
                   :src="editorLivePreview(assetIdOf(rowItem)) || getThumbnailUrl(rowItem.file_hash, GRID_THUMBNAIL_SIZE)"
                   :alt="rowItem.vlm_caption || 'Media item'"
@@ -72,6 +73,7 @@
                   background-class="bg-matte"
                   container-class="w-full h-full"
                 />
+                </div>
                 <video
                   v-if="isVideo(rowItem)"
                   :ref="el => setVideoRef(assetIdOf(rowItem), el)"
@@ -101,15 +103,18 @@
                 </div>
               </div>
 
-              <!-- Marker badges (only show standalone when no title bar) -->
+              <!-- Tile signals sit in three fixed places: kind top-right, state glyphs
+                   bottom-right, facts bottom-left. At most two show at rest; the rest
+                   appear on hover (and live in the detail view). -->
               <TileMarkers
                 v-if="rowItem.markers && rowItem.markers.length > 0"
                 :markers="rowItem.markers"
-                class="absolute bottom-1.5 right-1.5 z-chrome"
+                class="absolute right-2 z-chrome transition-opacity"
+                :class="[hasPackageLabel(rowItem) ? 'bottom-[50px]' : 'bottom-2', atRest(rowItem, 'state') ? '' : HOVER_ONLY]"
               />
 
               <!-- Media type badge (upper right) - only for types that need it and not hidden -->
-              <div v-if="getMediaType(rowItem) !== 'image'" class="absolute top-1.5 right-1.5 z-chrome">
+              <div v-if="getMediaType(rowItem) !== 'image'" class="absolute top-1.5 right-1.5 z-chrome transition-opacity" :class="atRest(rowItem, 'kind') ? '' : HOVER_ONLY">
                 <TileChip>
                   <!-- Document icon -->
                   <svg v-if="getMediaType(rowItem) === 'text'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -159,27 +164,27 @@
                 </TileChip>
               </div>
 
-              <!-- Bottom-left stack: contextual state, bottom-up. Same chip as every other tile signal. -->
+              <!-- Bottom-left facts, bottom-up. Similarity and time left lead; revisions wait for hover. -->
               <div class="absolute left-1.5 z-chrome flex flex-col-reverse items-start gap-1" :class="hasPackageLabel(rowItem) ? 'bottom-[46px]' : 'bottom-1.5'">
-                <TileChip v-if="rowItem.similarity_score !== null && rowItem.similarity_score !== undefined">
+                <TileChip v-if="hasSimilarity(rowItem)" class="transition-opacity" :class="atRest(rowItem, 'similarity') ? '' : HOVER_ONLY">
                   {{ formatSimilarity(rowItem.similarity_score) }}
                 </TileChip>
 
-                <!-- Version depth: persistent so sweeping the grid doesn't flicker. -->
-                <TileChip v-if="rowItem.revision_count > 1" class="pointer-events-none" title="Revisions">
+                <!-- Auto-delete time remaining -->
+                <TileChip v-if="hasExpiry(rowItem)" class="transition-opacity" :class="atRest(rowItem, 'expiry') ? '' : HOVER_ONLY">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
+                  </svg>
+                  {{ formatRemainingTime(rowItem.expires_at) }}
+                </TileChip>
+
+                <!-- Version depth: a hover fact; the edit marker already says "edited" at rest. -->
+                <TileChip v-if="rowItem.revision_count > 1" class="pointer-events-none transition-opacity" :class="HOVER_ONLY" title="Revisions">
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M5.75 3.25h6a1 1 0 0 1 1 1v6" opacity="0.55" />
                     <rect x="2.75" y="5.75" width="7.5" height="7.5" rx="1.25" />
                   </svg>
                   {{ rowItem.revision_count }}
-                </TileChip>
-
-                <!-- Auto-delete time remaining -->
-                <TileChip v-if="rowItem.expires_at && formatRemainingTime(rowItem.expires_at)">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
-                  </svg>
-                  {{ formatRemainingTime(rowItem.expires_at) }}
                 </TileChip>
               </div>
 
@@ -228,7 +233,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated, nextTick } from 'vue'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import { useMediaApi } from '../composables/useMediaApi'
@@ -758,6 +763,84 @@ function formatSimilarity(score) {
 
 // Browse rows carry the Asset title as asset_title; older payloads (sets,
 // grids) still spell it title.
+// Tile signal budget: kind (top-right), state glyphs (bottom-right) and one fact
+// (bottom-left). Two show at rest, in this order; the rest wait for hover.
+const HOVER_ONLY = 'opacity-0 group-hover:opacity-100 [[data-pointer=coarse]_&]:hidden'
+function hasSimilarity(item) { return item.similarity_score !== null && item.similarity_score !== undefined }
+function hasExpiry(item) { return !!(item.expires_at && formatRemainingTime(item.expires_at)) }
+function restSignals(item) {
+  const present = []
+  if (hasSimilarity(item)) present.push('similarity')
+  else if (hasExpiry(item)) present.push('expiry')
+  if (getMediaType(item) !== 'image') present.push('kind')
+  if (item.markers && item.markers.length > 0) present.push('state')
+  return present.slice(0, 2)
+}
+function atRest(item, signal) { return restSignals(item).includes(signal) }
+// Set and grid covers arrive as a contact sheet drawn at the top of a square
+// with the backdrop baked in, which leaves a blank band under it. Find the
+// sheet inside the picture and centre it on its own backdrop, so the tile has
+// even margins and no hole. Measured once per cover.
+const coverFits = reactive(new Map())
+const coverProbes = new Set()
+function isContainerCover(item) {
+  const type = getMediaType(item)
+  return type === 'set' || type === 'grid'
+}
+function probeCover(item) {
+  const src = getThumbnailUrl(item.file_hash, GRID_THUMBNAIL_SIZE)
+  if (coverProbes.has(src)) return
+  coverProbes.add(src)
+  const img = new Image()
+  img.onload = () => {
+    try {
+      const n = 96
+      const canvas = document.createElement('canvas')
+      canvas.width = n
+      canvas.height = n
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      ctx.drawImage(img, 0, 0, n, n)
+      const { data } = ctx.getImageData(0, 0, n, n)
+      const bg = [data[0], data[1], data[2]]
+      let minX = n, minY = n, maxX = -1, maxY = -1
+      for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
+          const i = (y * n + x) * 4
+          const d = Math.max(Math.abs(data[i] - bg[0]), Math.abs(data[i + 1] - bg[1]), Math.abs(data[i + 2] - bg[2]))
+          if (d > 14) {
+            if (x < minX) minX = x
+            if (x > maxX) maxX = x
+            if (y < minY) minY = y
+            if (y > maxY) maxY = y
+          }
+        }
+      }
+      if (maxX < 0) return
+      const cx = (minX + maxX + 1) / 2 / n
+      const cy = (minY + maxY + 1) / 2 / n
+      coverFits.set(src, { bg: `rgb(${bg[0]} ${bg[1]} ${bg[2]})`, dx: 0.5 - cx, dy: 0.5 - cy })
+    } catch (e) {
+      // A cover we cannot read keeps the plain tile.
+    }
+  }
+  img.src = src
+}
+function coverFit(item) {
+  if (!isContainerCover(item)) return null
+  const src = getThumbnailUrl(item.file_hash, GRID_THUMBNAIL_SIZE)
+  const fit = coverFits.get(src)
+  if (!fit) probeCover(item)
+  return fit || null
+}
+function coverBackdrop(item) {
+  const fit = coverFit(item)
+  return fit ? { backgroundColor: fit.bg } : undefined
+}
+function coverTransform(item) {
+  const fit = coverFit(item)
+  if (!fit || (Math.abs(fit.dx) < 0.02 && Math.abs(fit.dy) < 0.02)) return undefined
+  return { transform: `translate(${(fit.dx * 100).toFixed(2)}%, ${(fit.dy * 100).toFixed(2)}%)` }
+}
 function hasPackageLabel(item) { return getMediaType(item) === 'package' && !!itemTitle(item) }
 function packageAge(item) { return formatRelativeTime(item.asset_created_at || item.created_date) }
 

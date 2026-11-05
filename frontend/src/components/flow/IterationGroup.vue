@@ -4,7 +4,7 @@
     <div
       :role="lockedOpen ? undefined : 'button'"
       :tabindex="lockedOpen ? undefined : 0"
-      class="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[12px] text-left"
+      class="w-full flex items-center gap-2.5 coarse:gap-1.5 px-2.5 py-1.5 text-[12px] text-left"
       :class="lockedOpen ? 'cursor-default' : 'cursor-pointer'"
       @click="toggleExpanded"
       @keydown.enter.prevent="toggleExpanded"
@@ -123,6 +123,7 @@
         kind="iteration-group"
         :label="titleText"
         :breadcrumb="groupBreadcrumb"
+        variant="row"
       />
       <button
         v-if="pendingApproveTasks.length > 0"
@@ -134,7 +135,7 @@
       <button
         v-if="invalidateTargetKey"
         type="button"
-        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary opacity-0 transition-opacity hover:text-content hover:bg-overlay-hover focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 coarse:h-11 coarse:w-9 coarse:opacity-100"
         title="Re-run all iterations in this loop"
         @click.stop="$emit('invalidate-equation', invalidateTargetKey)"
       >
@@ -142,7 +143,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
         </svg>
       </button>
-      <span v-else class="flex-shrink-0 w-6 h-6" aria-hidden="true" />
+      <span v-else class="flex-shrink-0 w-6 h-6 coarse:h-11 coarse:w-9" aria-hidden="true" />
     </div>
 
     <!-- Body: scale-adaptive. The layout picks itself from iteration count;

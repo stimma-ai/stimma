@@ -7,14 +7,18 @@
            pt-2 keeps it off the preceding row's hairline when this group sits
            inside a divide-y host (e.g. chain step settings). -->
       <div v-if="paramGroup.label" :class="flat ? 'pt-2 mb-1' : 'flex items-center min-h-6 mb-1'">
+        <!-- Disclosure row: label left; the count and the one caret at the right
+             edge, the same place the other sections keep their state. -->
         <button
           v-if="paramGroup.collapsible && !disableCollapse"
           @click="toggleCollapsed(paramGroup.group)"
           type="button"
-          class="flex items-center gap-1.5 text-ctl font-semibold text-content-secondary hover:text-content transition-colors duration-150 focus:outline-none focus-visible:ring-2 ring-accent/60 rounded"
+          :aria-expanded="!isCollapsed(paramGroup.group)"
+          class="flex w-full items-center gap-2 text-ctl font-semibold text-content-secondary hover:text-content transition-colors duration-150 focus:outline-none focus-visible:ring-2 ring-accent/60 rounded coarse:min-h-11"
         >
-          {{ displayGroupLabel(paramGroup.label) }}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" :class="['w-icon-inline h-icon-inline text-content-muted transition-transform duration-150', !isCollapsed(paramGroup.group) ? 'rotate-180' : '']" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+          <span>{{ displayGroupLabel(paramGroup.label) }}</span>
+          <span class="ml-auto font-mono text-xs font-normal tabular-nums text-content-tertiary">{{ paramGroup.params.length }} {{ paramGroup.params.length === 1 ? 'setting' : 'settings' }}</span>
+          <Caret :open="!isCollapsed(paramGroup.group)" class="-mr-0.5 text-content-muted" />
         </button>
         <span v-else class="text-ctl font-semibold text-content-secondary">{{ displayGroupLabel(paramGroup.label) }}</span>
       </div>
@@ -163,6 +167,7 @@
 </template>
 
 <script setup lang="ts">
+import Caret from '../ui/Caret.vue'
 import { computed, ref } from 'vue'
 import SettingsDropdown from '../ui/SettingsDropdown.vue'
 import VoicePicker from './VoicePicker.vue'

@@ -3,7 +3,7 @@
     <button
       ref="buttonRef"
       @click="toggle"
-      class="relative w-8 h-8 flex items-center justify-center rounded-full transition-colors text-content-muted hover:text-content-secondary hover:bg-overlay-subtle"
+      class="relative w-8 h-8 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-md transition-colors text-content-muted hover:text-content-secondary hover:bg-overlay-subtle"
       :title="title"
     >
       <BookOpenIcon class="w-icon-nav h-icon-nav" />

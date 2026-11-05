@@ -9292,25 +9292,32 @@ watch(
         class="absolute z-chrome flex items-center justify-between pointer-events-none"
         :style="{ top: compactChipTop + 'px', left: compactChipInset + 'px', right: compactChipInset + 'px' }"
       >
+        <!-- The 44px target is the button; the chip inside is the glass. -->
         <button
           type="button"
-          class="pointer-events-auto min-h-11 px-3 rounded-lg bg-surface/90 text-content text-[11px] font-mono tabular-nums flex items-center gap-1.5 border border-edge-subtle backdrop-blur"
+          class="pointer-events-auto flex min-h-11 min-w-11 items-center justify-start focus-visible:outline-none"
           :aria-label="`Zoom ${viewZoomLabel}. Fit and recenter`"
           @click="resetView"
         >
-          <ArrowsPointingInIcon class="w-4 h-4" />
-          {{ viewZoomLabel }}
+          <span class="flex h-8 items-center gap-1.5 rounded-md bg-black/55 px-2 font-mono text-[11px] tabular-nums text-white backdrop-blur">
+            <ArrowsPointingInIcon class="h-icon-inline w-icon-inline" />
+            {{ viewZoomLabel }}
+          </span>
         </button>
         <button
           type="button"
-          class="pointer-events-auto min-h-11 px-3 rounded-lg text-[12px] font-medium flex items-center gap-1.5 border backdrop-blur disabled:opacity-40"
-          :class="comparing ? 'bg-selection/25 text-selection border-selection/40' : 'bg-surface/90 text-content border-edge-subtle'"
+          class="pointer-events-auto flex min-h-11 min-w-11 items-center justify-end focus-visible:outline-none disabled:opacity-40"
           :aria-pressed="comparing"
           :disabled="!composite"
           @click="toggleCompare()"
         >
-          <ViewColumnsIcon class="w-4 h-4" />
-          Compare
+          <span
+            class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium text-white backdrop-blur"
+            :class="comparing ? 'bg-black/80 ring-1 ring-white/40' : 'bg-black/55'"
+          >
+            <ViewColumnsIcon class="h-icon-inline w-icon-inline" />
+            Compare
+          </span>
         </button>
       </div>
 
@@ -9335,7 +9342,7 @@ watch(
         v-else
         ref="viewport"
         data-disable-long-press
-        class="relative flex-1 min-h-0 grid place-items-center overflow-hidden bg-matte p-6 coarse:touch-none compact:p-0"
+        class="relative flex-1 min-h-0 grid place-items-center overflow-hidden bg-matte px-6 py-16 coarse:touch-none compact:p-0"
         :class="[viewPanning ? 'cursor-grabbing' : (spacePanHeld ? 'cursor-grab' : ''), isCompact && family !== 'crop' && 'compact:!py-[52px]']"
         @wheel.prevent="onViewportWheel"
         @pointerdown.capture="onViewportPointerDown"

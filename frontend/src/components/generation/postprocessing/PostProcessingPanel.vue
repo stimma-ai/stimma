@@ -5,19 +5,10 @@
          a bright toggle here outshone the whole column. -->
     <div class="flex items-center gap-2 min-h-6" :class="chain.steps.length ? 'mb-1.5' : ''">
       <span class="text-ctl font-semibold text-content-secondary">Post-processing</span>
-      <span v-if="chain.steps.length" class="text-xs tabular-nums text-content-tertiary">{{ chain.steps.length }} {{ chain.steps.length === 1 ? 'step' : 'steps' }}</span>
-      <div class="ml-auto flex items-center gap-1.5 coarse:-my-2" :class="chain.steps.length ? '' : 'coarse:-mr-4'">
-        <button
-          ref="addBtnRef"
-          @click="toggleAddMenu"
-          type="button"
-          class="w-6 h-6 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
-          title="Add step"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-          </svg>
-        </button>
+      <div class="ml-auto flex items-center gap-1.5 -mr-2 coarse:-my-2">
+        <!-- Value first: the state at the right, quiet; Add is a labelled
+             action, not a disclosure. -->
+        <span class="font-mono text-xs tabular-nums text-content-tertiary">{{ chain.steps.length ? `${chain.steps.length} ${chain.steps.length === 1 ? 'step' : 'steps'}` : 'None' }}</span>
         <SettingsDropdown
           v-if="chain.steps.length"
           :model-value="chain.enabled ? 'on' : 'off'"
@@ -25,6 +16,16 @@
           :options="[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]"
           quiet
         />
+        <button
+          ref="addBtnRef"
+          @click="toggleAddMenu"
+          type="button"
+          class="inline-flex h-6 items-center gap-1 rounded-md px-2 text-xs text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors duration-150 coarse:min-h-11 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+          title="Add step"
+        >
+          <PlusIcon class="h-icon-inline w-icon-inline" aria-hidden="true" />
+          Add
+        </button>
       </div>
     </div>
     <AddStepMenu
@@ -85,6 +86,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { PlusIcon } from '@heroicons/vue/24/outline'
 import ChainStepCard from './ChainStepCard.vue'
 import ChainStepSettings from './ChainStepSettings.vue'
 import AddStepMenu from './AddStepMenu.vue'

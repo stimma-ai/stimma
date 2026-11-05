@@ -79,7 +79,7 @@
                pill, restyled to the sentence-case label grammar with a mono
                count on the right. -->
           <div
-            class="relative flex select-none items-center gap-2 px-page pb-1.5"
+            class="group/head relative flex select-none items-center gap-2 px-page pb-1.5"
             :class="!dragState.item ? 'cursor-grab active:cursor-grabbing' : ''"
             draggable="true"
             @dragstart.stop="onSectionDragStart(section, $event)"
@@ -104,7 +104,7 @@
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
-                <span v-else class="flex items-center gap-1.5 text-xs font-normal text-content-muted transition-colors group-hover/name:text-content-secondary">
+                <span v-else class="flex items-center gap-1.5 text-xs font-normal text-content-muted transition-[color,opacity] group-hover/name:text-content-secondary opacity-0 group-hover/head:opacity-100 group-focus-visible/name:opacity-100 compact:opacity-100">
                   <span class="truncate">Name this section…</span>
                   <PencilIcon class="h-3 w-3 flex-none opacity-70" :stroke-width="1.75" aria-hidden="true" />
                 </span>
@@ -112,7 +112,7 @@
             </div>
             <div class="flex flex-none items-center gap-1">
               <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ (section.items || []).length }} {{ (section.items || []).length === 1 ? 'asset' : 'assets' }}</span>
-              <button v-if="isCompact && (section.items || []).length" class="min-h-11 min-w-11 -mr-2 compact:-my-2 whitespace-nowrap px-2 text-xs font-medium text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
+              <button v-if="!isCompact || (section.items || []).length" class="-mr-2 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium text-accent-hi transition-colors hover:bg-overlay-subtle compact:-my-2 compact:min-h-11 compact:min-w-11" @click="addAssetsSection = section.id">Add assets</button>
             </div>
           </div>
 
@@ -183,7 +183,7 @@
                   <TileMarkers
                     v-if="!item.__placeholder && item.markers && item.markers.length > 0"
                     :markers="item.markers"
-                    class="absolute bottom-1.5 right-1.5 z-chrome"
+                    class="absolute bottom-2 right-2 z-chrome"
                   />
                   <!-- Selection checkbox - visible on hover or when selected -->
                   <div

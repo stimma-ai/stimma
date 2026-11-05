@@ -57,12 +57,20 @@
 
     <!-- Complete or Trashed (trashed items still viewable) -->
     <template v-else-if="(row.output.status === 'complete' || row.output.status === 'trashed') && row.output.media_id">
-      <!-- Sets and grids arrive with a backdrop baked in by the server (light:
-           the surface token; dark: neutral 24, which no token matches). Matching it keeps the picture and
-           what surrounds it one matte. The gutters keep the parent's chips off
-           the artwork. -->
+      <!-- A set is drawn from its own members on the matte (SetStackPreview).
+           A grid arrives with a backdrop baked in by the server (light: the
+           surface token; dark: neutral 24, which no token matches), and the
+           set's baked thumbnail is the fallback when no member can be read;
+           matching it keeps the picture and what surrounds it one matte. The
+           gutters keep the parent's chips off the artwork. -->
       <div class="absolute inset-x-0" :style="{ top: `${gutterTop}px`, bottom: `${gutterBottom}px` }">
+        <SetStackPreview
+          v-if="outputMediaType === 'set' && !stackUnavailable"
+          :media-id="row.output.media_id"
+          @unavailable="stackUnavailable = true"
+        />
         <MediaImage
+          v-else
           :media-id="row.output.media_id"
           :thumbnail="effectiveThumbnail"
           :thumbnail-size="effectiveThumbnail ? (fitThumbnail || 512) : undefined"
@@ -195,6 +203,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { MediaImage, TileChip } from '../media'
+import SetStackPreview from './SetStackPreview.vue'
 import { workspaceMediaUrl } from '../../utils/workspaceMediaUrl'
 import { useMarkers } from '../../composables/useMarkers'
 import { useMediaState } from '../../composables/useMediaState'
@@ -333,6 +342,9 @@ const outputMediaType = computed(() => {
   if (!fileFormat) return null
   return getMediaType({ file_format: fileFormat })
 })
+
+// Set when a set has no member to draw its own stack from.
+const stackUnavailable = ref(false)
 
 const isComposite = computed(() => outputMediaType.value === 'set' || outputMediaType.value === 'grid')
 

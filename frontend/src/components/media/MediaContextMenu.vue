@@ -158,7 +158,9 @@
           v-if="groupedOrganize"
           type="button"
           data-testid="menu-group-organize"
-          @click.stop="openGroup('organize')"
+          @click.stop="openGroup('organize', $event)"
+          @mouseenter="!isCoarsePointer && openGroup('organize', $event)"
+          @mouseleave="closeSubmenuDelayed"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <Squares2X2Icon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
@@ -170,10 +172,10 @@
         <div
           v-if="!groupedOrganize || activeGroup === 'organize'"
           ref="groupSheetRef"
-          v-show="!groupedOrganize || !activeSubmenu"
+          v-show="!groupedOrganize || !isCoarsePointer || !activeSubmenu"
           v-bind="groupBind(groupedOrganize)"
         >
-          <template v-if="groupedOrganize">
+          <template v-if="groupedOrganize && isCoarsePointer">
             <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Boards and projects</div>
           </template>
@@ -522,7 +524,9 @@
           v-if="groupedSend"
           type="button"
           data-testid="menu-group-send"
-          @click.stop="openGroup('send')"
+          @click.stop="openGroup('send', $event)"
+          @mouseenter="!isCoarsePointer && openGroup('send', $event)"
+          @mouseleave="closeSubmenuDelayed"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <PaperAirplaneIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
@@ -534,10 +538,10 @@
         <div
           v-if="!groupedSend || activeGroup === 'send'"
           ref="groupSheetRef"
-          v-show="!groupedSend || !activeSubmenu"
+          v-show="!groupedSend || !isCoarsePointer || !activeSubmenu"
           v-bind="groupBind(groupedSend)"
         >
-          <template v-if="groupedSend">
+          <template v-if="groupedSend && isCoarsePointer">
             <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Send to</div>
           </template>
@@ -556,7 +560,7 @@
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
             <WrenchScrewdriverIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-            <span class="flex-1"><span class="coarse:hidden">Send to tool</span><span class="hidden coarse:inline">Tool</span></span>
+            <span class="flex-1">Tool</span>
             <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
@@ -611,7 +615,7 @@
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
             <ChatBubbleLeftRightIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-            <span class="flex-1"><span class="coarse:hidden">Send to chat</span><span class="hidden coarse:inline">Chat</span></span>
+            <span class="flex-1">Chat</span>
             <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
@@ -675,7 +679,7 @@
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
             <BoltIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-            <span class="flex-1"><span class="coarse:hidden">Send to flow</span><span class="hidden coarse:inline">Flow</span></span>
+            <span class="flex-1">Flow</span>
             <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
@@ -775,7 +779,9 @@
           v-if="groupedExplore"
           type="button"
           data-testid="menu-group-explore"
-          @click.stop="openGroup('explore')"
+          @click.stop="openGroup('explore', $event)"
+          @mouseenter="!isCoarsePointer && openGroup('explore', $event)"
+          @mouseleave="closeSubmenuDelayed"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <MagnifyingGlassIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
@@ -786,11 +792,11 @@
         <Teleport to="body" :disabled="!groupedExplore">
         <div
           v-if="!groupedExplore || activeGroup === 'explore'"
-          ref="groupSheetRef"
-          v-show="!groupedExplore || !activeSubmenu"
+          :ref="groupedExplore ? 'groupSheetRef' : undefined"
+          v-show="!groupedExplore || !isCoarsePointer || !activeSubmenu"
           v-bind="groupBind(groupedExplore)"
         >
-          <template v-if="groupedExplore">
+          <template v-if="groupedExplore && isCoarsePointer">
             <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Explore</div>
           </template>
@@ -847,7 +853,9 @@
           v-if="groupedShare"
           type="button"
           data-testid="menu-group-share"
-          @click.stop="openGroup('share')"
+          @click.stop="openGroup('share', $event)"
+          @mouseenter="!isCoarsePointer && openGroup('share', $event)"
+          @mouseleave="closeSubmenuDelayed"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <ShareIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
@@ -858,11 +866,11 @@
         <Teleport to="body" :disabled="!groupedShare">
         <div
           v-if="!groupedShare || activeGroup === 'share'"
-          ref="groupSheetRef"
-          v-show="!groupedShare || !activeSubmenu"
+          :ref="groupedShare ? 'groupSheetRef' : undefined"
+          v-show="!groupedShare || !isCoarsePointer || !activeSubmenu"
           v-bind="groupBind(groupedShare)"
         >
-          <template v-if="groupedShare">
+          <template v-if="groupedShare && isCoarsePointer">
             <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Share</div>
           </template>
@@ -1103,20 +1111,41 @@ const activeSubmenu = ref<'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'pro
 type MenuGroup = 'organize' | 'send' | 'explore' | 'share'
 const activeGroup = ref<MenuGroup | null>(null)
 const groupSheetRef = ref<HTMLElement | null>(null)
-const groupedOrganize = computed(() => isCoarsePointer.value)
-const groupedSend = computed(() => isCoarsePointer.value)
-const groupedExplore = computed(() => isCoarsePointer.value && exploreRowCount.value >= 2)
-const groupedShare = computed(() => isCoarsePointer.value && shareRowCount.value >= 2)
-function openGroup(group: MenuGroup) { activeGroup.value = group }
+// On a desktop pointer the same groups are hover submenus beside the menu: a
+// group panel opens next to the root menu and its destinations (Boards,
+// Tool, Chat...) open as the usual submenus beside the panel.
+const groupedOrganize = computed(() => true)
+const groupedSend = computed(() => true)
+const groupedExplore = computed(() => exploreRowCount.value >= 2)
+const groupedShare = computed(() => shareRowCount.value >= 2)
+const groupTriggerRect = ref<DOMRect | null>(null)
+const groupPosition = ref<Record<string, string>>({ top: '0px', left: '0px' })
+function openGroup(group: MenuGroup, event?: MouseEvent) {
+  if (!isCoarsePointer.value) {
+    cancelSubmenuClose()
+    const target = event?.currentTarget as HTMLElement | null
+    if (target) groupTriggerRect.value = target.getBoundingClientRect()
+    if (activeGroup.value !== group) activeSubmenu.value = null
+  }
+  activeGroup.value = group
+}
 function groupBind(grouped: boolean) {
-  return grouped
-    ? {
-        class: 'fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1',
-        style: SHEET_MENU_STYLE,
-        'data-sheet-menu': '',
-        'data-escape-layer': '',
-      }
-    : { class: 'contents' }
+  if (!grouped) return { class: 'contents' }
+  if (isCoarsePointer.value) {
+    return {
+      class: 'fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1',
+      style: SHEET_MENU_STYLE,
+      'data-sheet-menu': '',
+      'data-escape-layer': '',
+    }
+  }
+  return {
+    class: 'fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[200px]',
+    style: groupPosition.value,
+    'data-escape-layer': '',
+    onMouseenter: cancelSubmenuClose,
+    onMouseleave: closeSubmenuDelayed,
+  }
 }
 const submenuCloseTimeout = ref<number | null>(null)
 const submenuTriggerRect = ref<DOMRect | null>(null)
@@ -1577,7 +1606,9 @@ function repositionSubmenu() {
     getActiveSubmenuEl()?.setAttribute('data-sheet-menu', '')
     return
   }
-  if (!submenuTriggerRect.value || !menuRef.value) {
+  // A submenu opened from a group panel sits beside that panel, not the root menu.
+  const parentEl = activeGroup.value && groupSheetRef.value ? groupSheetRef.value : menuRef.value
+  if (!submenuTriggerRect.value || !parentEl) {
     submenuPosition.value = { top: '0px', left: '0px' }
     submenuBridgeStyle.value = { display: 'none' }
     submenuOpensLeft.value = false
@@ -1586,7 +1617,7 @@ function repositionSubmenu() {
   }
 
   const triggerRect = submenuTriggerRect.value
-  const menuRect = menuRef.value.getBoundingClientRect()
+  const menuRect = parentEl.getBoundingClientRect()
 
   // Measure actual submenu size (fall back before first render)
   const submenuEl = getActiveSubmenuEl()
@@ -1625,6 +1656,26 @@ watch(activeSubmenu, async (menu) => {
 onUnmounted(() => {
   submenuResizeObserver?.disconnect()
   submenuResizeObserver = null
+})
+
+// Desktop group panel: opens beside the root menu at the trigger row's height.
+function repositionGroup() {
+  const panel = groupSheetRef.value
+  const trigger = groupTriggerRect.value
+  const menu = menuRef.value
+  if (isCoarsePointer.value || !panel || !trigger || !menu) {
+    groupPosition.value = { top: '0px', left: '0px' }
+    return
+  }
+  const measured = measureMenu(panel, null)
+  const { x } = computeSubmenuX(menu.getBoundingClientRect(), measured.w)
+  groupPosition.value = computeSubmenuStyle(x, trigger.top, measured.h)
+}
+
+watch(activeGroup, async (group) => {
+  if (!group || isCoarsePointer.value) return
+  await nextTick()
+  repositionGroup()
 })
 
 // The clicked item as the caller already holds it, when it carries every field
@@ -1796,6 +1847,8 @@ function openSubmenu(menu: 'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'pr
   const target = event.currentTarget as HTMLElement
   if (target) {
     submenuTriggerRect.value = target.getBoundingClientRect()
+    // A root-level row (Remix, Tags...) replaces any open group panel.
+    if (!isCoarsePointer.value && activeGroup.value && !groupSheetRef.value?.contains(target)) activeGroup.value = null
   }
 
   const wasAlreadyOpen = activeSubmenu.value === menu
@@ -1845,7 +1898,7 @@ function closeSubmenuDelayed() {
     // Guard: don't close if a recent click happened (content may have resized)
     if (Date.now() < submenuClickLockUntil.value) return
     // Guard: don't close if mouse is still over any submenu
-    if (
+    const overSubmenu = (
       isMouseOverElement(generateSubmenuRef.value) ||
       isMouseOverElement(toolSubmenuRef.value) ||
       isMouseOverElement(chatSubmenuRef.value) ||
@@ -1853,8 +1906,11 @@ function closeSubmenuDelayed() {
       isMouseOverElement(flowDestinationSubmenuRef.value) ||
       isMouseOverElement(boardSubmenuRef.value) ||
       isMouseOverElement(projectSubmenuRef.value)
-    ) return
+    )
+    if (overSubmenu) return
     activeSubmenu.value = null
+    // The group panel stays while the pointer is on it.
+    if (!isMouseOverElement(groupSheetRef.value)) activeGroup.value = null
   }, 300)
 }
 

@@ -90,6 +90,11 @@ const activeIsComposite = computed(() => {
   const format = mediaState.value[activeMediaId.value]?.file_format || activeRow.value?.output?.file_format
   return !!format && ['set', 'grid'].includes(getMediaType({ file_format: format }))
 })
+// Only a grid still arrives on a baked backdrop; a set is drawn on the matte.
+const activeIsGrid = computed(() => {
+  const format = mediaState.value[activeMediaId.value]?.file_format || activeRow.value?.output?.file_format
+  return !!format && getMediaType({ file_format: format }) === 'grid'
+})
 // On a phone the picture is as tall as it is wide, so the chips would sit on the
 // artwork. A composite there gets a band above and below for them instead.
 // A single result with a title carries its count and menu in that title row, so
@@ -115,7 +120,7 @@ const inlineHeroHeight = computed(() => {
 const rootWidthClass = computed(() => {
   if (inPanel.value) return 'h-full w-full bg-matte'
   const cap = isSingle.value ? 'max-w-[560px]' : count.value === 2 ? 'max-w-[720px]' : 'max-w-[880px]'
-  return `mx-auto w-full ${cap} rounded-lg bg-surface compact:max-w-none`
+  return `w-full ${cap} rounded-lg bg-surface compact:max-w-none`
 })
 // Controls over artwork are black glass. A set or grid is drawn on a matte
 // backdrop of its own, and glass over that reads as disabled in the light
@@ -361,14 +366,14 @@ onBeforeUnmount(() => {
     >
       <header
         v-if="hasHeader"
-        class="flex min-h-10 flex-none items-center gap-2 pl-3 pr-1.5 coarse:min-h-12"
+        class="flex min-h-10 flex-none items-center gap-3 py-1 pl-3 pr-1.5 coarse:min-h-12"
         :class="[
           inPanel ? 'border-b border-edge-subtle bg-surface/60 pl-3.5' : 'rounded-t-lg',
           state.expanded && !inPanel ? 'sticky -top-4 z-chrome bg-surface compact:-top-3' : '',
         ]"
       >
         <div class="flex min-w-0 flex-1 items-center gap-2">
-          <span v-if="title" class="truncate text-sm font-medium text-content-secondary">{{ title }}</span>
+          <span v-if="title" class="min-w-0 break-words text-sm font-medium leading-snug text-content-secondary line-clamp-2">{{ title }}</span>
           <span v-if="!isSingle" class="flex-none font-mono text-xs tabular-nums text-content-muted">{{ count }}</span>
           <span v-if="runningCount" class="flex flex-none items-center gap-1.5 text-xs text-content-tertiary">
             <span class="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-blue-500"></span>
@@ -389,7 +394,7 @@ onBeforeUnmount(() => {
 
         <div class="flex flex-none items-center gap-1">
           <template v-if="hostsHeroMenu">
-            <span v-if="activeIsComposite && memberCount" class="flex items-center gap-1 px-1 font-mono text-xs tabular-nums text-content-muted" :title="`${memberCount} items`">
+            <span v-if="activeIsComposite && memberCount" class="flex flex-none items-center gap-1 px-1 font-mono text-xs tabular-nums text-content-muted" :title="`${memberCount} items`">
               <Square3Stack3DIcon class="h-3.5 w-3.5" :stroke-width="1.75" />{{ memberCount }}
             </span>
             <IconButton aria-label="More actions" class="coarse:!h-11 coarse:!w-11" @click="openHeroMenu">
@@ -472,7 +477,7 @@ onBeforeUnmount(() => {
         <template v-else-if="activeRow">
           <div
             class="group/hero relative min-h-0 select-none overflow-hidden"
-            :class="[inPanel ? 'flex-1' : 'flex-none', activeIsComposite ? 'bg-surface dark:bg-[#181818]' : 'bg-matte']"
+            :class="[inPanel ? 'flex-1' : 'flex-none', activeIsGrid ? 'bg-surface dark:bg-[#181818]' : 'bg-matte']"
             :style="inPanel ? null : { height: inlineHeroHeight + 'px' }"
             data-testid="media-collection-hero"
             @click.capture="onHeroClickCapture"
@@ -500,7 +505,7 @@ onBeforeUnmount(() => {
                 :gutter-top="gutterTop"
                 :gutter-bottom="gutterBottom"
                 :hide-count-chip="hostsHeroMenu && activeIsComposite"
-                :class="activeIsComposite ? '!rounded-media !bg-surface dark:!bg-[#181818]' : '!rounded-media !bg-matte'"
+                :class="activeIsGrid ? '!rounded-media !bg-surface dark:!bg-[#181818]' : '!rounded-media !bg-matte'"
                 style="aspect-ratio: auto; height: 100%"
                 @view-image="openFullView"
                 @retry="id => $emit('retry', id)"
@@ -518,7 +523,7 @@ onBeforeUnmount(() => {
                 :aria-checked="activeSelected"
                 aria-label="Select this image"
                 class="absolute left-2 top-2 z-chrome flex transition-opacity duration-150 coarse:left-0 coarse:top-0 coarse:h-11 coarse:w-11 coarse:p-2"
-                :class="activeSelected || selecting || isCoarsePointer ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover/hero:opacity-100'"
+                :class="activeSelected || selecting ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover/hero:opacity-100 [[data-pointer=coarse]_&]:hidden'"
                 @click.stop="togglePickActive"
               >
                 <span class="flex h-6 w-6 items-center justify-center rounded-md border-2 backdrop-blur-md transition-colors duration-150" :class="activeSelected ? 'border-selection bg-selection' : activeIsComposite ? 'border-edge-strong bg-overlay-subtle hover:border-content-secondary' : 'border-edge-strong bg-black/60 hover:border-content-secondary'">

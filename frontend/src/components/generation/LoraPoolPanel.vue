@@ -3,7 +3,6 @@
     <!-- Header: label + count + compact icon strip (＋ · ⌕ · disable-all · RAW · ⋯) -->
     <div class="flex items-center gap-2 min-h-6" :class="hasAnyItems || filterOpen ? 'mb-1.5' : ''">
       <span class="text-ctl font-semibold text-content-secondary">LoRAs</span>
-      <span v-if="enabledCount > 0" class="text-xs tabular-nums text-content-tertiary">{{ enabledCount }} on</span>
       <button
         v-if="enabledCount > 0"
         @click="disableAll"
@@ -11,18 +10,20 @@
         class="text-[10px] rounded-full px-2 py-0.5 text-content-tertiary bg-overlay-subtle hover:text-content hover:bg-overlay-light transition-colors coarse:min-h-11 coarse:px-3 coarse:text-xs"
         title="Disable all LoRAs (keeps the list)"
       >Clear all</button>
-      <div class="ml-auto flex items-center gap-0.5 coarse:-my-2 coarse:-mr-4">
+      <div class="ml-auto flex items-center gap-0.5 -mr-2 coarse:-my-2">
+        <!-- Value first: the state sits at the right, quiet and mono; Add is a
+             labelled action, not a disclosure. -->
+        <span class="mr-1.5 font-mono text-xs tabular-nums text-content-tertiary">{{ stateLabel }}</span>
         <button
           v-if="availableLoras.length > 0 || uploadConfig"
           @click="showModal = true"
           type="button"
-          class="w-6 h-6 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
+          class="inline-flex h-6 items-center gap-1 rounded-md px-2 text-xs text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors duration-150 coarse:min-h-11 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
           title="Add LoRA"
           aria-label="Add LoRA"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-          </svg>
+          <PlusIcon class="h-icon-inline w-icon-inline" aria-hidden="true" />
+          Add
         </button>
         <button
           v-if="hasAnyItems"
@@ -213,6 +214,7 @@
 </template>
 
 <script setup lang="ts">
+import { PlusIcon } from '@heroicons/vue/24/outline'
 import { ref, reactive, computed, watch, onUnmounted, nextTick } from 'vue'
 import LoraChip from './LoraChip.vue'
 import LoraGroupBox from './LoraGroupBox.vue'
@@ -322,6 +324,8 @@ watch(showRaw, (v) => {
 const pool = computed(() => getPool(props.toolId))
 const allItems = computed(() => getAllItems(props.toolId))
 const hasAnyItems = computed(() => allItems.value.length > 0)
+// Quiet state at the header's right: how many are on, or that the pool is empty.
+const stateLabel = computed(() => (hasAnyItems.value ? (enabledCount.value > 0 ? `${enabledCount.value} on` : 'All off') : 'None'))
 
 // Availability: a pinned pool item is "unavailable" when its path is no longer in
 // the tool's supported LoRA list (e.g. after restoring an old image whose LoRAs the

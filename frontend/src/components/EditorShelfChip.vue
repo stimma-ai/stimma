@@ -1,5 +1,5 @@
 <template>
-  <div class="relative group/chip w-12 h-12">
+  <div class="relative group/chip w-8 h-8 coarse:w-11 coarse:h-11">
     <button
       class="block w-full h-full rounded-media bg-matte overflow-hidden cursor-pointer border-none p-0"
       :title="title"
@@ -11,7 +11,7 @@
         :media-id="Number(entry.mediaId)"
         :asset-id="Number(entry.assetId)"
         thumbnail
-        :thumbnail-size="128"
+        :thumbnail-size="96"
         :enable-context-menu="false"
         container-class="w-full h-full"
         img-class="w-full h-full object-cover"
@@ -35,7 +35,7 @@
     <!-- Pinned chips hold their slot and never fall behind the +N chip. -->
     <span
       v-if="entry.pinned"
-      class="absolute left-1 bottom-1 w-3.5 h-3.5 rounded bg-black/55 backdrop-blur flex items-center justify-center pointer-events-none"
+      class="absolute left-0.5 bottom-0.5 w-3 h-3 rounded bg-black/55 backdrop-blur flex items-center justify-center pointer-events-none"
       title="Pinned"
     >
       <svg class="w-2 h-2 text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -45,7 +45,7 @@
 
     <!-- Removes the shortcut, not the work: the stack lives on the asset. -->
     <button
-      class="absolute right-1 top-1 w-4 h-4 rounded bg-black/55 backdrop-blur text-content-secondary hover:text-content flex items-center justify-center opacity-0 group-hover/chip:opacity-100 focus:opacity-100 transition-opacity"
+      class="absolute right-0.5 top-0.5 w-3.5 h-3.5 rounded bg-black/55 backdrop-blur text-content-secondary hover:text-content flex items-center justify-center opacity-0 group-hover/chip:opacity-100 focus:opacity-100 transition-opacity"
       title="Remove from shelf (edits stay with the image)"
       @click.stop="$emit('remove')"
     >
