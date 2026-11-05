@@ -68,6 +68,11 @@ test('board has one editable header, complete options, and touch-based asset sel
 
 for (const entity of ['chat', 'flow']) {
   test(`${entity} has one editable title and unified entity options`, async ({ page }) => {
+    if (entity === 'flow') {
+      await page.goto('/home');
+      await settleAnyViewport(page);
+      await apiJSON(page, '/api/preferences/experimental_flows', { method: 'PUT', data: { enabled: true } } as any);
+    }
     await page.goto(entity === 'chat' ? '/chats' : '/flows');
     await settleAnyViewport(page);
     if (entity === 'chat') {

@@ -265,7 +265,7 @@
         </ProvenanceAppHost>
         <!-- Flow origin: the run this came out of -->
         <button
-          v-if="provenance.flow && handles('open-flow')"
+          v-if="flowsEnabled && provenance.flow && handles('open-flow')"
           type="button"
           class="mt-3 flex w-full items-baseline justify-between gap-4 bg-transparent border-none p-0 text-xs cursor-pointer group"
           @click="$emit('open-flow', provenance.flow.flowId)"
@@ -502,6 +502,7 @@
 </template>
 
 <script setup>
+import { flowsEnabled } from '../composables/useExperimentalFlows'
 import { ref, computed, watch, h, getCurrentInstance, camelize, toHandlerKey } from 'vue'
 import axios from 'axios'
 import {

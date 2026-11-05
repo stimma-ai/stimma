@@ -640,6 +640,7 @@
 
         <!-- Send to Flow - flow submenu, then destination submenu -->
         <div
+          v-if="flowsEnabled"
           class="relative"
           @mouseenter="!isCoarsePointer && openSubmenu('flow', $event)"
           @click.stop="openSubmenu('flow', $event)"
@@ -952,6 +953,7 @@
 </template>
 
 <script setup lang="ts">
+import { flowsEnabled } from '../../composables/useExperimentalFlows'
 import { useAssetTrash } from '../../composables/useAssetTrash'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, nextTick } from 'vue'

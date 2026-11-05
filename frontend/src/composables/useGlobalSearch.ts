@@ -1,3 +1,4 @@
+import { flowsEnabled } from './useExperimentalFlows'
 import { ref } from 'vue'
 import type { Router } from 'vue-router'
 import { useProvidersApi, type ProviderToolSummary } from './useProvidersApi'
@@ -171,7 +172,8 @@ export function useGlobalSearch() {
     if (projectId != null) params.set('project_id', String(projectId))
     const response = await fetch(`/api/search?${params}`, { signal })
     if (!response.ok) throw new Error(`Search failed: ${response.status}`)
-    return await response.json()
+    const results = await response.json()
+    return { ...results, flows: flowsEnabled.value ? results.flows : [] }
   }
 
   /**

@@ -195,7 +195,7 @@
           <div class="flex items-center gap-2 compact:hidden">
             <!-- Edit (frozen-flow tools only): the tool's own page is the obvious
                  place to find "edit this tool". Matches the Presets trigger. -->
-            <Button v-if="isUserTool" variant="secondary" size="sm" title="Edit this tool" @click="openEditUserTool">
+            <Button v-if="flowsEnabled && isUserTool" variant="secondary" size="sm" title="Edit this tool" @click="openEditUserTool">
               <template #icon><PencilIcon class="h-icon-nav w-icon-nav" /></template>
               Edit
             </Button>
@@ -1188,6 +1188,7 @@
 
     <!-- Edit tool (frozen-flow tools) — settings + delete -->
     <FreezeToolDialog
+      v-if="flowsEnabled"
       :show="editToolDialogOpen"
       :tool="editingToolRow"
       :flow-name="editingFlowName"
@@ -1227,6 +1228,7 @@
 </template>
 
 <script setup lang="ts">
+import { flowsEnabled } from '../composables/useExperimentalFlows'
 import { ref, reactive, computed, onMounted, onUnmounted, onActivated, onDeactivated, onBeforeUnmount, watch, nextTick, provide } from 'vue'
 import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useViewport } from '../composables/useViewport'

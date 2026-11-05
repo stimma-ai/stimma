@@ -320,6 +320,7 @@
 </template>
 
 <script setup>
+import { flowsEnabled } from '../composables/useExperimentalFlows'
 import { formatRelativeTime } from '../utils/timeFormat'
 import { useEntityMove } from '../composables/useEntityMove'
 import { fetchScopedJson } from '../utils/scopedList'
@@ -524,7 +525,7 @@ const isFirstRun = computed(() =>
   && !scopeHasEntities.value
   && recentChats.value.length === 0
   && recentBoards.value.length === 0
-  && recentFlows.value.length === 0
+  && (!flowsEnabled.value || recentFlows.value.length === 0)
   && recentMedia.value.length === 0
 )
 
@@ -665,7 +666,7 @@ const jumpBackIn = computed(() => {
     if (!board.name && !(board.asset_count > 0)) continue
     items.push({ type: 'board', id: board.id, name: board.name, sub: formatBoardMeta(board), updatedAt: board.updated_at, board })
   }
-  for (const flow of recentFlows.value) {
+  for (const flow of flowsEnabled.value ? recentFlows.value : []) {
     if (isEmptyFlow(flow)) continue
     items.push({ type: 'flow', id: flow.id, name: flow.name, sub: '', updatedAt: flow.updated_at, flow })
   }
@@ -770,6 +771,7 @@ async function loadRecentChats(isCurrent = homeLoads.guard()) {
 }
 
 async function loadRecentFlows(isCurrent = homeLoads.guard()) {
+  if (!flowsEnabled.value) { recentFlows.value = []; return true }
   try {
     const all = await withReadDeadline(signal => listFlows(projectId.value == null ? {} : { project_id: projectId.value }, { signal }))
     if (!isCurrent()) return true
@@ -821,7 +823,7 @@ function backendKey() {
 // by the server. Resolves null when the server lacks this read.
 async function loadCompactRecents(isCurrent) {
   try {
-    const data = await withReadDeadline(signal => fetchHomeRecents(projectId.value, { limit: JUMP_BACK_IN_LIMIT, signal }))
+    const data = await withReadDeadline(signal => fetchHomeRecents(projectId.value, { limit: JUMP_BACK_IN_LIMIT, includeFlows: flowsEnabled.value, signal }))
     if (data === null) return null
     if (!isCurrent()) return true
     const boards = []
@@ -830,7 +832,7 @@ async function loadCompactRecents(isCurrent) {
     const flowMedia = new Map()
     for (const item of data.items) {
       if (item.type === 'board' && item.board) boards.push(item.board)
-      else if (item.type === 'flow' && item.flow) {
+      else if (flowsEnabled.value && item.type === 'flow' && item.flow) {
         flows.push(item.flow)
         flowMedia.set(item.flow.id, item.flow.preview_media || [])
       } else if (item.type === 'chat' && item.chat) chats.push(item.chat)
@@ -1232,7 +1234,7 @@ const HOME_CHANGE_EVENTS = [
 const HOME_LOCAL_CHANGE_EVENTS = [PROJECT_ASSETS_CHANGED_EVENT]
 
 function homeScope() {
-  return scopeKey(getBackendOrigin() || window.location.origin, getCurrentProfileId(), projectId.value)
+  return scopeKey(getBackendOrigin() || window.location.origin, getCurrentProfileId(), projectId.value, String(flowsEnabled.value))
 }
 
 function resetHomeData() {
@@ -1323,6 +1325,8 @@ function invalidateHome() {
 // Events can be missed only while the socket is down, so a reconnect after a
 // disconnect invalidates; the first connect does not.
 let socketWasDown = false
+
+watch(flowsEnabled, () => { if (active) void refreshHome() })
 
 watch(projectId, () => {
   if (!active) return

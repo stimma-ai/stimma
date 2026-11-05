@@ -1,3 +1,4 @@
+import { flowsEnabled } from './useExperimentalFlows'
 import { ref, computed, readonly, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { makeProfileKey, makeGlobalKey, makeToolProfileKey, makeToolDbKey } from '../utils/storageKeys'
@@ -802,7 +803,7 @@ export function useWorkspaceTabs() {
    * `excludeIds` is the set of tab ids being removed.
    */
   function findNextTab(excludeIds: Set<string>, visibleIds?: string[]): WorkspaceTab | null {
-    const remaining = tabs.value.filter(t => !excludeIds.has(t.id) && (!visibleIds || visibleIds.includes(t.id)))
+    const remaining = tabs.value.filter(t => (flowsEnabled.value || t.type !== 'flow') && !excludeIds.has(t.id) && (!visibleIds || visibleIds.includes(t.id)))
     if (remaining.length === 0) return null
     // Return the most recently added tab (highest displayOrder)
     return remaining.reduce((best, t) => t.displayOrder > best.displayOrder ? t : best, remaining[0])
@@ -837,7 +838,8 @@ export function useWorkspaceTabs() {
    * Pop the most recently closed tab and re-add it. Returns the tab or null.
    */
   function reopenLastClosed(): WorkspaceTab | null {
-    const closed = recentlyClosed.pop()
+    const index = recentlyClosed.findLastIndex(t => flowsEnabled.value || t.type !== 'flow')
+    const closed = index < 0 ? undefined : recentlyClosed.splice(index, 1)[0]
     if (!closed) return null
     // Don't re-add if a tab with the same id already exists
     if (tabs.value.some(t => t.id === closed.id)) return closed
@@ -1109,6 +1111,8 @@ export function useWorkspaceTabs() {
     tabs.value = [...tabs.value]
   }
 
+  const visibleTabs = computed(() => tabs.value.filter(t => flowsEnabled.value || t.type !== 'flow'))
+
   // --- Computed ---
 
   // The row lists. Editor tabs are deliberately absent: they render as
@@ -1116,13 +1120,13 @@ export function useWorkspaceTabs() {
   // orders them by recency rather than by drag, so keeping them out here also
   // keeps the reorder indices in these arrays matching what the user sees.
   const pinnedTabs = computed(() => {
-    return tabs.value
+    return visibleTabs.value
       .filter(t => t.pinned && t.type !== 'editor')
       .sort((a, b) => a.displayOrder - b.displayOrder)
   })
 
   const openTabs = computed(() => {
-    return tabs.value
+    return visibleTabs.value
       .filter(t => !t.pinned && t.type !== 'editor')
       .sort((a, b) => b.displayOrder - a.displayOrder)
   })
@@ -1135,11 +1139,11 @@ export function useWorkspaceTabs() {
   const editorTabs = computed(() => tabs.value.filter(t => t.type === 'editor' && editorAssetId(t) !== null))
 
   const allTabs = computed(() => {
-    return tabs.value.sort((a, b) => a.displayOrder - b.displayOrder)
+    return [...visibleTabs.value].sort((a, b) => a.displayOrder - b.displayOrder)
   })
 
   return {
-    tabs: readonly(tabs),
+    tabs: readonly(visibleTabs),
     pinnedTabs,
     openTabs,
     editorTabs,

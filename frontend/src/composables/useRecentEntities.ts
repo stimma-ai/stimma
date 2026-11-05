@@ -1,3 +1,4 @@
+import { flowsEnabled } from './useExperimentalFlows'
 import { makeStorageKey } from '../utils/storageKeys'
 import { syncedStorage } from '../utils/workspaceStore'
 
@@ -123,7 +124,7 @@ export function removeRecentEntity(type: RecentEntityType, id: string) {
 export function recentEntities(limit = 8): RecentEntity[] {
   const now = Date.now()
   return load()
-    .filter(e => e.name) // nameless entries render badly; names backfill fast
+    .filter(e => e.name && (flowsEnabled.value || e.type !== 'flow')) // nameless entries render badly; names backfill fast
     .sort((a, b) => frecencyScore(b, now) - frecencyScore(a, now))
     .slice(0, limit)
 }

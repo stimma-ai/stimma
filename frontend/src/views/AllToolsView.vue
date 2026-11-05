@@ -208,6 +208,7 @@
         :style="{ left: toolMenu.x + 'px', top: toolMenu.y + 'px' }"
       >
         <button
+          v-if="flowsEnabled"
           @click="editToolFromMenu"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
         >
@@ -216,7 +217,7 @@
           </svg>
           <span>Edit</span>
         </button>
-        <div class="border-t border-edge-subtle my-1"></div>
+        <div v-if="flowsEnabled" class="border-t border-edge-subtle my-1"></div>
         <button
           @click="deleteToolFromMenu"
           class="w-full px-3 py-2 text-left text-xs text-red-500 hover:bg-overlay-light flex items-center gap-2"
@@ -231,6 +232,7 @@
 
     <!-- Edit tool (re-freeze) dialog -->
     <FreezeToolDialog
+      v-if="flowsEnabled"
       :show="editDialogOpen"
       :tool="editingTool"
       :flow-name="editingFlowName"
@@ -255,6 +257,7 @@
 </template>
 
 <script setup>
+import { flowsEnabled } from '../composables/useExperimentalFlows'
 import { consumeEscape, hasEscapeLayer, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { ref, computed, nextTick, onMounted, onUnmounted, onActivated, onDeactivated, watch } from 'vue'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'

@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
-import { createBoard, createChat, promptInput, TEST_T2I_TOOL_ID, waitForGeneratedMedia } from '../helpers/app';
+import { apiJSON, createBoard, createChat, promptInput, TEST_T2I_TOOL_ID, waitForGeneratedMedia } from '../helpers/app';
 import { auditHitTargets, auditHorizontalOverflow, expectNoOverflow, settleAnyViewport } from '../helpers/viewport';
 
 /**
@@ -148,6 +148,9 @@ test.describe('phone lane: detail screens', () => {
   });
 
   test('flow fits a phone', async ({ page }) => {
+    await page.goto('/home');
+    await settleAnyViewport(page);
+    await apiJSON(page, '/api/preferences/experimental_flows', { method: 'PUT', data: { enabled: true } } as any);
     await page.goto('/flows');
     await settleAnyViewport(page);
     await page.getByRole('button', { name: 'New' }).first().click();

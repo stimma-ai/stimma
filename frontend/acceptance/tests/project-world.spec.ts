@@ -240,6 +240,7 @@ test.describe('project world', () => {
   });
 
   test('top-level Chats, Boards and Flows list no project items', async ({ page }) => {
+    await apiJSON(page, '/api/preferences/experimental_flows', { method: 'PUT', data: { enabled: true } } as any);
     const { p } = await twoProjects(page);
     const tag = stamp();
     await createChat(page, `World loose chat ${tag}`);

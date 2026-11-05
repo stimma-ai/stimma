@@ -797,3 +797,23 @@ test('Jump back in requests enough pixels for DPR and the uncropped source aspec
   const box = await page.locator('[data-jump-cover]').boundingBox()
   assert.ok(726 >= Math.max(box.width, box.height) * 2)
 })
+
+
+test('toggling Flows refreshes Home immediately in both directions', async t => {
+  const flags = []
+  const { page } = await openHome(t, { respond: (path, query) => {
+    if (path !== '/api/home/recents') return
+    const include = query.get('include_flows')
+    flags.push(include)
+    const data = compactRecents()
+    if (include === 'false') data.items = data.items.filter(item => item.type !== 'flow')
+    return data
+  } })
+  await expect(page.getByText('Compact flow', { exact: true })).toBeVisible()
+  await page.evaluate(() => window.homeLoadTest.setFlows(false))
+  await expect(page.getByText('Compact flow', { exact: true })).toHaveCount(0)
+  await expect.poll(() => flags).toEqual(['true', 'false'])
+  await page.evaluate(() => window.homeLoadTest.setFlows(true))
+  await expect(page.getByText('Compact flow', { exact: true })).toBeVisible()
+  assert.deepEqual(flags, ['true', 'false', 'true'])
+})

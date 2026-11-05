@@ -13,7 +13,7 @@ const built = await build({ ...base, configFile: false, logLevel: 'error',
 })
 const output = (Array.isArray(built) ? built : [built]).flatMap(result => result.output)
 
-for (const source of ['slideshow', 'selection']) for (const projectId of [null, 9]) for (const action of ['remix', 'chat', 'new-chat', 'flow', 'lineage']) for (const [width, height] of action === 'remix' ? [[390, 844], [752, 844], [1100, 844], [752, 420]] : [[390, 844]]) test(`phone ${action} from ${source}, project ${projectId}, ${width}×${height}`, async t => {
+for (const source of ['slideshow', 'selection']) for (const projectId of [null, 9]) for (const action of ['remix', 'chat', 'new-chat', 'flow', 'flows-off', 'lineage']) for (const [width, height] of action === 'remix' ? [[390, 844], [752, 844], [1100, 844], [752, 420]] : [[390, 844]]) test(`phone ${action} from ${source}, project ${projectId}, ${width}×${height}`, async t => {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true })
@@ -45,9 +45,18 @@ for (const source of ['slideshow', 'selection']) for (const projectId of [null, 
   }
   // Keep the entity selection bar out of the asset bar's hit area.
   await page.locator('.entity-selection-fixture').evaluate(el => { el.style.display = 'none' })
+  if (action === 'flows-off') await page.evaluate(() => window.mobileMediaActions.setFlows(false))
   if (source === 'slideshow') await page.evaluate(() => window.mobileMediaActions.openSlideshowMenu())
   else await page.getByRole('button', { name: 'More actions' }).tap()
   if (source === 'slideshow') await expect(page.locator('[data-test-header]')).toBeHidden()
+  if (action === 'flows-off') {
+    await page.getByRole('button', { name: 'Send to', exact: true }).tap()
+    await expect(page.getByRole('button', { name: 'Send to flow', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Send to chat', exact: true })).toBeVisible()
+    assert.ok(!requests.some(r => r.path === '/api/flows'))
+    assert.deepEqual(errors, [])
+    return
+  }
   if (action === 'remix') {
     await page.getByRole('button', { name: 'Remix', exact: true }).tap()
     const root = page.locator('[data-context-menu]')

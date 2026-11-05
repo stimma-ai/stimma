@@ -35,7 +35,7 @@
           <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary">Lineage</h4>
           <ProvenanceSteps :steps="provenanceView.steps" input-size="sm" />
           <button
-            v-if="provenance.flow"
+            v-if="flowsEnabled && provenance.flow"
             type="button"
             class="mt-3 flex w-full items-baseline justify-between gap-4 bg-transparent border-none p-0 text-xs cursor-pointer group"
             @click="$emit('open-flow', provenance.flow.flowId)"
@@ -102,6 +102,7 @@
 </template>
 
 <script setup>
+import { flowsEnabled } from '../../composables/useExperimentalFlows'
 import { computed, watch, onMounted } from 'vue'
 import { MediaImage } from './index'
 import Tooltip from '../ui/Tooltip.vue'

@@ -1493,7 +1493,7 @@ async function handleNewChatSession() {
     const created = await axios.post(`${base}/chats`, { flow_id: flow.value.id })
     const newId = created.data?.id
     if (newId) {
-      flowChatId.value = Number(newId)
+      router.replace({ query: { ...route.query, chat: String(newId) } })
       chatPanelOpen.value = true
     }
     showChatMenu.value = false
@@ -1506,7 +1506,7 @@ async function handleNewChatSession() {
 
 function handleSwitchChatSession(chatId: number) {
   if (chatId !== flowChatId.value) {
-    flowChatId.value = chatId
+    router.replace({ query: { ...route.query, chat: String(chatId) } })
     chatPanelOpen.value = true
   }
   showChatMenu.value = false
@@ -2115,34 +2115,50 @@ provide(FLOW_CHAT_ID_KEY, flowChatId)
 
 function toggleChatPanel() { chatPanelOpen.value = !chatPanelOpen.value }
 
+let chatLoad = 0
 async function ensureFlowChat() {
   if (!flow.value) return
   const rid = flow.value.id
+  const load = ++chatLoad
+  const requestedChat = Number(route.query.chat)
   chatLoading.value = true
   chatError.value = false
   try {
     const base = getApiBase()
-    const list = await axios.get(`${base}/chats`, { params: { flow_id: rid, page: 1, page_size: 1 } })
-    let chatId = list.data?.items?.[0]?.id
+    let chatId: number | undefined
+    if (Number.isSafeInteger(requestedChat) && requestedChat > 0) {
+      const requested = await axios.get(`${base}/chats/${requestedChat}`)
+      if (requested.data?.flow_id === rid) chatId = requestedChat
+    }
+    if (!chatId) {
+      const list = await axios.get(`${base}/chats`, { params: { flow_id: rid, page: 1, page_size: 1 } })
+      chatId = list.data?.items?.[0]?.id
+    }
     if (!chatId) {
       const created = await axios.post(`${base}/chats`, { flow_id: rid })
       chatId = created.data?.id
     }
+    if (load !== chatLoad) return
     flowChatId.value = chatId ? Number(chatId) : null
     if (!flowChatId.value) chatError.value = true
   } catch (err) {
+    if (load !== chatLoad) return
     console.error('Failed to open flow chat:', err)
     chatError.value = true
   } finally {
-    chatLoading.value = false
+    if (load === chatLoad) chatLoading.value = false
   }
 }
 
-// Re-resolve the chat whenever the flow id changes (initial load or switching flows).
-watch(() => flow.value?.id, (rid) => {
+// Resolve both flow navigation and a requested chat session within the same flow.
+watch([() => flow.value?.id, () => route.query.chat], ([rid]) => {
+  chatLoad++
   flowChatId.value = null
   chatError.value = false
-  if (rid != null) ensureFlowChat()
+  if (rid != null) {
+    if (route.query.chat) chatPanelOpen.value = true
+    ensureFlowChat()
+  }
 }, { immediate: true })
 
 function openChatForEdit(_task: FlowTask) {

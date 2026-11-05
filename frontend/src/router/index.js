@@ -1,3 +1,4 @@
+import { flowsEnabled, loadFlowsPreference } from '../composables/useExperimentalFlows'
 import { createRouter, createWebHistory } from 'vue-router'
 import { desktop } from '../desktop'
 import { withReadDeadline } from '../utils/readDeadline'
@@ -267,6 +268,10 @@ async function assetProjectIds(to) {
 
 router.beforeEach(async (to, from) => {
   if (['ios', 'android'].includes(desktop.kind) && to.name === 'onboarding') return { name: 'home', replace: true }
+  if (['flow', 'flows', 'project-flows'].includes(to.name)) {
+    try { await loadFlowsPreference() } catch { /* Unavailable preferences keep Flows hidden. */ }
+    if (!flowsEnabled.value) return { ...contextRoute('home', projectIdFrom(to.name === 'project-flows' ? to.params.id : null) ?? useWorkingContext().activeProjectId.value), replace: true }
+  }
   delete to.meta.workingProjectId
   const context = useWorkingContext()
   const section = contextSection(to.name)
@@ -288,6 +293,12 @@ router.beforeEach(async (to, from) => {
       addToast(`Could not open that ${noun}.`, 'warning')
       if (from.matched.length) return false
       return { ...contextRoute(entityFallbackSection[to.name], context.activeProjectId.value), replace: true }
+    }
+    if (to.name === 'chat' && data.flow_id != null) {
+      try { await loadFlowsPreference() } catch { /* Keep Flows hidden. */ }
+      if (!flowsEnabled.value) return { ...contextRoute('home', context.activeProjectId.value), replace: true }
+      // A flow's chat belongs to the flow screen, including for old deep links.
+      return { name: 'flow', params: { id: String(data.flow_id) }, query: { chat: String(data.id) }, replace: true }
     }
     to.meta.workingProjectId = projectIdFrom(data.project_id)
   } else if ((to.name === 'edit-image' || to.name === 'lineage') && context.activeProjectId.value != null) {

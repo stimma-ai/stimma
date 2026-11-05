@@ -186,7 +186,7 @@
           </div>
 
           <!-- Flows landing link -->
-          <div class="group relative">
+          <div v-if="flowsEnabled" class="group relative">
             <button
               @click="handleNavClick('flows')"
               @dragover="handleDragOver"
@@ -984,6 +984,7 @@
 
 <script setup lang="ts">
 import ToolProviderBadge from './tools/ToolProviderBadge.vue'
+import { flowsEnabled } from '../composables/useExperimentalFlows'
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, h, nextTick } from 'vue'
 import { ArchiveBoxIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronDownIcon, ChevronLeftIcon, ChevronUpDownIcon, ClockIcon, ExclamationTriangleIcon, FunnelIcon, HeartIcon, HomeIcon, PhotoIcon, PlusIcon, Squares2X2Icon, TrashIcon, WrenchScrewdriverIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useMarkers } from '../composables/useMarkers'

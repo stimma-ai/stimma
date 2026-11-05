@@ -28,9 +28,9 @@ export interface HomeRecents {
  */
 export async function fetchHomeRecents(
   projectId: number | null | undefined,
-  { limit, signal }: { limit: number; signal?: AbortSignal },
+  { limit, signal, includeFlows = true }: { limit: number; signal?: AbortSignal; includeFlows?: boolean },
 ): Promise<HomeRecents | null> {
-  const params = new URLSearchParams({ project_id: scopeParam(projectId), limit: String(limit) })
+  const params = new URLSearchParams({ project_id: scopeParam(projectId), limit: String(limit), include_flows: String(includeFlows) })
   const response = await fetch(`/api/home/recents?${params}`, { signal })
   if (response.status === 404 || response.status === 405) return null
   if (!response.ok) throw new Error(`Request failed: ${response.status}`)

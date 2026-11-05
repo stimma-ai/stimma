@@ -377,6 +377,7 @@
 </template>
 
 <script setup lang="ts">
+import { flowsEnabled } from '../../../composables/useExperimentalFlows'
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useStimpacksApi, type Stimpack, type MarketplaceStimpack, type StimpackValidation, type StimpackValidationSkill } from '../../../composables/useStimpacksApi'
 import { getApiBase, isDesktop } from '../../../apiConfig'
@@ -452,7 +453,7 @@ const validationSummaryRows = computed<KeyValueRow[]>(() => {
 function skillAvailability(skill: StimpackValidationSkill): string {
   const places: string[] = []
   if (skill.chat) places.push('Chat')
-  if (skill.flow) places.push('Flows')
+  if (flowsEnabled.value && skill.flow) places.push('Flows')
   if (skill.tool) places.push(skill.tool_task_types ? `Tools (${skill.tool_task_types.join(', ')})` : 'Tools')
   return places.length ? places.join(' · ') : 'Not offered anywhere'
 }

@@ -1,3 +1,4 @@
+import { apiJSON } from '../helpers/app';
 import { mkdir } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { auditHitTargets, auditHorizontalOverflow, expectNoOverflow, settleAnyViewport } from '../helpers/viewport';
@@ -44,6 +45,11 @@ test.describe('phone lane: route audit', () => {
 
   for (const route of ROUTES) {
     test(`${route} fits a phone`, async ({ page }) => {
+      if (route === '/flows') {
+        await page.goto('/home');
+        await settleAnyViewport(page);
+        await apiJSON(page, '/api/preferences/experimental_flows', { method: 'PUT', data: { enabled: true } } as any);
+      }
       await page.goto(route);
       await settleAnyViewport(page);
       await expect(page.locator('html')).toHaveAttribute('data-viewport', 'compact');

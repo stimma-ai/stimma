@@ -242,6 +242,7 @@
 </template>
 
 <script setup lang="ts">
+import { flowsEnabled } from '../../composables/useExperimentalFlows'
 import { useSearchTasks } from '../../composables/useSearchTasks'
 import { withReadDeadline } from '../../utils/readDeadline'
 import Button from '../ui/Button.vue'
@@ -462,6 +463,7 @@ const sections = computed<Section[]>(() => {
     ['Presets', 'preset', 'presets'],
   ]
   for (const [title, kind, field] of entitySections) {
+    if (kind === 'flow' && !flowsEnabled.value) continue
     const hits = (e?.[field] as any[]) || []
     if (!Array.isArray(hits) || hits.length === 0) continue
     result.push({
@@ -543,11 +545,12 @@ const sections = computed<Section[]>(() => {
       })),
     })
   }
-  if (contextualMediaResults.value.length > 0) {
+  const visibleContextual = contextualMediaResults.value.filter(m => flowsEnabled.value || m.root_kind !== 'flow_run')
+  if (visibleContextual.length > 0) {
     result.push({
       title: 'In chats and runs',
       strip: true,
-      items: contextualMediaResults.value.map(m => next({
+      items: visibleContextual.map(m => next({
         key: `contextual:${m.root_kind}:${m.root_id}:${m.id}`,
         kind: 'contextual',
         label: '',
@@ -579,7 +582,7 @@ const flatItems = computed<SelectableItem[]>(() =>
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let searchSeq = 0
 
-watch(query, () => {
+watch([query, flowsEnabled], () => {
   searchSeq++
   cancelSearch()
   if (debounceTimer) clearTimeout(debounceTimer)

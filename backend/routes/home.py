@@ -191,12 +191,14 @@ async def _flow_candidates(session, project_filter, limit):
     return [(updated_at, "flow", serialized) for updated_at, _, serialized in picked[:limit]]
 
 
-async def _scope_has_entities(session, project_filter) -> bool:
+async def _scope_has_entities(session, project_filter, include_flows=True) -> bool:
     for model, extra in (
         (Board, ()),
         (Flow, ()),
         (Chat, (Chat.flow_id.is_(None),)),
     ):
+        if model is Flow and not include_flows:
+            continue
         query = _scoped(
             select(model.id).where(model.deleted_at.is_(None), *extra),
             model.project_id,
@@ -252,6 +254,7 @@ async def _flow_preview_media(session, flow_id: int) -> list[HomeMediaRef]:
 async def get_home_recents(
     project_id: Optional[str] = Query(None),
     limit: int = Query(3, ge=1, le=12),
+    include_flows: bool = Query(True),
     session: AsyncSession = Depends(get_db_session),
 ):
     """The newest boards, flows, and chats worth jumping back into.
@@ -264,7 +267,7 @@ async def get_home_recents(
     project_filter = parse_project_filter(project_id)
     candidates = [
         *await _board_candidates(session, project_filter, limit),
-        *await _flow_candidates(session, project_filter, limit),
+        *(await _flow_candidates(session, project_filter, limit) if include_flows else []),
         *await _chat_candidates(session, project_filter, limit),
     ]
     candidates.sort(key=lambda c: c[0] or datetime.min, reverse=True)
@@ -298,5 +301,5 @@ async def get_home_recents(
         else:
             items.append(HomeChatCard(chat=chat_previews[entity.id]))
 
-    has_entities = bool(items) or await _scope_has_entities(session, project_filter)
+    has_entities = bool(items) or await _scope_has_entities(session, project_filter, include_flows)
     return HomeRecentsResponse(items=items, has_entities=has_entities)

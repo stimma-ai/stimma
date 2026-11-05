@@ -1,3 +1,4 @@
+import { setFlowsEnabled } from '../../src/composables/useExperimentalFlows'
 import { createApp, h, KeepAlive, ref } from 'vue'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import MediaContextMenu from '../../src/components/media/MediaContextMenu.vue'
@@ -19,6 +20,7 @@ const router = createRouter({ history: createMemoryHistory(), routes: [
 const showingSlideshow = ref(false)
 const slideshow = { setup() { useSlideshowPresence(); return () => h('div') } }
 window.mobileMediaActions = {
+  setFlows: setFlowsEnabled,
   openSlideshowMenu: () => { showingSlideshow.value = true; useMediaContextMenu().showAt({ x: 200, y: 200, mediaId: 42 }) },
   setProject: id => useWorkingContext().selectProject(id),
   openHeldMenu: held => useMediaContextMenu().showAt({ x: 200, y: 200, assetId: held.asset_id, mediaId: held.media_id, selectedItems: [held] }),
@@ -32,4 +34,4 @@ const app = createApp({ render: () => h('div', [
   h(MediaContextMenu),
 ]) })
 app.use(router)
-router.push('/').then(() => app.mount('#app'))
+setFlowsEnabled(true).then(() => router.push('/')).then(() => app.mount('#app'))

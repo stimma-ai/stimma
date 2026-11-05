@@ -58,6 +58,13 @@
             <div class="w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
           </label>
         </SettingRow>
+        <SettingRow
+          label="Enable Flows [experimental]"
+          description="Flows are an experiment and may change or be removed. Try them out and let us know what you think — feedback is welcome."
+          :divider="true"
+        >
+          <Toggle :model-value="flowsEnabled" :disabled="savingFlowsPreference" label="Enable Flows [experimental]" @update:model-value="updateFlows" />
+        </SettingRow>
       </div>
     </section>
   </div>
@@ -67,8 +74,15 @@
 import { reportActionError } from '../../../composables/useToasts'
 import { useTheme } from '../../../composables/useTheme'
 import { useSettingsApi } from '../../../composables/useSettingsApi'
+import { flowsEnabled, setFlowsEnabled, savingFlowsPreference } from '../../../composables/useExperimentalFlows'
+import Toggle from '../../ui/Toggle.vue'
 import SettingRow from '../SettingRow.vue'
 import { setGenerationPreviews, imagePreviewsRef as imagePreviews, videoPreviewsRef as videoPreviews } from '../../../appConfig'
+
+async function updateFlows(value) {
+  try { await setFlowsEnabled(value) }
+  catch (err) { reportActionError("Couldn't save Flows preference.", err) }
+}
 
 // Theme
 const { themePreference, setTheme } = useTheme()

@@ -19,7 +19,7 @@
             v-model="compactQuery"
             type="search"
             enterkeyhint="search"
-            placeholder="Search assets, boards, chats, flows, tools"
+            :placeholder="flowsEnabled ? 'Search assets, boards, chats, flows, tools' : 'Search assets, boards, chats, tools'"
             class="w-full min-h-11 bg-overlay-subtle rounded-md px-3 py-2 text-[15px] text-content placeholder:text-content-muted border border-transparent focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           />
         </form>
@@ -257,13 +257,13 @@
           </section>
 
           <!-- Working chat/run results stay discoverable without filling All Assets. -->
-          <section v-if="contextualGroups.length > 0">
+          <section v-if="visibleContextualGroups.length > 0">
             <div class="mb-3 flex items-baseline gap-2.5">
               <h2 class="text-xs font-semibold text-content-secondary">In chats and runs</h2>
               <span class="font-mono text-[11px] tabular-nums text-content-muted/70">{{ contextualCount }}</span>
             </div>
             <div class="space-y-3">
-              <div v-for="group in contextualGroups" :key="`${group.root_kind}:${group.root_id}`" class="rounded-lg border border-edge-subtle bg-overlay-light p-3">
+              <div v-for="group in visibleContextualGroups" :key="`${group.root_kind}:${group.root_id}`" class="rounded-lg border border-edge-subtle bg-overlay-light p-3">
                 <div class="mb-2 flex items-center justify-between gap-3">
                   <button class="truncate bg-transparent text-left text-xs font-medium text-content-secondary hover:text-content" @click="openContextualRoot(group)">
                     {{ contextualRootLabel(group) }}
@@ -318,6 +318,7 @@
 </template>
 
 <script setup lang="ts">
+import { flowsEnabled } from '../composables/useExperimentalFlows'
 import { useSearchTasks } from '../composables/useSearchTasks'
 import Button from '../components/ui/Button.vue'
 import { useEntityMove } from '../composables/useEntityMove'
@@ -409,7 +410,8 @@ const visualResults = ref<MediaSearchHit[]>([])
 interface ContextualGroup { root_kind: string; root_id: string; items: MediaSearchHit[] }
 const contextualGroups = ref<ContextualGroup[]>([])
 const savedContextualIds = ref<Set<number>>(new Set())
-const contextualCount = computed(() => contextualGroups.value.reduce((sum, group) => sum + group.items.length, 0))
+const visibleContextualGroups = computed(() => contextualGroups.value.filter(g => flowsEnabled.value || g.root_kind !== 'flow_run'))
+const contextualCount = computed(() => visibleContextualGroups.value.reduce((sum, group) => sum + group.items.length, 0))
 const toolById = ref<Map<string, any>>(new Map())
 
 // Inline highlight renderer honoring the loose token matcher.
@@ -464,7 +466,7 @@ const entitySections = computed<EntitySection[]>(() => {
     ['Presets', 'preset', e.presets, null, null],
   ]
   return defs
-    .filter(([, , hits]) => hits.length > 0)
+    .filter(([, kind, hits]) => hits.length > 0 && (flowsEnabled.value || kind !== 'flow'))
     .map(([title, kind, hits, entityIcon, routeName]) => ({
       title,
       kind,
@@ -523,7 +525,7 @@ const assetSections = computed<AssetSection[]>(() => {
 const totalCount = computed(() => {
   const e = entityResults.value
   const entityTotal = e
-    ? e.chats.length + e.flows.length + e.boards.length + e.projects.length + e.presets.length
+    ? e.chats.length + (flowsEnabled.value ? e.flows.length : 0) + e.boards.length + e.projects.length + e.presets.length
     : 0
   return entityTotal + toolResults.value.length + promptTotal.value + visualResults.value.length + contextualCount.value
 })
@@ -640,7 +642,7 @@ async function ensureToolNames() {
   } catch {}
 }
 
-watch([q, scopeProjectId], () => {
+watch([q, scopeProjectId, flowsEnabled], () => {
   lastLoadedQuery.value = ''
   void runSearch()
   void loadScopeProjectName()

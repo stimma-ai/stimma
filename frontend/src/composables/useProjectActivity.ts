@@ -1,3 +1,4 @@
+import { flowsEnabled } from './useExperimentalFlows'
 import { computed, ref } from 'vue'
 import { useWebSocket } from './useWebSocket'
 import { useGenerationStatus } from './useGenerationStatus'
@@ -37,7 +38,7 @@ export function useProjectActivity() {
   init()
   const { activeJobsByInstanceId, pendingWorkByInstanceId, foreverModeByInstanceId } = useGenerationStatus()
   const busy = computed(() => busyContexts(
-    serverActivity.value,
+    flowsEnabled.value ? serverActivity.value : serverActivity.value.map(e => ({ ...e, running_flows: 0 })),
     activeJobsByInstanceId.value,
     pendingWorkByInstanceId.value,
     foreverModeByInstanceId.value,

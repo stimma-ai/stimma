@@ -37,6 +37,7 @@ export const test = shellTest.extend<{ emptyWorkspace: void }>({
       deleted: true,
     }));
     if (ops.length) await request.post(`${baseURL}/api/workspace/docs`, { headers, data: { ops } });
+    await request.put(`${baseURL}/api/preferences/experimental_flows`, { headers, data: { enabled: false } });
     await use();
   }, { auto: true }],
 });

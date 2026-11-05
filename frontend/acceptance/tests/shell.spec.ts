@@ -15,7 +15,6 @@ test.describe('app shell acceptance', () => {
       { path: '/tools', text: 'All tools' },
       { path: '/boards', text: 'Boards' },
       { path: '/chats', text: 'Chats' },
-      { path: '/flows', text: 'Flows' },
       { path: '/trash', text: 'Trash' },
     ];
 

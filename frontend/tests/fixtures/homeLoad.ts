@@ -1,3 +1,4 @@
+import { setFlowsEnabled } from '../../src/composables/useExperimentalFlows'
 import { createApp, h, KeepAlive } from 'vue'
 import { createRouter, createMemoryHistory, RouterView } from 'vue-router'
 import HomeView from '../../src/views/HomeView.vue'
@@ -44,6 +45,7 @@ const router = createRouter({ history: createMemoryHistory(), routes: [
   // Another consumer of the shared tool catalog cache.
   catalog: useProvidersApi(),
   setProfile: setCurrentProfileId,
+  setFlows: setFlowsEnabled,
   recordToolVisit: (id: string, name: string) => recordEntityVisit('tool', id, name),
   serverEvent(event: string, data = {}) {
     sockets[sockets.length - 1]?.onmessage?.({ data: JSON.stringify({ event, data }) })
@@ -63,4 +65,4 @@ app.use(router)
 const query = new URLSearchParams(location.search)
 const start = query.get('start') || '/'
 if (query.get('deadline')) setReadDeadlineMs(Number(query.get('deadline')))
-initApiConfig().then(() => router.push(start)).then(() => app.mount('#app'))
+initApiConfig().then(() => setFlowsEnabled(true)).then(() => router.push(start)).then(() => app.mount('#app'))

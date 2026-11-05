@@ -256,3 +256,16 @@ def test_flow_outputs_match_the_shared_vectors(vector):
         FlowEquationResponse(status="completed", **eq) for eq in vector["equations"]
     ]
     assert flow_routes.output_media_ids_from_equations(equations) == vector["expected"]
+
+
+async def test_hidden_flows_do_not_consume_recent_slots_or_make_scope_nonempty(client, db_session):
+    project_id = await _project(client, 'Hidden flows')
+    await _flow(client, db_session, project_id, 'Newest flow', minutes=10)
+    empty = (await _recents(client, project_id, include_flows=False)).json()
+    assert empty == {'items': [], 'has_entities': False}
+    board_id = await _board(client, db_session, project_id, 'Older board', minutes=1)
+    hidden = (await _recents(client, project_id, include_flows=False, limit=1)).json()
+    assert hidden['items'][0]['type'] == 'board'
+    assert hidden['items'][0]['board']['id'] == board_id
+    shown = (await _recents(client, project_id, include_flows=True, limit=1)).json()
+    assert shown['items'][0]['type'] == 'flow'

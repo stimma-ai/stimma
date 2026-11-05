@@ -13,6 +13,7 @@
  * still legible where it can be acted on: the section's "Reset to defaults"
  * appears only when something is set.
  */
+import { flowsEnabled } from '../../composables/useExperimentalFlows'
 import { computed, onMounted } from 'vue'
 import { useAvailableModels } from '../../composables/useAvailableModels'
 import { resolveModelVendorId } from '../../utils/modelVendors'
@@ -162,7 +163,7 @@ onMounted(() => fetchModels(props.projectId ?? null, true))
 <template>
   <div>
     <div
-      v-for="role in ROLES"
+      v-for="role in ROLES.filter(r => flowsEnabled || r.key !== 'flow')"
       :key="role.key"
       class="flex items-center justify-between gap-1 border-b border-edge-subtle py-2.5 last:border-b-0"
     >
