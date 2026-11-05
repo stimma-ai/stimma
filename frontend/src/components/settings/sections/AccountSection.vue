@@ -79,7 +79,7 @@
       <header class="flex items-center gap-4">
         <img src="/logo.svg" alt="" aria-hidden="true" class="h-12 w-12 shrink-0" />
         <div class="min-w-0">
-          <h2 data-settings-target="stimma-account" class="text-[22px] font-semibold tracking-tight text-content">Stimma Account</h2>
+          <h2 data-settings-target="stimma-account" class="text-[22px] font-semibold tracking-tight text-content">Stimma account</h2>
           <p class="mt-0.5 truncate text-[13.5px] text-content-tertiary">{{ user.email }}</p>
         </div>
         <div class="ml-auto flex shrink-0 items-center gap-4 text-[13.5px]">

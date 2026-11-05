@@ -18,7 +18,7 @@
           >
             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m15 6-6 6 6 6" /></svg>
           </button>
-          <h2 class="text-[16px] font-semibold text-content truncate">{{ isCompact && !compactList ? activeSectionLabel : 'Settings' }}</h2>
+          <h2 ref="settingsTitle" class="text-[16px] font-semibold text-content truncate">{{ isCompact && !compactList ? activeSectionLabel : 'Settings' }}</h2>
         </div>
         <IconButton aria-label="Close" title="Close" @click="close">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -306,6 +306,7 @@ const pinModalProfileName = computed(() => {
 const settingsQuery = ref('')
 const settingsMatches = computed(() => searchSettings(settingsQuery.value))
 const settingsContent = ref(null)
+const settingsTitle = ref(null)
 let stopHighlight = () => {}
 
 async function openSetting(hit) {
@@ -328,8 +329,12 @@ async function openSetting(hit) {
   stopHighlight = cleanup
   const highlight = () => {
     const normalize = text => text.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
-    const target = (hit.target ? content.querySelector(`[data-settings-target="${hit.target}"]`) : null) || [...content.querySelectorAll('[data-setting-label], h2, h3, h4')].find(node =>
+    const found = (hit.target ? content.querySelector(`[data-settings-target="${hit.target}"]`) : null) || [...content.querySelectorAll('[data-setting-label], h2, h3, h4')].find(node =>
       normalize(node.dataset.settingLabel || node.textContent || '') === normalize(hit.label))
+    if (!found) return false
+    // On compact layouts the section heading is hidden because the modal
+    // title already names the section; highlight that title instead.
+    const target = found.getClientRects().length ? found : settingsTitle.value
     if (!target) return false
     highlighted = target
     target.classList.add(...classes)

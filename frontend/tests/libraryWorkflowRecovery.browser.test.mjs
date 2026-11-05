@@ -100,14 +100,14 @@ for (const touch of [false, true]) test(`Settings search finds synonyms and high
   await expect(page.locator('[data-setting-label="Theme"]')).toBeVisible()
   await expect(page.locator('[data-setting-label="Theme"]')).toHaveClass(/ring-2/)
   await search.fill('clip')
-  await page.getByRole('button', { name: 'Visual Indexing Background work' }).click()
-  await expect(page.locator('[data-setting-label="Visual Indexing"]')).toBeVisible()
-  await expect(page.locator('[data-setting-label="Visual Indexing"]')).toHaveClass(/ring-2/)
+  await page.getByRole('button', { name: 'Visual indexing Background work' }).click()
+  await expect(page.locator('[data-setting-label="Visual indexing"]')).toBeVisible()
+  await expect(page.locator('[data-setting-label="Visual indexing"]')).toHaveClass(/ring-2/)
   for (const [query, name, target] of [
     ['wildcards', 'Wildcards Prompt variables', 'prompt-wildcards'],
     ['segments', 'Segments Prompt variables', 'prompt-segments'],
     ['version', 'About About', 'about-build'],
-    ['login', 'Stimma Account Stimma account', 'stimma-account'],
+    ['login', 'Stimma account Stimma account', 'stimma-account'],
   ]) {
     await search.fill(query)
     await page.getByRole('button', { name, exact: true }).click()

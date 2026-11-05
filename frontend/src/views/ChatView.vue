@@ -6203,6 +6203,9 @@ onActivated(updateCompactHeader)
 .stage-leave-to {
   transform: translateX(100%);
 }
+/* Fade only. A slide offsets the item's box while it runs, and the browser
+   replays this whenever an item is rendered again (content-visibility), so a
+   reader parked mid-transcript would see the text move by up to 10px. */
 .chat-item {
   animation: fadeIn 0.2s ease-in;
 }
@@ -6210,11 +6213,9 @@ onActivated(updateCompactHeader)
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
