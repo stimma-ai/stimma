@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 1
+    # These API/storage migrations need dedicated compatibility work.
+    ignore:
+      - dependency-name: mcp
+        update-types: ["version-update:semver-major"]
+      - dependency-name: sqlalchemy
+        versions: [">2.0.23"]
     groups:
       backend:
         patterns:
