@@ -7,7 +7,7 @@
         ref="menuRef"
         data-escape-layer
         data-program-card
-        class="fixed z-menu suggestion-submenu-card rounded-lg border border-edge p-3 w-[340px] max-w-[calc(100vw-16px)]"
+        :class="['fixed z-menu suggestion-submenu-card rounded-lg border border-edge p-3 max-w-[calc(100vw-16px)]', long ? 'w-[420px]' : 'w-[340px]']"
         :style="menuStyle"
         @click.stop
       >
@@ -55,16 +55,16 @@
 
         <!-- One choice -->
         <template v-else-if="choice">
-          <div class="flex items-center justify-center gap-1 text-xs font-semibold text-content-secondary">
+          <div class="flex items-center justify-center gap-1 text-xs font-semibold text-content-secondary text-center">
             <WandSparklesIcon v-if="choice.source === 'added'" class="w-3 h-3 text-content-tertiary" />
             {{ choice.label }}
           </div>
-          <div class="text-[11px] text-content-muted text-center mb-2">{{ note }}</div>
+          <div class="text-[11px] text-content-muted text-center mb-2 break-words">{{ note }}</div>
           <div v-if="choice.kind === 'param'" class="flex flex-col items-center gap-0.5 py-1">
             <span class="font-mono text-[13px] text-selection">{{ choice.options[0] }} – {{ choice.options[1] }}</span>
             <span class="text-[11px] text-content-muted">each image draws a value</span>
           </div>
-          <OptionPills v-else :choice="choice" :program="program" :deletable="choice.source !== 'list' && choice.kind !== 'lora'" :addable="choice.source !== 'list' && choice.kind !== 'lora'" />
+          <OptionPills v-else :choice="choice" :program="program" :long="long" :deletable="choice.source !== 'list' && choice.kind !== 'lora'" :addable="choice.source !== 'list' && choice.kind !== 'lora'" />
           <div class="border-t border-edge mt-2 pt-2 flex justify-center gap-1">
             <button v-if="choice.kind !== 'param'" type="button" :class="actionClass" @click="program.setPins(choice.id, [])">any</button>
             <button v-if="choice.line && choice.source !== 'added'" type="button" :class="actionClass" @click="show(choice.line)">show in prompt</button>
@@ -109,6 +109,8 @@ const group = computed(() => {
 const members = computed(() => group.value ? props.program.choices.value.filter(c => c.group === group.value!.id) : [])
 const groupAttrs = computed(() => [...new Set(members.value.map(m => m.attr || m.id))])
 const member = computed(() => memberId.value ? props.program.byId.value[memberId.value] : null)
+// Phrase-length options read as a list of wrapped rows, not pills that scroll sideways.
+const long = computed(() => !!choice.value && props.program.optionsOf(choice.value).some(o => o.length > 32))
 
 function attrChoice(attr: string, index: number): ProgramChoice | undefined {
   return members.value.find(m => (m.attr || m.id) === attr && m.index === index)
@@ -153,7 +155,7 @@ function clearGroup() {
 
 // Option pills (with delete and add) -----------------------------------------------
 const OptionPills = defineComponent({
-  props: { choice: { type: Object, required: true }, program: { type: Object, required: true }, deletable: Boolean, addable: Boolean },
+  props: { choice: { type: Object, required: true }, program: { type: Object, required: true }, deletable: Boolean, addable: Boolean, long: Boolean },
   setup(p) {
     const adding = ref(false)
     const draft = ref('')
@@ -183,7 +185,8 @@ const OptionPills = defineComponent({
       }
       const pills = opts.map(o => h('button', {
         type: 'button', key: o,
-        class: ['group/opt relative px-2.5 py-1 text-xs rounded-full whitespace-nowrap transition-all duration-150 suggestion-submenu-pill coarse:py-1.5 coarse:text-[13px]',
+        class: ['group/opt relative text-xs transition-all duration-150 suggestion-submenu-pill coarse:text-[13px]',
+          p.long ? 'px-3 py-1.5 rounded-lg text-left leading-snug' : 'px-2.5 py-1 rounded-full whitespace-nowrap coarse:py-1.5',
           pinned.has(o) ? '!bg-selection/20 !text-selection' : ''],
         onClick: () => toggle(o),
       }, [
@@ -210,7 +213,7 @@ const OptionPills = defineComponent({
               onClick: () => { adding.value = true },
             }, '+ add'))
       }
-      return h('div', { class: 'flex flex-wrap justify-center gap-1.5 max-h-[50vh] overflow-y-auto p-0.5' }, pills)
+      return h('div', { class: ['max-h-[50vh] overflow-y-auto overflow-x-hidden p-1.5 -m-1', p.long ? 'flex flex-col gap-1' : 'flex flex-wrap justify-center gap-1.5'] }, pills)
     }
   },
 })

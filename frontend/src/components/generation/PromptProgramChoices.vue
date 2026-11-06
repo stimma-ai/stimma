@@ -17,7 +17,7 @@
       >
         <span v-if="row.choice.parent" class="text-content-muted -mr-0.5">↳</span>
         <WandSparklesIcon v-if="row.choice.source === 'added'" class="w-3 h-3 shrink-0 text-content-tertiary" />
-        <span :class="program.isPinned(row.choice) ? 'text-selection/80' : 'text-content-tertiary'">{{ row.choice.label }}</span>
+        <span :class="['truncate max-w-[10rem]', program.isPinned(row.choice) ? 'text-selection/80' : 'text-content-tertiary']">{{ row.choice.label }}</span>
         <span class="truncate max-w-[16rem]">{{ program.valueText(row.choice) }}</span>
       </button>
       <button
@@ -45,7 +45,7 @@ const openId = computed(() => props.program.openCard.value?.id || null)
 
 function pillClass(pinned: boolean, open: boolean) {
   return [
-    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs whitespace-nowrap shrink-0 border transition-colors coarse:py-1.5 coarse:text-[13px]',
+    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs whitespace-nowrap shrink-0 border transition-colors outline-none focus-visible:ring-1 focus-visible:ring-selection/60 coarse:py-1.5 coarse:text-[13px]',
     pinned ? 'bg-selection/15 text-selection' : 'bg-surface-raised text-content hover:bg-surface-hover',
     open ? 'border-selection/40' : 'border-transparent',
   ]

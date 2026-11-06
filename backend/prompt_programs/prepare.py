@@ -7,6 +7,7 @@ program for one generation) needs no model at all.
 
 from __future__ import annotations
 
+import ast
 import random
 import re
 import time
@@ -21,7 +22,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-10"
+PREPARE_VERSION = "pp-12"
 MAX_ATTEMPTS = 3
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8")
 
@@ -180,6 +181,50 @@ def _smart_choice(info: Dict[str, Any], name: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def drop_name_options(source: str, prompt: str) -> str:
+    """Weak models list a descriptive {{name}} itself as an option ("35mm details, no
+    shallow dof"). Cut those strings out of the pick's option list, keeping the rest of
+    the source as written."""
+    names = {smart_id(n): n.lower() for n in smart_wildcards(prompt)}
+    if not names:
+        return source
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source
+    lines = source.splitlines(keepends=True)
+    offsets = [0]
+    for ln in lines:
+        offsets.append(offsets[-1] + len(ln))
+
+    def pos(lineno: int, col: int) -> int:  # ast columns count UTF-8 bytes
+        return offsets[lineno - 1] + len(lines[lineno - 1].encode()[:col].decode("utf-8", "ignore"))
+
+    cuts = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick" and node.args
+                and isinstance(node.args[0], ast.Constant) and node.args[0].value in names):
+            continue
+        opts = node.args[1] if len(node.args) > 1 else next((k.value for k in node.keywords if k.arg == "options"), None)
+        if not isinstance(opts, ast.List):
+            continue
+        name = names[node.args[0].value]
+        keep = [e for e in opts.elts if not (isinstance(e, ast.Constant) and str(e.value).strip().lower() == name)]
+        if len(keep) < 2 or len(keep) == len(opts.elts):
+            continue
+        for i, e in enumerate(opts.elts):
+            if e in keep:
+                continue
+            start = pos(e.lineno, e.col_offset)
+            # through the following comma (or back to the preceding one for the last element)
+            nxt = opts.elts[i + 1] if i + 1 < len(opts.elts) else None
+            end = pos(nxt.lineno, nxt.col_offset) if nxt else pos(e.end_lineno, e.end_col_offset)
+            cuts.append((start, end))
+    for start, end in sorted(cuts, reverse=True):
+        source = source[:start] + source[end:]
+    return source
+
+
 def _verbatim_segments(prompt: str) -> List[str]:
     return [m.group(1).strip() for m in _VERBATIM.finditer(prompt) if m.group(1).strip()]
 
@@ -233,7 +278,14 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
         problems.append(f'pick("{cid}") drew "{value}" but it never appears in the emitted prompt. Pass its result to emit(...).')
     for name in smart_wildcards(prompt):
         if not _smart_choice(info, name):
-            problems.append(f'{{{{{name}}}}} is a smart wildcard: make it pick("{smart_id(name)}", [6-12 options], label=..., line=...) and emit its value where {{{{{name}}}}} stands.')
+            problems.append(f'{{{{{name}}}}} is a smart wildcard: make it pick("{smart_id(name)}", [6-12 options], label=<one or two words>, line=...) and emit its value where {{{{{name}}}}} stands.')
+    for name in smart_wildcards(prompt):  # a descriptive name says what to write, it isn't an option
+        c = _smart_choice(info, name)
+        if c and name.lower() in (o.lower() for o in c["options"]):
+            problems.append(f'{{{{{name}}}}} needs 6-12 different concrete options that each fit "{name}", not the name itself.')
+    for c in info["choices"]:  # labels are pill names, not descriptions
+        if len(c["label"]) > 24 or len(c["label"].split()) > 3:
+            problems.append(f'label="{c["label"]}" is too long for {c["id"]}: use one or two words, like "Weather" or "Photo look".')
     if any("{{" in r.prompt for r in samples):
         problems.append("Don't emit {{...}}: replace each smart wildcard with its pick's value.")
     for m in _INLINE_LIST.finditer(prompt):
@@ -334,7 +386,7 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     last_error = ""
     for attempt in range(1, MAX_ATTEMPTS + 1):
         reply = await _ask_model(messages, project_id)
-        source = extract_code(reply)
+        source = drop_name_options(extract_code(reply), source_prompt)
         try:
             check(source)
             checked = validate(source, source_prompt, loras, set(params), enhanced)

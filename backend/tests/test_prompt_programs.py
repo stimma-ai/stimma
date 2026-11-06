@@ -257,6 +257,35 @@ class TestSmartWildcards:
         feedback = calls[2][-1]["content"]
         assert 'pick("hair_style"' in feedback and "Don't emit {{" in feedback
 
+    async def test_long_wildcard_names_get_short_labels(self, stub):
+        calls, replies = stub
+        prompt = "A woman on a platform. {{35mm photographic details, no shallow dof}}"
+        long = '''
+look = pick("35mm_photographic_details_no_shallow_dof", ["grainy film, deep focus", "crisp 35mm, f/8"], label="{label}", line=1)
+emit("A woman on a platform.", look)
+'''
+        replies.append("```python\n" + long.replace("{label}", "35mm photographic details, no shallow dof") + "```")
+        replies.append("```python\n" + long.replace("{label}", "Photo look") + "```")
+        entry = await self._ensure(prompt)
+        assert entry["attempts"] == 2 and "too long" in calls[2][-1]["content"]
+        assert entry["choices"][0]["label"] == "Photo look"
+        assert entry["choices"][0]["wildcard"] == "35mm photographic details, no shallow dof"
+
+    async def test_descriptive_name_is_not_an_option(self, stub):
+        calls, replies = stub
+        prompt = "A woman. {{film look}}"
+        replies.append('```python\nlook = pick("film_look", ["film look", "film look"], label="Look", line=1)\nemit("A woman.", look)\n```')
+        replies.append('```python\nlook = pick("film_look", ["Portra grain", "HP5 black and white"], label="Look", line=1)\nemit("A woman.", look)\n```')
+        entry = await self._ensure(prompt)
+        feedback = calls[2][-1]["content"]
+        assert entry["attempts"] == 2 and "not the name itself" in feedback
+
+    def test_descriptive_name_is_cut_from_its_options(self):
+        src = 'note = "it’s – fine"\nlook = pick("film_look", ["“Portra” grain", "film look", "HP5"], label="Look")\nemit(note, look)\n'
+        out = prep.drop_name_options(src, "A woman. {{film look}}")
+        assert '["“Portra” grain", "HP5"]' in out
+        assert prep.drop_name_options(src, "A woman, no wildcards.") == src
+
     async def test_global_wildcards_still_win(self, stub, monkeypatch):
         _, replies = stub
         monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments",

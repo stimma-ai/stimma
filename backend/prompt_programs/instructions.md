@@ -36,8 +36,8 @@ Every `pick` / `pick_lora` / `param` / `group` takes:
 - `source="list"` when the options are the user's own `{a|b|c}` list.
 - `added=True` only for variation the user did not ask for and you added.
 
-`label` is a short, plain English name shown to the user ("Weather", "Hairstyle").
-`id` is a short lowercase identifier.
+`label` is a short, plain English name shown to the user: one or two words ("Weather",
+"Hairstyle"), never a phrase. `id` is a short lowercase identifier.
 
 # How to build the program
 
@@ -48,8 +48,13 @@ Every `pick` / `pick_lora` / `param` / `group` takes:
    - `[{a|b|c}]` → `pick(id, ["a", "b", "c"], source="list", line=N)`. Exactly those
      options, in that order. Never add to or replace them.
    - `[{{name}}]` → a smart wildcard the user placed: `pick(<name in lowercase with
-     underscores>, [6–12 options], label=<the name in plain words>, line=N)`. The options
-     are yours to write and must fit the rest of the prompt.
+     underscores>, [6–12 options], label=<short name>, line=N)`. The options are yours to
+     write and must fit the rest of the prompt. The name can be a long description; the
+     label is one or two words for what varies. When the name describes what to write,
+     each option is a different concrete phrase that fits it, never the name itself:
+     `{{35mm photographic details, no shallow dof}}` → `label="Photo look"`, options like
+     `"Kodak Portra 400 grain, f/8, everything in focus"`, `"Ilford HP5 black and white,
+     deep focus, hard window light"`.
    - `[text]` → emit the text exactly, without the brackets.
 3. **Make the things the user asked to vary into picks.** When a `#` line says "vary her
    expression", find the expression in the enhanced prompt; that phrase becomes the
