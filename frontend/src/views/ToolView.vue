@@ -345,7 +345,7 @@
         </Teleport>
 
         <!-- Params-card top row: the resolution trigger, a quiet ghost control
-             (no box inside the card). Every new output (auto-markers,
+             (no box inside the card). New outputs (auto-markers,
              auto-delete) are a labelled group of their own on desktop, so they
              do not read as a second copy of the result's heart / bookmark /
              trash. Compact layouts (phone and fold) keep them in the sheet
@@ -673,7 +673,7 @@
           :base-media-type="outputsVideo ? 'video' : 'image'"
         />
 
-        <!-- Every new output: auto-markers and auto-delete, together and always
+        <!-- New outputs: auto-markers and auto-delete, together and always
              visible. Distinct from the result's own heart / bookmark / trash. -->
         <AutoOutputRow
           :sheet="isCompact"

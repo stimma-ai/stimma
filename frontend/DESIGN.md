@@ -569,7 +569,7 @@ that a desktop-sized window never trips.
   The strip and a slice of the hero stay visible at every
   height. Only the prompt is pinned; resolution is the first control under
   it, and the output settings (auto-markers, auto-delete) live in the sheet
-  Run's long-press opens. Compact shows them on an Every new output row in
+  Run's long-press opens. Compact shows them on a New outputs row in
   the controls (markers toggle in place; delete opens that sheet) and a small settings glyph inside Run's fill (a trailing mark, with the batch size; nothing straddles its corner) while either is on. Roomy: no drawer. Controls on the left; on the right the hero, with
   the same sideways strip of results as the phone (taller) directly under its
   action band as one media unit. A wrap of results scrolling under the hero read as a second
@@ -983,7 +983,7 @@ surface (`surface`) with the matte behind the result only; the strip is never
 pegged below a gap.
 The header's right side is one quiet icon group (presets, layout, forever
 mode; forever is a ghost until it runs, then `live`), then Run, then the
-queue-options menu. **Every new output** is one always-visible row at the
+queue-options menu. **New outputs** is one always-visible row at the
 foot of the form: label left, then the auto-mark toggles and auto-delete at the right edge.
 Its label names the scope, because the result's heart, bookmark and trash look
 alike and act on one result only. The result band's facts (generation time, auto-trash

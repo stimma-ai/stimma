@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// "Every new output": what happens automatically to everything this tool makes.
+// "New outputs": what happens automatically to everything this tool makes.
 // Auto-markers and auto-delete sit together, always visible, under a label that
 // says their scope. The heart and bookmark under the result act on that one
 // result; these act on every run from here on.
@@ -28,8 +28,8 @@ const deleteArmed = computed(() => props.autoDelete !== 'never')
 </script>
 
 <template>
-  <div role="group" aria-label="Every new output" class="mb-3 flex min-h-8 items-center gap-2 coarse:mb-1 coarse:min-h-11">
-    <span class="text-ctl font-semibold text-content-secondary">Every new output</span>
+  <div role="group" aria-label="New outputs" class="mb-3 flex min-h-8 items-center gap-2 coarse:mb-1 coarse:min-h-11">
+    <span class="text-ctl font-semibold text-content-secondary">New outputs</span>
     <div class="-mr-2 ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
       <AutoMarkPicker
         :markers="markers"
