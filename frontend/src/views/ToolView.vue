@@ -206,8 +206,7 @@
                 ? 'stimma-cloud-border-solid stimma-cloud-text font-medium bg-overlay-subtle'
                 : 'text-content-tertiary bg-overlay-subtle border border-edge-subtle'"
             >{{ tool.metadata.display_price }}</span>
-            <!-- Quiet icon group: presets, layout, forever mode. Run is the only
-                 heavy object in the header and sits last, before the menu. -->
+            <!-- Quiet icon group: presets, layout. -->
             <div class="flex items-center gap-0.5" role="group" aria-label="Tool options">
               <PresetPicker
                 v-if="tool.full_tool_id"
@@ -232,22 +231,6 @@
               >
                 <PhotoIcon class="h-icon-nav w-icon-nav" />
               </IconButton>
-              <!-- Forever mode: the shared split control, dressed as a quiet ghost
-                   (live magenta only while it is running). -->
-              <ForeverModeButton
-                :class="uiState.generateForeverMode
-                  ? '[&>div]:!bg-live [&>div>div.w-px]:!hidden [&>div>button]:!text-accent-on [&>div>button:hover]:!bg-transparent'
-                  : '[&>div]:!bg-transparent [&>div>div.w-px]:!hidden [&>div>button]:!text-content-secondary [&>div>button:hover]:!bg-overlay-subtle [&>div>button:hover]:!text-content'"
-                class="[&>div]:!rounded-md [&>div>button]:!h-8 [&>div>button]:!py-0 [&>div>button]:!px-2 [&>div>button]:!font-medium"
-                :is-active="uiState.generateForeverMode"
-                :concurrency="uiState.generateForeverConcurrency"
-                :idle-limit="uiState.generateForeverIdleLimit"
-                :is-stimma-cloud="isStimmaCloudTool"
-                @toggle="stopForeverMode"
-                @start="startForeverMode"
-                @update:concurrency="uiState.generateForeverConcurrency = $event"
-                @update:idle-limit="uiState.generateForeverIdleLimit = $event"
-              />
             </div>
             <BatchRunButton
               :batch-size="uiState.batchSize"
@@ -256,6 +239,18 @@
               :media-batch-count="globalPrefs.batchMode ? mediaInputItems.length : 0"
               @run="submitJob"
               @update:batch-size="uiState.batchSize = $event"
+            />
+            <!-- Forever mode keeps its own solid magenta while it runs; it is
+                 the feature's signature, so it is never dressed down. -->
+            <ForeverModeButton
+              :is-active="uiState.generateForeverMode"
+              :concurrency="uiState.generateForeverConcurrency"
+              :idle-limit="uiState.generateForeverIdleLimit"
+              :is-stimma-cloud="isStimmaCloudTool"
+              @toggle="stopForeverMode"
+              @start="startForeverMode"
+              @update:concurrency="uiState.generateForeverConcurrency = $event"
+              @update:idle-limit="uiState.generateForeverIdleLimit = $event"
             />
             <div v-if="jobsManager && isFromScratch" class="relative flex items-center">
               <OverflowButton size="lg" label="Queue options" :active="stageMenuOpen" @click="stageMenuOpen = !stageMenuOpen" />
@@ -348,7 +343,7 @@
         </Teleport>
 
         <!-- Params-card top row: the resolution trigger, a quiet ghost control
-             (no box inside the card). Every new output (auto-markers,
+             (no box inside the card). New outputs (auto-markers,
              auto-delete) are a labelled group of their own on desktop, so they
              do not read as a second copy of the result's heart / bookmark /
              trash. Compact layouts (phone and fold) keep them in the sheet
@@ -380,17 +375,6 @@
               v-model="modelParams.megapixels"
             />
         </div>
-        <!-- Every new output: auto-markers and auto-delete, together and always
-             visible. Distinct from the result's own heart / bookmark / trash. -->
-        <AutoOutputRow
-          :sheet="isCompact"
-          :markers="jobsManager?.availableMarkers.value || []"
-          v-model:auto-marker-ids="globalPrefs.autoMarkerIds"
-          :auto-delete="autoDeleteDuration"
-          @update:auto-delete="setAutoDeleteDuration"
-          @configure="runControlRef?.openSheet()"
-        />
-
         <!-- Lyrics (audio music tools): a second, prompt-like input. Sits right
              under the main prompt — the prompt is the production brief (genre,
              mood), the lyrics are the words sung. Bound to modelParams like the
@@ -670,15 +654,6 @@
           @insert-trigger="insertTriggerWord"
         />
 
-        <!-- Post-processing chain (auto-runs after each generation when On).
-             Not shown for audio tools — no audio post-processing chains exist. -->
-        <PostProcessingPanel
-          v-if="!outputsAudio"
-          v-model:chain="toolChain"
-          :current-tool-id="fullToolIdFromProps"
-          :base-media-type="outputsVideo ? 'video' : 'image'"
-        />
-
         <!-- Generic Parameters (dynamic from tool schema, grouped) -->
         <SchemaParamGroup
           :full-tool-id="fullToolIdFromProps"
@@ -689,6 +664,26 @@
           :program-params="promptProgram.paramControl.value"
           @program-param="(name, el) => promptProgram.open(promptProgram.paramControl.value[name]?.choiceId, el)"
           @update:param="(name, value) => { modelParams[name] = value }"
+        />
+
+        <!-- Post-processing chain (auto-runs after each generation when On).
+             Not shown for audio tools — no audio post-processing chains exist. -->
+        <PostProcessingPanel
+          v-if="!outputsAudio"
+          v-model:chain="toolChain"
+          :current-tool-id="fullToolIdFromProps"
+          :base-media-type="outputsVideo ? 'video' : 'image'"
+        />
+
+        <!-- New outputs: auto-markers and auto-delete, together and always
+             visible. Distinct from the result's own heart / bookmark / trash. -->
+        <AutoOutputRow
+          :sheet="isCompact"
+          :markers="jobsManager?.availableMarkers.value || []"
+          v-model:auto-marker-ids="globalPrefs.autoMarkerIds"
+          :auto-delete="autoDeleteDuration"
+          @update:auto-delete="setAutoDeleteDuration"
+          @configure="runControlRef?.openSheet()"
         />
 
         <div v-if="submissionError" class="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-500 text-sm flex items-center justify-between gap-3">

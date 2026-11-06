@@ -1,7 +1,7 @@
 import { expect, test } from '../helpers/testbed';
 import { apiJSON, createProject, waitForShell } from '../helpers/app';
 
-const label = 'Enable Flows [experimental]';
+const label = 'Enable Flows';
 
 test('Flows opt-in hides all entry points and preserves existing flows', async ({ page }) => {
   await page.goto('/browse');
