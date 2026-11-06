@@ -59,11 +59,17 @@
           </label>
         </SettingRow>
         <SettingRow
-          label="Enable Flows [experimental]"
+          label="Enable Flows"
           description="Flows are an experiment and may change or be removed. Try them out and let us know what you think — feedback is welcome."
           :divider="true"
         >
-          <Toggle :model-value="flowsEnabled" :disabled="savingFlowsPreference" label="Enable Flows [experimental]" @update:model-value="updateFlows" />
+          <template #label>
+            <span class="flex items-center gap-2">
+              <span>Enable Flows</span>
+              <span class="shrink-0 rounded border border-edge-subtle px-1 py-0.5 text-[10px] font-normal leading-none text-content-tertiary">Experimental</span>
+            </span>
+          </template>
+          <Toggle :model-value="flowsEnabled" :disabled="savingFlowsPreference" label="Enable Flows" @update:model-value="updateFlows" />
         </SettingRow>
       </div>
     </section>
