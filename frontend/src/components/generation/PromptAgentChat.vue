@@ -49,8 +49,8 @@
           <div v-if="entry.text" class="text-content-secondary whitespace-pre-wrap font-mono text-[11px] leading-relaxed break-words">{{ entry.text }}</div>
         </div>
 
-        <!-- Quick edits (suggestion pills + auto-ideas) use the single-shot
-             /enhance path, not the agent loop, so they're logged separately. -->
+        <!-- Prompt-only edits (no page agent) use the single-shot /enhance
+             path, not the agent loop, so they're logged separately. -->
         <template v-if="debugHistory.length">
           <div class="pt-1 text-ctl font-semibold text-content-secondary">Quick edits</div>
           <div
@@ -349,177 +349,6 @@
       </button>
     </div>
 
-    <!-- Ideas container (BELOW input). Stay out of the layout until there is
-         meaningful content, then use the screen's canonical card-grow motion. -->
-    <Transition name="flow-expand">
-      <div v-if="showIdeasPanel">
-        <div>
-          <div class="mt-3 overflow-y-auto" :style="{ maxHeight: `${ideasMaxHeight}px` }">
-            <!-- The inline prompt helper keeps its guidance; Tool View opts out
-                 by hiding this entire region when there is no meaningful state. -->
-            <div v-if="!prompt.trim()" class="py-4 flex items-center justify-center">
-              <p class="text-xs text-content-muted italic">Enter a prompt to get suggestions</p>
-            </div>
-
-            <!-- Suggestion pills -->
-            <div
-              v-else-if="suggestions.length > 0 || isLoadingIdeas || isLoadingCategories"
-              class="flex flex-wrap gap-1.5 py-0.5 px-0.5"
-            >
-              <!-- Fixed suggestions (always shown at front) -->
-              <button
-                v-for="item in FIXED_SUGGESTIONS"
-                :key="'fixed-' + item.label"
-                @click="handleSuggestionClick(item, $event)"
-                :title="item.instruction"
-                class="px-2.5 py-1 rounded-full text-xs transition-all duration-200 bg-surface-raised text-content hover:bg-surface-hover hover:text-content"
-              >
-                {{ item.label }}
-              </button>
-              <!-- Line break between fixed and dynamic -->
-              <div class="w-full"></div>
-              <!-- Dynamic dropdown suggestions from LLM -->
-              <button
-                v-for="item in suggestions"
-                :key="item.label"
-                @click="handleSuggestionClick(item, $event)"
-                :disabled="loadingOptionsByCategory[item.category]"
-                :title="loadingOptionsByCategory[item.category] ? 'Loading options...' : (item.subitems && item.subitems.length > 0 ? `${item.label} (click for options)` : item.instruction)"
-                :class="[
-                  'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs transition-all duration-200',
-                  loadingOptionsByCategory[item.category]
-                    ? 'bg-surface-raised text-content-muted shimmer cursor-wait'
-                    : activeSubmenu?.label === item.label
-                      ? 'bg-blue-500/30 ring-1 ring-blue-500 text-blue-500 relative z-menu'
-                      : getCategoryClass(item.category)
-                ]"
-              >
-                <span>{{ item.label }}</span>
-                <Spinner v-if="loadingOptionsByCategory[item.category]" size="sm" />
-                <ChevronDownIcon v-else-if="item.subitems && item.subitems.length > 0" class="w-3 h-3 text-content-tertiary" />
-              </button>
-              <!-- Refresh pill at end — recomputes the sections AND their options. -->
-              <button
-                @click="refreshIdeasClick()"
-                :disabled="isLoadingIdeas"
-                class="px-2.5 py-1 rounded-full text-xs transition-colors bg-surface text-content-muted hover:text-content-muted hover:bg-surface-raised border border-surface-raised"
-                title="Refresh ideas"
-              >
-                <ArrowPathIcon :class="['w-3 h-3 inline', (isLoadingIdeas || isRefreshingIdeas) ? 'animate-spin' : '']" />
-              </button>
-            </div>
-
-            <!-- Refusal message from LLM -->
-            <div v-else-if="refusalMessage" class="py-3 px-4 flex items-center gap-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
-              <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <p class="text-xs text-amber-500 flex-1">{{ refusalMessage }}</p>
-              <!-- Dev mode: copy the refused request's full LLM trace for a bug report -->
-              <button
-                v-if="devModeRef && ideasDebugTrace"
-                @click="copyIdeasTrace"
-                class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
-                :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
-              >
-                <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
-                <BugAntIcon v-else class="w-3.5 h-3.5" />
-              </button>
-              <button
-                @click="refreshIdeasClick()"
-                :disabled="isLoadingIdeas"
-                class="px-3 py-1 text-xs bg-overlay-light hover:bg-overlay-medium rounded text-content-secondary hover:text-content transition-colors disabled:opacity-50"
-              >
-                <span v-if="isLoadingIdeas" class="flex items-center gap-1.5">
-                  <Spinner size="sm" />
-                  Retrying...
-                </span>
-                <span v-else>Retry</span>
-              </button>
-            </div>
-
-            <!-- Error state -->
-            <div v-else-if="ideasError" class="py-3 px-4 flex items-center gap-3 bg-red-500/10 rounded-lg border border-red-500/20">
-              <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <p class="text-xs text-red-500 flex-1">{{ ideasError }}</p>
-              <!-- Remedy sits beside the error, mirroring the agent flash chip. -->
-              <button
-                v-if="isInsufficientBalanceCode(ideasErrorCode)"
-                @click.stop="connectStimmaCloud"
-                :disabled="cloudConnecting"
-                class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium stimma-cloud-text border border-current/20 hover:border-current/40 transition-colors"
-              >
-                {{ cloudConnecting ? 'Opening…' : isAuthenticated ? 'Add credits' : 'Configure Chat Models' }}
-              </button>
-              <button
-                v-else-if="isLlmSetupCode(ideasErrorCode)"
-                @click.stop="openChatModelSettings"
-                class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium text-red-500 border border-current/20 hover:border-current/40 transition-colors"
-              >
-                Configure Chat Models
-              </button>
-              <!-- Dev mode: copy the failed request's full LLM trace for a bug report -->
-              <button
-                v-if="devModeRef && ideasDebugTrace"
-                @click="copyIdeasTrace"
-                class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
-                :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
-              >
-                <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
-                <BugAntIcon v-else class="w-3.5 h-3.5" />
-              </button>
-              <button
-                @click="refreshIdeasClick()"
-                :disabled="isLoadingIdeas"
-                class="px-3 py-1 text-xs bg-overlay-light hover:bg-overlay-medium rounded text-content-secondary hover:text-content transition-colors disabled:opacity-50"
-              >
-                <span v-if="isLoadingIdeas" class="flex items-center gap-1.5">
-                  <Spinner size="sm" />
-                  Retrying...
-                </span>
-                <span v-else>Retry</span>
-              </button>
-            </div>
-
-            <div v-else class="py-4 flex items-center justify-center gap-2">
-              <button
-                @click="refreshIdeasClick()"
-                class="text-xs text-content-muted hover:text-purple-500 transition-colors"
-              >
-                Click to load ideas
-              </button>
-              <!-- Dev mode: copy the failed/refused request's full LLM trace for a bug report -->
-              <button
-                v-if="devModeRef && ideasDebugTrace"
-                @click="copyIdeasTrace"
-                class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
-                :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
-              >
-                <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
-                <BugAntIcon v-else class="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
-    <!-- Submenu for grouped items -->
-    <SuggestionSubmenu
-      :visible="activeSubmenu !== null"
-      :label="activeSubmenu?.label || ''"
-      :items="activeSubmenu?.subitems || []"
-      :loading="activeSubmenu ? !!loadingOptionsByCategory[activeSubmenu.category] : false"
-      :position="submenuPosition"
-      @select="handleSubmenuSelect"
-      @refresh="handleSubmenuRefresh"
-      @surprise="handleSubmenuSurprise"
-      @wildcard="handleSubmenuWildcard"
-      @close="closeSubmenu"
-    />
-
     <!-- Floating debug button (dev mode only) -->
     <button
       v-if="devModeRef"
@@ -543,7 +372,7 @@ import { ref, watch, nextTick, onMounted, onUnmounted, inject, computed } from '
 import type { PromptEditorAgent } from '../../composables/promptEditorAgentKey'
 import { PROMPT_EDITOR_AGENT_KEY } from '../../composables/promptEditorAgentKey'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
-import { SparklesIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon, BugAntIcon, ArrowPathIcon, ChevronDownIcon, LightBulbIcon } from '@heroicons/vue/24/solid'
+import { SparklesIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon, BugAntIcon, LightBulbIcon } from '@heroicons/vue/24/solid'
 import { WrenchIcon, ChevronUpIcon, CheckIcon } from '@heroicons/vue/24/outline'
 import AgentIcon from '../icons/AgentIcon.vue'
 import { copyToClipboard } from '../../utils/clipboard'
@@ -551,7 +380,6 @@ import { insertNewlineAtCaret } from '../../utils/textInput'
 import axios from 'axios'
 import { useTelemetry } from '../../composables/useTelemetry'
 import { extractVerbatim, restoreVerbatim, verifyVerbatimPreserved } from '../../utils/promptProcessor'
-import SuggestionSubmenu from './SuggestionSubmenu.vue'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
 import SkillsMenuButton from '../chat/SkillsMenuButton.vue'
 import SendButton from '../ui/SendButton.vue'
@@ -562,7 +390,6 @@ import { useAuth } from '../../composables/useAuth'
 import { useCloudAccount } from '../../composables/useCloudAccount'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
 import { isDesktop } from '../../apiConfig'
-import Spinner from '../ui/Spinner.vue'
 
 const { allowsAutofocus } = useViewport()
 
@@ -587,14 +414,10 @@ interface Props {
    * (null) for a tools-only chat (e.g. a ToolView tool with no prompt input).
    */
   editor?: PromptEditorHandle | null
-  /** Current prompt text — drives ideas + the empty state. */
+  /** Current prompt text. */
   prompt?: string
-  /** Whether a prompt editor is wired in (shows pills/ideas, enables prompt edits). */
+  /** Whether a prompt editor is wired in (enables prompt edits). */
   hasPrompt?: boolean
-  /** Hide the ideas region until it has suggestions, loading, or failure feedback. */
-  hideEmptyIdeas?: boolean
-  /** Tallest the ideas region gets before it scrolls. */
-  ideasMaxHeight?: number
   /** Placeholder for the feedback input. */
   placeholder?: string
   /** Per-tool Instructions — standing guidance, co-edited by user + agent. */
@@ -609,8 +432,6 @@ const props = withDefaults(defineProps<Props>(), {
   editor: null,
   prompt: '',
   hasPrompt: false,
-  hideEmptyIdeas: false,
-  ideasMaxHeight: 300,
   placeholder: '',
   instructions: '',
   activeSkills: () => [],
@@ -642,9 +463,7 @@ void checkAgentModels()
 const agent = inject<PromptEditorAgent | null>(PROMPT_EDITOR_AGENT_KEY, null)
 
 // Telemetry: prompt_agent_action — UI clicks only, closed enum pinned to the
-// actual controls: send | select_suggestion | select_option | surprise |
-// wildcard | refresh_category | refresh_suggestions | undo | redo | reset.
-// Never semantic suggestion categories (those derive from prompt content).
+// actual controls: send | undo | redo | reset.
 const { track: trackTelemetry } = useTelemetry()
 function trackAction(action: string) {
   trackTelemetry('prompt_agent_action', { action }, 'prompt_agent')
@@ -665,14 +484,6 @@ function collectPromptAgentConversation() {
   return {
     messages: messages.filter((m) => m.text),
     prompt: props.prompt || '',
-    instructions: props.instructions || '',
-  }
-}
-
-// Extras sent on every suggestion request so ideas + dropdown options honor the
-// tool's standing Instructions, exactly like the agent loop does.
-function suggestionExtras() {
-  return {
     instructions: props.instructions || '',
   }
 }
@@ -841,95 +652,6 @@ const feedbackHistory = ref<string[]>([])
 const historyIndex = ref(-1)
 const tempFeedback = ref('')
 
-// Suggestion item (supports grouping)
-interface SuggestionItem {
-  label: string
-  category: string
-  instruction?: string      // Simple items - click to apply
-  subitems?: string[]       // Grouped items - shows submenu
-  allowWildcard?: boolean   // Show "make wildcard" in submenu
-}
-
-// Unified pill style - no colorization
-function getCategoryClass(_category: string): string {
-  return 'bg-surface-raised text-content-tertiary hover:bg-surface-hover hover:text-content-secondary'
-}
-
-// Fixed suggestion items always shown at front (Title Case)
-const FIXED_SUGGESTIONS: SuggestionItem[] = [
-  { label: 'Clean Up', category: 'detail', instruction: 'clean up' },
-  { label: 'Add Detail', category: 'detail', instruction: 'add more detail' },
-  { label: 'Improve Prompt', category: 'detail', instruction: 'improve the prompt while preserving the original intent' },
-  { label: 'Simplify Prompt', category: 'detail', instruction: 'simplify the prompt, make it more concise' },
-  { label: 'Zoom In', category: 'framing', instruction: 'zoom in, make the subject larger in frame' },
-  { label: 'Zoom Out', category: 'framing', instruction: 'zoom out, show more of the environment' },
-]
-
-// Suggestion state (new hierarchical format)
-const suggestions = ref<SuggestionItem[]>([])
-const isLoadingIdeas = ref(false)
-const isLoadingCategories = ref(false)
-const loadingOptionsByCategory = ref<Record<string, boolean>>({})
-const previousOptionsByCategory = ref<Record<string, string[]>>({})  // for exclusion on refresh
-const ideasError = ref<string | null>(null)
-// Discriminator for the last ideas failure (e.g. 'llm_insufficient_balance')
-// — drives the remedy CTA beside the Retry button, mirroring the agent flash.
-const ideasErrorCode = ref<string | null>(null)
-const isRefreshingIdeas = ref(false)  // True when refetching while old suggestions exist
-const lastPromptForIdeas = ref<string>('')
-
-// Category state for 2-phase flow
-interface CategoryItem {
-  label: string
-  category: string
-  allow_wildcard: boolean
-}
-const categories = ref<CategoryItem[]>([])
-
-// Submenu state
-const activeSubmenu = ref<SuggestionItem | null>(null)
-const submenuPosition = ref({ x: 0, top: 0, bottom: 0 })
-
-// Request management - prevent duplicate/stale requests
-let ideasAbortController: AbortController | null = null
-let ideasDebounceTimer: ReturnType<typeof setTimeout> | null = null
-const IDEAS_DEBOUNCE_MS = 500
-
-// Refusal message from LLM (e.g., content policy rejection)
-const refusalMessage = ref<string | null>(null)
-
-// One extraction for both ideas fetch paths: {detail: {code, message}} from
-// the coded LLM errors, plain-string detail from everything else.
-function setIdeasError(err: any, fallback: string) {
-  const detail = err?.response?.data?.detail
-  ideasErrorCode.value = typeof detail === 'object' ? detail?.code || null : null
-  ideasError.value = typeof detail === 'string'
-    ? detail
-    : detail?.message || fallback
-}
-
-// Keep the dock compact when ideas have nothing useful to say. Loading and
-// failure/refusal states still reserve the region because they need feedback.
-const showIdeasPanel = computed(() => Boolean(
-  props.hasPrompt
-  && (!props.hideEmptyIdeas || (
-    props.prompt.trim()
-    && (
-      suggestions.value.length > 0
-      || isLoadingIdeas.value
-      || isLoadingCategories.value
-      || refusalMessage.value
-      || ideasError.value
-    )
-  ))
-))
-
-// ── Dev-mode bug-report traces ─────────────────────────────────────────────
-// When dev mode is on, suggestion requests send debug:true and the backend
-// returns the full LLM exchange (model, api_base, prompts, raw response). On a
-// failure/refusal a small bug button copies it as markdown for a bug report.
-const ideasDebugTrace = ref<Record<string, any> | null>(null)
-const ideasTraceCopied = ref(false)
 const agentTraceCopied = ref(false)
 // The mini-agent loop captures its own trace on refused/failed steps.
 const agentDebugTrace = computed(() => agent?.lastDebugTrace?.value ?? null)
@@ -958,16 +680,6 @@ function formatDebugTrace(title: string, trace: Record<string, any>): string {
   }
   lines.push('## raw_response', '', stringifyTraceContent(trace.raw_response), '')
   return lines.join('\n')
-}
-
-async function copyIdeasTrace() {
-  const trace = ideasDebugTrace.value
-  if (!trace) return
-  const title = `Ideas trace — ${trace.surface || 'suggestions'}`
-  if (await copyToClipboard(formatDebugTrace(title, trace))) {
-    ideasTraceCopied.value = true
-    setTimeout(() => { ideasTraceCopied.value = false }, 2000)
-  }
 }
 
 async function copyAgentTrace() {
@@ -1252,561 +964,9 @@ IMPORTANT: The user's edits are INTENTIONAL. If they removed something, do NOT a
   }
 }
 
-// Fetch suggestion ideas using 2-phase approach with atomic swap
-async function fetchIdeas(force = false) {
-  if (!props.prompt.trim()) {
-    suggestions.value = []
-    categories.value = []
-    isRefreshingIdeas.value = false
-    return
-  }
-
-  if (!force && props.prompt === lastPromptForIdeas.value) {
-    return
-  }
-
-  if (ideasDebounceTimer) {
-    clearTimeout(ideasDebounceTimer)
-    ideasDebounceTimer = null
-  }
-
-  if (!force) {
-    ideasDebounceTimer = setTimeout(() => {
-      ideasDebounceTimer = null
-      fetchIdeas(true)
-    }, IDEAS_DEBOUNCE_MS)
-    return
-  }
-
-  // Never spend requests for a user who has opted out of LLM features. The
-  // model catalog is cached, so this await is free after the first check.
-  await checkAgentModels(props.projectId ?? null)
-  if (llmUnconfigured.value) {
-    suggestions.value = []
-    categories.value = []
-    isRefreshingIdeas.value = false
-    return
-  }
-
-  if (ideasAbortController) {
-    ideasAbortController.abort()
-  }
-  ideasAbortController = new AbortController()
-
-  const hasExistingSuggestions = suggestions.value.length > 0
-
-  if (!hasExistingSuggestions) {
-    isLoadingIdeas.value = true
-    isLoadingCategories.value = true
-  } else {
-    isRefreshingIdeas.value = true
-  }
-
-  ideasError.value = null
-  ideasErrorCode.value = null
-  refusalMessage.value = null
-  ideasDebugTrace.value = null
-  lastPromptForIdeas.value = props.prompt
-
-  try {
-    const { processed: promptForIdeas } = extractVerbatim(props.prompt)
-
-    // Phase 1: Get categories
-    const catResponse = await axios.post('/api/prompt/suggest-categories', {
-      project_id: props.projectId,
-      prompt: promptForIdeas,
-      ...suggestionExtras(),
-      debug: showDebug.value || devModeRef.value
-    }, {
-      signal: ideasAbortController.signal
-    })
-
-    if (catResponse.data.message) {
-      refusalMessage.value = catResponse.data.message
-      if (catResponse.data.debug) {
-        ideasDebugTrace.value = {
-          surface: 'suggest-categories',
-          ...catResponse.data.debug,
-          message: catResponse.data.message,
-        }
-      }
-      if (!hasExistingSuggestions) {
-        isLoadingCategories.value = false
-        isLoadingIdeas.value = false
-      }
-      isRefreshingIdeas.value = false
-      return
-    }
-
-    const newCategories: CategoryItem[] = catResponse.data.categories || []
-
-    const tempSuggestions: SuggestionItem[] = newCategories.map(cat => ({
-      label: cat.label,
-      category: cat.category,
-      subitems: [],
-      allowWildcard: cat.allow_wildcard
-    }))
-
-    if (!hasExistingSuggestions) {
-      categories.value = newCategories
-      suggestions.value = tempSuggestions
-      isLoadingCategories.value = false
-
-      for (const cat of newCategories) {
-        loadingOptionsByCategory.value[cat.category] = true
-      }
-
-      previousOptionsByCategory.value = {}
-
-      await fetchOptionsForCategories(promptForIdeas, newCategories)
-    } else {
-      const results = await fetchOptionsBatch(promptForIdeas, newCategories, {})
-
-      const newPreviousOptions: Record<string, string[]> = {}
-      for (const result of results) {
-        const category = result.category as string
-        const subitems = (result.subitems || []) as string[]
-        const tempItem = tempSuggestions.find(s => s.category === category)
-        if (tempItem) {
-          tempItem.subitems = subitems
-        }
-        newPreviousOptions[category] = [...subitems]
-      }
-
-      const finalSuggestions = tempSuggestions.filter(s => s.subitems && s.subitems.length > 0)
-
-      if (finalSuggestions.length > 0) {
-        categories.value = newCategories
-        suggestions.value = finalSuggestions
-        previousOptionsByCategory.value = newPreviousOptions
-        loadingOptionsByCategory.value = {}
-      }
-    }
-
-  } catch (err: any) {
-    if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
-      return
-    }
-    console.error('Failed to fetch suggestions:', err)
-    if (suggestions.value.length === 0) {
-      setIdeasError(err, 'Failed to load suggestions')
-    }
-  } finally {
-    isLoadingIdeas.value = false
-    isLoadingCategories.value = false
-    isRefreshingIdeas.value = false
-    ideasAbortController = null
-  }
-}
-
-// Fetch options for categories in one backend request (backend does LLM fan-out).
-async function fetchOptionsForCategories(promptForIdeas: string, cats: CategoryItem[], excludeMap?: Record<string, string[]>) {
-  for (const cat of cats) {
-    loadingOptionsByCategory.value[cat.category] = true
-  }
-
-  try {
-    const results = await fetchOptionsBatch(promptForIdeas, cats, excludeMap)
-    const resultMap = new Map(results.map(item => [item.category as string, (item.subitems || []) as string[]]))
-
-    for (const cat of cats) {
-      const subitems = resultMap.get(cat.category) || []
-      if (subitems.length === 0) {
-        suggestions.value = suggestions.value.filter(s => s.category !== cat.category)
-        continue
-      }
-
-      const idx = suggestions.value.findIndex(s => s.category === cat.category)
-      if (idx !== -1) {
-        suggestions.value[idx] = { ...suggestions.value[idx], subitems }
-      }
-
-      if (!previousOptionsByCategory.value[cat.category]) {
-        previousOptionsByCategory.value[cat.category] = []
-      }
-      previousOptionsByCategory.value[cat.category].push(...subitems)
-    }
-  } catch (err: any) {
-    if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return
-    console.error('Failed to fetch options batch:', err)
-    suggestions.value = suggestions.value.filter(s => s.subitems && s.subitems.length > 0)
-    categories.value = categories.value.filter(cat =>
-      suggestions.value.some(s => s.category === cat.category)
-    )
-    if (suggestions.value.length === 0) {
-      setIdeasError(err, 'Failed to load suggestion options')
-    }
-  } finally {
-    for (const cat of cats) {
-      loadingOptionsByCategory.value[cat.category] = false
-    }
-    const anyLoading = Object.values(loadingOptionsByCategory.value).some(v => v)
-    if (!anyLoading) {
-      isLoadingIdeas.value = false
-    }
-  }
-}
-
-async function fetchOptionsBatch(promptForIdeas: string, cats: CategoryItem[], excludeMap?: Record<string, string[]>) {
-  const response = await axios.post('/api/prompt/suggest-options/batch', {
-    project_id: props.projectId,
-    prompt: promptForIdeas,
-    categories: cats.map(cat => ({
-      label: cat.label,
-      category: cat.category,
-      allow_wildcard: cat.allow_wildcard
-    })),
-    exclude_by_category: excludeMap || {},
-    ...suggestionExtras(),
-    debug: showDebug.value || devModeRef.value
-  }, {
-    signal: ideasAbortController?.signal
-  })
-  const results = response.data.results || []
-  // Dev mode: a category that refused or answered unparseably comes back with
-  // empty subitems (+ message/debug). Keep the first such trace for the bug
-  // button — it renders only in the error/empty states.
-  const failed = results.find((r: any) => (!r.subitems || r.subitems.length === 0) && (r.debug || r.message))
-  if (failed) {
-    ideasDebugTrace.value = {
-      surface: `suggest-options (${failed.label || failed.category})`,
-      ...(failed.debug || {}),
-      message: failed.message,
-    }
-  }
-  return results
-}
-
-// Refresh options only (keep categories stable, exclude previous options)
-// Handle click on a suggestion item
-function handleSuggestionClick(item: SuggestionItem, event: MouseEvent) {
-  if (loadingOptionsByCategory.value[item.category]) return
-
-  trackAction('select_suggestion')
-
-  if (item.subitems && item.subitems.length > 0) {
-    if (activeSubmenu.value?.label === item.label) {
-      activeSubmenu.value = null
-    } else {
-      const target = event.currentTarget as HTMLElement
-      const rect = target.getBoundingClientRect()
-      activeSubmenu.value = item
-      submenuPosition.value = {
-        x: rect.left + rect.width / 2,
-        top: rect.top,
-        bottom: rect.bottom
-      }
-    }
-  } else if (item.instruction) {
-    applyInstruction(item.instruction, item.label)
-  }
-}
-
-// Apply an instruction (from simple item or submenu selection). Everything goes
-// through the mini-agent when injected, so pills and the feedback box edit the
-// prompt identically. Only prompt-only contexts fall back to /enhance.
-function applyInstruction(instruction: string, _labelToRemove?: string) {
-  if (agent) {
-    agent.send(instruction)
-    return
-  }
-  if (!props.prompt.trim()) {
-    error.value = 'Enter a prompt first'
-    return
-  }
-  enhanceQueue.value.push(instruction)
-  processEnhanceQueue()
-}
-
-function handleSubmenuSelect(optionLabel: string, fromSurprise = false) {
-  if (!fromSurprise) trackAction('select_option')
-  if (activeSubmenu.value) {
-    const category = activeSubmenu.value.label
-    const instruction = `change only ${category.toLowerCase()} to ${optionLabel}`
-    applyInstruction(instruction, activeSubmenu.value.label)
-  }
-  activeSubmenu.value = null
-}
-
-function handleSubmenuSurprise() {
-  if (!activeSubmenu.value?.subitems?.length) return
-  trackAction('surprise')
-  const items = activeSubmenu.value.subitems
-  const pick = items[Math.floor(Math.random() * items.length)]
-  handleSubmenuSelect(pick, true)
-}
-
-function handleSubmenuWildcard() {
-  if (!activeSubmenu.value?.subitems?.length) return
-  trackAction('wildcard')
-  const category = activeSubmenu.value.label
-  const wildcard = `{${activeSubmenu.value.subitems.join('|')}}`
-  const instruction = `insert this exact wildcard for ${category.toLowerCase()}: ${wildcard}`
-  applyInstruction(instruction)
-  activeSubmenu.value = null
-}
-
-// Refresh options for the currently open submenu category (atomic swap)
-async function handleSubmenuRefresh() {
-  if (!activeSubmenu.value) return
-  trackAction('refresh_category')
-
-  const cat = categories.value.find(c => c.category === activeSubmenu.value!.category)
-  if (!cat) return
-
-  const { processed: promptForIdeas } = extractVerbatim(props.prompt)
-  const exclude = previousOptionsByCategory.value[cat.category] || []
-
-  loadingOptionsByCategory.value[cat.category] = true
-
-  try {
-    const response = await axios.post('/api/prompt/suggest-options', {
-      project_id: props.projectId,
-      prompt: promptForIdeas,
-      category: {
-        label: cat.label,
-        category: cat.category,
-        allow_wildcard: cat.allow_wildcard
-      },
-      exclude: exclude,
-      ...suggestionExtras(),
-      debug: showDebug.value
-    }, {
-      signal: ideasAbortController?.signal
-    })
-
-    const newSubitems: string[] = response.data.subitems || []
-
-    if (newSubitems.length > 0) {
-      const idx = suggestions.value.findIndex(s => s.category === cat.category)
-      if (idx !== -1) {
-        suggestions.value[idx] = { ...suggestions.value[idx], subitems: newSubitems }
-      }
-
-      if (!previousOptionsByCategory.value[cat.category]) {
-        previousOptionsByCategory.value[cat.category] = []
-      }
-      previousOptionsByCategory.value[cat.category].push(...newSubitems)
-
-      const updated = suggestions.value.find(s => s.category === cat.category)
-      if (updated) {
-        activeSubmenu.value = updated
-      }
-    }
-  } catch (err: any) {
-    if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return
-    console.error(`Failed to refresh options for ${cat.label}:`, err)
-  } finally {
-    loadingOptionsByCategory.value[cat.category] = false
-  }
-}
-
-function closeSubmenu() {
-  activeSubmenu.value = null
-}
-
-// Debounce timer for prompt changes
-let promptChangeDebounceTimer: ReturnType<typeof setTimeout> | null = null
-const PROMPT_CHANGE_DEBOUNCE_MS = 3000
-const SIGNIFICANT_CHANGE_THRESHOLD = 0.7  // 70% change required to trigger refetch
-const INSTRUCTIONS_CHANGE_DEBOUNCE_MS = 1500  // wait for the user to stop typing instructions
-
-function calculatePromptDifference(a: string, b: string): number {
-  if (!a || !b) return 1
-  const wordsA = a.toLowerCase().split(/\s+/).filter(w => w.length > 2)
-  const wordsB = b.toLowerCase().split(/\s+/).filter(w => w.length > 2)
-  if (wordsA.length === 0 || wordsB.length === 0) return 1
-
-  const setA = new Set(wordsA)
-  const setB = new Set(wordsB)
-  const intersection = [...setA].filter(w => setB.has(w)).length
-
-  return 1 - (intersection / new Set([...wordsA, ...wordsB]).size)
-}
-
-// Watch for prompt changes and refresh ideas only on significant changes
-watch(() => props.prompt, (newValue) => {
-  if (!props.hasPrompt) return
-  if (newValue === lastPromptForIdeas.value) return
-
-  if (promptChangeDebounceTimer) {
-    clearTimeout(promptChangeDebounceTimer)
-  }
-
-  promptChangeDebounceTimer = setTimeout(() => {
-    promptChangeDebounceTimer = null
-    if (!props.prompt.trim()) return
-    if (props.prompt === lastPromptForIdeas.value) return
-
-    // After a refusal or failure with nothing shown, the user is editing the
-    // prompt precisely to fix it — any change should retry. The significance
-    // threshold only protects live pill state from churning on small edits.
-    const nothingShown = suggestions.value.length === 0
-      && (refusalMessage.value || ideasError.value)
-    const diff = calculatePromptDifference(props.prompt, lastPromptForIdeas.value)
-    if (nothingShown || diff >= SIGNIFICANT_CHANGE_THRESHOLD) {
-      previousOptionsByCategory.value = {}
-      categories.value = []
-      fetchIdeas(true)
-    }
-  }, PROMPT_CHANGE_DEBOUNCE_MS)
-})
-
-// Instructions feed the suggestion prompts, so when they change — the user types
-// in the drawer, or the agent edits them — re-run ideas so the sections and their
-// options reflect the new guidance. Without this, suggestions only refresh on a
-// prompt change and the instructions look ignored. Debounced so typing doesn't thrash.
-let instructionsChangeTimer: ReturnType<typeof setTimeout> | null = null
-watch(() => props.instructions, () => {
-  if (!props.hasPrompt || !props.prompt.trim()) return
-  if (instructionsChangeTimer) clearTimeout(instructionsChangeTimer)
-  instructionsChangeTimer = setTimeout(() => {
-    instructionsChangeTimer = null
-    if (props.prompt.trim()) fetchIdeas(true)
-  }, INSTRUCTIONS_CHANGE_DEBOUNCE_MS)
-})
-
-onMounted(() => {
-  // The chat is only mounted while visible (flow: sparkle-toggled; ToolView:
-  // always docked), so loading ideas on mount replaces the old expand watcher.
-  if (props.hasPrompt && props.prompt.trim() && suggestions.value.length === 0) {
-    fetchIdeas(true)
-  }
-})
-
 onUnmounted(() => {
   agentFlashTimers.forEach(clearTimeout)
   agentFlashTimers.clear()
-  if (promptChangeDebounceTimer) clearTimeout(promptChangeDebounceTimer)
-  if (ideasDebounceTimer) clearTimeout(ideasDebounceTimer)
-  ideasAbortController?.abort()
 })
 
-// ──────────────────────────────────────────────────────────────────────────
-// Command surface for the page-wide mini-agent (called by ToolView.runTool):
-// category management + ideas. Prompt text edits are applied by ToolView
-// directly against the prompt editor; these cover the suggestion categories.
-// ──────────────────────────────────────────────────────────────────────────
-
-function slugifyKey(label: string): string {
-  return label.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'category'
-}
-
-function getCategoriesSnapshot() {
-  return {
-    categories: categories.value.map(c => ({ ...c })),
-    suggestions: suggestions.value.map(s => ({ ...s, subitems: s.subitems ? [...s.subitems] : undefined })),
-  }
-}
-
-function setCategoriesSnapshot(snap: { categories: CategoryItem[]; suggestions: SuggestionItem[] }) {
-  categories.value = (snap?.categories || []).map(c => ({ ...c }))
-  suggestions.value = (snap?.suggestions || []).map(s => ({ ...s, subitems: s.subitems ? [...s.subitems] : undefined }))
-}
-
-function getCategoriesForState() {
-  return categories.value.map(cat => {
-    const sug = suggestions.value.find(s => s.category === cat.category)
-    return {
-      key: cat.category,
-      label: cat.label,
-      allow_wildcard: !!cat.allow_wildcard,
-      options: sug?.subitems || [],
-    }
-  })
-}
-
-function addCategoryCmd(args: { label: string; key?: string; allow_wildcard?: boolean; options?: string[] }): string {
-  const label = (args.label || '').trim()
-  if (!label) return 'Error: label is required'
-  const key = (args.key || slugifyKey(label)).trim()
-  if (categories.value.some(c => c.category === key)) {
-    return `Category "${key}" already exists`
-  }
-  categories.value = [...categories.value, { label, category: key, allow_wildcard: !!args.allow_wildcard }]
-  suggestions.value = [...suggestions.value, {
-    label,
-    category: key,
-    allowWildcard: !!args.allow_wildcard,
-    subitems: Array.isArray(args.options) ? [...args.options] : [],
-  }]
-  if (!args.options || args.options.length === 0) {
-    if (props.prompt.trim()) {
-      refreshCategoryCmd(key)
-    }
-    return `Added category "${label}" (generating options)`
-  }
-  return `Added category "${label}" with ${args.options.length} option(s)`
-}
-
-function removeCategoryCmd(key: string): string {
-  if (!categories.value.some(c => c.category === key)) return `No category with key "${key}"`
-  categories.value = categories.value.filter(c => c.category !== key)
-  suggestions.value = suggestions.value.filter(s => s.category !== key)
-  return `Removed category "${key}"`
-}
-
-function setCategoryOptionsCmd(key: string, options: string[]): string {
-  const idx = suggestions.value.findIndex(s => s.category === key)
-  if (idx === -1) return `No category with key "${key}"`
-  suggestions.value[idx] = { ...suggestions.value[idx], subitems: [...(options || [])] }
-  previousOptionsByCategory.value[key] = [...(options || [])]
-  return `Set ${options?.length || 0} option(s) for "${key}"`
-}
-
-async function refreshCategoryCmd(key: string): Promise<string> {
-  const cat = categories.value.find(c => c.category === key)
-  if (!cat) return `No category with key "${key}"`
-  if (!props.prompt.trim()) return 'Enter a prompt first'
-  const { processed: promptForIdeas } = extractVerbatim(props.prompt)
-  const exclude = previousOptionsByCategory.value[key] || []
-  loadingOptionsByCategory.value[key] = true
-  try {
-    const response = await axios.post('/api/prompt/suggest-options', {
-      project_id: props.projectId,
-      prompt: promptForIdeas,
-      category: { label: cat.label, category: cat.category, allow_wildcard: cat.allow_wildcard },
-      exclude,
-      ...suggestionExtras(),
-    })
-    const newSubitems: string[] = response.data.subitems || []
-    if (newSubitems.length > 0) {
-      const idx = suggestions.value.findIndex(s => s.category === key)
-      if (idx !== -1) {
-        suggestions.value[idx] = { ...suggestions.value[idx], subitems: newSubitems }
-      }
-      if (!previousOptionsByCategory.value[key]) previousOptionsByCategory.value[key] = []
-      previousOptionsByCategory.value[key].push(...newSubitems)
-    }
-    return `Refreshed "${cat.label}" (${newSubitems.length} option(s))`
-  } catch (err: any) {
-    return `Error refreshing "${cat.label}": ${err?.response?.data?.detail || err?.message || 'failed'}`
-  } finally {
-    loadingOptionsByCategory.value[key] = false
-  }
-}
-
-function refreshIdeasClick() {
-  trackAction('refresh_suggestions')
-  void fetchIdeas(true)
-}
-
-async function refreshIdeasCmd(): Promise<string> {
-  if (!props.prompt.trim()) return 'Enter a prompt first'
-  previousOptionsByCategory.value = {}
-  categories.value = []
-  await fetchIdeas(true)
-  return `Refreshed ideas (${categories.value.length} categor${categories.value.length === 1 ? 'y' : 'ies'})`
-}
-
-defineExpose({
-  getCategoriesForState,
-  getCategoriesSnapshot,
-  setCategoriesSnapshot,
-  addCategory: addCategoryCmd,
-  removeCategory: removeCategoryCmd,
-  setCategoryOptions: setCategoryOptionsCmd,
-  refreshCategory: refreshCategoryCmd,
-  refreshIdeas: refreshIdeasCmd,
-})
 </script>

@@ -218,3 +218,33 @@ const OptionPills = defineComponent({
   },
 })
 </script>
+
+<style>
+/* Card container */
+[data-theme="dark"] .suggestion-submenu-card {
+  background-color: var(--color-surface-raised);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+[data-theme="light"] .suggestion-submenu-card {
+  background-color: #ffffff;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+/* Pills - simple, no individual shadows */
+[data-theme="dark"] .suggestion-submenu-pill {
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .suggestion-submenu-pill:hover {
+  background-color: var(--color-surface-overlay);
+  color: var(--color-text-primary);
+}
+[data-theme="light"] .suggestion-submenu-pill {
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+[data-theme="light"] .suggestion-submenu-pill:hover {
+  background-color: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+</style>

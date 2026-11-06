@@ -123,42 +123,6 @@ _PARAM_TOOLS = [
     ),
 ]
 
-# --- C. Suggestion categories ----------------------------------------------
-_CATEGORY_TOOLS = [
-    _fn(
-        "add_category",
-        "Add a suggestion category (a pill with a dropdown of options) below the prompt.",
-        {
-            "label": {"type": "string", "description": "Display name, e.g. 'Age'."},
-            "key": {"type": "string", "description": "Optional machine key; derived from label if omitted."},
-            "allow_wildcard": {"type": "boolean", "description": "Default false."},
-            "options": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Optional initial options; generated from the prompt if omitted.",
-            },
-        },
-        ["label"],
-    ),
-    _fn("remove_category", "Remove a suggestion category by its key.", {"key": {"type": "string"}}, ["key"]),
-    _fn(
-        "set_category_options",
-        "Replace a category's option list. Use for requests like 'only dark hair colors'.",
-        {
-            "key": {"type": "string"},
-            "options": {"type": "array", "items": {"type": "string"}},
-        },
-        ["key", "options"],
-    ),
-    _fn(
-        "refresh_category",
-        "Regenerate fresh options for one category from the current prompt.",
-        {"key": {"type": "string"}},
-        ["key"],
-    ),
-    _fn("refresh_ideas", "Re-run the full suggestion fetch (all categories) for the current prompt.", {}),
-]
-
 # --- D. Reference images ----------------------------------------------------
 _IMAGE_TOOLS = [
     _fn(
@@ -460,7 +424,7 @@ _HISTORY_TOOLS = [
     _fn(
         "undo",
         "Undo the last change on this screen — exactly like clicking the Undo button. Reverts the "
-        "most recent edit (prompt, parameters, images, categories, markers).",
+        "most recent edit (prompt, parameters, images, markers).",
         {},
     ),
     _fn(
@@ -499,7 +463,6 @@ _PRESET_TOOLS = [
 TOOL_SCHEMAS: List[Dict[str, Any]] = [
     *_PROMPT_TOOLS,
     *_PARAM_TOOLS,
-    *_CATEGORY_TOOLS,
     *_IMAGE_TOOLS,
     *_MASK_TOOLS,
     *_LORA_TOOLS,

@@ -395,11 +395,8 @@
              toggle animates the columns above it. -->
         <Teleport defer :to="agentDocked ? (agentOnResult ? '#agent-dock-result' : '#agent-dock') : '#agent-dock-compact'">
           <PromptAgentChat
-            ref="promptAgentChatRef"
             :prompt="globalPrefs.prompt"
             :has-prompt="hasPrompt"
-            hide-empty-ideas
-            :ideas-max-height="agentOnResult ? AGENT_IDEAS_MAX_H : undefined"
             :active-skills="activeToolSkills"
             :project-id="projectScopeId"
             v-model:instructions="globalPrefs.agentInstructions"
@@ -1924,16 +1921,14 @@ const heroBarBleed = computed(() => {
   return art.barW + 2 * inset <= col.w ? inset : 0
 })
 const heroColRef = ref<HTMLElement | null>(null)
-// Room the hero keeps for the Stage agent panel: the composer plus the most its
-// suggestions take (AGENT_IDEAS_MAX_H), or just the composer when a tool has no
-// prompt. It depends only on the column's width, so the image never changes size
-// with the agent's state. The composer stacks below 480px (PromptAgentChat).
-const AGENT_IDEAS_MAX_H = 96
+// Room the hero keeps for the Stage agent panel: the composer. It depends only on
+// the column's width, so the image never changes size with the agent's state. The
+// composer stacks below 480px (PromptAgentChat).
 const agentReserve = computed(() => {
   if (!agentOnResult.value || llmUnconfigured.value) return 0
   const panelChrome = 26
   const composerH = (heroColSize.value?.w ?? 0) - panelChrome < 480 ? 84 : 40
-  return panelChrome + composerH + (hasPrompt.value ? 12 + AGENT_IDEAS_MAX_H : 0)
+  return panelChrome + composerH
 })
 const heroColSize = ref<{ w: number, h: number } | null>(null)
 const heroNatural = ref<{ w: number, h: number } | null>(null)
@@ -5941,9 +5936,6 @@ async function reregisterForeverModeWithRetry() {
 // ══════════════════════════════════════════════════════════════════════════
 
 const aiPromptEditorRef = ref<InstanceType<typeof AIPromptEditor> | null>(null)
-// Page-level agent chat. Owns the suggestion categories/ideas the agent's
-// category tools operate on (the prompt editor is now just an editor).
-const promptAgentChatRef = ref<InstanceType<typeof PromptAgentChat> | null>(null)
 const mediaPickerRef = ref<InstanceType<typeof MediaPicker> | null>(null)
 
 // Presets the agent can list/apply. Loaded on mount + after a save (the
@@ -5968,7 +5960,6 @@ interface EditorSnapshot {
   inpaintRefImages: any[]
   modelParams: Record<string, any>
   autoMarkerIds: number[]
-  categories: any
   // The chain is part of the undo snapshot (unlike the LoRA pool, which is
   // deliberately outside it) — editing the chain is a prompt-altitude action.
   postProcessingChain: PostProcessingChain
@@ -5982,9 +5973,6 @@ const undo = usePromptEditorUndo<EditorSnapshot>({
     inpaintRefImages: JSON.parse(JSON.stringify(globalPrefs.value.inpaintRefImages ?? [])),
     modelParams: JSON.parse(JSON.stringify(modelParams.value ?? {})),
     autoMarkerIds: [...(globalPrefs.value.autoMarkerIds ?? [])],
-    categories: promptAgentChatRef.value?.getCategoriesSnapshot
-      ? JSON.parse(JSON.stringify(promptAgentChatRef.value.getCategoriesSnapshot()))
-      : null,
     postProcessingChain: JSON.parse(JSON.stringify(toolChain.value)),
   }),
   restore: (snap) => {
@@ -5995,9 +5983,6 @@ const undo = usePromptEditorUndo<EditorSnapshot>({
     globalPrefs.value.inpaintRefImages = JSON.parse(JSON.stringify(snap.inpaintRefImages ?? []))
     modelParams.value = JSON.parse(JSON.stringify(snap.modelParams ?? {}))
     globalPrefs.value.autoMarkerIds = [...(snap.autoMarkerIds ?? [])]
-    if (snap.categories && promptAgentChatRef.value?.setCategoriesSnapshot) {
-      promptAgentChatRef.value.setCategoriesSnapshot(snap.categories)
-    }
     if (snap.postProcessingChain) {
       toolChain.value = normalizeChain(snap.postProcessingChain)
     }
@@ -6386,10 +6371,6 @@ function getStateContext(): Record<string, any> {
   }
   if (Object.keys(res).length) ctx.resolution = res
 
-  // Categories.
-  const cats = promptAgentChatRef.value?.getCategoriesForState?.()
-  if (cats && cats.length) ctx.categories = cats
-
   // LoRAs (selected only — never dump available).
   if (hasLoras.value && toolLoras.value.length) {
     ctx.loras = {
@@ -6482,7 +6463,6 @@ function unwrapMaybeRef(v: any, fallback: number): number {
 async function runTool(name: string, args: any): Promise<string> {
   args = args || {}
   const editor = aiPromptEditorRef.value
-  const chat = promptAgentChatRef.value
   const picker = mediaPickerRef.value
   const imgs = () => globalPrefs.value.inputImages || []
 
@@ -6551,23 +6531,6 @@ async function runTool(name: string, args: any): Promise<string> {
     }
     case 'set_resolution':
       return setResolution(args || {})
-
-    // ── Categories (delegate to the page-level PromptAgentChat) ──
-    case 'add_category':
-      if (!chat?.addCategory) return 'Error: prompt chat not available.'
-      return chat.addCategory(args)
-    case 'remove_category':
-      if (!chat?.removeCategory) return 'Error: prompt chat not available.'
-      return chat.removeCategory(String(args.key ?? ''))
-    case 'set_category_options':
-      if (!chat?.setCategoryOptions) return 'Error: prompt chat not available.'
-      return chat.setCategoryOptions(String(args.key ?? ''), args.options || [])
-    case 'refresh_category':
-      if (!chat?.refreshCategory) return 'Error: prompt chat not available.'
-      return await chat.refreshCategory(String(args.key ?? ''))
-    case 'refresh_ideas':
-      if (!chat?.refreshIdeas) return 'Error: prompt chat not available.'
-      return await chat.refreshIdeas()
 
     // ── Reference images ──
     case 'flip_image':
