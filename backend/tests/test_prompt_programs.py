@@ -126,11 +126,26 @@ def stub(monkeypatch, tmp_path):
         return list(LORAS), {}
 
     replies = []
+    enhanced = {"text": "A woman waiting for a train on a [{rainy|foggy|bright}] morning. [Shot on Portra 400]"}
+
+    async def fake_upsample(prompt, ctx, instructions, lora_context, project_id, profile_id):
+        calls.append([{"role": "upsample", "content": prompt}])
+        return enhanced["text"]
+
+    monkeypatch.setattr(prep, "upsample", fake_upsample)
     monkeypatch.setattr(prep, "_ask_model", fake_ask)
     monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
     monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
     monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
+    stub_state["enhanced"] = enhanced
     return calls, replies
+
+
+stub_state = {}
+
+
+def ctx(schema):
+    return {"model": "m", "mode": "prose", "schema_props": schema, "enhance": {}}
 
 
 SCHEMA = {"guidance": {"type": "number", "minimum": 1, "maximum": 10}, "seed": {"type": "integer"}, "prompt": {"type": "string"}}
@@ -138,7 +153,7 @@ SCHEMA = {"guidance": {"type": "number", "minimum": 1, "maximum": 10}, "seed": {
 
 class TestPrepare:
     async def _ensure(self):
-        return await prep.ensure_program(prompt=PROMPT, tool_id="t", model_name="m", schema_props=SCHEMA,
+        return await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="",
                                          lora_items=[], project_id=None, profile_id="p")
 
     async def test_prepares_once_then_caches(self, stub):
@@ -149,7 +164,7 @@ class TestPrepare:
         assert {c["id"] for c in entry["choices"]} >= {"weather", "umbrella", "clothing", "hairstyle"}
         assert "[" not in entry["example"]
         again = await self._ensure()
-        assert again["key"] == entry["key"] and len(calls) == 1
+        assert again["key"] == entry["key"] and len(calls) == 2  # one upsample, one program
 
     async def test_retries_with_the_problem(self, stub):
         calls, replies = stub
@@ -157,7 +172,7 @@ class TestPrepare:
         replies.append(f"```python\n{TRAIN}```")
         entry = await self._ensure()
         assert entry["attempts"] == 2 and not entry["warnings"]
-        feedback = calls[1][-1]["content"]
+        feedback = calls[2][-1]["content"]
         assert "Shot on Portra 400" in feedback and "{rainy|foggy|bright}" in feedback
 
     async def test_a_pick_that_never_reaches_the_prompt_is_sent_back(self, stub):
@@ -166,7 +181,7 @@ class TestPrepare:
         replies.append(f"```python\n{TRAIN}```")
         entry = await self._ensure()
         assert entry["attempts"] == 2
-        assert 'pick("clothing")' in calls[1][-1]["content"]
+        assert 'pick("clothing")' in calls[2][-1]["content"]
 
     async def test_marks_asked_for_choices_as_from_text(self, stub):
         _, replies = stub
@@ -174,6 +189,30 @@ class TestPrepare:
         entry = await self._ensure()
         clothing = next(c for c in entry["choices"] if c["id"] == "clothing")
         assert clothing["source"] == "text" and clothing["line"] == 2
+
+    async def test_the_enhanced_prompt_reaches_the_program_writer(self, stub):
+        calls, replies = stub
+        replies.append(f"```python\n{TRAIN}```")
+        await self._ensure()
+        assert calls[0][0]["role"] == "upsample"
+        assert "Enhanced prompt" in calls[1][1]["content"] and "Shot on Portra 400" in calls[1][1]["content"]
+
+    async def test_a_program_much_shorter_than_the_enhanced_prompt_is_sent_back(self, stub):
+        calls, replies = stub
+        stub_state["enhanced"]["text"] = ("A candid photograph of a woman waiting on an elevated train platform on a "
+            "[{rainy|foggy|bright}] morning, wearing a belted olive trench coat, puddles on the concrete reflecting "
+            "the station lights, soft grey light through the steel canopy, shallow depth of field, natural color, "
+            "fine film grain, quiet commuter atmosphere. [Shot on Portra 400]")
+        replies.append(f"```python\n{TRAIN}```")
+        replies.append(f"```python\n{TRAIN}```")
+        replies.append(f"```python\n{TRAIN}```")
+        entry = await self._ensure()
+        assert "too short" in calls[2][-1]["content"]
+        assert entry["attempts"] == 3 and entry["warnings"]  # accepted with the problem noted
+
+    def test_protects_variable_spots(self):
+        out = prep.protect_variable_spots("a {{hair style}} on a {red|blue} wall, [keep] {single}")
+        assert out == "a [{{hair style}}] on a [{red|blue}] wall, [keep] {single}"
 
     def test_lora_lookup_only_named(self):
         cands = LORAS + [LoraInfo("Anime lineart", "x", 1.0, "")]
@@ -197,7 +236,7 @@ emit("A portrait of a woman with", hair, "on a", color, "background.")
 
 class TestSmartWildcards:
     async def _ensure(self, prompt):
-        return await prep.ensure_program(prompt=prompt, tool_id="t", model_name="m", schema_props={},
+        return await prep.ensure_program(prompt=prompt, tool_id="t", ctx=ctx({}), instructions="",
                                          lora_items=[], project_id=None, profile_id="p")
 
     async def test_unknown_double_braces_become_user_choices(self, stub):
@@ -215,7 +254,7 @@ class TestSmartWildcards:
         replies.append(f"```python\n{SMART_GOOD}```")
         entry = await self._ensure(SMART_PROMPT)
         assert entry["attempts"] == 2
-        feedback = calls[1][-1]["content"]
+        feedback = calls[2][-1]["content"]
         assert 'pick("hair_style"' in feedback and "Don't emit {{" in feedback
 
     async def test_global_wildcards_still_win(self, stub, monkeypatch):

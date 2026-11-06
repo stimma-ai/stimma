@@ -21,7 +21,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-8"
+PREPARE_VERSION = "pp-10"
 MAX_ATTEMPTS = 3
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8")
 
@@ -86,11 +86,19 @@ def _numbered(prompt: str) -> str:
     return "\n".join(f"{i + 1}: {line}" for i, line in enumerate(prompt.splitlines()))
 
 
-def build_user_message(prompt: str, model_name: Optional[str], params: Dict[str, Dict[str, Any]],
-                       loras: Sequence[LoraInfo], notes: Dict[str, str]) -> str:
-    parts = [f"Prompt (lines numbered):\n{_numbered(prompt)}", ""]
-    if model_name:
-        parts.append(f"Image model: {model_name}.")
+def build_user_message(prompt: str, enhanced: str, model_name: Optional[str], mode: str,
+                       params: Dict[str, Dict[str, Any]], loras: Sequence[LoraInfo], notes: Dict[str, str]) -> str:
+    parts = [
+        f"User's prompt (lines numbered):\n{_numbered(prompt)}",
+        "",
+        f"Enhanced prompt (one example image, written for {model_name or 'the image model'} in its "
+        f"\"{mode}\" style). Copy this text and its format into emit(); vary only what should vary:",
+        "",
+        enhanced.strip(),
+        "",
+        "(End of the enhanced prompt.)",
+        "",
+    ]
     if params:
         desc = ", ".join(
             f"{n} ({p.get('minimum', '?')}–{p.get('maximum', '?')})" for n, p in sorted(params.items()))
@@ -104,6 +112,35 @@ def build_user_message(prompt: str, model_name: Optional[str], params: Dict[str,
     else:
         parts.append("LoRA list: none. Don't use pick_lora.")
     return "\n".join(parts)
+
+
+_PLACEHOLDER_NOTE = (
+    "This prompt will become a template: some details vary from image to image. Keep every "
+    "[...] placeholder exactly where it belongs in the sentence. Where the prompt asks for "
+    "something to vary, write one concrete, vivid example of it."
+)
+
+
+def protect_variable_spots(prompt: str) -> str:
+    """{{name}} and inline {a|b} become protected placeholders, so the enhancer writes the
+    rich text around them and leaves them where they are."""
+    s = re.sub(r"\{\{([^{}]+)\}\}", lambda m: "[{{" + m.group(1) + "}}]", prompt)
+    return re.sub(r"(?<![\[{])\{([^{}]+\|[^{}]+)\}(?![}\]])", lambda m: "[{" + m.group(1) + "}]", s)
+
+
+async def upsample(prompt: str, ctx: Dict[str, Any], instructions: str, lora_context: List[Dict[str, Any]],
+                   project_id: Optional[int], profile_id: Optional[str]) -> str:
+    """Step one: the regular per-model enhancer (same style, checks and context as the
+    per-image path) writes one rich example of the prompt."""
+    from database_registry import get_database_registry
+    from prompt_pipeline import _improve_with_verbatim_protection
+
+    db = get_database_registry().get_database(profile_id)
+    return await _improve_with_verbatim_protection(
+        db, protect_variable_spots(prompt),
+        instructions="\n".join(x for x in (instructions, _PLACEHOLDER_NOTE) if x),
+        model=ctx.get("model"), project_id=project_id, lora_context=lora_context, **ctx["enhance"],
+    )
 
 
 async def _ask_model(messages: List[Dict[str, str]], project_id: Optional[int]) -> str:
@@ -152,10 +189,25 @@ def realized_text(prompt: str) -> str:
     return re.sub(r"\s+", " ", _VERBATIM.sub(lambda m: m.group(1), prompt)).strip()
 
 
-def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[str]) -> Dict[str, Any]:
+def _word_count(text: str) -> int:
+    return len(re.findall(r"[\w'-]+", re.sub(r"\[\{.*?\}\]", " x ", text)))
+
+
+def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[str],
+             enhanced: str = "") -> Dict[str, Any]:
     info = discover(source, loras, params)
     samples = [run(source, s, None, loras, params) for s in (11, 23, 37, 51)]
     problems: List[str] = []
+    if enhanced:
+        want = _word_count(enhanced)
+        got = min(_word_count(realized_text(r.prompt)) for r in samples)
+        if want >= 20 and got < 0.6 * want:
+            problems.append(f"The prompts your program emits are too short ({got} words; the enhanced prompt has {want}). "
+                            "Copy the enhanced prompt's full text into emit() and only swap the parts that vary.")
+        if any(re.search(r"<<<|>>>|^\s*[\"']{3}", r.prompt) for r in samples):
+            problems.append("Emit only the prompt text itself, with no quote marks or <<< >>> around it.")
+        if any("[{" in r.prompt or "{{" in r.prompt for r in samples):
+            problems.append("Replace every [{...}] placeholder with its pick's value; never emit the braces.")
     for seg in _verbatim_segments(prompt):
         bad = [r for r in samples if seg.lower() not in realized_text(r.prompt).lower()]
         if bad:
@@ -248,7 +300,7 @@ async def lora_candidates(tool_id: str, items: Sequence[Dict[str, Any]], profile
     return out, notes
 
 
-async def ensure_program(*, prompt: str, tool_id: str, model_name: Optional[str], schema_props: Dict[str, Any],
+async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], instructions: str,
                          lora_items: Sequence[Dict[str, Any]], project_id: Optional[int],
                          profile_id: Optional[str], cache_only: bool = False, force: bool = False) -> Optional[Dict[str, Any]]:
     """The prepared program for these inputs, from cache or by asking the model."""
@@ -256,13 +308,15 @@ async def ensure_program(*, prompt: str, tool_id: str, model_name: Optional[str]
 
     wildcards, segments = _profile_wildcards_and_segments(profile_id)
     source_prompt = expand_named_lists(prompt, wildcards, segments).strip()
-    params = tool_param_specs(schema_props)
+    params = tool_param_specs(ctx.get("schema_props") or {})
     candidates, notes = await lora_candidates(tool_id, lora_items, profile_id)
     loras = match_loras(source_prompt, candidates)
+    lora_context = [{"name": lo.name, "trigger_words": [t.strip() for t in lo.trigger.split(",") if t.strip()],
+                     "notes": notes.get(lo.name, "")} for lo in loras]
     key = program_key({
-        "v": PREPARE_VERSION, "prompt": source_prompt, "tool": tool_id, "model": model_name,
-        "params": sorted(params), "loras": [vars(lo) for lo in loras],
-        "notes": {lo.name: notes.get(lo.name, "") for lo in loras},
+        "v": PREPARE_VERSION, "prompt": source_prompt, "tool": tool_id, "model": ctx.get("model"),
+        "mode": ctx.get("mode"), "enhance": ctx.get("enhance"), "instructions": instructions,
+        "params": sorted(params), "loras": [vars(lo) for lo in loras], "notes": lora_context,
     })
     store = _store(profile_id)
     cached = None if force else store.get(key)
@@ -270,9 +324,12 @@ async def ensure_program(*, prompt: str, tool_id: str, model_name: Optional[str]
         return cached
 
     started = time.monotonic()
+    enhanced = await upsample(source_prompt, ctx, instructions, lora_context, project_id, profile_id)
+    upsampled_at = time.monotonic()
     messages = [
         {"role": "system", "content": _INSTRUCTIONS},
-        {"role": "user", "content": build_user_message(source_prompt, model_name, params, loras, notes)},
+        {"role": "user", "content": build_user_message(source_prompt, enhanced, ctx.get("model"), ctx.get("mode") or "prose",
+                                                        params, loras, notes)},
     ]
     last_error = ""
     for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -280,7 +337,7 @@ async def ensure_program(*, prompt: str, tool_id: str, model_name: Optional[str]
         source = extract_code(reply)
         try:
             check(source)
-            checked = validate(source, source_prompt, loras, set(params))
+            checked = validate(source, source_prompt, loras, set(params), enhanced)
         except ProgramError as e:
             last_error = str(e)
         else:
@@ -289,16 +346,19 @@ async def ensure_program(*, prompt: str, tool_id: str, model_name: Optional[str]
                 normalize_sources(info, source_prompt)
                 entry = {
                     "key": key, "version": PREPARE_VERSION, "prompt": source_prompt, "tool_id": tool_id,
+                    "mode": ctx.get("mode"), "enhanced": enhanced,
                     "program": source, "choices": info["choices"], "groups": info["groups"],
                     "params": {n: params[n] for n in info["params"] if n in params},
                     "loras": [vars(lo) for lo in loras],
                     "lora_choices": {c["id"]: c["options"] for c in info["choices"] if c["kind"] == "lora"},
                     "example": realized_text(info["example"]),
                     "warnings": checked["problems"], "attempts": attempt,
-                    "seconds": round(time.monotonic() - started, 2), "created_at": time.time(),
+                    "seconds": round(time.monotonic() - started, 2),
+                    "upsample_seconds": round(upsampled_at - started, 2), "created_at": time.time(),
                 }
                 store.put(key, entry)
-                log.info(f"[prompt-program] prepared {key} in {entry['seconds']}s ({attempt} attempt(s), {len(info['choices'])} choices)")
+                log.info(f"[prompt-program] prepared {key} ({entry['mode']}) in {entry['seconds']}s "
+                         f"(upsample {entry['upsample_seconds']}s, {attempt} attempt(s), {len(info['choices'])} choices)")
                 return entry
             last_error = "\n".join(checked["problems"])
         log.info(f"[prompt-program] attempt {attempt} rejected: {last_error[:300]}")

@@ -65,7 +65,13 @@
             <div class="font-semibold mb-0.5">Accepted with problems</div>
             <div v-for="w in program.program.value.warnings" :key="w">{{ w }}</div>
           </div>
-          <div class="mx-4 rounded-md border border-edge-subtle bg-surface-overlay h-[46vh] min-h-[200px] overflow-hidden">
+          <div v-if="enhancedText" class="mx-4 mb-2">
+            <div class="text-xs font-semibold text-content-secondary mb-1">
+              Enhanced example <span class="font-normal text-content-muted">· {{ program.program.value?.mode }} style · {{ program.program.value?.upsample_seconds ?? '?' }}s</span>
+            </div>
+            <div class="max-h-[16vh] overflow-y-auto rounded-md bg-surface-overlay border border-edge-subtle px-3 py-2 text-[12px] leading-relaxed text-content-secondary whitespace-pre-wrap">{{ enhancedText }}</div>
+          </div>
+          <div class="mx-4 rounded-md border border-edge-subtle bg-surface-overlay h-[40vh] min-h-[200px] overflow-hidden">
             <ReadOnlyCode :text="programText" name="program.py" wrap />
           </div>
           <div class="px-4 pt-3 pb-4 overflow-y-auto min-h-0">
@@ -128,9 +134,13 @@ const samples = ref<any[]>([])
 const samplesError = ref('')
 const copied = ref(false)
 
+const enhancedText = ref('')
+
 async function showProgram() {
   try {
-    programText.value = await props.program.fetchProgramText()
+    const got = await props.program.fetchProgramText()
+    programText.value = got.program
+    enhancedText.value = got.enhanced
   } catch {
     programText.value = props.program.program.value?.program || '(not prepared)'
   }

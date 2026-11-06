@@ -54,6 +54,9 @@ interface Options {
   prompt: Ref<string>
   enabled: ComputedRef<boolean>
   loraItems: ComputedRef<Array<{ lora: string; weight: number }>>
+  /** What the enhancer's style depends on: input images (count and ids), canvas size. */
+  contextParams: ComputedRef<Record<string, any>>
+  instructions: ComputedRef<string>
   projectId: Ref<number | null | undefined>
   promptOptions: Ref<any>
   setPromptOptions: (next: any) => void
@@ -64,6 +67,8 @@ export function usePromptProgram(o: Options) {
   const preparedSig = ref<string | null>(null)
   const busy = ref(false)
   const error = ref<{ sig: string; message: string } | null>(null)
+  // Formats that are still enhanced per image (MiniMax H3, Ideogram JSON) have no program.
+  const unsupportedSig = ref<string | null>(null)
   // Which choice card is open, and where it hangs from.
   const openCard = ref<{ id: string; anchor: DOMRect } | null>(null)
 
@@ -71,10 +76,13 @@ export function usePromptProgram(o: Options) {
     tool: o.toolId.value,
     prompt: (o.prompt.value || '').trim(),
     loras: o.loraItems.value.map(i => [i.lora, i.weight]),
+    context: o.contextParams.value,
+    instructions: o.instructions.value,
   }))
 
   const status = computed<ProgramStatus>(() => {
     if (!o.enabled.value || !(o.prompt.value || '').trim()) return 'off'
+    if (unsupportedSig.value === signature.value) return 'off'
     if (busy.value) return 'busy'
     if (error.value && error.value.sig === signature.value) return 'error'
     return program.value && preparedSig.value === signature.value ? 'ready' : 'stale'
@@ -111,6 +119,8 @@ export function usePromptProgram(o: Options) {
       tool_id: o.toolId.value,
       prompt: o.prompt.value || '',
       loras: o.loraItems.value.map(i => ({ lora: i.lora, weight: i.weight })),
+      parameters: o.contextParams.value,
+      instructions: o.instructions.value || '',
       project_id: o.projectId.value ?? null,
       ...extra,
     }
@@ -124,7 +134,9 @@ export function usePromptProgram(o: Options) {
     const id = ++lookupId
     try {
       const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true }))
-      if (id !== lookupId || sig !== signature.value || !data?.key) return
+      if (id !== lookupId || sig !== signature.value) return
+      if (data?.unsupported) { unsupportedSig.value = sig; return }
+      if (!data?.key) return
       program.value = data
       preparedSig.value = sig
     } catch {
@@ -138,6 +150,10 @@ export function usePromptProgram(o: Options) {
     busy.value = true
     try {
       const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ force }))
+      if (data?.unsupported) {
+        unsupportedSig.value = sig
+        return true
+      }
       program.value = data
       preparedSig.value = sig
       error.value = null
@@ -158,9 +174,9 @@ export function usePromptProgram(o: Options) {
     return prepare()
   }
 
-  async function fetchProgramText(): Promise<string> {
+  async function fetchProgramText(): Promise<{ program: string; enhanced: string }> {
     const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true, include_program: true }))
-    return data.program || ''
+    return { program: data.program || '', enhanced: data.enhanced || '' }
   }
 
   /** Dev debugging: a few runs with the current pins and edits, no model call. */

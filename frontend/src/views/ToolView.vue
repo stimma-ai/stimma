@@ -3874,6 +3874,20 @@ const promptProgram = usePromptProgram({
   loraItems: computed(() => hasLoras.value
     ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight }))
     : []),
+  contextParams: computed(() => {
+    // Only what the enhancer's style depends on; never the images themselves.
+    const imgs: any[] = [...(globalPrefs.value.inputImages || []), ...(globalPrefs.value.inpaintRefImages || [])]
+    const p: Record<string, any> = {}
+    if (imgs.length) {
+      p.input_images = imgs.map(() => 'ref')
+      const ids = imgs.map(i => i?.mediaId ?? i?._videoSource?.mediaId ?? null)
+      if (ids.some(x => x != null)) p.input_media_ids = ids
+    }
+    if (modelParams.width) p.width = Number(modelParams.width)
+    if (modelParams.height) p.height = Number(modelParams.height)
+    return p
+  }),
+  instructions: computed(() => globalPrefs.value.promptOptions?.autoImprove?.instructions || ''),
   projectId: projectScopeId,
   promptOptions: computed(() => globalPrefs.value.promptOptions),
   setPromptOptions: (next: any) => { globalPrefs.value.promptOptions = next },

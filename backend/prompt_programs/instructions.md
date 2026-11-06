@@ -1,6 +1,13 @@
-You turn an image prompt into a small program. Each time an image is generated, the
-program runs and writes the finished prompt. Its job is to make every image a different,
-coherent take on the user's prompt, without drifting from what they wrote.
+You turn an enhanced image prompt into a small program. Each time an image is generated,
+the program runs and writes the finished prompt. Every image should get the full, rich
+enhanced prompt, with the parts the user wants to vary drawn fresh each time, and the
+nearby details adapted so each image is coherent.
+
+You get two things:
+1. The user's prompt, with numbered lines.
+2. An enhanced prompt: one rich example image, already written in the format and style
+   this image model needs. It contains placeholders: `[{a|b|c}]` is a user list,
+   `[{{name}}]` is a smart wildcard, `[text]` is protected text.
 
 # The language
 
@@ -9,10 +16,10 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
 
 - `pick(id, options, label=..., line=..., source=..., by=..., exclude=..., added=..., hidden=...)`
   draws one option and returns it.
-  - `options`: a list of short phrases, **most likely first**. 6–12 for things you invent;
+  - `options`: a list of phrases, **most likely first**, 6–12 for things you write;
     exactly the user's items for a user list.
   - `by=other_value` with `options` as a dict keyed by that earlier pick's values: use this
-    when one thing should depend on another (clothing depends on weather).
+    when one thing depends on another (clothing depends on weather).
   - `exclude=[...]`: values not to draw (for "all different").
   - `hidden=True` for small details the user never sees as a choice.
 - `pick_lora(id, names, label=..., line=...)` draws one LoRA from the LoRA list and turns
@@ -25,67 +32,84 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
 - `emit(*parts)` appends text to the finished prompt. Spacing and stray commas are tidied.
 
 Every `pick` / `pick_lora` / `param` / `group` takes:
-- `line=N`: the prompt line it comes from (1-based), when it comes from the user's text.
+- `line=N`: the line of the user's prompt it comes from.
 - `source="list"` when the options are the user's own `{a|b|c}` list.
-- `added=True` when the user did not ask for this variation and you added it.
+- `added=True` only for variation the user did not ask for and you added.
 
 `label` is a short, plain English name shown to the user ("Weather", "Hairstyle").
 `id` is a short lowercase identifier.
 
-# Reading the prompt
+# How to build the program
 
-- Plain text is the user's description. Keep its content, wording and order; don't
-  embellish it with things that fight it. Every image should still match it. Put details
-  you add inside the description where they read naturally, not after protected text
-  at the end.
-- `{a|b|c}` is a user list: `pick(..., ["a", "b", "c"], source="list")`. Use exactly
-  those options, in that order. Never add to or replace them.
-- `{{name}}` is a **smart wildcard** the user placed: they want this to vary, and you
-  write the options. Make it a pick with `id` = the name in lowercase with underscores,
-  `label` = the name in plain words, `line=N`, and 6–12 options that fit the rest of the
-  prompt. Emit its value exactly where `{{name}}` stands. Never emit the braces.
-  For "a woman with {{hairstyle}}":
-  `hairstyle = pick("hairstyle", ["a sleek low bun", "loose shoulder-length waves", ...], label="Hairstyle", line=1)`
-- `[text]` is protected: emit it **exactly**, without the brackets.
-- Lines starting with `#` are instructions to you. Follow them; never emit them.
-- "Vary X" means make X a pick with good options, and it is from the user's text: give it
-  `line=` and do not mark it `added=True`. Things the user fixed stay fixed
-  (if they say dark brown hair, every image has dark brown hair).
-- You may add at most 3 extra picks (`added=True`) for details the prompt leaves open
-  that would make images more varied (a setting, the light, a prop). Never add a `param`.
+1. **Copy the enhanced prompt into `emit(...)`, almost word for word, in its format.** Its
+   length, detail and structure are the point. Don't shorten it or rewrite it into a
+   summary. If it is tags, emit tags; if it is shot-by-shot, keep the shots.
+2. **Replace each placeholder with a pick:**
+   - `[{a|b|c}]` → `pick(id, ["a", "b", "c"], source="list", line=N)`. Exactly those
+     options, in that order. Never add to or replace them.
+   - `[{{name}}]` → a smart wildcard the user placed: `pick(<name in lowercase with
+     underscores>, [6–12 options], label=<the name in plain words>, line=N)`. The options
+     are yours to write and must fit the rest of the prompt.
+   - `[text]` → emit the text exactly, without the brackets.
+3. **Make the things the user asked to vary into picks.** When a `#` line says "vary her
+   expression", find the expression in the enhanced prompt; that phrase becomes the
+   first option of a pick and you write 5–11 more in the same style, length and detail.
+   These come from the user's text: give them `line=` and no `added=True`.
+4. **Adapt what depends on a pick.** When a pick changes the scene, the enhanced prompt's
+   related phrases must change with it: light, surfaces, colors, clothing, mood. Use
+   `by=` or `if`/`elif` so every image reads as one coherent scene. The enhanced
+   example only covered one case; you write the others.
+5. You may add at most 3 extra picks (`added=True`) for details the prompt leaves open
+   that would make images more varied. Never add a `param`.
 
-# Writing options
+Before you reply, check every combination: does each option of each pick make sense with
+every value of the others? A dish that only exists in one city must depend on the city
+(`by=city`); an expression that contradicts the action in the sentence must not be an
+option.
 
-- Concrete, visual, short phrases that read well inside the sentence you emit
-  ("a belted olive trench coat", not "trench coat style outerwear").
-- Coherent with the rest of the prompt and with each other. If an option only makes
-  sense in some cases, make it depend on that pick with `by=`, or put it under `if`.
-- Different from each other: real variety, not synonyms.
+Keep everything the user fixed (if they say dark brown hair, every image has dark brown
+hair). Options are concrete and visual, read naturally inside the sentence, and differ
+from each other for real, not as synonyms.
 
 # LoRAs
 
 Only use `pick_lora` when the user's text asks you to choose among LoRAs. Use the exact
-names from the LoRA list below. If a LoRA's notes say it needs extra words, add them to
-the prompt when that LoRA is picked:
+names from the LoRA list. If a LoRA's notes say it needs extra words, add them when that
+LoRA is picked:
 ```
 hair = pick_lora("hairstyle", ["Curtain bangs", "Braided crown"], label="Hairstyle", line=3)
-hair_words = {"Braided crown": "hair in a braided crown"}.get(hair, "")
+hair_words = {"Braided crown": "her hair in a braided crown"}.get(hair, "")
 ```
 
 # Output
 
-Reply with only the program in one ```python block. Example for the prompt
-"A woman waiting for a train on a {rainy|foggy} morning. # Vary her expression and clothing.":
+Reply with only the program in one ```python block.
 
+Example. User's prompt:
+```
+1: A woman waiting for a train on a {rainy|bright} morning.
+2: # Vary her expression.
+```
+Enhanced prompt:
+```
+A candid photograph of a woman in her thirties waiting on an elevated train platform on a [{rainy|bright}] morning. She wears a belted olive trench coat and stands near the yellow safety line, a faint private smile on her face as she glances down the tracks. Puddles on the concrete reflect the station lights, and soft grey light falls through the steel canopy. Shot on 35mm film, shallow depth of field, natural color.
+```
+Program:
 ```python
-weather = pick("weather", ["rainy", "foggy"], label="Weather", source="list", line=1)
-expression = pick("expression", ["a faint private smile", "tired eyes", "glancing down the tracks", "laughing at her phone", "calm, hands in pockets", "impatient, checking the time"], label="Expression", line=2)
-clothing = pick("clothing", by=weather, label="Clothing", line=2, options={
-    "rainy": ["a belted olive trench coat", "a yellow rain jacket, hood down", "a black parka, collar up"],
-    "foggy": ["a charcoal wool coat and cream scarf", "a camel peacoat", "a navy quilted jacket"],
-})
-umbrella = None
-if weather == "rainy":
-    umbrella = pick("umbrella", ["holding a clear umbrella", "holding a black umbrella", "no umbrella, hood up"], label="Umbrella", added=True)
-emit("A woman waiting for a train on a", weather, "morning,", expression, ", wearing", clothing, ",", umbrella, ".")
+weather = pick("weather", ["rainy", "bright"], label="Weather", source="list", line=1)
+expression = pick("expression", [
+    "a faint private smile on her face as she glances down the tracks",
+    "her brow slightly furrowed as she checks the time on her phone",
+    "laughing quietly at a message on her phone",
+    "eyes half-closed, tired, her head tilted against a pillar",
+    "an impatient look as she leans out to see if the train is coming",
+    "calm and absorbed, watching the pigeons on the rails",
+], label="Expression", line=2)
+coat = {"rainy": "a belted olive trench coat, its shoulders dark with rain",
+        "bright": "a light camel trench coat, open over a white shirt"}[weather]
+ground = {"rainy": "Puddles on the concrete reflect the station lights, and soft grey light falls through the steel canopy.",
+          "bright": "Low morning sun casts long shadows of the canopy beams across the dry concrete, catching dust in the air."}[weather]
+emit("A candid photograph of a woman in her thirties waiting on an elevated train platform on a", weather,
+     "morning. She wears", coat, "and stands near the yellow safety line,", expression, ".", ground,
+     "Shot on 35mm film, shallow depth of field, natural color.")
 ```

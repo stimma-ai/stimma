@@ -14,13 +14,18 @@ router = APIRouter(prefix="/api/prompt-programs", tags=["prompt-programs"])
 
 # What the editor needs from a prepared program (the program text itself stays server-side
 # unless asked for).
-_PUBLIC_KEYS = ("key", "choices", "groups", "params", "loras", "lora_choices", "example", "warnings", "seconds", "attempts")
+_PUBLIC_KEYS = ("key", "mode", "choices", "groups", "params", "loras", "lora_choices", "example", "warnings",
+                "seconds", "upsample_seconds", "attempts")
 
 
 class PrepareRequest(BaseModel):
     tool_id: str
     prompt: str
     loras: List[Dict[str, Any]] = Field(default_factory=list)
+    # The generation's parameters (inputs, size): the enhancer's style depends on them.
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    task_type: Optional[str] = None
+    instructions: str = ""
     project_id: Optional[int] = None
     include_program: bool = False
     # cache_only: return the prepared program if there is one, never call the model.
@@ -38,12 +43,14 @@ class PreviewRequest(PrepareRequest):
 async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
     from llm_resolver import LLMNotConfiguredError, LLMUnavailableError
     from prompt_programs.prepare import ProgramError, ensure_program
-    from routes.generation import _prompt_pipeline_context
+    from routes.generation import prompt_enhance_context
 
-    model, _vendor, _task, schema_props = _prompt_pipeline_context(req.tool_id, None, None)
+    ctx = prompt_enhance_context(req.parameters, req.tool_id, req.task_type, None)
+    if not ctx["program_supported"]:
+        return {"unsupported": ctx["mode"]}
     try:
         return await ensure_program(
-            prompt=req.prompt, tool_id=req.tool_id, model_name=model, schema_props=schema_props,
+            prompt=req.prompt, tool_id=req.tool_id, ctx=ctx, instructions=req.instructions.strip(),
             lora_items=req.loras, project_id=req.project_id, profile_id=get_current_profile(),
             cache_only=req.cache_only, force=req.force,
         )
@@ -58,9 +65,12 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
     entry = await _prepare(req)
     if entry is None:  # cache_only and not prepared yet: not an error, just nothing to show
         return {"key": None}
+    if entry.get("unsupported"):  # structured formats are still enhanced per image
+        return {"key": None, "unsupported": entry["unsupported"]}
     out = {k: entry.get(k) for k in _PUBLIC_KEYS}
     if req.include_program:
         out["program"] = entry["program"]
+        out["enhanced"] = entry.get("enhanced")
     return out
 
 
@@ -68,7 +78,7 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
 async def preview(req: PreviewRequest) -> Dict[str, Any]:
     from prompt_programs.prepare import program_seed, realize
     entry = await _prepare(req)
-    if entry is None:
+    if entry is None or entry.get("unsupported"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
     result = realize(entry, seed=program_seed(req.seed), pins=req.pins, edits=req.edits)
     return {"key": entry["key"], **result.to_dict()}
