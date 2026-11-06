@@ -166,6 +166,22 @@ class TestPrepare:
         again = await self._ensure()
         assert again["key"] == entry["key"] and len(calls) == 2  # one upsample, one program
 
+    async def test_concurrent_runs_share_one_prepare(self, stub):
+        import asyncio
+        calls, replies = stub
+        replies.append(f"```python\n{TRAIN}```")
+        first, second = await asyncio.gather(self._ensure(), self._ensure())
+        assert first["key"] == second["key"] and len(calls) == 2
+
+    async def test_canvas_size_does_not_change_the_key(self, stub):
+        calls, replies = stub
+        replies.append(f"```python\n{TRAIN}```")
+        sized = {**ctx(SCHEMA), "enhance": {"is_video": False, "width": 1024, "height": 1024}}
+        unsized = {**ctx(SCHEMA), "enhance": {"is_video": False, "width": None, "height": None}}
+        a = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=sized, instructions="", lora_items=[], project_id=None, profile_id="p")
+        b = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=unsized, instructions="", lora_items=[], project_id=None, profile_id="p")
+        assert a["key"] == b["key"] and len(calls) == 2
+
     async def test_retries_with_the_problem(self, stub):
         calls, replies = stub
         replies.append('```python\nemit("A woman on a platform")\n```')  # drops the user list + protected text

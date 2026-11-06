@@ -8,6 +8,7 @@ program for one generation) needs no model at all.
 from __future__ import annotations
 
 import ast
+import asyncio
 import random
 import re
 import time
@@ -365,16 +366,38 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     loras = match_loras(source_prompt, candidates)
     lora_context = [{"name": lo.name, "trigger_words": [t.strip() for t in lo.trigger.split(",") if t.strip()],
                      "notes": notes.get(lo.name, "")} for lo in loras]
+    # The canvas only matters to layout formats (Ideogram), which have no programs;
+    # leaving it out keeps a prepared program valid across sizes.
+    enhance = {k: v for k, v in (ctx.get("enhance") or {}).items() if k not in ("width", "height")}
     key = program_key({
         "v": PREPARE_VERSION, "prompt": source_prompt, "tool": tool_id, "model": ctx.get("model"),
-        "mode": ctx.get("mode"), "enhance": ctx.get("enhance"), "instructions": instructions,
+        "mode": ctx.get("mode"), "enhance": enhance, "instructions": instructions,
         "params": sorted(params), "loras": [vars(lo) for lo in loras], "notes": lora_context,
     })
     store = _store(profile_id)
     cached = None if force else store.get(key)
     if cached or cache_only:
         return cached
+    # One prepare per key: concurrent runs and the editor share it instead of each
+    # asking the model.
+    running = _in_flight.get(key)
+    if running is None:
+        running = asyncio.ensure_future(_prepare_new(
+            key=key, store=store, tool_id=tool_id, ctx=ctx, instructions=instructions, source_prompt=source_prompt,
+            params=params, loras=loras, notes=notes, lora_context=lora_context, project_id=project_id, profile_id=profile_id,
+        ))
+        _in_flight[key] = running
+        running.add_done_callback(lambda _t, k=key: _in_flight.pop(k, None) if _in_flight.get(k) is _t else None)
+    return await asyncio.shield(running)
 
+
+_in_flight: Dict[str, "asyncio.Future[Dict[str, Any]]"] = {}
+
+
+async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict[str, Any], instructions: str,
+                       source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo], notes: Dict[str, str],
+                       lora_context: List[Dict[str, Any]], project_id: Optional[int],
+                       profile_id: Optional[str]) -> Dict[str, Any]:
     started = time.monotonic()
     enhanced = await upsample(source_prompt, ctx, instructions, lora_context, project_id, profile_id)
     upsampled_at = time.monotonic()

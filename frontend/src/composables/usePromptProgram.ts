@@ -144,9 +144,19 @@ export function usePromptProgram(o: Options) {
     }
   }
 
+  // The prepare in flight, so concurrent runs wait on it instead of starting another.
+  let inFlight: { sig: string; force: boolean; done: Promise<boolean> } | null = null
+
   /** Prepare for the current inputs (the model call happens here, if needed). */
-  async function prepare(force = false): Promise<boolean> {
+  function prepare(force = false): Promise<boolean> {
     const sig = signature.value
+    if (inFlight && inFlight.sig === sig && (inFlight.force || !force)) return inFlight.done
+    const done = prepareNow(sig, force).finally(() => { if (inFlight?.done === done) inFlight = null })
+    inFlight = { sig, force, done }
+    return done
+  }
+
+  async function prepareNow(sig: string, force: boolean): Promise<boolean> {
     busy.value = true
     try {
       const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ force }))
@@ -154,6 +164,7 @@ export function usePromptProgram(o: Options) {
         unsupportedSig.value = sig
         return true
       }
+      if (sig !== signature.value) return true  // the prompt moved on; its own prepare will follow
       program.value = data
       preparedSig.value = sig
       error.value = null
@@ -163,16 +174,24 @@ export function usePromptProgram(o: Options) {
       error.value = { sig, message: (typeof detail === 'string' ? detail : detail?.message) || 'Couldn’t prepare this prompt.' }
       return false
     } finally {
-      busy.value = false
+      if (!inFlight || inFlight.sig === sig) busy.value = false
     }
+  }
+
+  /** True when a run would have to wait for preparing first. */
+  function needsPrepare(): boolean {
+    return status.value !== 'off' && status.value !== 'ready'
   }
 
   /** Before a run: prepare if out of date. Returns false if the run should not start. */
   async function ensureReady(): Promise<boolean> {
-    if (status.value === 'off') return true
-    if (status.value === 'ready') return true
-    return prepare()
+    // Re-check after each prepare: the prompt may have changed while it ran.
+    for (let i = 0; i < 3 && needsPrepare(); i++) {
+      if (!(await prepare())) return false
+    }
+    return true
   }
+
 
   async function fetchProgramText(): Promise<{ program: string; enhanced: string }> {
     const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true, include_program: true }))
@@ -293,7 +312,7 @@ export function usePromptProgram(o: Options) {
 
   return {
     program, status, error, signature, pins, edits, choices, rows, byId, openCard,
-    prepare, ensureReady, payload, lookup, fetchProgramText, previewRuns,
+    prepare, ensureReady, needsPrepare, payload, lookup, fetchProgramText, previewRuns,
     setPins, setManyPins, setEdit, optionsOf, valueText, isPinned, visible,
     loraControl, paramControl, open, close,
   }

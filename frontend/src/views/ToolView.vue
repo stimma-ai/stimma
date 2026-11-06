@@ -4020,7 +4020,9 @@ const { clear: clearPromptWarmPool } = usePromptWarmPool({
     !enhanceUsesImage.value &&
     // H3 Context-IR depends on live duration/audio/keyframe parameters, not
     // prompt text alone, so it must be enhanced at submission time.
-    !enhanceIsMiniMaxH3.value
+    !enhanceIsMiniMaxH3.value &&
+    // A prompt program runs without an LLM: nothing to pre-enhance.
+    promptProgram.status.value === 'off'
   ),
   autoImproveInstructions: computed(() => globalPrefs.value.promptOptions?.autoImprove?.instructions ?? null),
   model: computed(() => toolModelString.value || null),
@@ -5397,7 +5399,24 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
 
   // Prompt programs: an out-of-date program is prepared once, before the batch.
-  if (!(await promptProgram.ensureReady())) {
+  // The wait is its own tile in the strip, beside any runs already going.
+  const preparingId = promptProgram.needsPrepare()
+    ? jobsManager.addPendingJob(globalPrefs.value.prompt, {
+        model_name: tool.value!.model,
+        generator_name: tool.value!.generator,
+        width: modelParams.width,
+        height: modelParams.height,
+      }, 'Preparing prompt…')
+    : null
+  const finishPreparing = preparingId ? beginInstanceWork(generatorInstanceId) : null
+  const ready = await promptProgram.ensureReady()
+  const preparingCancelled = !!preparingId && !jobsManager.hasPendingJob(preparingId)
+  if (preparingId) {
+    jobsManager.removePendingJob(preparingId)
+    finishPreparing?.()
+  }
+  if (preparingCancelled) return noSubmit(options, false)
+  if (!ready) {
     submissionError.value = promptProgram.error.value?.message || 'Couldn’t prepare this prompt.'
     addToast(submissionError.value, 'error')
     return noSubmit(options)
@@ -5549,8 +5568,9 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
   // do LLM work. Enhancement happens server-side at submit time (either from
   // the forever-mode warm pool or synchronously), so keep the slot visibly
   // active until the backend emits the real queued job.
+  // A prompt program is already prepared by now; running it needs no LLM.
   const needsEnhancing = toolHasPrompt && (
-    enhanceOn ||
+    (enhanceOn && !promptOptions?.program) ||
     promptOptions?.translate?.enabled
   )
   const pendingId = needsEnhancing

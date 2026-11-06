@@ -91,6 +91,7 @@
           :key="item.key"
           :name="toolDisplayName || item.job.model_name || 'Generation'"
           :status="item.job.status"
+          :label="item.job.pending_label"
           :aspect="jobAspect(item.job)"
           :preview-url="jobProgress[item.job.id]?.previewUrl || ''"
           :progress="jobProgress[item.job.id]?.progress ?? null"
