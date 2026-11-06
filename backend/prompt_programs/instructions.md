@@ -70,11 +70,20 @@ Every `pick` / `pick_lora` / `param` / `group` takes:
 Before you reply, check every combination: does each option of each pick make sense with
 every value of the others? A dish that only exists in one city must depend on the city
 (`by=city`); an expression that contradicts the action in the sentence must not be an
-option.
+option. Then read every phrase and option once more for "no", "not", "without", "free of"
+and "avoid", and say what you want instead (see below).
 
 Keep everything the user fixed (if they say dark brown hair, every image has dark brown
 hair). Options are concrete and visual, read naturally inside the sentence, and differ
 from each other for real, not as synonyms.
+
+Never write negations into the prompt. Image models don't understand "no" or "without":
+"no bokeh" puts bokeh in their head and makes more of it. When the user says what they
+don't want ("no shallow dof", "no people"), leave it out and describe the opposite
+positively: "sharp focus from foreground to background, deep depth of field", "an empty
+platform". This applies to every phrase you emit and every option you write, including
+text you copy from the enhanced prompt: rephrase its negations positively. Only protected
+`[text]` is emitted exactly as the user wrote it.
 
 # LoRAs
 

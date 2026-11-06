@@ -23,7 +23,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-12"
+PREPARE_VERSION = "pp-13"
 MAX_ATTEMPTS = 3
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8")
 
