@@ -34,22 +34,56 @@
             @click="menuOpen = false; program.prepare(true)"
           >Prepare from scratch</button>
           <button
+            v-if="devModeRef"
             type="button"
-            class="w-full text-left px-3 py-1.5 text-[12px] text-content-secondary hover:bg-overlay-subtle disabled:opacity-50"
+            class="w-full text-left px-3 py-1.5 text-[12px] text-content-secondary hover:bg-overlay-subtle disabled:opacity-50 flex items-center justify-between"
             :disabled="!program.program.value"
             @click="menuOpen = false; showProgram()"
-          >Show program</button>
+          >Show program <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span></button>
         </div>
       </div>
-      <div v-if="programText !== null" class="fixed inset-0 z-modal bg-overlay-backdrop flex items-center justify-center p-4" @click.self="programText = null">
-        <div class="w-[760px] max-w-full rounded-lg bg-surface border border-edge p-4 shadow-xl">
-          <div class="flex items-baseline gap-2 mb-1">
+      <!-- Dev: the prepared program, how preparing went, and live sample runs. -->
+      <div
+        v-if="programText !== null"
+        class="fixed inset-0 z-modal bg-overlay-backdrop flex items-center justify-center p-4"
+        data-escape-layer
+        @click.self="programText = null"
+        @keydown.escape="programText = null"
+      >
+        <div class="w-[960px] max-w-full max-h-[92vh] flex flex-col rounded-lg bg-surface border border-edge shadow-xl" data-program-debug>
+          <div class="flex items-center gap-2 px-4 pt-3 pb-2">
             <span class="text-[14px] font-semibold text-content">Program</span>
-            <span class="text-[11px] text-content-muted">prepared in {{ program.program.value?.seconds ?? '?' }}s · running it needs no model call</span>
+            <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span>
+            <span class="text-[11px] text-content-muted font-mono">
+              {{ program.program.value?.key?.slice(0, 10) }} · prepared in {{ program.program.value?.seconds ?? '?' }}s · {{ program.program.value?.attempts ?? 1 }} attempt(s) · {{ program.choices.value.length }} choices
+            </span>
+            <span class="flex-1" />
+            <button type="button" class="text-[12px] text-content-tertiary hover:text-content px-2 py-1 rounded-md hover:bg-overlay-subtle" @click="copyProgram">{{ copied ? 'Copied' : 'Copy' }}</button>
+            <button type="button" class="text-content-tertiary hover:text-content p-1 rounded-md hover:bg-overlay-subtle" aria-label="Close" @click="programText = null">✕</button>
           </div>
-          <pre class="mt-2 max-h-[65vh] overflow-auto rounded-md bg-surface-overlay border border-edge-subtle p-3 font-mono text-[11.5px] leading-relaxed text-content-secondary whitespace-pre">{{ programText }}</pre>
-          <div v-if="program.program.value?.example" class="mt-3 text-[12px] text-content-tertiary">
-            <span class="text-content-muted">One run: </span>{{ program.program.value.example }}
+          <div v-if="program.program.value?.warnings?.length" class="mx-4 mb-2 rounded-md bg-amber-500/10 px-3 py-2 text-[12px] text-amber-600 dark:text-amber-400">
+            <div class="font-semibold mb-0.5">Accepted with problems</div>
+            <div v-for="w in program.program.value.warnings" :key="w">{{ w }}</div>
+          </div>
+          <div class="mx-4 rounded-md border border-edge-subtle bg-surface-overlay h-[46vh] min-h-[200px] overflow-hidden">
+            <ReadOnlyCode :text="programText" name="program.py" wrap />
+          </div>
+          <div class="px-4 pt-3 pb-4 overflow-y-auto min-h-0">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="text-xs font-semibold text-content-secondary">Sample runs</span>
+              <span class="text-[11px] text-content-muted">with your current pins</span>
+              <span class="flex-1" />
+              <button type="button" class="text-[12px] text-content-tertiary hover:text-content px-2 py-0.5 rounded-md hover:bg-overlay-subtle" @click="loadSamples">Draw again</button>
+            </div>
+            <div v-if="samplesError" class="text-[12px] text-red-400">{{ samplesError }}</div>
+            <ol class="space-y-2">
+              <li v-for="(r, i) in samples" :key="i" class="text-[12px] leading-relaxed">
+                <div class="text-content-secondary">{{ r.prompt }}</div>
+                <div class="font-mono text-[10.5px] text-content-muted">
+                  {{ r.draws.map((d: any) => `${d.id}=${d.value}`).join(' · ') }}
+                </div>
+              </li>
+            </ol>
           </div>
         </div>
       </div>
@@ -60,6 +94,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { PromptProgram } from '../../composables/usePromptProgram'
+import { devModeRef } from '../../appConfig'
+import ReadOnlyCode from '../viewers/ReadOnlyCode.vue'
 
 const props = defineProps<{ program: PromptProgram }>()
 
@@ -88,11 +124,31 @@ const menuStyle = computed(() => {
   return { top: `${r.bottom + 4}px`, left: `${Math.max(8, Math.min(window.innerWidth - 264, r.right - 256))}px` }
 })
 
+const samples = ref<any[]>([])
+const samplesError = ref('')
+const copied = ref(false)
+
 async function showProgram() {
   try {
     programText.value = await props.program.fetchProgramText()
   } catch {
     programText.value = props.program.program.value?.program || '(not prepared)'
   }
+  void loadSamples()
+}
+
+async function loadSamples() {
+  samplesError.value = ''
+  try {
+    samples.value = await props.program.previewRuns(5)
+  } catch (e: any) {
+    samplesError.value = e?.response?.data?.detail?.message || e?.message || 'Couldn’t run the program.'
+  }
+}
+
+async function copyProgram() {
+  await navigator.clipboard?.writeText(programText.value || '')
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 1200)
 }
 </script>

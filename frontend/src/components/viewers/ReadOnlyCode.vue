@@ -13,17 +13,18 @@ import { html } from '@codemirror/lang-html'
 import { css } from '@codemirror/lang-css'
 import { markdown } from '@codemirror/lang-markdown'
 import { sql } from '@codemirror/lang-sql'
-const props = defineProps<{ text: string; name: string }>()
+const props = defineProps<{ text: string; name: string; wrap?: boolean }>()
 const { resolvedTheme } = useTheme()
 const host = ref<HTMLElement | null>(null)
 let editor: EditorView | null = null
-watch([host, () => props.text, () => props.name, resolvedTheme], () => {
+watch([host, () => props.text, () => props.name, () => props.wrap, resolvedTheme], () => {
   editor?.destroy()
   if (!host.value) return
   const ext = props.name.split('.').pop()?.toLowerCase()
   const language = ext === 'py' ? python() : ['js', 'jsx', 'ts', 'tsx'].includes(ext || '') ? javascript({ typescript: ext === 'ts' || ext === 'tsx', jsx: true }) : ext === 'json' ? json() : ext === 'html' ? html() : ext === 'css' ? css() : ext === 'md' ? markdown() : ext === 'sql' ? sql() : []
   editor = new EditorView({ parent: host.value, state: EditorState.create({ doc: props.text, extensions: [
     EditorState.readOnly.of(true), EditorView.editable.of(false), lineNumbers(), language,
+    props.wrap ? EditorView.lineWrapping : [],
     syntaxHighlighting(resolvedTheme.value === 'light' ? lightHighlightStyle : darkHighlightStyle),
     EditorView.theme({ '&': { height: '100%', color: 'var(--color-text-primary)', fontSize: '12.5px' }, '.cm-content': { padding: '12px 0' }, '.cm-line': { padding: '0 12px' }, '.cm-scroller': { overflow: 'auto', fontFamily: 'monospace' }, '.cm-gutters': { backgroundColor: 'transparent', color: 'var(--color-text-muted)', border: 'none' } }),
   ] }) })

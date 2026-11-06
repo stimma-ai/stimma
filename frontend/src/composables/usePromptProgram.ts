@@ -163,6 +163,18 @@ export function usePromptProgram(o: Options) {
     return data.program || ''
   }
 
+  /** Dev debugging: a few runs with the current pins and edits, no model call. */
+  async function previewRuns(n = 5): Promise<Array<{ prompt: string; draws: any[]; params: Record<string, any> }>> {
+    const out = []
+    for (let i = 0; i < n; i++) {
+      const { data } = await axios.post(`${getApiBase()}/prompt-programs/preview`, request({
+        cache_only: true, pins: pins.value, edits: edits.value, seed: Math.floor(Math.random() * 2 ** 31),
+      }))
+      out.push(data)
+    }
+    return out
+  }
+
   /** What a submit carries. `fixed` replays an earlier image's draws exactly. */
   function payload(fixed?: Record<string, any>) {
     if (status.value === 'off') return undefined
@@ -265,7 +277,7 @@ export function usePromptProgram(o: Options) {
 
   return {
     program, status, error, signature, pins, edits, choices, rows, byId, openCard,
-    prepare, ensureReady, payload, lookup, fetchProgramText,
+    prepare, ensureReady, payload, lookup, fetchProgramText, previewRuns,
     setPins, setManyPins, setEdit, optionsOf, valueText, isPinned, visible,
     loraControl, paramControl, open, close,
   }
