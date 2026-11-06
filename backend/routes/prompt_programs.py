@@ -56,8 +56,8 @@ async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
 @router.post("/prepare")
 async def prepare(req: PrepareRequest) -> Dict[str, Any]:
     entry = await _prepare(req)
-    if entry is None:
-        raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
+    if entry is None:  # cache_only and not prepared yet: not an error, just nothing to show
+        return {"key": None}
     out = {k: entry.get(k) for k in _PUBLIC_KEYS}
     if req.include_program:
         out["program"] = entry["program"]

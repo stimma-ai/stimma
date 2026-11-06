@@ -160,6 +160,14 @@ class TestPrepare:
         feedback = calls[1][-1]["content"]
         assert "Shot on Portra 400" in feedback and "{rainy|foggy|bright}" in feedback
 
+    async def test_a_pick_that_never_reaches_the_prompt_is_sent_back(self, stub):
+        calls, replies = stub
+        replies.append("```python\n" + TRAIN.replace('"morning, wearing", clothing,', '"morning,"') + "```")
+        replies.append(f"```python\n{TRAIN}```")
+        entry = await self._ensure()
+        assert entry["attempts"] == 2
+        assert 'pick("clothing")' in calls[1][-1]["content"]
+
     async def test_marks_asked_for_choices_as_from_text(self, stub):
         _, replies = stub
         replies.append("```python\n" + TRAIN.replace('label="Clothing", line=2', 'label="Clothing", added=True') + "```")

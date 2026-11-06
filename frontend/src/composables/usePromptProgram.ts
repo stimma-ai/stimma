@@ -122,7 +122,7 @@ export function usePromptProgram(o: Options) {
     const id = ++lookupId
     try {
       const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true }))
-      if (id !== lookupId || sig !== signature.value) return
+      if (id !== lookupId || sig !== signature.value || !data?.key) return
       program.value = data
       preparedSig.value = sig
     } catch {

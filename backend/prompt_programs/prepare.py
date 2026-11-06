@@ -21,7 +21,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-4"
+PREPARE_VERSION = "pp-6"
 MAX_ATTEMPTS = 3
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8")
 
@@ -145,6 +145,19 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
             if ln.startswith("#") and len(ln) > 12 and ln.lstrip("# ").lower()[:40] in r.prompt.lower():
                 problems.append(f'Don\'t emit instruction lines ("{ln[:50]}"). They are for you, not the image model.')
                 break
+    missing: Dict[str, str] = {}
+    for r in samples:  # a choice that never reaches the prompt does nothing
+        text = r.prompt.lower()
+        for d in r.draws:
+            if d.kind == "pick" and not d.hidden and d.value and str(d.value).lower() not in text:
+                missing.setdefault(d.id, str(d.value))
+    for r in samples:  # parameters are set by param(); the image model must not read them
+        for name in r.params:
+            if re.search(rf"\b{re.escape(name)}\b\s*[:=]?\s*[0-9]", r.prompt, re.I):
+                problems.append(f'Don\'t write {name} into the prompt text. param("{name}", ...) already sets it.')
+                break
+    for cid, value in missing.items():
+        problems.append(f'pick("{cid}") drew "{value}" but it never appears in the emitted prompt. Pass its result to emit(...).')
     for m in _INLINE_LIST.finditer(prompt):
         opts = [o.strip() for o in m.group(1).split("|")]
         if not any(c["options"][: len(opts)] == opts and c.get("source") == "list" for c in info["choices"]):

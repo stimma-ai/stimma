@@ -18,7 +18,8 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
 - `pick_lora(id, names, label=..., line=...)` draws one LoRA from the LoRA list and turns
   it on. Its trigger words are added automatically. Returns the LoRA's name.
 - `param(name, low, high, line=...)` draws a number for a generation parameter. **Only**
-  when the user's text asks to vary that parameter. Use the parameter names given.
+  when the user's text asks to vary that parameter. Use the parameter names given. It
+  sets the parameter directly: never put the value in the prompt text.
 - `group(id, count, label=..., line=...)` declares a repeated subject (people). Returns the
   count; loop over it and give the picks ids like `f"people[{i+1}].age"`.
 - `emit(*parts)` appends text to the finished prompt. Spacing and stray commas are tidied.
@@ -39,7 +40,8 @@ Every `pick` / `pick_lora` / `param` / `group` takes:
   those options, in that order. Never add to or replace them.
 - `[text]` is protected: emit it **exactly**, without the brackets.
 - Lines starting with `#` are instructions to you. Follow them; never emit them.
-- "Vary X" means make X a pick with good options. Things the user fixed stay fixed
+- "Vary X" means make X a pick with good options, and it is from the user's text: give it
+  `line=` and do not mark it `added=True`. Things the user fixed stay fixed
   (if they say dark brown hair, every image has dark brown hair).
 - You may add at most 3 extra picks (`added=True`) for details the prompt leaves open
   that would make images more varied (a setting, the light, a prop). Never add a `param`.
