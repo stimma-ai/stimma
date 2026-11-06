@@ -458,6 +458,20 @@ async def _apply_generation_prompt_pipeline(
         input_media_ids = _prompt_input_media_ids(parameters)
     from lora_notes import lora_context_for
     enhance_on = bool(((prompt_options or {}).get("autoImprove") or {}).get("enabled"))
+    program_run = None
+    program_opts = (prompt_options or {}).get("program")
+    if enhance_on and isinstance(program_opts, dict) and program_opts.get("enabled"):
+        # Prompt program: Enhance prepared a program once; this generation runs it.
+        # No LLM call unless the program for this prompt isn't prepared yet.
+        program_run, prompt = await _run_prompt_program(
+            prompt, parameters, program_opts, tool_id=tool_id, model=model,
+            schema_props=schema_props, project_id=project_id, profile_id=profile_id,
+        )
+        auto_improve = dict((prompt_options or {}).get("autoImprove") or {})
+        auto_improve["enabled"] = False
+        prompt_options = {**(prompt_options or {}), "autoImprove": auto_improve}
+        enhance_on = False
+        effective_preload = None
     lora_context = await lora_context_for(tool_id, parameters, profile_id) if enhance_on else None
     processed_prompt = await run_prompt_pipeline(
         db,
@@ -486,7 +500,59 @@ async def _apply_generation_prompt_pipeline(
 
     updated = dict(parameters)
     updated["prompt"] = processed_prompt
+    if program_run is not None:
+        _apply_program_run(updated, program_run, schema_props)
     return updated
+
+
+async def _run_prompt_program(
+    prompt: str,
+    parameters: Dict[str, Any],
+    program_opts: Dict[str, Any],
+    *,
+    tool_id: str,
+    model: Optional[str],
+    schema_props: Dict[str, Any],
+    project_id: Optional[int],
+    profile_id: Optional[str],
+) -> tuple[Dict[str, Any], str]:
+    from llm_resolver import LLMUnavailableError
+    from prompt_programs.prepare import ProgramError, ensure_program, program_seed, realize
+
+    try:
+        entry = await ensure_program(
+            prompt=prompt, tool_id=tool_id, model_name=model, schema_props=schema_props,
+            lora_items=program_opts.get("loras") or [], project_id=project_id, profile_id=profile_id,
+        )
+        seed = program_seed(parameters.get("seed"), parameters.get("_batch_index"))
+        result = realize(entry, seed=seed, pins=program_opts.get("pins"), fixed=program_opts.get("fixed"))
+    except ProgramError as e:
+        raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
+    except LLMUnavailableError as e:
+        raise HTTPException(status_code=424, detail=f"Generation was not started: {e}") from None
+    record = {"key": entry["key"], **result.to_dict(), "pins": program_opts.get("pins") or {}}
+    return record, result.prompt
+
+
+def _apply_program_run(updated: Dict[str, Any], record: Dict[str, Any], schema_props: Dict[str, Any]) -> None:
+    """Add the program's LoRAs and parameter values to one job's parameters."""
+    if record.get("loras"):
+        current = list(updated.get("loras") or [])
+        have = {str(x.get("lora") or x.get("path") or "") for x in current if isinstance(x, dict)}
+        for lu in record["loras"]:
+            if lu.get("path") and lu["path"] not in have:
+                current.append({"lora": lu["path"], "weight": lu.get("weight", 1.0)})
+        updated["loras"] = current
+    for name, value in (record.get("params") or {}).items():
+        spec = schema_props.get(name)
+        if not isinstance(spec, dict):
+            continue
+        if isinstance(spec.get("minimum"), (int, float)):
+            value = max(spec["minimum"], value)
+        if isinstance(spec.get("maximum"), (int, float)):
+            value = min(spec["maximum"], value)
+        updated[name] = int(value) if spec.get("type") == "integer" else value
+    updated["prompt_program"] = record
 
 
 # Models for which agent tool calls use model-aware enhancement by default.

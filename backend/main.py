@@ -154,6 +154,7 @@ from routes import (
     projects,
     processing,
     prompt_enhancement,
+    prompt_programs,
     profiles,
     realtime,
     flows,
@@ -226,6 +227,7 @@ app.include_router(admin.router)
 app.include_router(realtime.router)
 app.include_router(chats.router)
 app.include_router(prompt_enhancement.router)
+app.include_router(prompt_programs.router)
 app.include_router(profiles.router)
 app.include_router(saved_views.router)
 app.include_router(workspace.router)
