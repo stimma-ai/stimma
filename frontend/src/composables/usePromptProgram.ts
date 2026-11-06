@@ -1,4 +1,4 @@
-import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 
@@ -127,6 +127,13 @@ export function usePromptProgram(o: Options) {
   }
 
   let lookupId = 0
+  /** The server no longer has the program we showed as prepared (its cache was
+      cleared or reset): drop it so the dot says so and the next run prepares. */
+  function forget(sig: string) {
+    if (preparedSig.value !== sig) return
+    program.value = null
+    preparedSig.value = null
+  }
   /** Load the prepared program for the current inputs if the server has one. Never calls a model. */
   async function lookup() {
     if (status.value === 'off' || busy.value) return
@@ -136,7 +143,7 @@ export function usePromptProgram(o: Options) {
       const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true }))
       if (id !== lookupId || sig !== signature.value) return
       if (data?.unsupported) { unsupportedSig.value = sig; return }
-      if (!data?.key) return
+      if (!data?.key) { forget(sig); return }
       program.value = data
       preparedSig.value = sig
     } catch {
@@ -185,6 +192,8 @@ export function usePromptProgram(o: Options) {
 
   /** Before a run: prepare if out of date. Returns false if the run should not start. */
   async function ensureReady(): Promise<boolean> {
+    // "Ready" is what the editor last saw; confirm the server still has it (cheap, no model).
+    if (status.value === 'ready') await lookup()
     // Re-check after each prepare: the prompt may have changed while it ran.
     for (let i = 0; i < 3 && needsPrepare(); i++) {
       if (!(await prepare())) return false
@@ -194,8 +203,10 @@ export function usePromptProgram(o: Options) {
 
 
   async function fetchProgramText(): Promise<{ program: string; enhanced: string }> {
+    const sig = signature.value
     const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true, include_program: true }))
-    return { program: data.program || '', enhanced: data.enhanced || '' }
+    if (!data?.key) forget(sig)
+    return { program: data?.program || '', enhanced: data?.enhanced || '' }
   }
 
   /** Dev debugging: a few runs with the current pins and edits, no model call. */
@@ -309,6 +320,10 @@ export function usePromptProgram(o: Options) {
     if (t) clearTimeout(t)
     t = setTimeout(lookup, 400)
   }, { immediate: true })
+  // Coming back to the window: the server may have changed under us.
+  const onFocus = () => { void lookup() }
+  window.addEventListener('focus', onFocus)
+  onUnmounted(() => window.removeEventListener('focus', onFocus))
 
   return {
     program, status, error, signature, pins, edits, choices, rows, byId, openCard,

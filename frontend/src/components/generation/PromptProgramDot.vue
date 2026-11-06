@@ -117,12 +117,12 @@ const dotColor = computed(() => ({
 
 const statusText = computed(() => ({
   ready: 'Prepared. Each run draws new choices without calling a model.',
-  stale: 'Changed. Prepares when you run.',
+  stale: 'Not prepared for this prompt yet. Prepares when you run.',
   busy: 'Preparing…',
   error: props.program.error.value?.message || 'Couldn’t prepare this prompt.',
 }[props.program.status.value as string] || ''))
 
-const title = computed(() => ({ ready: 'Prepared', stale: 'Changed: prepares when you run', busy: 'Preparing…', error: 'Couldn’t prepare' }[props.program.status.value as string] || ''))
+const title = computed(() => ({ ready: 'Prepared', stale: 'Not prepared: prepares when you run', busy: 'Preparing…', error: 'Couldn’t prepare' }[props.program.status.value as string] || ''))
 
 const menuStyle = computed(() => {
   const r = btn.value?.getBoundingClientRect()
@@ -139,6 +139,11 @@ const enhancedText = ref('')
 async function showProgram() {
   try {
     const got = await props.program.fetchProgramText()
+    if (!got.program) {
+      // The server doesn't have it (anymore): the dot turns amber and the next run prepares.
+      menuOpen.value = true
+      return
+    }
     programText.value = got.program
     enhancedText.value = got.enhanced
   } catch {
