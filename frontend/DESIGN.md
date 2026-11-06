@@ -983,8 +983,8 @@ surface (`surface`) with the matte behind the result only; the strip is never
 pegged below a gap.
 The header's right side is one quiet icon group (presets, layout, forever
 mode; forever is a ghost until it runs, then `live`), then Run, then the
-queue-options menu. **Every new output** is one always-visible row in the
-form: label left, then the auto-mark toggles and auto-delete at the right edge.
+queue-options menu. **Every new output** is one always-visible row at the
+foot of the form: label left, then the auto-mark toggles and auto-delete at the right edge.
 Its label names the scope, because the result's heart, bookmark and trash look
 alike and act on one result only. The result band's facts (generation time, auto-trash
 countdown) are quiet mono readouts, not outlined actions; the time carries a
@@ -992,8 +992,9 @@ caret because it opens details. Collapsed subsystems read value-first: label
 left; at the right edge a quiet state in the page's own sans (`2 on`, `3 steps`,
 `4 settings`, `Delete after 30m`) and then either a labelled `+ Add` (it adds) or the one caret
 (it discloses). One row height (32px, 44px on touch) and one gap
-(`ToolSectionHeader`) serve reference images, LoRAs, post-processing, advanced
-settings and new outputs; an optional input with nothing in it is that row
+(`ToolSectionHeader`) serve reference images, LoRAs, advanced settings,
+post-processing and new outputs, in that order because it is the order they
+apply in; an optional input with nothing in it is that row
 (the label and `Add` only, lighter than a row that holds something, and still a drop target), and its media tile with its height
 appears only once there is media or the tool requires one. The prompt editor's keybinding, font and syntax-help
 controls sit behind one overflow button.

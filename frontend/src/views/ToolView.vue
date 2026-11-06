@@ -377,17 +377,6 @@
               v-model="modelParams.megapixels"
             />
         </div>
-        <!-- Every new output: auto-markers and auto-delete, together and always
-             visible. Distinct from the result's own heart / bookmark / trash. -->
-        <AutoOutputRow
-          :sheet="isCompact"
-          :markers="jobsManager?.availableMarkers.value || []"
-          v-model:auto-marker-ids="globalPrefs.autoMarkerIds"
-          :auto-delete="autoDeleteDuration"
-          @update:auto-delete="setAutoDeleteDuration"
-          @configure="runControlRef?.openSheet()"
-        />
-
         <!-- Lyrics (audio music tools): a second, prompt-like input. Sits right
              under the main prompt — the prompt is the production brief (genre,
              mood), the lyrics are the words sung. Bound to modelParams like the
@@ -665,6 +654,16 @@
           @insert-trigger="insertTriggerWord"
         />
 
+        <!-- Generic Parameters (dynamic from tool schema, grouped) -->
+        <SchemaParamGroup
+          :full-tool-id="fullToolIdFromProps"
+          :groups="groupedGenericParams"
+          :values="constraintValues"
+          :is-group-collapsed="getGroupCollapsed"
+          :on-toggle-group-collapsed="toggleGroupCollapsed"
+          @update:param="(name, value) => { modelParams[name] = value }"
+        />
+
         <!-- Post-processing chain (auto-runs after each generation when On).
              Not shown for audio tools — no audio post-processing chains exist. -->
         <PostProcessingPanel
@@ -674,14 +673,15 @@
           :base-media-type="outputsVideo ? 'video' : 'image'"
         />
 
-        <!-- Generic Parameters (dynamic from tool schema, grouped) -->
-        <SchemaParamGroup
-          :full-tool-id="fullToolIdFromProps"
-          :groups="groupedGenericParams"
-          :values="constraintValues"
-          :is-group-collapsed="getGroupCollapsed"
-          :on-toggle-group-collapsed="toggleGroupCollapsed"
-          @update:param="(name, value) => { modelParams[name] = value }"
+        <!-- Every new output: auto-markers and auto-delete, together and always
+             visible. Distinct from the result's own heart / bookmark / trash. -->
+        <AutoOutputRow
+          :sheet="isCompact"
+          :markers="jobsManager?.availableMarkers.value || []"
+          v-model:auto-marker-ids="globalPrefs.autoMarkerIds"
+          :auto-delete="autoDeleteDuration"
+          @update:auto-delete="setAutoDeleteDuration"
+          @configure="runControlRef?.openSheet()"
         />
 
         <div v-if="submissionError" class="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-500 text-sm flex items-center justify-between gap-3">
