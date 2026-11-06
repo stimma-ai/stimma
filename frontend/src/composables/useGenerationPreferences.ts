@@ -57,6 +57,9 @@ export interface PromptOptions {
   // Optional so existing persisted prefs / partial literals stay valid; the
   // generate-time pipeline and UI read them defensively.
   translate?: TranslateSetting
+  // Raw: the prompt is sent exactly as typed (no wildcards, comments, brackets,
+  // Enhance or Translate), for prompts another stage will process.
+  raw?: boolean
 }
 
 export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {

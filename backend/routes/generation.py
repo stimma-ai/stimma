@@ -499,7 +499,8 @@ async def _apply_generation_prompt_pipeline(
     ctx = prompt_enhance_context(parameters, tool_id, task_type, prompt_options)
     model, model_vendor, schema_props = ctx["model"], ctx["model_vendor"], ctx["schema_props"]
     from lora_notes import lora_context_for
-    enhance_on = bool(((prompt_options or {}).get("autoImprove") or {}).get("enabled"))
+    raw = bool((prompt_options or {}).get("raw"))
+    enhance_on = not raw and bool(((prompt_options or {}).get("autoImprove") or {}).get("enabled"))
     program_run = None
     program_opts = (prompt_options or {}).get("program")
     if enhance_on and isinstance(program_opts, dict) and program_opts.get("enabled") and ctx["program_supported"]:

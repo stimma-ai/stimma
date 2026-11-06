@@ -941,3 +941,9 @@ class TestLoraContext:
         text = _lora_guidance(LORA_CONTEXT)
         assert "ohwx mara" in text and "A specific person." in text
         assert _lora_guidance([]) == ""
+
+
+async def test_raw_prompts_pass_through_untouched():
+    prompt = "a {red|blue} car, {{style}} [verbatim]\n# a note for the model"
+    options = {"raw": True, "autoImprove": {"enabled": True}, "translate": {"enabled": True, "language": "fr"}}
+    assert await pp.run_prompt_pipeline(None, prompt, options) == prompt

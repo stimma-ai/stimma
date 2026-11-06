@@ -643,7 +643,7 @@
           :upload-file-name="loraUploadFileName"
           :upload-config="loraUploadConfig"
           :lora-notes="loraNotes"
-          :verbatim-prompt="globalPrefs.promptOptions?.autoImprove?.enabled ? null : (globalPrefs.prompt || '')"
+          :verbatim-prompt="globalPrefs.promptOptions?.autoImprove?.enabled && !globalPrefs.promptOptions?.raw ? null : (globalPrefs.prompt || '')"
           :program-loras="promptProgram.loraControl.value"
           @program-lora="(path, el) => promptProgram.open(promptProgram.loraControl.value[path]?.choiceId, el)"
           @refresh-loras="refreshLoras"
@@ -3860,7 +3860,7 @@ const {
 const promptProgram = usePromptProgram({
   toolId: computed(() => fullToolIdFromProps || null),
   prompt: computed(() => globalPrefs.value.prompt || ''),
-  enabled: computed(() => !!hasPrompt.value && !llmUnconfigured.value && !!globalPrefs.value.promptOptions?.autoImprove?.enabled),
+  enabled: computed(() => !!hasPrompt.value && !llmUnconfigured.value && !globalPrefs.value.promptOptions?.raw && !!globalPrefs.value.promptOptions?.autoImprove?.enabled),
   loraItems: computed(() => hasLoras.value
     ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight }))
     : []),
@@ -4011,6 +4011,7 @@ const { clear: clearPromptWarmPool } = usePromptWarmPool({
     // H3 Context-IR depends on live duration/audio/keyframe parameters, not
     // prompt text alone, so it must be enhanced at submission time.
     !enhanceIsMiniMaxH3.value &&
+    !globalPrefs.value.promptOptions?.raw &&
     // A prompt program runs without an LLM: nothing to pre-enhance.
     promptProgram.status.value === 'off'
   ),
@@ -5515,7 +5516,9 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
   // into the generate-time pipeline. The backend picks the style from the model;
   // Ideogram (mode 'ideogram-json') runs as the post-resolve JSON step.
   const rawPromptOptions = capturedState.promptOptions
-  const promptOptions = rawPromptOptions
+  const promptOptions = rawPromptOptions?.raw
+    ? { ...rawPromptOptions, raw: true, autoImprove: { ...rawPromptOptions.autoImprove, enabled: false }, translate: { ...rawPromptOptions.translate, enabled: false } }
+    : rawPromptOptions
     ? {
         ...rawPromptOptions,
         // Tools with no prompt input have nothing to enhance or translate —

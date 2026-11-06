@@ -16,7 +16,20 @@
              declared input). Reads left→right: Enhance Prompt → Translate Prompt.
              Enhance is family-aware (prose / keywords / cinematography / Ideogram
              JSON) — the style is chosen automatically from the tool's model. -->
-        <div v-if="!hideAutoImprove" class="flex items-center gap-3">
+        <!-- Raw: the prompt is sent exactly as typed, so Enhance and Translate don't
+             apply. Always visible while on, so a hidden setting can't surprise you. -->
+        <div v-if="!hideAutoImprove && rawMode" class="flex items-center gap-2">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 text-ctl -mx-1.5 px-1.5 py-0.5 rounded-md text-content bg-overlay-subtle hover:text-content-secondary"
+            title="Sent exactly as typed: no wildcards, # lines, Enhance or Translate. Click to process the prompt again."
+            @click="setRaw(false)"
+          >
+            <span class="font-mono text-[10px] font-semibold uppercase tracking-wide">Raw</span>
+            <span class="text-content-muted">sent exactly as typed</span>
+          </button>
+        </div>
+        <div v-else-if="!hideAutoImprove" class="flex items-center gap-3">
           <!-- Enhance Prompt toggle. With no LLM configured the chip stays
                visible but inert — a quiet hint of what configuring one adds.
                The stored setting is untouched, so it resumes when a model
@@ -148,6 +161,17 @@
                 <span class="flex-1 text-left">Monospace font</span>
                 <CheckIcon v-if="monospaceEnabled" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
               </button>
+              <button
+                v-if="!hideAutoImprove"
+                role="menuitemcheckbox"
+                :aria-checked="rawMode"
+                class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle transition-colors"
+                title="Send the prompt exactly as typed, for prompts another stage will process"
+                @click="setRaw(!rawMode); showEditorMenu = false"
+              >
+                <span class="flex-1 text-left">Send exactly as typed</span>
+                <CheckIcon v-if="rawMode" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
+              </button>
               <div class="my-1 border-t border-edge-subtle"></div>
               <button
                 role="menuitem"
@@ -189,7 +213,7 @@
                   <code class="text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded text-xs" v-text="'{{name}}'"></code>
                 </div>
                 <p class="text-xs text-content-tertiary leading-relaxed">
-                  Picks a random value from a named wildcard list defined in Settings &gt; Wildcards.
+                  Picks a random value from a named wildcard list defined in Settings &gt; Wildcards. With Enhance on, any other name works too: Enhance writes the options.
                 </p>
               </div>
 
@@ -199,7 +223,7 @@
                   <code class="text-gray-500 italic bg-zinc-500/10 px-1.5 py-0.5 rounded text-xs"># comment</code>
                 </div>
                 <p class="text-xs text-content-tertiary leading-relaxed">
-                  Comments are visible to the Prompt Enhancement Model and can be used to provide instructions and guidance. They are not sent to the generation tools.
+                  Instructions for Enhance (&ldquo;# vary her expression&rdquo;). They are never sent to the generation tool, and without Enhance they are ignored.
                 </p>
               </div>
 
@@ -224,6 +248,12 @@
                 </div>
                 <p class="text-xs text-content-tertiary leading-relaxed">
                   When enabled, your prompt is automatically enhanced by AI each time you generate. The original prompt is preserved in the editor &mdash; only the version sent to the generation tool is improved.
+                </p>
+              </div>
+              <div v-if="!hideAutoImprove" class="mt-3">
+                <div class="text-xs font-medium text-content-secondary mb-1">Send exactly as typed</div>
+                <p class="text-xs text-content-tertiary leading-relaxed">
+                  In this menu. Sends the prompt untouched, braces, brackets and # lines included, for prompts another stage will process.
                 </p>
               </div>
             </div>
@@ -272,6 +302,8 @@ import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
 import Caret from '../ui/Caret.vue'
 import OverflowButton from '../ui/OverflowButton.vue'
+import { useWildcards, useSegments } from '../../composables/useWildcards'
+import type { PromptSyntaxMode } from '../../composables/useCodeMirrorPrompt'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
@@ -402,7 +434,7 @@ function setTranslate(code: string | null) {
 }
 
 // CodeMirror composable
-const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, applyDiffDecorations, clearDiffDecorations, selectLine } =
+const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, applyDiffDecorations, clearDiffDecorations, selectLine, setSyntax } =
   useCodeMirrorPrompt({
     mountRef: editorMount,
     modelValue: () => props.modelValue,
@@ -413,6 +445,22 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
     // Blur intentionally does nothing — suggestion refresh is debounce-driven.
     onBlur: () => {},
   })
+
+// --- How the prompt will be read: Raw, Enhance, or plain (Enhance off / no model) ---
+const rawMode = computed(() => !!props.promptOptions.raw)
+function setRaw(on: boolean) {
+  emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
+}
+const { wildcards } = useWildcards()
+const { segments } = useSegments()
+const syntaxMode = computed<PromptSyntaxMode>(() =>
+  rawMode.value ? 'raw'
+    // Flow inputs don't run the prompt pipeline here; keep their highlighting as it was.
+    : props.hideAutoImprove || (!llmUnconfigured.value && props.promptOptions.autoImprove?.enabled) ? 'enhance'
+    : 'plain')
+watch([syntaxMode, wildcards, segments], () => {
+  setSyntax(syntaxMode.value, [...wildcards.value.map(w => w.name), ...segments.value.map(sg => sg.name)])
+}, { immediate: true })
 
 // Diff segment type (used by computeWordDiff)
 interface DiffSegment {
