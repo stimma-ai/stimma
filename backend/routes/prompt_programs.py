@@ -76,9 +76,9 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
 
 @router.post("/preview")
 async def preview(req: PreviewRequest) -> Dict[str, Any]:
-    from prompt_programs.prepare import program_seed, realize
+    from prompt_programs.prepare import draw_seed, realize
     entry = await _prepare(req)
     if entry is None or entry.get("unsupported"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
-    result = realize(entry, seed=program_seed(req.seed), pins=req.pins, edits=req.edits)
+    result = realize(entry, seed=draw_seed(req.seed), pins=req.pins, edits=req.edits)
     return {"key": entry["key"], **result.to_dict()}

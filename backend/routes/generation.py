@@ -547,7 +547,7 @@ async def _run_prompt_program(
     profile_id: Optional[str],
 ) -> tuple[Dict[str, Any], str]:
     from llm_resolver import LLMUnavailableError
-    from prompt_programs.prepare import ProgramError, ensure_program, program_seed, realize
+    from prompt_programs.prepare import ProgramError, draw_seed, ensure_program, realize
 
     try:
         entry = await ensure_program(
@@ -555,8 +555,8 @@ async def _run_prompt_program(
             instructions=(((prompt_options or {}).get("autoImprove") or {}).get("instructions") or "").strip(),
             lora_items=program_opts.get("loras") or [], project_id=project_id, profile_id=profile_id,
         )
-        seed = program_seed(parameters.get("seed"), parameters.get("_batch_index"))
-        result = realize(entry, seed=seed, pins=program_opts.get("pins"), fixed=program_opts.get("fixed"),
+        # Independent of the image seed; an explicit draw_seed repeats the same draws.
+        result = realize(entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"), fixed=program_opts.get("fixed"),
                          edits=program_opts.get("edits"))
     except ProgramError as e:
         raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None

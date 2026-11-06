@@ -140,7 +140,7 @@ class RunResult:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "prompt": self.prompt,
-            "seed": self.seed,
+            "draw_seed": self.seed,
             "draws": [d.to_dict() for d in self.draws],
             "loras": [vars(lu) for lu in self.loras],
             "params": dict(self.params),

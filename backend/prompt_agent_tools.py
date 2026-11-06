@@ -409,7 +409,14 @@ _ACTION_TOOLS = [
         "set_batch_size when the user wants a new DEFAULT that persists across runs.",
         {"count": {"type": "integer", "description": "Images to queue for this run only, 1-8. "
                                                      "Default 1. Does not change batch size.",
-                   "minimum": 1, "maximum": 8}},
+                   "minimum": 1, "maximum": 8},
+         "draw_seed": {"type": "integer", "description": "Only when the prompt has choices (state_context.prompt_choices). "
+                                                         "Each image draws its choices fresh unless you pass a draw_seed: "
+                                                         "the same draw_seed gives the same choices. It is separate from "
+                                                         "the image seed, so a fixed image seed with no draw_seed varies "
+                                                         "only the choices, and a draw_seed with a random image seed "
+                                                         "keeps the choices and varies the image.",
+                       "minimum": 0}},
     ),
     _fn(
         "start_forever_mode",

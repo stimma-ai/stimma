@@ -222,7 +222,7 @@ export function usePromptProgram(o: Options) {
   }
 
   /** What a submit carries. `fixed` replays an earlier image's draws exactly. */
-  function payload(fixed?: Record<string, any>) {
+  function payload(fixed?: Record<string, any>, drawSeed?: number) {
     if (status.value === 'off') return undefined
     return {
       enabled: true,
@@ -230,6 +230,8 @@ export function usePromptProgram(o: Options) {
       edits: edits.value,
       loras: o.loraItems.value.map(i => ({ lora: i.lora, weight: i.weight })),
       ...(fixed ? { fixed } : {}),
+      // Its own seed, never the image's. Absent: each image draws fresh.
+      ...(drawSeed != null ? { draw_seed: drawSeed } : {}),
     }
   }
 

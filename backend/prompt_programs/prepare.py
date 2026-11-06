@@ -444,18 +444,15 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     raise ProgramError(f"Couldn't prepare this prompt: {last_error}")
 
 
-def program_seed(seed: Any, batch_index: Any = None) -> int:
+def draw_seed(seed: Any = None) -> int:
+    """The seed for a run's draws. It is its own seed, never the image's: the same
+    image seed with new draws, or the same draws with a new image seed, are both
+    useful. Missing or negative means fresh draws."""
     try:
         s = int(seed)
     except (TypeError, ValueError):
         s = -1
-    if s < 0:
-        s = random.randrange(1, 2**31)
-    try:
-        b = int(batch_index or 0)
-    except (TypeError, ValueError):
-        b = 0
-    return (s * 1_000_003 + b) % (2**31)
+    return s % (2**31) if s >= 0 else random.randrange(0, 2**31)
 
 
 def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] = None,
@@ -467,4 +464,4 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
                clean_edits or None)
 
 
-__all__ = ["ensure_program", "realize", "program_seed", "realized_text", "tidy_text", "ProgramError"]
+__all__ = ["ensure_program", "realize", "draw_seed", "realized_text", "tidy_text", "ProgramError"]

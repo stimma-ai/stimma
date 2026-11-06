@@ -326,3 +326,21 @@ class TestApplyRun:
         assert updated["loras"][1] == {"lora": "loras/cb.safetensors", "weight": 0.8}
         assert updated["guidance"] == 10 and updated["steps"] == 3
         assert updated["prompt_program"]["key"] == "k"
+
+
+class TestDrawSeed:
+    async def _run(self, image_seed, draw_seed=None):
+        from routes.generation import _run_prompt_program
+        opts = {"enabled": True, **({"draw_seed": draw_seed} if draw_seed is not None else {})}
+        record, _ = await _run_prompt_program(PROMPT, {"seed": image_seed}, opts, ctx=ctx(SCHEMA), tool_id="t",
+                                              prompt_options={}, project_id=None, profile_id="p")
+        return record
+
+    async def test_draws_are_independent_of_the_image_seed(self, stub):
+        _, replies = stub
+        replies.append(f"```python\n{TRAIN}```")
+        same_image = [await self._run(42) for _ in range(12)]
+        assert len({r["draw_seed"] for r in same_image}) > 1  # same image seed, fresh draws
+        a, b = await self._run(1, draw_seed=7), await self._run(999, draw_seed=7)
+        assert a["draw_seed"] == b["draw_seed"] == 7
+        assert [d["value"] for d in a["draws"]] == [d["value"] for d in b["draws"]]

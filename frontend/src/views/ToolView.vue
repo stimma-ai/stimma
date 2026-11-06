@@ -5353,6 +5353,7 @@ type ForeverSubmitOptions = {
   countOverride?: number
   // Prompt programs: replay these draws exactly (same choices, new seed).
   programFixed?: Record<string, any>
+  programDrawSeed?: number
 }
 
 type SubmitJobResult = {
@@ -5543,7 +5544,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
           ...rawPromptOptions.translate,
           enabled: toolHasPrompt && !llmUnconfigured.value && !!rawPromptOptions.translate?.enabled,
         },
-        program: promptProgram.payload(options.programFixed),
+        program: promptProgram.payload(options.programFixed, options.programDrawSeed),
       }
     : rawPromptOptions
   const enhanceOn = !!promptOptions?.autoImprove?.enabled
@@ -6371,6 +6372,15 @@ function getStateContext(): Record<string, any> {
   }
   if (Object.keys(res).length) ctx.resolution = res
 
+  // The prepared prompt's choices: what each image draws (see generate's draw_seed).
+  if (promptProgram.status.value === 'ready' && promptProgram.choices.value.length) {
+    ctx.prompt_choices = promptProgram.choices.value.filter(c => !c.hidden).map(c => ({
+      label: c.label,
+      options: promptProgram.optionsOf(c).slice(0, 12),
+      ...(promptProgram.pins.value[c.id]?.length ? { limited_to: promptProgram.pins.value[c.id] } : {}),
+    }))
+  }
+
   // LoRAs (selected only — never dump available).
   if (hasLoras.value && toolLoras.value.length) {
     ctx.loras = {
@@ -6891,7 +6901,11 @@ async function runTool(name: string, args: any): Promise<string> {
       // persistent batch size. Absent/invalid falls back to the current batchSize.
       const rawCount = args.count != null ? Math.round(Number(args.count)) : NaN
       const countOverride = Number.isNaN(rawCount) ? undefined : Math.min(8, Math.max(1, rawCount))
-      await submitJob(countOverride != null ? { countOverride } : {})
+      const rawDrawSeed = args.draw_seed != null ? Math.round(Number(args.draw_seed)) : NaN
+      await submitJob({
+        ...(countOverride != null ? { countOverride } : {}),
+        ...(Number.isNaN(rawDrawSeed) || rawDrawSeed < 0 ? {} : { programDrawSeed: rawDrawSeed }),
+      })
       const n = countOverride ?? Math.min(8, Math.max(1, uiState.value.batchSize ?? 1))
       return n === 1 ? 'Generation submitted.' : `Submitted ${n} generations.`
     }
