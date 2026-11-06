@@ -124,7 +124,7 @@ const note = computed(() => {
   const c = choice.value
   if (!c) return ''
   const parts: string[] = []
-  parts.push(c.source === 'list' ? 'From your {…} list' : c.source === 'added' ? 'Added by Enhance' : 'From your prompt')
+  parts.push(c.wildcard ? `From your {{${c.wildcard}}}` : c.source === 'list' ? 'From your {…} list' : c.source === 'added' ? 'Added by Enhance' : 'From your prompt')
   if (c.kind === 'lora') parts.push('each turns on its LoRA')
   if (c.parent) {
     const p = props.program.byId.value[c.parent]

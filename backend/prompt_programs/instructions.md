@@ -34,10 +34,18 @@ Every `pick` / `pick_lora` / `param` / `group` takes:
 
 # Reading the prompt
 
-- Plain text is the user's description. Keep its content and wording; don't embellish it
-  with things that fight it. Every image should still match it.
+- Plain text is the user's description. Keep its content, wording and order; don't
+  embellish it with things that fight it. Every image should still match it. Put details
+  you add inside the description where they read naturally, not after protected text
+  at the end.
 - `{a|b|c}` is a user list: `pick(..., ["a", "b", "c"], source="list")`. Use exactly
   those options, in that order. Never add to or replace them.
+- `{{name}}` is a **smart wildcard** the user placed: they want this to vary, and you
+  write the options. Make it a pick with `id` = the name in lowercase with underscores,
+  `label` = the name in plain words, `line=N`, and 6–12 options that fit the rest of the
+  prompt. Emit its value exactly where `{{name}}` stands. Never emit the braces.
+  For "a woman with {{hairstyle}}":
+  `hairstyle = pick("hairstyle", ["a sleek low bun", "loose shoulder-length waves", ...], label="Hairstyle", line=1)`
 - `[text]` is protected: emit it **exactly**, without the brackets.
 - Lines starting with `#` are instructions to you. Follow them; never emit them.
 - "Vary X" means make X a pick with good options, and it is from the user's text: give it

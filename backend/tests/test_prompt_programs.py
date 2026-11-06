@@ -187,6 +187,52 @@ class TestPrepare:
         assert out == "a {red|blue} car, film photo"
 
 
+SMART_PROMPT = "A portrait of a woman with {{hair style}} on a {{color}} background."
+SMART_GOOD = '''
+hair = pick("hair_style", ["a sleek bun", "loose waves", "a pixie cut"], label="Hair style", line=1)
+color = pick("color", ["teal", "ochre", "pale pink"], label="Color", line=1)
+emit("A portrait of a woman with", hair, "on a", color, "background.")
+'''
+
+
+class TestSmartWildcards:
+    async def _ensure(self, prompt):
+        return await prep.ensure_program(prompt=prompt, tool_id="t", model_name="m", schema_props={},
+                                         lora_items=[], project_id=None, profile_id="p")
+
+    async def test_unknown_double_braces_become_user_choices(self, stub):
+        _, replies = stub
+        replies.append(f"```python\n{SMART_GOOD}```")
+        entry = await self._ensure(SMART_PROMPT)
+        by = {c["id"]: c for c in entry["choices"]}
+        assert by["hair_style"]["wildcard"] == "hair style" and by["hair_style"]["source"] == "text"
+        assert by["hair_style"]["line"] == 1 and by["color"]["wildcard"] == "color"
+        assert entry["attempts"] == 1
+
+    async def test_missing_or_leaked_smart_wildcard_is_sent_back(self, stub):
+        calls, replies = stub
+        replies.append('```python\nemit("A portrait of a woman with {{hair style}} on a teal background.")\n```')
+        replies.append(f"```python\n{SMART_GOOD}```")
+        entry = await self._ensure(SMART_PROMPT)
+        assert entry["attempts"] == 2
+        feedback = calls[1][-1]["content"]
+        assert 'pick("hair_style"' in feedback and "Don't emit {{" in feedback
+
+    async def test_global_wildcards_still_win(self, stub, monkeypatch):
+        _, replies = stub
+        monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments",
+                            lambda profile_id: ([{"name": "color", "values": ["red", "blue"]}], []))
+        replies.append('''```python
+hair = pick("hair_style", ["a sleek bun", "loose waves"], label="Hair style", line=1)
+color = pick("color", ["red", "blue"], label="Color", source="list", line=1)
+emit("A portrait of a woman with", hair, "on a", color, "background.")
+```''')
+        entry = await self._ensure(SMART_PROMPT)
+        by = {c["id"]: c for c in entry["choices"]}
+        assert by["color"]["source"] == "list" and "wildcard" not in by["color"]
+        assert by["hair_style"]["wildcard"] == "hair style"
+
+
 class TestApplyRun:
     def test_adds_loras_params_and_record(self):
         from routes.generation import _apply_program_run

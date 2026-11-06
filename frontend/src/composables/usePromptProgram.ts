@@ -24,6 +24,8 @@ export interface ProgramChoice {
   group?: string
   index?: number
   attr?: string
+  /** The user's own {{name}} smart wildcard this choice fills. */
+  wildcard?: string
 }
 
 export interface ProgramGroup { id: string; count: number; label: string; source: string; line?: number }

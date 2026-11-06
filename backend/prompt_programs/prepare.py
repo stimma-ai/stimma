@@ -21,7 +21,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-6"
+PREPARE_VERSION = "pp-8"
 MAX_ATTEMPTS = 3
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8")
 
@@ -122,6 +122,27 @@ _VERBATIM = re.compile(r"\[([^\[\]]+)\]")
 _INLINE_LIST = re.compile(r"(?<!\{)\{([^{}]+\|[^{}]+)\}(?!\})")
 
 
+_SMART = re.compile(r"\{\{([^{}]+)\}\}")
+
+
+def smart_wildcards(prompt: str) -> List[str]:
+    """{{name}}s left after global wildcards and segments expanded: the user wants these
+    to vary and the program writes their options."""
+    return list(dict.fromkeys(m.group(1).strip() for m in _SMART.finditer(prompt) if m.group(1).strip()))
+
+
+def smart_id(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "choice"
+
+
+def _smart_choice(info: Dict[str, Any], name: str) -> Optional[Dict[str, Any]]:
+    want = smart_id(name)
+    for c in info["choices"]:
+        if c["kind"] == "pick" and (c["id"] == want or smart_id(c["label"]) == want):
+            return c
+    return None
+
+
 def _verbatim_segments(prompt: str) -> List[str]:
     return [m.group(1).strip() for m in _VERBATIM.finditer(prompt) if m.group(1).strip()]
 
@@ -158,6 +179,11 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
                 break
     for cid, value in missing.items():
         problems.append(f'pick("{cid}") drew "{value}" but it never appears in the emitted prompt. Pass its result to emit(...).')
+    for name in smart_wildcards(prompt):
+        if not _smart_choice(info, name):
+            problems.append(f'{{{{{name}}}}} is a smart wildcard: make it pick("{smart_id(name)}", [6-12 options], label=..., line=...) and emit its value where {{{{{name}}}}} stands.')
+    if any("{{" in r.prompt for r in samples):
+        problems.append("Don't emit {{...}}: replace each smart wildcard with its pick's value.")
     for m in _INLINE_LIST.finditer(prompt):
         opts = [o.strip() for o in m.group(1).split("|")]
         if not any(c["options"][: len(opts)] == opts and c.get("source") == "list" for c in info["choices"]):
@@ -169,6 +195,11 @@ def normalize_sources(info: Dict[str, Any], prompt: str) -> None:
     """Weak models mark things the user asked for as added. If a choice's name appears in
     the user's text, it came from the text, and gets the line it appears on."""
     lines = [ln.lower() for ln in prompt.splitlines()]
+    for name in smart_wildcards(prompt):  # the user's own {{name}}: from their text, on its line
+        c = _smart_choice(info, name)
+        if c:
+            c["source"], c["wildcard"] = "text", name
+            c["line"] = next((i + 1 for i, ln in enumerate(lines) if "{{" + name.lower() in ln.replace("{{ ", "{{")), c.get("line"))
     for c in info["choices"]:
         if c.get("source") == "list":
             continue
