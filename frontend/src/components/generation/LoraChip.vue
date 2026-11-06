@@ -3,7 +3,7 @@
     :class="[
       'group flex items-start gap-1.5 py-1.5 border-b border-edge-subtle last:border-b-0 text-sm text-content select-none cursor-pointer transition-colors',
       'coarse:items-center coarse:min-h-11 coarse:py-0',
-      unavailable ? 'opacity-60' : item.enabled ? '' : 'opacity-50'
+      unavailable ? 'opacity-60' : (item.enabled || programLabel) ? '' : 'opacity-50'
     ]"
     @pointerdown="onPointerDown"
     @click.stop="onClick"
@@ -12,6 +12,8 @@
     <!-- Enable dot -->
     <div class="shrink-0 w-3 flex items-center justify-center mt-[5px] coarse:mt-0">
       <div v-if="item.enabled && !unavailable" class="w-2.5 h-2.5 rounded-full bg-accent-hi" />
+      <!-- Off, but the prompt picks it (a prompt-program choice) -->
+      <div v-else-if="programLabel && !unavailable" class="w-2.5 h-2.5 rounded-full bg-selection ring-2 ring-selection/30" />
       <div v-else class="w-2.5 h-2.5 rounded-full border border-content-muted" />
     </div>
 
@@ -25,6 +27,15 @@
           :key="chip"
           class="shrink-0 text-[9px] leading-none px-1 py-0.5 rounded bg-overlay-subtle text-content-tertiary font-mono"
         >{{ chip }}</span>
+        <span
+          v-if="programLabel && !unavailable"
+          class="shrink-0 text-[9px] leading-none px-1 py-0.5 rounded bg-selection/15 text-selection font-mono uppercase"
+          data-program-mark
+          :title="`Your prompt picks this (${programLabel})`"
+        >prompt</span>
+      </div>
+      <div v-if="programLabel && !item.enabled && !unavailable" class="mt-0.5 truncate text-[11px] leading-snug text-content-tertiary">
+        {{ programLabel }} picks{{ triggerWords.length ? ` · ${triggerWords.join(', ')}` : '' }}
       </div>
       <div v-if="showRaw" class="font-mono text-[10px] text-content-muted truncate mt-0.5">
         {{ item.lora }}
@@ -135,6 +146,8 @@ interface Props {
   triggerWords?: string[]
   /** A trigger word the verbatim prompt doesn't contain, when Enhance is off. */
   missingTrigger?: string | null
+  /** The prompt-program choice that picks this LoRA, when the prompt controls it. */
+  programLabel?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -146,6 +159,7 @@ const props = withDefaults(defineProps<Props>(), {
   noteOpen: false,
   triggerWords: () => [],
   missingTrigger: null,
+  programLabel: null,
 })
 
 const emit = defineEmits<{
@@ -156,6 +170,7 @@ const emit = defineEmits<{
   (e: 'drag-intent', event: PointerEvent, loraPath: string, groupId: string | null): void
   (e: 'toggle-note'): void
   (e: 'insert-trigger', word: string): void
+  (e: 'program', event: MouseEvent): void
 }>()
 
 const directoryPath = computed(() => getDirectoryPath(props.item.lora))
@@ -201,6 +216,12 @@ function onPointerDown(event: PointerEvent) {
 function onClick(event: MouseEvent) {
   if (suppressClick.value) {
     suppressClick.value = false
+    return
+  }
+  // A LoRA the prompt picks opens the choice that picks it (pin it there); one you
+  // turned on yourself toggles as usual.
+  if (props.programLabel && !props.item.enabled && !props.unavailable) {
+    emit('program', event)
     return
   }
   emit('toggle', event)

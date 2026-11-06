@@ -478,6 +478,16 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
     view?.focus()
   }
 
+  /** Select one line (1-based) and bring it into view: "show me where this came from". */
+  function selectLine(n: number) {
+    if (!view) return
+    const doc = view.state.doc
+    if (n < 1 || n > doc.lines) return
+    const line = doc.line(n)
+    view.dispatch({ selection: { anchor: line.from, head: line.to }, scrollIntoView: true })
+    view.focus()
+  }
+
   function destroy() {
     mountRef.value?.removeEventListener('keydown', vimPanelKeydownHandler, true)
     view?.destroy()
@@ -501,6 +511,7 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
     applyDiffDecorations,
     clearDiffDecorations,
     focus,
+    selectLine,
     destroy,
   }
 }

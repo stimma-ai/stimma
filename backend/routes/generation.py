@@ -525,12 +525,14 @@ async def _run_prompt_program(
             lora_items=program_opts.get("loras") or [], project_id=project_id, profile_id=profile_id,
         )
         seed = program_seed(parameters.get("seed"), parameters.get("_batch_index"))
-        result = realize(entry, seed=seed, pins=program_opts.get("pins"), fixed=program_opts.get("fixed"))
+        result = realize(entry, seed=seed, pins=program_opts.get("pins"), fixed=program_opts.get("fixed"),
+                         edits=program_opts.get("edits"))
     except ProgramError as e:
         raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
     except LLMUnavailableError as e:
         raise HTTPException(status_code=424, detail=f"Generation was not started: {e}") from None
-    record = {"key": entry["key"], **result.to_dict(), "pins": program_opts.get("pins") or {}}
+    record = {"key": entry["key"], **result.to_dict(), "pins": program_opts.get("pins") or {},
+              "choices": [c for c in entry.get("choices") or [] if not c.get("hidden")]}
     return record, result.prompt
 
 

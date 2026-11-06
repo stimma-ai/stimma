@@ -340,7 +340,10 @@
             :promptOptions="globalPrefs.promptOptions"
             @update:promptOptions="globalPrefs.promptOptions = $event"
             :placeholder="promptPlaceholder"
-          />
+          >
+            <template #corner><PromptProgramDot :program="promptProgram" /></template>
+            <template #below-editor><PromptProgramChoices :program="promptProgram" /></template>
+          </AIPromptEditor>
         </div>
         </Teleport>
 
@@ -660,6 +663,8 @@
           :upload-config="loraUploadConfig"
           :lora-notes="loraNotes"
           :verbatim-prompt="globalPrefs.promptOptions?.autoImprove?.enabled ? null : (globalPrefs.prompt || '')"
+          :program-loras="promptProgram.loraControl.value"
+          @program-lora="(path, el) => promptProgram.open(promptProgram.loraControl.value[path]?.choiceId, el)"
           @refresh-loras="refreshLoras"
           @upload="uploadLora"
           @insert-trigger="insertTriggerWord"
@@ -681,6 +686,8 @@
           :values="constraintValues"
           :is-group-collapsed="getGroupCollapsed"
           :on-toggle-group-collapsed="toggleGroupCollapsed"
+          :program-params="promptProgram.paramControl.value"
+          @program-param="(name, el) => promptProgram.open(promptProgram.paramControl.value[name]?.choiceId, el)"
           @update:param="(name, value) => { modelParams[name] = value }"
         />
 
@@ -1174,7 +1181,12 @@
       :show="showInfoModal"
       :job="infoModalJob"
       @close="closeInfoModal"
+      @program-replay="replayProgramRun"
+      @program-use="useProgramRunChoices"
     />
+
+    <!-- Prompt programs: the open choice's card -->
+    <PromptProgramCard :program="promptProgram" @show-line="(n) => aiPromptEditorRef?.selectLine?.(n)" />
 
     <!-- Mask Editor Modal -->
     <MaskEditorModal
@@ -3387,6 +3399,10 @@ watch(() => videoImages.startImage, (newStart, oldStart) => {
 
 // LoRA state — ref that syncs bidirectionally with the composable pool
 import { useLoraPool } from '../composables/useLoraPool'
+import { usePromptProgram } from '../composables/usePromptProgram'
+import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
+import PromptProgramDot from '../components/generation/PromptProgramDot.vue'
+import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
 import { disableUnavailableLoras } from '../utils/availableLoras'
 const _loraPool = useLoraPool()
@@ -3847,6 +3863,36 @@ const {
   tool,
   availableLoras,
 })
+
+// Prompt programs ----------------------------------------------------------------
+// With Enhance on, the prompt is prepared once into a program and each run draws from
+// it (no model call per image). See composables/usePromptProgram.ts.
+const promptProgram = usePromptProgram({
+  toolId: computed(() => fullToolIdFromProps || null),
+  prompt: computed(() => globalPrefs.value.prompt || ''),
+  enabled: computed(() => !!hasPrompt.value && !llmUnconfigured.value && !!globalPrefs.value.promptOptions?.autoImprove?.enabled),
+  loraItems: computed(() => hasLoras.value
+    ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight }))
+    : []),
+  projectId: projectScopeId,
+  promptOptions: computed(() => globalPrefs.value.promptOptions),
+  setPromptOptions: (next: any) => { globalPrefs.value.promptOptions = next },
+})
+
+function replayProgramRun(run: any) {
+  const fixed = Object.fromEntries((run?.draws || []).map((d: any) => [d.id, d.value]))
+  void submitJob({ countOverride: 1, programFixed: fixed })
+}
+
+function useProgramRunChoices(run: any) {
+  const pins: Record<string, string[]> = {}
+  for (const d of run?.draws || []) {
+    if (d.kind === 'param' || d.hidden) continue
+    pins[d.id] = [String(d.value)]
+  }
+  promptProgram.setManyPins(pins)
+}
+
 
 // Values used to evaluate x-constraints (SchemaParamGroup.vue, below). Frame
 // state lives in videoImages/frameItems, and reference-audio state in
@@ -5299,6 +5345,8 @@ type ForeverSubmitOptions = {
   // One-off count for THIS run only (the agent's generate(count)). Overrides the
   // persistent batchSize for this submit without mutating it. Ignored in forever mode.
   countOverride?: number
+  // Prompt programs: replay these draws exactly (same choices, new seed).
+  programFixed?: Record<string, any>
 }
 
 type SubmitJobResult = {
@@ -5333,6 +5381,13 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     return noSubmit(options)
   }
   if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
+
+  // Prompt programs: an out-of-date program is prepared once, before the batch.
+  if (!(await promptProgram.ensureReady())) {
+    submissionError.value = promptProgram.error.value?.message || 'Couldn’t prepare this prompt.'
+    addToast(submissionError.value, 'error')
+    return noSubmit(options)
+  }
 
   const count = options.foreverBackendName
     ? 1
@@ -5465,6 +5520,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
           ...rawPromptOptions.translate,
           enabled: toolHasPrompt && !llmUnconfigured.value && !!rawPromptOptions.translate?.enabled,
         },
+        program: promptProgram.payload(options.programFixed),
       }
     : rawPromptOptions
   const enhanceOn = !!promptOptions?.autoImprove?.enabled

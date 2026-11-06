@@ -174,11 +174,15 @@ _GROUP_ID = re.compile(r"^([a-z_][a-z0-9_]*)\[(\d+)\]\.([a-z_][a-z0-9_]*)$")
 
 class _Runner:
     def __init__(self, seed: int, pins: Dict[str, Sequence[str]], loras: Dict[str, LoraInfo],
-                 tool_params: Optional[Set[str]] = None, fixed: Optional[Dict[str, Any]] = None):
+                 tool_params: Optional[Set[str]] = None, fixed: Optional[Dict[str, Any]] = None,
+                 edits: Optional[Dict[str, Dict[str, Any]]] = None):
         self.rng = random.Random(seed)
         self.seed = seed
         self.pins = {k: [str(v) for v in vs] for k, vs in (pins or {}).items() if vs}
         self.fixed = fixed or {}  # exact replay: id -> value (overrides pins and RNG)
+        # The user's own changes to a choice, applied at draw time with no model call:
+        # {"add": [...], "remove": [...], "off": True}
+        self.edits = edits or {}
         self.loras = loras
         self.tool_params = tool_params
         self.draws: List[Draw] = []
@@ -243,6 +247,14 @@ class _Runner:
             opts = _as_list(opts, f'pick("{cid}")')
         else:
             opts = _as_list(options if options is not None else [], f'pick("{cid}")')
+        edit = self.edits.get(cid) or {}
+        if edit.get("off"):
+            return None  # removed by the user: the detail is left to the image model
+        if edit.get("remove"):
+            opts = [o for o in opts if o not in set(edit["remove"])] or opts
+        for extra in edit.get("add") or []:
+            if str(extra).strip() and str(extra) not in opts:
+                opts.append(str(extra))
         if not opts:
             return None
         value, pinned = self._choose(cid, opts, uniform=(source == "list"), exclude=exclude or ())
@@ -340,10 +352,10 @@ def tidy_text(parts: List[str]) -> str:
 
 def run(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None,
         loras: Optional[Sequence[LoraInfo]] = None, tool_params: Optional[Set[str]] = None,
-        fixed: Optional[Dict[str, Any]] = None) -> RunResult:
+        fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Dict[str, Any]]] = None) -> RunResult:
     """Run a program once. Deterministic for a given (source, seed, pins, fixed)."""
     tree = check(source)
-    runner = _Runner(seed, pins or {}, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params, fixed)
+    runner = _Runner(seed, pins or {}, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params, fixed, edits)
     env: Dict[str, Any] = {"__builtins__": dict(_SAFE_BUILTINS)}
     for name in API_NAMES:
         env[name] = getattr(runner, name)

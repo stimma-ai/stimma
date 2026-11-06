@@ -26,6 +26,15 @@
         <ProvenanceAppHost @navigate="openMedia">
           <ProvenanceSteps :steps="provenance.steps" />
         </ProvenanceAppHost>
+        <!-- Prompt programs: every choice this image drew. -->
+        <div v-if="programRun" class="mt-4" data-program-draws>
+          <div class="text-xs font-semibold text-content-secondary mb-1">Choices drawn</div>
+          <KeyValueList :rows="drawRows" />
+          <div class="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" @click="$emit('program-replay', programRun); $emit('close')">Same draws, new seed</Button>
+            <Button size="sm" variant="secondary" @click="$emit('program-use', programRun); $emit('close')">Use these choices</Button>
+          </div>
+        </div>
       </div>
     </template>
   </GenerationDetailsModal>
@@ -54,6 +63,8 @@ import {
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
 import { mapJobStatus, textClass, dotClass, bgClass } from '../../utils/statusColors'
 import GenerationDetailsModal, { type InputEntry } from './GenerationDetailsModal.vue'
+import KeyValueList from '../ui/KeyValueList.vue'
+import Button from '../ui/Button.vue'
 
 interface Job {
   id: number
@@ -75,6 +86,8 @@ const props = defineProps<{
 
 defineEmits<{
   (e: 'close'): void
+  (e: 'program-replay', run: any): void
+  (e: 'program-use', run: any): void
 }>()
 
 const { cachedTools, cachedProviders, fetchProvidersAndTools } = useProvidersApi()
@@ -105,6 +118,33 @@ const provenance = computed(() => {
   if (!resultMedia.value?.generation_metadata) return null
   const built = build(resultMedia.value, { fileFacts: false })
   return built.steps.length ? viewFromProvenance(built) : null
+})
+
+// Prompt programs: the run that wrote this image's prompt, if any.
+const programRun = computed<any | null>(() => {
+  let meta: any = resultMedia.value?.generation_metadata
+  if (typeof meta === 'string') {
+    try { meta = JSON.parse(meta) } catch { meta = null }
+  }
+  const run = meta?.prompt_program
+  return run && Array.isArray(run.draws) && run.draws.length ? run : null
+})
+const drawRows = computed(() => {
+  const run = programRun.value
+  if (!run) return []
+  const loraWeight = (name: string) => (run.loras || []).find((l: any) => l.name === name)?.weight
+  return run.draws.map((d: any, i: number) => {
+    let value = String(d.value)
+    if (d.kind === 'lora' && loraWeight(d.value) != null) value += ` · LoRA ${Number(loraWeight(d.value)).toFixed(2)}`
+    if (d.pinned) value += ' (pinned)'
+    return {
+      key: `${d.id}-${i}`,
+      label: d.hidden ? `  ${d.label}` : d.label,
+      value,
+      mono: d.kind === 'param',
+      valueClass: d.hidden ? 'text-content-tertiary' : 'text-selection',
+    }
+  })
 })
 
 function openMedia(mediaId: number) {

@@ -48,6 +48,13 @@ class TestRuntime:
         again = run(TRAIN, 999, None, LORAS, PARAMS, fixed)
         assert again.prompt == first.prompt
 
+    def test_user_edits(self):
+        for s in range(20):
+            r = run(TRAIN, s, {"weather": ["sleet"]}, LORAS, PARAMS, None,
+                    {"weather": {"add": ["sleet"]}, "umbrella": {"off": True}, "clothing": {"remove": ["a trench coat"]}})
+            assert "sleet" in r.prompt and not any(d.id == "umbrella" for d in r.draws)
+            assert "trench coat" not in r.prompt
+
     def test_lora_trigger_and_weight(self):
         r = run(TRAIN, 5, {"hairstyle": ["Curtain bangs"]}, LORAS, PARAMS)
         assert r.prompt.startswith("cbangs,")

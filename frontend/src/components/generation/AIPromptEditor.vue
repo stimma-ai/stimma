@@ -3,6 +3,9 @@
     <!-- Main Prompt Editor -->
     <div class="relative rounded-md border border-transparent bg-field focus-within:border-accent transition-colors [&_.cm-editor]:!bg-transparent">
       <div ref="editorMount"></div>
+      <!-- Host-supplied extras: a status mark in the corner, a row under the text. -->
+      <slot name="corner" />
+      <slot name="below-editor" />
 
       <!-- Bottom Action Bar (flows below textarea): a single quiet ghost row
            (DESIGN.md §3.3). Every control here is monochrome text/icons, 11px,
@@ -399,7 +402,7 @@ function setTranslate(code: string | null) {
 }
 
 // CodeMirror composable
-const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, applyDiffDecorations, clearDiffDecorations } =
+const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, applyDiffDecorations, clearDiffDecorations, selectLine } =
   useCodeMirrorPrompt({
     mountRef: editorMount,
     modelValue: () => props.modelValue,
@@ -561,6 +564,7 @@ defineExpose({
   getText: () => props.modelValue,
   setPromptText,
   animateDiff,
+  selectLine,
 })
 </script>
 

@@ -206,7 +206,7 @@ async def lora_candidates(tool_id: str, items: Sequence[Dict[str, Any]], profile
 
 async def ensure_program(*, prompt: str, tool_id: str, model_name: Optional[str], schema_props: Dict[str, Any],
                          lora_items: Sequence[Dict[str, Any]], project_id: Optional[int],
-                         profile_id: Optional[str]) -> Dict[str, Any]:
+                         profile_id: Optional[str], cache_only: bool = False, force: bool = False) -> Optional[Dict[str, Any]]:
     """The prepared program for these inputs, from cache or by asking the model."""
     from prompt_pipeline import _profile_wildcards_and_segments
 
@@ -221,8 +221,8 @@ async def ensure_program(*, prompt: str, tool_id: str, model_name: Optional[str]
         "notes": {lo.name: notes.get(lo.name, "") for lo in loras},
     })
     store = _store(profile_id)
-    cached = store.get(key)
-    if cached:
+    cached = None if force else store.get(key)
+    if cached or cache_only:
         return cached
 
     started = time.monotonic()
@@ -280,10 +280,12 @@ def program_seed(seed: Any, batch_index: Any = None) -> int:
 
 
 def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] = None,
-            fixed: Optional[Dict[str, Any]] = None) -> RunResult:
+            fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None) -> RunResult:
     loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
     clean_pins = {str(k): [str(x) for x in (v if isinstance(v, list) else [v])] for k, v in (pins or {}).items() if v}
-    return run(entry["program"], seed, clean_pins, loras, set(entry.get("params") or {}) or None, fixed or None)
+    clean_edits = {str(k): v for k, v in (edits or {}).items() if isinstance(v, dict)}
+    return run(entry["program"], seed, clean_pins, loras, set(entry.get("params") or {}) or None, fixed or None,
+               clean_edits or None)
 
 
 __all__ = ["ensure_program", "realize", "program_seed", "realized_text", "tidy_text", "ProgramError"]
