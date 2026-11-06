@@ -206,8 +206,7 @@
                 ? 'stimma-cloud-border-solid stimma-cloud-text font-medium bg-overlay-subtle'
                 : 'text-content-tertiary bg-overlay-subtle border border-edge-subtle'"
             >{{ tool.metadata.display_price }}</span>
-            <!-- Quiet icon group: presets, layout, forever mode. Run is the only
-                 heavy object in the header and sits last, before the menu. -->
+            <!-- Quiet icon group: presets, layout. -->
             <div class="flex items-center gap-0.5" role="group" aria-label="Tool options">
               <PresetPicker
                 v-if="tool.full_tool_id"
@@ -232,22 +231,6 @@
               >
                 <PhotoIcon class="h-icon-nav w-icon-nav" />
               </IconButton>
-              <!-- Forever mode: the shared split control, dressed as a quiet ghost
-                   (live magenta only while it is running). -->
-              <ForeverModeButton
-                :class="uiState.generateForeverMode
-                  ? '[&>div]:!bg-live [&>div>div.w-px]:!hidden [&>div>button]:!text-accent-on [&>div>button:hover]:!bg-transparent'
-                  : '[&>div]:!bg-transparent [&>div>div.w-px]:!hidden [&>div>button]:!text-content-secondary [&>div>button:hover]:!bg-overlay-subtle [&>div>button:hover]:!text-content'"
-                class="[&>div]:!rounded-md [&>div>button]:!h-8 [&>div>button]:!py-0 [&>div>button]:!px-2 [&>div>button]:!font-medium"
-                :is-active="uiState.generateForeverMode"
-                :concurrency="uiState.generateForeverConcurrency"
-                :idle-limit="uiState.generateForeverIdleLimit"
-                :is-stimma-cloud="isStimmaCloudTool"
-                @toggle="stopForeverMode"
-                @start="startForeverMode"
-                @update:concurrency="uiState.generateForeverConcurrency = $event"
-                @update:idle-limit="uiState.generateForeverIdleLimit = $event"
-              />
             </div>
             <BatchRunButton
               :batch-size="uiState.batchSize"
@@ -256,6 +239,18 @@
               :media-batch-count="globalPrefs.batchMode ? mediaInputItems.length : 0"
               @run="submitJob"
               @update:batch-size="uiState.batchSize = $event"
+            />
+            <!-- Forever mode keeps its own solid magenta while it runs; it is
+                 the feature's signature, so it is never dressed down. -->
+            <ForeverModeButton
+              :is-active="uiState.generateForeverMode"
+              :concurrency="uiState.generateForeverConcurrency"
+              :idle-limit="uiState.generateForeverIdleLimit"
+              :is-stimma-cloud="isStimmaCloudTool"
+              @toggle="stopForeverMode"
+              @start="startForeverMode"
+              @update:concurrency="uiState.generateForeverConcurrency = $event"
+              @update:idle-limit="uiState.generateForeverIdleLimit = $event"
             />
             <div v-if="jobsManager && isFromScratch" class="relative flex items-center">
               <OverflowButton size="lg" label="Queue options" :active="stageMenuOpen" @click="stageMenuOpen = !stageMenuOpen" />

@@ -981,9 +981,9 @@ Studio and on the fold). On the fold the hero, its action band and the strip are
 one media unit stacked from the top, and the form column sits on the panel
 surface (`surface`) with the matte behind the result only; the strip is never
 pegged below a gap.
-The header's right side is one quiet icon group (presets, layout, forever
-mode; forever is a ghost until it runs, then `live`), then Run, then the
-queue-options menu. **New outputs** is one always-visible row at the
+The header's right side is one quiet icon group (presets, layout), then Run,
+then forever mode (its own split control on a raised fill, solid magenta while
+it runs; never dressed down to a ghost), then the queue-options menu. **New outputs** is one always-visible row at the
 foot of the form: label left, then the auto-mark toggles and auto-delete at the right edge.
 Its label names the scope, because the result's heart, bookmark and trash look
 alike and act on one result only. The result band's facts (generation time, auto-trash

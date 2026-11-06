@@ -261,10 +261,11 @@
                 :aria-current="isTabActive(tab) ? 'page' : undefined"
                 :class="[
                   isTwoLineTab(tab) ? 'min-h-10' : 'min-h-8',
+                  tab.type === 'tool' ? 'pr-1.5' : '',
                   isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
-                  isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
+                  isTabToolUnavailable(tab) ? 'opacity-70 group-hover:opacity-100' : ''
                 ]"
                 :title="tab.type === 'tool' ? [tab.displayName, getToolSubtitle(tab.entityId), getToolIncompatibilityReason(tab.entityId)].filter(Boolean).join(' · ') : tab.displayName"
               >
@@ -369,12 +370,23 @@
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
 
-                  <!-- Tool name and trailing provider mark -->
+                  <!-- Tool name, activity, then the provider mark in the row's
+                       trailing slot (the warning when unavailable), so the
+                       marks form one right-aligned column -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-2">
                     <span class="flex-1 min-w-0 truncate text-sm" @dblclick.stop="!isMobile && startInlineRename(tab)">
                       {{ getToolTabTitle(tab) }}
                     </span>
+                    <Spinner v-if="isTabGenerating(tab)" size="sm" hue="border-t-blue-500" />
+                    <StatusDot
+                      v-else-if="unseenKindFor(tab.id)"
+                      :bucket="unseenKindFor(tab.id) === 'error' ? 'failed' : 'running'"
+                      :title="unseenKindFor(tab.id) === 'error' ? 'Finished with errors since you last looked' : 'Finished since you last looked'"
+                    />
                     <ToolProviderBadge
+                      :class="[
+                        isTabToolUnavailable(tab) ? 'invisible' : '',
+                      ]"
                       :provider-name="getToolProvider(tab.entityId)"
                       :provider-id="allToolsMap.get(tab.entityId)?.provider_id || tab.entityId.split(':')[0]"
                       :cloud="isToolStimmaCloud(tab.entityId)"
@@ -486,13 +498,13 @@
                   <!-- Working: spinner. The dot is reserved for "finished since
                        you last looked". -->
                   <Spinner
-                    v-if="isTabGenerating(tab) && tab.type !== 'flow'"
+                    v-if="isTabGenerating(tab) && tab.type !== 'flow' && tab.type !== 'tool'"
                     size="sm"
                     hue="border-t-blue-500"
                     class="self-center"
                   />
                   <StatusDot
-                    v-else-if="unseenKindFor(tab.id)"
+                    v-else-if="unseenKindFor(tab.id) && tab.type !== 'tool'"
                     :bucket="unseenKindFor(tab.id) === 'error' ? 'failed' : 'running'"
                     class="self-center"
                     :title="unseenKindFor(tab.id) === 'error' ? 'Finished with errors since you last looked' : 'Finished since you last looked'"
@@ -560,15 +572,15 @@
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
-                class="coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
+                class="coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
                 :aria-current="isTabActive(tab) ? 'page' : undefined"
                 :class="[
                   isTwoLineTab(tab) ? 'min-h-10' : 'min-h-8',
-                  tab.type === 'tool' ? 'pr-9' : '',
+                  tab.type === 'tool' ? 'pr-1.5' : 'group-hover:pr-7',
                   isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
-                  isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
+                  isTabToolUnavailable(tab) ? 'opacity-70 group-hover:opacity-100' : ''
                 ]"
                 :title="tab.type === 'tool' ? [tab.displayName, getToolSubtitle(tab.entityId), getToolIncompatibilityReason(tab.entityId)].filter(Boolean).join(' · ') : tab.displayName"
               >
@@ -673,12 +685,24 @@
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
 
-                  <!-- Tool name and trailing provider mark -->
+                  <!-- Tool name, activity, then the provider mark in the row's
+                       trailing slot (the close X on hover, the warning when
+                       unavailable), so the marks form one right-aligned column -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-2">
                     <span class="flex-1 min-w-0 truncate text-sm" @dblclick.stop="!isMobile && startInlineRename(tab)">
                       {{ getToolTabTitle(tab) }}
                     </span>
+                    <Spinner v-if="isTabGenerating(tab)" size="sm" hue="border-t-blue-500" />
+                    <StatusDot
+                      v-else-if="unseenKindFor(tab.id)"
+                      :bucket="unseenKindFor(tab.id) === 'error' ? 'failed' : 'running'"
+                      :title="unseenKindFor(tab.id) === 'error' ? 'Finished with errors since you last looked' : 'Finished since you last looked'"
+                    />
                     <ToolProviderBadge
+                      :class="[
+                        !isMobile ? 'group-hover:opacity-0 transition-opacity' : '',
+                        isTabToolUnavailable(tab) ? 'invisible' : '',
+                      ]"
                       :provider-name="getToolProvider(tab.entityId)"
                       :provider-id="allToolsMap.get(tab.entityId)?.provider_id || tab.entityId.split(':')[0]"
                       :cloud="isToolStimmaCloud(tab.entityId)"
@@ -790,13 +814,13 @@
                   <!-- Working: spinner. The dot is reserved for "finished since
                        you last looked". -->
                   <Spinner
-                    v-if="isTabGenerating(tab) && tab.type !== 'flow'"
+                    v-if="isTabGenerating(tab) && tab.type !== 'flow' && tab.type !== 'tool'"
                     size="sm"
                     hue="border-t-blue-500"
                     class="self-center"
                   />
                   <StatusDot
-                    v-else-if="unseenKindFor(tab.id)"
+                    v-else-if="unseenKindFor(tab.id) && tab.type !== 'tool'"
                     :bucket="unseenKindFor(tab.id) === 'error' ? 'failed' : 'running'"
                     class="self-center"
                     :title="unseenKindFor(tab.id) === 'error' ? 'Finished with errors since you last looked' : 'Finished since you last looked'"
