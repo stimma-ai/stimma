@@ -16,8 +16,7 @@
       :state="collapsedEmpty ? (isDragging ? 'Drop here' : 'None') : (batchMode ? undefined : `${items.length}/${maxItems}`)"
       :addable="collapsedEmpty"
       :add-title="isCoarsePointer ? 'Add — tap to choose' : 'Add — drop, paste, or browse'"
-      class="transition-colors"
-      :class="isDragging || pickerPopoverOpen ? 'rounded-md bg-accent/10 ring-1 ring-accent/50' : ''"
+      :class="isDragging ? 'relative isolate before:absolute before:inset-y-0 before:-inset-x-3 before:-z-10 before:rounded-md before:bg-accent/10 before:ring-1 before:ring-accent/50 before:pointer-events-none' : ''"
       @add="onAddTileClick"
     >
       <template v-if="props.description" #label-extra>
@@ -733,7 +732,7 @@
         :class="[
           'rounded-md flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer h-14 w-full',
           reorderable ? '' : 'col-span-full',
-          isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10' : 'bg-overlay-subtle text-content-muted hover:bg-overlay-light'
+          isDragging ? 'ring-1 ring-accent/50 bg-accent/10' : 'bg-overlay-subtle text-content-muted hover:bg-overlay-light'
         ]"
       >
         <span class="text-xs text-content-muted flex items-center gap-1.5">
@@ -755,7 +754,7 @@
       @drop.prevent.stop="onDrop($event)"
       :class="[
         'mt-1.5 w-full flex items-center gap-1.5 rounded-md px-1 py-1.5 text-xs cursor-pointer transition-colors',
-        isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10 text-accent-hi justify-center' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
+        isDragging ? 'ring-1 ring-accent/50 bg-accent/10 text-accent-hi justify-center' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
       ]"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">

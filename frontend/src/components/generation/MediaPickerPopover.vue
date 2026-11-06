@@ -8,10 +8,11 @@
       class="fixed z-menu w-[420px] bg-surface border border-edge-subtle rounded-lg shadow-lg flex flex-col overflow-hidden"
       :style="panelStyle"
     >
-      <!-- Flat text tabs: color + underline carry the state -->
+      <!-- Flat text tabs: color + underline carry the state. One icon tab per
+           marker, grouped at the right edge. -->
       <div class="flex gap-4 px-3 border-b border-edge-subtle">
         <button
-          v-for="tab in TABS"
+          v-for="tab in FIXED_TABS"
           :key="tab.key"
           @click="activeTab = tab.key"
           class="text-[11.5px] py-2 -mb-px border-b-[1.5px] transition-colors cursor-pointer"
@@ -21,6 +22,19 @@
         >
           {{ tab.label }}
         </button>
+        <div v-if="markerTabs.length > 0" class="ml-auto flex gap-3">
+          <button
+            v-for="tab in markerTabs"
+            :key="tab.key"
+            @click="activeTab = tab.key"
+            class="flex items-center py-2 -mb-px border-b-[1.5px] transition-[opacity,border-color] cursor-pointer"
+            :class="activeTab === tab.key ? 'border-accent' : 'border-transparent opacity-55 hover:opacity-100'"
+            :title="tab.label"
+            :aria-label="tab.label"
+          >
+            <span class="marker-icon w-3.5 h-3.5" :style="{ color: tab.color }" v-html="tab.iconSvg" />
+          </button>
+        </div>
       </div>
 
       <!-- Fixed-height body: three tile rows regardless of tab content -->
@@ -91,19 +105,20 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import MediaImage from '../media/MediaImage.vue'
 import MarkerBadges from '../MarkerBadges.vue'
-import { useMediaApi } from '../../composables/useMediaApi'
 import { useAssetApi } from '../../composables/useAssetApi'
 import { recentMediaInputs, type RecentInputKind } from '../../composables/useRecentMediaInputs'
 import { recordMediaPick, recentMediaPicks } from '../../composables/useRecentMediaPicks'
 import { getMediaType } from '../../utils/mediaTypes'
 import { makeProfileKey } from '../../utils/storageKeys'
 import { mediaIdOf } from '../../utils/assetIdentity'
+import { useMarkers } from '../../composables/useMarkers'
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import Spinner from '../ui/Spinner.vue'
 
 /**
  * Anchored popover for filling a MediaPicker slot from library media instead
  * of the OS file dialog. Tabs are feeds the app already has (picks made here,
- * frecency-recent inputs, generated, added, marked); picking emits the mediaId
+ * frecency-recent inputs, generated, added, one per marker); picking emits the mediaId
  * and the parent runs it through the same addFromMediaId path as a library
  * drag-drop.
  */
@@ -147,20 +162,37 @@ interface Tile {
   markers: TileMarker[]
 }
 
-type TabKey = 'recents' | 'recent' | 'generated' | 'added' | 'marked'
+type FixedTabKey = 'recents' | 'recent' | 'generated' | 'added'
+type MarkerTabKey = `marker:${number}`
+type TabKey = FixedTabKey | MarkerTabKey
 
-const TABS: Array<{ key: TabKey; label: string; emptyHint: string }> = [
+interface TabDef { key: TabKey; label: string; emptyHint: string }
+
+const FIXED_TABS: TabDef[] = [
   { key: 'recents', label: 'Recents', emptyHint: 'Nothing picked yet' },
   { key: 'recent', label: 'All', emptyHint: 'Nothing here yet' },
   { key: 'generated', label: 'Generated', emptyHint: 'Nothing generated yet' },
   { key: 'added', label: 'Imported', emptyHint: 'Nothing imported yet' },
-  { key: 'marked', label: 'Marked', emptyHint: 'Nothing marked yet' },
 ]
+
+const isMarkerTab = (key: string): key is MarkerTabKey => /^marker:\d+$/.test(key)
+const markerIdOf = (key: MarkerTabKey) => Number(key.slice('marker:'.length))
 
 const PAGE_SIZE = 30
 
-const { getMarkers } = useMediaApi()
 const { fetchAssets } = useAssetApi()
+const { availableMarkers, isInitialized: markersLoaded, init: initMarkers } = useMarkers()
+initMarkers()
+
+const markerTabs = computed(() =>
+  (availableMarkers.value as any[]).map(m => ({
+    key: `marker:${m.id}` as MarkerTabKey,
+    label: m.name as string,
+    emptyHint: `Nothing marked ${m.name} yet`,
+    color: m.color as string,
+    iconSvg: sanitizeSvg(m.icon_svg),
+  }))
+)
 
 // Recents is scoped to the surrounding project (same convention as ToolView's
 // projectScopeId) — tool id and instance deliberately don't factor in.
@@ -186,7 +218,9 @@ const TAB_STORAGE_KEY = makeProfileKey('media_picker_popover', 'tab')
 
 function initialTab(): TabKey {
   const stored = localStorage.getItem(TAB_STORAGE_KEY)
-  const storedTab = TABS.some(t => t.key === stored) ? (stored as TabKey) : null
+  // A marker tab may be restored before the marker list has loaded; the watch
+  // below falls back if that marker turns out to be gone.
+  const storedTab = stored && (FIXED_TABS.some(t => t.key === stored) || isMarkerTab(stored)) ? (stored as TabKey) : null
   const hasRecents = recentMediaPicks(acceptedKinds.value, projectId.value, 1).length > 0
   // The remembered tab wins, except landing on an empty Recents tab — fall
   // through to the default: Recents when it has something, otherwise All.
@@ -195,9 +229,19 @@ function initialTab(): TabKey {
 }
 
 const activeTab = ref<TabKey>(initialTab())
-const activeTabDef = computed(() => TABS.find(t => t.key === activeTab.value)!)
-const tiles = ref<Record<TabKey, Tile[] | null>>({ recents: null, recent: null, generated: null, added: null, marked: null })
-const loading = ref<Record<TabKey, boolean>>({ recents: false, recent: false, generated: false, added: false, marked: false })
+const activeTabDef = computed(() =>
+  [...FIXED_TABS, ...markerTabs.value].find(t => t.key === activeTab.value)
+  ?? { key: activeTab.value, label: '', emptyHint: 'Nothing marked yet' }
+)
+// Keyed by tab; a missing entry means not loaded yet.
+const tiles = ref<Partial<Record<TabKey, Tile[]>>>({})
+const loading = ref<Partial<Record<TabKey, boolean>>>({})
+
+watch([markersLoaded, markerTabs], () => {
+  if (markersLoaded.value && isMarkerTab(activeTab.value) && !markerTabs.value.some(t => t.key === activeTab.value)) {
+    activeTab.value = 'recent'
+  }
+}, { immediate: true })
 const mediaTypesParam = computed(() =>
   props.accept === 'image'
     ? (props.allowVideoFrames ? 'images,videos' : 'images')
@@ -228,9 +272,13 @@ async function fetchFeed(params: Record<string, unknown>, tsField: 'created_date
 }
 
 async function loadTab(tab: TabKey) {
-  if (tiles.value[tab] !== null || loading.value[tab]) return
+  if (tiles.value[tab] || loading.value[tab]) return
   loading.value[tab] = true
   try {
+    if (isMarkerTab(tab)) {
+      tiles.value[tab] = await fetchFeed({ marker_ids: String(markerIdOf(tab)), sort_by: 'created_desc' })
+      return
+    }
     switch (tab) {
       case 'recents': {
         // Picks made through this popover, straight from the local store — no
@@ -257,12 +305,6 @@ async function loadTab(tab: TabKey) {
         // project-scoped — it sorts by ProjectMedia.added_at.)
         tiles.value.added = await fetchFeed({ is_generated: false, sort_by: 'indexed_desc' }, 'indexed_date')
         break
-      case 'marked': {
-        const markers = await getMarkers()
-        const ids = (markers ?? []).map((m: any) => m.id).join(',')
-        tiles.value.marked = ids ? await fetchFeed({ marker_ids: ids, sort_by: 'created_desc' }) : []
-        break
-      }
       case 'recent': {
         // Blend: inputs used before (frecency-ranked, from local store — no
         // fetch needed) merged with fresh generated/added, deduped, newest first.
@@ -349,3 +391,10 @@ onUnmounted(() => {
   window.removeEventListener('resize', position)
 })
 </script>
+
+<style scoped>
+.marker-icon :deep(svg) {
+  width: 100%;
+  height: 100%;
+}
+</style>
