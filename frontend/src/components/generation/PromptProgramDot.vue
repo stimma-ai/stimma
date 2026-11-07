@@ -140,7 +140,7 @@ const status = computed(() => {
     case 'ready': return {
       head: 'Prompt ready',
       body: hasChoices ? 'Runs start right away, each with fresh choices.' : 'Runs start right away.',
-      action: 'Start over', actionHint: 'Rewrites it with new wording and choices.', force: true,
+      action: 'Read it again', actionHint: 'Your text stays as is. Runs get new wording and new choices.', force: true,
     }
     case 'busy': return { head: 'Reading your prompt…', body: 'Takes a few seconds, once.', action: '', actionHint: '', force: false }
     case 'error': return {
