@@ -561,3 +561,22 @@ class TestEditorAndRunAgreeOnTheKey:
         assert _prompt_audio_conditioned({"input_audios": ["/library/voice.wav"]}, schema)
         ref = {"input_audios": {"x-control": "audio_picker", "x-audio-role": "reference"}}
         assert not _prompt_audio_conditioned({"input_audios": ["ref"]}, ref)  # the editor doesn't send it either
+
+
+class TestAcceptanceFakeWritesPrograms:
+    """The acceptance sandbox's fake chat model must answer the program writer with a
+    program, or every Tool View run on a fresh app is blocked."""
+
+    def test_the_fake_reply_is_a_runnable_program(self):
+        from llm import _acceptance_program
+        from prompt_programs.runtime import check, extract_code
+        msg = prep.build_user_message("acceptance test image\n# keep it simple", "Acceptance dummy reply: x",
+                                      "m", "prose", {}, [], {})
+        reply = _acceptance_program([{"role": "system", "content": prep._INSTRUCTIONS}, {"role": "user", "content": msg}])
+        source = extract_code(reply)
+        check(source)
+        assert run(source, 1, None, [], set()).prompt.lower() == "acceptance test image"
+
+    def test_other_requests_keep_the_dummy_reply(self):
+        from llm import _acceptance_program
+        assert _acceptance_program([{"role": "system", "content": "You are helpful."}, {"role": "user", "content": "hi"}]) is None

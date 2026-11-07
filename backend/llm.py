@@ -200,7 +200,21 @@ def _stringify_message_content(content: Any) -> str:
     return ""
 
 
+def _acceptance_program(messages: List[Dict[str, Any]]) -> Optional[str]:
+    """Tool View's prompt-program writer expects a program back. Answer with the
+    smallest valid one, emitting the user's own prompt, so runs work end to end."""
+    system = next((_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "system"), "")
+    if not system.startswith("You turn an enhanced image prompt into a small program."):
+        return None
+    user = next((_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "user"), "")
+    m = re.search(r"User's prompt \(lines numbered\):\n(.*?)(?:\n\n|$)", user, flags=re.S)
+    lines = [re.sub(r"^\d+: ", "", ln) for ln in (m.group(1).splitlines() if m else [])]
+    text = " ".join(ln for ln in lines if ln.strip() and not ln.lstrip().startswith("#")) or "an image"
+    return f"```python\nemit({text!r})\n```"
+
+
 def _acceptance_response(config: LLMConfig, messages: List[Dict[str, Any]]) -> LLMResponse:
+    program = _acceptance_program(messages)
     last_user = ""
     for message in reversed(messages):
         if message.get("role") == "user":
@@ -211,7 +225,7 @@ def _acceptance_response(config: LLMConfig, messages: List[Dict[str, Any]]) -> L
         last_user = acceptance_matches[-1].strip()
     if len(last_user) > 180:
         last_user = last_user[:177].rstrip() + "..."
-    content = f"Acceptance dummy reply: {last_user or 'ready'}"
+    content = program or f"Acceptance dummy reply: {last_user or 'ready'}"
     prompt_tokens = max(1, sum(len(_stringify_message_content(m.get("content"))) for m in messages) // 4)
     completion_tokens = max(1, len(content) // 4)
     return LLMResponse(
