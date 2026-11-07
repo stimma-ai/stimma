@@ -1,3 +1,5 @@
+import { EXPIRING_MARKER_ID } from './implicitMarkers.js'
+
 export const DEFAULT_BROWSE_FILTERS = {
   captionQuery: '',
   promptQuery: '',
@@ -22,8 +24,6 @@ export const DEFAULT_BROWSE_FILTERS = {
   excludedMarkers: [],
   isImported: null,
   isUnused: null,
-  showExpiring: false,
-  excludeExpiring: false,
   similarTo: [],
   similarFaceTo: [],
   similarToText: '',
@@ -50,6 +50,14 @@ export function normalizeBrowseFilters(filters = {}) {
 
     normalized[key] = value
   }
+
+  // Expiring used to be its own filter; it is now the implicit:expiring
+  // marker. Saved views written before that keep working.
+  const addMarker = (key, id) => {
+    if (!normalized[key].includes(id)) normalized[key].push(id)
+  }
+  if (filters.showExpiring) addMarker('selectedMarkers', EXPIRING_MARKER_ID)
+  if (filters.excludeExpiring) addMarker('excludedMarkers', EXPIRING_MARKER_ID)
 
   return normalized
 }

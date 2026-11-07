@@ -46,8 +46,6 @@ export function getFilterCountWatchValues(filters = {}, {
     filters.excludedMarkers,
     filters.isImported,
     filters.isUnused,
-    filters.showExpiring,
-    filters.excludeExpiring,
     filters.createdAfter,
     filters.createdBefore,
     projectId,
@@ -117,8 +115,6 @@ export function buildFilterCountParams(filters = {}, {
   if (filters.isUnused !== null && filters.isUnused !== undefined) {
     params.is_unused = filters.isUnused
   }
-  if (filters.showExpiring) params.show_expiring = true
-  if (filters.excludeExpiring) params.exclude_expiring = true
   setText('created_after', filters.createdAfter)
   setText('created_before', filters.createdBefore)
 

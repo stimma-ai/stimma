@@ -668,12 +668,14 @@ def build_filtered_query(
         query = query.where(imported_predicate if is_imported else ~imported_predicate)
 
     # Marker filters share one OR category across configurable and implicit
-    # marker identities. Implicit markers are computed from provenance and are
-    # never rows in AssetMarker.
+    # marker identities. Implicit markers are computed from provenance or the
+    # Asset lifecycle and are never rows in AssetMarker.
     if exclude_category != 'markers':
         if marker_ids:
             marker_id_list, implicit_keys = split_marker_filter_tokens(marker_ids)
-            marker_predicates = implicit_marker_predicates(implicit_keys, MediaItem.id)
+            marker_predicates = implicit_marker_predicates(
+                implicit_keys, MediaItem.id, expiration_column
+            )
             if marker_id_list:
                 marker_predicates.append(
                     select(1).select_from(AssetMarker).where(
@@ -690,7 +692,9 @@ def build_filtered_query(
             excluded_marker_id_list, implicit_keys = split_marker_filter_tokens(
                 excluded_marker_ids
             )
-            marker_predicates = implicit_marker_predicates(implicit_keys, MediaItem.id)
+            marker_predicates = implicit_marker_predicates(
+                implicit_keys, MediaItem.id, expiration_column
+            )
             if excluded_marker_id_list:
                 marker_predicates.append(
                     select(1).select_from(AssetMarker).where(

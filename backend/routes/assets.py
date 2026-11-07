@@ -51,6 +51,9 @@ from tool_display import resolve_tool_display_metadata
 from implicit_markers import (
     EDITED_MARKER,
     EDITED_MARKER_KEY,
+    EXPIRING_MARKER,
+    EXPIRING_MARKER_KEY,
+    asset_is_expiring,
     implicit_markers_by_media,
     latest_edited_revision_at,
     media_has_implicit_marker,
@@ -1304,7 +1307,11 @@ async def get_asset_filter_counts(
                 facet("markers").where(
                     media_has_implicit_marker(EDITED_MARKER_KEY, MediaItem.id)
                 ),
-            )
+            ),
+            EXPIRING_MARKER_KEY: await _count_assets(
+                session,
+                facet("markers").where(asset_is_expiring(Asset.expires_at)),
+            ),
         },
     }
 
@@ -1315,18 +1322,28 @@ async def get_available_implicit_markers(
     project_id: int | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
-    """System markers present anywhere in the current browser scope."""
-    query = _asset_browser_base(state).where(
-        media_has_implicit_marker(EDITED_MARKER_KEY, MediaItem.id)
-    )
-    if project_id is not None:
-        query = _apply_asset_filters(
-            query,
-            project_ids=str(project_id),
-            state=state,
-        )
-    has_edited = bool(await session.scalar(select(query.exists())))
-    return {"markers": [dict(EDITED_MARKER)] if has_edited else []}
+    """System markers present anywhere in the current browser scope.
+
+    Expiring is offered only while something is actually scheduled to
+    auto-delete, and never in the trash, where nothing expires.
+    """
+    candidates = [
+        (EDITED_MARKER, media_has_implicit_marker(EDITED_MARKER_KEY, MediaItem.id)),
+    ]
+    if state == "active":
+        candidates.append((EXPIRING_MARKER, asset_is_expiring(Asset.expires_at)))
+    markers = []
+    for marker, predicate in candidates:
+        query = _asset_browser_base(state).where(predicate)
+        if project_id is not None:
+            query = _apply_asset_filters(
+                query,
+                project_ids=str(project_id),
+                state=state,
+            )
+        if await session.scalar(select(query.exists())):
+            markers.append(dict(marker))
+    return {"markers": markers}
 
 
 async def _live_asset_or_404(session: AsyncSession, asset_id: int) -> Asset:

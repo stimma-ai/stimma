@@ -282,18 +282,6 @@
           </button>
         </div>
 
-        <!-- Expiring Badge (not shown in trash mode) -->
-        <div v-if="!isTrashMode && (localShowExpiring || localExcludeExpiring)"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', localExcludeExpiring ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
-             @click="toggleExpiringExclusion">
-          <span class="leading-none">Expiring</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearExpiringFilter">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
         </div>
       </div>
 
@@ -701,14 +689,6 @@
                 <span :class="['text-xs font-mono tabular-nums', localIsImported !== null ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.imported || 0 }})</span>
               </div>
               <div
-                v-if="showExpiringRow"
-                @click="toggleExpiringFilter('expiring')"
-                :class="['flex justify-between items-center px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': isExpiringFilterSelected() }, isExpiringFilterSelected() ? '' : 'hover:bg-overlay-subtle']"
-              >
-                <span :class="['text-[13px]', isExpiringFilterSelected() ? 'text-accent-hi font-medium' : 'text-content-secondary']">Expiring</span>
-                <span :class="['text-xs font-mono tabular-nums', isExpiringFilterSelected() ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.expiring || 0 }})</span>
-              </div>
-              <div
                 v-if="showUnusedRow"
                 @click="toggleUnusedFilter"
                 :class="['flex justify-between items-center px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': localIsUnused !== null }, localIsUnused !== null ? '' : 'hover:bg-overlay-subtle']"
@@ -813,7 +793,7 @@ import {
 } from '../utils/filterFacetState'
 import { assetBrowseScope, includesProjectAssets } from '../utils/projectScope'
 import { captioningEnabledRef } from '../appConfig'
-import { EDITED_MARKER, EDITED_MARKER_ID } from '../constants/implicitMarkers'
+import { IMPLICIT_MARKERS } from '../constants/implicitMarkers'
 import { useTelemetry } from '../composables/useTelemetry'
 import { MediaImage } from './media'
 
@@ -851,8 +831,6 @@ const props = defineProps({
   implicitMarkers: { type: Array, default: () => [] }, // Available system-owned markers
   isImported: { type: Boolean, default: null }, // null | true | false provenance filter
   isUnused: { type: Boolean, default: null },   // null | true | false dead-end filter
-  showExpiring: Boolean,          // New: filter for expiring images (positive)
-  excludeExpiring: Boolean,       // New: filter to exclude expiring images (negative)
   createdAfter: String,           // ISO datetime string for file date filter
   createdBefore: String,          // ISO datetime string for file date filter
   totalCount: Number,
@@ -896,8 +874,6 @@ const emit = defineEmits([
   'update:excludedMarkers',    // New: excluded markers filter
   'update:isImported',         // Imported lineage provenance filter
   'update:isUnused',           // Unused (dead-end) filter
-  'update:showExpiring',       // New: expiring filter (positive)
-  'update:excludeExpiring',    // New: exclude expiring filter (negative)
   'update:createdAfter',       // New: file date filter
   'update:createdBefore',      // New: file date filter
   'update:similarToText',
@@ -952,8 +928,6 @@ const selectedMarkers = ref(props.selectedMarkers || [])  // New: markers
 const excludedMarkers = ref(props.excludedMarkers || [])  // New: excluded markers
 const localIsImported = ref(props.isImported ?? null)
 const localIsUnused = ref(props.isUnused ?? null)
-const localShowExpiring = ref(props.showExpiring || false)  // New: expiring filter (positive)
-const localExcludeExpiring = ref(props.excludeExpiring || false)  // New: exclude expiring filter (negative)
 const localSimilarityThreshold = ref(props.similarityThreshold ?? 0.75)
 const localCreatedAfter = ref(props.createdAfter || null)  // New: file date filter
 const localCreatedBefore = ref(props.createdBefore || null)  // New: file date filter
@@ -983,9 +957,8 @@ const filterCounts = ref({
   project_membership: { any: 0, none: 0 },
   date_ranges: {},
   imported: 0,
-  expiring: 0,
   unused: 0,
-  implicit_markers: { edited: 0 }
+  implicit_markers: { edited: 0, expiring: 0 }
 })
 const showKeywordModal = ref(false)
 const showTagModal = ref(false)
@@ -1068,8 +1041,6 @@ const hasActiveFilters = computed(() => {
     (excludedMarkers.value && excludedMarkers.value.length > 0) ||
     localIsImported.value !== null ||
     localIsUnused.value !== null ||
-    localShowExpiring.value ||
-    localExcludeExpiring.value ||
     props.similarSearchActive ||
     localCreatedAfter.value ||
     localCreatedBefore.value
@@ -1090,10 +1061,10 @@ const canSaveView = computed(() => {
 const filterMarkers = computed(() => {
   const configured = props.markers || []
   const implicit = props.implicitMarkers || []
-  const editedActive = selectedMarkers.value.includes(EDITED_MARKER_ID)
-    || excludedMarkers.value.includes(EDITED_MARKER_ID)
-  const editedAvailable = implicit.some(marker => marker.id === EDITED_MARKER_ID)
-  const activeFallback = editedActive && !editedAvailable ? [EDITED_MARKER] : []
+  const activeFallback = IMPLICIT_MARKERS.filter(marker =>
+    (selectedMarkers.value.includes(marker.id) || excludedMarkers.value.includes(marker.id))
+    && !implicit.some(available => available.id === marker.id)
+  )
   return [...configured, ...implicit, ...activeFallback]
 })
 
@@ -1363,13 +1334,10 @@ const visibleResolutions = computed(() => {
 const showImportedRow = computed(() =>
   !hasLoadedCounts.value || (filterCounts.value.imported || 0) > 0 || localIsImported.value !== null
 )
-const showExpiringRow = computed(() =>
-  !hasLoadedCounts.value || (filterCounts.value.expiring || 0) > 0 || localShowExpiring.value || localExcludeExpiring.value
-)
 const showUnusedRow = computed(() =>
   !hasLoadedCounts.value || (filterCounts.value.unused || 0) > 0 || localIsUnused.value !== null
 )
-const showUtilityColumn = computed(() => showImportedRow.value || showExpiringRow.value || showUnusedRow.value)
+const showUtilityColumn = computed(() => showImportedRow.value || showUnusedRow.value)
 
 // Filter params to pass to keyword modal
 const modalFilterParams = computed(() => {
@@ -1475,8 +1443,6 @@ function emitUpdate() {
   emit('update:excludedMarkers', excludedMarkers.value)        // New: excluded markers
   emit('update:isImported', localIsImported.value)              // Imported provenance filter
   emit('update:isUnused', localIsUnused.value)                  // Unused (dead-end) filter
-  emit('update:showExpiring', localShowExpiring.value)         // New: expiring filter (positive)
-  emit('update:excludeExpiring', localExcludeExpiring.value)   // New: exclude expiring filter (negative)
   emit('update:createdAfter', localCreatedAfter.value)         // New: file date filter
   emit('update:createdBefore', localCreatedBefore.value)       // New: file date filter
   emit('update:similarityThreshold', localSimilarityThreshold.value)
@@ -1696,8 +1662,6 @@ function clearAllFilters() {
   includeProjectsFlag.value = false
   localIsImported.value = null
   localIsUnused.value = null
-  localShowExpiring.value = false
-  localExcludeExpiring.value = false
   localCreatedAfter.value = null
   localCreatedBefore.value = null
   selectedDateRange.value = null
@@ -2266,53 +2230,6 @@ function clearUnusedFilter() {
   emitUpdate()
 }
 
-// Expiring filter functions - 3-state toggle
-function isExpiringFilterSelected() {
-  return localShowExpiring.value
-}
-
-function toggleExpiringFilter() {
-  const isPositive = localShowExpiring.value
-  const isNegative = localExcludeExpiring.value
-
-  if (!isPositive && !isNegative) {
-    // State 1: None -> Positive (green)
-    localShowExpiring.value = true
-    localExcludeExpiring.value = false
-  } else if (isPositive) {
-    // State 2: Positive -> Negative (red)
-    localShowExpiring.value = false
-    localExcludeExpiring.value = true
-  } else {
-    // State 3: Negative -> None
-    localShowExpiring.value = false
-    localExcludeExpiring.value = false
-  }
-
-  emitUpdate()
-}
-
-function toggleExpiringExclusion() {
-  const isExcluded = localExcludeExpiring.value
-
-  if (isExcluded) {
-    // Switch from excluded to included
-    localExcludeExpiring.value = false
-    localShowExpiring.value = true
-  } else {
-    // Switch from included to excluded
-    localShowExpiring.value = false
-    localExcludeExpiring.value = true
-  }
-  emitUpdate()
-}
-
-function clearExpiringFilter() {
-  localShowExpiring.value = false
-  localExcludeExpiring.value = false
-  emitUpdate()
-}
-
 // Saved view menu functions
 function handleDeleteView() {
   showSavedViewMenu.value = false
@@ -2515,8 +2432,6 @@ watch(() => props.selectedMarkers, (val) => syncArray(selectedMarkers, val))
 watch(() => props.excludedMarkers, (val) => syncArray(excludedMarkers, val))
 watch(() => props.isImported, (val) => localIsImported.value = val ?? null)
 watch(() => props.isUnused, (val) => localIsUnused.value = val ?? null)
-watch(() => props.showExpiring, (val) => localShowExpiring.value = val || false)
-watch(() => props.excludeExpiring, (val) => localExcludeExpiring.value = val || false)
 // Auto-switch to similarity sort when text search is entered
 watch(localSimilarToText, (newVal, oldVal) => {
   if (newVal && newVal.trim() && (!oldVal || !oldVal.trim())) {
@@ -2578,7 +2493,6 @@ async function handleProfileChanged() {
     project_membership: { any: 0, none: 0 },
     date_ranges: {},
     imported: 0,
-    expiring: 0,
     unused: 0
   }
   unfilteredTotalCount.value = null

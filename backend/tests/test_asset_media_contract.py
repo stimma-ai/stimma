@@ -45,6 +45,7 @@ from database import (
     ProjectMedia,
     Tag,
 )
+from implicit_markers import EXPIRING_MARKER_ID
 from tests.helpers.media import create_media_item
 
 pytestmark = pytest.mark.asyncio
@@ -203,6 +204,84 @@ class TestExpirationIsAssetLevel:
 
         exclude_expiring = await _listing_ids(client, exclude_expiring=True)
         assert exclude_expiring & mine == {plain_id}
+
+    async def test_expiring_is_an_implicit_marker(self, client, db_session):
+        async with db_session() as session:
+            plain_media = await create_media_item(session)
+            expiring_media = await create_media_item(session)
+            plain = await create_asset_from_media(session, media_id=plain_media.id)
+            expiring = await create_asset_from_media(
+                session,
+                media_id=expiring_media.id,
+                expires_at=datetime.utcnow() + timedelta(hours=6),
+            )
+            await session.commit()
+            plain_media_id, expiring_media_id = plain_media.id, expiring_media.id
+            mine = {plain_media_id, expiring_media_id}
+
+        # The legacy media listing and the asset browser share the marker grammar.
+        included = await _listing_ids(client, marker_ids=EXPIRING_MARKER_ID)
+        assert included & mine == {expiring_media_id}
+        excluded = await _listing_ids(client, excluded_marker_ids=EXPIRING_MARKER_ID)
+        assert excluded & mine == {plain_media_id}
+
+        browse = await client.get(
+            "/api/assets/browse",
+            params={"marker_ids": EXPIRING_MARKER_ID, "page_size": 200},
+        )
+        assert browse.status_code == 200, browse.text
+        browsed = {item["asset_id"] for item in browse.json()["items"]}
+        assert expiring.id in browsed and plain.id not in browsed
+        # Filter-only: tiles carry their own countdown, not the marker glyph.
+        assert all(
+            EXPIRING_MARKER_ID not in {m["id"] for m in item["markers"]}
+            for item in browse.json()["items"]
+        )
+
+        available = await client.get("/api/assets/implicit-markers")
+        assert EXPIRING_MARKER_ID in {m["id"] for m in available.json()["markers"]}
+        trashed = await client.get(
+            "/api/assets/implicit-markers", params={"state": "trashed"}
+        )
+        assert EXPIRING_MARKER_ID not in {m["id"] for m in trashed.json()["markers"]}
+
+        counts = await client.get("/api/assets/filter-counts")
+        assert counts.status_code == 200, counts.text
+        assert counts.json()["implicit_markers"]["expiring"] >= 1
+
+    async def test_expiring_marker_is_offered_only_while_something_expires(
+        self, client, db_session
+    ):
+        async with db_session() as session:
+            project = Project(name="contract-expiring-scope")
+            session.add(project)
+            await session.flush()
+            plain_media = await create_media_item(session)
+            plain = await create_asset_from_media(session, media_id=plain_media.id)
+            session.add(ProjectAsset(project_id=project.id, asset_id=plain.id))
+            await session.commit()
+            project_id = project.id
+
+        async def offered() -> set[str]:
+            response = await client.get(
+                "/api/assets/implicit-markers", params={"project_id": project_id}
+            )
+            assert response.status_code == 200, response.text
+            return {m["id"] for m in response.json()["markers"]}
+
+        assert EXPIRING_MARKER_ID not in await offered()
+
+        async with db_session() as session:
+            expiring_media = await create_media_item(session)
+            expiring = await create_asset_from_media(
+                session,
+                media_id=expiring_media.id,
+                expires_at=datetime.utcnow() + timedelta(hours=6),
+            )
+            session.add(ProjectAsset(project_id=project_id, asset_id=expiring.id))
+            await session.commit()
+
+        assert EXPIRING_MARKER_ID in await offered()
 
     async def test_legacy_media_auto_delete_at_does_not_expire_assets(
         self, client, db_session

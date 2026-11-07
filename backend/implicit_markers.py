@@ -1,13 +1,17 @@
-"""System-owned markers derived from Media provenance.
+"""System-owned markers derived from Media provenance and Asset lifecycle.
 
 Implicit markers share the browser presentation and filter grammar of user
 markers, but they are never rows in the configurable ``markers`` table and
 cannot be assigned or removed by users.
+
+``edited`` comes from provenance and is projected onto tiles. ``expiring``
+comes from the Asset lifecycle and is filter-only: tiles already carry their
+own auto-delete countdown.
 """
 
 from collections.abc import Iterable
 
-from sqlalchemy import func, select
+from sqlalchemy import false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -21,6 +25,10 @@ IMAGE_EDITOR_TOOL_ID = "builtin:stimma:image-editor"
 # Add future first-party video/audio editor tool IDs here. The public marker
 # contract stays "edited" while the provenance sources can expand.
 EDITED_TOOL_IDS = (IMAGE_EDITOR_TOOL_ID,)
+
+EXPIRING_MARKER_KEY = "expiring"
+EXPIRING_MARKER_ID = f"{IMPLICIT_MARKER_PREFIX}{EXPIRING_MARKER_KEY}"
+IMPLICIT_MARKER_KEYS = (EDITED_MARKER_KEY, EXPIRING_MARKER_KEY)
 
 EDITED_MARKER = {
     "id": EDITED_MARKER_ID,
@@ -41,6 +49,24 @@ EDITED_MARKER = {
     "source": "system",
 }
 
+EXPIRING_MARKER = {
+    "id": EXPIRING_MARKER_ID,
+    "key": EXPIRING_MARKER_KEY,
+    "name": "expiring",
+    "icon_svg": (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+        'fill="currentColor" aria-hidden="true" data-slot="icon">'
+        '<path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 '
+        '9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 '
+        '2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 '
+        '0 0 0 0-1.5h-3.75V6Z" clip-rule="evenodd" />'
+        '</svg>'
+    ),
+    "color": "#f59e0b",
+    "implicit": True,
+    "source": "system",
+}
+
 
 def split_marker_filter_tokens(value: str | None) -> tuple[list[int], list[str]]:
     """Split a mixed user/implicit marker filter into canonical identities."""
@@ -52,7 +78,7 @@ def split_marker_filter_tokens(value: str | None) -> tuple[list[int], list[str]]
             continue
         if token.startswith(IMPLICIT_MARKER_PREFIX):
             key = token.removeprefix(IMPLICIT_MARKER_PREFIX)
-            if key == EDITED_MARKER_KEY:
+            if key in IMPLICIT_MARKER_KEYS:
                 implicit_keys.append(key)
             continue
         try:
@@ -80,13 +106,28 @@ def media_has_implicit_marker(marker_key: str, media_id_column=None):
     )
 
 
-def implicit_marker_predicates(marker_keys: Iterable[str], media_id_column=None) -> list:
+def asset_is_expiring(expiration_column):
+    """Predicate for Assets scheduled to auto-delete.
+
+    Expiration is an Asset lifecycle property, so views without an Asset
+    expiration column have no expiring population.
+    """
+    if expiration_column is None:
+        return false()
+    return expiration_column.is_not(None)
+
+
+def implicit_marker_predicates(
+    marker_keys: Iterable[str], media_id_column=None, expiration_column=None
+) -> list:
     """Build predicates for all recognized implicit marker keys."""
-    return [
-        media_has_implicit_marker(key, media_id_column)
-        for key in dict.fromkeys(marker_keys)
-        if key == EDITED_MARKER_KEY
-    ]
+    predicates = []
+    for key in dict.fromkeys(marker_keys):
+        if key == EDITED_MARKER_KEY:
+            predicates.append(media_has_implicit_marker(key, media_id_column))
+        elif key == EXPIRING_MARKER_KEY:
+            predicates.append(asset_is_expiring(expiration_column))
+    return predicates
 
 
 async def implicit_markers_by_media(

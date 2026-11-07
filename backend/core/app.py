@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from config import get_settings, reload_settings, detect_config_changes
-from database import Marker, SavedView, MediaItem
+from database import Marker, MediaItem
 from database_registry import get_database_registry
 from delete_operations import ensure_delete_worker_started, stop_delete_worker
 import json
@@ -1055,79 +1055,6 @@ async def lifespan(app: FastAPI):
             log.debug("syncing markers", profile=profile.id, count=len(profile_markers))
             await sync_markers_for_profile(profile.id, profile_markers)
 
-            # Need to continue with saved views in same session
-            db = registry.get_database(profile.id)
-            async with db.async_session_maker() as session:
-
-                # Create default saved views if none exist
-                views_result = await session.execute(
-                    select(SavedView)
-                )
-                existing_views = views_result.scalars().all()
-                if not existing_views:
-                    # Look up marker IDs by name
-                    markers_result = await session.execute(select(Marker))
-                    markers_by_name = {m.name: m.id for m in markers_result.scalars().all()}
-                    favorite_id = markers_by_name.get('favorite')
-                    library_id = markers_by_name.get('library')
-
-                    # Create default saved views
-                    default_views = []
-
-                    # Default filter state (empty filters)
-                    base_filters = {
-                        "captionQuery": "",
-                        "selectedFolderIds": [],
-                        "selectedMarkers": [],
-                        "excludedMarkers": [],
-                        "selectedClusterIds": [],
-                        "mediaType": "all",
-                        "showExpiring": False,
-                        "aspectRatioFilter": None,
-                        "minWidth": None,
-                        "minHeight": None,
-                        "maxWidth": None,
-                        "maxHeight": None,
-                    }
-
-                    # Favorites view - shows items marked as favorite
-                    if favorite_id:
-                        favorites_filters = {**base_filters, "selectedMarkers": [favorite_id]}
-                        default_views.append(SavedView(
-                            name="Favorites",
-                            filters=json.dumps(favorites_filters),
-                            sort_by="created_desc",
-                            display_order=0
-                        ))
-
-                    # My Library view - shows items marked as favorite OR library
-                    marker_ids = [mid for mid in [favorite_id, library_id] if mid]
-                    if marker_ids:
-                        library_filters = {**base_filters, "selectedMarkers": marker_ids}
-                        default_views.append(SavedView(
-                            name="My Library",
-                            filters=json.dumps(library_filters),
-                            sort_by="created_desc",
-                            display_order=1
-                        ))
-
-                    # Expiring Soon view - shows items about to expire
-                    expiring_filters = {**base_filters, "showExpiring": True}
-                    # Exclude favorites and library from expiring view (keep them)
-                    exclude_ids = [mid for mid in [favorite_id, library_id] if mid]
-                    if exclude_ids:
-                        expiring_filters["excludedMarkers"] = exclude_ids
-                    default_views.append(SavedView(
-                        name="Expiring Soon",
-                        filters=json.dumps(expiring_filters),
-                        sort_by="created_desc",
-                        display_order=2
-                    ))
-
-                    for view in default_views:
-                        session.add(view)
-                    await session.commit()
-                    log.info("created default saved views", profile=profile.id, count=len(default_views))
 
         # Pre-profile releases stored flows at <data_dir>/flows, where IDs from
         # separate profile databases could collide. Adopt that legacy root into
