@@ -168,7 +168,7 @@
                   <CheckIcon v-if="monospaceEnabled" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
                 </button>
                 <button
-                  v-if="!hideAutoImprove"
+                  v-if="rawInMenu"
                   role="menuitemcheckbox"
                   :aria-checked="rawMode"
                   class="w-full flex items-center gap-2 px-3 py-2 text-xs coarse:py-3 coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle transition-colors"
@@ -261,7 +261,7 @@
                 <div v-if="!hideAutoImprove" class="mt-3">
                   <div class="text-xs font-medium text-content-secondary mb-1">Send exactly as typed</div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    In this menu. Sends the prompt untouched, braces, brackets and # lines included, for prompts another stage will process.
+                    {{ rawInMenu ? 'In this menu.' : 'In the menu behind the dot in the corner.' }} Sends the prompt untouched, braces, brackets and # lines included, for prompts another stage will process.
                   </p>
                 </div>
               </div>
@@ -306,7 +306,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, useSlots } from 'vue'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
 import Caret from '../ui/Caret.vue'
@@ -479,6 +479,9 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
 
 // --- How the prompt will be read: Raw, by a model (a program, or Enhance), or plain (no model) ---
 const rawMode = computed(() => !!props.promptOptions.raw)
+// A host that puts a prompt menu in the corner (Tool View's dot) owns the Raw toggle.
+const slots = useSlots()
+const rawInMenu = computed(() => !props.hideAutoImprove && !slots.corner)
 function setRaw(on: boolean) {
   emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
 }

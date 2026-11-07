@@ -1,7 +1,7 @@
 <template>
-  <!-- One dot in the prompt card's corner: prepared (green), changed (amber),
-       preparing (spinner), couldn't prepare (red). Click for the rare actions. -->
-  <div v-if="program.status.value !== 'off'" class="absolute top-1.5 right-1.5 z-[1]">
+  <!-- The prompt's menu, as one dot in the prompt card's corner: ready (green), not
+       ready (amber), reading (spinner), failed (red), raw or plain (grey ring). -->
+  <div v-if="shown" class="absolute top-1.5 right-1.5 z-[1]">
     <button
       ref="btn"
       type="button"
@@ -16,7 +16,7 @@
         v-if="program.status.value === 'busy'"
         class="w-2.5 h-2.5 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin"
       />
-      <span v-else :class="['w-[7px] h-[7px] rounded-full', dotColor]" />
+      <span v-else :class="dotClass" />
     </button>
     <Teleport to="body">
       <div v-if="menuOpen" class="fixed inset-0 z-menu" @click="menuOpen = false">
@@ -25,16 +25,16 @@
           :style="menuStyle"
           @click.stop
         >
-          <div class="px-3 pt-1.5 pb-2">
+          <div v-if="status.head" class="px-3 pt-1.5 pb-2">
             <div class="flex items-center gap-2 text-[12px] font-semibold text-content">
               <span v-if="program.status.value === 'busy'" class="w-2.5 h-2.5 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" />
-              <span v-else :class="['w-[7px] h-[7px] rounded-full', dotColor]" />
+              <span v-else :class="dotClass" />
               {{ status.head }}
             </div>
             <div v-if="status.body" class="mt-0.5 text-[12px] leading-snug text-content-secondary">{{ status.body }}</div>
           </div>
-          <template v-if="status.action || devModeRef">
-            <div class="border-t border-edge-subtle my-1" />
+          <template v-if="status.action || (devModeRef && program.status.value !== 'off')">
+            <div v-if="status.head" class="border-t border-edge-subtle my-1" />
             <button
               v-if="status.action"
               type="button"
@@ -45,12 +45,26 @@
               <div v-if="status.actionHint" class="text-[11px] text-content-muted leading-snug">{{ status.actionHint }}</div>
             </button>
             <button
-              v-if="devModeRef"
+              v-if="devModeRef && program.status.value !== 'off'"
               type="button"
               class="w-full text-left px-3 py-1.5 coarse:py-3 text-[12px] coarse:text-[13px] text-content hover:bg-overlay-subtle flex items-center justify-between"
               @click="menuOpen = false; showProgram()"
             >Show program <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span></button>
           </template>
+          <div v-if="status.head || status.action" class="border-t border-edge-subtle my-1" />
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            :aria-checked="raw"
+            class="w-full text-left px-3 py-1.5 coarse:py-3 hover:bg-overlay-subtle flex items-start gap-2"
+            @click="menuOpen = false; emit('raw', !raw)"
+          >
+            <span class="flex-1 min-w-0">
+              <span class="block text-[12px] coarse:text-[13px] text-content">Send exactly as typed</span>
+              <span class="block text-[11px] text-content-muted leading-snug">Skips wildcards, choices and # lines, for a later step to handle.</span>
+            </span>
+            <CheckIcon v-if="raw" class="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent-hi" />
+          </button>
         </div>
       </div>
       <!-- Dev: the prepared program, how preparing went, and live sample runs. -->
@@ -116,11 +130,24 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
+import { CheckIcon } from '@heroicons/vue/24/solid'
 import type { PromptProgram } from '../../composables/usePromptProgram'
 import { devModeRef } from '../../appConfig'
 import ReadOnlyCode from '../viewers/ReadOnlyCode.vue'
 
-const props = defineProps<{ program: PromptProgram }>()
+const props = defineProps<{
+  program: PromptProgram
+  /** Send exactly as typed is on. */
+  raw?: boolean
+  /** There's a prompt to send, so the menu (and its Raw toggle) is worth showing. */
+  hasPrompt?: boolean
+}>()
+const emit = defineEmits<{ (e: 'raw', on: boolean): void }>()
+
+const shown = computed(() => props.program.status.value !== 'off' || props.raw || props.hasPrompt)
+const dotClass = computed(() => props.program.status.value === 'off'
+  ? 'w-[7px] h-[7px] rounded-full border border-content-muted'
+  : ['w-[7px] h-[7px] rounded-full', dotColor.value])
 
 const btn = ref<HTMLElement | null>(null)
 const menuOpen = ref(false)
@@ -136,6 +163,7 @@ const dotColor = computed(() => ({
 // user feels: runs start right away once the prompt is read; the first run waits.
 const status = computed(() => {
   const hasChoices = props.program.choices.value.some(c => !c.hidden)
+  if (props.raw || props.program.status.value === 'off') return { head: '', body: '', action: '', actionHint: '', force: false }
   switch (props.program.status.value) {
     case 'ready': return {
       head: 'Prompt ready',
@@ -156,7 +184,7 @@ const status = computed(() => {
   }
 })
 
-const title = computed(() => ({ ready: 'Prompt ready', stale: 'Not ready yet', busy: 'Reading your prompt…', error: 'Couldn’t read this prompt' }[props.program.status.value as string] || ''))
+const title = computed(() => props.raw ? 'Sent exactly as typed' : props.program.status.value === 'off' ? 'Prompt options' : ({ ready: 'Prompt ready', stale: 'Not ready yet', busy: 'Reading your prompt…', error: 'Couldn’t read this prompt' }[props.program.status.value as string] || ''))
 
 const menuStyle = computed(() => {
   const r = btn.value?.getBoundingClientRect()

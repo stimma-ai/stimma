@@ -337,7 +337,12 @@
             :placeholder="promptPlaceholder"
             :programs="promptProgram.status.value !== 'off'"
           >
-            <template #corner><PromptProgramDot :program="promptProgram" /></template>
+            <template #corner><PromptProgramDot
+              :program="promptProgram"
+              :raw="!!globalPrefs.promptOptions?.raw"
+              :has-prompt="!!(globalPrefs.prompt || '').trim()"
+              @raw="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: on || undefined }"
+            /></template>
             <template #below-editor><PromptProgramChoices :program="promptProgram" /></template>
           </AIPromptEditor>
         </div>
