@@ -100,6 +100,8 @@ const props = withDefaults(defineProps<{
   name: string
   /** 'queued' | 'assigned' | 'enhancing' | 'processing' | 'waiting'. */
   status?: string
+  /** Overrides the placeholder's status text (a pre-submit step's own name). */
+  label?: string | null
   /** CSS aspect-ratio (e.g. "1024 / 576") from the job's requested
       resolution; the tile holds this shape from spinner to finished media. */
   aspect?: string | null
@@ -152,6 +154,7 @@ function onContextMenu(event: MouseEvent) {
 // the provider doesn't stream them — no frame will ever arrive, so the tile
 // would sit on "Preparing…" for the whole run; say "Generating…" instead.
 const placeholderLabel = computed(() => {
+  if (props.label) return props.label
   switch (props.status) {
     case 'processing': return props.awaitingFirstPreview ? 'Preparing…' : 'Generating…'
     case 'enhancing': return 'Enhancing prompt…'

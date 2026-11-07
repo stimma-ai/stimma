@@ -3,6 +3,9 @@
     <!-- Main Prompt Editor -->
     <div class="relative rounded-md border border-transparent bg-field focus-within:border-accent transition-colors [&_.cm-editor]:!bg-transparent">
       <div ref="editorMount"></div>
+      <!-- Host-supplied extras: a status mark in the corner, a row under the text. -->
+      <slot name="corner" />
+      <slot name="below-editor" />
 
       <!-- Bottom Action Bar (flows below textarea): a single quiet ghost row
            (DESIGN.md §3.3). Every control here is monochrome text/icons, 11px,
@@ -13,12 +16,28 @@
              declared input). Reads left→right: Enhance Prompt → Translate Prompt.
              Enhance is family-aware (prose / keywords / cinematography / Ideogram
              JSON) — the style is chosen automatically from the tool's model. -->
-        <div v-if="!hideAutoImprove" class="flex items-center gap-3">
+        <!-- Raw: the prompt is sent exactly as typed, so Enhance and Translate don't
+             apply. Always visible while on, so a hidden setting can't surprise you. -->
+        <div v-if="!hideAutoImprove && rawMode && !hasMode" class="flex items-center gap-2">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 text-ctl -mx-1.5 px-1.5 py-0.5 rounded-md text-content bg-overlay-subtle hover:text-content-secondary"
+            title="Sent exactly as typed: no wildcards, # lines, Enhance or Translate. Click to process the prompt again."
+            @click="setRaw(false)"
+          >
+            <span class="font-mono text-[10px] font-semibold uppercase tracking-wide">Raw</span>
+            <span class="text-content-muted">sent exactly as typed</span>
+          </button>
+        </div>
+        <div v-else-if="!hideAutoImprove" class="flex items-center gap-3">
+          <!-- A host's own prompt control (Tool View's Fluent) replaces Enhance and Raw. -->
+          <slot name="mode" :open-help="openHelp" />
           <!-- Enhance Prompt toggle. With no LLM configured the chip stays
                visible but inert — a quiet hint of what configuring one adds.
                The stored setting is untouched, so it resumes when a model
                appears. -->
           <button
+            v-if="!hasMode"
             :disabled="llmUnconfigured"
             :aria-pressed="!llmUnconfigured && promptOptions.autoImprove.enabled"
             @click="updatePromptOption('autoImprove', { ...promptOptions.autoImprove, enabled: !promptOptions.autoImprove.enabled })"
@@ -41,7 +60,7 @@
           <!-- Translate Prompt chip: the whole chip opens the menu (one big hit target).
                On/off lives in the menu as the "Off" choice — same place you pick
                a language — so there's one obvious control surface. -->
-          <div class="relative flex items-center" ref="translateMenuContainer">
+          <div v-if="!(hasMode && rawMode)" class="relative flex items-center" ref="translateMenuContainer">
             <button
               ref="translateButton"
               :disabled="llmUnconfigured"
@@ -109,121 +128,177 @@
         </div>
         <span v-else></span>
 
-        <!-- Right: Inline toggles + Help + AI Sparkle -->
-        <div class="flex items-center gap-1.5 compact:hidden">
+        <!-- Right: Inline toggles + Help + AI Sparkle. Shown on phones too: the
+             menu holds Send exactly as typed and the syntax help. -->
+        <div class="flex items-center gap-1.5">
           <!-- Editor options: keybindings, font and syntax help live behind one
                quiet control (the labels Std / Sans / Help meant nothing on
                their own). -->
           <div class="relative flex items-center" ref="helpPopoverContainer">
             <OverflowButton
               label="Prompt editor options"
-              :active="showEditorMenu || showHelp"
-              @click="showEditorMenu = !showEditorMenu; showHelp = false"
+              :active="showEditorMenu || (showHelp && !helpFromHost)"
+              @click="toggleEditorMenu"
             />
-            <div
-              v-if="showEditorMenu"
-              class="absolute top-full right-0 mt-1 py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-56"
-              role="menu"
-            >
-              <button
-                role="menuitemcheckbox"
-                :aria-checked="vimEnabled"
-                class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle transition-colors"
-                :title="vimEnabled ? 'Switch to regular keybindings' : 'Switch to Vim keybindings'"
-                @click="toggleVim(); showEditorMenu = false"
+            <!-- Teleported with fixed positioning, like the Translate menu: inside the
+                 phone's settings sheet an inline menu sits under the sheet backdrop. -->
+            <Teleport to="body">
+              <div
+                v-if="showEditorMenu"
+                data-prompt-editor-menu
+                class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-56"
+                :style="editorMenuPos"
+                role="menu"
               >
-                <span class="flex-1 text-left">Vim keybindings</span>
-                <CheckIcon v-if="vimEnabled" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
-              </button>
-              <button
-                role="menuitemcheckbox"
-                :aria-checked="monospaceEnabled"
-                class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle transition-colors"
-                :title="monospaceEnabled ? 'Switch to proportional font' : 'Switch to monospace font'"
-                @click="toggleMonospace(); showEditorMenu = false"
-              >
-                <span class="flex-1 text-left">Monospace font</span>
-                <CheckIcon v-if="monospaceEnabled" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
-              </button>
-              <div class="my-1 border-t border-edge-subtle"></div>
-              <button
-                role="menuitem"
-                class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle transition-colors"
-                title="Prompt syntax help"
-                @click="showHelp = true; showEditorMenu = false"
-              >
-                <span class="flex-1 text-left">Prompt syntax help</span>
-              </button>
-            </div>
-
-            <!-- Help popover -->
-            <div
-              v-if="showHelp"
-              class="absolute top-full right-0 mt-2 p-4 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-80"
-            >
-              <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-medium text-content-secondary">Prompt syntax</span>
-                <button @click="showHelp = false" class="text-content-muted hover:text-content-secondary p-0.5">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                <button
+                  role="menuitemcheckbox"
+                  :aria-checked="vimEnabled"
+                  class="w-full flex items-center gap-2 px-3 py-2 text-xs compact:hidden text-content-secondary hover:bg-overlay-subtle transition-colors"
+                  :title="vimEnabled ? 'Switch to regular keybindings' : 'Switch to Vim keybindings'"
+                  @click="toggleVim(); showEditorMenu = false"
+                >
+                  <span class="flex-1 text-left">Vim keybindings</span>
+                  <CheckIcon v-if="vimEnabled" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
+                </button>
+                <button
+                  role="menuitemcheckbox"
+                  :aria-checked="monospaceEnabled"
+                  class="w-full flex items-center gap-2 px-3 py-2 text-xs coarse:py-3 coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle transition-colors"
+                  :title="monospaceEnabled ? 'Switch to proportional font' : 'Switch to monospace font'"
+                  @click="toggleMonospace(); showEditorMenu = false"
+                >
+                  <span class="flex-1 text-left">Monospace font</span>
+                  <CheckIcon v-if="monospaceEnabled" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
+                </button>
+                <button
+                  v-if="rawInMenu"
+                  role="menuitemcheckbox"
+                  :aria-checked="rawMode"
+                  class="w-full flex items-center gap-2 px-3 py-2 text-xs coarse:py-3 coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle transition-colors"
+                  title="Send the prompt exactly as typed, for prompts another stage will process"
+                  @click="setRaw(!rawMode); showEditorMenu = false"
+                >
+                  <span class="flex-1 text-left">Send exactly as typed</span>
+                  <CheckIcon v-if="rawMode" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
+                </button>
+                <div v-if="!hasMode" class="my-1 border-t border-edge-subtle"></div>
+                <button
+                  v-if="!hasMode"
+                  role="menuitem"
+                  class="w-full flex items-center gap-2 px-3 py-2 text-xs coarse:py-3 coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle transition-colors"
+                  title="Prompt syntax help"
+                  @click="showHelp = true; showEditorMenu = false"
+                >
+                  <span class="flex-1 text-left">Prompt syntax help</span>
                 </button>
               </div>
 
-              <!-- Wildcards -->
-              <div class="mb-3">
-                <div class="flex items-center gap-2 mb-1">
-                  <code class="text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded text-xs">{red|blue|green}</code>
+              <!-- Help popover -->
+              <div
+                v-if="showHelp"
+                data-prompt-editor-menu
+                :class="['fixed p-4 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu max-w-[calc(100vw-16px)] overflow-y-auto', hasMode ? 'w-96' : 'w-80']"
+                :style="editorMenuPos"
+              >
+                <div class="flex items-center justify-between mb-3">
+                  <span v-if="hasMode" class="flex items-center gap-1.5 text-[13px] font-semibold text-content">
+                    <WandSparklesIcon class="w-3.5 h-3.5 text-accent" /> {{ brand }}
+                  </span>
+                  <span v-else class="text-xs font-medium text-content-secondary">Prompt syntax</span>
+                  <button @click="showHelp = false" class="text-content-muted hover:text-content-secondary p-0.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
-                <p class="text-xs text-content-tertiary leading-relaxed">
-                  Picks one option randomly each time you generate. Great for improving variety.
-                </p>
-              </div>
 
-              <!-- Named Wildcards -->
-              <div class="mb-3">
-                <div class="flex items-center gap-2 mb-1">
-                  <code class="text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded text-xs" v-text="'{{name}}'"></code>
+                <!-- Tool View: what Fluent does, then one section per thing you can write. -->
+                <template v-if="hasMode">
+                  <div class="space-y-1.5 mb-3">
+                    <p v-for="line in fluentIntro" :key="line" class="text-xs text-content-secondary leading-relaxed">{{ line }}</p>
+                  </div>
+                  <section v-for="tip in fluentTips" :key="tip.title" class="border-t border-edge-subtle pt-3 mt-3">
+                    <h4 class="text-[12.5px] font-semibold text-content mb-1.5">{{ tip.title }}</h4>
+                    <div v-if="tip.examples.length" class="flex flex-wrap gap-1.5 mb-1.5">
+                      <code v-for="ex in tip.examples" :key="ex.code" :class="['px-1.5 py-0.5 rounded text-[11px]', ex.tone]" v-text="ex.code"></code>
+                    </div>
+                    <p v-for="para in tip.text" :key="para" class="text-xs text-content-tertiary leading-relaxed mt-1 first:mt-0">{{ para }}</p>
+                  </section>
+                </template>
+                <template v-else>
+                <!-- Wildcards -->
+                <div class="mb-3">
+                  <div class="flex items-center gap-2 mb-1">
+                    <code class="text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded text-xs">{red|blue|green}</code>
+                  </div>
+                  <p class="text-xs text-content-tertiary leading-relaxed">
+                    Picks one option randomly each time you generate. Great for improving variety.
+                  </p>
                 </div>
-                <p class="text-xs text-content-tertiary leading-relaxed">
-                  Picks a random value from a named wildcard list defined in Settings &gt; Wildcards.
-                </p>
-              </div>
 
-              <!-- Comments -->
-              <div class="mb-3">
-                <div class="flex items-center gap-2 mb-1">
-                  <code class="text-gray-500 italic bg-zinc-500/10 px-1.5 py-0.5 rounded text-xs"># comment</code>
+                <!-- Named Wildcards -->
+                <div class="mb-3">
+                  <div class="flex items-center gap-2 mb-1">
+                    <code class="text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded text-xs" v-text="'{{name}}'"></code>
+                  </div>
+                  <p class="text-xs text-content-tertiary leading-relaxed">
+                    Picks a random value from a named wildcard list defined in Settings &gt; Wildcards. {{ hasMode ? `With ${brand} on, any other name works too: ${brand} writes the options.` : 'With a chat model set up, any other name works too: the model writes its options.' }}
+                  </p>
                 </div>
-                <p class="text-xs text-content-tertiary leading-relaxed">
-                  Comments are visible to the Prompt Enhancement Model and can be used to provide instructions and guidance. They are not sent to the generation tools.
-                </p>
-              </div>
 
-              <!-- Verbatim -->
-              <div class="mb-3">
-                <div class="flex items-center gap-2 mb-1">
-                  <code class="text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded text-xs">[verbatim text]</code>
+                <!-- Comments -->
+                <div class="mb-3">
+                  <div class="flex items-center gap-2 mb-1">
+                    <code class="text-gray-500 italic bg-zinc-500/10 px-1.5 py-0.5 rounded text-xs"># comment</code>
+                  </div>
+                  <p class="text-xs text-content-tertiary leading-relaxed">
+                    {{ hasMode ? `Notes for ${brand}` : 'Instructions for the chat model' }} (&ldquo;# vary her expression&rdquo;). They are never sent to the {{ hasMode ? 'image model.' : 'generation tool, and without a chat model they are ignored.' }}
+                  </p>
                 </div>
-                <p class="text-xs text-content-tertiary leading-relaxed">
-                  Text in brackets is invisible to the Prompt Enhancement Model and will be preserved as-is.
-                </p>
-              </div>
 
-              <!-- Divider -->
-              <div v-if="!hideAutoImprove" class="border-t border-edge-subtle my-3"></div>
-
-              <!-- Enhance Prompt -->
-              <div v-if="!hideAutoImprove">
-                <div class="flex items-center gap-1.5 mb-1">
-                  <WandSparklesIcon class="w-3 h-3 text-accent" />
-                  <span class="text-xs font-medium text-content-secondary">Enhance prompt</span>
+                <!-- Verbatim -->
+                <div class="mb-3">
+                  <div class="flex items-center gap-2 mb-1">
+                    <code class="text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded text-xs">[verbatim text]</code>
+                  </div>
+                  <p class="text-xs text-content-tertiary leading-relaxed">
+                    Text in brackets is sent exactly as written{{ hasMode ? `, untouched by ${brand}` : '' }}.
+                  </p>
                 </div>
-                <p class="text-xs text-content-tertiary leading-relaxed">
-                  When enabled, your prompt is automatically enhanced by AI each time you generate. The original prompt is preserved in the editor &mdash; only the version sent to the generation tool is improved.
-                </p>
+
+                <!-- Divider -->
+                <div v-if="!hideAutoImprove" class="border-t border-edge-subtle my-3"></div>
+
+                <!-- Fluent (Tool View) -->
+                <div v-if="hasMode">
+                  <div class="flex items-center gap-1.5 mb-1">
+                    <WandSparklesIcon class="w-3 h-3 text-accent" />
+                    <span class="text-xs font-medium text-content-secondary">{{ brand }}</span>
+                  </div>
+                  <p class="text-xs text-content-tertiary leading-relaxed">
+                    {{ brand }} writes your prompt the way this model understands it and gives every image a fresh take. The text in the editor never changes. Raw sends it exactly as typed.
+                  </p>
+                </div>
+
+                <!-- Enhance Prompt -->
+                <div v-if="!hideAutoImprove && !hasMode">
+                  <div class="flex items-center gap-1.5 mb-1">
+                    <WandSparklesIcon class="w-3 h-3 text-accent" />
+                    <span class="text-xs font-medium text-content-secondary">Enhance prompt</span>
+                  </div>
+                  <p class="text-xs text-content-tertiary leading-relaxed">
+                    When enabled, your prompt is automatically enhanced by AI each time you generate. The original prompt is preserved in the editor &mdash; only the version sent to the generation tool is improved.
+                  </p>
+                </div>
+                <div v-if="!hideAutoImprove && !hasMode" class="mt-3">
+                  <div class="text-xs font-medium text-content-secondary mb-1">Send exactly as typed</div>
+                  <p class="text-xs text-content-tertiary leading-relaxed">
+                    In this menu. Sends the prompt untouched, braces, brackets and # lines included, for prompts another stage will process.
+                  </p>
+                </div>
+                </template>
               </div>
-            </div>
+            </Teleport>
           </div>
 
           <!-- AI Sparkle Button — toggles the inline prompt-only chat. Hidden when
@@ -264,11 +339,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, useSlots } from 'vue'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
 import Caret from '../ui/Caret.vue'
 import OverflowButton from '../ui/OverflowButton.vue'
+import { useWildcards, useSegments } from '../../composables/useWildcards'
+import { PROMPT_BRAND, fluentEnabled } from './promptBrand'
+import type { PromptSyntaxMode } from '../../composables/useCodeMirrorPrompt'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
@@ -302,6 +380,13 @@ interface Props {
   // generate-time pipeline (which silently rewrites the prompt at submit time)
   // would break the execution model. Hide the affordances in those contexts.
   hideAutoImprove?: boolean
+  /** The prompt runs as a prepared program (Tool View with a chat model): {{name}}
+      and # lines are understood whether Enhance is on or off. */
+  programs?: boolean
+  /** The host fills the `mode` slot with its own prompt control (Tool View's Fluent),
+      replacing Enhance, Raw and the … help entry. A prop, not a slot check: slots
+      aren't reactive, and the host can switch this at runtime. */
+  promptControl?: boolean
   // When set, this editor renders no chat affordance of its own (no sparkle, no
   // inline panel). The embedder (ToolView) owns a page-level PromptAgentChat and
   // drives this editor through the exposed handle.
@@ -346,7 +431,48 @@ const sizeVars = computed(() => {
 const editorMount = ref<HTMLElement | null>(null)
 const helpPopoverContainer = ref<HTMLElement | null>(null)
 const showHelp = ref(false)
+// Help opened from the host's control (Fluent), not from …, so … shouldn't look pressed.
+const helpFromHost = ref(false)
 const showEditorMenu = ref(false)
+// Fixed coords for the teleported menu and help, anchored to the … button.
+const editorMenuPos = ref<Record<string, string>>({})
+function toggleEditorMenu() {
+  const rect = helpPopoverContainer.value?.getBoundingClientRect()
+  if (rect && !showEditorMenu.value) {
+    const roomBelow = window.innerHeight - rect.bottom - 14
+    const roomAbove = rect.top - 14
+    const down = roomBelow >= 320 || roomBelow >= roomAbove
+    editorMenuPos.value = {
+      right: `${Math.max(8, Math.round(window.innerWidth - rect.right))}px`,
+      maxHeight: `${Math.min(520, down ? roomBelow : roomAbove)}px`,
+      ...(down
+        ? { top: `${Math.round(rect.bottom + 4)}px` }
+        : { bottom: `${Math.round(window.innerHeight - rect.top + 4)}px` }),
+    }
+  }
+  showEditorMenu.value = !showEditorMenu.value
+  showHelp.value = false
+  helpFromHost.value = false
+}
+/** Open the syntax help on its own, anchored to the host's control that asked for it
+    (or to … when there's none). */
+function openHelp(anchor?: DOMRect | null) {
+  showEditorMenu.value = false
+  toggleEditorMenu()  // computes the position from …
+  showEditorMenu.value = false
+  if (anchor) {
+    const below = window.innerHeight - anchor.bottom - 14
+    const above = anchor.top - 14
+    const down = below >= 320 || below >= above
+    editorMenuPos.value = {
+      left: `${Math.max(8, Math.min(window.innerWidth - 392, Math.round(anchor.left - 6)))}px`,
+      maxHeight: `${Math.min(720, down ? below : above)}px`,
+      ...(down ? { top: `${Math.round(anchor.bottom + 4)}px` } : { bottom: `${Math.round(window.innerHeight - anchor.top + 4)}px` }),
+    }
+  }
+  // After this click finishes, or the outside-click handler would close it again.
+  setTimeout(() => { showHelp.value = true; helpFromHost.value = true })
+}
 const translateMenuContainer = ref<HTMLElement | null>(null)
 const translateButton = ref<HTMLElement | null>(null)
 const translateMenuEl = ref<HTMLElement | null>(null)
@@ -399,7 +525,7 @@ function setTranslate(code: string | null) {
 }
 
 // CodeMirror composable
-const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, applyDiffDecorations, clearDiffDecorations } =
+const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, applyDiffDecorations, clearDiffDecorations, selectLine, setSyntax } =
   useCodeMirrorPrompt({
     mountRef: editorMount,
     modelValue: () => props.modelValue,
@@ -410,6 +536,57 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
     // Blur intentionally does nothing — suggestion refresh is debounce-driven.
     onBlur: () => {},
   })
+
+// --- How the prompt will be read: Raw, by a model (a program, or Enhance), or plain (no model) ---
+// Raw and the newer highlighting ship with Fluent (see promptBrand.ts).
+const rawMode = computed(() => fluentEnabled.value && !!props.promptOptions.raw)
+// A host with its own prompt control (Tool View's Fluent, in the mode slot) owns Enhance,
+// Raw and the syntax help's entry point.
+const slots = useSlots()
+const hasMode = computed(() => !!props.promptControl && !!slots.mode)
+const rawInMenu = computed(() => fluentEnabled.value && !props.hideAutoImprove && !hasMode.value)
+const brand = PROMPT_BRAND
+// The tips panel in Tool View: what Fluent is, then what to write, in the user's words.
+// (Copy reviewed for plain, human wording.)
+const fluentIntro = [
+  `${PROMPT_BRAND} reads your prompt before each run and writes the prompt sent to the image model. Your text in the editor never changes.`,
+  `With Enhance prompt on, ${PROMPT_BRAND} also expands short prompts into the long, detailed style this model works best with.`,
+  'A new prompt takes a few extra seconds the first time you run it.',
+]
+const AMBER = 'text-amber-600 bg-amber-500/10'
+const GREEN = 'text-green-600 bg-green-500/10'
+const GREY = 'text-gray-500 italic bg-zinc-500/10'
+const BLUE = 'text-blue-500 bg-blue-500/10'
+const fluentTips = [
+  { title: 'Wildcards', examples: [{ code: '{{hairstyle}}', tone: AMBER }, { code: '{red|blue|green}', tone: GREEN }],
+    text: [`Use {{hairstyle}} to have ${PROMPT_BRAND} write hairstyle options. Each image uses one. If you have a saved wildcard with that name, ${PROMPT_BRAND} uses yours. To supply your own options, write {red|blue|green}.`] },
+  { title: 'Wildcards that work together', examples: [],
+    // Only what's true today: options Fluent writes can follow another pick. Your own
+    // {a|b} lists are still drawn independently (smarter draws are separate work).
+    text: [`The options ${PROMPT_BRAND} writes can follow your other choices, so they fit together. With {sunny|rainy|snowy} and {{outfit}}, a snowy day gets a winter coat, not a t-shirt. Without ${PROMPT_BRAND}, every wildcard is drawn on its own.`] },
+  { title: 'Comments', examples: [{ code: '# vary her expression', tone: GREY }],
+    text: [`Start a line with # to leave ${PROMPT_BRAND} a note about what to vary or keep the same between images. Notes never reach the image model.`,
+      'You can also give instructions about settings: # guidance between 3 and 5 or # use my curtain bangs LoRA.'] },
+  { title: 'Verbatim text', examples: [{ code: '[ohwx woman]', tone: BLUE }],
+    text: [`Text in square brackets goes to the image model exactly as written. ${PROMPT_BRAND} never sees it. Use brackets for LoRA trigger words or words you want to appear in the picture.`] },
+  { title: 'Not happy with the options?', examples: [],
+    text: [`Choose Try different choices and wording in the ${PROMPT_BRAND} menu.`] },
+]
+function setRaw(on: boolean) {
+  emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
+}
+const { wildcards } = useWildcards()
+const { segments } = useSegments()
+const syntaxMode = computed<PromptSyntaxMode>(() =>
+  !fluentEnabled.value ? 'enhance'
+    : rawMode.value ? 'raw'
+    // Flow inputs don't run the prompt pipeline here; keep their highlighting as it was.
+    : props.promptOptions.direct && hasMode.value ? 'plain'
+    : props.hideAutoImprove || props.programs || (!llmUnconfigured.value && props.promptOptions.autoImprove?.enabled) ? 'enhance'
+    : 'plain')
+watch([syntaxMode, wildcards, segments], () => {
+  setSyntax(syntaxMode.value, [...wildcards.value.map(w => w.name), ...segments.value.map(sg => sg.name)])
+}, { immediate: true })
 
 // Diff segment type (used by computeWordDiff)
 interface DiffSegment {
@@ -529,7 +706,12 @@ const selfHandle: PromptEditorHandle = {
 
 // Click-outside handler for the popover menus
 function handleClickOutside(event: MouseEvent) {
-  if ((showHelp.value || showEditorMenu.value) && helpPopoverContainer.value && !event.composedPath().includes(helpPopoverContainer.value)) {
+  // The menu and help are teleported to <body>: check them alongside the button.
+  // By attribute, not ref: a menu item's own click may already have unmounted it.
+  const path = event.composedPath()
+  const inside = (!!helpPopoverContainer.value && path.includes(helpPopoverContainer.value))
+    || path.some(n => n instanceof Element && n.hasAttribute('data-prompt-editor-menu'))
+  if ((showHelp.value || showEditorMenu.value) && !inside) {
     showHelp.value = false
     showEditorMenu.value = false
   }
@@ -561,6 +743,7 @@ defineExpose({
   getText: () => props.modelValue,
   setPromptText,
   animateDiff,
+  selectLine,
 })
 </script>
 

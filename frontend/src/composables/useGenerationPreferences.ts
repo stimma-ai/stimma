@@ -57,6 +57,16 @@ export interface PromptOptions {
   // Optional so existing persisted prefs / partial literals stay valid; the
   // generate-time pipeline and UI read them defensively.
   translate?: TranslateSetting
+  // Raw: the prompt is sent exactly as typed (no wildcards, comments, brackets,
+  // Enhance or Translate), for prompts another stage will process.
+  raw?: boolean
+  // Direct: no model reads the prompt. {a|b} lists, saved wildcards and segments fill
+  // in, [brackets] unwrap and # lines drop (the classic pipeline). Raw wins over it.
+  direct?: boolean
+  // LoRA choices in the prompt menu (both on unless set false): put each used LoRA's
+  // trigger words in the prompt (Fluent and Direct), and tell Fluent the LoRA notes.
+  loraTriggers?: boolean
+  loraNotes?: boolean
 }
 
 export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {

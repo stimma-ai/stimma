@@ -1329,3 +1329,11 @@ async def test_stale_chatgpt_catalog_refreshes_from_account(monkeypatch):
     monkeypatch.setattr(models_route, "_chatgpt_catalog_refreshed", set())
     await models_route._refresh_stale_chatgpt_catalog()
     assert calls == ["test-token"]
+
+
+def test_llm_complete_text_supports_enable_thinking():
+    import inspect
+    from llm import llm_complete_text
+    params = inspect.signature(llm_complete_text).parameters
+    assert "enable_thinking" in params
+    assert params["enable_thinking"].default is False  # off unless asked

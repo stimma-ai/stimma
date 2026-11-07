@@ -59,7 +59,9 @@ export interface PreUploadResult {
 // id of the video it was frame-grabbed from (for lineage) — an extracted
 // frame isn't itself a library item, so its only linkable identity is its
 // source video's id, stashed on `_videoSource` by MediaPicker/ToolView.
-function lineageMediaId(i: { mediaId?: number; _videoSource?: { mediaId?: number } | null }): number | undefined {
+/** The library id a picked input stands for: its own, or the video a frame was grabbed
+    from. Tool View's prompt preparation uses the same lookup, so its key matches a run's. */
+export function lineageMediaId(i: { mediaId?: number; _videoSource?: { mediaId?: number } | null }): number | undefined {
   return i.mediaId ?? i._videoSource?.mediaId ?? undefined
 }
 

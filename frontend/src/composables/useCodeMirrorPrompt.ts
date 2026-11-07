@@ -50,18 +50,36 @@ const diffField = StateField.define<DecorationSet>({
 
 const diffMark = Decoration.mark({ class: 'cm-diff-added' })
 
+// --- How the prompt will be read: drives what the highlighter marks ---
+// enhance: everything is live. plain (Enhance off or no chat model): {a|b} and
+// known {{names}} still resolve, but unknown {{names}} and # lines need a model.
+// raw: sent exactly as typed, so nothing is special.
+export type PromptSyntaxMode = 'enhance' | 'plain' | 'raw'
+interface SyntaxConfig { mode: PromptSyntaxMode; known: Set<string> }
+const setSyntaxEffect = StateEffect.define<SyntaxConfig>()
+const syntaxField = StateField.define<SyntaxConfig>({
+  create: () => ({ mode: 'enhance', known: new Set() }),
+  update(value, tr) {
+    for (const e of tr.effects) if (e.is(setSyntaxEffect)) value = e.value
+    return value
+  },
+})
+
 // --- Prompt syntax highlighting plugin ---
 function promptSyntaxHighlighter() {
   return ViewPlugin.fromClass(
     class implements PluginValue {
       decorations: DecorationSet
 
+      syntax: SyntaxConfig = { mode: 'enhance', known: new Set() }
+
       constructor(view: EditorView) {
         this.decorations = this.buildDecorations(view)
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged) {
+        const reconfigured = update.transactions.some(tr => tr.effects.some(e => e.is(setSyntaxEffect)))
+        if (update.docChanged || update.viewportChanged || reconfigured) {
           this.decorations = this.buildDecorations(update.view)
         }
       }
@@ -69,6 +87,9 @@ function promptSyntaxHighlighter() {
       buildDecorations(view: EditorView): DecorationSet {
         const builder = new RangeSetBuilder<Decoration>()
         const { from, to } = view.viewport
+        this.syntax = view.state.field(syntaxField)
+        const { mode } = this.syntax
+        if (mode === 'raw') return builder.finish()
 
         for (let pos = from; pos < to; ) {
           const line = view.state.doc.lineAt(pos)
@@ -76,7 +97,7 @@ function promptSyntaxHighlighter() {
 
           // Comment lines: # at start of line
           if (/^\s*#/.test(text)) {
-            builder.add(line.from, line.to, commentDeco)
+            builder.add(line.from, line.to, mode === 'plain' ? unreadCommentDeco : commentDeco)
           } else {
             // Collect all ranges for this line, then sort before adding
             const ranges: { from: number; to: number; deco: Decoration }[] = []
@@ -101,7 +122,9 @@ function promptSyntaxHighlighter() {
         while ((match = re.exec(text)) !== null) {
           const from = lineStart + match.index
           const to = from + match[0].length
-          out.push({ from, to, deco: namedWildcardDeco })
+          const { mode, known } = this.syntax
+          const needsModel = mode === 'plain' && !known.has(match[1].trim().toLowerCase())
+          out.push({ from, to, deco: needsModel ? needsEnhanceDeco : namedWildcardDeco })
           skipRanges.push({ from: match.index, to: match.index + match[0].length })
         }
         return skipRanges
@@ -151,6 +174,10 @@ function promptSyntaxHighlighter() {
 const wildcardDeco = Decoration.mark({ class: 'cm-wildcard' })
 const namedWildcardDeco = Decoration.mark({ class: 'cm-named-wildcard' })
 const commentDeco = Decoration.mark({ class: 'cm-comment-line' })
+// Plain mode (no chat model reads this prompt): # lines are for a model.
+const unreadCommentDeco = Decoration.mark({ class: 'cm-comment-line', attributes: { title: 'No chat model reads this prompt, so # lines are left out of it.' } })
+// Plain mode: a {{name}} that isn't a wildcard or segment needs a model to fill it.
+const needsEnhanceDeco = Decoration.mark({ class: 'cm-needs-enhance', attributes: { title: 'Not a saved wildcard, so nothing can fill it here.' } })
 const verbatimDeco = Decoration.mark({ class: 'cm-verbatim' })
 
 // --- Theme ---
@@ -265,6 +292,11 @@ const stimmaTheme = EditorView.theme({
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
     borderRadius: '2px',
     padding: '0 1px',
+  },
+  '.cm-needs-enhance': {
+    color: '#ef4444', // red-500: an error in the prompt, the run waits on it
+    textDecoration: 'underline wavy rgba(239, 68, 68, 0.8)',
+    textUnderlineOffset: '3px',
   },
   '.cm-comment-line': {
     color: '#6b7280', // gray-500 — more muted than body text
@@ -401,6 +433,7 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
         ]),
         cmPlaceholder(placeholder || 'Describe the image you want to generate...'),
         stimmaTheme,
+        syntaxField,
         promptSyntaxHighlighter(),
         diffField,
         EditorView.updateListener.of((update: ViewUpdate) => {
@@ -421,6 +454,7 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
       state: startState,
       parent: mountRef.value,
     })
+    if (pendingSyntax) { view.dispatch({ effects: setSyntaxEffect.of(pendingSyntax) }); pendingSyntax = null }
 
     // Wire up vim persistence: replay mappings + capture ex commands typed in the : panel
     bindView(view)
@@ -478,6 +512,24 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
     view?.focus()
   }
 
+  let pendingSyntax: SyntaxConfig | null = null
+  /** How the prompt will be read (see PromptSyntaxMode), with the global wildcard and segment names. */
+  function setSyntax(mode: PromptSyntaxMode, knownNames: Iterable<string>) {
+    const next = { mode, known: new Set([...knownNames].map(n => n.trim().toLowerCase())) }
+    if (!view) { pendingSyntax = next; return }
+    view.dispatch({ effects: setSyntaxEffect.of(next) })
+  }
+
+  /** Select one line (1-based) and bring it into view: "show me where this came from". */
+  function selectLine(n: number) {
+    if (!view) return
+    const doc = view.state.doc
+    if (n < 1 || n > doc.lines) return
+    const line = doc.line(n)
+    view.dispatch({ selection: { anchor: line.from, head: line.to }, scrollIntoView: true })
+    view.focus()
+  }
+
   function destroy() {
     mountRef.value?.removeEventListener('keydown', vimPanelKeydownHandler, true)
     view?.destroy()
@@ -501,6 +553,8 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
     applyDiffDecorations,
     clearDiffDecorations,
     focus,
+    selectLine,
+    setSyntax,
     destroy,
   }
 }

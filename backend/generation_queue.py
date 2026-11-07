@@ -3640,7 +3640,10 @@ class GenerationQueue:
             source_inputs=lineage_data.get('source_inputs', []),
             lineage_trace=lineage_data.get('lineage_trace', []),
             inspired_by=inspired_by,
-            extra={"input_usage": exec_result.metadata.get("input_usage")} if exec_result.metadata.get("input_usage") else None,
+            extra={k: v for k, v in {
+                "input_usage": exec_result.metadata.get("input_usage"),
+                "prompt_program": original_params.get("prompt_program"),
+            }.items() if v} or None,
         ))
         log.debug(f"Job {job.id}: Built generation_metadata for {provider.provider_id}")
 

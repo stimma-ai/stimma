@@ -335,7 +335,26 @@
             :promptOptions="globalPrefs.promptOptions"
             @update:promptOptions="globalPrefs.promptOptions = $event"
             :placeholder="promptPlaceholder"
-          />
+            :programs="promptProgram.status.value !== 'off'"
+            :prompt-control="fluentOn"
+          >
+            <template v-if="fluentOn" #mode="{ openHelp }"><FluentControl
+              :program="promptProgram"
+              :raw="rawMode"
+              :direct="directMode"
+              :elaborate="!!globalPrefs.promptOptions?.autoImprove?.enabled"
+              :llm-unconfigured="llmUnconfigured"
+              :model-name="tool?.name"
+              :has-loras="hasLoras"
+              :lora-triggers="globalPrefs.promptOptions?.loraTriggers !== false"
+              :lora-notes="globalPrefs.promptOptions?.loraNotes !== false"
+              @lora="(key, on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, [key]: on ? undefined : false }"
+              @way="(w) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined }"
+              @mode="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, autoImprove: { ...globalPrefs.promptOptions?.autoImprove, enabled: on } }"
+              @help="(anchor) => openHelp(anchor)"
+            /></template>
+            <template #below-editor><PromptProgramChoices :program="promptProgram" /></template>
+          </AIPromptEditor>
         </div>
         </Teleport>
 
@@ -392,11 +411,8 @@
              toggle animates the columns above it. -->
         <Teleport defer :to="agentDocked ? (agentOnResult ? '#agent-dock-result' : '#agent-dock') : '#agent-dock-compact'">
           <PromptAgentChat
-            ref="promptAgentChatRef"
             :prompt="globalPrefs.prompt"
             :has-prompt="hasPrompt"
-            hide-empty-ideas
-            :ideas-max-height="agentOnResult ? AGENT_IDEAS_MAX_H : undefined"
             :active-skills="activeToolSkills"
             :project-id="projectScopeId"
             v-model:instructions="globalPrefs.agentInstructions"
@@ -643,7 +659,9 @@
           :upload-file-name="loraUploadFileName"
           :upload-config="loraUploadConfig"
           :lora-notes="loraNotes"
-          :verbatim-prompt="globalPrefs.promptOptions?.autoImprove?.enabled ? null : (globalPrefs.prompt || '')"
+          :verbatim-prompt="((globalPrefs.promptOptions?.autoImprove?.enabled && !directMode) || promptProgram.status.value !== 'off') && !rawMode ? null : (globalPrefs.prompt || '')"
+          :program-loras="promptProgram.loraControl.value"
+          @program-lora="(path, el) => promptProgram.open(promptProgram.loraControl.value[path]?.choiceId, el)"
           @refresh-loras="refreshLoras"
           @upload="uploadLora"
           @insert-trigger="insertTriggerWord"
@@ -656,6 +674,8 @@
           :values="constraintValues"
           :is-group-collapsed="getGroupCollapsed"
           :on-toggle-group-collapsed="toggleGroupCollapsed"
+          :program-params="promptProgram.paramControl.value"
+          @program-param="(name, el) => promptProgram.open(promptProgram.paramControl.value[name]?.choiceId, el)"
           @update:param="(name, value) => { modelParams[name] = value }"
         />
 
@@ -965,7 +985,7 @@
         <div
           id="agent-dock-result"
           v-show="!llmUnconfigured && agentDocked && agentOnResult"
-          class="absolute left-0 right-4 bottom-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-lg border border-edge-subtle bg-surface p-3 empty:hidden"
+          class="absolute left-4 right-4 bottom-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto empty:hidden"
         ></div>
       </div>
 
@@ -1150,7 +1170,7 @@
         <div
           id="agent-dock"
           v-show="!llmUnconfigured && agentDocked"
-          class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface p-3 max-h-[45%] empty:hidden roomy:p-2 roomy:max-h-[35%] roomy:pb-safe"
+          class="flex-none overflow-y-auto mx-3 mb-3 max-h-[45%] empty:hidden roomy:max-h-[35%] roomy:pb-safe"
         ></div>
       </div>
     </template>
@@ -1169,7 +1189,12 @@
       :show="showInfoModal"
       :job="infoModalJob"
       @close="closeInfoModal"
+      @program-replay="replayProgramRun"
+      @program-use="useProgramRunChoices"
     />
+
+    <!-- Prompt programs: the open choice's card -->
+    <PromptProgramCard :program="promptProgram" />
 
     <!-- Mask Editor Modal -->
     <MaskEditorModal
@@ -1265,6 +1290,7 @@ import {
   buildCapturedState,
   getPreUploadTasks,
   hasPromptFeature,
+  lineageMediaId,
   type PayloadBuilderState,
   type PayloadBuilderConfig,
 } from '../composables/useJobPayloadBuilder'
@@ -1912,16 +1938,13 @@ const heroBarBleed = computed(() => {
   return art.barW + 2 * inset <= col.w ? inset : 0
 })
 const heroColRef = ref<HTMLElement | null>(null)
-// Room the hero keeps for the Stage agent panel: the composer plus the most its
-// suggestions take (AGENT_IDEAS_MAX_H), or just the composer when a tool has no
-// prompt. It depends only on the column's width, so the image never changes size
-// with the agent's state. The composer stacks below 480px (PromptAgentChat).
-const AGENT_IDEAS_MAX_H = 96
+// Room the hero keeps for the Stage agent panel: the composer. It depends only on
+// the column's width, so the image never changes size with the agent's state. The
+// composer stacks below 480px (PromptAgentChat).
 const agentReserve = computed(() => {
   if (!agentOnResult.value || llmUnconfigured.value) return 0
-  const panelChrome = 26
-  const composerH = (heroColSize.value?.w ?? 0) - panelChrome < 480 ? 84 : 40
-  return panelChrome + composerH + (hasPrompt.value ? 12 + AGENT_IDEAS_MAX_H : 0)
+  // The dock is a plain wrapper inset 16px each side; the composer is the only surface.
+  return (heroColSize.value?.w ?? 0) - 32 < 480 ? 84 : 40
 })
 const heroColSize = ref<{ w: number, h: number } | null>(null)
 const heroNatural = ref<{ w: number, h: number } | null>(null)
@@ -3382,6 +3405,12 @@ watch(() => videoImages.startImage, (newStart, oldStart) => {
 
 // LoRA state — ref that syncs bidirectionally with the composable pool
 import { useLoraPool } from '../composables/useLoraPool'
+import { usePromptProgram } from '../composables/usePromptProgram'
+import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
+import FluentControl from '../components/generation/FluentControl.vue'
+import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
+import { useWildcards, useSegments } from '../composables/useWildcards'
+import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
 import { disableUnavailableLoras } from '../utils/availableLoras'
 const _loraPool = useLoraPool()
@@ -3843,6 +3872,68 @@ const {
   availableLoras,
 })
 
+// Prompt programs ----------------------------------------------------------------
+// Unless Raw is on, the prompt is prepared once into a program and each run draws from
+// it (no model call per image). Enhance on elaborates; off keeps the user's words.
+// Without a chat model, Enhance-off runs the plain pipeline. See usePromptProgram.ts.
+// Fluent's modes, only where Fluent ships (promptBrand.ts).
+const fluentOn = fluentEnabled
+const rawMode = computed(() => fluentOn.value && !!globalPrefs.value.promptOptions?.raw)
+const directMode = computed(() => fluentOn.value && !!globalPrefs.value.promptOptions?.direct)
+const promptProgram = usePromptProgram({
+  toolId: computed(() => fullToolIdFromProps || null),
+  prompt: computed(() => globalPrefs.value.prompt || ''),
+  enabled: computed(() => fluentOn.value && !!hasPrompt.value && !llmUnconfigured.value && !rawMode.value && !directMode.value),
+  elaborate: computed(() => !!globalPrefs.value.promptOptions?.autoImprove?.enabled),
+  loraNotes: computed(() => globalPrefs.value.promptOptions?.loraNotes !== false),
+  loraItems: computed(() => hasLoras.value
+    ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight }))
+    : []),
+  contextParams: computed(() => {
+    // Only what the enhancer's style depends on; never the images themselves.
+    const imgs: any[] = [...(globalPrefs.value.inputImages || []), ...(globalPrefs.value.inpaintRefImages || [])]
+    const p: Record<string, any> = {}
+    if (imgs.length) {
+      p.input_images = imgs.map(() => 'ref')
+      const ids = imgs.map(i => (i ? lineageMediaId(i) : undefined) ?? null)
+      if (ids.some(x => x != null)) p.input_media_ids = ids
+    }
+    // Video tools: the start frame (the enhancer sees it, so it's part of the key).
+    const startId = videoImages.startImage ? lineageMediaId(videoImages.startImage as any) : undefined
+    if (startId != null && !imgs.length) p.input_media_ids = [startId]
+    // A driving audio track changes the enhancer's style too (see enhanceAudioConditioned).
+    if (audioInputConfig.value && audioInputConfig.value.audioRole !== 'reference' && (globalPrefs.value.inputAudios?.length ?? 0) > 0) {
+      p.input_audios = globalPrefs.value.inputAudios.map(() => 'ref')
+    }
+    if (modelParams.width) p.width = Number(modelParams.width)
+    if (modelParams.height) p.height = Number(modelParams.height)
+    return p
+  }),
+  instructions: computed(() => globalPrefs.value.promptOptions?.autoImprove?.instructions || ''),
+  projectId: projectScopeId,
+  promptOptions: computed(() => globalPrefs.value.promptOptions),
+  setPromptOptions: (next: any) => { globalPrefs.value.promptOptions = next },
+})
+// Fluent's "nothing was run" is about the prompt as it was: once the prompt, its mode or
+// Fluent's state moves on, the message is no longer true.
+watch(() => [globalPrefs.value.prompt, globalPrefs.value.promptOptions?.raw, globalPrefs.value.promptOptions?.direct, globalPrefs.value.promptOptions?.autoImprove?.enabled],
+  () => { if (submissionError.value?.endsWith('so nothing ran.')) submissionError.value = null })
+
+function replayProgramRun(run: any) {
+  const fixed = Object.fromEntries((run?.draws || []).map((d: any) => [d.id, d.value]))
+  void submitJob({ countOverride: 1, programFixed: fixed })
+}
+
+function useProgramRunChoices(run: any) {
+  const pins: Record<string, string[]> = {}
+  for (const d of run?.draws || []) {
+    if (d.kind === 'param' || d.hidden) continue
+    pins[d.id] = [String(d.value)]
+  }
+  promptProgram.setManyPins(pins)
+}
+
+
 // Values used to evaluate x-constraints (SchemaParamGroup.vue, below). Frame
 // state lives in videoImages/frameItems, and reference-audio state in
 // globalPrefs.inputAudios (via audioInputItems) — neither is part of
@@ -3955,7 +4046,11 @@ const { clear: clearPromptWarmPool } = usePromptWarmPool({
     !enhanceUsesImage.value &&
     // H3 Context-IR depends on live duration/audio/keyframe parameters, not
     // prompt text alone, so it must be enhanced at submission time.
-    !enhanceIsMiniMaxH3.value
+    !enhanceIsMiniMaxH3.value &&
+    !rawMode.value &&
+    !directMode.value &&
+    // A prompt program runs without an LLM: nothing to pre-enhance.
+    promptProgram.status.value === 'off'
   ),
   autoImproveInstructions: computed(() => globalPrefs.value.promptOptions?.autoImprove?.instructions ?? null),
   model: computed(() => toolModelString.value || null),
@@ -4013,7 +4108,11 @@ const {
 
 // A prompt edit from another client waits for the cursor to leave the field.
 function handlePromptFocusOut(event: FocusEvent) {
-  if (!aiPromptEditorRef.value?.$el?.contains?.(event.relatedTarget as Node | null)) releaseHeldStateKeys()
+  if (aiPromptEditorRef.value?.$el?.contains?.(event.relatedTarget as Node | null)) return
+  releaseHeldStateKeys()
+  // Fluent reads a changed prompt as soon as you're done typing, so the first run
+  // usually doesn't wait. Same request as a run's, shared if both happen.
+  if (promptProgram.status.value === 'stale') void promptProgram.prepare()
 }
 
 // Another client changed this tab's other saved values.
@@ -5294,6 +5393,9 @@ type ForeverSubmitOptions = {
   // One-off count for THIS run only (the agent's generate(count)). Overrides the
   // persistent batchSize for this submit without mutating it. Ignored in forever mode.
   countOverride?: number
+  // Prompt programs: replay these draws exactly (same choices, new seed).
+  programFixed?: Record<string, any>
+  programDrawSeed?: number
 }
 
 type SubmitJobResult = {
@@ -5313,6 +5415,16 @@ function noSubmit(options: ForeverSubmitOptions, declineReservation = true): Sub
   }
 }
 
+/** {{names}} in the prompt that aren't saved wildcards or segments (so only a model can fill them). */
+const { wildcards: savedWildcards } = useWildcards()
+const { segments: savedSegments } = useSegments()
+function unknownSmartNames(prompt: string): string[] {
+  const known = new Set([...savedWildcards.value.map(w => w.name.toLowerCase()), ...savedSegments.value.map(s => s.name.toLowerCase())])
+  const lines = prompt.split('\n').filter(l => !l.trimStart().startsWith('#'))
+  const names = [...lines.join('\n').matchAll(/\{\{([^{}]+)\}\}/g)].map(m => m[1].trim())
+  return [...new Set(names.filter(n => n && !known.has(n.toLowerCase())))]
+}
+
 async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobResult> {
   if (!tool.value || !canSubmit.value) return noSubmit(options)
   if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
@@ -5328,6 +5440,56 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     return noSubmit(options)
   }
   if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
+
+  // No chat model: {a|b}, saved wildcards and # lines still work, but a {{name}} that
+  // isn't a saved wildcard can't be filled. Never send it through as literal text.
+  // Direct is the same: only saved wildcards fill in.
+  const direct = directMode.value
+  const unfillable = fluentOn.value && !rawMode.value && (llmUnconfigured.value || direct) && hasPrompt.value
+    ? unknownSmartNames(globalPrefs.value.prompt || '') : []
+  // It's a mistake in the prompt, so the editor marks it (like a syntax error) and the
+  // run waits; one quiet line says why, no toast.
+  if (unfillable.length) {
+    submissionError.value = direct
+      ? `{{${unfillable[0]}}} isn’t a saved wildcard, so nothing ran.`
+      : `${PROMPT_BRAND} needs a chat model for {{${unfillable[0]}}}, so nothing ran.`
+    return noSubmit(options)
+  }
+
+  // Prompt programs: an out-of-date program is prepared once, before the batch.
+  // The wait is its own tile in the strip, beside any runs already going.
+  const preparingId = promptProgram.needsPrepare()
+    ? jobsManager.addPendingJob(globalPrefs.value.prompt, {
+        model_name: tool.value!.model,
+        generator_name: tool.value!.generator,
+        width: modelParams.width,
+        height: modelParams.height,
+      }, 'Reading prompt…')
+    : null
+  const finishPreparing = preparingId ? beginInstanceWork(generatorInstanceId) : null
+  const ready = await promptProgram.ensureReady()
+  const preparingCancelled = !!preparingId && !jobsManager.hasPendingJob(preparingId)
+  if (preparingId) {
+    jobsManager.removePendingJob(preparingId)
+    finishPreparing?.()
+  }
+  if (preparingCancelled) return noSubmit(options, false)
+  if (!ready) {
+    // Plain words by cause; the model's own complaint is for developers (Fluent's menu
+    // shows it in dev mode).
+    const code = promptProgram.error.value?.code
+    const retry = { label: 'Try again', onClick: () => { void submitJob(options) } }
+    if (code === 'llm_not_configured') {
+      submissionError.value = `${PROMPT_BRAND} needs a chat model, so nothing ran.`
+      addToast(submissionError.value, 'error', 8000, { label: 'Settings', onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) })
+    } else {
+      submissionError.value = code === 'llm_unavailable'
+        ? `Can’t reach your chat model, so nothing ran.`
+        : `${PROMPT_BRAND} couldn’t read this prompt, so nothing ran.`
+      addToast(submissionError.value, 'error', 8000, retry)
+    }
+    return noSubmit(options)
+  }
 
   const count = options.foreverBackendName
     ? 1
@@ -5430,8 +5592,19 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
   // Enhance Prompt is family-aware: thread the tool's model + enhancement mode
   // into the generate-time pipeline. The backend picks the style from the model;
   // Ideogram (mode 'ideogram-json') runs as the post-resolve JSON step.
-  const rawPromptOptions = capturedState.promptOptions
-  const promptOptions = rawPromptOptions
+  // Without Fluent (beta/production for now), the prompt goes the classic way: settings a
+  // canary build saved (Raw, Direct, the LoRA choices) don't apply.
+  const savedPromptOptions = capturedState.promptOptions
+  const rawPromptOptions = savedPromptOptions && !fluentOn.value
+    ? (({ raw: _r, direct: _d, loraTriggers: _t, loraNotes: _n, ...rest }) => rest)(savedPromptOptions as any)
+    : savedPromptOptions
+      // Fluent sends the LoRA choices explicitly; the backend only adds trigger
+      // words when asked to.
+      ? { ...savedPromptOptions, loraTriggers: savedPromptOptions.loraTriggers !== false, loraNotes: savedPromptOptions.loraNotes !== false }
+      : savedPromptOptions
+  const promptOptions = rawPromptOptions?.raw
+    ? { ...rawPromptOptions, raw: true, autoImprove: { ...rawPromptOptions.autoImprove, enabled: false }, translate: { ...rawPromptOptions.translate, enabled: false } }
+    : rawPromptOptions
     ? {
         ...rawPromptOptions,
         // Tools with no prompt input have nothing to enhance or translate —
@@ -5442,7 +5615,8 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         // visibly rather than sending the raw prompt.
         autoImprove: {
           ...rawPromptOptions.autoImprove,
-          enabled: toolHasPrompt && !!rawPromptOptions.autoImprove?.enabled,
+          // Direct: no model rewrites the prompt.
+          enabled: toolHasPrompt && !!rawPromptOptions.autoImprove?.enabled && !rawPromptOptions.direct,
           model: toolModelString.value || null,
           // Task-authoritative: video tools always get cinematography.
           isVideo: enhanceIsVideo.value,
@@ -5460,6 +5634,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
           ...rawPromptOptions.translate,
           enabled: toolHasPrompt && !llmUnconfigured.value && !!rawPromptOptions.translate?.enabled,
         },
+        program: promptProgram.payload(options.programFixed, options.programDrawSeed),
       }
     : rawPromptOptions
   const enhanceOn = !!promptOptions?.autoImprove?.enabled
@@ -5474,8 +5649,9 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
   // do LLM work. Enhancement happens server-side at submit time (either from
   // the forever-mode warm pool or synchronously), so keep the slot visibly
   // active until the backend emits the real queued job.
+  // A prompt program is already prepared by now; running it needs no LLM.
   const needsEnhancing = toolHasPrompt && (
-    enhanceOn ||
+    (enhanceOn && !promptOptions?.program) ||
     promptOptions?.translate?.enabled
   )
   const pendingId = needsEnhancing
@@ -5851,9 +6027,6 @@ async function reregisterForeverModeWithRetry() {
 // ══════════════════════════════════════════════════════════════════════════
 
 const aiPromptEditorRef = ref<InstanceType<typeof AIPromptEditor> | null>(null)
-// Page-level agent chat. Owns the suggestion categories/ideas the agent's
-// category tools operate on (the prompt editor is now just an editor).
-const promptAgentChatRef = ref<InstanceType<typeof PromptAgentChat> | null>(null)
 const mediaPickerRef = ref<InstanceType<typeof MediaPicker> | null>(null)
 
 // Presets the agent can list/apply. Loaded on mount + after a save (the
@@ -5878,7 +6051,6 @@ interface EditorSnapshot {
   inpaintRefImages: any[]
   modelParams: Record<string, any>
   autoMarkerIds: number[]
-  categories: any
   // The chain is part of the undo snapshot (unlike the LoRA pool, which is
   // deliberately outside it) — editing the chain is a prompt-altitude action.
   postProcessingChain: PostProcessingChain
@@ -5892,9 +6064,6 @@ const undo = usePromptEditorUndo<EditorSnapshot>({
     inpaintRefImages: JSON.parse(JSON.stringify(globalPrefs.value.inpaintRefImages ?? [])),
     modelParams: JSON.parse(JSON.stringify(modelParams.value ?? {})),
     autoMarkerIds: [...(globalPrefs.value.autoMarkerIds ?? [])],
-    categories: promptAgentChatRef.value?.getCategoriesSnapshot
-      ? JSON.parse(JSON.stringify(promptAgentChatRef.value.getCategoriesSnapshot()))
-      : null,
     postProcessingChain: JSON.parse(JSON.stringify(toolChain.value)),
   }),
   restore: (snap) => {
@@ -5905,9 +6074,6 @@ const undo = usePromptEditorUndo<EditorSnapshot>({
     globalPrefs.value.inpaintRefImages = JSON.parse(JSON.stringify(snap.inpaintRefImages ?? []))
     modelParams.value = JSON.parse(JSON.stringify(snap.modelParams ?? {}))
     globalPrefs.value.autoMarkerIds = [...(snap.autoMarkerIds ?? [])]
-    if (snap.categories && promptAgentChatRef.value?.setCategoriesSnapshot) {
-      promptAgentChatRef.value.setCategoriesSnapshot(snap.categories)
-    }
     if (snap.postProcessingChain) {
       toolChain.value = normalizeChain(snap.postProcessingChain)
     }
@@ -6296,9 +6462,14 @@ function getStateContext(): Record<string, any> {
   }
   if (Object.keys(res).length) ctx.resolution = res
 
-  // Categories.
-  const cats = promptAgentChatRef.value?.getCategoriesForState?.()
-  if (cats && cats.length) ctx.categories = cats
+  // The prepared prompt's choices: what each image draws (see generate's draw_seed).
+  if (promptProgram.status.value === 'ready' && promptProgram.choices.value.length) {
+    ctx.prompt_choices = promptProgram.choices.value.filter(c => !c.hidden).map(c => ({
+      label: c.label,
+      options: promptProgram.optionsOf(c).slice(0, 12),
+      ...(promptProgram.pins.value[c.id]?.length ? { limited_to: promptProgram.pins.value[c.id] } : {}),
+    }))
+  }
 
   // LoRAs (selected only — never dump available).
   if (hasLoras.value && toolLoras.value.length) {
@@ -6392,7 +6563,6 @@ function unwrapMaybeRef(v: any, fallback: number): number {
 async function runTool(name: string, args: any): Promise<string> {
   args = args || {}
   const editor = aiPromptEditorRef.value
-  const chat = promptAgentChatRef.value
   const picker = mediaPickerRef.value
   const imgs = () => globalPrefs.value.inputImages || []
 
@@ -6461,23 +6631,6 @@ async function runTool(name: string, args: any): Promise<string> {
     }
     case 'set_resolution':
       return setResolution(args || {})
-
-    // ── Categories (delegate to the page-level PromptAgentChat) ──
-    case 'add_category':
-      if (!chat?.addCategory) return 'Error: prompt chat not available.'
-      return chat.addCategory(args)
-    case 'remove_category':
-      if (!chat?.removeCategory) return 'Error: prompt chat not available.'
-      return chat.removeCategory(String(args.key ?? ''))
-    case 'set_category_options':
-      if (!chat?.setCategoryOptions) return 'Error: prompt chat not available.'
-      return chat.setCategoryOptions(String(args.key ?? ''), args.options || [])
-    case 'refresh_category':
-      if (!chat?.refreshCategory) return 'Error: prompt chat not available.'
-      return await chat.refreshCategory(String(args.key ?? ''))
-    case 'refresh_ideas':
-      if (!chat?.refreshIdeas) return 'Error: prompt chat not available.'
-      return await chat.refreshIdeas()
 
     // ── Reference images ──
     case 'flip_image':
@@ -6838,7 +6991,11 @@ async function runTool(name: string, args: any): Promise<string> {
       // persistent batch size. Absent/invalid falls back to the current batchSize.
       const rawCount = args.count != null ? Math.round(Number(args.count)) : NaN
       const countOverride = Number.isNaN(rawCount) ? undefined : Math.min(8, Math.max(1, rawCount))
-      await submitJob(countOverride != null ? { countOverride } : {})
+      const rawDrawSeed = args.draw_seed != null ? Math.round(Number(args.draw_seed)) : NaN
+      await submitJob({
+        ...(countOverride != null ? { countOverride } : {}),
+        ...(Number.isNaN(rawDrawSeed) || rawDrawSeed < 0 ? {} : { programDrawSeed: rawDrawSeed }),
+      })
       const n = countOverride ?? Math.min(8, Math.max(1, uiState.value.batchSize ?? 1))
       return n === 1 ? 'Generation submitted.' : `Submitted ${n} generations.`
     }

@@ -407,6 +407,60 @@ def _prompt_preload_for_batch_index(request, idx: int) -> Optional[Dict[str, Any
     return preload if isinstance(preload, dict) else None
 
 
+def prompt_enhance_context(
+    parameters: Dict[str, Any],
+    tool_id: str,
+    task_type: Optional[str],
+    prompt_options: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Everything the enhancer needs to know about this generation, in one place:
+    the model and its style, video/audio, the input images, the canvas. Used by the
+    per-image enhancer and by prompt-program preparation alike."""
+    from model_family import model_family
+    from prompt_pipeline import is_ideogram4
+    from routes.prompt_enhancement import enhancement_mode
+
+    model, model_vendor, effective_task, schema_props = _prompt_pipeline_context(tool_id, task_type, prompt_options)
+    family = model_family(model)
+    h3: tuple = (None, None, [], True, [])
+    if family == "minimax-h3":
+        h3 = _prompt_h3_context(parameters, effective_task)
+    input_media_ids: List[Optional[int]] = []
+    if family in ("qwen-image-2.1", "flux-3-klein"):
+        input_media_ids = _prompt_input_media_ids(parameters)
+    is_video = "video" in effective_task
+    is_audio = effective_task in _AUDIO_TASK_TYPES
+    input_image_count = _prompt_input_image_count(parameters, schema_props, effective_task)
+    mode = enhancement_mode(family, is_video=is_video, is_image_edit=input_image_count > 0 and not is_video, is_audio=is_audio)
+    if is_ideogram4(model_vendor, model):
+        mode = "ideogram"
+    return {
+        "model": model,
+        "model_vendor": model_vendor,
+        "effective_task": effective_task,
+        "schema_props": schema_props,
+        "mode": mode,
+        # Structured formats (MiniMax H3's Context-IR, Ideogram JSON) are still enhanced
+        # per image; programs write prose-like formats only for now.
+        "program_supported": mode not in ("minimax-h3", "ideogram"),
+        "enhance": {
+            "is_video": is_video,
+            "is_audio": is_audio,
+            "input_image_count": input_image_count,
+            "audio_conditioned": _prompt_audio_conditioned(parameters, schema_props),
+            "media_id": _prompt_media_id(parameters, effective_task),
+            "h3_task": h3[0],
+            "h3_duration": h3[1],
+            "h3_media_ids": h3[2],
+            "h3_generate_audio": h3[3],
+            "h3_reference_manifest": h3[4],
+            "input_media_ids": input_media_ids,
+            "width": _optional_int(parameters, "width"),
+            "height": _optional_int(parameters, "height"),
+        },
+    }
+
+
 async def _apply_generation_prompt_pipeline(
     parameters: Dict[str, Any],
     *,
@@ -442,23 +496,35 @@ async def _apply_generation_prompt_pipeline(
 
     profile_id = get_current_profile()
     db = get_database_registry().get_database(profile_id)
-    model, model_vendor, effective_task, schema_props = _prompt_pipeline_context(tool_id, task_type, prompt_options)
-    from model_family import model_family
-    h3_task: Optional[str] = None
-    h3_duration: Optional[float] = None
-    h3_media_ids: List[Optional[int]] = []
-    h3_reference_manifest: List[Dict[str, Any]] = []
-    h3_generate_audio = True
-    if model_family(model) == "minimax-h3":
-        h3_task, h3_duration, h3_media_ids, h3_generate_audio, h3_reference_manifest = _prompt_h3_context(
-            parameters, effective_task
+    ctx = prompt_enhance_context(parameters, tool_id, task_type, prompt_options)
+    model, model_vendor, schema_props = ctx["model"], ctx["model_vendor"], ctx["schema_props"]
+    from lora_notes import lora_context_for, prepend_missing_triggers
+    raw = bool((prompt_options or {}).get("raw"))
+    # The prompt menu's LoRA choices. Absent (older clients, the agent, builds without
+    # Fluent) means the classic behaviour: the enhancer is told triggers and notes, and
+    # nothing is added after. Fluent builds send both explicitly.
+    lora_choice = (prompt_options or {}).get("loraTriggers")
+    lora_triggers = lora_choice is not False
+    add_triggers = lora_choice is True
+    lora_notes = (prompt_options or {}).get("loraNotes") is not False
+    enhance_on = not raw and bool(((prompt_options or {}).get("autoImprove") or {}).get("enabled"))
+    program_run = None
+    program_opts = (prompt_options or {}).get("program")
+    if not raw and isinstance(program_opts, dict) and program_opts.get("enabled") and ctx["program_supported"]:
+        # Prompt program: prepared once (Enhance on: rich; off: the user's own words);
+        # this generation runs it. No LLM call unless it isn't prepared yet.
+        program_run, prompt = await _run_prompt_program(
+            prompt, parameters, program_opts, ctx=ctx, tool_id=tool_id, prompt_options=prompt_options,
+            project_id=project_id, profile_id=profile_id, elaborate=enhance_on,
+            lora_triggers=lora_triggers, lora_notes=lora_notes,
         )
-    input_media_ids: List[Optional[int]] = []
-    if model_family(model) in ("qwen-image-2.1", "flux-3-klein"):
-        input_media_ids = _prompt_input_media_ids(parameters)
-    from lora_notes import lora_context_for
-    enhance_on = bool(((prompt_options or {}).get("autoImprove") or {}).get("enabled"))
-    lora_context = await lora_context_for(tool_id, parameters, profile_id) if enhance_on else None
+        auto_improve = dict((prompt_options or {}).get("autoImprove") or {})
+        auto_improve["enabled"] = False
+        prompt_options = {**(prompt_options or {}), "autoImprove": auto_improve}
+        enhance_on = False
+        effective_preload = None
+    lora_context = (_shape_lora_context(await lora_context_for(tool_id, parameters, profile_id), lora_triggers, lora_notes)
+                    if enhance_on else None)
     processed_prompt = await run_prompt_pipeline(
         db,
         prompt,
@@ -466,19 +532,7 @@ async def _apply_generation_prompt_pipeline(
         model=model,
         model_vendor=model_vendor,
         lora_context=lora_context,
-        is_video="video" in effective_task,
-        is_audio=effective_task in _AUDIO_TASK_TYPES,
-        input_image_count=_prompt_input_image_count(parameters, schema_props, effective_task),
-        audio_conditioned=_prompt_audio_conditioned(parameters, schema_props),
-        media_id=_prompt_media_id(parameters, effective_task),
-        h3_task=h3_task,
-        h3_duration=h3_duration,
-        h3_media_ids=h3_media_ids,
-        h3_reference_manifest=h3_reference_manifest,
-        h3_generate_audio=h3_generate_audio,
-        input_media_ids=input_media_ids,
-        width=_optional_int(parameters, "width"),
-        height=_optional_int(parameters, "height"),
+        **ctx["enhance"],
         profile_id=profile_id,
         project_id=project_id,
         prompt_preload=effective_preload,
@@ -486,7 +540,79 @@ async def _apply_generation_prompt_pipeline(
 
     updated = dict(parameters)
     updated["prompt"] = processed_prompt
+    if program_run is not None:
+        _apply_program_run(updated, program_run, schema_props)
+    # Trigger words for every LoRA this run uses, at the front when missing (Fluent and
+    # Direct; never Raw, and never inside a structured format).
+    structured = ctx["mode"] == "minimax-h3" or (ctx["mode"] == "ideogram" and enhance_on)
+    if not raw and add_triggers and not structured and isinstance(updated.get("prompt"), str):
+        updated["prompt"] = prepend_missing_triggers(updated["prompt"], await lora_context_for(tool_id, updated, profile_id))
     return updated
+
+
+def _shape_lora_context(context: Optional[List[Dict[str, Any]]], triggers: bool, notes: bool) -> Optional[List[Dict[str, Any]]]:
+    """What the model is told about the LoRAs, per the prompt menu's choices."""
+    if not context:
+        return context
+    return [{**c, "trigger_words": c.get("trigger_words") if triggers else [], "notes": c.get("notes") if notes else ""}
+            for c in context]
+
+
+async def _run_prompt_program(
+    prompt: str,
+    parameters: Dict[str, Any],
+    program_opts: Dict[str, Any],
+    *,
+    ctx: Dict[str, Any],
+    tool_id: str,
+    prompt_options: Optional[Dict[str, Any]],
+    project_id: Optional[int],
+    profile_id: Optional[str],
+    elaborate: bool = True,
+    lora_triggers: bool = True,
+    lora_notes: bool = True,
+) -> tuple[Dict[str, Any], str]:
+    from llm_resolver import LLMUnavailableError
+    from prompt_programs.prepare import ProgramError, draw_seed, ensure_program, realize
+
+    try:
+        entry = await ensure_program(
+            prompt=prompt, tool_id=tool_id, ctx=ctx,
+            instructions=(((prompt_options or {}).get("autoImprove") or {}).get("instructions") or "").strip(),
+            lora_items=program_opts.get("loras") or [], project_id=project_id, profile_id=profile_id,
+            elaborate=elaborate, lora_notes=lora_notes,
+        )
+        # Independent of the image seed; an explicit draw_seed repeats the same draws.
+        result = realize(entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"), fixed=program_opts.get("fixed"),
+                         edits=program_opts.get("edits"), triggers=lora_triggers)
+    except ProgramError as e:
+        raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
+    except LLMUnavailableError as e:
+        raise HTTPException(status_code=424, detail=f"Generation was not started: {e}") from None
+    record = {"key": entry["key"], "mode": entry.get("mode"), "elaborate": entry.get("elaborate", True), **result.to_dict(), "pins": program_opts.get("pins") or {},
+              "choices": [c for c in entry.get("choices") or [] if not c.get("hidden")]}
+    return record, result.prompt
+
+
+def _apply_program_run(updated: Dict[str, Any], record: Dict[str, Any], schema_props: Dict[str, Any]) -> None:
+    """Add the program's LoRAs and parameter values to one job's parameters."""
+    if record.get("loras"):
+        current = list(updated.get("loras") or [])
+        have = {str(x.get("lora") or x.get("path") or "") for x in current if isinstance(x, dict)}
+        for lu in record["loras"]:
+            if lu.get("path") and lu["path"] not in have:
+                current.append({"lora": lu["path"], "weight": lu.get("weight", 1.0)})
+        updated["loras"] = current
+    for name, value in (record.get("params") or {}).items():
+        spec = schema_props.get(name)
+        if not isinstance(spec, dict):
+            continue
+        if isinstance(spec.get("minimum"), (int, float)):
+            value = max(spec["minimum"], value)
+        if isinstance(spec.get("maximum"), (int, float)):
+            value = min(spec["maximum"], value)
+        updated[name] = int(value) if spec.get("type") == "integer" else value
+    updated["prompt_program"] = record
 
 
 # Models for which agent tool calls use model-aware enhancement by default.

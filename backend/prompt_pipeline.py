@@ -683,6 +683,10 @@ async def run_prompt_pipeline(
         return prompt
 
     options = prompt_options or {}
+    # Raw: sent exactly as typed. No wildcards, comments or brackets are touched,
+    # for prompts another stage (a downstream wildcard node, say) will process.
+    if options.get("raw"):
+        return prompt
     auto_improve = options.get("autoImprove") or {}
     translate = options.get("translate") or {}
 

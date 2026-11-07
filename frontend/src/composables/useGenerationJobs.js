@@ -1029,12 +1029,14 @@ export function useGenerationJobs(options = {}) {
     delete mediaGenerationTimes.value[mediaId]
   }
 
-  // Add a pending job (shown while enhancing prompt via LLM)
-  function addPendingJob(prompt, params = {}) {
+  // Add a pending job (shown while enhancing prompt via LLM). `label` replaces the
+  // tile's "Enhancing prompt…" for other pre-submit work (preparing a prompt program).
+  function addPendingJob(prompt, params = {}, label = null) {
     const pendingId = `pending-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const pendingJob = {
       id: pendingId,
       status: 'enhancing',
+      pending_label: label,
       parameters: JSON.stringify({
         prompt: prompt,
         ...params
@@ -1050,6 +1052,10 @@ export function useGenerationJobs(options = {}) {
   // Remove a pending job (called after real job is queued or on error)
   function removePendingJob(pendingId) {
     pendingJobs.value = pendingJobs.value.filter(j => j.id !== pendingId)
+  }
+
+  function hasPendingJob(pendingId) {
+    return pendingJobs.value.some(j => j.id === pendingId)
   }
 
   // Cancel a pending job (user clicked cancel before submission)
@@ -1372,6 +1378,7 @@ export function useGenerationJobs(options = {}) {
     addPendingJob,
     removePendingJob,
     cancelPendingJob,
+    hasPendingJob,
 
     // Live in-flight progress/preview per job
     jobProgress,
