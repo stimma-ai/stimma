@@ -73,7 +73,7 @@
           </div>
           <div v-if="programText === ''" class="mx-4 mb-4 rounded-md border border-edge-subtle bg-surface-overlay px-3 py-6 text-[12px] text-content-secondary flex items-center justify-center gap-2">
             <template v-if="showError"><span class="text-red-400">{{ showError }}</span></template>
-            <template v-else><span class="w-3 h-3 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" /> Preparing this prompt…</template>
+            <template v-else><span class="w-3 h-3 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" /> Reading your prompt…</template>
           </div>
           <template v-else>
           <div v-if="program.program.value?.warnings?.length" class="mx-4 mb-2 rounded-md bg-amber-500/10 px-3 py-2 text-[12px] text-amber-600 dark:text-amber-400">
@@ -132,22 +132,31 @@ const dotColor = computed(() => ({
   error: 'bg-red-400',
 }[props.program.status.value as 'ready' | 'stale' | 'error'] || 'bg-content-muted'))
 
-// What the menu says, and its one action, for each state. Plain words: no programs,
-// no draws, no model calls.
+// What the menu says, and its one action, for each state. Plain words about what the
+// user feels: runs start right away once the prompt is read; the first run waits.
 const status = computed(() => {
+  const hasChoices = props.program.choices.value.some(c => !c.hidden)
   switch (props.program.status.value) {
-    case 'ready': return { head: 'Ready', body: '', action: 'Rewrite from scratch', actionHint: '', force: true }
-    case 'busy': return { head: 'Preparing…', body: '', action: '', actionHint: '', force: false }
+    case 'ready': return {
+      head: 'Prompt ready',
+      body: hasChoices ? 'Runs start right away, each with fresh choices.' : 'Runs start right away.',
+      action: 'Start over', actionHint: 'Rewrites it with new wording and choices.', force: true,
+    }
+    case 'busy': return { head: 'Reading your prompt…', body: 'Takes a few seconds, once.', action: '', actionHint: '', force: false }
     case 'error': return {
-      head: 'Couldn’t prepare this prompt',
+      head: 'Couldn’t read this prompt',
       body: props.program.error.value?.message || '',
       action: 'Try again', actionHint: '', force: true,
     }
-    default: return { head: 'Not prepared yet', body: 'Prepares when you run.', action: 'Prepare now', actionHint: '', force: false }
+    default: return {
+      head: 'Not ready yet',
+      body: 'Your next run takes a few extra seconds to read this prompt first.',
+      action: 'Get ready now', actionHint: '', force: false,
+    }
   }
 })
 
-const title = computed(() => ({ ready: 'Ready', stale: 'Not prepared yet', busy: 'Preparing…', error: 'Couldn’t prepare' }[props.program.status.value as string] || ''))
+const title = computed(() => ({ ready: 'Prompt ready', stale: 'Not ready yet', busy: 'Reading your prompt…', error: 'Couldn’t read this prompt' }[props.program.status.value as string] || ''))
 
 const menuStyle = computed(() => {
   const r = btn.value?.getBoundingClientRect()

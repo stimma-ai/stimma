@@ -5401,7 +5401,7 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
         generator_name: tool.value!.generator,
         width: modelParams.width,
         height: modelParams.height,
-      }, 'Preparing prompt…')
+      }, 'Reading prompt…')
     : null
   const finishPreparing = preparingId ? beginInstanceWork(generatorInstanceId) : null
   const ready = await promptProgram.ensureReady()
