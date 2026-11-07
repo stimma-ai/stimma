@@ -556,7 +556,7 @@ const fluentTips = [
   { title: 'Wildcards', examples: [{ code: '{{hairstyle}}', tone: AMBER }, { code: '{red|blue|green}', tone: GREEN }],
     text: [`Use {{hairstyle}} to have ${PROMPT_BRAND} write hairstyle options. Each image uses one. If you have a saved wildcard with that name, ${PROMPT_BRAND} uses yours. To supply your own options, write {red|blue|green}.`] },
   { title: 'Wildcards that work together', examples: [],
-    text: [`${PROMPT_BRAND} chooses wildcard options based on how well they fit together. With {nun|nurse|woman} and {habit|suit|bikini}, the nun usually gets the habit, sometimes the suit, and almost never the bikini, unless you ask for it. Without ${PROMPT_BRAND}, every wildcard is drawn on its own.`] },
+    text: [`${PROMPT_BRAND} chooses wildcard options based on how well they fit together, so unlikely combinations come up rarely unless you ask for them. With {sunny|rainy|snowy} and {t-shirt|raincoat|parka}, a snowy day usually gets the parka, not the t-shirt. Without ${PROMPT_BRAND}, every wildcard is drawn on its own.`] },
   { title: 'Comments', examples: [{ code: '# vary her expression', tone: GREY }],
     text: [`Start a line with # to leave ${PROMPT_BRAND} a note about what to vary or keep the same between images. Notes never reach the image model.`,
       'You can also give instructions about settings: # guidance between 3 and 5 or # use my curtain bangs LoRA.'] },
