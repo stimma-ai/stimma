@@ -111,6 +111,10 @@ export function parseSheet(html: string, scope: string): ParsedSheet {
     if (/^(?:https?:)?\/\//i.test(src)) el.removeAttribute('src')
     el.removeAttribute('srcset')
   })
+  doc.body.querySelectorAll('[style]').forEach(el => {
+    const style = el.getAttribute('style') || ''
+    if (/url\(/i.test(style)) el.setAttribute('style', style.replace(/url\(\s*(['"]?)\s*(?:https?:)?\/\/[^)]*\)/gi, 'none'))
+  })
   doc.body.querySelectorAll('a[href]').forEach(el => {
     el.setAttribute('target', '_blank')
     el.setAttribute('rel', 'noopener noreferrer')
