@@ -446,7 +446,7 @@ async def lora_candidates(tool_id: str, items: Sequence[Dict[str, Any]], profile
 async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], instructions: str,
                          lora_items: Sequence[Dict[str, Any]], project_id: Optional[int],
                          profile_id: Optional[str], cache_only: bool = False, force: bool = False,
-                         elaborate: bool = True) -> Optional[Dict[str, Any]]:
+                         elaborate: bool = True, lora_notes: bool = True) -> Optional[Dict[str, Any]]:
     """The prepared program for these inputs, from cache or by asking the model.
     elaborate (Enhance on): the per-model enhancer writes a rich example first and the
     program keeps it. Off: the program keeps the user's own words."""
@@ -458,6 +458,8 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     masked_prompt, exact = mask_exact(source_prompt)
     params = tool_param_specs(ctx.get("schema_props") or {})
     candidates, notes = await lora_candidates(tool_id, lora_items, profile_id)
+    if not lora_notes:  # the prompt menu's "LoRA notes" is off: the model isn't told them
+        notes = {}
     loras = match_loras(source_prompt, candidates)
     lora_context = [{"name": lo.name, "trigger_words": [t.strip() for t in lo.trigger.split(",") if t.strip()],
                      "notes": notes.get(lo.name, "")} for lo in loras]
@@ -556,8 +558,11 @@ def draw_seed(seed: Any = None) -> int:
 
 
 def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] = None,
-            fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None) -> RunResult:
+            fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
+            triggers: bool = True) -> RunResult:
     loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
+    if not triggers:  # the prompt menu's "Trigger words" is off: a picked LoRA adds none
+        loras = [LoraInfo(lo.name, lo.path, lo.weight, "") for lo in loras]
     clean_pins = {str(k): [str(x) for x in (v if isinstance(v, list) else [v])] for k, v in (pins or {}).items() if v}
     clean_edits = {str(k): v for k, v in (edits or {}).items() if isinstance(v, dict)}
     result = run(entry["program"], seed, clean_pins, loras, set(entry.get("params") or {}) or None, fixed or None,

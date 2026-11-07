@@ -76,6 +76,16 @@
               <span class="flex-1 text-[12px] coarse:text-[13px] text-content">Enhance prompt</span>
               <Toggle :model-value="elaborate" label="Enhance prompt" @update:model-value="(v) => emit('mode', v)" />
             </label>
+            <template v-if="hasLoras">
+              <label class="flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer">
+                <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA trigger words</span>
+                <Toggle :model-value="!!loraTriggers" label="LoRA trigger words" @update:model-value="(v) => emit('lora', 'loraTriggers', v)" />
+              </label>
+              <label :class="['flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer', llmUnconfigured ? 'opacity-40 pointer-events-none' : '']">
+                <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA notes</span>
+                <Toggle :model-value="!!loraNotes" label="LoRA notes" @update:model-value="(v) => emit('lora', 'loraNotes', v)" />
+              </label>
+            </template>
             <button
               v-if="retake"
               type="button"
@@ -85,6 +95,14 @@
             >
               <ArrowPathIcon class="w-3.5 h-3.5 text-content-tertiary" />{{ retake.label }}
             </button>
+          </template>
+          <!-- Direct has no model, so only the trigger words apply. -->
+          <template v-else-if="way === 'direct' && hasLoras">
+            <div class="border-t border-edge-subtle" />
+            <label class="flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer">
+              <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA trigger words</span>
+              <Toggle :model-value="!!loraTriggers" label="LoRA trigger words" @update:model-value="(v) => emit('lora', 'loraTriggers', v)" />
+            </label>
           </template>
         </div>
       </div>
@@ -175,11 +193,16 @@ const props = defineProps<{
   llmUnconfigured: boolean
   /** The image model's name, for the menu's one line of description. */
   modelName?: string
+  /** The tool takes LoRAs, so the LoRA choices apply. */
+  hasLoras?: boolean
+  loraTriggers?: boolean
+  loraNotes?: boolean
 }>()
 const emit = defineEmits<{
   (e: 'mode', elaborate: boolean): void
   (e: 'way', way: Way): void
   (e: 'help', anchor: DOMRect | null): void
+  (e: 'lora', key: 'loraTriggers' | 'loraNotes', on: boolean): void
 }>()
 
 const chip = ref<HTMLElement | null>(null)
@@ -196,10 +219,10 @@ const tagline = computed(() => {
   // Name the features plainly; don't explain them.
   const model = props.modelName || 'the model'
   if (props.raw) return `Your prompt goes to ${model} exactly as you typed it.`
-  if (props.direct) return 'Your wildcards, comments and exact text are processed without AI.'
+  if (props.direct) return 'Handles wildcards, comments and verbatim text without AI.'
   return props.elaborate || props.program.unsupported.value
-    ? `AI fills in your wildcards, follows your comments, and writes the prompt the way ${model} likes.`
-    : 'AI fills in your wildcards and follows your comments. Your wording stays.'
+    ? `AI fills in your wildcards, follows your comments, and expands your prompt into the detailed style ${model} works best with.`
+    : 'AI fills in your wildcards and follows your comments, keeping your wording.'
 })
 const detail = computed(() => props.elaborate || props.program.unsupported.value)
 const on = computed(() => way.value === 'fluent' && !props.llmUnconfigured)

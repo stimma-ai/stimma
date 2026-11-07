@@ -344,6 +344,10 @@
               :elaborate="!!globalPrefs.promptOptions?.autoImprove?.enabled"
               :llm-unconfigured="llmUnconfigured"
               :model-name="tool?.name"
+              :has-loras="hasLoras"
+              :lora-triggers="globalPrefs.promptOptions?.loraTriggers !== false"
+              :lora-notes="globalPrefs.promptOptions?.loraNotes !== false"
+              @lora="(key, on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, [key]: on ? undefined : false }"
               @way="(w) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined }"
               @mode="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, autoImprove: { ...globalPrefs.promptOptions?.autoImprove, enabled: on } }"
               @help="(anchor) => openHelp(anchor)"
@@ -3876,6 +3880,7 @@ const promptProgram = usePromptProgram({
   prompt: computed(() => globalPrefs.value.prompt || ''),
   enabled: computed(() => !!hasPrompt.value && !llmUnconfigured.value && !globalPrefs.value.promptOptions?.raw && !globalPrefs.value.promptOptions?.direct),
   elaborate: computed(() => !!globalPrefs.value.promptOptions?.autoImprove?.enabled),
+  loraNotes: computed(() => globalPrefs.value.promptOptions?.loraNotes !== false),
   loraItems: computed(() => hasLoras.value
     ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight }))
     : []),

@@ -34,6 +34,8 @@ class PrepareRequest(BaseModel):
     force: bool = False
     # elaborate: Enhance on (rich, per-model example). Off: keep the user's own words.
     elaborate: bool = True
+    # The prompt menu's "LoRA notes": whether the model is told the user's LoRA notes.
+    lora_notes: bool = True
 
 
 class PreviewRequest(PrepareRequest):
@@ -54,7 +56,7 @@ async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
         return await ensure_program(
             prompt=req.prompt, tool_id=req.tool_id, ctx=ctx, instructions=req.instructions.strip(),
             lora_items=req.loras, project_id=req.project_id, profile_id=get_current_profile(),
-            cache_only=req.cache_only, force=req.force, elaborate=req.elaborate,
+            cache_only=req.cache_only, force=req.force, elaborate=req.elaborate, lora_notes=req.lora_notes,
         )
     except ProgramError as e:
         raise HTTPException(status_code=422, detail={"code": "program_failed", "message": str(e)}) from None

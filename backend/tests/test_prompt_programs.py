@@ -453,3 +453,33 @@ class TestRerollEdits:
     def test_removing_everything_with_nothing_added_keeps_the_program_options(self):
         src = 'top = pick("top", ["a", "b"], label="Top")\nemit(top)\n'
         assert run(src, 1, None, [], set(), None, {"top": {"remove": ["a", "b"]}}).prompt.lower() in {"a", "b"}
+
+
+class TestLoraChoices:
+    def test_trigger_words_can_be_left_out_of_picked_loras(self):
+        entry = {"program": 'hair = pick_lora("hairstyle", ["Curtain bangs", "Wolf cut"], label="Hairstyle")\nemit("a woman")\n',
+                 "loras": [vars(lo) for lo in LORAS], "params": {}}
+        with_t = {prep.realize(entry, seed=s).prompt.lower() for s in range(8)}
+        without = {prep.realize(entry, seed=s, triggers=False).prompt.lower() for s in range(8)}
+        assert any("cbangs" in p or "wolfcut" in p for p in with_t)
+        assert not any("cbangs" in p or "wolfcut" in p for p in without)
+
+    def test_notes_and_triggers_shape_what_the_model_is_told(self):
+        from routes.generation import _shape_lora_context
+        ctx = [{"name": "Wolf cut", "trigger_words": ["wolfcut"], "notes": "works best at 0.8"}]
+        assert _shape_lora_context(ctx, True, True) == ctx
+        assert _shape_lora_context(ctx, False, True)[0]["trigger_words"] == []
+        assert _shape_lora_context(ctx, True, False)[0]["notes"] == ""
+        assert _shape_lora_context([], False, False) == []
+
+    async def test_notes_off_keeps_them_from_the_program_writer(self, stub, monkeypatch):
+        calls, replies = stub
+
+        async def noted(tool_id, items, profile_id):
+            return list(LORAS), {"Wolf cut": "SECRET-NOTE"}
+
+        monkeypatch.setattr(prep, "lora_candidates", noted)
+        replies.append(f"```python\n{TRAIN_M}```")
+        await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="", lora_items=[],
+                                  project_id=None, profile_id="p", lora_notes=False)
+        assert "SECRET-NOTE" not in " ".join(m["content"] for c in calls for m in c)

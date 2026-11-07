@@ -63,6 +63,10 @@ export interface PromptOptions {
   // Direct: no model reads the prompt. {a|b} lists, saved wildcards and segments fill
   // in, [brackets] unwrap and # lines drop (the classic pipeline). Raw wins over it.
   direct?: boolean
+  // LoRA choices in the prompt menu (both on unless set false): put each used LoRA's
+  // trigger words in the prompt (Fluent and Direct), and tell Fluent the LoRA notes.
+  loraTriggers?: boolean
+  loraNotes?: boolean
 }
 
 export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {

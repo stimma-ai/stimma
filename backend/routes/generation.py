@@ -498,8 +498,11 @@ async def _apply_generation_prompt_pipeline(
     db = get_database_registry().get_database(profile_id)
     ctx = prompt_enhance_context(parameters, tool_id, task_type, prompt_options)
     model, model_vendor, schema_props = ctx["model"], ctx["model_vendor"], ctx["schema_props"]
-    from lora_notes import lora_context_for
+    from lora_notes import lora_context_for, prepend_missing_triggers
     raw = bool((prompt_options or {}).get("raw"))
+    # The prompt menu's LoRA choices (both on unless turned off).
+    lora_triggers = (prompt_options or {}).get("loraTriggers") is not False
+    lora_notes = (prompt_options or {}).get("loraNotes") is not False
     enhance_on = not raw and bool(((prompt_options or {}).get("autoImprove") or {}).get("enabled"))
     program_run = None
     program_opts = (prompt_options or {}).get("program")
@@ -509,13 +512,15 @@ async def _apply_generation_prompt_pipeline(
         program_run, prompt = await _run_prompt_program(
             prompt, parameters, program_opts, ctx=ctx, tool_id=tool_id, prompt_options=prompt_options,
             project_id=project_id, profile_id=profile_id, elaborate=enhance_on,
+            lora_triggers=lora_triggers, lora_notes=lora_notes,
         )
         auto_improve = dict((prompt_options or {}).get("autoImprove") or {})
         auto_improve["enabled"] = False
         prompt_options = {**(prompt_options or {}), "autoImprove": auto_improve}
         enhance_on = False
         effective_preload = None
-    lora_context = await lora_context_for(tool_id, parameters, profile_id) if enhance_on else None
+    lora_context = (_shape_lora_context(await lora_context_for(tool_id, parameters, profile_id), lora_triggers, lora_notes)
+                    if enhance_on else None)
     processed_prompt = await run_prompt_pipeline(
         db,
         prompt,
@@ -533,7 +538,20 @@ async def _apply_generation_prompt_pipeline(
     updated["prompt"] = processed_prompt
     if program_run is not None:
         _apply_program_run(updated, program_run, schema_props)
+    # Trigger words for every LoRA this run uses, at the front when missing (Fluent and
+    # Direct; never Raw, and never inside a structured format).
+    structured = ctx["mode"] == "minimax-h3" or (ctx["mode"] == "ideogram" and enhance_on)
+    if not raw and lora_triggers and not structured and isinstance(updated.get("prompt"), str):
+        updated["prompt"] = prepend_missing_triggers(updated["prompt"], await lora_context_for(tool_id, updated, profile_id))
     return updated
+
+
+def _shape_lora_context(context: Optional[List[Dict[str, Any]]], triggers: bool, notes: bool) -> Optional[List[Dict[str, Any]]]:
+    """What the model is told about the LoRAs, per the prompt menu's choices."""
+    if not context:
+        return context
+    return [{**c, "trigger_words": c.get("trigger_words") if triggers else [], "notes": c.get("notes") if notes else ""}
+            for c in context]
 
 
 async def _run_prompt_program(
@@ -547,6 +565,8 @@ async def _run_prompt_program(
     project_id: Optional[int],
     profile_id: Optional[str],
     elaborate: bool = True,
+    lora_triggers: bool = True,
+    lora_notes: bool = True,
 ) -> tuple[Dict[str, Any], str]:
     from llm_resolver import LLMUnavailableError
     from prompt_programs.prepare import ProgramError, draw_seed, ensure_program, realize
@@ -556,11 +576,11 @@ async def _run_prompt_program(
             prompt=prompt, tool_id=tool_id, ctx=ctx,
             instructions=(((prompt_options or {}).get("autoImprove") or {}).get("instructions") or "").strip(),
             lora_items=program_opts.get("loras") or [], project_id=project_id, profile_id=profile_id,
-            elaborate=elaborate,
+            elaborate=elaborate, lora_notes=lora_notes,
         )
         # Independent of the image seed; an explicit draw_seed repeats the same draws.
         result = realize(entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"), fixed=program_opts.get("fixed"),
-                         edits=program_opts.get("edits"))
+                         edits=program_opts.get("edits"), triggers=lora_triggers)
     except ProgramError as e:
         raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
     except LLMUnavailableError as e:

@@ -58,6 +58,8 @@ interface Options {
   enabled: ComputedRef<boolean>
   /** Enhance on: the program elaborates. Off: it keeps the user's words. */
   elaborate: ComputedRef<boolean>
+  /** Tell the model the user's LoRA notes. */
+  loraNotes: ComputedRef<boolean>
   loraItems: ComputedRef<Array<{ lora: string; weight: number }>>
   /** What the enhancer's style depends on: input images (count and ids), canvas size. */
   contextParams: ComputedRef<Record<string, any>>
@@ -84,6 +86,7 @@ export function usePromptProgram(o: Options) {
     context: o.contextParams.value,
     instructions: o.instructions.value,
     elaborate: o.elaborate.value,
+    loraNotes: o.loraNotes.value,
   }))
 
   const status = computed<ProgramStatus>(() => {
@@ -132,6 +135,7 @@ export function usePromptProgram(o: Options) {
       parameters: o.contextParams.value,
       instructions: o.instructions.value || '',
       elaborate: o.elaborate.value,
+      lora_notes: o.loraNotes.value,
       project_id: o.projectId.value ?? null,
       ...extra,
     }

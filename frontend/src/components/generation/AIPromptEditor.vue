@@ -212,17 +212,18 @@
                   </button>
                 </div>
 
-                <!-- Tool View: tips for writing prompts with Fluent, at the user's level. -->
+                <!-- Tool View: what Fluent does, then one section per thing you can write. -->
                 <template v-if="hasMode">
-                  <p v-for="line in fluentIntro" :key="line" class="text-xs text-content-secondary leading-relaxed mb-2">{{ line }}</p>
-                  <div class="mt-3 mb-2 text-[11px] font-semibold text-content-tertiary">Writing for {{ brand }}</div>
-                  <div v-for="tip in fluentTips" :key="tip.title" class="mb-3">
-                    <div class="flex items-baseline gap-2 mb-0.5">
-                      <span class="text-xs font-medium text-content-secondary">{{ tip.title }}</span>
-                      <code v-if="tip.example" :class="['px-1.5 py-0.5 rounded text-[11px]', tip.tone]" v-text="tip.example"></code>
-                    </div>
-                    <p class="text-xs text-content-tertiary leading-relaxed">{{ tip.text }}</p>
+                  <div class="space-y-1.5 mb-3">
+                    <p v-for="line in fluentIntro" :key="line" class="text-xs text-content-secondary leading-relaxed">{{ line }}</p>
                   </div>
+                  <section v-for="tip in fluentTips" :key="tip.title" class="border-t border-edge-subtle pt-3 mt-3">
+                    <h4 class="text-[12.5px] font-semibold text-content mb-1.5">{{ tip.title }}</h4>
+                    <div v-if="tip.examples.length" class="flex flex-wrap gap-1.5 mb-1.5">
+                      <code v-for="ex in tip.examples" :key="ex.code" :class="['px-1.5 py-0.5 rounded text-[11px]', ex.tone]" v-text="ex.code"></code>
+                    </div>
+                    <p v-for="para in tip.text" :key="para" class="text-xs text-content-tertiary leading-relaxed mt-1 first:mt-0">{{ para }}</p>
+                  </section>
                 </template>
                 <template v-else>
                 <!-- Wildcards -->
@@ -461,7 +462,7 @@ function openHelp(anchor?: DOMRect | null) {
     const down = below >= 320 || below >= above
     editorMenuPos.value = {
       left: `${Math.max(8, Math.min(window.innerWidth - 392, Math.round(anchor.left - 6)))}px`,
-      maxHeight: `${Math.min(520, down ? below : above)}px`,
+      maxHeight: `${Math.min(720, down ? below : above)}px`,
       ...(down ? { top: `${Math.round(anchor.bottom + 4)}px` } : { bottom: `${Math.round(window.innerHeight - anchor.top + 4)}px` }),
     }
   }
@@ -541,20 +542,26 @@ const hasMode = computed(() => !!slots.mode)
 const rawInMenu = computed(() => !props.hideAutoImprove && !hasMode.value)
 const brand = PROMPT_BRAND
 // The tips panel in Tool View: what Fluent is, then what to write, in the user's words.
+// (Copy reviewed for plain, human wording.)
 const fluentIntro = [
-  `${PROMPT_BRAND} turns one prompt into a whole run of good ones. Ask for variety anywhere in your prompt, and every image gets its own take, while everything else stays the way you wrote it.`,
-  'With Enhance prompt on, it also writes the fuller, more detailed prompt each image model does best with, so a short idea still gets a rich picture.',
-  'The first run of a new prompt takes a few extra seconds while it’s read. After that, runs start right away. Your text in the editor never changes, and if you don’t like the options it came up with, Try different choices and wording gets a fresh set.',
+  `${PROMPT_BRAND} reads your prompt before each run and writes the prompt sent to the image model. Your text in the editor never changes.`,
+  `With Enhance prompt on, ${PROMPT_BRAND} also expands short prompts into the long, detailed style this model works best with.`,
+  'A new prompt takes a few extra seconds the first time you run it.',
 ]
+const AMBER = 'text-amber-600 bg-amber-500/10'
+const GREEN = 'text-green-600 bg-green-500/10'
+const GREY = 'text-gray-500 italic bg-zinc-500/10'
+const BLUE = 'text-blue-500 bg-blue-500/10'
 const fluentTips = [
-  { title: 'Wildcards', example: '{{hairstyle}}', tone: 'text-amber-600 bg-amber-500/10',
-    text: `${PROMPT_BRAND} comes up with options for anything in double braces, and every image picks one. A saved wildcard uses your own list.` },
-  { title: 'Wildcards with your options', example: '{red|blue|green}', tone: 'text-green-600 bg-green-500/10',
-    text: 'Every image picks one of yours.' },
-  { title: 'Comments', example: '# vary her expression', tone: 'text-gray-500 italic bg-zinc-500/10',
-    text: `A line starting with # is a note to ${PROMPT_BRAND}, never part of the image prompt. Say what to vary or keep, and it can reach the tool’s settings too: “# vary the guidance between 3 and 5”, “# use one of my hair LoRAs”.` },
-  { title: 'Exact text', example: '[a sign that says OPEN]', tone: 'text-blue-500 bg-blue-500/10',
-    text: `${PROMPT_BRAND} never sees what’s inside square brackets. That text goes straight to the image model exactly as you wrote it, which makes it right for words in the picture.` },
+  { title: 'Wildcards', examples: [{ code: '{{hairstyle}}', tone: AMBER }, { code: '{red|blue|green}', tone: GREEN }],
+    text: [`Use {{hairstyle}} to have ${PROMPT_BRAND} write hairstyle options. Each image uses one. If you have a saved wildcard with that name, ${PROMPT_BRAND} uses yours. To supply your own options, write {red|blue|green}.`] },
+  { title: 'Comments', examples: [{ code: '# vary her expression', tone: GREY }],
+    text: [`Start a line with # to leave ${PROMPT_BRAND} a note about what to vary or keep the same between images. Notes never reach the image model.`,
+      'You can also give instructions about settings: # guidance between 3 and 5 or # use my curtain bangs LoRA.'] },
+  { title: 'Verbatim text', examples: [{ code: '[ohwx woman]', tone: BLUE }],
+    text: [`Text in square brackets goes to the image model exactly as written. ${PROMPT_BRAND} never sees it. Use brackets for LoRA trigger words or words you want to appear in the picture.`] },
+  { title: 'Not happy with the options?', examples: [],
+    text: [`Choose Try different choices and wording in the ${PROMPT_BRAND} menu. Options you picked or added stay.`] },
 ]
 function setRaw(on: boolean) {
   emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
