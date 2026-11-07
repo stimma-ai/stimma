@@ -35,6 +35,10 @@ log = get_logger(__name__)
 MAX_DISCONNECT_RETRIES = 2  # Three execution attempts, including the first.
 
 PENDING_REQUEST_TTL = 30  # seconds — generous for WS→frontend→HTTP roundtrip
+# An expired reservation is remembered this long, so a client that answers late
+# (reading a Fluent prompt or enhancing it can take minutes) is still served
+# instead of being turned away with its slot lost.
+EXPIRED_RESERVATION_MEMORY = 15 * 60  # seconds
 
 # Prompt warm pool: how long a generator instance's "keep N enhanced variants
 # warm" intent survives without a refresh ping before it's treated as
@@ -395,6 +399,10 @@ class GenerationQueue:
         # must claim the exact request that caused it; counters alone cannot
         # prevent two renderers from answering one request.
         self._work_reservations: Dict[str, Dict[str, Any]] = {}
+        # Reservations that outlived PENDING_REQUEST_TTL unanswered. Their slot
+        # stopped counting as pending, but the client may still be working on
+        # them; a late claim is served if the client still has room.
+        self._expired_reservations: Dict[str, Dict[str, Any]] = {}
         # Lock to protect forever mode slot filling from concurrent access
         self._forever_mode_lock = asyncio.Lock()
         # Event to wake workers immediately when a job is submitted
@@ -448,6 +456,10 @@ class GenerationQueue:
         for reservation_id, reservation in list(self._work_reservations.items()):
             if now - reservation['created_at'] >= PENDING_REQUEST_TTL:
                 self._work_reservations.pop(reservation_id, None)
+                self._expired_reservations[reservation_id] = reservation
+        for reservation_id, reservation in list(self._expired_reservations.items()):
+            if now - reservation['created_at'] >= EXPIRED_RESERVATION_MEMORY:
+                self._expired_reservations.pop(reservation_id, None)
         for key in list(self._pending_work_requests):
             before = len(self._pending_work_requests[key])
             self._pending_work_requests[key] = [
@@ -787,6 +799,11 @@ class GenerationQueue:
                 continue
             self._release_reservation(reservation_id)
             released.add(reservation['backend_name'])
+        for reservation_id, reservation in list(self._expired_reservations.items()):
+            if reservation['generator_instance_id'] == generator_instance_id and (
+                backend_name is None or reservation['backend_name'] == backend_name
+            ):
+                self._expired_reservations.pop(reservation_id, None)
         if not self._pending_work_requests_per_client.get(generator_instance_id, True):
             self._pending_work_requests_per_client.pop(generator_instance_id, None)
         return released
@@ -836,26 +853,91 @@ class GenerationQueue:
         # Re-fill to potentially assign the slot to another client or retry
         await self._fill_available_slots(backend_name)
 
+    def _take_reservation(
+        self, reservation_id: str, generator_instance_id: str, backend_name: str
+    ) -> Optional[str]:
+        """Consume one reservation owned by this client and backend.
+
+        Returns 'live', 'expired' (it outlived PENDING_REQUEST_TTL, so its slot
+        no longer counts as pending), or None when there is nothing to take.
+        """
+        def owned(reservation: Optional[dict]) -> bool:
+            return bool(reservation) and (
+                reservation['generator_instance_id'] == generator_instance_id
+                and reservation['backend_name'] == backend_name
+            )
+
+        if owned(self._work_reservations.get(reservation_id)):
+            self._release_reservation(reservation_id)
+            return 'live'
+        if owned(self._expired_reservations.get(reservation_id)):
+            self._expired_reservations.pop(reservation_id, None)
+            return 'expired'
+        return None
+
+    async def _client_has_room(self, generator_instance_id: str, backend_name: str) -> bool:
+        """Whether a forever-mode client could be offered one more slot now."""
+        def max_concurrency() -> Optional[int]:
+            return self._forever_mode_clients.get(backend_name, {}).get(generator_instance_id)
+
+        if max_concurrency() is None:
+            return False
+        free = await self._backend_free_slots(backend_name)
+        if free is None or free <= 0:
+            return False
+        active = max(
+            0,
+            await self._get_client_active_jobs(generator_instance_id)
+            - self._finalizing_per_client.get(generator_instance_id, 0),
+        )
+        # Forever mode may have stopped while we were counting.
+        limit = max_concurrency()
+        if limit is None:
+            return False
+        pending = len(self._pending_work_requests_per_client.get(generator_instance_id, []))
+        return limit == 0 or active + pending < limit
+
     async def claim_work_reservation(
         self, reservation_id: str, generator_instance_id: str, backend_name: str
     ) -> bool:
-        """Atomically consume one exact forever-mode work reservation."""
+        """Atomically consume one exact forever-mode work reservation.
+
+        A reservation that expired while its client was still working on it
+        (reading a Fluent prompt, or a slow enhance) is still honored when the
+        client has room. Turning it away would lose the slot for good: nothing
+        re-offers a slot whose request simply ran out of time.
+        """
         async with self._forever_mode_lock:
             self._prune_expired_pending()
-            reservation = self._work_reservations.get(reservation_id)
-            if not reservation or (
-                reservation['generator_instance_id'] != generator_instance_id
-                or reservation['backend_name'] != backend_name
-            ):
+            taken = self._take_reservation(reservation_id, generator_instance_id, backend_name)
+            if taken == 'expired':
+                if await self._client_has_room(generator_instance_id, backend_name):
+                    log.info(
+                        f"Forever mode: honoring late claim from {generator_instance_id} "
+                        f"for {backend_name} (reservation expired while it was being prepared)"
+                    )
+                    return True
                 return False
-            self._release_reservation(reservation_id)
-            return True
+            return taken == 'live'
+
+    async def _release_for_refill(
+        self, reservation_id: str, generator_instance_id: str, backend_name: str
+    ) -> bool:
+        """Drop a reservation the client won't use. True if its slot needs re-offering."""
+        async with self._forever_mode_lock:
+            self._prune_expired_pending()
+            return self._take_reservation(
+                reservation_id, generator_instance_id, backend_name
+            ) is not None
 
     async def decline_work_reservation(
         self, reservation_id: str, generator_instance_id: str, backend_name: str
     ) -> bool:
-        """Release one exact reservation and ask the scheduler to refill it."""
-        released = await self.claim_work_reservation(
+        """Release one exact reservation and ask the scheduler to refill it.
+
+        An expired one is refilled too: its slot was never re-offered.
+        """
+        released = await self._release_for_refill(
             reservation_id, generator_instance_id, backend_name
         )
         if released:
@@ -873,7 +955,7 @@ class GenerationQueue:
         cleanup released it (and refilled in one batch), there is nothing to
         re-offer.
         """
-        if await self.claim_work_reservation(reservation_id, generator_instance_id, backend_name):
+        if await self._release_for_refill(reservation_id, generator_instance_id, backend_name):
             self._schedule_refill(backend_name)
 
     async def cancel_queued_jobs_for_instance(self, generator_instance_id: str,
@@ -986,6 +1068,33 @@ class GenerationQueue:
 
         return clients_with_capacity
 
+    async def _backend_free_slots(self, backend_name: str) -> Optional[int]:
+        """Slots on a backend that nothing occupies, queues for, or has been
+        offered yet. None when the backend isn't registered."""
+        from backend_registry import get_backend_registry
+
+        backends = await get_backend_registry().list_backends()
+        backend_state = backends.get(backend_name)
+        if not backend_state:
+            return None
+
+        # Count queued jobs across ALL profile databases for this backend
+        queued_count = 0
+        for profile_id, db in self._get_all_jobs_dbs():
+            async with db.async_session_maker() as session:
+                result = await session.execute(
+                    select(func.count(GenerationJob.id)).where(
+                        GenerationJob.backend_name == backend_name,
+                        GenerationJob.status == 'queued'
+                    )
+                )
+                queued_count += result.scalar() or 0
+
+        pending = len(self._pending_work_requests.get(backend_name, []))
+        free = backend_state['max_concurrent'] - backend_state['current_jobs'] - pending - queued_count
+        log.debug(f"Forever mode: {backend_name}: max_concurrent={backend_state['max_concurrent']}, current_jobs={backend_state['current_jobs']}, pending={pending}, queued={queued_count}, free={free}")
+        return free
+
     async def _fill_available_slots(self, backend_name: str):
         """Keep requesting work until all available slots are filled.
 
@@ -1009,32 +1118,8 @@ class GenerationQueue:
 
             # Calculate available capacity ONCE at the start
             # This avoids races where jobs get assigned during the loop
-            from backend_registry import get_backend_registry
-            backend_registry = get_backend_registry()
-
-            backends = await backend_registry.list_backends()
-            backend_state = backends.get(backend_name)
-            if not backend_state:
-                return
-
-            # Count queued jobs across ALL profile databases for this backend
-            queued_count = 0
-            for profile_id, db in self._get_all_jobs_dbs():
-                async with db.async_session_maker() as session:
-                    result = await session.execute(
-                        select(func.count(GenerationJob.id)).where(
-                            GenerationJob.backend_name == backend_name,
-                            GenerationJob.status == 'queued'
-                        )
-                    )
-                    queued_count += result.scalar() or 0
-
-            pending = len(self._pending_work_requests.get(backend_name, []))
-            backend_slots_to_fill = backend_state['max_concurrent'] - backend_state['current_jobs'] - pending - queued_count
-
-            log.debug(f"Forever mode: filling {backend_name}: max_concurrent={backend_state['max_concurrent']}, current_jobs={backend_state['current_jobs']}, pending={pending}, queued={queued_count}, backend_slots_to_fill={backend_slots_to_fill}")
-
-            if backend_slots_to_fill <= 0:
+            backend_slots_to_fill = await self._backend_free_slots(backend_name)
+            if backend_slots_to_fill is None or backend_slots_to_fill <= 0:
                 return
 
             # Build a map of active jobs per client for capacity checking (snapshot from DB).

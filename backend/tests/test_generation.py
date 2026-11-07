@@ -476,6 +476,50 @@ class TestJobSubmission:
         mock_queue.decline_work_request.assert_awaited_once_with("forever-client", "test")
 
 
+    async def test_reserved_submit_still_runs_after_a_slow_prompt_read(
+        self,
+        generation_client: httpx.AsyncClient,
+        generation_queue,
+        mock_ws,
+        output_folder: str,
+    ):
+        """Forever mode with a slow prompt read: the work request's reservation
+        expires before the submit arrives. The submit still queues a job instead
+        of a 409 that left every lane waiting with the backend idle."""
+        from generation_queue import PENDING_REQUEST_TTL
+
+        client = "forever-slow-read"
+        mock_ws.clear()
+        await generation_queue.register_forever_mode(client, "test", max_concurrency=1)
+        try:
+            request = mock_ws.get_broadcasts("generation_request_work")[0][1]
+            reservation = generation_queue._work_reservations[request["reservation_id"]]
+            aged = reservation["created_at"] - PENDING_REQUEST_TTL - 1
+            for stamps in (generation_queue._pending_work_requests["test"],
+                           generation_queue._pending_work_requests_per_client[client]):
+                stamps[stamps.index(reservation["created_at"])] = aged
+            reservation["created_at"] = aged
+
+            response = await generation_client.post(
+                "/api/generate/submit",
+                json={
+                    "tool_id": "test:text-to-image:test-model",
+                    "folder_path": output_folder,
+                    "task_type": "text-to-image",
+                    "parameters": {"prompt": "slow read", "width": 64, "height": 64, "seed": 1},
+                    "generator_instance_id": client,
+                    "forever_work_reserved": True,
+                    "forever_reservation_id": request["reservation_id"],
+                },
+            )
+
+            assert response.status_code == 200, response.text
+            assert response.json()["status"] == "queued"
+        finally:
+            await generation_queue.cancel_queued_jobs_for_instance(client)
+            await generation_queue.unregister_forever_mode(client, "test")
+
+
 class TestSubmitOutputDisposition:
     """The submit route lets a client place output outside the library.
 

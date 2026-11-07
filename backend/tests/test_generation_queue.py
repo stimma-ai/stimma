@@ -33,6 +33,7 @@ def _reset_queue_state(queue):
     queue._pending_work_requests.clear()
     queue._pending_work_requests_per_client.clear()
     queue._work_reservations.clear()
+    queue._expired_reservations.clear()
     queue._last_served_client.clear()
     if hasattr(queue, "_finalizing_per_client"):
         queue._finalizing_per_client.clear()
@@ -339,6 +340,16 @@ class TestPendingCounterManagement:
 # =============================================================================
 
 
+def _age_work_requests(queue, seconds: float) -> None:
+    """Make every outstanding work request look `seconds` older, keeping each
+    reservation and its pending entries matched by value."""
+    for reservation in queue._work_reservations.values():
+        reservation['created_at'] -= seconds
+    for lists in (queue._pending_work_requests, queue._pending_work_requests_per_client):
+        for key, stamps in lists.items():
+            lists[key] = [t - seconds for t in stamps]
+
+
 class TestForeverModeSlotFilling:
     """Tests for _fill_available_slots and cancel_job interaction."""
 
@@ -421,6 +432,76 @@ class TestForeverModeSlotFilling:
         assert await generation_queue.claim_work_reservation(
             reservation_id, client, "test"
         ) is True
+
+        await generation_queue.unregister_forever_mode(client, "test")
+
+    async def test_late_claim_is_honored_when_the_client_still_has_room(
+        self, generation_queue, mock_ws
+    ):
+        """Reading a Fluent prompt (or a slow enhance) can outlast the request
+        TTL. The submit that finally arrives must still run: rejecting it lost
+        the slot for good, leaving forever mode waiting with the GPU idle."""
+        from generation_queue import PENDING_REQUEST_TTL
+
+        _reset_queue_state(generation_queue)
+        mock_ws.clear()
+        client = "test-late-claim"
+
+        await generation_queue.register_forever_mode(client, "test", max_concurrency=1)
+        reservation_id = mock_ws.get_broadcasts("generation_request_work")[0][1]["reservation_id"]
+        _age_work_requests(generation_queue, PENDING_REQUEST_TTL + 1)
+
+        assert await generation_queue.claim_work_reservation(reservation_id, client, "test") is True
+        # Single use, late or not.
+        assert await generation_queue.claim_work_reservation(reservation_id, client, "test") is False
+
+        await generation_queue.unregister_forever_mode(client, "test")
+
+    async def test_late_claim_is_refused_once_the_slot_was_offered_again(
+        self, generation_queue, mock_ws
+    ):
+        """If the expired slot was already re-offered, honoring the late claim
+        would run more jobs than the client asked for."""
+        from generation_queue import PENDING_REQUEST_TTL
+
+        _reset_queue_state(generation_queue)
+        mock_ws.clear()
+        client = "test-late-claim-reoffered"
+
+        await generation_queue.register_forever_mode(client, "test", max_concurrency=1)
+        stale = mock_ws.get_broadcasts("generation_request_work")[0][1]["reservation_id"]
+        _age_work_requests(generation_queue, PENDING_REQUEST_TTL + 1)
+        mock_ws.clear()
+
+        await generation_queue._fill_available_slots("test")
+        fresh = mock_ws.get_broadcasts("generation_request_work")[0][1]["reservation_id"]
+
+        assert await generation_queue.claim_work_reservation(stale, client, "test") is False
+        assert await generation_queue.claim_work_reservation(fresh, client, "test") is True
+
+        await generation_queue.unregister_forever_mode(client, "test")
+
+    async def test_declining_an_expired_reservation_offers_the_slot_again(
+        self, generation_queue, mock_ws
+    ):
+        """A client that gives up on an expired request (e.g. reading the prompt
+        failed) must get its slot back; nothing else would re-offer it."""
+        from generation_queue import PENDING_REQUEST_TTL
+
+        _reset_queue_state(generation_queue)
+        mock_ws.clear()
+        client = "test-decline-expired"
+
+        await generation_queue.register_forever_mode(client, "test", max_concurrency=1)
+        reservation_id = mock_ws.get_broadcasts("generation_request_work")[0][1]["reservation_id"]
+        _age_work_requests(generation_queue, PENDING_REQUEST_TTL + 1)
+        mock_ws.clear()
+
+        assert await generation_queue.decline_work_reservation(reservation_id, client, "test") is True
+
+        refill = mock_ws.get_broadcasts("generation_request_work")
+        assert [d["generator_instance_id"] for _, d in refill] == [client]
+        assert refill[0][1]["reservation_id"] != reservation_id
 
         await generation_queue.unregister_forever_mode(client, "test")
 
