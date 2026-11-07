@@ -38,7 +38,7 @@
               <WandSparklesIcon class="w-3.5 h-3.5 text-accent" /> {{ BRAND }}
             </div>
             <div class="mt-0.5 text-[12px] leading-snug text-content-secondary">
-              Prompts written the way {{ modelName || 'this model' }} likes them.
+              {{ tagline }}
             </div>
           </div>
 
@@ -55,7 +55,7 @@
           </div>
 
           <div class="border-t border-edge-subtle my-1" />
-          <!-- Fluent (with its Add detail) or Verbatim: two positive choices. -->
+          <!-- Fluent (with Upsample prompt) or Verbatim: two positive choices. -->
           <button
                         type="button"
             role="menuitemradio"
@@ -87,7 +87,7 @@
               <CheckIcon v-if="elaborate" class="w-2.5 h-2.5" />
             </span>
             <span class="min-w-0">
-              <span class="block text-[12px] coarse:text-[13px] text-content">Add detail</span>
+              <span class="block text-[12px] coarse:text-[13px] text-content">Upsample prompt</span>
             </span>
           </button>
 
@@ -203,7 +203,7 @@ const props = defineProps<{
   program: PromptProgram
   /** Verbatim: sent exactly as typed. */
   raw: boolean
-  /** Fluent's Add detail (true), or just your wording joined up (false). */
+  /** Upsample prompt (true), or just your wording joined up (false). */
   elaborate: boolean
   /** No chat model is set up, so Fluent can't read prompts. */
   llmUnconfigured: boolean
@@ -223,6 +223,11 @@ const menuOpen = ref(false)
 const programText = ref<string | null>(null)
 
 const way = computed(() => (props.raw ? 'verbatim' : 'fluent'))
+// What Fluent honestly does with the current setting: fresh choices always; the
+// model's own style only when it upsamples.
+const tagline = computed(() => props.elaborate || props.program.unsupported.value
+  ? `Fresh choices every image, written the way ${props.modelName || 'this model'} likes.`
+  : 'Fresh choices every image, in your own words.')
 const detail = computed(() => props.elaborate || props.program.unsupported.value)
 const on = computed(() => !props.raw && !props.llmUnconfigured)
 const busy = computed(() => on.value && props.program.status.value === 'busy')
@@ -243,7 +248,7 @@ const chipTitle = computed(() => {
   if (props.llmUnconfigured) return `${BRAND} needs a chat model`
   if (busy.value) return 'Reading your prompt…'
   if (failed.value) return `${BRAND} couldn’t read this prompt`
-  return detail.value ? `${BRAND}, adding detail` : `${BRAND}, keeping your wording`
+  return detail.value ? `${BRAND}, upsampling the prompt` : `${BRAND}, in your own words`
 })
 
 type Action = { label: string; run: () => void }
@@ -269,7 +274,7 @@ const notice = computed<Notice | null>(() => {
 })
 
 // "Rewrite …": a fresh take on exactly what Fluent wrote (the choices' options and,
-// with Add detail, the wording), named so it's clear what changes and what doesn't.
+// when upsampling, the wording), named so it's clear what changes and what doesn't.
 function listNames(names: string[]) {
   if (names.length <= 1) return names[0] || ''
   if (names.length === 2) return `${names[0]} and ${names[1]}`
@@ -280,7 +285,8 @@ const retake = computed(() => {
   const names = props.program.choices.value.filter(c => !c.hidden && c.kind === 'pick' && c.source !== 'list').map(c => c.label)
   const words = detail.value
   if (!names.length && !words) return null
-  const label = names.length && words ? 'Rewrite choices and wording' : names.length ? 'Rewrite the choices' : 'Rewrite the wording'
+  // Phrased as why you'd want it: you don't like what you got.
+  const label = names.length && words ? 'Try different choices and wording' : names.length ? 'Try different choices' : 'Try different wording'
   const what = [names.length ? `new options for ${listNames(names.slice(0, 4))}${names.length > 4 ? ' and more' : ''}` : '', words ? 'new wording' : '']
     .filter(Boolean).join(', and ')
   return { label, hint: `${what[0].toUpperCase()}${what.slice(1)}. Options you ticked or added stay, and so does your prompt.` }
