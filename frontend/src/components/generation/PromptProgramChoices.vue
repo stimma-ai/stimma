@@ -4,7 +4,8 @@
        its name; once limited it shows what's left. -->
   <div
     v-if="program.status.value !== 'off' && program.rows.value.length"
-    class="flex flex-wrap gap-1.5 px-3 pt-1 pb-2 compact:flex-nowrap compact:overflow-x-auto compact:scrollbar-none"
+    :class="['flex flex-wrap gap-1.5 px-3 pt-1 pb-2 compact:flex-nowrap compact:overflow-x-auto compact:scrollbar-none transition-opacity',
+      program.status.value === 'ready' ? '' : 'opacity-50']"
     data-program-choices
   >
     <template v-for="row in program.rows.value" :key="row.kind === 'group' ? `g:${row.group.id}` : row.choice.id">

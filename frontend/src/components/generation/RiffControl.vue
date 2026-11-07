@@ -9,7 +9,7 @@
       data-riff-chip
       :data-status="program.status.value"
       :aria-expanded="menuOpen"
-      :class="['flex items-center gap-1.5 text-ctl transition-colors -mx-1.5 px-1.5 py-0.5 rounded-md',
+      :class="['flex items-center gap-1.5 text-ctl transition-colors -mx-1.5 px-1.5 py-0.5 rounded-md outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
         on ? 'text-content bg-overlay-subtle' : 'text-content-muted hover:text-content-secondary']"
       :title="chipTitle"
       @click="toggle"
@@ -58,8 +58,9 @@
             :class="['w-full text-left px-3 py-1.5 coarse:py-3 flex items-start gap-2.5 hover:bg-overlay-subtle disabled:opacity-40 disabled:pointer-events-none', raw ? 'opacity-60 hover:opacity-100' : '']"
             @click="pick(m.id)"
           >
-            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-full border flex items-center justify-center', mode === m.id && !raw ? 'border-accent' : 'border-edge-strong']">
-              <span v-if="mode === m.id && !raw" class="w-1.5 h-1.5 rounded-full bg-accent" />
+            <!-- With Send exactly as typed on, the stored mode stays visible, dimmed: it's what you'd go back to. -->
+            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-full border flex items-center justify-center', mode === m.id ? (raw ? 'border-content-muted' : 'border-accent') : 'border-edge-strong']">
+              <span v-if="mode === m.id" :class="['w-1.5 h-1.5 rounded-full', raw ? 'bg-content-muted' : 'bg-accent']" />
             </span>
             <span class="min-w-0">
               <span class="block text-[12px] coarse:text-[13px] text-content">{{ m.label }}</span>
@@ -72,7 +73,7 @@
 
           <template v-if="canRethink">
             <div class="border-t border-edge-subtle my-1" />
-            <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 hover:bg-overlay-subtle" @click="menuOpen = false; program.prepare(true)">
+            <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 hover:bg-overlay-subtle" @click="menuOpen = false; program.rethink()">
               <span class="block text-[12px] coarse:text-[13px] text-content">New ideas</span>
               <span class="block text-[11px] text-content-muted leading-snug">New wording and choices. Your text stays.</span>
             </button>
@@ -95,7 +96,7 @@
             </span>
           </button>
           <div class="border-t border-edge-subtle my-1" />
-          <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 text-[12px] coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="menuOpen = false; emit('help')">
+          <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 text-[12px] coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="menuOpen = false; emit('help', chip?.getBoundingClientRect() ?? null)">
             How to write prompts for {{ BRAND }}
           </button>
           <button
@@ -190,7 +191,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'mode', elaborate: boolean): void
   (e: 'raw', on: boolean): void
-  (e: 'help'): void
+  (e: 'help', anchor: DOMRect | null): void
 }>()
 
 const chip = ref<HTMLElement | null>(null)
@@ -233,10 +234,15 @@ const notice = computed<Notice | null>(() => {
   }
   if (props.raw) return null
   if (busy.value) return { head: 'Reading your prompt…', body: 'First run only, a few seconds.' }
-  if (failed.value) return {
-    head: `${BRAND} couldn’t read this prompt`, tone: 'bad',
-    detail: devModeRef.value ? props.program.error.value?.message : undefined,
-    action: { label: 'Try again', run: () => { void props.program.prepare(true) } },
+  if (failed.value) {
+    const unreachable = props.program.error.value?.code === 'llm_unavailable'
+    return {
+      head: unreachable ? `${BRAND} couldn’t reach your chat model` : `${BRAND} couldn’t make sense of this prompt`,
+      body: unreachable ? 'Nothing runs until it can read the prompt.' : 'Try again, simplify the # notes, or send it exactly as typed.',
+      tone: 'bad',
+      detail: devModeRef.value ? props.program.error.value?.message : undefined,
+      action: { label: 'Try again', run: () => { void props.program.prepare(true) } },
+    }
   }
   return null
 })

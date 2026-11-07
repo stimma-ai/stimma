@@ -344,7 +344,7 @@
               :llm-unconfigured="llmUnconfigured"
               @raw="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: on || undefined }"
               @mode="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, autoImprove: { ...globalPrefs.promptOptions?.autoImprove, enabled: on } }"
-              @help="openHelp()"
+              @help="(anchor) => openHelp(anchor)"
             /></template>
             <template #below-editor><PromptProgramChoices :program="promptProgram" /></template>
           </AIPromptEditor>
@@ -3402,6 +3402,7 @@ import { usePromptProgram } from '../composables/usePromptProgram'
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
 import RiffControl from '../components/generation/RiffControl.vue'
 import { PROMPT_BRAND } from '../components/generation/promptBrand'
+import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
 import { disableUnavailableLoras } from '../utils/availableLoras'
@@ -5390,6 +5391,16 @@ function noSubmit(options: ForeverSubmitOptions, declineReservation = true): Sub
   }
 }
 
+/** {{names}} in the prompt that aren't saved wildcards or segments (so only a model can fill them). */
+const { wildcards: savedWildcards } = useWildcards()
+const { segments: savedSegments } = useSegments()
+function unknownSmartNames(prompt: string): string[] {
+  const known = new Set([...savedWildcards.value.map(w => w.name.toLowerCase()), ...savedSegments.value.map(s => s.name.toLowerCase())])
+  const lines = prompt.split('\n').filter(l => !l.trimStart().startsWith('#'))
+  const names = [...lines.join('\n').matchAll(/\{\{([^{}]+)\}\}/g)].map(m => m[1].trim())
+  return [...new Set(names.filter(n => n && !known.has(n.toLowerCase())))]
+}
+
 async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobResult> {
   if (!tool.value || !canSubmit.value) return noSubmit(options)
   if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
@@ -5405,6 +5416,16 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     return noSubmit(options)
   }
   if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
+
+  // No chat model: {a|b}, saved wildcards and # lines still work, but a {{name}} that
+  // isn't a saved wildcard can't be filled. Never send it through as literal text.
+  const unfillable = !globalPrefs.value.promptOptions?.raw && llmUnconfigured.value && hasPrompt.value
+    ? unknownSmartNames(globalPrefs.value.prompt || '') : []
+  if (unfillable.length) {
+    submissionError.value = `${PROMPT_BRAND} needs a chat model to fill {{${unfillable[0]}}}. Add one in Settings, make it a saved wildcard, or turn on Send exactly as typed.`
+    addToast(submissionError.value, 'error', 10000, { label: 'Settings', onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) })
+    return noSubmit(options)
+  }
 
   // Prompt programs: an out-of-date program is prepared once, before the batch.
   // The wait is its own tile in the strip, beside any runs already going.
@@ -5425,12 +5446,19 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   }
   if (preparingCancelled) return noSubmit(options, false)
   if (!ready) {
-    // The model's own complaint is for developers (Riff's menu shows it in dev mode).
+    // Plain words by cause; the model's own complaint is for developers (Riff's menu
+    // shows it in dev mode).
     const code = promptProgram.error.value?.code
-    submissionError.value = code === 'llm_not_configured'
-      ? `${PROMPT_BRAND} needs a chat model. Add one in Settings, or turn on Send exactly as typed.`
-      : `${PROMPT_BRAND} couldn’t read this prompt, so nothing was run. Try again from the ${PROMPT_BRAND} menu, or reword it.`
-    addToast(submissionError.value, 'error')
+    const retry = { label: 'Try again', onClick: () => { void submitJob(options) } }
+    if (code === 'llm_not_configured') {
+      submissionError.value = `${PROMPT_BRAND} needs a chat model, so nothing was run.`
+      addToast(submissionError.value, 'error', 8000, { label: 'Settings', onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) })
+    } else {
+      submissionError.value = code === 'llm_unavailable'
+        ? `${PROMPT_BRAND} couldn’t reach your chat model, so nothing was run.`
+        : `${PROMPT_BRAND} couldn’t make sense of this prompt, so nothing was run.`
+      addToast(submissionError.value, 'error', 8000, retry)
+    }
     return noSubmit(options)
   }
 

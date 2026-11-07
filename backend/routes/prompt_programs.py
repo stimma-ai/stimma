@@ -58,8 +58,10 @@ async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
         )
     except ProgramError as e:
         raise HTTPException(status_code=422, detail={"code": "program_failed", "message": str(e)}) from None
-    except (LLMNotConfiguredError, LLMUnavailableError) as e:
+    except LLMNotConfiguredError as e:
         raise HTTPException(status_code=424, detail={"code": "llm_not_configured", "message": str(e)}) from None
+    except LLMUnavailableError as e:
+        raise HTTPException(status_code=424, detail={"code": "llm_unavailable", "message": str(e)}) from None
 
 
 @router.post("/prepare")
@@ -95,8 +97,10 @@ async def options(req: OptionsRequest) -> Dict[str, Any]:
         out = await suggest_options(entry, req.choice_id, req.existing, req.count, req.project_id)
     except ProgramError as e:
         raise HTTPException(status_code=422, detail={"code": "options_failed", "message": str(e)}) from None
-    except (LLMNotConfiguredError, LLMUnavailableError) as e:
+    except LLMNotConfiguredError as e:
         raise HTTPException(status_code=424, detail={"code": "llm_not_configured", "message": str(e)}) from None
+    except LLMUnavailableError as e:
+        raise HTTPException(status_code=424, detail={"code": "llm_unavailable", "message": str(e)}) from None
     return {"options": out}
 
 

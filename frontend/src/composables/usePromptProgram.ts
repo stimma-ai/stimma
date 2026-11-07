@@ -189,11 +189,30 @@ export function usePromptProgram(o: Options) {
       return true
     } catch (e: any) {
       const detail = e?.response?.data?.detail
-      error.value = { sig, code: detail?.code, message: (typeof detail === 'string' ? detail : detail?.message) || 'Couldn’t read this prompt.' }
+      // No response at all (timeout, network): the chat model couldn't be reached.
+      const code = detail?.code || (e?.response && e.response.status < 500 ? undefined : 'llm_unavailable')
+      error.value = { sig, code, message: (typeof detail === 'string' ? detail : detail?.message) || 'Couldn’t read this prompt.' }
       return false
     } finally {
       if (!inFlight || inFlight.sig === sig) busy.value = false
     }
+  }
+
+  /** New ideas: read the prompt again from scratch. What the user ticked or added
+      survives: anything the new set lacks comes back as their own option. */
+  async function rethink(): Promise<boolean> {
+    const keep = choices.value.map(c => ({ id: c.id, values: [...(edits.value[c.id]?.add || []), ...(pins.value[c.id] || [])] }))
+    if (!(await prepare(true))) return false
+    for (const k of keep) {
+      const c = byId.value[k.id]
+      if (!c) continue
+      const have = new Set(optionsOf(c))
+      const missing = [...new Set(k.values)].filter(v => !have.has(v))
+      if (!missing.length) continue
+      const e = edits.value[c.id] || {}
+      setEdit(c.id, { ...e, add: [...(e.add || []), ...missing], remove: (e.remove || []).filter(v => !missing.includes(v)) })
+    }
+    return true
   }
 
   /** True when a run would have to wait for preparing first. */
@@ -358,7 +377,7 @@ export function usePromptProgram(o: Options) {
 
   return {
     program, status, error, signature, elaborate: o.elaborate, unsupported, pins, edits, choices, rows, byId, openCard,
-    prepare, ensureReady, needsPrepare, payload, lookup, fetchProgramText, previewRuns, suggestOptions,
+    prepare, rethink, ensureReady, needsPrepare, payload, lookup, fetchProgramText, previewRuns, suggestOptions,
     setPins, setManyPins, setEdit, optionsOf, valueText, isPinned, visible,
     loraControl, paramControl, open, close,
   }

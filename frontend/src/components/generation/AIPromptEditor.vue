@@ -235,7 +235,7 @@
                     <code class="text-gray-500 italic bg-zinc-500/10 px-1.5 py-0.5 rounded text-xs"># comment</code>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    {{ hasMode ? `Notes for ${brand}` : 'Instructions for the chat model' }} (&ldquo;# vary her expression&rdquo;). They are never sent to the generation tool{{ hasMode ? '.' : ', and without a chat model they are ignored.' }}
+                    {{ hasMode ? `Notes for ${brand}` : 'Instructions for the chat model' }} (&ldquo;# vary her expression&rdquo;). They are never sent to the {{ hasMode ? 'image model.' : 'generation tool, and without a chat model they are ignored.' }}
                   </p>
                 </div>
 
@@ -259,7 +259,7 @@
                     <span class="text-xs font-medium text-content-secondary">{{ brand }}</span>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    Reads your prompt and gives every image a fresh variation: it fills {{ BRACES }}, follows # notes and, with Add detail, writes the fuller prompt this model likes. Your text in the editor never changes. Send exactly as typed turns it off.
+                    {{ brand }} gives every image a fresh variation. The text in the editor never changes. Send exactly as typed turns it off.
                   </p>
                 </div>
 
@@ -429,11 +429,22 @@ function toggleEditorMenu() {
   showEditorMenu.value = !showEditorMenu.value
   showHelp.value = false
 }
-/** Open the syntax help on its own (from the host's control), anchored like the … menu. */
-function openHelp() {
+/** Open the syntax help on its own, anchored to the host's control that asked for it
+    (or to … when there's none). */
+function openHelp(anchor?: DOMRect | null) {
   showEditorMenu.value = false
-  toggleEditorMenu()  // computes the position
+  toggleEditorMenu()  // computes the position from …
   showEditorMenu.value = false
+  if (anchor) {
+    const below = window.innerHeight - anchor.bottom - 14
+    const above = anchor.top - 14
+    const down = below >= 320 || below >= above
+    editorMenuPos.value = {
+      left: `${Math.max(8, Math.min(window.innerWidth - 328, Math.round(anchor.left - 6)))}px`,
+      maxHeight: `${Math.min(520, down ? below : above)}px`,
+      ...(down ? { top: `${Math.round(anchor.bottom + 4)}px` } : { bottom: `${Math.round(window.innerHeight - anchor.top + 4)}px` }),
+    }
+  }
   // After this click finishes, or the outside-click handler would close it again.
   setTimeout(() => { showHelp.value = true })
 }
@@ -509,8 +520,6 @@ const slots = useSlots()
 const hasMode = computed(() => !!slots.mode)
 const rawInMenu = computed(() => !props.hideAutoImprove && !hasMode.value)
 const brand = PROMPT_BRAND
-// Literal {{ }} for templates (a mustache can't contain one).
-const BRACES = '{' + '{ }' + '}'
 function setRaw(on: boolean) {
   emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
 }
