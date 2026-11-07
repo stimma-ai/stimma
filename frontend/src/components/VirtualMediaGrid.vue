@@ -144,6 +144,10 @@
                   <svg v-else-if="getMediaType(rowItem) === 'package'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
                   </svg>
+                  <!-- Contact sheet icon (rectangle group, monochrome like package) -->
+                  <svg v-else-if="getMediaType(rowItem) === 'sheet'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6a1.125 1.125 0 0 1-1.125-1.125v-3.75ZM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 0 1-1.125-1.125v-8.25ZM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 0 1-1.125-1.125v-2.25Z" />
+                  </svg>
                   <!-- Layout icon (newspaper) -->
                   <svg v-else-if="getMediaType(rowItem) === 'layout'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3Z" />
@@ -190,7 +194,7 @@
 
               <!-- Set/Grid/Sprite name pill (hover only) -->
               <div
-                v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid' || getMediaType(rowItem) === 'sprite') && itemTitle(rowItem)"
+                v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid' || getMediaType(rowItem) === 'sprite' || getMediaType(rowItem) === 'sheet') && itemTitle(rowItem)"
                 class="absolute inset-0 z-chrome flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
               >
                 <span class="bg-black/55 backdrop-blur-md rounded-md px-3 py-1.5 text-xs font-medium text-white text-center line-clamp-2 max-w-[80%]">

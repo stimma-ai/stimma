@@ -478,7 +478,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="right"
-              :class="editingItemId === item.id ? 'max-w-[80%]' : 'max-w-[50%]'"
+              :class="editingItemId === item.id ? 'max-w-[80%]' : getSheetReview(item) ? 'w-full max-w-[440px]' : 'max-w-[50%]'"
               :show-actions="editingItemId !== item.id"
               :show-edit="!!item.message_text"
               :show-replay="!!item.message_text"
@@ -539,8 +539,10 @@
                     variant="bubble"
                   />
                 </div>
+                <!-- A contact sheet review the user sent: what the agent reads, as a card -->
+                <SheetReviewMessage v-if="getSheetReview(item) && editingItemId !== item.id" :review="getSheetReview(item)" @open="openSheetFromChat({ artifact: { asset_id: getSheetReview(item).asset_id } })" />
                 <!-- Message text (or inline editor) -->
-                <div v-if="getMessageBodyText(item)">
+                <div v-else-if="getMessageBodyText(item)">
                   <!-- Inline editor when editing this item -->
                   <textarea v-no-autocorrect
                     v-if="editingItemId === item.id"
@@ -933,17 +935,24 @@
                version chip (Mock A/B) — clicking navigates the stage, or
                reopens it if the user closed it. -->
           <FileChips v-else-if="item.item_type === 'file_display'" :files="sharedFiles(item)" :chat-id="chatId" :selected="artifactStage.stageOpen.value ? artifactStage.workspaceFile.value : null" @refreshed="refreshStagedFile" @preview="artifactStage.openFile" @attach="attachWorkspaceFile" @save="saveWorkspaceFile" />
-          <div v-else-if="item.item_type === 'media_display'" class="flex justify-start" :class="{ 'w-full': !getStagedItemArtifact(item) }">
+          <div v-else-if="item.item_type === 'media_display'" class="flex justify-start" :class="{ 'w-full': !getStagedItemArtifact(item) && !getSheetItem(item) }">
             <ChatItemWrapper
-              :class="getStagedItemArtifact(item) ? '' : 'w-full'"
+              :class="getStagedItemArtifact(item) || getSheetItem(item) ? '' : 'w-full'"
               :item-id="item.id"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
+              <SheetChatChip
+                v-if="getSheetItem(item)"
+                :artifact="getSheetItem(item).artifact"
+                :media-id="getSheetItem(item).mediaId"
+                :in-panel="!embedded && artifactStage.stageOpen.value && !artifactStage.workspaceFile.value && artifactStage.assetId.value === getSheetItem(item).artifact.asset_id"
+                @click="openSheetFromChat(getSheetItem(item))"
+              />
               <ArtifactVersionChip
-                v-if="getStagedItemArtifact(item)"
+                v-else-if="getStagedItemArtifact(item)"
                 :artifact="getStagedItemArtifact(item)"
                 :revision="artifactStage.findRevision(getStagedItemArtifact(item).revision_id)"
                 :is-current="!artifactStage.workspaceFile.value && artifactStage.viewedRevisionId.value === getStagedItemArtifact(item).revision_id"
@@ -1335,16 +1344,20 @@
          covers the artifact stage as well, like every other view's inline slideshow -->
     <SlideshowMode
       v-if="slideshowState.active"
-      :total-count="liveChatMediaIds.length"
-      :live-item-ids="liveChatMediaEntries.map(entry => entry.key)"
-      :item-labels="chatMediaLabels"
+      :total-count="sheetSlideshow ? sheetSlideshow.list.length : liveChatMediaIds.length"
+      :live-item-ids="sheetSlideshow ? sheetSlideshowKeys : liveChatMediaEntries.map(entry => entry.key)"
+      :item-labels="sheetSlideshow ? sheetSlideshowLabels : chatMediaLabels"
       :start-index="slideshowState.startIndex"
       :page-provider="slideshowState.pageProvider"
       :inline="true"
       @update:index="onSlideshowIndex"
-      @close="exitSlideshow"
+      @close="closeSlideshow"
       @compare-with-source="handleCompareFromSlideshow"
-    />
+    >
+      <template v-if="sheetSlideshow" #review="{ index }">
+        <SheetSlideshowReviewBar :sheet="sheetSlideshow.sheet" :entry="sheetSlideshow.list[index] ?? null" />
+      </template>
+    </SlideshowMode>
 
     <!-- Compare Mode (overlays slideshow when active) -->
     <CompareMode
@@ -1365,7 +1378,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, computed, toRaw, provide } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, computed, toRaw, provide, shallowRef } from 'vue'
 import { useViewport } from '../composables/useViewport'
 import { useBackOverride } from '../composables/useBackOverride'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
@@ -1410,6 +1423,10 @@ import FileChips from '../components/chat/FileChips.vue'
 import { fileUrl, type WorkspaceFile } from '../utils/fileRefs'
 import ArtifactStage from '../components/chat/ArtifactStage.vue'
 import ArtifactVersionChip from '../components/chat/ArtifactVersionChip.vue'
+import SheetChatChip from '../components/sheets/SheetChatChip.vue'
+import SheetReviewMessage from '../components/sheets/SheetReviewMessage.vue'
+import SheetSlideshowReviewBar from '../components/sheets/SheetSlideshowReviewBar.vue'
+import { SHEET_SLIDESHOW } from '../components/sheets/useContactSheet'
 import { useArtifactStage, parseArtifactMeta } from '../composables/useArtifactStage'
 import GridGenerationDisplay from '../components/chat/GridGenerationDisplay.vue'
 import ProgressDisplay from '../components/chat/ProgressDisplay.vue'
@@ -1796,7 +1813,7 @@ async function openFromMediaDisplay(item, mediaId, slot) {
   if (!props.embedded) {
     const row = (parseMediaDisplayData(item).rows || []).find(r => r?.output?.media_id === mediaId)
     const output = row?.output
-    if (output?.file_format && getMediaType({ file_format: output.file_format }) === 'package') {
+    if (output?.file_format && ['package', 'sheet'].includes(getMediaType({ file_format: output.file_format }))) {
       let assetId = output.asset_id
       if (!assetId) {
         // Older display rows predate asset_id on the row; the media itself knows.
@@ -1817,6 +1834,33 @@ async function openFromMediaDisplay(item, mediaId, slot) {
 
 // Artifact chip collapse: only in standalone chats, and only once this chat's
 // active artifact asset is known (composable loads it lazily on first sight).
+// A contact sheet in the transcript: its card for the first version, a
+// one-line update for every later one. Never a media panel.
+function getSheetItem(item) {
+  if (item?.item_type !== 'media_display') return null
+  const meta = parseArtifactMeta(item)
+  if (!meta) return null
+  const rows = parseMediaDisplayData(item).rows || []
+  const output = rows[0]?.output
+  if (getMediaType({ file_format: output?.file_format || '' }) !== 'sheet') return null
+  return { artifact: meta, mediaId: output.media_id }
+}
+
+function getSheetReview(item) {
+  if (item?.item_type !== 'user_message' || !item.item_metadata) return null
+  try {
+    const metadata = typeof item.item_metadata === 'string' ? JSON.parse(item.item_metadata) : item.item_metadata
+    return metadata?.contact_sheet_review || null
+  } catch {
+    return null
+  }
+}
+
+function openSheetFromChat(sheetItem) {
+  if (props.embedded) return
+  artifactStage.openOnAsset(sheetItem.artifact.asset_id, sheetItem.artifact.revision_id)
+}
+
 function getStagedItemArtifact(item) {
   if (props.embedded || artifactStage.assetId.value == null) return null
   const meta = parseArtifactMeta(item)
@@ -2808,7 +2852,7 @@ function getPlanControlState(item) {
 // Every chat entry opens this same live sequence. A clicked reference that is
 // not represented in the transcript collector remains reachable for this chat.
 const slideshowReferenceIds = ref([])
-watch(chatId, () => { slideshowReferenceIds.value = []; exitSlideshow() })
+watch(chatId, () => { slideshowReferenceIds.value = []; sheetSlideshow.value = null; exitSlideshow() })
 
 // The server, profile and chat a multi-request read belongs to.
 const transcriptScope = () => `${getApiBase()}|${getCurrentProfileId()}|${chatId.value}`
@@ -2879,7 +2923,43 @@ onDeactivated(cancelOlderChatMedia)
 onUnmounted(cancelOlderChatMedia)
 
 function onSlideshowIndex(index) {
+  if (sheetSlideshow.value) {
+    const entry = sheetSlideshow.value.list[index]
+    if (entry) sheetSlideshow.value.sheet.markSeen([entry.mediaId])
+    return
+  }
   if (index < 10) loadOlderChatMedia()
+}
+
+// A contact sheet's slideshow: the app's slideshow over the sheet's media in
+// sheet order, with the sheet's review bar where flow approval sits.
+const sheetSlideshow = shallowRef(null)
+const sheetSlideshowKeys = computed(() => (sheetSlideshow.value?.list || []).map(entry => `sheet:${entry.mediaId}`))
+const sheetSlideshowLabels = computed(() => Object.fromEntries((sheetSlideshow.value?.list || [])
+  .map(entry => [`sheet:${entry.mediaId}`, entry.caption || entry.section || ''])))
+function openSheetSlideshow({ list, index, sheet }) {
+  if (!list.length) return
+  sheetSlideshow.value = { list, sheet }
+  sheet.markSeen([list[index]?.mediaId].filter(id => id != null))
+  enterSlideshow({
+    totalCount: list.length,
+    startIndex: index,
+    pageProvider: async (pageNumber, pageSize) => Promise.all(
+      list.slice(pageNumber * pageSize, (pageNumber + 1) * pageSize).map(async entry => {
+        try {
+          return { ...await getMediaItem(entry.mediaId, { includeTrashed: true }), _slideshowItemKey: `sheet:${entry.mediaId}` }
+        } catch {
+          return { id: entry.mediaId, file_hash: null, _placeholder: true, _slideshowItemKey: `sheet:${entry.mediaId}` }
+        }
+      })),
+    randomized: false,
+    randomSeed: null,
+  })
+}
+provide(SHEET_SLIDESHOW, openSheetSlideshow)
+function closeSlideshow() {
+  sheetSlideshow.value = null
+  exitSlideshow()
 }
 const liveChatMediaEntries = computed(() => [
   ...chatMediaEntries.value,

@@ -84,7 +84,7 @@
           >
             {{ loading ? 'Setting…' : 'Set as latest' }}
           </button>
-          <IconButton v-if="heroKind !== 'package'" title="Download" aria-label="Download" @click="downloadRevision"><ArrowDownTrayIcon class="w-4 h-4" /></IconButton>
+          <IconButton v-if="heroKind !== 'package' && heroKind !== 'sheet'" title="Download" aria-label="Download" @click="downloadRevision"><ArrowDownTrayIcon class="w-4 h-4" /></IconButton>
           <div ref="overflowButtonRef" class="flex">
             <IconButton title="Actions" @click="onOverflowClick">
               <EllipsisVerticalIcon class="w-4 h-4" />
@@ -95,7 +95,7 @@
     </div>
 
     <!-- Hero -->
-    <div class="flex-1 min-h-0 flex flex-col relative" :class="workspaceFile ? '' : 'px-3 pt-3'">
+    <div class="flex-1 min-h-0 flex flex-col relative" :class="workspaceFile || heroKind === 'sheet' ? '' : 'px-3 pt-3'">
       <FileViewer v-if="workspaceFile && chatId != null && active !== false" :controls-target="fileControlsRef" :key="fileUrl(chatId, workspaceFile)" :url="fileUrl(chatId, workspaceFile)" :name="workspaceFile.name" :mime="workspaceFile.mime" :size="workspaceFile.size" :workspace-file="workspaceFile" :chat-id="chatId" class="flex-1 min-h-0" @attach="$emit('attach-file', $event)" @save="$emit('save-file', $event)" />
       <div v-else-if="loading && !viewedRevision" class="flex-1 flex items-center justify-center text-content-muted text-sm">
         Loading…
@@ -110,7 +110,7 @@
       <template v-else>
         <!-- Jump to newest -->
         <button
-          v-if="!workspaceFile && !onNewest"
+          v-if="!workspaceFile && !onNewest && heroKind !== 'sheet'"
           type="button"
           class="absolute top-6 left-6 z-10 flex items-center gap-1.5 bg-black/55 backdrop-blur-sm text-white font-mono text-[11px] px-3 py-1.5 rounded hover:bg-black/70 transition-colors"
           @click="$emit('jump-newest')"
@@ -119,7 +119,16 @@
           Jump to newest
         </button>
 
+        <!-- A contact sheet is a page you read and review, not a picture. -->
+        <ContactSheetViewer
+          v-if="heroKind === 'sheet'"
+          :key="'sheet-' + viewedRevision.media_id"
+          :media-id="viewedRevision.media_id"
+          :chat-id="chatId ?? null"
+          class="flex-1 min-h-0"
+        />
         <div
+          v-else
           class="relative flex-1 min-h-0 rounded-media overflow-hidden"
           :class="heroKind === 'package' ? '' : 'cursor-zoom-in'"
           @click="onHeroClick"
@@ -205,6 +214,7 @@ import LayoutViewer from '../viewers/LayoutViewer.vue'
 import SvgViewer from '../viewers/SvgViewer.vue'
 import SpritePlayer from '../viewers/SpritePlayer.vue'
 import PackageViewer from '../viewers/PackageViewer.vue'
+import ContactSheetViewer from '../sheets/ContactSheetViewer.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { getMediaType } from '../../utils/mediaTypes'
@@ -361,13 +371,13 @@ const videoTransport = useVideoTransport({
 })
 
 const showDimensionChip = computed(() =>
-  heroKind.value !== 'vector' && heroKind.value !== 'sprite' && heroKind.value !== 'package' && !!props.viewedRevision?.width && !!props.viewedRevision?.height
+  heroKind.value !== 'vector' && heroKind.value !== 'sprite' && heroKind.value !== 'package' && heroKind.value !== 'sheet' && !!props.viewedRevision?.width && !!props.viewedRevision?.height
 )
 
 // A package's cover is a page you read in place; zooming it into the slideshow
 // is the surface a package must never land on.
 function onHeroClick() {
-  if (heroKind.value === 'package') return
+  if (heroKind.value === 'package' || heroKind.value === 'sheet') return
   if (props.viewedRevision) emit('open-slideshow', props.viewedRevision.media_id)
 }
 
@@ -437,6 +447,7 @@ async function downloadPackage(format: 'zip' | 'pdf') {
 const kindLabel = computed(() => {
   const kind = heroKind.value
   if (kind === 'vector') return 'SVG'
+  if (kind === 'sheet') return 'Contact sheet'
   return kind.charAt(0).toUpperCase() + kind.slice(1)
 })
 

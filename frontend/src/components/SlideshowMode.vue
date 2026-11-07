@@ -531,6 +531,17 @@
           class="absolute inset-0"
         />
 
+        <!-- Contact sheet: the page itself, read-only here; it is reviewed
+             in the chat it belongs to. -->
+        <ContactSheetViewer
+          v-else-if="isSheet"
+          :style="galleryPictureStyle"
+          :key="`sheet-${displayItem?.id}-${refreshKey}`"
+          :media-id="mediaIdOf(displayItem)"
+          readonly
+          class="absolute inset-0"
+        />
+
         <!-- Package: the cover page, full bleed. Its facts and its rebuild
              live in the media info panel, not in a second sidebar here. -->
         <PackageViewer
@@ -705,6 +716,9 @@
         @reject="emit('reject')"
         @unapprove="emit('unapprove')"
       />
+      <!-- Review chrome a host adds in context (a contact sheet's review bar),
+           in the approval bar's place. -->
+      <slot name="review" :item="currentItem" :index="currentIndex" />
     </div>
 
     <!-- Image Strip (shows thumbnails from current dataset, or single source image when viewing source) -->
@@ -1378,6 +1392,7 @@ import { MediaContextMenu, MediaImage } from './media'
 import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType, isVector as isVectorType, isSprite as isSpriteType, isPackage as isPackageType } from '../utils/mediaTypes'
 import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer, SpritePlayer, PackageViewer } from './viewers'
+import ContactSheetViewer from './sheets/ContactSheetViewer.vue'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { playbackPartUrl } from '../utils/segmentedLoopPlayback'
@@ -2312,6 +2327,8 @@ const isPackage = computed(() => {
   if (!displayItem.value) return false
   return isPackageType(displayItem.value)
 })
+
+const isSheet = computed(() => !!displayItem.value && getMediaType(displayItem.value) === 'sheet')
 
 const packageTitle = computed(() => {
   const item = currentItem.value
