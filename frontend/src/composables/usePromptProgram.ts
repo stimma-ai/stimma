@@ -71,7 +71,7 @@ export function usePromptProgram(o: Options) {
   const program = ref<PreparedProgram | null>(null)
   const preparedSig = ref<string | null>(null)
   const busy = ref(false)
-  const error = ref<{ sig: string; message: string } | null>(null)
+  const error = ref<{ sig: string; message: string; code?: string } | null>(null)
   // Formats that are still enhanced per image (MiniMax H3, Ideogram JSON) have no program.
   const unsupportedSig = ref<string | null>(null)
   // Which choice card is open, and where it hangs from.
@@ -93,6 +93,10 @@ export function usePromptProgram(o: Options) {
     if (error.value && error.value.sig === signature.value) return 'error'
     return program.value && preparedSig.value === signature.value ? 'ready' : 'stale'
   })
+
+  /** This tool's prompt format can't be prepared (structured JSON formats): Add detail
+      enhances each image instead, and Keep my words isn't offered. */
+  const unsupported = computed(() => unsupportedSig.value !== null && unsupportedSig.value === signature.value)
 
   const pins = computed<Record<string, string[]>>(() => o.promptOptions.value?.programPins || {})
   const edits = computed<Record<string, ChoiceEdit>>(() => o.promptOptions.value?.programEdits || {})
@@ -185,7 +189,7 @@ export function usePromptProgram(o: Options) {
       return true
     } catch (e: any) {
       const detail = e?.response?.data?.detail
-      error.value = { sig, message: (typeof detail === 'string' ? detail : detail?.message) || 'Couldn’t prepare this prompt.' }
+      error.value = { sig, code: detail?.code, message: (typeof detail === 'string' ? detail : detail?.message) || 'Couldn’t read this prompt.' }
       return false
     } finally {
       if (!inFlight || inFlight.sig === sig) busy.value = false
@@ -302,7 +306,7 @@ export function usePromptProgram(o: Options) {
     if (c.kind === 'param') return `${c.options[0]}–${c.options[1]}`
     const all = optionsOf(c)
     const p = (pins.value[c.id] || []).filter(v => all.includes(v))
-    if (!p.length) return c.kind === 'lora' ? `any of ${all.length}` : 'any'
+    if (!p.length) return `${all.length} options`
     if (p.length === 1) return p[0]
     return `${p.length} of ${all.length}`
   }
@@ -353,7 +357,7 @@ export function usePromptProgram(o: Options) {
   onUnmounted(() => window.removeEventListener('focus', onFocus))
 
   return {
-    program, status, error, signature, elaborate: o.elaborate, pins, edits, choices, rows, byId, openCard,
+    program, status, error, signature, elaborate: o.elaborate, unsupported, pins, edits, choices, rows, byId, openCard,
     prepare, ensureReady, needsPrepare, payload, lookup, fetchProgramText, previewRuns, suggestOptions,
     setPins, setManyPins, setEdit, optionsOf, valueText, isPinned, visible,
     loraControl, paramControl, open, close,

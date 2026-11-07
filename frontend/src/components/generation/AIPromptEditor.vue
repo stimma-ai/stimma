@@ -18,7 +18,7 @@
              JSON) — the style is chosen automatically from the tool's model. -->
         <!-- Raw: the prompt is sent exactly as typed, so Enhance and Translate don't
              apply. Always visible while on, so a hidden setting can't surprise you. -->
-        <div v-if="!hideAutoImprove && rawMode" class="flex items-center gap-2">
+        <div v-if="!hideAutoImprove && rawMode && !hasMode" class="flex items-center gap-2">
           <button
             type="button"
             class="flex items-center gap-1.5 text-ctl -mx-1.5 px-1.5 py-0.5 rounded-md text-content bg-overlay-subtle hover:text-content-secondary"
@@ -30,11 +30,14 @@
           </button>
         </div>
         <div v-else-if="!hideAutoImprove" class="flex items-center gap-3">
+          <!-- A host's own prompt control (Tool View's Riff) replaces Enhance and Raw. -->
+          <slot name="mode" :open-help="openHelp" />
           <!-- Enhance Prompt toggle. With no LLM configured the chip stays
                visible but inert — a quiet hint of what configuring one adds.
                The stored setting is untouched, so it resumes when a model
                appears. -->
           <button
+            v-if="!hasMode"
             :disabled="llmUnconfigured"
             :aria-pressed="!llmUnconfigured && promptOptions.autoImprove.enabled"
             @click="updatePromptOption('autoImprove', { ...promptOptions.autoImprove, enabled: !promptOptions.autoImprove.enabled })"
@@ -57,7 +60,7 @@
           <!-- Translate Prompt chip: the whole chip opens the menu (one big hit target).
                On/off lives in the menu as the "Off" choice — same place you pick
                a language — so there's one obvious control surface. -->
-          <div class="relative flex items-center" ref="translateMenuContainer">
+          <div v-if="!(hasMode && rawMode)" class="relative flex items-center" ref="translateMenuContainer">
             <button
               ref="translateButton"
               :disabled="llmUnconfigured"
@@ -178,8 +181,9 @@
                   <span class="flex-1 text-left">Send exactly as typed</span>
                   <CheckIcon v-if="rawMode" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
                 </button>
-                <div class="my-1 border-t border-edge-subtle"></div>
+                <div v-if="!hasMode" class="my-1 border-t border-edge-subtle"></div>
                 <button
+                  v-if="!hasMode"
                   role="menuitem"
                   class="w-full flex items-center gap-2 px-3 py-2 text-xs coarse:py-3 coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle transition-colors"
                   title="Prompt syntax help"
@@ -221,7 +225,7 @@
                     <code class="text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded text-xs" v-text="'{{name}}'"></code>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    Picks a random value from a named wildcard list defined in Settings &gt; Wildcards. With a chat model set up, any other name works too: the model writes its options.
+                    Picks a random value from a named wildcard list defined in Settings &gt; Wildcards. {{ hasMode ? `With ${brand} on, any other name works too: ${brand} writes the options.` : 'With a chat model set up, any other name works too: the model writes its options.' }}
                   </p>
                 </div>
 
@@ -231,7 +235,7 @@
                     <code class="text-gray-500 italic bg-zinc-500/10 px-1.5 py-0.5 rounded text-xs"># comment</code>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    Instructions for the chat model (&ldquo;# vary her expression&rdquo;). They are never sent to the generation tool, and without a chat model they are ignored.
+                    {{ hasMode ? `Notes for ${brand}` : 'Instructions for the chat model' }} (&ldquo;# vary her expression&rdquo;). They are never sent to the generation tool{{ hasMode ? '.' : ', and without a chat model they are ignored.' }}
                   </p>
                 </div>
 
@@ -241,15 +245,26 @@
                     <code class="text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded text-xs">[verbatim text]</code>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    Text in brackets is invisible to the Prompt Enhancement Model and will be preserved as-is.
+                    Text in brackets is sent exactly as written{{ hasMode ? `, untouched by ${brand}` : '' }}.
                   </p>
                 </div>
 
                 <!-- Divider -->
                 <div v-if="!hideAutoImprove" class="border-t border-edge-subtle my-3"></div>
 
+                <!-- Riff (Tool View) -->
+                <div v-if="hasMode">
+                  <div class="flex items-center gap-1.5 mb-1">
+                    <WandSparklesIcon class="w-3 h-3 text-accent" />
+                    <span class="text-xs font-medium text-content-secondary">{{ brand }}</span>
+                  </div>
+                  <p class="text-xs text-content-tertiary leading-relaxed">
+                    Reads your prompt and gives every image a fresh variation: it fills {{ BRACES }}, follows # notes and, with Add detail, writes the fuller prompt this model likes. Your text in the editor never changes. Send exactly as typed turns it off.
+                  </p>
+                </div>
+
                 <!-- Enhance Prompt -->
-                <div v-if="!hideAutoImprove">
+                <div v-if="!hideAutoImprove && !hasMode">
                   <div class="flex items-center gap-1.5 mb-1">
                     <WandSparklesIcon class="w-3 h-3 text-accent" />
                     <span class="text-xs font-medium text-content-secondary">Enhance prompt</span>
@@ -258,10 +273,10 @@
                     When enabled, your prompt is automatically enhanced by AI each time you generate. The original prompt is preserved in the editor &mdash; only the version sent to the generation tool is improved.
                   </p>
                 </div>
-                <div v-if="!hideAutoImprove" class="mt-3">
+                <div v-if="!hideAutoImprove && !hasMode" class="mt-3">
                   <div class="text-xs font-medium text-content-secondary mb-1">Send exactly as typed</div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    {{ rawInMenu ? 'In this menu.' : 'In the menu behind the dot in the corner.' }} Sends the prompt untouched, braces, brackets and # lines included, for prompts another stage will process.
+                    In this menu. Sends the prompt untouched, braces, brackets and # lines included, for prompts another stage will process.
                   </p>
                 </div>
               </div>
@@ -312,6 +327,7 @@ import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
 import Caret from '../ui/Caret.vue'
 import OverflowButton from '../ui/OverflowButton.vue'
 import { useWildcards, useSegments } from '../../composables/useWildcards'
+import { PROMPT_BRAND } from './promptBrand'
 import type { PromptSyntaxMode } from '../../composables/useCodeMirrorPrompt'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
@@ -413,6 +429,14 @@ function toggleEditorMenu() {
   showEditorMenu.value = !showEditorMenu.value
   showHelp.value = false
 }
+/** Open the syntax help on its own (from the host's control), anchored like the … menu. */
+function openHelp() {
+  showEditorMenu.value = false
+  toggleEditorMenu()  // computes the position
+  showEditorMenu.value = false
+  // After this click finishes, or the outside-click handler would close it again.
+  setTimeout(() => { showHelp.value = true })
+}
 const translateMenuContainer = ref<HTMLElement | null>(null)
 const translateButton = ref<HTMLElement | null>(null)
 const translateMenuEl = ref<HTMLElement | null>(null)
@@ -479,9 +503,14 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
 
 // --- How the prompt will be read: Raw, by a model (a program, or Enhance), or plain (no model) ---
 const rawMode = computed(() => !!props.promptOptions.raw)
-// A host that puts a prompt menu in the corner (Tool View's dot) owns the Raw toggle.
+// A host with its own prompt control (Tool View's Riff, in the mode slot) owns Enhance,
+// Raw and the syntax help's entry point.
 const slots = useSlots()
-const rawInMenu = computed(() => !props.hideAutoImprove && !slots.corner)
+const hasMode = computed(() => !!slots.mode)
+const rawInMenu = computed(() => !props.hideAutoImprove && !hasMode.value)
+const brand = PROMPT_BRAND
+// Literal {{ }} for templates (a mustache can't contain one).
+const BRACES = '{' + '{ }' + '}'
 function setRaw(on: boolean) {
   emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
 }

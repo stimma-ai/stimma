@@ -337,11 +337,14 @@
             :placeholder="promptPlaceholder"
             :programs="promptProgram.status.value !== 'off'"
           >
-            <template #corner><PromptProgramDot
+            <template #mode="{ openHelp }"><RiffControl
               :program="promptProgram"
               :raw="!!globalPrefs.promptOptions?.raw"
-              :has-prompt="!!(globalPrefs.prompt || '').trim()"
+              :elaborate="!!globalPrefs.promptOptions?.autoImprove?.enabled"
+              :llm-unconfigured="llmUnconfigured"
               @raw="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: on || undefined }"
+              @mode="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, autoImprove: { ...globalPrefs.promptOptions?.autoImprove, enabled: on } }"
+              @help="openHelp()"
             /></template>
             <template #below-editor><PromptProgramChoices :program="promptProgram" /></template>
           </AIPromptEditor>
@@ -3397,7 +3400,8 @@ watch(() => videoImages.startImage, (newStart, oldStart) => {
 import { useLoraPool } from '../composables/useLoraPool'
 import { usePromptProgram } from '../composables/usePromptProgram'
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
-import PromptProgramDot from '../components/generation/PromptProgramDot.vue'
+import RiffControl from '../components/generation/RiffControl.vue'
+import { PROMPT_BRAND } from '../components/generation/promptBrand'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
 import { disableUnavailableLoras } from '../utils/availableLoras'
@@ -4079,7 +4083,11 @@ const {
 
 // A prompt edit from another client waits for the cursor to leave the field.
 function handlePromptFocusOut(event: FocusEvent) {
-  if (!aiPromptEditorRef.value?.$el?.contains?.(event.relatedTarget as Node | null)) releaseHeldStateKeys()
+  if (aiPromptEditorRef.value?.$el?.contains?.(event.relatedTarget as Node | null)) return
+  releaseHeldStateKeys()
+  // Riff reads a changed prompt as soon as you're done typing, so the first run
+  // usually doesn't wait. Same request as a run's, shared if both happen.
+  if (promptProgram.status.value === 'stale') void promptProgram.prepare()
 }
 
 // Another client changed this tab's other saved values.
@@ -5417,7 +5425,11 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   }
   if (preparingCancelled) return noSubmit(options, false)
   if (!ready) {
-    submissionError.value = promptProgram.error.value?.message || 'Couldn’t prepare this prompt.'
+    // The model's own complaint is for developers (Riff's menu shows it in dev mode).
+    const code = promptProgram.error.value?.code
+    submissionError.value = code === 'llm_not_configured'
+      ? `${PROMPT_BRAND} needs a chat model. Add one in Settings, or turn on Send exactly as typed.`
+      : `${PROMPT_BRAND} couldn’t read this prompt, so nothing was run. Try again from the ${PROMPT_BRAND} menu, or reword it.`
     addToast(submissionError.value, 'error')
     return noSubmit(options)
   }

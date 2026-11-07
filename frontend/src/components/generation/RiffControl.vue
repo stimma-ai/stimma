@@ -1,0 +1,334 @@
+<template>
+  <!-- Riff: the prompt card's one control for how a prompt reaches the image model.
+       The chip says the mode at rest; its menu switches it. Status only shows when
+       there is something to wait for or fix. -->
+  <div class="relative flex items-center">
+    <button
+      ref="chip"
+      type="button"
+      data-riff-chip
+      :data-status="program.status.value"
+      :aria-expanded="menuOpen"
+      :class="['flex items-center gap-1.5 text-ctl transition-colors -mx-1.5 px-1.5 py-0.5 rounded-md',
+        on ? 'text-content bg-overlay-subtle' : 'text-content-muted hover:text-content-secondary']"
+      :title="chipTitle"
+      @click="toggle"
+    >
+      <Spinner v-if="busy" size="sm" />
+      <WandSparklesIcon v-else :class="['w-3.5 h-3.5', on ? '' : 'opacity-60']" />
+      <span>{{ chipText }}</span>
+      <span v-if="failed" class="w-[6px] h-[6px] rounded-full bg-red-400" aria-label="Couldn’t read this prompt" />
+      <Caret :open="menuOpen" class="opacity-70" />
+    </button>
+
+    <Teleport to="body">
+      <div v-if="menuOpen" class="fixed inset-0 z-menu" @click="menuOpen = false">
+        <div
+          class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-72 max-w-[calc(100vw-16px)] overflow-y-auto"
+          :style="menuStyle"
+          data-riff-menu
+          role="menu"
+          @click.stop
+        >
+          <div class="px-3 pt-1.5 pb-2">
+            <div class="flex items-center gap-1.5 text-[13px] font-semibold text-content">
+              <WandSparklesIcon class="w-3.5 h-3.5 text-accent" /> {{ BRAND }}
+            </div>
+            <div class="text-[11px] text-content-tertiary">One prompt, a fresh variation every image</div>
+          </div>
+
+          <!-- Only when there's something to wait for or fix. -->
+          <div v-if="notice" :class="['mx-3 mb-2 rounded-md px-2.5 py-2 text-[12px] leading-snug', notice.tone === 'bad' ? 'bg-red-500/10 text-red-400' : 'bg-overlay-subtle text-content-secondary']">
+            <div class="flex items-center gap-1.5 font-medium">
+              <Spinner v-if="busy" size="sm" />{{ notice.head }}
+            </div>
+            <div v-if="notice.body" class="mt-0.5 text-content-tertiary">{{ notice.body }}</div>
+            <div v-if="notice.detail" class="mt-1 font-mono text-[10.5px] text-content-muted break-words">{{ notice.detail }}</div>
+            <button v-if="notice.action" type="button" class="mt-1.5 text-[12px] font-medium text-content hover:underline" @click="notice.action.run()">{{ notice.action.label }}</button>
+          </div>
+
+          <div class="border-t border-edge-subtle my-1" />
+          <button
+            v-for="m in modes"
+            :key="m.id"
+            type="button"
+            role="menuitemradio"
+            :aria-checked="mode === m.id"
+            :disabled="llmUnconfigured"
+            :class="['w-full text-left px-3 py-1.5 coarse:py-3 flex items-start gap-2.5 hover:bg-overlay-subtle disabled:opacity-40 disabled:pointer-events-none', raw ? 'opacity-60 hover:opacity-100' : '']"
+            @click="pick(m.id)"
+          >
+            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-full border flex items-center justify-center', mode === m.id && !raw ? 'border-accent' : 'border-edge-strong']">
+              <span v-if="mode === m.id && !raw" class="w-1.5 h-1.5 rounded-full bg-accent" />
+            </span>
+            <span class="min-w-0">
+              <span class="block text-[12px] coarse:text-[13px] text-content">{{ m.label }}</span>
+              <span class="block text-[11px] text-content-muted leading-snug">{{ m.hint }}</span>
+            </span>
+          </button>
+          <div v-if="program.unsupported.value" class="px-3 pt-0.5 pb-1 text-[11px] text-content-muted leading-snug">
+            This model takes structured prompts, so {{ BRACES }} choices aren’t available.
+          </div>
+
+          <template v-if="canRethink">
+            <div class="border-t border-edge-subtle my-1" />
+            <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 hover:bg-overlay-subtle" @click="menuOpen = false; program.prepare(true)">
+              <span class="block text-[12px] coarse:text-[13px] text-content">New ideas</span>
+              <span class="block text-[11px] text-content-muted leading-snug">New wording and choices. Your text stays.</span>
+            </button>
+          </template>
+
+          <div class="border-t border-edge-subtle my-1" />
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            :aria-checked="raw"
+            class="w-full text-left px-3 py-1.5 coarse:py-3 hover:bg-overlay-subtle flex items-start gap-2.5"
+            @click="menuOpen = false; emit('raw', !raw)"
+          >
+            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-[3px] border flex items-center justify-center', raw ? 'bg-accent border-accent text-white' : 'border-edge-strong']">
+              <CheckIcon v-if="raw" class="w-2.5 h-2.5" />
+            </span>
+            <span class="min-w-0">
+              <span class="block text-[12px] coarse:text-[13px] text-content">Send exactly as typed</span>
+              <span class="block text-[11px] text-content-muted leading-snug">{{ BRAND }} off. Braces and # lines go through untouched.</span>
+            </span>
+          </button>
+          <div class="border-t border-edge-subtle my-1" />
+          <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 text-[12px] coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="menuOpen = false; emit('help')">
+            How to write prompts for {{ BRAND }}
+          </button>
+          <button
+            v-if="devModeRef && program.status.value !== 'off'"
+            type="button"
+            class="w-full text-left px-3 py-1.5 coarse:py-3 text-[12px] coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle hover:text-content flex items-center justify-between"
+            @click="menuOpen = false; showProgram()"
+          >Show program <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span></button>
+        </div>
+      </div>
+      <!-- Dev: the prepared program, how preparing went, and live sample runs. -->
+      <div
+        v-if="programText !== null"
+        class="fixed inset-0 z-modal bg-overlay-backdrop flex items-center justify-center p-4"
+        data-escape-layer
+        @click.self="programText = null"
+      >
+        <div class="w-[960px] max-w-full max-h-[92vh] flex flex-col rounded-lg bg-surface border border-edge shadow-xl" data-program-debug>
+          <div class="flex items-center gap-2 px-4 pt-3 pb-2">
+            <span class="text-[14px] font-semibold text-content">Program</span>
+            <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span>
+            <span class="text-[11px] text-content-muted font-mono">
+              {{ program.program.value?.key?.slice(0, 10) }} · prepared in {{ program.program.value?.seconds ?? '?' }}s · {{ program.program.value?.attempts ?? 1 }} attempt(s) · {{ program.choices.value.length }} choices
+            </span>
+            <span class="flex-1" />
+            <button type="button" class="text-[12px] text-content-tertiary hover:text-content px-2 py-1 rounded-md hover:bg-overlay-subtle" @click="copyProgram">{{ copied ? 'Copied' : 'Copy' }}</button>
+            <button type="button" class="text-content-tertiary hover:text-content p-1 rounded-md hover:bg-overlay-subtle" aria-label="Close" @click="programText = null">✕</button>
+          </div>
+          <div v-if="programText === ''" class="mx-4 mb-4 rounded-md border border-edge-subtle bg-surface-overlay px-3 py-6 text-[12px] text-content-secondary flex items-center justify-center gap-2">
+            <template v-if="showError"><span class="text-red-400">{{ showError }}</span></template>
+            <template v-else><span class="w-3 h-3 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" /> Reading your prompt…</template>
+          </div>
+          <template v-else>
+          <div v-if="program.program.value?.warnings?.length" class="mx-4 mb-2 rounded-md bg-amber-500/10 px-3 py-2 text-[12px] text-amber-600 dark:text-amber-400">
+            <div class="font-semibold mb-0.5">Accepted with problems</div>
+            <div v-for="w in program.program.value.warnings" :key="w">{{ w }}</div>
+          </div>
+          <div v-if="enhancedText" class="mx-4 mb-2">
+            <div class="text-xs font-semibold text-content-secondary mb-1">
+              <template v-if="program.program.value?.elaborate === false">Your words, as kept <span class="font-normal text-content-muted">· {{ program.program.value?.mode }} format</span></template>
+              <template v-else>Enhanced example <span class="font-normal text-content-muted">· {{ program.program.value?.mode }} style · {{ program.program.value?.upsample_seconds ?? '?' }}s</span></template>
+            </div>
+            <div class="max-h-[16vh] overflow-y-auto rounded-md bg-surface-overlay border border-edge-subtle px-3 py-2 text-[12px] leading-relaxed text-content-secondary whitespace-pre-wrap">{{ enhancedText }}</div>
+          </div>
+          <div class="mx-4 rounded-md border border-edge-subtle bg-surface-overlay h-[40vh] min-h-[200px] overflow-hidden">
+            <ReadOnlyCode :text="programText" name="program.py" wrap />
+          </div>
+          <div class="px-4 pt-3 pb-4 overflow-y-auto min-h-0">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="text-xs font-semibold text-content-secondary">Sample runs</span>
+              <span class="text-[11px] text-content-muted">with your current pins</span>
+              <span class="flex-1" />
+              <button type="button" class="text-[12px] text-content-tertiary hover:text-content px-2 py-0.5 rounded-md hover:bg-overlay-subtle" @click="loadSamples">Draw again</button>
+            </div>
+            <div v-if="samplesError" class="text-[12px] text-red-400">{{ samplesError }}</div>
+            <ol class="space-y-2">
+              <li v-for="(r, i) in samples" :key="i" class="text-[12px] leading-relaxed">
+                <div class="text-content-secondary">{{ r.prompt }}</div>
+                <div class="font-mono text-[10.5px] text-content-muted">
+                  {{ r.draws.map((d: any) => `${d.id}=${d.value}`).join(' · ') }}
+                </div>
+              </li>
+            </ol>
+          </div>
+          </template>
+        </div>
+      </div>
+    </Teleport>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, onUnmounted, ref, watch } from 'vue'
+import { CheckIcon } from '@heroicons/vue/24/solid'
+import type { PromptProgram } from '../../composables/usePromptProgram'
+import { devModeRef } from '../../appConfig'
+import ReadOnlyCode from '../viewers/ReadOnlyCode.vue'
+import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
+import Spinner from '../ui/Spinner.vue'
+import Caret from '../ui/Caret.vue'
+import { PROMPT_BRAND as BRAND } from './promptBrand'
+
+const props = defineProps<{
+  program: PromptProgram
+  /** Send exactly as typed. */
+  raw: boolean
+  /** Add detail (true) or Keep my words (false). */
+  elaborate: boolean
+  /** No chat model is set up, so Riff can't read prompts. */
+  llmUnconfigured: boolean
+}>()
+const emit = defineEmits<{
+  (e: 'mode', elaborate: boolean): void
+  (e: 'raw', on: boolean): void
+  (e: 'help'): void
+}>()
+
+const chip = ref<HTMLElement | null>(null)
+// Literal {{ }} for templates (a mustache can't contain one).
+const BRACES = '{' + '{ }' + '}'
+const menuOpen = ref(false)
+const programText = ref<string | null>(null)
+
+const mode = computed(() => (props.elaborate || props.program.unsupported.value ? 'detail' : 'words'))
+const on = computed(() => !props.raw && !props.llmUnconfigured)
+const busy = computed(() => on.value && props.program.status.value === 'busy')
+const failed = computed(() => on.value && props.program.status.value === 'error')
+
+const modes = computed(() => [
+  { id: 'detail' as const, label: 'Add detail', hint: props.program.unsupported.value
+      ? 'Writes a fuller prompt for each image'
+      : 'Writes a fuller prompt in the style this model likes' },
+  ...(props.program.unsupported.value ? [] : [{ id: 'words' as const, label: 'Keep my words', hint: 'Uses your wording, only joined up' }]),
+])
+
+const chipText = computed(() => {
+  if (props.llmUnconfigured) return `${BRAND} · set up`
+  if (props.raw) return `${BRAND} off`
+  return mode.value === 'words' ? `${BRAND} · your words` : BRAND
+})
+const chipTitle = computed(() => {
+  if (props.llmUnconfigured) return `${BRAND} needs a chat model`
+  if (props.raw) return 'Sent exactly as typed'
+  if (busy.value) return 'Reading your prompt…'
+  if (failed.value) return `${BRAND} couldn’t read this prompt`
+  return mode.value === 'words' ? `${BRAND}: keeps your words` : `${BRAND}: adds detail`
+})
+
+type Notice = { head: string; body?: string; detail?: string; tone?: 'bad'; action?: { label: string; run: () => void } }
+const notice = computed<Notice | null>(() => {
+  if (props.llmUnconfigured) return {
+    head: `${BRAND} needs a chat model`,
+    body: 'Until then, {a|b} lists and saved wildcards still fill in. # lines are left out.',
+    action: { label: 'Add one in Settings', run: () => { menuOpen.value = false; window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) } },
+  }
+  if (props.raw) return null
+  if (busy.value) return { head: 'Reading your prompt…', body: 'First run only, a few seconds.' }
+  if (failed.value) return {
+    head: `${BRAND} couldn’t read this prompt`, tone: 'bad',
+    detail: devModeRef.value ? props.program.error.value?.message : undefined,
+    action: { label: 'Try again', run: () => { void props.program.prepare(true) } },
+  }
+  return null
+})
+
+// New wording and choices: only once there is something to redo.
+const canRethink = computed(() => on.value && props.program.status.value === 'ready'
+  && (mode.value === 'detail' || props.program.choices.value.some(c => !c.hidden)))
+
+function pick(id: 'detail' | 'words') {
+  menuOpen.value = false
+  if (props.raw) emit('raw', false)
+  if ((id === 'detail') !== props.elaborate) emit('mode', id === 'detail')
+}
+
+const menuStyle = ref<Record<string, string>>({})
+function toggle() {
+  if (!menuOpen.value) {
+    const r = chip.value?.getBoundingClientRect()
+    if (r) {
+      const below = window.innerHeight - r.bottom - 12
+      const above = r.top - 12
+      const down = below >= 380 || below >= above
+      menuStyle.value = {
+        left: `${Math.max(8, Math.min(window.innerWidth - 296, r.left - 6))}px`,
+        maxHeight: `${Math.max(200, down ? below : above)}px`,
+        ...(down ? { top: `${r.bottom + 4}px` } : { bottom: `${window.innerHeight - r.top + 4}px` }),
+      }
+    }
+  }
+  menuOpen.value = !menuOpen.value
+}
+
+// Escape closes the dialog, then the menu. Both are teleported, so listen on the window.
+function onKey(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return
+  if (programText.value !== null) programText.value = null
+  else if (menuOpen.value) menuOpen.value = false
+  else return
+  e.preventDefault()
+  e.stopPropagation()
+}
+watch(() => programText.value !== null || menuOpen.value, (open) => {
+  if (open) window.addEventListener('keydown', onKey, true)
+  else window.removeEventListener('keydown', onKey, true)
+})
+onUnmounted(() => window.removeEventListener('keydown', onKey, true))
+
+// Dev: the program dialog ---------------------------------------------------------
+const samples = ref<any[]>([])
+const samplesError = ref('')
+const copied = ref(false)
+const enhancedText = ref('')
+const showError = ref('')
+
+/** Open the program, reading the prompt first if needed (the dialog shows the wait). */
+async function showProgram() {
+  programText.value = ''
+  enhancedText.value = ''
+  showError.value = ''
+  samples.value = []
+  try {
+    if (!(await props.program.ensureReady())) {
+      showError.value = props.program.error.value?.message || 'Couldn’t read this prompt.'
+      return
+    }
+    const got = await props.program.fetchProgramText()
+    if (programText.value === null) return  // closed while reading
+    if (!got.program) {
+      showError.value = 'Couldn’t load the program. Try again.'
+      return
+    }
+    programText.value = got.program
+    enhancedText.value = got.enhanced
+  } catch (e: any) {
+    if (programText.value !== null) showError.value = e?.response?.data?.detail?.message || 'Couldn’t load the program.'
+    return
+  }
+  void loadSamples()
+}
+
+async function loadSamples() {
+  samplesError.value = ''
+  try {
+    samples.value = await props.program.previewRuns(5)
+  } catch (e: any) {
+    samplesError.value = e?.response?.data?.detail?.message || e?.message || 'Couldn’t run the program.'
+  }
+}
+
+async function copyProgram() {
+  await navigator.clipboard?.writeText(programText.value || '')
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 1200)
+}
+</script>

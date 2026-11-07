@@ -72,7 +72,7 @@
                 </button>
                 <button type="button" :class="footClass" :disabled="!!writing" title="Replace every option with a new set" @click="write('reroll')">
                   <Spinner v-if="writing === 'reroll'" size="sm" /><ArrowPathIcon v-else class="w-3.5 h-3.5" />
-                  Reroll all
+                  New set
                 </button>
               </template>
               <span class="flex-1" />
@@ -92,6 +92,7 @@
 import { computed, defineComponent, h, nextTick, ref, watch } from 'vue'
 import { ArrowPathIcon, CheckIcon, ChevronLeftIcon, PlusIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
+import { PROMPT_BRAND } from './promptBrand'
 import Spinner from '../ui/Spinner.vue'
 import { useAnchoredMenuPosition } from '../../composables/useContextMenuPosition'
 import type { PromptProgram, ProgramChoice } from '../../composables/usePromptProgram'
@@ -142,7 +143,7 @@ const note = computed(() => {
   const c = choice.value
   if (!c) return ''
   const parts: string[] = []
-  if (c.source === 'added') parts.push('Added by Enhance')
+  if (c.source === 'added') parts.push(`Added by ${PROMPT_BRAND}`)
   if (c.kind === 'lora') parts.push('each turns on its LoRA')
   if (c.parent) {
     const p = props.program.byId.value[c.parent]
@@ -160,7 +161,7 @@ async function write(mode: 'more' | 'reroll') {
   writing.value = mode
   writeError.value = ''
   try {
-    // Reroll replaces the set with as many new ones; More adds six.
+    // New set replaces the options with as many new ones; More adds six.
     await props.program.suggestOptions(c, mode, mode === 'reroll' ? props.program.optionsOf(c).length : 6)
   } catch (e: any) {
     const d = e?.response?.data?.detail
