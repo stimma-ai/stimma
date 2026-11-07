@@ -172,11 +172,18 @@ export function parseSheet(html: string, scope: string): ParsedSheet {
   return { root: doc.body, css: styles.map(css => scopeCss(css, scope)).filter(Boolean).join('\n') }
 }
 
-/** Every distinct media in reading order: what the sheet's slideshow walks. */
-export function sheetMediaList(root: HTMLElement): SheetMediaEntry[] {
+/**
+ * Every distinct media in reading order: what the sheet's slideshow walks.
+ * Collapsed sections are folded away (older rounds, set-aside work), so they
+ * stay out unless `include` names one of their tiles.
+ */
+export function sheetMediaList(root: HTMLElement, include?: string | null, all = false): SheetMediaEntry[] {
   const seen = new Set<number>()
   const out: SheetMediaEntry[] = []
+  const opened = include ? root.querySelector(`[id="${CSS.escape(include)}"]`)?.closest('stimma-section[collapsed]') : null
   root.querySelectorAll('stimma-media').forEach(el => {
+    const folded = el.closest('stimma-section[collapsed]')
+    if (!all && folded && folded !== opened) return
     const ref = el.getAttribute('ref') || ''
     const mediaId = mediaIdOfRef(ref)
     if (mediaId == null || seen.has(mediaId)) return

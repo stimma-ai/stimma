@@ -84,3 +84,24 @@ test('agent CSS stays inside the sheet and loads nothing', async t => {
   assert.ok(!result.css.includes('conditional'), 'keyframes never lose their condition')
   assert.deepEqual(external, [], 'no external requests')
 })
+
+test('the slideshow walks open sections, and a folded one only when opened from it', async t => {
+  const browser = await chromium.launch()
+  t.after(() => browser.close())
+  const page = await browser.newPage()
+  await page.route('**/*', route => route.fulfill({ contentType: 'text/html', body: '<html><body></body></html>' }))
+  await page.goto('http://app.test/')
+  await page.addScriptTag({ content: script })
+  const lists = await page.evaluate(() => {
+    const { parseSheet, sheetMediaList } = window.SheetHtml
+    const { root } = parseSheet(`
+      <stimma-section id="round-2" label="Round 2"><stimma-media id="v3" ref="media:3"></stimma-media></stimma-section>
+      <stimma-section id="round-1" label="Round 1" collapsible collapsed><stimma-media id="v1" ref="media:1"></stimma-media></stimma-section>
+      <stimma-section id="frames" label="Start frames" collapsible collapsed><stimma-media id="f1" ref="media:9"></stimma-media></stimma-section>`, '[s]')
+    const ids = list => list.map(entry => entry.mediaId)
+    return { open: ids(sheetMediaList(root, 'v3')), fromFolded: ids(sheetMediaList(root, 'v1')), all: ids(sheetMediaList(root, null, true)) }
+  })
+  assert.deepEqual(lists.open, [3])
+  assert.deepEqual(lists.fromFolded, [3, 1])
+  assert.deepEqual(lists.all, [3, 1, 9], 'everything still counts for "new since you looked"')
+})

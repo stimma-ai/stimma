@@ -227,6 +227,8 @@ class ContactSheetDraft:
         warnings name, then publish again.
         """
         from contact_sheet import (
+            compare_media_ids,
+            ingredient_ids,
             normalize_sheet_html,
             require_sheet_asset,
             reviewed_anchors,
@@ -241,6 +243,16 @@ class ContactSheetDraft:
         session = self._sdk.session
         normalized = await normalize_sheet_html(self._html, self._resolve_ref)
         warnings = list(normalized.warnings)
+        ingredients = await ingredient_ids(session, normalized.media_ids,
+                                           exempt=compare_media_ids(normalized.html))
+        if ingredients:
+            warnings.append(
+                "Media " + ", ".join(str(i) for i in ingredients[:12])
+                + " are what other work on this sheet was made from (start frames, keyframes, sources). "
+                "The sheet is for reviewing the finished work, so take them off, collapsed sections "
+                "included. Being asked to make them as a step doesn't make them what the user reviews; "
+                "keep them only if the user asked to review or choose them."
+            )
         if self._asset_id is not None:
             await require_sheet_asset(session, self._asset_id)
             dropped = sorted(await reviewed_anchors(session, self._asset_id)

@@ -692,3 +692,39 @@ async def take_pending_review(session: AsyncSession, asset_id: int) -> tuple[lis
 
 async def reviewed_anchors(session: AsyncSession, asset_id: int) -> set[str]:
     return {row.anchor for row in await review_rows(session, asset_id)}
+
+
+async def ingredient_ids(session: AsyncSession, media_ids: list[int], *, exempt: Iterable[int] = (),
+                         max_depth: int = 4) -> list[int]:
+    """Media on the sheet that other media on the same sheet were made from.
+
+    A start frame next to the video made from it, a keyframe next to the
+    finished cut: the sheet is for reviewing finished work, so these usually
+    don't belong. ``exempt`` covers deliberate pairings such as a comparison.
+    """
+    from database import MediaLineage
+
+    on_sheet = set(media_ids)
+    found: set[int] = set()
+    frontier = set(on_sheet)
+    for _ in range(max_depth):
+        if not frontier:
+            break
+        rows = (await session.execute(
+            select(MediaLineage.source_media_id).where(MediaLineage.media_id.in_(frontier))
+        )).scalars().all()
+        sources = set(rows)
+        found |= sources & on_sheet
+        frontier = sources - on_sheet
+    return sorted(found - set(exempt))
+
+
+def compare_media_ids(html: str) -> set[int]:
+    out: set[int] = set()
+    for component in sheet_components(html).values():
+        if component["tag"] == "stimma-compare":
+            for attr in ("a", "b"):
+                media_id = media_id_of_ref(component["attrs"].get(attr))
+                if media_id is not None:
+                    out.add(media_id)
+    return out

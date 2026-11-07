@@ -125,7 +125,8 @@ export function provideContactSheet(options: {
     return Number.isFinite(value) && value > 0 ? value : null
   })
   const readonly = computed(() => assetId.value == null || !!options.readonly?.value)
-  const mediaList = computed(() => (root.value ? sheetMediaList(root.value) : []))
+  // Every tile, folded or not: what "new since you looked" counts.
+  const mediaList = computed(() => (root.value ? sheetMediaList(root.value, null, true) : []))
 
   const refsById = computed(() => {
     const out: Record<string, string> = {}
@@ -330,7 +331,8 @@ export function provideContactSheet(options: {
     openSlideshow(componentId: string) {
       if (!openSheetSlideshow) return
       const mediaId = mediaIdOfRef(refsById.value[componentId])
-      const list = mediaList.value
+      // The slideshow walks what's open, plus the folded section you opened it from.
+      const list = root.value ? sheetMediaList(root.value, componentId) : []
       const index = Math.max(0, list.findIndex(entry => entry.mediaId === mediaId))
       openSheetSlideshow({ list, index, sheet: context })
     },

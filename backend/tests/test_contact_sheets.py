@@ -233,3 +233,34 @@ async def test_review_routes_reject_non_sheets(client, db_session, tmp_path):
         media_id = media.id
     r = await client.get(f"/api/contact-sheets/{media_id}/review")
     assert r.status_code == 404
+
+
+async def test_publish_warns_about_ingredients_beside_finished_work(client, db_session, tmp_path, no_agent):
+    from agent.v2.contact_sheet_sdk import StimmaContactSheetsAPI
+    from database import MediaLineage
+
+    workspace = tmp_path / "workspace-ingredients"
+    workspace.mkdir()
+    async with db_session() as session:
+        chat = Chat(name="Ingredients")
+        session.add(chat)
+        await session.commit()
+        frame = await _image(session, tmp_path, "frame.png", (90, 90, 90))
+        clip = await _image(session, tmp_path, "clip.png", (91, 91, 91))  # stands in for the video
+        session.add(MediaLineage(media_id=clip.id, source_media_id=frame.id, source_order=0,
+                                 task_type="image-to-video", relationship_type="derived"))
+        await session.commit()
+        api = StimmaContactSheetsAPI(_sdk(session, workspace, chat.id))
+
+        sheet = api.new("Clips")
+        sheet.set_html(f'<stimma-section label="Round 1"><stimma-media-group>'
+                       f'<stimma-media ref="{clip.id}"></stimma-media></stimma-media-group></stimma-section>'
+                       f'<stimma-section label="Start frames" collapsible collapsed><stimma-media-group size="s">'
+                       f'<stimma-media ref="{frame.id}"></stimma-media></stimma-media-group></stimma-section>')
+        result = await sheet.publish()
+        assert any(f"Media {frame.id} are what other work" in w for w in result["warnings"])
+
+        # A before/after comparison is a deliberate pairing.
+        sheet.set_html(f'<stimma-compare a="{frame.id}" b="{clip.id}" caption="Before and after"></stimma-compare>')
+        result = await sheet.publish()
+        assert not any("made from" in w for w in result["warnings"])
