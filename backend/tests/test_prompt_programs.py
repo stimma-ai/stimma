@@ -18,6 +18,9 @@ clothing = pick("clothing", by=weather, label="Clothing", line=2, options={
 param("guidance", 3.5, 5.5, line=4)
 emit("A woman waiting for a train on a", weather, "morning, wearing", clothing, ",", umbrella, ". [Shot on Portra 400]")
 '''
+# What the program writer replies now that it only ever sees [EXACT_1] for the user's
+# protected text (see prepare.mask_exact).
+TRAIN_M = TRAIN.replace("[Shot on Portra 400]", "[EXACT_1]")
 LORAS = [LoraInfo("Curtain bangs", "loras/cb.safetensors", 0.8, "cbangs"), LoraInfo("Wolf cut", "loras/wc.safetensors", 0.9, "wolfcut")]
 PARAMS = {"guidance", "steps"}
 
@@ -126,7 +129,7 @@ def stub(monkeypatch, tmp_path):
         return list(LORAS), {}
 
     replies = []
-    enhanced = {"text": "A woman waiting for a train on a [{rainy|foggy|bright}] morning. [Shot on Portra 400]"}
+    enhanced = {"text": "A woman waiting for a train on a [{rainy|foggy|bright}] morning. [EXACT_1]"}
 
     async def fake_upsample(prompt, ctx, instructions, lora_context, project_id, profile_id):
         calls.append([{"role": "upsample", "content": prompt}])
@@ -158,7 +161,7 @@ class TestPrepare:
 
     async def test_prepares_once_then_caches(self, stub):
         calls, replies = stub
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append(f"```python\n{TRAIN_M}```")
         entry = await self._ensure()
         assert entry["params"] == {"guidance": {"type": "number", "minimum": 1, "maximum": 10}}
         assert {c["id"] for c in entry["choices"]} >= {"weather", "umbrella", "clothing", "hairstyle"}
@@ -169,13 +172,13 @@ class TestPrepare:
     async def test_concurrent_runs_share_one_prepare(self, stub):
         import asyncio
         calls, replies = stub
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append(f"```python\n{TRAIN_M}```")
         first, second = await asyncio.gather(self._ensure(), self._ensure())
         assert first["key"] == second["key"] and len(calls) == 2
 
     async def test_canvas_size_does_not_change_the_key(self, stub):
         calls, replies = stub
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append(f"```python\n{TRAIN_M}```")
         sized = {**ctx(SCHEMA), "enhance": {"is_video": False, "width": 1024, "height": 1024}}
         unsized = {**ctx(SCHEMA), "enhance": {"is_video": False, "width": None, "height": None}}
         a = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=sized, instructions="", lora_items=[], project_id=None, profile_id="p")
@@ -185,51 +188,51 @@ class TestPrepare:
     async def test_retries_with_the_problem(self, stub):
         calls, replies = stub
         replies.append('```python\nemit("A woman on a platform")\n```')  # drops the user list + protected text
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append(f"```python\n{TRAIN_M}```")
         entry = await self._ensure()
         assert entry["attempts"] == 2 and not entry["warnings"]
         feedback = calls[2][-1]["content"]
-        assert "Shot on Portra 400" in feedback and "{rainy|foggy|bright}" in feedback
+        assert "EXACT_1" in feedback and "{rainy|foggy|bright}" in feedback
 
     async def test_a_pick_that_never_reaches_the_prompt_is_sent_back(self, stub):
         calls, replies = stub
-        replies.append("```python\n" + TRAIN.replace('"morning, wearing", clothing,', '"morning,"') + "```")
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append("```python\n" + TRAIN_M.replace('"morning, wearing", clothing,', '"morning,"') + "```")
+        replies.append(f"```python\n{TRAIN_M}```")
         entry = await self._ensure()
         assert entry["attempts"] == 2
         assert 'pick("clothing")' in calls[2][-1]["content"]
 
     async def test_marks_asked_for_choices_as_from_text(self, stub):
         _, replies = stub
-        replies.append("```python\n" + TRAIN.replace('label="Clothing", line=2', 'label="Clothing", added=True') + "```")
+        replies.append("```python\n" + TRAIN_M.replace('label="Clothing", line=2', 'label="Clothing", added=True') + "```")
         entry = await self._ensure()
         clothing = next(c for c in entry["choices"] if c["id"] == "clothing")
         assert clothing["source"] == "text" and clothing["line"] == 2
 
     async def test_the_enhanced_prompt_reaches_the_program_writer(self, stub):
         calls, replies = stub
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append(f"```python\n{TRAIN_M}```")
         await self._ensure()
         assert calls[0][0]["role"] == "upsample"
-        assert "Enhanced prompt" in calls[1][1]["content"] and "Shot on Portra 400" in calls[1][1]["content"]
+        assert "Enhanced prompt" in calls[1][1]["content"] and "[EXACT_1]" in calls[1][1]["content"]
 
     async def test_a_program_much_shorter_than_the_enhanced_prompt_is_sent_back(self, stub):
         calls, replies = stub
         stub_state["enhanced"]["text"] = ("A candid photograph of a woman waiting on an elevated train platform on a "
             "[{rainy|foggy|bright}] morning, wearing a belted olive trench coat, puddles on the concrete reflecting "
             "the station lights, soft grey light through the steel canopy, shallow depth of field, natural color, "
-            "fine film grain, quiet commuter atmosphere. [Shot on Portra 400]")
-        replies.append(f"```python\n{TRAIN}```")
-        replies.append(f"```python\n{TRAIN}```")
-        replies.append(f"```python\n{TRAIN}```")
+            "fine film grain, quiet commuter atmosphere. [EXACT_1]")
+        replies.append(f"```python\n{TRAIN_M}```")
+        replies.append(f"```python\n{TRAIN_M}```")
+        replies.append(f"```python\n{TRAIN_M}```")
         entry = await self._ensure()
         assert "too short" in calls[2][-1]["content"]
         assert entry["attempts"] == 3 and entry["warnings"]  # accepted with the problem noted
 
     async def test_enhance_off_keeps_the_users_words(self, stub):
         calls, replies = stub
-        replies.append("A woman waiting for a train on a [{rainy|foggy|bright}] morning, wearing a trench coat. [Shot on Portra 400]")
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append("A woman waiting for a train on a [{rainy|foggy|bright}] morning, wearing a trench coat. [EXACT_1]")
+        replies.append(f"```python\n{TRAIN_M}```")
         kept = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="",
                                          lora_items=[], project_id=None, profile_id="p", elaborate=False)
         assert [c[0]["role"] for c in calls] == ["system", "system"]  # keep-words step, then the writer; no enhancer
@@ -237,31 +240,31 @@ class TestPrepare:
         msg = calls[1][1]["content"]
         assert "user's own words" in msg and "Enhanced prompt" not in msg and "wearing a trench coat" in msg
         assert kept["elaborate"] is False
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append(f"```python\n{TRAIN_M}```")
         rich = await self._ensure()
         assert rich["key"] != kept["key"]  # a separate program per mode
 
     async def test_keyword_models_keep_words_as_tags(self, stub):
         calls, replies = stub
-        replies.append("woman, waiting for a train, [{rainy|foggy|bright}] morning, [Shot on Portra 400]")
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append("woman, waiting for a train, [{rainy|foggy|bright}] morning, [EXACT_1]")
+        replies.append(f"```python\n{TRAIN_M}```")
         await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx={**ctx(SCHEMA), "mode": "keyword"}, instructions="",
                                   lora_items=[], project_id=None, profile_id="p", elaborate=False)
         assert "comma-separated tags" in calls[0][0]["content"] and "tags" in calls[1][1]["content"]
 
     async def test_kept_words_that_go_missing_are_sent_back(self, stub):
         calls, replies = stub
-        replies.append("A woman waiting for a train on a [{rainy|foggy|bright}] morning, wearing a trench coat. [Shot on Portra 400]")
-        replies.append("```python\n" + TRAIN.replace('"A woman waiting for a train on a"', '"A woman for a train on a"') + "```")
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append("A woman waiting for a train on a [{rainy|foggy|bright}] morning, wearing a trench coat. [EXACT_1]")
+        replies.append("```python\n" + TRAIN_M.replace('"A woman waiting for a train on a"', '"A woman for a train on a"') + "```")
+        replies.append(f"```python\n{TRAIN_M}```")
         entry = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="",
                                           lora_items=[], project_id=None, profile_id="p", elaborate=False)
         assert entry["attempts"] == 2 and '"waiting"' in calls[2][-1]["content"]
 
     async def test_a_pick_emitted_twice_is_sent_back(self, stub):
         calls, replies = stub
-        replies.append("```python\n" + TRAIN.replace('", umbrella, ". [Shot', '", umbrella, ", in", clothing, ". [Shot') + "```")
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append("```python\n" + TRAIN_M.replace('", umbrella, ". [EXACT_1]', '", umbrella, ", in", clothing, ". [EXACT_1]') + "```")
+        replies.append(f"```python\n{TRAIN_M}```")
         entry = await self._ensure()
         assert entry["attempts"] == 2 and 'pick("clothing") appears more than once' in calls[2][-1]["content"]
 
@@ -270,6 +273,20 @@ class TestPrepare:
 
     def test_plain_example_drops_instruction_lines(self):
         assert prep.plain_example("a {{hair}} woman\n# vary her mood\non a {red|blue} wall") == "a [{{hair}}] woman\non a [{red|blue}] wall"
+
+    async def test_no_model_ever_sees_exact_text(self, stub):
+        calls, replies = stub
+        replies.append(f"```python\n{TRAIN_M}```")
+        entry = await self._ensure()
+        seen = " ".join(m["content"] for c in calls for m in c)
+        assert "Shot on Portra 400" not in seen and "[EXACT_1]" in seen
+        assert entry["exact"] == {"EXACT_1": "Shot on Portra 400"}
+        assert all("Shot on Portra 400" in prep.realize(entry, seed=s).prompt for s in range(5))
+
+    def test_masking_round_trips(self):
+        masked, exact = prep.mask_exact("a [sign that says OPEN] on {a|b}, [{{x}}] and [neon]")
+        assert masked == "a [EXACT_1] on {a|b}, [{{x}}] and [EXACT_2]"
+        assert prep.unmask_exact("A EXACT_1 and [EXACT_2].", exact) == "A sign that says OPEN and neon."
 
     def test_protects_variable_spots(self):
         out = prep.protect_variable_spots("a {{hair style}} on a {red|blue} wall, [keep] {single}")
@@ -383,7 +400,7 @@ class TestDrawSeed:
 
     async def test_draws_are_independent_of_the_image_seed(self, stub):
         _, replies = stub
-        replies.append(f"```python\n{TRAIN}```")
+        replies.append(f"```python\n{TRAIN_M}```")
         same_image = [await self._run(42) for _ in range(12)]
         assert len({r["draw_seed"] for r in same_image}) > 1  # same image seed, fresh draws
         a, b = await self._run(1, draw_seed=7), await self._run(999, draw_seed=7)

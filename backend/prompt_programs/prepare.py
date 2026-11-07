@@ -23,7 +23,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-18"
+PREPARE_VERSION = "pp-19"
 MAX_ATTEMPTS = 3
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8")
 
@@ -277,6 +277,28 @@ def drop_name_options(source: str, prompt: str) -> str:
     return source
 
 
+_EXACT = re.compile(r"\[([^\[\]{}][^\[\]]*)\]")
+
+
+def mask_exact(prompt: str) -> Tuple[str, Dict[str, str]]:
+    """[exact text] is the user's, untouched: no model ever reads it. Each becomes a
+    token like [EXACT_1] for every model step, and realize() puts the text back."""
+    exact: Dict[str, str] = {}
+
+    def repl(m: re.Match) -> str:
+        token = f"EXACT_{len(exact) + 1}"
+        exact[token] = m.group(1)
+        return f"[{token}]"
+
+    return _EXACT.sub(repl, prompt), exact
+
+
+def unmask_exact(text: str, exact: Dict[str, str]) -> str:
+    for token, original in sorted((exact or {}).items(), key=lambda kv: -len(kv[0])):  # EXACT_10 before EXACT_1
+        text = text.replace(f"[{token}]", original).replace(token, original)
+    return text
+
+
 def _verbatim_segments(prompt: str) -> List[str]:
     return [m.group(1).strip() for m in _VERBATIM.finditer(prompt) if m.group(1).strip()]
 
@@ -432,6 +454,8 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
 
     wildcards, segments = _profile_wildcards_and_segments(profile_id)
     source_prompt = expand_named_lists(prompt, wildcards, segments).strip()
+    # The models below only ever see tokens for [exact text]; the key keeps the real text.
+    masked_prompt, exact = mask_exact(source_prompt)
     params = tool_param_specs(ctx.get("schema_props") or {})
     candidates, notes = await lora_candidates(tool_id, lora_items, profile_id)
     loras = match_loras(source_prompt, candidates)
@@ -455,9 +479,9 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     running = _in_flight.get(key)
     if running is None:
         running = asyncio.ensure_future(_prepare_new(
-            key=key, store=store, tool_id=tool_id, ctx=ctx, instructions=instructions, source_prompt=source_prompt,
+            key=key, store=store, tool_id=tool_id, ctx=ctx, instructions=instructions, source_prompt=masked_prompt,
             params=params, loras=loras, notes=notes, lora_context=lora_context, project_id=project_id, profile_id=profile_id,
-            elaborate=bool(elaborate),
+            elaborate=bool(elaborate), exact=exact,
         ))
         _in_flight[key] = running
         running.add_done_callback(lambda _t, k=key: _in_flight.pop(k, None) if _in_flight.get(k) is _t else None)
@@ -470,7 +494,9 @@ _in_flight: Dict[str, "asyncio.Future[Dict[str, Any]]"] = {}
 async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict[str, Any], instructions: str,
                        source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo], notes: Dict[str, str],
                        lora_context: List[Dict[str, Any]], project_id: Optional[int],
-                       profile_id: Optional[str], elaborate: bool = True) -> Dict[str, Any]:
+                       profile_id: Optional[str], elaborate: bool = True,
+                       exact: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """source_prompt arrives with [exact text] already masked (see mask_exact)."""
     started = time.monotonic()
     enhanced = (await upsample(source_prompt, ctx, instructions, lora_context, project_id, profile_id)
                 if elaborate else await keep_words(source_prompt, ctx.get("mode") or "prose", project_id))
@@ -495,7 +521,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                 normalize_sources(info, source_prompt)
                 entry = {
                     "key": key, "version": PREPARE_VERSION, "prompt": source_prompt, "tool_id": tool_id,
-                    "mode": ctx.get("mode"), "elaborate": bool(elaborate), "enhanced": enhanced,
+                    "mode": ctx.get("mode"), "elaborate": bool(elaborate), "enhanced": enhanced, "exact": exact or {},
                     "program": source, "choices": info["choices"], "groups": info["groups"],
                     "params": {n: params[n] for n in info["params"] if n in params},
                     "loras": [vars(lo) for lo in loras],
@@ -534,8 +560,11 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
     loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
     clean_pins = {str(k): [str(x) for x in (v if isinstance(v, list) else [v])] for k, v in (pins or {}).items() if v}
     clean_edits = {str(k): v for k, v in (edits or {}).items() if isinstance(v, dict)}
-    return run(entry["program"], seed, clean_pins, loras, set(entry.get("params") or {}) or None, fixed or None,
-               clean_edits or None)
+    result = run(entry["program"], seed, clean_pins, loras, set(entry.get("params") or {}) or None, fixed or None,
+                 clean_edits or None)
+    if entry.get("exact"):  # the user's [exact text], straight to the image model
+        result.prompt = unmask_exact(result.prompt, entry["exact"])
+    return result
 
 
 _OPTIONS_PROMPT = """You write options for one choice in an image prompt. Each image draws one option and

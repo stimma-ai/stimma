@@ -63,7 +63,9 @@ Every `pick` / `pick_lora` / `param` / `group` takes:
      first option, and the pick goes where it stood. If the enhanced prompt also left
      `[{{name}}]` placeholders bunched together somewhere, drop the bunch: each pick
      appears once, where its subject belongs in the sentence.
-   - `[text]` → emit the text exactly, without the brackets.
+   - `[text]` → emit the text exactly, without the brackets. `[EXACT_1]`, `[EXACT_2]`, …
+     stand for the user's exact text, which you never see: emit each token once, as
+     written, where it belongs, and don't describe or guess what it says.
 3. **Make the things the user asked to vary into picks.** When a `#` line says "vary her
    expression", find the expression in the enhanced prompt; that phrase becomes the
    first option of a pick and you write 5–11 more in the same style, length and detail.

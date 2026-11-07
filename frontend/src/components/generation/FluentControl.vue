@@ -32,33 +32,30 @@
           role="menu"
           @click.stop
         >
-          <!-- The brand, one line about the current choice, and the two corner tools. -->
-          <div class="px-3 pt-2 pb-2.5 flex items-start gap-2">
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5 text-[13px] font-semibold text-content">
-                <WandSparklesIcon class="w-3.5 h-3.5 text-accent" /> {{ BRAND }}
-              </div>
-              <div class="mt-0.5 text-[12px] leading-snug text-content-secondary">{{ tagline }}</div>
-            </div>
-            <button type="button" class="shrink-0 p-1 -mt-0.5 rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle" title="Prompt tips" aria-label="Prompt tips"
+          <!-- What this menu is, and its two tools. -->
+          <div class="pl-3 pr-2 pt-2 pb-2 flex items-center gap-1">
+            <span class="flex-1 text-[11px] font-semibold text-content-tertiary">Prompting</span>
+            <button type="button" class="p-1 rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle" title="Prompt tips" aria-label="Prompt tips"
               @click="menuOpen = false; emit('help', chip?.getBoundingClientRect() ?? null)">
               <QuestionMarkCircleIcon class="w-4 h-4" />
             </button>
-            <button v-if="devModeRef && program.status.value !== 'off'" type="button" class="shrink-0 p-1 -mt-0.5 -mr-1 rounded-md text-amber-500 hover:text-amber-400 hover:bg-overlay-subtle" title="Show program (dev)" aria-label="Show program"
+            <button v-if="devModeRef && program.status.value !== 'off'" type="button" class="p-1 rounded-md text-amber-500 hover:text-amber-400 hover:bg-overlay-subtle" title="Show program (dev)" aria-label="Show program"
               @click="menuOpen = false; showProgram()">
               <CodeBracketIcon class="w-4 h-4" />
             </button>
           </div>
 
-          <!-- One of two ways; Fluent's own settings live under it. -->
-          <div class="px-3 pb-2">
+          <!-- Two ways to send a prompt, as tabs; each tab holds its own line and settings. -->
+          <div class="px-3">
             <SegmentedControl
+              class="!flex !w-full [&>button]:flex-1 [&>button]:justify-center"
               :model-value="way"
-              :options="[{ label: BRAND, value: 'fluent' }, { label: 'Verbatim', value: 'verbatim' }]"
+              :options="[{ label: BRAND, value: 'fluent', icon: WandSparklesIcon }, { label: 'Verbatim', value: 'verbatim', icon: Bars3BottomLeftIcon }]"
               aria-label="How the prompt is sent"
               @update:model-value="(v) => pickWay(v as 'fluent' | 'verbatim')"
             />
           </div>
+          <div class="px-3 pt-2.5 pb-2.5 text-[12px] leading-snug text-content-secondary">{{ tagline }}</div>
 
           <template v-if="way === 'fluent'">
             <div v-if="notice" :class="['mx-3 mb-2 rounded-md px-2.5 py-2 text-[12px] leading-snug', notice.tone === 'bad' ? 'bg-red-500/10 text-red-400' : 'bg-overlay-subtle text-content-secondary']">
@@ -191,11 +188,13 @@ const programText = ref<string | null>(null)
 const way = computed(() => (props.raw ? 'verbatim' : 'fluent'))
 // What Fluent honestly does with the current setting: fresh choices always; the
 // model's own style only when it upsamples.
-const tagline = computed(() => props.raw
-  ? 'Sent exactly as you typed it.'
-  : props.elaborate || props.program.unsupported.value
-    ? `Fresh choices every image, written the way ${props.modelName || 'this model'} likes.`
-    : 'Fresh choices every image, in your own words.')
+const tagline = computed(() => {
+  const model = props.modelName || 'the model'
+  if (props.raw) return `Your prompt goes to ${model} exactly as you typed it.`
+  return props.elaborate || props.program.unsupported.value
+    ? `Every image gets fresh choices, in a prompt written the way ${model} likes.`
+    : 'Every image gets fresh choices, in your own words.'
+})
 const detail = computed(() => props.elaborate || props.program.unsupported.value)
 const on = computed(() => !props.raw && !props.llmUnconfigured)
 const busy = computed(() => on.value && props.program.status.value === 'busy')

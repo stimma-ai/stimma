@@ -223,11 +223,6 @@
                     </div>
                     <p class="text-xs text-content-tertiary leading-relaxed">{{ tip.text }}</p>
                   </div>
-                  <div class="mt-4 mb-2 text-[11px] font-semibold text-content-tertiary">In the {{ brand }} menu</div>
-                  <div v-for="tip in fluentSettings" :key="tip.title" class="mb-3 last:mb-0">
-                    <div class="text-xs font-medium text-content-secondary mb-0.5">{{ tip.title }}</div>
-                    <p class="text-xs text-content-tertiary leading-relaxed">{{ tip.text }}</p>
-                  </div>
                 </template>
                 <template v-else>
                 <!-- Wildcards -->
@@ -549,7 +544,7 @@ const brand = PROMPT_BRAND
 const fluentIntro = [
   `${PROMPT_BRAND} turns one prompt into a whole run of good ones. Ask for variety anywhere in your prompt, and every image gets its own take, while everything else stays the way you wrote it.`,
   'With Enhance prompt on, it also writes the fuller, more detailed prompt each image model does best with, so a short idea still gets a rich picture.',
-  'The first run of a new prompt takes a few extra seconds while it’s read. After that, runs start right away. Your text in the editor never changes.',
+  'The first run of a new prompt takes a few extra seconds while it’s read. After that, runs start right away. Your text in the editor never changes, and if you don’t like the options it came up with, Try different choices and wording gets a fresh set.',
 ]
 const fluentTips = [
   { title: 'Let it vary', example: '{{hairstyle}}', tone: 'text-amber-600 bg-amber-500/10',
@@ -557,15 +552,9 @@ const fluentTips = [
   { title: 'Your own list', example: '{red|blue|green}', tone: 'text-green-600 bg-green-500/10',
     text: 'Every image picks one of yours.' },
   { title: `Tell ${PROMPT_BRAND}`, example: '# vary her expression', tone: 'text-gray-500 italic bg-zinc-500/10',
-    text: `A line starting with # is a note to ${PROMPT_BRAND}: what to vary, what to keep, what to avoid. It never ends up in the image prompt.` },
+    text: `A line starting with # is a note to ${PROMPT_BRAND}, never part of the image prompt. Say what to vary or keep, and it can reach the tool’s settings too: “# vary the guidance between 3 and 5”, “# use one of my hair LoRAs”.` },
   { title: 'Keep it exact', example: '[a sign that says OPEN]', tone: 'text-blue-500 bg-blue-500/10',
-    text: 'Words in square brackets are kept exactly as written, which is handy for text in the picture.' },
-]
-const fluentSettings = [
-  { title: 'Enhance prompt', text: 'On: the fuller prompt this model likes. Off: your own wording, with the choices filled in.' },
-  { title: 'Try different choices and wording', text: 'Don’t like the options it came up with? Get a fresh set. Anything you picked or added stays.' },
-  { title: 'Verbatim', text: 'Sends exactly what you typed, braces and all, for when another tool handles the prompt.' },
-  { title: 'The choices under your prompt', text: 'Click one to see its options, narrow what images can pick, or add your own.' },
+    text: `${PROMPT_BRAND} never sees what’s inside square brackets. That text goes straight to the image model exactly as you wrote it, which makes it right for words in the picture.` },
 ]
 function setRaw(on: boolean) {
   emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
