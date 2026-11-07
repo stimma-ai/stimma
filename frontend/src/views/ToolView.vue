@@ -1179,7 +1179,7 @@
     />
 
     <!-- Prompt programs: the open choice's card -->
-    <PromptProgramCard :program="promptProgram" @show-line="(n) => aiPromptEditorRef?.selectLine?.(n)" />
+    <PromptProgramCard :program="promptProgram" />
 
     <!-- Mask Editor Modal -->
     <MaskEditorModal

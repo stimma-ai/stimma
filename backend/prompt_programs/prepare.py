@@ -571,7 +571,7 @@ async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Seque
     choice = next((c for c in entry.get("choices") or [] if c.get("id") == choice_id), None)
     if not choice or choice.get("kind") != "pick":
         raise ProgramError(f"No choice {choice_id} to write options for.")
-    count = max(1, min(12, int(count)))
+    count = max(1, min(24, int(count)))
     wildcard = choice.get("wildcard")
     system = _OPTIONS_PROMPT.format(
         count=count, label=choice.get("label") or choice_id,

@@ -13,14 +13,13 @@
       >
         <!-- One person's attribute, opened from the group grid -->
         <template v-if="member">
-          <CardHeader :title="`${group?.label} ${member.index} · ${member.label}`" :back="group?.label" @back="memberId = null" />
-          <DrawLine :choice="member" :program="program" />
+          <CardHeader :title="`${group?.label} ${member.index} · ${member.label}`" :back="group?.label" :choice="member" :program="program" @back="memberId = null" />
           <OptionRows :choice="member" :program="program" deletable addable />
         </template>
 
         <!-- A group (People ×3): rows are attributes, columns are people -->
         <template v-else-if="group">
-          <CardHeader :title="`${group.label} ×${group.count}`" note="From your prompt" :line="group.line" @show="show" />
+          <CardHeader :title="`${group.label} ×${group.count}`" />
           <div class="px-3 pb-3 overflow-y-auto">
             <table class="w-full border-collapse">
               <tr>
@@ -52,14 +51,13 @@
             :title="choice.label"
             :note="note"
             :added="choice.source === 'added'"
-            :line="choice.source !== 'added' ? choice.line : undefined"
-            @show="show"
+            :choice="choice.kind === 'param' ? undefined : choice"
+            :program="program"
           />
           <div v-if="choice.kind === 'param'" class="px-3 pb-3 text-xs text-content-secondary">
             Each image draws a value from <span class="font-mono text-selection">{{ choice.options[0] }} – {{ choice.options[1] }}</span>.
           </div>
           <template v-else>
-            <DrawLine :choice="choice" :program="program" />
             <OptionRows
               :choice="choice"
               :program="program"
@@ -99,7 +97,6 @@ import { useAnchoredMenuPosition } from '../../composables/useContextMenuPositio
 import type { PromptProgram, ProgramChoice } from '../../composables/usePromptProgram'
 
 const props = defineProps<{ program: PromptProgram }>()
-const emit = defineEmits<{ (e: 'show-line', line: number): void }>()
 
 const footClass = 'flex items-center gap-1.5 px-2 py-1 coarse:py-2 text-xs rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle disabled:opacity-50 disabled:pointer-events-none'
 
@@ -145,7 +142,7 @@ const note = computed(() => {
   const c = choice.value
   if (!c) return ''
   const parts: string[] = []
-  parts.push(c.wildcard ? `From your {{${c.wildcard}}}` : c.source === 'list' ? 'From your {…} list' : c.source === 'added' ? 'Added by Enhance' : 'From your prompt')
+  if (c.source === 'added') parts.push('Added by Enhance')
   if (c.kind === 'lora') parts.push('each turns on its LoRA')
   if (c.parent) {
     const p = props.program.byId.value[c.parent]
@@ -163,7 +160,8 @@ async function write(mode: 'more' | 'reroll') {
   writing.value = mode
   writeError.value = ''
   try {
-    await props.program.suggestOptions(c, mode)
+    // Reroll replaces the set with as many new ones; More adds six.
+    await props.program.suggestOptions(c, mode, mode === 'reroll' ? props.program.optionsOf(c).length : 6)
   } catch (e: any) {
     const d = e?.response?.data?.detail
     writeError.value = (typeof d === 'string' ? d : d?.message) || 'Couldn’t write new options.'
@@ -172,10 +170,6 @@ async function write(mode: 'more' | 'reroll') {
   }
 }
 
-function show(line: number) {
-  props.program.close()
-  emit('show-line', line)
-}
 function removeChoice() {
   const c = choice.value
   if (!c) return
@@ -189,49 +183,30 @@ function clearGroup() {
   props.program.setManyPins(next)
 }
 
-// Header: the choice's name, where it comes from, and a quiet link to its line --------
+// Header: the choice's name, and "Use all" once some options are ticked -------------
 const CardHeader = defineComponent({
-  props: { title: String, note: String, back: String, added: Boolean, line: Number },
-  emits: ['back', 'show'],
+  props: { title: String, note: String, back: String, added: Boolean, choice: Object, program: Object },
+  emits: ['back'],
   setup(p, { emit: e }) {
-    return () => h('div', { class: 'px-3 pt-2.5 pb-2 flex items-start gap-2' }, [
-      p.back ? h('button', {
-        type: 'button', class: 'mt-0.5 -ml-1 p-0.5 rounded text-content-tertiary hover:text-content', title: `Back to ${p.back}`,
-        onClick: () => e('back'),
-      }, [h(ChevronLeftIcon, { class: 'w-3.5 h-3.5' })]) : null,
-      h('div', { class: 'min-w-0 flex-1' }, [
-        h('div', { class: 'flex items-center gap-1 text-[13px] font-semibold text-content' }, [
-          p.added ? h(WandSparklesIcon, { class: 'w-3 h-3 text-content-tertiary' }) : null, p.title,
-        ]),
-        p.note ? h('div', { class: 'text-[11px] text-content-muted break-words leading-snug' }, p.note) : null,
-      ]),
-      p.line ? h('button', {
-        type: 'button', class: 'shrink-0 mt-0.5 text-[11px] text-content-muted hover:text-content-secondary', title: 'Show this line in the prompt',
-        onClick: () => e('show', p.line),
-      }, `line ${p.line}`) : null,
-    ])
-  },
-})
-
-// What a run will draw from, and the way back to all options --------------------------
-const DrawLine = defineComponent({
-  props: { choice: { type: Object, required: true }, program: { type: Object, required: true } },
-  setup(p) {
     return () => {
-      const prog = p.program as PromptProgram
-      const c = p.choice as ProgramChoice
-      const all = prog.optionsOf(c)
-      const pinned = (prog.pins.value[c.id] || []).filter(v => all.includes(v))
-      const text = !pinned.length
-        ? `Each image draws one of these ${all.length}. Tick some to draw only from those.`
-        : pinned.length === 1
-          ? 'Every image uses the ticked option.'
-          : `Each image draws one of the ${pinned.length} ticked.`
-      return h('div', { class: 'px-3 pb-1.5 flex items-baseline gap-2 text-[11px] text-content-tertiary' }, [
-        h('span', { class: 'flex-1' }, text),
-        pinned.length ? h('button', {
-          type: 'button', class: 'shrink-0 text-content-secondary hover:text-content font-medium', onClick: () => prog.setPins(c.id, []),
-        }, `Use all ${all.length}`) : null,
+      const prog = p.program as PromptProgram | undefined
+      const c = p.choice as ProgramChoice | undefined
+      const limited = !!(prog && c && (prog.pins.value[c.id] || []).some(v => prog.optionsOf(c).includes(v)))
+      return h('div', { class: 'px-3 pt-2.5 pb-1.5 flex items-start gap-2' }, [
+        p.back ? h('button', {
+          type: 'button', class: 'mt-0.5 -ml-1 p-0.5 rounded text-content-tertiary hover:text-content', title: `Back to ${p.back}`,
+          onClick: () => e('back'),
+        }, [h(ChevronLeftIcon, { class: 'w-3.5 h-3.5' })]) : null,
+        h('div', { class: 'min-w-0 flex-1' }, [
+          h('div', { class: 'flex items-center gap-1 text-[13px] font-semibold text-content' }, [
+            p.added ? h(WandSparklesIcon, { class: 'w-3 h-3 text-content-tertiary' }) : null, p.title,
+          ]),
+          p.note ? h('div', { class: 'text-[11px] text-content-muted break-words leading-snug' }, p.note) : null,
+        ]),
+        limited ? h('button', {
+          type: 'button', class: 'shrink-0 mt-0.5 text-[11px] text-content-tertiary hover:text-content',
+          title: 'Draw from every option again', onClick: () => prog!.setPins(c!.id, []),
+        }, 'Use all') : null,
       ])
     }
   },
