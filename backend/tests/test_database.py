@@ -1,5 +1,7 @@
 """Tests for the Database class (database.py)."""
 
+import asyncio
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -103,4 +105,69 @@ class TestGetSession:
         await db.init_db()
         async for session in db.get_session():
             result = await session.execute(text("SELECT 1"))
+            assert result.scalar() == 1
+
+
+class TestSavepointWrites:
+    """A write inside begin_nested() must wait for the lock, not fail at once."""
+
+    async def test_write_after_read_in_savepoint_survives_concurrent_commit(self, db):
+        """Another connection committing between the read and the write is not fatal.
+
+        pysqlite opens no transaction before a SAVEPOINT, so SQLite starts a
+        deferred one there. A read inside it pins a WAL snapshot; once another
+        connection commits, upgrading that snapshot to a write fails at once with
+        "database is locked" and the busy timeout never applies.
+        """
+        await db.init_db()
+        async with db.async_engine.begin() as conn:
+            await conn.execute(text("CREATE TABLE savepoint_probe (v INTEGER)"))
+
+        async def other_writer():
+            async with db.async_session_maker() as other:
+                await other.execute(text("INSERT INTO _meta (key, value) VALUES ('probe', '1')"))
+                await other.commit()
+
+        async with db.async_session_maker() as session:
+            async with session.begin_nested():
+                await session.execute(text("SELECT count(*) FROM savepoint_probe"))
+                # Another connection writes while this savepoint is open. It either
+                # commits now (the old failure) or waits for our commit.
+                writer = asyncio.create_task(other_writer())
+                await asyncio.sleep(0.3)
+                await session.execute(text("INSERT INTO savepoint_probe (v) VALUES (1)"))
+            # The outer transaction keeps working after the savepoint, too.
+            await session.execute(text("INSERT INTO savepoint_probe (v) VALUES (2)"))
+            await session.commit()
+        await asyncio.wait_for(writer, timeout=10)
+
+        async with db.async_engine.connect() as conn:
+            result = await conn.execute(text("SELECT count(*) FROM savepoint_probe"))
+            assert result.scalar() == 2
+            result = await conn.execute(text("SELECT value FROM _meta WHERE key = 'probe'"))
+            assert result.scalar() == "1"
+
+    async def test_rolled_back_savepoint_releases_the_write_lock(self, db):
+        """A savepoint that fails before writing does not keep other writers waiting."""
+        await db.init_db()
+        async with db.async_engine.begin() as conn:
+            await conn.execute(text("CREATE TABLE savepoint_probe (v INTEGER)"))
+
+        async with db.async_session_maker() as session:
+            with pytest.raises(RuntimeError):
+                async with session.begin_nested():
+                    await session.execute(text("SELECT count(*) FROM savepoint_probe"))
+                    raise RuntimeError("caller error before any write")
+
+            # The session stays open, as an agent's does between commits.
+            async with db.async_session_maker() as other:
+                await other.execute(text("INSERT INTO _meta (key, value) VALUES ('probe', '1')"))
+                await asyncio.wait_for(other.commit(), timeout=5)
+
+            await session.execute(text("SELECT count(*) FROM savepoint_probe"))
+            await session.execute(text("INSERT INTO savepoint_probe (v) VALUES (1)"))
+            await session.commit()
+
+        async with db.async_engine.connect() as conn:
+            result = await conn.execute(text("SELECT count(*) FROM savepoint_probe"))
             assert result.scalar() == 1

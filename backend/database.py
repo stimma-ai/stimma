@@ -1,5 +1,6 @@
 import random
 import json
+import weakref
 from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import (
@@ -22,6 +23,11 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.sql.expression import (
+    ReleaseSavepointClause,
+    RollbackToSavepointClause,
+    SavepointClause,
+)
 import numpy as np
 
 from portable_path import PortableProfilePath
@@ -2041,6 +2047,43 @@ class Database:
             cursor.execute("PRAGMA secure_delete = ON")
             cursor.execute("PRAGMA foreign_keys = ON")
             cursor.close()
+
+        # pysqlite only issues BEGIN before INSERT/UPDATE/DELETE, so a SAVEPOINT
+        # from begin_nested() is often the first statement of a transaction and
+        # SQLite opens a deferred one. Reads inside it pin a WAL snapshot, and if
+        # any other connection commits before the first write, that write fails
+        # at once with "database is locked" (the busy timeout does not apply to
+        # a stale snapshot). Savepoints here wrap writes, so take the write lock
+        # up front, where the busy timeout does apply. If that savepoint is then
+        # rolled back, the transaction we opened is empty, so end it rather than
+        # hold the lock until the session's next commit.
+        opened_for_savepoint = weakref.WeakKeyDictionary()
+
+        @event.listens_for(self.async_engine.sync_engine, "before_execute")
+        def _begin_immediate_before_savepoint(conn, clauseelement, *_args):
+            if not isinstance(clauseelement, SavepointClause):
+                return
+            dbapi_conn = conn.connection.dbapi_connection
+            sqlite_conn = getattr(dbapi_conn, "_connection", dbapi_conn)
+            if dbapi_conn.isolation_level is None or sqlite_conn.in_transaction:
+                return
+            cursor = dbapi_conn.cursor()
+            try:
+                cursor.execute("BEGIN IMMEDIATE")
+            finally:
+                cursor.close()
+            opened_for_savepoint[conn] = clauseelement.ident
+
+        @event.listens_for(self.async_engine.sync_engine, "after_execute")
+        def _end_transaction_opened_for_savepoint(conn, clauseelement, *_args):
+            if not isinstance(clauseelement, (RollbackToSavepointClause, ReleaseSavepointClause)):
+                return
+            if opened_for_savepoint.get(conn) != clauseelement.ident:
+                return
+            del opened_for_savepoint[conn]
+            if isinstance(clauseelement, RollbackToSavepointClause):
+                conn.connection.dbapi_connection.rollback()
+
         self.async_session_maker = async_sessionmaker(
             self.async_engine,
             class_=AsyncSession,
