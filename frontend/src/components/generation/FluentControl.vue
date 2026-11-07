@@ -1,21 +1,23 @@
 <template>
-  <!-- Riff: the prompt card's one control for how a prompt reaches the image model.
-       The chip says the mode at rest; its menu switches it. Status only shows when
-       there is something to wait for or fix. -->
+  <!-- Fluent: how Tool View sends a prompt to the image model. Fluent (the default)
+       writes it the way this model understands it and varies it every image;
+       Verbatim sends it exactly as typed. The chip says which, at rest. Status only
+       shows when there's something to wait for or fix. -->
   <div class="relative flex items-center">
     <button
       ref="chip"
       type="button"
-      data-riff-chip
+      data-fluent-chip
       :data-status="program.status.value"
       :aria-expanded="menuOpen"
       :class="['flex items-center gap-1.5 text-ctl transition-colors -mx-1.5 px-1.5 py-0.5 rounded-md outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
-        on ? 'text-content bg-overlay-subtle' : 'text-content-muted hover:text-content-secondary']"
+        llmUnconfigured && !raw ? 'text-content-muted hover:text-content-secondary' : 'text-content bg-overlay-subtle']"
       :title="chipTitle"
       @click="toggle"
     >
       <Spinner v-if="busy" size="sm" />
-      <WandSparklesIcon v-else :class="['w-3.5 h-3.5', on ? '' : 'opacity-60']" />
+      <Bars3BottomLeftIcon v-else-if="raw" class="w-3.5 h-3.5" />
+      <WandSparklesIcon v-else :class="['w-3.5 h-3.5', llmUnconfigured ? 'opacity-60' : '']" />
       <span>{{ chipText }}</span>
       <span v-if="failed" class="w-[6px] h-[6px] rounded-full bg-red-400" aria-label="Couldn’t read this prompt" />
       <Caret :open="menuOpen" class="opacity-70" />
@@ -24,17 +26,20 @@
     <Teleport to="body">
       <div v-if="menuOpen" class="fixed inset-0 z-menu" @click="menuOpen = false">
         <div
-          class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-72 max-w-[calc(100vw-16px)] overflow-y-auto"
+          class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-80 max-w-[calc(100vw-16px)] overflow-y-auto"
           :style="menuStyle"
-          data-riff-menu
+          data-fluent-menu
           role="menu"
           @click.stop
         >
-          <div class="px-3 pt-1.5 pb-2">
+          <!-- A little marketing: what Fluent is for. -->
+          <div class="px-3 pt-2 pb-2.5">
             <div class="flex items-center gap-1.5 text-[13px] font-semibold text-content">
               <WandSparklesIcon class="w-3.5 h-3.5 text-accent" /> {{ BRAND }}
             </div>
-            <div class="text-[11px] text-content-tertiary">One prompt, a fresh variation every image</div>
+            <div class="mt-0.5 text-[12px] leading-snug text-content-secondary">
+              Your prompt, written the way {{ modelName || 'this model' }} understands it. {{ BRACES }} choices and # notes come alive, and every image gets a fresh take.
+            </div>
           </div>
 
           <!-- Only when there's something to wait for or fix. -->
@@ -44,60 +49,79 @@
             </div>
             <div v-if="notice.body" class="mt-0.5 text-content-tertiary">{{ notice.body }}</div>
             <div v-if="notice.detail" class="mt-1 font-mono text-[10.5px] text-content-muted break-words">{{ notice.detail }}</div>
-            <button v-if="notice.action" type="button" class="mt-1.5 text-[12px] font-medium text-content hover:underline" @click="notice.action.run()">{{ notice.action.label }}</button>
+            <div v-if="notice.actions?.length" class="mt-1.5 flex gap-3">
+              <button v-for="a in notice.actions" :key="a.label" type="button" class="text-[12px] font-medium text-content hover:underline" @click="a.run()">{{ a.label }}</button>
+            </div>
           </div>
 
           <div class="border-t border-edge-subtle my-1" />
+          <!-- Fluent (with its Add detail) or Verbatim: two positive choices. -->
           <button
-            v-for="m in modes"
-            :key="m.id"
-            type="button"
+                        type="button"
             role="menuitemradio"
-            :aria-checked="mode === m.id"
-            :disabled="llmUnconfigured"
-            :class="['w-full text-left px-3 py-1.5 coarse:py-3 flex items-start gap-2.5 hover:bg-overlay-subtle disabled:opacity-40 disabled:pointer-events-none', raw ? 'opacity-60 hover:opacity-100' : '']"
-            @click="pick(m.id)"
+            :aria-checked="way === ways[0].id"
+            :disabled="ways[0].id === 'fluent' && llmUnconfigured"
+            class="w-full text-left px-3 py-1.5 coarse:py-3 flex items-start gap-2.5 hover:bg-overlay-subtle disabled:opacity-40 disabled:pointer-events-none"
+            @click="pickWay(ways[0].id)"
           >
-            <!-- With Send exactly as typed on, the stored mode stays visible, dimmed: it's what you'd go back to. -->
-            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-full border flex items-center justify-center', mode === m.id ? (raw ? 'border-content-muted' : 'border-accent') : 'border-edge-strong']">
-              <span v-if="mode === m.id" :class="['w-1.5 h-1.5 rounded-full', raw ? 'bg-content-muted' : 'bg-accent']" />
+            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-full border flex items-center justify-center', way === ways[0].id ? 'border-accent' : 'border-edge-strong']">
+              <span v-if="way === ways[0].id" class="w-1.5 h-1.5 rounded-full bg-accent" />
             </span>
             <span class="min-w-0">
-              <span class="block text-[12px] coarse:text-[13px] text-content">{{ m.label }}</span>
-              <span class="block text-[11px] text-content-muted leading-snug">{{ m.hint }}</span>
+              <span class="block text-[12px] coarse:text-[13px] text-content">{{ ways[0].label }}</span>
+              <span class="block text-[11px] text-content-muted leading-snug">{{ ways[0].hint }}</span>
             </span>
           </button>
-          <div v-if="program.unsupported.value" class="px-3 pt-0.5 pb-1 text-[11px] text-content-muted leading-snug">
-            This model takes structured prompts, so {{ BRACES }} choices aren’t available.
+
+          <!-- Under Fluent: the one thing people are choosy about. -->
+          <button
+            v-if="way === 'fluent' && !program.unsupported.value"
+            type="button"
+            role="menuitemcheckbox"
+            :aria-checked="elaborate"
+            :disabled="llmUnconfigured"
+            class="w-full text-left pl-[34px] pr-3 py-1.5 coarse:py-3 flex items-start gap-2.5 hover:bg-overlay-subtle disabled:opacity-40 disabled:pointer-events-none"
+            @click="emit('mode', !elaborate)"
+          >
+            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-[3px] border flex items-center justify-center', elaborate ? 'bg-accent border-accent text-white' : 'border-edge-strong']">
+              <CheckIcon v-if="elaborate" class="w-2.5 h-2.5" />
+            </span>
+            <span class="min-w-0">
+              <span class="block text-[12px] coarse:text-[13px] text-content">Add detail</span>
+              <span class="block text-[11px] text-content-muted leading-snug">{{ elaborate ? 'Writes the fuller prompt this model does best with' : 'Off: your wording stays, only joined up' }}</span>
+            </span>
+          </button>
+          <div v-if="way === 'fluent' && program.unsupported.value" class="pl-[34px] pr-3 pb-1 text-[11px] text-content-muted leading-snug">
+            This model takes structured prompts, so Fluent writes one for each image; {{ BRACES }} choices aren’t available.
           </div>
 
-          <template v-if="canRethink">
+          <button
+                        type="button"
+            role="menuitemradio"
+            :aria-checked="way === ways[1].id"
+            :disabled="ways[1].id === 'fluent' && llmUnconfigured"
+            class="w-full text-left px-3 py-1.5 coarse:py-3 flex items-start gap-2.5 hover:bg-overlay-subtle disabled:opacity-40 disabled:pointer-events-none"
+            @click="pickWay(ways[1].id)"
+          >
+            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-full border flex items-center justify-center', way === ways[1].id ? 'border-accent' : 'border-edge-strong']">
+              <span v-if="way === ways[1].id" class="w-1.5 h-1.5 rounded-full bg-accent" />
+            </span>
+            <span class="min-w-0">
+              <span class="block text-[12px] coarse:text-[13px] text-content">{{ ways[1].label }}</span>
+              <span class="block text-[11px] text-content-muted leading-snug">{{ ways[1].hint }}</span>
+            </span>
+          </button>
+          <template v-if="retake">
             <div class="border-t border-edge-subtle my-1" />
             <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 hover:bg-overlay-subtle" @click="menuOpen = false; program.rethink()">
-              <span class="block text-[12px] coarse:text-[13px] text-content">New ideas</span>
-              <span class="block text-[11px] text-content-muted leading-snug">New wording and choices. Your text stays.</span>
+              <span class="block text-[12px] coarse:text-[13px] text-content">{{ retake.label }}</span>
+              <span class="block text-[11px] text-content-muted leading-snug">{{ retake.hint }}</span>
             </button>
           </template>
 
           <div class="border-t border-edge-subtle my-1" />
-          <button
-            type="button"
-            role="menuitemcheckbox"
-            :aria-checked="raw"
-            class="w-full text-left px-3 py-1.5 coarse:py-3 hover:bg-overlay-subtle flex items-start gap-2.5"
-            @click="menuOpen = false; emit('raw', !raw)"
-          >
-            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-[3px] border flex items-center justify-center', raw ? 'bg-accent border-accent text-white' : 'border-edge-strong']">
-              <CheckIcon v-if="raw" class="w-2.5 h-2.5" />
-            </span>
-            <span class="min-w-0">
-              <span class="block text-[12px] coarse:text-[13px] text-content">Send exactly as typed</span>
-              <span class="block text-[11px] text-content-muted leading-snug">{{ BRAND }} off. Braces and # lines go through untouched.</span>
-            </span>
-          </button>
-          <div class="border-t border-edge-subtle my-1" />
           <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 text-[12px] coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="menuOpen = false; emit('help', chip?.getBoundingClientRect() ?? null)">
-            How to write prompts for {{ BRAND }}
+            How to write for {{ BRAND }}
           </button>
           <button
             v-if="devModeRef && program.status.value !== 'off'"
@@ -171,6 +195,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon } from '@heroicons/vue/24/solid'
+import { Bars3BottomLeftIcon } from '@heroicons/vue/24/outline'
 import type { PromptProgram } from '../../composables/usePromptProgram'
 import { devModeRef } from '../../appConfig'
 import ReadOnlyCode from '../viewers/ReadOnlyCode.vue'
@@ -181,12 +206,14 @@ import { PROMPT_BRAND as BRAND } from './promptBrand'
 
 const props = defineProps<{
   program: PromptProgram
-  /** Send exactly as typed. */
+  /** Verbatim: sent exactly as typed. */
   raw: boolean
-  /** Add detail (true) or Keep my words (false). */
+  /** Fluent's Add detail (true), or just your wording joined up (false). */
   elaborate: boolean
-  /** No chat model is set up, so Riff can't read prompts. */
+  /** No chat model is set up, so Fluent can't read prompts. */
   llmUnconfigured: boolean
+  /** The image model's name, for the menu's one line of description. */
+  modelName?: string
 }>()
 const emit = defineEmits<{
   (e: 'mode', elaborate: boolean): void
@@ -200,61 +227,75 @@ const BRACES = '{' + '{ }' + '}'
 const menuOpen = ref(false)
 const programText = ref<string | null>(null)
 
-const mode = computed(() => (props.elaborate || props.program.unsupported.value ? 'detail' : 'words'))
+const way = computed(() => (props.raw ? 'verbatim' : 'fluent'))
+const detail = computed(() => props.elaborate || props.program.unsupported.value)
 const on = computed(() => !props.raw && !props.llmUnconfigured)
 const busy = computed(() => on.value && props.program.status.value === 'busy')
 const failed = computed(() => on.value && props.program.status.value === 'error')
 
-const modes = computed(() => [
-  { id: 'detail' as const, label: 'Add detail', hint: props.program.unsupported.value
-      ? 'Writes a fuller prompt for each image'
-      : 'Writes a fuller prompt in the style this model likes' },
-  ...(props.program.unsupported.value ? [] : [{ id: 'words' as const, label: 'Keep my words', hint: 'Uses your wording, only joined up' }]),
-])
+const ways = [
+  { id: 'fluent' as const, label: BRAND, hint: 'Written for this model, with fresh choices every image' },
+  { id: 'verbatim' as const, label: 'Verbatim', hint: 'Exactly as typed: braces and # lines included, for a later step to handle' },
+]
 
 const chipText = computed(() => {
+  if (props.raw) return 'Verbatim'
   if (props.llmUnconfigured) return `${BRAND} · set up`
-  if (props.raw) return `${BRAND} off`
-  return mode.value === 'words' ? `${BRAND} · your words` : BRAND
+  return detail.value ? BRAND : `${BRAND} · your words`
 })
 const chipTitle = computed(() => {
+  if (props.raw) return 'Verbatim: sent exactly as typed'
   if (props.llmUnconfigured) return `${BRAND} needs a chat model`
-  if (props.raw) return 'Sent exactly as typed'
   if (busy.value) return 'Reading your prompt…'
   if (failed.value) return `${BRAND} couldn’t read this prompt`
-  return mode.value === 'words' ? `${BRAND}: keeps your words` : `${BRAND}: adds detail`
+  return detail.value ? `${BRAND}, adding detail` : `${BRAND}, keeping your wording`
 })
 
-type Notice = { head: string; body?: string; detail?: string; tone?: 'bad'; action?: { label: string; run: () => void } }
+type Action = { label: string; run: () => void }
+type Notice = { head: string; body?: string; detail?: string; tone?: 'bad'; actions?: Action[] }
+const useVerbatim: Action = { label: 'Use Verbatim', run: () => { menuOpen.value = false; emit('raw', true) } }
 const notice = computed<Notice | null>(() => {
+  if (props.raw) return null
   if (props.llmUnconfigured) return {
     head: `${BRAND} needs a chat model`,
-    body: 'Until then, {a|b} lists and saved wildcards still fill in. # lines are left out.',
-    action: { label: 'Add one in Settings', run: () => { menuOpen.value = false; window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) } },
+    body: 'Until then, {a|b} lists and saved wildcards still fill in, and # lines are left out.',
+    actions: [{ label: 'Add one in Settings', run: () => { menuOpen.value = false; window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) } }],
   }
-  if (props.raw) return null
   if (busy.value) return { head: 'Reading your prompt…', body: 'First run only, a few seconds.' }
   if (failed.value) {
     const unreachable = props.program.error.value?.code === 'llm_unavailable'
     return {
       head: unreachable ? `${BRAND} couldn’t reach your chat model` : `${BRAND} couldn’t make sense of this prompt`,
-      body: unreachable ? 'Nothing runs until it can read the prompt.' : 'Try again, simplify the # notes, or send it exactly as typed.',
+      body: unreachable ? 'Nothing runs until it can read the prompt.' : 'Try again, or simplify the # notes.',
       tone: 'bad',
       detail: devModeRef.value ? props.program.error.value?.message : undefined,
-      action: { label: 'Try again', run: () => { void props.program.prepare(true) } },
+      actions: [{ label: 'Try again', run: () => { void props.program.prepare(true) } }, useVerbatim],
     }
   }
   return null
 })
 
-// New wording and choices: only once there is something to redo.
-const canRethink = computed(() => on.value && props.program.status.value === 'ready'
-  && (mode.value === 'detail' || props.program.choices.value.some(c => !c.hidden)))
+// "Rewrite …": a fresh take on exactly what Fluent wrote (the choices' options and,
+// with Add detail, the wording), named so it's clear what changes and what doesn't.
+function listNames(names: string[]) {
+  if (names.length <= 1) return names[0] || ''
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+const retake = computed(() => {
+  if (!on.value || props.program.status.value !== 'ready') return null
+  const names = props.program.choices.value.filter(c => !c.hidden && c.kind === 'pick' && c.source !== 'list').map(c => c.label)
+  const words = detail.value
+  if (!names.length && !words) return null
+  const label = names.length && words ? 'Rewrite choices and wording' : names.length ? 'Rewrite the choices' : 'Rewrite the wording'
+  const what = [names.length ? `new options for ${listNames(names.slice(0, 4))}${names.length > 4 ? ' and more' : ''}` : '', words ? 'new wording' : '']
+    .filter(Boolean).join(', and ')
+  return { label, hint: `${what[0].toUpperCase()}${what.slice(1)}. Options you ticked or added stay, and so does your prompt.` }
+})
 
-function pick(id: 'detail' | 'words') {
+function pickWay(id: 'fluent' | 'verbatim') {
   menuOpen.value = false
-  if (props.raw) emit('raw', false)
-  if ((id === 'detail') !== props.elaborate) emit('mode', id === 'detail')
+  if ((id === 'verbatim') !== props.raw) emit('raw', id === 'verbatim')
 }
 
 const menuStyle = ref<Record<string, string>>({})

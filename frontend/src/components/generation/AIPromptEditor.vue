@@ -30,7 +30,7 @@
           </button>
         </div>
         <div v-else-if="!hideAutoImprove" class="flex items-center gap-3">
-          <!-- A host's own prompt control (Tool View's Riff) replaces Enhance and Raw. -->
+          <!-- A host's own prompt control (Tool View's Fluent) replaces Enhance and Raw. -->
           <slot name="mode" :open-help="openHelp" />
           <!-- Enhance Prompt toggle. With no LLM configured the chip stays
                visible but inert — a quiet hint of what configuring one adds.
@@ -252,14 +252,14 @@
                 <!-- Divider -->
                 <div v-if="!hideAutoImprove" class="border-t border-edge-subtle my-3"></div>
 
-                <!-- Riff (Tool View) -->
+                <!-- Fluent (Tool View) -->
                 <div v-if="hasMode">
                   <div class="flex items-center gap-1.5 mb-1">
                     <WandSparklesIcon class="w-3 h-3 text-accent" />
                     <span class="text-xs font-medium text-content-secondary">{{ brand }}</span>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    {{ brand }} gives every image a fresh variation. The text in the editor never changes. Send exactly as typed turns it off.
+                    {{ brand }} writes your prompt the way this model understands it and gives every image a fresh take. The text in the editor never changes. Verbatim sends it exactly as typed.
                   </p>
                 </div>
 
@@ -409,7 +409,7 @@ const sizeVars = computed(() => {
 const editorMount = ref<HTMLElement | null>(null)
 const helpPopoverContainer = ref<HTMLElement | null>(null)
 const showHelp = ref(false)
-// Help opened from the host's control (Riff), not from …, so … shouldn't look pressed.
+// Help opened from the host's control (Fluent), not from …, so … shouldn't look pressed.
 const helpFromHost = ref(false)
 const showEditorMenu = ref(false)
 // Fixed coords for the teleported menu and help, anchored to the … button.
@@ -517,7 +517,7 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
 
 // --- How the prompt will be read: Raw, by a model (a program, or Enhance), or plain (no model) ---
 const rawMode = computed(() => !!props.promptOptions.raw)
-// A host with its own prompt control (Tool View's Riff, in the mode slot) owns Enhance,
+// A host with its own prompt control (Tool View's Fluent, in the mode slot) owns Enhance,
 // Raw and the syntax help's entry point.
 const slots = useSlots()
 const hasMode = computed(() => !!slots.mode)

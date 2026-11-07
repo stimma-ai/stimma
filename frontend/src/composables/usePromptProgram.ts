@@ -366,7 +366,9 @@ export function usePromptProgram(o: Options) {
 
   // Look up a prepared program when the tool or prompt settles (cheap, no model).
   let t: ReturnType<typeof setTimeout> | null = null
-  watch(signature, () => {
+  // Look again when the inputs change, and when programs turn back on (leaving
+  // Verbatim): a lookup that landed while they were off was skipped.
+  watch([signature, () => o.enabled.value], () => {
     if (t) clearTimeout(t)
     t = setTimeout(lookup, 400)
   }, { immediate: true })

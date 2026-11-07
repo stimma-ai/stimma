@@ -1,6 +1,6 @@
 <template>
-  <!-- Riff's choices: one pill per thing that varies from image to image. Sits
-       between the prompt text and the Riff/Translate row. At rest a pill is just
+  <!-- Fluent's choices: one pill per thing that varies from image to image. Sits
+       between the prompt text and the Fluent/Translate row. At rest a pill is just
        its name; once limited it shows what's left. -->
   <div
     v-if="program.status.value !== 'off' && program.rows.value.length"

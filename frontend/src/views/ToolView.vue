@@ -337,11 +337,12 @@
             :placeholder="promptPlaceholder"
             :programs="promptProgram.status.value !== 'off'"
           >
-            <template #mode="{ openHelp }"><RiffControl
+            <template #mode="{ openHelp }"><FluentControl
               :program="promptProgram"
               :raw="!!globalPrefs.promptOptions?.raw"
               :elaborate="!!globalPrefs.promptOptions?.autoImprove?.enabled"
               :llm-unconfigured="llmUnconfigured"
+              :model-name="tool?.name"
               @raw="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: on || undefined }"
               @mode="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, autoImprove: { ...globalPrefs.promptOptions?.autoImprove, enabled: on } }"
               @help="(anchor) => openHelp(anchor)"
@@ -3400,7 +3401,7 @@ watch(() => videoImages.startImage, (newStart, oldStart) => {
 import { useLoraPool } from '../composables/useLoraPool'
 import { usePromptProgram } from '../composables/usePromptProgram'
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
-import RiffControl from '../components/generation/RiffControl.vue'
+import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND } from '../components/generation/promptBrand'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
@@ -3895,8 +3896,8 @@ const promptProgram = usePromptProgram({
   promptOptions: computed(() => globalPrefs.value.promptOptions),
   setPromptOptions: (next: any) => { globalPrefs.value.promptOptions = next },
 })
-// Riff's "nothing was run" is about the prompt as it was: once the prompt, its mode or
-// Riff's state moves on, the message is no longer true.
+// Fluent's "nothing was run" is about the prompt as it was: once the prompt, its mode or
+// Fluent's state moves on, the message is no longer true.
 watch(() => [globalPrefs.value.prompt, globalPrefs.value.promptOptions?.raw, globalPrefs.value.promptOptions?.autoImprove?.enabled],
   () => { if (submissionError.value?.startsWith(PROMPT_BRAND)) submissionError.value = null })
 
@@ -4090,7 +4091,7 @@ const {
 function handlePromptFocusOut(event: FocusEvent) {
   if (aiPromptEditorRef.value?.$el?.contains?.(event.relatedTarget as Node | null)) return
   releaseHeldStateKeys()
-  // Riff reads a changed prompt as soon as you're done typing, so the first run
+  // Fluent reads a changed prompt as soon as you're done typing, so the first run
   // usually doesn't wait. Same request as a run's, shared if both happen.
   if (promptProgram.status.value === 'stale') void promptProgram.prepare()
 }
@@ -5426,7 +5427,7 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   const unfillable = !globalPrefs.value.promptOptions?.raw && llmUnconfigured.value && hasPrompt.value
     ? unknownSmartNames(globalPrefs.value.prompt || '') : []
   if (unfillable.length) {
-    submissionError.value = `${PROMPT_BRAND} needs a chat model to fill {{${unfillable[0]}}}. Add one in Settings, make it a saved wildcard, or turn on Send exactly as typed.`
+    submissionError.value = `${PROMPT_BRAND} needs a chat model to fill {{${unfillable[0]}}}. Add one in Settings, make it a saved wildcard, or switch to Verbatim.`
     addToast(submissionError.value, 'error', 10000, { label: 'Settings', onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) })
     return noSubmit(options)
   }
@@ -5450,7 +5451,7 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   }
   if (preparingCancelled) return noSubmit(options, false)
   if (!ready) {
-    // Plain words by cause; the model's own complaint is for developers (Riff's menu
+    // Plain words by cause; the model's own complaint is for developers (Fluent's menu
     // shows it in dev mode).
     const code = promptProgram.error.value?.code
     const retry = { label: 'Try again', onClick: () => { void submitJob(options) } }
