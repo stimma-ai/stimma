@@ -383,6 +383,10 @@ interface Props {
   /** The prompt runs as a prepared program (Tool View with a chat model): {{name}}
       and # lines are understood whether Enhance is on or off. */
   programs?: boolean
+  /** The host fills the `mode` slot with its own prompt control (Tool View's Fluent),
+      replacing Enhance, Raw and the … help entry. A prop, not a slot check: slots
+      aren't reactive, and the host can switch this at runtime. */
+  promptControl?: boolean
   // When set, this editor renders no chat affordance of its own (no sparkle, no
   // inline panel). The embedder (ToolView) owns a page-level PromptAgentChat and
   // drives this editor through the exposed handle.
@@ -539,7 +543,7 @@ const rawMode = computed(() => fluentEnabled.value && !!props.promptOptions.raw)
 // A host with its own prompt control (Tool View's Fluent, in the mode slot) owns Enhance,
 // Raw and the syntax help's entry point.
 const slots = useSlots()
-const hasMode = computed(() => !!slots.mode)
+const hasMode = computed(() => !!props.promptControl && !!slots.mode)
 const rawInMenu = computed(() => fluentEnabled.value && !props.hideAutoImprove && !hasMode.value)
 const brand = PROMPT_BRAND
 // The tips panel in Tool View: what Fluent is, then what to write, in the user's words.

@@ -336,6 +336,7 @@
             @update:promptOptions="globalPrefs.promptOptions = $event"
             :placeholder="promptPlaceholder"
             :programs="promptProgram.status.value !== 'off'"
+            :prompt-control="fluentOn"
           >
             <template v-if="fluentOn" #mode="{ openHelp }"><FluentControl
               :program="promptProgram"
