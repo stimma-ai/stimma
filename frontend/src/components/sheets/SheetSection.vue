@@ -1,6 +1,6 @@
 <template>
   <section class="group/section mb-10 scroll-mt-3" :id="kid" :data-kid="kid">
-    <header v-if="at.label" class="mb-2 flex min-h-8 items-center gap-2">
+    <header v-if="at.label" class="mb-2 flex min-h-8 flex-wrap items-center gap-x-2 gap-y-1">
       <button
         v-if="collapsible"
         type="button"
@@ -9,9 +9,9 @@
         @click="open = !open"
       >
         <ChevronRightIcon class="h-3.5 w-3.5 flex-none text-content-muted transition-transform" :class="open ? 'rotate-90' : ''" />
-        <h2 class="m-0 truncate text-[13px] font-semibold text-content">{{ at.label }}</h2>
+        <span role="heading" aria-level="2" class="min-w-0 break-words font-brand text-[16px] font-semibold leading-snug text-content">{{ at.label }}</span>
       </button>
-      <h2 v-else class="m-0 truncate text-[13px] font-semibold text-content">{{ at.label }}</h2>
+      <span v-else role="heading" aria-level="2" class="min-w-0 break-words font-brand text-[16px] font-semibold leading-snug text-content">{{ at.label }}</span>
       <span v-if="mediaIds.length" class="flex-none font-mono text-[11px] tabular-nums text-content-muted">{{ mediaIds.length }}</span>
       <span v-if="newCount" class="flex-none rounded-full bg-accent/15 px-1.5 py-px text-[10px] font-semibold text-accent">{{ newCount }} new</span>
       <span v-if="!open" class="ml-1 flex min-w-0 gap-0.5 overflow-hidden">
