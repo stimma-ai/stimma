@@ -1290,6 +1290,7 @@ import {
   buildCapturedState,
   getPreUploadTasks,
   hasPromptFeature,
+  lineageMediaId,
   type PayloadBuilderState,
   type PayloadBuilderConfig,
 } from '../composables/useJobPayloadBuilder'
@@ -3894,12 +3895,12 @@ const promptProgram = usePromptProgram({
     const p: Record<string, any> = {}
     if (imgs.length) {
       p.input_images = imgs.map(() => 'ref')
-      const ids = imgs.map(i => i?.mediaId ?? i?._videoSource?.mediaId ?? null)
+      const ids = imgs.map(i => (i ? lineageMediaId(i) : undefined) ?? null)
       if (ids.some(x => x != null)) p.input_media_ids = ids
     }
     // Video tools: the start frame (the enhancer sees it, so it's part of the key).
-    const start: any = videoImages.startImage
-    if (start?.mediaId != null && !imgs.length) p.input_media_ids = [start.mediaId]
+    const startId = videoImages.startImage ? lineageMediaId(videoImages.startImage as any) : undefined
+    if (startId != null && !imgs.length) p.input_media_ids = [startId]
     // A driving audio track changes the enhancer's style too (see enhanceAudioConditioned).
     if (audioInputConfig.value && audioInputConfig.value.audioRole !== 'reference' && (globalPrefs.value.inputAudios?.length ?? 0) > 0) {
       p.input_audios = globalPrefs.value.inputAudios.map(() => 'ref')
