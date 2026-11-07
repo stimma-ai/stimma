@@ -86,8 +86,8 @@
 
           <div class="h-3.5 flex-shrink-0 coarse:h-2" aria-hidden="true"></div>
 
-          <!-- All Assets. The chevron folds the saved views (Favorites, My
-               library, ...) under it; clicking the row itself still opens Assets. -->
+          <!-- All Assets. The chevron folds the user's saved views under it;
+               clicking the row itself still opens Assets. -->
           <div class="group relative">
             <button
               @click="handleNavClick('browse')"
@@ -123,6 +123,21 @@
             >
               <component :is="savedViewIcon(savedView)" class="w-icon-nav h-icon-nav flex-shrink-0" />
               <span class="truncate text-sm">{{ displaySavedViewName(savedView.name) }}</span>
+            </button>
+          </div>
+
+          <!-- Trash holds only Assets, so it sits under them as a quiet child
+               row, outside the saved-views fold so it never hides. The footer
+               stays for the account and the app. -->
+          <div class="pl-4">
+            <button
+              @click="handleNavClick('trash')"
+              data-testid="sidebar-trash"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-tertiary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
+              :class="activeTab === 'trash' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
+            >
+              <TrashIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
+              <span>Trash</span>
             </button>
           </div>
 
@@ -905,18 +920,6 @@
                dresses the footer for screenshots and must not take the
                picker with it. -->
           <DeviceChip v-if="isAuthenticated" variant="footer" />
-          <!-- Trash is an occasional destination, so it lives with the other
-               occasional actions instead of in the nav run. -->
-          <Tooltip text="Trash" class="w-8 flex-shrink-0 coarse:w-11">
-            <button
-              @click="handleNavClick('trash')"
-              aria-label="Trash"
-              class="w-full h-8 flex items-center justify-center rounded transition-colors cursor-pointer border-none coarse:min-h-11"
-              :class="activeTab === 'trash' ? 'bg-selection/15 text-selection' : 'bg-transparent text-content-tertiary hover:text-content hover:bg-overlay-subtle'"
-            >
-              <TrashIcon class="w-icon-nav h-icon-nav" />
-            </button>
-          </Tooltip>
           <Tooltip text="Settings (⌘,)" class="w-8 flex-shrink-0 coarse:w-11">
             <button
               @click="openSettingsFromFooter"
@@ -1012,6 +1015,7 @@ import { flowsEnabled } from '../composables/useExperimentalFlows'
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, h, nextTick } from 'vue'
 import { ArchiveBoxIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronDownIcon, ChevronLeftIcon, ChevronUpDownIcon, ClockIcon, ExclamationTriangleIcon, FunnelIcon, HeartIcon, HomeIcon, PhotoIcon, PlusIcon, Squares2X2Icon, TrashIcon, WrenchScrewdriverIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useMarkers } from '../composables/useMarkers'
+import { EXPIRING_MARKER_ID } from '../constants/implicitMarkers'
 import { useRouter, useRoute } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useAuth } from '../composables/useAuth'
@@ -1590,7 +1594,7 @@ const { availableMarkers, init: initMarkers } = useMarkers()
 onMounted(() => { void initMarkers() })
 function savedViewIcon(view: any) {
   const filters = view?.filters || {}
-  if (filters.showExpiring) return ClockIcon
+  if (filters.showExpiring || (filters.selectedMarkers || []).includes(EXPIRING_MARKER_ID)) return ClockIcon
   const names = new Set<string>(
     (filters.selectedMarkers || [])
       .map((id: number) => availableMarkers.value.find((m: any) => m.id === id)?.name)

@@ -76,8 +76,6 @@
       v-model:excludedMarkers="filters.excludedMarkers"
       v-model:isImported="filters.isImported"
       v-model:isUnused="filters.isUnused"
-      v-model:showExpiring="filters.showExpiring"
-      v-model:excludeExpiring="filters.excludeExpiring"
       v-model:createdAfter="filters.createdAfter"
       v-model:createdBefore="filters.createdBefore"
       v-model:similarityThreshold="filters.similarityThreshold"
@@ -429,8 +427,6 @@ const hasActiveFilterCriteria = computed(() =>
   (filters.similarFaceTo?.length > 0) ||
   !!filters.createdAfter ||
   !!filters.createdBefore ||
-  !!filters.showExpiring ||
-  !!filters.excludeExpiring ||
   similarSearchActive.value
 )
 
@@ -914,12 +910,6 @@ function buildFilterParams() {
   }
   if (filters.createdBefore) {
     params.created_before = filters.createdBefore
-  }
-  if (filters.showExpiring) {
-    params.show_expiring = true
-  }
-  if (filters.excludeExpiring) {
-    params.exclude_expiring = true
   }
   return params
 }

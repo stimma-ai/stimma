@@ -1,3 +1,4 @@
+import { normalizeBrowseFilters } from '../constants/browseFilters.js'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
@@ -31,8 +32,6 @@ test('filter-count params include every All Assets filter that changes availabil
     excludedMarkers: [6],
     isImported: false,
     isUnused: true,
-    showExpiring: true,
-    excludeExpiring: true,
     createdAfter: '2026-07-01T00:00:00Z',
     createdBefore: '2026-07-20T00:00:00Z',
   })
@@ -62,8 +61,6 @@ test('filter-count params include every All Assets filter that changes availabil
     has_project: true,
     is_imported: false,
     is_unused: true,
-    show_expiring: true,
-    exclude_expiring: true,
     created_after: '2026-07-01T00:00:00Z',
     created_before: '2026-07-20T00:00:00Z',
     scope: 'all',
@@ -102,16 +99,12 @@ test('project scope constrains facets and ignores stale library project filters'
 test('count refresh dependencies include the formerly sticky filters', () => {
   const values = getFilterCountWatchValues({
     similarToText: 'text-search',
-    showExpiring: 'show-expiring',
-    excludeExpiring: 'exclude-expiring',
     createdAfter: 'created-after',
     createdBefore: 'created-before',
   })
 
   for (const value of [
     'text-search',
-    'show-expiring',
-    'exclude-expiring',
     'created-after',
     'created-before',
   ]) {
@@ -141,4 +134,15 @@ test('top-level counts follow the unfiled scope unless project assets are includ
 
   const values = getFilterCountWatchValues({ includeProjects: 'include-flag' })
   assert.equal(values.includes('include-flag'), true)
+})
+
+test('legacy saved-view expiring flags become the implicit expiring marker', () => {
+  const shown = normalizeBrowseFilters({ showExpiring: true, excludedMarkers: [1, 2] })
+  assert.deepEqual(shown.selectedMarkers, ['implicit:expiring'])
+  assert.deepEqual(shown.excludedMarkers, [1, 2])
+  assert.equal('showExpiring' in shown, false)
+
+  const hidden = normalizeBrowseFilters({ excludeExpiring: true, excludedMarkers: ['implicit:expiring'] })
+  assert.deepEqual(hidden.excludedMarkers, ['implicit:expiring'])
+  assert.deepEqual(hidden.selectedMarkers, [])
 })

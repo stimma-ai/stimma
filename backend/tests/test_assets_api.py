@@ -1396,7 +1396,7 @@ async def test_edited_implicit_marker_projects_filters_and_counts(client, db_ses
     available = await client.get("/api/assets/implicit-markers")
     assert available.status_code == 200, available.text
     available_markers = available.json()["markers"]
-    assert [marker["id"] for marker in available_markers] == [EDITED_MARKER_ID]
+    assert available_markers[0]["id"] == EDITED_MARKER_ID
     assert 'fill="currentColor"' in available_markers[0]["icon_svg"]
 
     included = await client.get(
@@ -1425,7 +1425,7 @@ async def test_edited_implicit_marker_projects_filters_and_counts(client, db_ses
         "/api/assets/filter-counts", params={"caption_query": caption}
     )
     assert counts.status_code == 200, counts.text
-    assert counts.json()["implicit_markers"] == {"edited": 1}
+    assert counts.json()["implicit_markers"]["edited"] == 1
 
     configured_markers = (await client.get("/api/markers")).json()
     assert EDITED_MARKER_ID not in {marker["id"] for marker in configured_markers}
