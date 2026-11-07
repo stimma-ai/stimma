@@ -25,21 +25,32 @@
           :style="menuStyle"
           @click.stop
         >
-          <div class="px-3 pt-1.5 pb-2 text-[12px] leading-snug text-content-secondary">{{ statusText }}</div>
-          <div class="border-t border-edge-subtle my-1" />
-          <button
-            type="button"
-            class="w-full text-left px-3 py-1.5 text-[12px] text-content-secondary hover:bg-overlay-subtle disabled:opacity-50"
-            :disabled="program.status.value === 'busy'"
-            @click="menuOpen = false; program.prepare(true)"
-          >Prepare from scratch</button>
-          <button
-            v-if="devModeRef"
-            type="button"
-            class="w-full text-left px-3 py-1.5 text-[12px] text-content-secondary hover:bg-overlay-subtle disabled:opacity-50 flex items-center justify-between"
-            :disabled="!program.program.value"
-            @click="menuOpen = false; showProgram()"
-          >Show program <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span></button>
+          <div class="px-3 pt-1.5 pb-2">
+            <div class="flex items-center gap-2 text-[12px] font-semibold text-content">
+              <span v-if="program.status.value === 'busy'" class="w-2.5 h-2.5 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" />
+              <span v-else :class="['w-[7px] h-[7px] rounded-full', dotColor]" />
+              {{ status.head }}
+            </div>
+            <div class="mt-0.5 text-[12px] leading-snug text-content-secondary">{{ status.body }}</div>
+          </div>
+          <template v-if="status.action || devModeRef">
+            <div class="border-t border-edge-subtle my-1" />
+            <button
+              v-if="status.action"
+              type="button"
+              class="w-full text-left px-3 py-1.5 coarse:py-3 hover:bg-overlay-subtle"
+              @click="menuOpen = false; program.prepare(status.force)"
+            >
+              <div class="text-[12px] coarse:text-[13px] text-content">{{ status.action }}</div>
+              <div v-if="status.actionHint" class="text-[11px] text-content-muted leading-snug">{{ status.actionHint }}</div>
+            </button>
+            <button
+              v-if="devModeRef"
+              type="button"
+              class="w-full text-left px-3 py-1.5 coarse:py-3 text-[12px] coarse:text-[13px] text-content hover:bg-overlay-subtle flex items-center justify-between"
+              @click="menuOpen = false; showProgram()"
+            >Show program <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span></button>
+          </template>
         </div>
       </div>
       <!-- Dev: the prepared program, how preparing went, and live sample runs. -->
@@ -48,7 +59,6 @@
         class="fixed inset-0 z-modal bg-overlay-backdrop flex items-center justify-center p-4"
         data-escape-layer
         @click.self="programText = null"
-        @keydown.escape="programText = null"
       >
         <div class="w-[960px] max-w-full max-h-[92vh] flex flex-col rounded-lg bg-surface border border-edge shadow-xl" data-program-debug>
           <div class="flex items-center gap-2 px-4 pt-3 pb-2">
@@ -61,6 +71,11 @@
             <button type="button" class="text-[12px] text-content-tertiary hover:text-content px-2 py-1 rounded-md hover:bg-overlay-subtle" @click="copyProgram">{{ copied ? 'Copied' : 'Copy' }}</button>
             <button type="button" class="text-content-tertiary hover:text-content p-1 rounded-md hover:bg-overlay-subtle" aria-label="Close" @click="programText = null">✕</button>
           </div>
+          <div v-if="programText === ''" class="mx-4 mb-4 rounded-md border border-edge-subtle bg-surface-overlay px-3 py-6 text-[12px] text-content-secondary flex items-center justify-center gap-2">
+            <template v-if="showError"><span class="text-red-400">{{ showError }}</span></template>
+            <template v-else><span class="w-3 h-3 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" /> Preparing this prompt…</template>
+          </div>
+          <template v-else>
           <div v-if="program.program.value?.warnings?.length" class="mx-4 mb-2 rounded-md bg-amber-500/10 px-3 py-2 text-[12px] text-amber-600 dark:text-amber-400">
             <div class="font-semibold mb-0.5">Accepted with problems</div>
             <div v-for="w in program.program.value.warnings" :key="w">{{ w }}</div>
@@ -92,6 +107,7 @@
               </li>
             </ol>
           </div>
+          </template>
         </div>
       </div>
     </Teleport>
@@ -99,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import type { PromptProgram } from '../../composables/usePromptProgram'
 import { devModeRef } from '../../appConfig'
 import ReadOnlyCode from '../viewers/ReadOnlyCode.vue'
@@ -116,14 +132,31 @@ const dotColor = computed(() => ({
   error: 'bg-red-400',
 }[props.program.status.value as 'ready' | 'stale' | 'error'] || 'bg-content-muted'))
 
-const statusText = computed(() => ({
-  ready: 'Prepared. Each run draws new choices without calling a model.',
-  stale: 'Not prepared for this prompt yet. Prepares when you run.',
-  busy: 'Preparing…',
-  error: props.program.error.value?.message || 'Couldn’t prepare this prompt.',
-}[props.program.status.value as string] || ''))
+// What the menu says, and its one action, for each state.
+const status = computed(() => {
+  const kept = !props.program.elaborate.value
+  const how = kept ? 'Enhance is off, so it keeps your words.' : 'Enhance is on, so it adds detail.'
+  switch (props.program.status.value) {
+    case 'ready': return {
+      head: 'Ready',
+      body: `Each run draws new choices from this prompt’s program, with no model call. ${how}`,
+      action: 'Prepare again', actionHint: 'Writes a new program from scratch.', force: true,
+    }
+    case 'busy': return { head: 'Preparing…', body: `Writing this prompt’s program. ${how}`, action: '', actionHint: '', force: false }
+    case 'error': return {
+      head: 'Couldn’t prepare',
+      body: props.program.error.value?.message || 'The model couldn’t write a program for this prompt.',
+      action: 'Try again', actionHint: '', force: true,
+    }
+    default: return {
+      head: 'Not prepared yet',
+      body: `Your next run prepares it first (one model call, a few seconds), then every image draws from it. ${how}`,
+      action: 'Prepare now', actionHint: '', force: false,
+    }
+  }
+})
 
-const title = computed(() => ({ ready: 'Prepared', stale: 'Not prepared: prepares when you run', busy: 'Preparing…', error: 'Couldn’t prepare' }[props.program.status.value as string] || ''))
+const title = computed(() => ({ ready: 'Ready', stale: 'Not prepared yet: prepares on your next run', busy: 'Preparing…', error: 'Couldn’t prepare' }[props.program.status.value as string] || ''))
 
 const menuStyle = computed(() => {
   const r = btn.value?.getBoundingClientRect()
@@ -131,24 +164,51 @@ const menuStyle = computed(() => {
   return { top: `${r.bottom + 4}px`, left: `${Math.max(8, Math.min(window.innerWidth - 264, r.right - 256))}px` }
 })
 
+// Escape closes the dialog, then the menu. Both are teleported, so listen on the window.
+function onKey(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return
+  if (programText.value !== null) programText.value = null
+  else if (menuOpen.value) menuOpen.value = false
+  else return
+  e.preventDefault()
+  e.stopPropagation()
+}
+watch(() => programText.value !== null || menuOpen.value, (open) => {
+  if (open) window.addEventListener('keydown', onKey, true)
+  else window.removeEventListener('keydown', onKey, true)
+})
+onUnmounted(() => window.removeEventListener('keydown', onKey, true))
+
 const samples = ref<any[]>([])
 const samplesError = ref('')
 const copied = ref(false)
 
 const enhancedText = ref('')
 
+const showError = ref('')
+
+/** Open the program, preparing it first if it isn't yet (the dialog shows the wait). */
 async function showProgram() {
+  programText.value = ''
+  enhancedText.value = ''
+  showError.value = ''
+  samples.value = []
   try {
+    if (!(await props.program.ensureReady())) {
+      showError.value = props.program.error.value?.message || 'Couldn’t prepare this prompt.'
+      return
+    }
     const got = await props.program.fetchProgramText()
+    if (programText.value === null) return  // closed while preparing
     if (!got.program) {
-      // The server doesn't have it (anymore): the dot turns amber and the next run prepares.
-      menuOpen.value = true
+      showError.value = 'Couldn’t load the program. Try again.'
       return
     }
     programText.value = got.program
     enhancedText.value = got.enhanced
-  } catch {
-    programText.value = props.program.program.value?.program || '(not prepared)'
+  } catch (e: any) {
+    if (programText.value !== null) showError.value = e?.response?.data?.detail?.message || 'Couldn’t load the program.'
+    return
   }
   void loadSamples()
 }

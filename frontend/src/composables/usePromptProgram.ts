@@ -335,7 +335,7 @@ export function usePromptProgram(o: Options) {
   onUnmounted(() => window.removeEventListener('focus', onFocus))
 
   return {
-    program, status, error, signature, pins, edits, choices, rows, byId, openCard,
+    program, status, error, signature, elaborate: o.elaborate, pins, edits, choices, rows, byId, openCard,
     prepare, ensureReady, needsPrepare, payload, lookup, fetchProgramText, previewRuns,
     setPins, setManyPins, setEdit, optionsOf, valueText, isPinned, visible,
     loraControl, paramControl, open, close,
