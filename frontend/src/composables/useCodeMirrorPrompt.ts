@@ -177,7 +177,7 @@ const commentDeco = Decoration.mark({ class: 'cm-comment-line' })
 // Plain mode (no chat model reads this prompt): # lines are for a model.
 const unreadCommentDeco = Decoration.mark({ class: 'cm-comment-line', attributes: { title: 'No chat model reads this prompt, so # lines are left out of it.' } })
 // Plain mode: a {{name}} that isn't a wildcard or segment needs a model to fill it.
-const needsEnhanceDeco = Decoration.mark({ class: 'cm-needs-enhance', attributes: { title: 'No wildcard or segment has this name. A chat model fills it; without one it is sent as typed.' } })
+const needsEnhanceDeco = Decoration.mark({ class: 'cm-needs-enhance', attributes: { title: 'Not a saved wildcard, so nothing can fill it here.' } })
 const verbatimDeco = Decoration.mark({ class: 'cm-verbatim' })
 
 // --- Theme ---
@@ -294,8 +294,8 @@ const stimmaTheme = EditorView.theme({
     padding: '0 1px',
   },
   '.cm-needs-enhance': {
-    color: '#d97706', // amber-600, like a named wildcard, but unresolved
-    textDecoration: 'underline wavy rgba(239, 68, 68, 0.7)',
+    color: '#ef4444', // red-500: an error in the prompt, the run waits on it
+    textDecoration: 'underline wavy rgba(239, 68, 68, 0.8)',
     textUnderlineOffset: '3px',
   },
   '.cm-comment-line': {

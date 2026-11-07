@@ -5435,13 +5435,12 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   const direct = !!globalPrefs.value.promptOptions?.direct
   const unfillable = !globalPrefs.value.promptOptions?.raw && (llmUnconfigured.value || direct) && hasPrompt.value
     ? unknownSmartNames(globalPrefs.value.prompt || '') : []
+  // It's a mistake in the prompt, so the editor marks it (like a syntax error) and the
+  // run waits; one quiet line says why, no toast.
   if (unfillable.length) {
     submissionError.value = direct
-      ? `{{${unfillable[0]}}} isn’t a saved wildcard, so Direct can’t fill it and nothing ran.`
+      ? `{{${unfillable[0]}}} isn’t a saved wildcard, so nothing ran.`
       : `${PROMPT_BRAND} needs a chat model for {{${unfillable[0]}}}, so nothing ran.`
-    addToast(submissionError.value, 'error', 10000, direct && !llmUnconfigured.value
-      ? { label: `Use ${PROMPT_BRAND}`, onClick: () => { globalPrefs.value.promptOptions = { ...globalPrefs.value.promptOptions, direct: undefined } } }
-      : { label: 'Settings', onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) })
     return noSubmit(options)
   }
 

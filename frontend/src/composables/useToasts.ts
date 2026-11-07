@@ -35,6 +35,10 @@ let nextId = 1
  * @returns The toast id
  */
 function addToast(message: string, type: ToastType = 'info', duration: number = 4000, action?: ToastAction): number {
+  // The same message already on screen (a repeated failure, a run retried in a loop)
+  // shows once, not as a stack.
+  const showing = toasts.value.find(t => t.message === message && t.type === type)
+  if (showing) return showing.id
   const id = nextId++
   const toast: Toast = { id, message, type, duration, action }
 
