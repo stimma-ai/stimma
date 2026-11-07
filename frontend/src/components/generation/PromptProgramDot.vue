@@ -31,7 +31,7 @@
               <span v-else :class="['w-[7px] h-[7px] rounded-full', dotColor]" />
               {{ status.head }}
             </div>
-            <div class="mt-0.5 text-[12px] leading-snug text-content-secondary">{{ status.body }}</div>
+            <div v-if="status.body" class="mt-0.5 text-[12px] leading-snug text-content-secondary">{{ status.body }}</div>
           </div>
           <template v-if="status.action || devModeRef">
             <div class="border-t border-edge-subtle my-1" />
@@ -132,31 +132,22 @@ const dotColor = computed(() => ({
   error: 'bg-red-400',
 }[props.program.status.value as 'ready' | 'stale' | 'error'] || 'bg-content-muted'))
 
-// What the menu says, and its one action, for each state.
+// What the menu says, and its one action, for each state. Plain words: no programs,
+// no draws, no model calls.
 const status = computed(() => {
-  const kept = !props.program.elaborate.value
-  const how = kept ? 'Enhance is off, so it keeps your words.' : 'Enhance is on, so it adds detail.'
   switch (props.program.status.value) {
-    case 'ready': return {
-      head: 'Ready',
-      body: `Each run draws new choices from this prompt’s program, with no model call. ${how}`,
-      action: 'Prepare again', actionHint: 'Writes a new program from scratch.', force: true,
-    }
-    case 'busy': return { head: 'Preparing…', body: `Writing this prompt’s program. ${how}`, action: '', actionHint: '', force: false }
+    case 'ready': return { head: 'Ready', body: '', action: 'Rewrite from scratch', actionHint: '', force: true }
+    case 'busy': return { head: 'Preparing…', body: '', action: '', actionHint: '', force: false }
     case 'error': return {
-      head: 'Couldn’t prepare',
-      body: props.program.error.value?.message || 'The model couldn’t write a program for this prompt.',
+      head: 'Couldn’t prepare this prompt',
+      body: props.program.error.value?.message || '',
       action: 'Try again', actionHint: '', force: true,
     }
-    default: return {
-      head: 'Not prepared yet',
-      body: `Your next run prepares it first (one model call, a few seconds), then every image draws from it. ${how}`,
-      action: 'Prepare now', actionHint: '', force: false,
-    }
+    default: return { head: 'Not prepared yet', body: 'Prepares when you run.', action: 'Prepare now', actionHint: '', force: false }
   }
 })
 
-const title = computed(() => ({ ready: 'Ready', stale: 'Not prepared yet: prepares on your next run', busy: 'Preparing…', error: 'Couldn’t prepare' }[props.program.status.value as string] || ''))
+const title = computed(() => ({ ready: 'Ready', stale: 'Not prepared yet', busy: 'Preparing…', error: 'Couldn’t prepare' }[props.program.status.value as string] || ''))
 
 const menuStyle = computed(() => {
   const r = btn.value?.getBoundingClientRect()
