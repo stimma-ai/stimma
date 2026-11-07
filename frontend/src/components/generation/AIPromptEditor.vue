@@ -197,11 +197,14 @@
               <div
                 v-if="showHelp"
                 data-prompt-editor-menu
-                class="fixed p-4 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-80 max-w-[calc(100vw-16px)] overflow-y-auto"
+                :class="['fixed p-4 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu max-w-[calc(100vw-16px)] overflow-y-auto', hasMode ? 'w-96' : 'w-80']"
                 :style="editorMenuPos"
               >
                 <div class="flex items-center justify-between mb-3">
-                  <span class="text-xs font-medium text-content-secondary">{{ hasMode ? 'Prompt tips' : 'Prompt syntax' }}</span>
+                  <span v-if="hasMode" class="flex items-center gap-1.5 text-[13px] font-semibold text-content">
+                    <WandSparklesIcon class="w-3.5 h-3.5 text-accent" /> {{ brand }}
+                  </span>
+                  <span v-else class="text-xs font-medium text-content-secondary">Prompt syntax</span>
                   <button @click="showHelp = false" class="text-content-muted hover:text-content-secondary p-0.5">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -211,11 +214,18 @@
 
                 <!-- Tool View: tips for writing prompts with Fluent, at the user's level. -->
                 <template v-if="hasMode">
-                  <div v-for="tip in fluentTips" :key="tip.title" class="mb-3 last:mb-0">
+                  <p v-for="line in fluentIntro" :key="line" class="text-xs text-content-secondary leading-relaxed mb-2">{{ line }}</p>
+                  <div class="mt-3 mb-2 text-[11px] font-semibold text-content-tertiary">Writing for {{ brand }}</div>
+                  <div v-for="tip in fluentTips" :key="tip.title" class="mb-3">
                     <div class="flex items-baseline gap-2 mb-0.5">
                       <span class="text-xs font-medium text-content-secondary">{{ tip.title }}</span>
                       <code v-if="tip.example" :class="['px-1.5 py-0.5 rounded text-[11px]', tip.tone]" v-text="tip.example"></code>
                     </div>
+                    <p class="text-xs text-content-tertiary leading-relaxed">{{ tip.text }}</p>
+                  </div>
+                  <div class="mt-4 mb-2 text-[11px] font-semibold text-content-tertiary">In the {{ brand }} menu</div>
+                  <div v-for="tip in fluentSettings" :key="tip.title" class="mb-3 last:mb-0">
+                    <div class="text-xs font-medium text-content-secondary mb-0.5">{{ tip.title }}</div>
                     <p class="text-xs text-content-tertiary leading-relaxed">{{ tip.text }}</p>
                   </div>
                 </template>
@@ -455,7 +465,7 @@ function openHelp(anchor?: DOMRect | null) {
     const above = anchor.top - 14
     const down = below >= 320 || below >= above
     editorMenuPos.value = {
-      left: `${Math.max(8, Math.min(window.innerWidth - 328, Math.round(anchor.left - 6)))}px`,
+      left: `${Math.max(8, Math.min(window.innerWidth - 392, Math.round(anchor.left - 6)))}px`,
       maxHeight: `${Math.min(520, down ? below : above)}px`,
       ...(down ? { top: `${Math.round(anchor.bottom + 4)}px` } : { bottom: `${Math.round(window.innerHeight - anchor.top + 4)}px` }),
     }
@@ -535,20 +545,27 @@ const slots = useSlots()
 const hasMode = computed(() => !!slots.mode)
 const rawInMenu = computed(() => !props.hideAutoImprove && !hasMode.value)
 const brand = PROMPT_BRAND
-// The tips panel in Tool View: what to write, in the user's words.
+// The tips panel in Tool View: what Fluent is, then what to write, in the user's words.
+const fluentIntro = [
+  `${PROMPT_BRAND} turns one prompt into a whole run of good ones. Ask for variety anywhere in your prompt, and every image gets its own take, while everything else stays the way you wrote it.`,
+  'With Enhance prompt on, it also writes the fuller, more detailed prompt each image model does best with, so a short idea still gets a rich picture.',
+  'The first run of a new prompt takes a few extra seconds while it’s read. After that, runs start right away. Your text in the editor never changes.',
+]
 const fluentTips = [
   { title: 'Let it vary', example: '{{hairstyle}}', tone: 'text-amber-600 bg-amber-500/10',
-    text: `Put anything in double braces and ${PROMPT_BRAND} writes options for it. Every image picks one. A saved wildcard uses your own list.` },
+    text: `Put anything in double braces and ${PROMPT_BRAND} comes up with options for it. Every image picks one. A saved wildcard uses your own list.` },
   { title: 'Your own list', example: '{red|blue|green}', tone: 'text-green-600 bg-green-500/10',
     text: 'Every image picks one of yours.' },
   { title: `Tell ${PROMPT_BRAND}`, example: '# vary her expression', tone: 'text-gray-500 italic bg-zinc-500/10',
-    text: `A line starting with # is a note to ${PROMPT_BRAND}. It never ends up in the image prompt.` },
+    text: `A line starting with # is a note to ${PROMPT_BRAND}: what to vary, what to keep, what to avoid. It never ends up in the image prompt.` },
   { title: 'Keep it exact', example: '[a sign that says OPEN]', tone: 'text-blue-500 bg-blue-500/10',
-    text: 'Words in square brackets are kept exactly as written.' },
-  { title: 'Enhance prompt', example: '', tone: '',
-    text: 'Writes the fuller prompt this model does best with. Turn it off to keep your own wording.' },
-  { title: 'Verbatim', example: '', tone: '',
-    text: 'Sends exactly what you typed, braces and all.' },
+    text: 'Words in square brackets are kept exactly as written, which is handy for text in the picture.' },
+]
+const fluentSettings = [
+  { title: 'Enhance prompt', text: 'On: the fuller prompt this model likes. Off: your own wording, with the choices filled in.' },
+  { title: 'Try different choices and wording', text: 'Don’t like the options it came up with? Get a fresh set. Anything you picked or added stays.' },
+  { title: 'Verbatim', text: 'Sends exactly what you typed, braces and all, for when another tool handles the prompt.' },
+  { title: 'The choices under your prompt', text: 'Click one to see its options, narrow what images can pick, or add your own.' },
 ]
 function setRaw(on: boolean) {
   emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
