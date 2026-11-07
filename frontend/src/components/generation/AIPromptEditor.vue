@@ -547,13 +547,13 @@ const fluentIntro = [
   'The first run of a new prompt takes a few extra seconds while it’s read. After that, runs start right away. Your text in the editor never changes, and if you don’t like the options it came up with, Try different choices and wording gets a fresh set.',
 ]
 const fluentTips = [
-  { title: 'Let it vary', example: '{{hairstyle}}', tone: 'text-amber-600 bg-amber-500/10',
-    text: `Put anything in double braces and ${PROMPT_BRAND} comes up with options for it. Every image picks one. A saved wildcard uses your own list.` },
-  { title: 'Your own list', example: '{red|blue|green}', tone: 'text-green-600 bg-green-500/10',
+  { title: 'Wildcards', example: '{{hairstyle}}', tone: 'text-amber-600 bg-amber-500/10',
+    text: `${PROMPT_BRAND} comes up with options for anything in double braces, and every image picks one. A saved wildcard uses your own list.` },
+  { title: 'Wildcards with your options', example: '{red|blue|green}', tone: 'text-green-600 bg-green-500/10',
     text: 'Every image picks one of yours.' },
-  { title: `Tell ${PROMPT_BRAND}`, example: '# vary her expression', tone: 'text-gray-500 italic bg-zinc-500/10',
+  { title: 'Comments', example: '# vary her expression', tone: 'text-gray-500 italic bg-zinc-500/10',
     text: `A line starting with # is a note to ${PROMPT_BRAND}, never part of the image prompt. Say what to vary or keep, and it can reach the tool’s settings too: “# vary the guidance between 3 and 5”, “# use one of my hair LoRAs”.` },
-  { title: 'Keep it exact', example: '[a sign that says OPEN]', tone: 'text-blue-500 bg-blue-500/10',
+  { title: 'Exact text', example: '[a sign that says OPEN]', tone: 'text-blue-500 bg-blue-500/10',
     text: `${PROMPT_BRAND} never sees what’s inside square brackets. That text goes straight to the image model exactly as you wrote it, which makes it right for words in the picture.` },
 ]
 function setRaw(on: boolean) {

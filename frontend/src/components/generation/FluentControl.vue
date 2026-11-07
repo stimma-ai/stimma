@@ -193,12 +193,13 @@ const way = computed<Way>(() => (props.raw ? 'raw' : props.direct ? 'direct' : '
 // What Fluent honestly does with the current setting: fresh choices always; the
 // model's own style only when it upsamples.
 const tagline = computed(() => {
+  // Name the features plainly; don't explain them.
   const model = props.modelName || 'the model'
-  if (props.raw) return `Your prompt goes to ${model} exactly as you typed it, for a later step to process.`
-  if (props.direct) return 'Your lists and saved wildcards are filled in. Nothing else changes.'
+  if (props.raw) return `Your prompt goes to ${model} exactly as you typed it.`
+  if (props.direct) return 'Your wildcards, comments and exact text are processed without AI.'
   return props.elaborate || props.program.unsupported.value
-    ? `Every image gets fresh choices, in a prompt written the way ${model} likes.`
-    : 'Every image gets fresh choices, in your own words.'
+    ? `AI fills in your wildcards, follows your comments, and writes the prompt the way ${model} likes.`
+    : 'AI fills in your wildcards and follows your comments. Your wording stays.'
 })
 const detail = computed(() => props.elaborate || props.program.unsupported.value)
 const on = computed(() => way.value === 'fluent' && !props.llmUnconfigured)
