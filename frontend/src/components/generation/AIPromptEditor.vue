@@ -555,13 +555,15 @@ const BLUE = 'text-blue-500 bg-blue-500/10'
 const fluentTips = [
   { title: 'Wildcards', examples: [{ code: '{{hairstyle}}', tone: AMBER }, { code: '{red|blue|green}', tone: GREEN }],
     text: [`Use {{hairstyle}} to have ${PROMPT_BRAND} write hairstyle options. Each image uses one. If you have a saved wildcard with that name, ${PROMPT_BRAND} uses yours. To supply your own options, write {red|blue|green}.`] },
+  { title: 'Wildcards that work together', examples: [],
+    text: [`${PROMPT_BRAND} chooses wildcard options based on how well they fit together. With {nun|nurse|woman} and {habit|suit|bikini}, the nun usually gets the habit, sometimes the suit, and almost never the bikini, unless you ask for it. Without ${PROMPT_BRAND}, every wildcard is drawn on its own.`] },
   { title: 'Comments', examples: [{ code: '# vary her expression', tone: GREY }],
     text: [`Start a line with # to leave ${PROMPT_BRAND} a note about what to vary or keep the same between images. Notes never reach the image model.`,
       'You can also give instructions about settings: # guidance between 3 and 5 or # use my curtain bangs LoRA.'] },
   { title: 'Verbatim text', examples: [{ code: '[ohwx woman]', tone: BLUE }],
     text: [`Text in square brackets goes to the image model exactly as written. ${PROMPT_BRAND} never sees it. Use brackets for LoRA trigger words or words you want to appear in the picture.`] },
   { title: 'Not happy with the options?', examples: [],
-    text: [`Choose Try different choices and wording in the ${PROMPT_BRAND} menu. Options you picked or added stay.`] },
+    text: [`Choose Try different choices and wording in the ${PROMPT_BRAND} menu.`] },
 ]
 function setRaw(on: boolean) {
   emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
