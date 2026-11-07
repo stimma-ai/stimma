@@ -42,22 +42,27 @@ const THEME = {
   '--cs-mono': "ui-monospace, 'SF Mono', Menlo, monospace",
 }
 
-// Plain markup gets readable defaults; the agent's CSS overrides any of them.
-const BASE = [
-  'text-[14px] leading-[1.55] text-content',
-  '[&_h1]:mb-2.5 [&_h1]:font-brand [&_h1]:text-[28px] [&_h1]:font-semibold [&_h1]:leading-tight [&_h1]:tracking-[-0.015em]',
-  '[&_h2]:mb-2 [&_h2]:font-brand [&_h2]:text-[18px] [&_h2]:font-semibold',
-  '[&_h3]:mb-1 [&_h3]:font-brand [&_h3]:text-[15px] [&_h3]:font-semibold',
-  '[&_p]:mb-2.5 [&_p]:text-content-secondary [&_b]:font-semibold [&_b]:text-content [&_strong]:font-semibold [&_strong]:text-content',
-  '[&_a]:text-accent [&_a]:underline [&_ul]:mb-2.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-2.5 [&_ol]:list-decimal [&_ol]:pl-5',
-  '[&_hr]:my-6 [&_hr]:border-edge-subtle',
-].join(' ')
+// Plain markup gets readable defaults. They sit in the sheet's scope at zero
+// specificity (:where), so any rule the agent writes wins over them.
+const baseCss = (scope: string) => `@scope (${scope}) {
+:where(h1) { margin: 0 0 10px; font-family: var(--cs-display); font-size: 28px; font-weight: 600; line-height: 1.15; letter-spacing: -0.015em; color: var(--cs-fg); }
+:where(h2) { margin: 0 0 8px; font-family: var(--cs-display); font-size: 18px; font-weight: 600; color: var(--cs-fg); }
+:where(h3) { margin: 0 0 4px; font-family: var(--cs-display); font-size: 15px; font-weight: 600; color: var(--cs-fg); }
+:where(p) { margin: 0 0 10px; color: var(--cs-muted); }
+:where(b, strong) { font-weight: 600; color: var(--cs-fg); }
+:where(a) { color: var(--cs-accent); text-decoration: underline; }
+:where(ul) { margin: 0 0 10px; padding-left: 20px; list-style: disc; }
+:where(ol) { margin: 0 0 10px; padding-left: 20px; list-style: decimal; }
+:where(hr) { margin: 24px 0; border: 0; border-top: 1px solid var(--cs-line); }
+}`
 
 export default defineComponent({
   props: { scope: { type: String, required: true }, css: { type: String, default: '' } },
   setup(props) {
     const sheet = useSheetContext()
-    return () => h('div', { 'data-sheet-scope': props.scope, class: BASE, style: THEME }, [
+    const scopeSelector = `[data-sheet-scope="${props.scope}"]`
+    return () => h('div', { 'data-sheet-scope': props.scope, class: 'text-[14px] leading-[1.55] text-content', style: THEME }, [
+      h('style', baseCss(scopeSelector)),
       props.css ? h('style', props.css) : null,
       ...(sheet.root.value ? sheetToVNodes(Array.from(sheet.root.value.childNodes), COMPONENTS) : []),
     ])

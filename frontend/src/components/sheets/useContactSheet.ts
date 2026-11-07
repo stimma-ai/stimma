@@ -181,6 +181,8 @@ export function provideContactSheet(options: {
   function clearSelection() { selected.value = new Set() }
 
   // -- review ----------------------------------------------------------------
+  const dirty = new Map<string, { value: unknown; timer: ReturnType<typeof setTimeout> | null }>()
+  const saving = new Map<string, Promise<void>>()
   const answers = ref<Record<string, SheetAnswer>>({})
   const comments = ref<SheetComment[]>([])
   const commentFor = ref<CommentTarget | null>(null)
@@ -197,6 +199,8 @@ export function provideContactSheet(options: {
       const { data } = await axios.get(`${api()}/review`)
       const next: Record<string, SheetAnswer> = {}
       for (const [anchor, row] of Object.entries<any>(data.answers || {})) next[anchor] = { value: row.value, sent: row.sent, wasSent: !!row.was_sent }
+      // What the user is still changing wins over what the server last had.
+      for (const [anchor, entry] of dirty) next[anchor] = { ...(next[anchor] || { wasSent: false }), value: entry.value, sent: false }
       answers.value = next
       comments.value = (data.comments || []).map((row: any) => ({ ...row, value: String(row.value ?? '') }))
     } catch (error) {
@@ -216,45 +220,49 @@ export function provideContactSheet(options: {
     return comments.value.filter(c => c.anchor === anchor)
   }
 
-  // Unsaved answers by anchor, and saves in flight. Send waits for both.
-  const answerTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; save: () => Promise<void> }>()
-  const savesInFlight = new Set<Promise<void>>()
-  function startSave(save: () => Promise<void>) {
-    const running = save()
-    savesInFlight.add(running)
-    running.finally(() => savesInFlight.delete(running))
-    return running
+  // Answers the server doesn't have yet, by anchor. An answer stays dirty
+  // until a save of its current value succeeds, so a failed save is retried
+  // by the next flush instead of being forgotten.
+
+  function saveAnswer(anchor: string): Promise<void> {
+    const entry = dirty.get(anchor)
+    if (!entry) return saving.get(anchor) ?? Promise.resolve()
+    if (entry.timer) { clearTimeout(entry.timer); entry.timer = null }
+    const value = entry.value
+    const previous = saving.get(anchor) ?? Promise.resolve()
+    const run = previous.catch(() => {}).then(async () => {
+      await axios.put(`${api()}/review/answers/${encodeURIComponent(anchor)}`, { value })
+      // Only a save of the latest value makes the answer clean.
+      if (dirty.get(anchor)?.value === value) dirty.delete(anchor)
+    })
+    saving.set(anchor, run)
+    run.finally(() => { if (saving.get(anchor) === run) saving.delete(anchor) }).catch(() => {})
+    return run
   }
+
   function setAnswer(anchor: string, value: unknown) {
     if (readonly.value) return
     const previous = answers.value[anchor]
     answers.value = { ...answers.value, [anchor]: { value, sent: false, wasSent: !!previous?.wasSent || !!previous?.sent } }
-    const pending = answerTimers.get(anchor)
-    if (pending) clearTimeout(pending.timer)
-    const save = async () => {
-      answerTimers.delete(anchor)
-      await axios.put(`${api()}/review/answers/${encodeURIComponent(anchor)}`, { value })
-    }
+    const pending = dirty.get(anchor)
+    if (pending?.timer) clearTimeout(pending.timer)
+    const entry: { value: unknown; timer: ReturnType<typeof setTimeout> | null } = { value, timer: null }
+    dirty.set(anchor, entry)
     // Free text settles before it's saved; everything else saves at once.
-    const delay = typeof value === 'string' ? 400 : 0
-    answerTimers.set(anchor, {
-      save,
-      timer: setTimeout(() => {
-        startSave(save).catch(error => {
-          console.error('Failed to save a review answer:', error)
-          addToast("Couldn't save your answer. Try again.", 'error')
-        })
-      }, delay),
-    })
+    entry.timer = setTimeout(() => {
+      entry.timer = null
+      saveAnswer(anchor).catch(error => {
+        console.error('Failed to save a review answer:', error)
+        addToast("Couldn't save your answer. It will be saved again when you send.", 'error')
+      })
+    }, typeof value === 'string' ? 400 : 0)
   }
-  /** Save everything still waiting; rejects if any save fails. */
+
+  /** Save every answer the server doesn't have; rejects if any is still unsaved. */
   async function flushAnswers() {
-    for (const { timer, save } of [...answerTimers.values()]) {
-      clearTimeout(timer)
-      startSave(save)
-    }
-    const results = await Promise.allSettled([...savesInFlight])
-    if (results.some(result => result.status === 'rejected')) throw new Error('an answer did not save')
+    await Promise.allSettled([...dirty.keys()].map(saveAnswer))
+    await Promise.allSettled([...saving.values()])
+    if (dirty.size) throw new Error('an answer did not save')
   }
 
   async function addComment(anchor: string, text: string) {

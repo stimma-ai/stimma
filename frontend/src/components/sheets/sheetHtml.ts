@@ -58,61 +58,59 @@ export function mediaIdOfRef(ref: string | null | undefined): number | null {
 
 // Anything that makes the browser fetch something.
 const LOADS_RESOURCE = /\b(?:url|image-set|-webkit-image-set|image|element|cross-fade|src)\s*\(/i
-// Selectors that could reach outside the sheet once nested or scoped.
-const ESCAPES_SCOPE = /&|:root|:host|:scope/i
+// Functions a custom property may hold. Its value is substituted into other
+// properties later, so it must not be able to spell anything else.
+const SAFE_FUNCTIONS = new Set([
+  'rgb', 'rgba', 'hsl', 'hsla', 'hwb', 'lab', 'lch', 'oklab', 'oklch', 'color', 'color-mix',
+  'calc', 'min', 'max', 'clamp', 'var',
+])
 
-/** Split a selector list at top-level commas (not inside :is(), :not() …). */
-function splitSelectors(text: string): string[] {
-  const out: string[] = []
-  let depth = 0
-  let quote: string | null = null
-  let current = ''
-  for (const char of text) {
-    if (quote) { if (char === quote) quote = null }
-    else if (char === '"' || char === "'") quote = char
-    else if (char === '(' || char === '[') depth += 1
-    else if (char === ')' || char === ']') depth -= 1
-    else if (char === ',' && depth === 0) { out.push(current.trim()); current = ''; continue }
-    current += char
-  }
-  if (current.trim()) out.push(current.trim())
-  return out
+/** A custom property value is plain data: no escapes, no url, only safe functions. */
+function isSafeCustomValue(value: string): boolean {
+  if (value.includes('\\') || /url/i.test(value)) return false
+  const opens = value.match(/[a-z-]*\(/gi) || []
+  return opens.every(open => SAFE_FUNCTIONS.has(open.slice(0, -1).toLowerCase()))
 }
 
-/** Drop every declaration that would load a resource. Values are read back
- *  decoded from CSSOM, so escapes like u\72l( can't hide one. */
+/**
+ * Drop every declaration that could load a resource. CSSOM gives values back
+ * decoded, except custom properties and strings, which keep their escapes, so
+ * those must prove they are plain data.
+ */
 function stripResources(style: CSSStyleDeclaration) {
   for (let i = style.length - 1; i >= 0; i--) {
     const name = style[i]
-    if (LOADS_RESOURCE.test(style.getPropertyValue(name))) style.removeProperty(name)
+    const value = style.getPropertyValue(name)
+    const unsafe = name.startsWith('--')
+      ? !isSafeCustomValue(value)
+      : LOADS_RESOURCE.test(value) || (value.includes('\\') && name !== 'content' && name !== 'quotes')
+    if (unsafe) style.removeProperty(name)
   }
 }
 
-function scopeRules(rules: CSSRuleList, scope: string, out: string[]) {
+function flatRules(rules: CSSRuleList, out: string[], keyframes: string[]) {
   for (const rule of Array.from(rules)) {
     if (rule instanceof CSSStyleRule) {
-      // Nested rules can climb back out through &, so a sheet rule is flat.
+      // Nested rules are dropped: a sheet rule is flat.
       if (rule.cssRules?.length) continue
-      const selectors = splitSelectors(rule.selectorText)
-      if (!selectors.length || selectors.some(selector => ESCAPES_SCOPE.test(selector))) continue
       stripResources(rule.style)
-      if (!rule.style.cssText) continue
-      out.push(`${selectors.map(selector => `${scope} ${selector}`).join(', ')} { ${rule.style.cssText} }`)
+      if (rule.style.cssText) out.push(`${rule.selectorText} { ${rule.style.cssText} }`)
     } else if (rule instanceof CSSMediaRule || rule instanceof CSSSupportsRule) {
       const inner: string[] = []
-      scopeRules(rule.cssRules, scope, inner)
+      flatRules(rule.cssRules, inner, keyframes)
       if (inner.length) out.push(`@${rule instanceof CSSMediaRule ? 'media' : 'supports'} ${rule.conditionText} {\n${inner.join('\n')}\n}`)
     } else if (rule instanceof CSSKeyframesRule) {
-      if (!LOADS_RESOURCE.test(rule.cssText)) out.push(rule.cssText)
+      if (!LOADS_RESOURCE.test(rule.cssText) && !rule.cssText.includes('\\')) keyframes.push(rule.cssText)
     }
     // @import, @font-face, @page, @layer, @namespace and the rest are dropped.
   }
 }
 
 /**
- * The agent's CSS, parsed by the browser and confined to the sheet: every
- * selector is rewritten under the sheet's scope, selectors that could reach
- * the app around it are dropped, and nothing loads a resource.
+ * The agent's CSS, parsed by the browser and confined to the sheet with
+ * @scope: whatever a selector says, it can only match inside the sheet's
+ * element. A browser without @scope ignores the block, so it fails closed.
+ * Nothing in it loads a resource.
  */
 export function scopeCss(css: string, scope: string): string {
   if (!css.trim() || typeof CSSStyleSheet === 'undefined') return ''
@@ -122,9 +120,11 @@ export function scopeCss(css: string, scope: string): string {
   } catch {
     return ''
   }
-  const out: string[] = []
-  scopeRules(sheet.cssRules, scope, out)
-  return out.join('\n')
+  const rules: string[] = []
+  const keyframes: string[] = []
+  flatRules(sheet.cssRules, rules, keyframes)
+  const scoped = rules.length ? `@scope (${scope}) {\n${rules.join('\n')}\n}` : ''
+  return [...keyframes, scoped].filter(Boolean).join('\n')
 }
 
 export interface ParsedSheet {

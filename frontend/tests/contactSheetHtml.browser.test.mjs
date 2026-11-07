@@ -39,9 +39,15 @@ test('agent CSS stays inside the sheet and loads nothing', async t => {
       .outer { .inner { color: red } }
       @font-face { font-family: x; src: url(https://evil.example/font) }
       @media (min-width: 1px) { .tile { padding: 2px } }
+      [data-x="a\\""], body { border-top: 7px solid red }
+      .pic { --pic: u\\72l(https://evil.example/custom); background-image: var(--pic) }
+      .ok { --tone: rgb(4, 5, 6); border-left: 2px solid var(--tone) }
     </style>
     <div class="tile">tile</div>
-    <div class="card" style="background: u\\72l(https://evil.example/inline); margin: 4px">card</div>`
+    <div class="pic">pic</div>
+    <div class="ok">ok</div>
+    <div class="card" style="background: u\\72l(https://evil.example/inline); margin: 4px">card</div>
+    <div class="inline-var" style="--pic: u\\72l(https://evil.example/inline-var); background-image: var(--pic)">x</div>`
     const parsed = parseSheet(html, scope)
     const host = document.createElement('div')
     host.setAttribute('data-sheet-scope', 's1')
@@ -55,16 +61,20 @@ test('agent CSS stays inside the sheet and loads nothing', async t => {
       css: parsed.css,
       bodyDisplay: getComputedStyle(document.body).display,
       bodyOutline: getComputedStyle(document.body).outlineStyle,
+      bodyBorder: getComputedStyle(document.body).borderTopStyle,
+      okBorder: getComputedStyle(host.querySelector('.ok')).borderLeftColor,
       tileColor: getComputedStyle(tile).color,
       tilePadding: getComputedStyle(tile).paddingTop,
-      cardStyle: card.getAttribute('style') || '',
+      cardStyle: (card.getAttribute('style') || '') + (host.querySelector('.inline-var').getAttribute('style') || ''),
       cardMargin: getComputedStyle(card).marginTop,
     }
   })
   await page.waitForTimeout(300)
   assert.equal(result.bodyDisplay, 'block', 'nothing in a sheet hides the app')
   assert.equal(result.bodyOutline, 'none', 'a selector list cannot reach an ancestor')
+  assert.equal(result.bodyBorder, 'none', 'an escaped quote cannot end the scope early')
   assert.equal(result.tileColor, 'rgb(1, 2, 3)', 'ordinary rules still style the sheet')
+  assert.equal(result.okBorder, 'rgb(4, 5, 6)', 'plain custom properties still work')
   assert.equal(result.tilePadding, '2px', 'media queries are kept, scoped')
   assert.equal(result.cardMargin, '4px', 'safe inline styles are kept')
   assert.ok(!/url|evil/i.test(result.css + result.cardStyle), result.css + result.cardStyle)
