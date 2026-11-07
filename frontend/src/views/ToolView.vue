@@ -3897,6 +3897,13 @@ const promptProgram = usePromptProgram({
       const ids = imgs.map(i => i?.mediaId ?? i?._videoSource?.mediaId ?? null)
       if (ids.some(x => x != null)) p.input_media_ids = ids
     }
+    // Video tools: the start frame (the enhancer sees it, so it's part of the key).
+    const start: any = videoImages.startImage
+    if (start?.mediaId != null && !imgs.length) p.input_media_ids = [start.mediaId]
+    // A driving audio track changes the enhancer's style too (see enhanceAudioConditioned).
+    if (audioInputConfig.value && audioInputConfig.value.audioRole !== 'reference' && (globalPrefs.value.inputAudios?.length ?? 0) > 0) {
+      p.input_audios = globalPrefs.value.inputAudios.map(() => 'ref')
+    }
     if (modelParams.width) p.width = Number(modelParams.width)
     if (modelParams.height) p.height = Number(modelParams.height)
     return p

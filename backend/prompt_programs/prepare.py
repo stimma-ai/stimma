@@ -294,8 +294,10 @@ def mask_exact(prompt: str) -> Tuple[str, Dict[str, str]]:
 
 
 def unmask_exact(text: str, exact: Dict[str, str]) -> str:
+    """Put the user's text back, still in [brackets]: later steps (Translate) keep
+    bracketed text untouched, and the final cleanup removes the brackets."""
     for token, original in sorted((exact or {}).items(), key=lambda kv: -len(kv[0])):  # EXACT_10 before EXACT_1
-        text = text.replace(f"[{token}]", original).replace(token, original)
+        text = text.replace(f"[{token}]", token).replace(token, f"[{original}]")
     return text
 
 

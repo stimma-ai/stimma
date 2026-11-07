@@ -286,7 +286,24 @@ class TestPrepare:
     def test_masking_round_trips(self):
         masked, exact = prep.mask_exact("a [sign that says OPEN] on {a|b}, [{{x}}] and [neon]")
         assert masked == "a [EXACT_1] on {a|b}, [{{x}}] and [EXACT_2]"
-        assert prep.unmask_exact("A EXACT_1 and [EXACT_2].", exact) == "A sign that says OPEN and neon."
+        assert prep.unmask_exact("A EXACT_1 and [EXACT_2].", exact) == "A [sign that says OPEN] and [neon]."
+
+    async def test_exact_text_stays_protected_through_translate(self, monkeypatch):
+        # After a run the text is back in brackets, so Translate's verbatim protection
+        # hides it from the translation model and the final cleanup unwraps it.
+        import prompt_pipeline as pp
+        seen = []
+
+        async def fake_translate(text, language, project_id):
+            seen.append(text)
+            return text.replace("a woman", "una mujer")
+
+        monkeypatch.setattr(pp, "_profile_wildcards_and_segments", lambda profile_id: ([], []))
+        monkeypatch.setattr(pp, "_translate_with_verbatim_protection",
+                            lambda text, lang, pid: _protected(text, lang, pid, fake_translate))
+        out = await pp.run_prompt_pipeline(None, "a woman under a sign that says [OPEN ALL NIGHT]",
+                                           {"translate": {"enabled": True, "language": "es"}})
+        assert "OPEN ALL NIGHT" not in " ".join(seen) and out == "una mujer under a sign that says OPEN ALL NIGHT"
 
     def test_protects_variable_spots(self):
         out = prep.protect_variable_spots("a {{hair style}} on a {red|blue} wall, [keep] {single}")
@@ -455,6 +472,13 @@ class TestRerollEdits:
         assert run(src, 1, None, [], set(), None, {"top": {"remove": ["a", "b"]}}).prompt.lower() in {"a", "b"}
 
 
+async def _protected(text, lang, pid, translate):
+    """The real masking from prompt_pipeline around a fake translation call."""
+    from prompt_pipeline import extract_verbatim, restore_verbatim
+    masked, segs = extract_verbatim(text)
+    return restore_verbatim(await translate(masked, lang, pid), segs)
+
+
 class TestLoraChoices:
     def test_trigger_words_can_be_left_out_of_picked_loras(self):
         entry = {"program": 'hair = pick_lora("hairstyle", ["Curtain bangs", "Wolf cut"], label="Hairstyle")\nemit("a woman")\n',
@@ -517,3 +541,23 @@ class TestTriggerWordsAreOptIn:
 
     async def test_raw_never(self, monkeypatch):
         assert await self._run(monkeypatch, {"raw": True, "loraTriggers": True}) == "a woman"
+
+
+class TestEditorAndRunAgreeOnTheKey:
+    """The editor prepares with a sketch of the inputs (frontend contextParams); a run
+    prepares with the real parameters. The parts of the key that depend on inputs must
+    come out the same, or a run prepares a second program."""
+
+    def test_video_start_frame(self):
+        from routes.generation import _prompt_media_id
+        editor = {"input_media_ids": [42]}
+        run = {"image": "/library/frame.png", "image_media_id": 42}
+        assert _prompt_media_id(editor, "image-to-video") == _prompt_media_id(run, "image-to-video") == 42
+
+    def test_driving_audio(self):
+        from routes.generation import _prompt_audio_conditioned
+        schema = {"input_audios": {"x-control": "audio_picker"}}
+        assert _prompt_audio_conditioned({"input_audios": ["ref"]}, schema)
+        assert _prompt_audio_conditioned({"input_audios": ["/library/voice.wav"]}, schema)
+        ref = {"input_audios": {"x-control": "audio_picker", "x-audio-role": "reference"}}
+        assert not _prompt_audio_conditioned({"input_audios": ["ref"]}, ref)  # the editor doesn't send it either
