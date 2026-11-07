@@ -32,98 +32,62 @@
           role="menu"
           @click.stop
         >
-          <!-- A little marketing: what Fluent is for. -->
-          <div class="px-3 pt-2 pb-2.5">
-            <div class="flex items-center gap-1.5 text-[13px] font-semibold text-content">
-              <WandSparklesIcon class="w-3.5 h-3.5 text-accent" /> {{ BRAND }}
+          <!-- The brand, one line about the current choice, and the two corner tools. -->
+          <div class="px-3 pt-2 pb-2.5 flex items-start gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 text-[13px] font-semibold text-content">
+                <WandSparklesIcon class="w-3.5 h-3.5 text-accent" /> {{ BRAND }}
+              </div>
+              <div class="mt-0.5 text-[12px] leading-snug text-content-secondary">{{ tagline }}</div>
             </div>
-            <div class="mt-0.5 text-[12px] leading-snug text-content-secondary">
-              {{ tagline }}
-            </div>
+            <button type="button" class="shrink-0 p-1 -mt-0.5 rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle" title="Prompt tips" aria-label="Prompt tips"
+              @click="menuOpen = false; emit('help', chip?.getBoundingClientRect() ?? null)">
+              <QuestionMarkCircleIcon class="w-4 h-4" />
+            </button>
+            <button v-if="devModeRef && program.status.value !== 'off'" type="button" class="shrink-0 p-1 -mt-0.5 -mr-1 rounded-md text-amber-500 hover:text-amber-400 hover:bg-overlay-subtle" title="Show program (dev)" aria-label="Show program"
+              @click="menuOpen = false; showProgram()">
+              <CodeBracketIcon class="w-4 h-4" />
+            </button>
           </div>
 
-          <!-- Only when there's something to wait for or fix. -->
-          <div v-if="notice" :class="['mx-3 mb-2 rounded-md px-2.5 py-2 text-[12px] leading-snug', notice.tone === 'bad' ? 'bg-red-500/10 text-red-400' : 'bg-overlay-subtle text-content-secondary']">
-            <div class="flex items-center gap-1.5 font-medium">
-              <Spinner v-if="busy" size="sm" />{{ notice.head }}
-            </div>
-            <div v-if="notice.body" class="mt-0.5 text-content-tertiary">{{ notice.body }}</div>
-            <div v-if="notice.detail" class="mt-1 font-mono text-[10.5px] text-content-muted break-words">{{ notice.detail }}</div>
-            <div v-if="notice.actions?.length" class="mt-1.5 flex gap-3">
-              <button v-for="a in notice.actions" :key="a.label" type="button" class="text-[12px] font-medium text-content hover:underline" @click="a.run()">{{ a.label }}</button>
-            </div>
+          <!-- One of two ways; Fluent's own settings live under it. -->
+          <div class="px-3 pb-2">
+            <SegmentedControl
+              :model-value="way"
+              :options="[{ label: BRAND, value: 'fluent' }, { label: 'Verbatim', value: 'verbatim' }]"
+              aria-label="How the prompt is sent"
+              @update:model-value="(v) => pickWay(v as 'fluent' | 'verbatim')"
+            />
           </div>
 
-          <div class="border-t border-edge-subtle my-1" />
-          <!-- Fluent (with Upsample prompt) or Verbatim: two positive choices. -->
-          <button
-                        type="button"
-            role="menuitemradio"
-            :aria-checked="way === ways[0].id"
-            :disabled="ways[0].id === 'fluent' && llmUnconfigured"
-            class="w-full text-left px-3 py-1.5 coarse:py-3 flex items-start gap-2.5 hover:bg-overlay-subtle disabled:opacity-40 disabled:pointer-events-none"
-            @click="pickWay(ways[0].id)"
-          >
-            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-full border flex items-center justify-center', way === ways[0].id ? 'border-accent' : 'border-edge-strong']">
-              <span v-if="way === ways[0].id" class="w-1.5 h-1.5 rounded-full bg-accent" />
-            </span>
-            <span class="min-w-0">
-              <span class="block text-[12px] coarse:text-[13px] text-content">{{ ways[0].label }}</span>
-
-            </span>
-          </button>
-
-          <!-- Under Fluent: the one thing people are choosy about. -->
-          <button
-            v-if="way === 'fluent' && !program.unsupported.value"
-            type="button"
-            role="menuitemcheckbox"
-            :aria-checked="elaborate"
-            :disabled="llmUnconfigured"
-            class="w-full text-left pl-[34px] pr-3 py-1.5 coarse:py-3 flex items-start gap-2.5 hover:bg-overlay-subtle disabled:opacity-40 disabled:pointer-events-none"
-            @click="emit('mode', !elaborate)"
-          >
-            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-[3px] border flex items-center justify-center', elaborate ? 'bg-accent border-accent text-white' : 'border-edge-strong']">
-              <CheckIcon v-if="elaborate" class="w-2.5 h-2.5" />
-            </span>
-            <span class="min-w-0">
-              <span class="block text-[12px] coarse:text-[13px] text-content">Upsample prompt</span>
-            </span>
-          </button>
-
-          <button
-                        type="button"
-            role="menuitemradio"
-            :aria-checked="way === ways[1].id"
-            :disabled="ways[1].id === 'fluent' && llmUnconfigured"
-            class="w-full text-left px-3 py-1.5 coarse:py-3 flex items-start gap-2.5 hover:bg-overlay-subtle disabled:opacity-40 disabled:pointer-events-none"
-            @click="pickWay(ways[1].id)"
-          >
-            <span :class="['mt-[3px] shrink-0 w-3 h-3 rounded-full border flex items-center justify-center', way === ways[1].id ? 'border-accent' : 'border-edge-strong']">
-              <span v-if="way === ways[1].id" class="w-1.5 h-1.5 rounded-full bg-accent" />
-            </span>
-            <span class="min-w-0">
-              <span class="block text-[12px] coarse:text-[13px] text-content">{{ ways[1].label }}</span>
-              <span class="block text-[11px] text-content-muted leading-snug">{{ ways[1].hint }}</span>
-            </span>
-          </button>
-          <template v-if="retake">
-            <div class="border-t border-edge-subtle my-1" />
-            <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 hover:bg-overlay-subtle" @click="menuOpen = false; program.rethink()">
-              <span class="block text-[12px] coarse:text-[13px] text-content">{{ retake.label }}</span>
+          <template v-if="way === 'fluent'">
+            <div v-if="notice" :class="['mx-3 mb-2 rounded-md px-2.5 py-2 text-[12px] leading-snug', notice.tone === 'bad' ? 'bg-red-500/10 text-red-400' : 'bg-overlay-subtle text-content-secondary']">
+              <div class="flex items-center gap-1.5 font-medium">
+                <Spinner v-if="busy" size="sm" />{{ notice.head }}
+              </div>
+              <div v-if="notice.detail" class="mt-1 font-mono text-[10.5px] text-content-muted break-words">{{ notice.detail }}</div>
+              <div v-if="notice.actions?.length" class="mt-1.5 flex gap-3">
+                <button v-for="a in notice.actions" :key="a.label" type="button" class="text-[12px] font-medium text-content hover:underline" @click="a.run()">{{ a.label }}</button>
+              </div>
+            </div>
+            <div class="border-t border-edge-subtle" />
+            <label
+              v-if="!program.unsupported.value"
+              :class="['flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer', llmUnconfigured ? 'opacity-40 pointer-events-none' : '']"
+            >
+              <span class="flex-1 text-[12px] coarse:text-[13px] text-content">Enhance prompt</span>
+              <Toggle :model-value="elaborate" label="Enhance prompt" @update:model-value="(v) => emit('mode', v)" />
+            </label>
+            <button
+              v-if="retake"
+              type="button"
+              role="menuitem"
+              class="w-full text-left flex items-center gap-2 px-3 py-2 coarse:py-3 text-[12px] coarse:text-[13px] text-content hover:bg-overlay-subtle"
+              @click="menuOpen = false; program.rethink()"
+            >
+              <ArrowPathIcon class="w-3.5 h-3.5 text-content-tertiary" />{{ retake.label }}
             </button>
           </template>
-
-          <div class="border-t border-edge-subtle my-1" />
-          <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 text-[12px] coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="menuOpen = false; emit('help', chip?.getBoundingClientRect() ?? null)">
-            Prompt tips
-          </button>
-          <button
-            v-if="devModeRef && program.status.value !== 'off'"
-            type="button"
-            class="w-full text-left px-3 py-1.5 coarse:py-3 text-[12px] coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle hover:text-content flex items-center justify-between"
-            @click="menuOpen = false; showProgram()"
-          >Show program <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span></button>
         </div>
       </div>
       <!-- Dev: the prepared program, how preparing went, and live sample runs. -->
@@ -190,7 +154,9 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon } from '@heroicons/vue/24/solid'
-import { Bars3BottomLeftIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, Bars3BottomLeftIcon, CodeBracketIcon, QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
+import SegmentedControl from '../ui/SegmentedControl.vue'
+import Toggle from '../ui/Toggle.vue'
 import type { PromptProgram } from '../../composables/usePromptProgram'
 import { devModeRef } from '../../appConfig'
 import ReadOnlyCode from '../viewers/ReadOnlyCode.vue'
@@ -225,18 +191,16 @@ const programText = ref<string | null>(null)
 const way = computed(() => (props.raw ? 'verbatim' : 'fluent'))
 // What Fluent honestly does with the current setting: fresh choices always; the
 // model's own style only when it upsamples.
-const tagline = computed(() => props.elaborate || props.program.unsupported.value
-  ? `Fresh choices every image, written the way ${props.modelName || 'this model'} likes.`
-  : 'Fresh choices every image, in your own words.')
+const tagline = computed(() => props.raw
+  ? 'Sent exactly as you typed it.'
+  : props.elaborate || props.program.unsupported.value
+    ? `Fresh choices every image, written the way ${props.modelName || 'this model'} likes.`
+    : 'Fresh choices every image, in your own words.')
 const detail = computed(() => props.elaborate || props.program.unsupported.value)
 const on = computed(() => !props.raw && !props.llmUnconfigured)
 const busy = computed(() => on.value && props.program.status.value === 'busy')
 const failed = computed(() => on.value && props.program.status.value === 'error')
 
-const ways = [
-  { id: 'fluent' as const, label: BRAND, hint: '' },
-  { id: 'verbatim' as const, label: 'Verbatim', hint: 'Sent exactly as you typed it' },
-]
 
 const chipText = computed(() => {
   if (props.raw) return 'Verbatim'
@@ -248,7 +212,7 @@ const chipTitle = computed(() => {
   if (props.llmUnconfigured) return `${BRAND} needs a chat model`
   if (busy.value) return 'Reading your prompt…'
   if (failed.value) return `${BRAND} couldn’t read this prompt`
-  return detail.value ? `${BRAND}, upsampling the prompt` : `${BRAND}, in your own words`
+  return detail.value ? `${BRAND}, enhancing the prompt` : `${BRAND}, in your own words`
 })
 
 type Action = { label: string; run: () => void }
@@ -293,7 +257,7 @@ const retake = computed(() => {
 })
 
 function pickWay(id: 'fluent' | 'verbatim') {
-  menuOpen.value = false
+  // The menu stays open: choosing Fluent shows its settings right under it.
   if ((id === 'verbatim') !== props.raw) emit('raw', id === 'verbatim')
 }
 

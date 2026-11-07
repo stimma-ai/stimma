@@ -201,7 +201,7 @@
                 :style="editorMenuPos"
               >
                 <div class="flex items-center justify-between mb-3">
-                  <span class="text-xs font-medium text-content-secondary">Prompt syntax</span>
+                  <span class="text-xs font-medium text-content-secondary">{{ hasMode ? 'Prompt tips' : 'Prompt syntax' }}</span>
                   <button @click="showHelp = false" class="text-content-muted hover:text-content-secondary p-0.5">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -209,6 +209,17 @@
                   </button>
                 </div>
 
+                <!-- Tool View: tips for writing prompts with Fluent, at the user's level. -->
+                <template v-if="hasMode">
+                  <div v-for="tip in fluentTips" :key="tip.title" class="mb-3 last:mb-0">
+                    <div class="flex items-baseline gap-2 mb-0.5">
+                      <span class="text-xs font-medium text-content-secondary">{{ tip.title }}</span>
+                      <code v-if="tip.example" :class="['px-1.5 py-0.5 rounded text-[11px]', tip.tone]" v-text="tip.example"></code>
+                    </div>
+                    <p class="text-xs text-content-tertiary leading-relaxed">{{ tip.text }}</p>
+                  </div>
+                </template>
+                <template v-else>
                 <!-- Wildcards -->
                 <div class="mb-3">
                   <div class="flex items-center gap-2 mb-1">
@@ -279,6 +290,7 @@
                     In this menu. Sends the prompt untouched, braces, brackets and # lines included, for prompts another stage will process.
                   </p>
                 </div>
+                </template>
               </div>
             </Teleport>
           </div>
@@ -523,6 +535,21 @@ const slots = useSlots()
 const hasMode = computed(() => !!slots.mode)
 const rawInMenu = computed(() => !props.hideAutoImprove && !hasMode.value)
 const brand = PROMPT_BRAND
+// The tips panel in Tool View: what to write, in the user's words.
+const fluentTips = [
+  { title: 'Let it vary', example: '{{hairstyle}}', tone: 'text-amber-600 bg-amber-500/10',
+    text: `Put anything in double braces and ${PROMPT_BRAND} writes options for it. Every image picks one. A saved wildcard uses your own list.` },
+  { title: 'Your own list', example: '{red|blue|green}', tone: 'text-green-600 bg-green-500/10',
+    text: 'Every image picks one of yours.' },
+  { title: `Tell ${PROMPT_BRAND}`, example: '# vary her expression', tone: 'text-gray-500 italic bg-zinc-500/10',
+    text: `A line starting with # is a note to ${PROMPT_BRAND}. It never ends up in the image prompt.` },
+  { title: 'Keep it exact', example: '[a sign that says OPEN]', tone: 'text-blue-500 bg-blue-500/10',
+    text: 'Words in square brackets are kept exactly as written.' },
+  { title: 'Enhance prompt', example: '', tone: '',
+    text: 'Writes the fuller prompt this model does best with. Turn it off to keep your own wording.' },
+  { title: 'Verbatim', example: '', tone: '',
+    text: 'Sends exactly what you typed, braces and all.' },
+]
 function setRaw(on: boolean) {
   emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
 }
