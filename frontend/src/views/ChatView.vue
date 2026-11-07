@@ -948,6 +948,7 @@
                 v-if="getSheetItem(item)"
                 :artifact="getSheetItem(item).artifact"
                 :media-id="getSheetItem(item).mediaId"
+                :latest="latestSheetItemIds.has(item.id)"
                 :in-panel="!embedded && artifactStage.stageOpen.value && !artifactStage.workspaceFile.value && artifactStage.assetId.value === getSheetItem(item).artifact.asset_id"
                 @click="openSheetFromChat(getSheetItem(item))"
               />
@@ -1845,6 +1846,17 @@ function getSheetItem(item) {
   if (getMediaType({ file_format: output?.file_format || '' }) !== 'sheet') return null
   return { artifact: meta, mediaId: output.media_id }
 }
+
+// The newest update of each sheet shows as its card, so the sheet is always
+// findable where the work is; earlier updates fold to one line each.
+const latestSheetItemIds = computed(() => {
+  const latestByAsset = new Map()
+  for (const item of items.value) {
+    const sheet = getSheetItem(item)
+    if (sheet) latestByAsset.set(sheet.artifact.asset_id, item.id)
+  }
+  return new Set(latestByAsset.values())
+})
 
 function getSheetReview(item) {
   if (item?.item_type !== 'user_message' || !item.item_metadata) return null
