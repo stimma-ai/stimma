@@ -182,10 +182,10 @@
         <div
           v-for="f in agentFlashes"
           :key="f.id"
-          class="flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+          class="flex max-w-full items-center gap-1.5 rounded-full border bg-surface px-2.5 py-1 text-xs"
           :class="f.kind === 'error'
-            ? 'border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-300'
-            : 'border-purple-500/25 bg-purple-500/10 text-purple-700 dark:text-purple-200'"
+            ? 'border-red-500/30 text-red-700 dark:text-red-300'
+            : 'border-purple-500/30 text-purple-700 dark:text-purple-200'"
         >
           <SparklesIcon v-if="f.kind === 'reply'" class="h-3 w-3 flex-shrink-0 text-purple-500 dark:text-purple-400" />
           <span class="whitespace-pre-wrap leading-snug">{{ f.text }}</span>
@@ -253,7 +253,7 @@
             v-model="instructionsText"
             rows="3"
             placeholder="Standing guidance for this tool — e.g. prefer portrait framing, keep skin texture realistic, avoid harsh lighting."
-            class="w-full bg-surface border border-edge rounded-lg text-content text-xs px-3 py-2 focus:outline-none focus:border-accent resize-y font-sans leading-relaxed"
+            class="w-full bg-field border-0 rounded-md text-content text-xs px-3 py-2 focus:outline-none focus:ring-1 focus:ring-accent/40 resize-y font-sans leading-relaxed"
           ></textarea>
         </div>
       </div>
@@ -263,9 +263,9 @@
          fill, no hairline. One shape in every state, so no control moves under
          the pointer: wide, one row of label, field, utilities and Send, with the
          field growing as it wraps; narrow, the field above the controls. -->
-    <div class="@container">
+    <div class="@container bg-surface rounded-md">
     <div
-      class="grid grid-cols-[1fr_auto] [grid-template-areas:'text_text'_'utils_send'] bg-field rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-accent/40 @[480px]:grid-cols-[auto_1fr_auto_auto] @[480px]:items-end @[480px]:[grid-template-areas:'label_text_utils_send']"
+      class="grid grid-cols-[1fr_auto] [grid-template-areas:'text_text'_'utils_send'] bg-field rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-inset focus-within:ring-accent/40 @[480px]:grid-cols-[auto_1fr_auto_auto] @[480px]:items-end @[480px]:[grid-template-areas:'label_text_utils_send']"
       data-testid="agent-dock"
     >
       <span class="hidden @[480px]:inline-flex [grid-area:label] h-10 items-center gap-1.5 pl-3 text-content-secondary">
@@ -330,7 +330,7 @@
     </div>
     </div>
 
-    <div v-if="error" class="mt-2 flex items-center gap-2">
+    <div v-if="error" class="mt-2 flex w-fit items-center gap-2 rounded-md bg-surface px-2 py-1">
       <p class="text-xs text-red-500">{{ error }}</p>
       <button
         v-if="isInsufficientBalanceCode(errorCode)"

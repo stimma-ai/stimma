@@ -984,7 +984,7 @@
         <div
           id="agent-dock-result"
           v-show="!llmUnconfigured && agentDocked && agentOnResult"
-          class="absolute left-0 right-4 bottom-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-lg border border-edge-subtle bg-surface p-3 empty:hidden"
+          class="absolute left-4 right-4 bottom-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto empty:hidden"
         ></div>
       </div>
 
@@ -1169,7 +1169,7 @@
         <div
           id="agent-dock"
           v-show="!llmUnconfigured && agentDocked"
-          class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface p-3 max-h-[45%] empty:hidden roomy:p-2 roomy:max-h-[35%] roomy:pb-safe"
+          class="flex-none overflow-y-auto mx-3 mb-3 max-h-[45%] empty:hidden roomy:max-h-[35%] roomy:pb-safe"
         ></div>
       </div>
     </template>
@@ -1941,9 +1941,8 @@ const heroColRef = ref<HTMLElement | null>(null)
 // composer stacks below 480px (PromptAgentChat).
 const agentReserve = computed(() => {
   if (!agentOnResult.value || llmUnconfigured.value) return 0
-  const panelChrome = 26
-  const composerH = (heroColSize.value?.w ?? 0) - panelChrome < 480 ? 84 : 40
-  return panelChrome + composerH
+  // The dock is a plain wrapper inset 16px each side; the composer is the only surface.
+  return (heroColSize.value?.w ?? 0) - 32 < 480 ? 84 : 40
 })
 const heroColSize = ref<{ w: number, h: number } | null>(null)
 const heroNatural = ref<{ w: number, h: number } | null>(null)
