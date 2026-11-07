@@ -538,4 +538,68 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
                clean_edits or None)
 
 
-__all__ = ["ensure_program", "realize", "draw_seed", "realized_text", "tidy_text", "ProgramError"]
+_OPTIONS_PROMPT = """You write options for one choice in an image prompt. Each image draws one option and
+puts it in the prompt where the choice stands.
+
+Write exactly {count} new options for "{label}"{about}. Each option:
+- is a concrete, visual phrase that reads naturally in place of the example below,
+- matches the existing options in style and length{keep},
+- differs for real from every other option and from the existing ones (no synonyms),
+- fits the rest of the prompt,
+- says what to show, never what to leave out (no "no", "not", "without").
+
+Reply with only a JSON list of strings."""
+
+
+def _parse_options(reply: str) -> List[str]:
+    import json
+    text = re.sub(r"^```\w*\s*|\s*```$", "", (reply or "").strip())
+    m = re.search(r"\[.*\]", text, re.S)
+    try:
+        items = json.loads(m.group(0)) if m else []
+    except ValueError:
+        items = []
+    if not items:  # one per line, bullets or numbers stripped
+        items = [re.sub(r"^\s*(?:[-*\u2022]|\d+[.)])\s*", "", ln).strip().strip('",') for ln in text.splitlines()]
+    return [str(x).strip() for x in items if isinstance(x, (str, int, float)) and str(x).strip()]
+
+
+async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Sequence[str], count: int,
+                          project_id: Optional[int]) -> List[str]:
+    """New options for one choice of a prepared program, in the style of its others.
+    Called by the choice card (More like these, Reroll all); never during a run."""
+    choice = next((c for c in entry.get("choices") or [] if c.get("id") == choice_id), None)
+    if not choice or choice.get("kind") != "pick":
+        raise ProgramError(f"No choice {choice_id} to write options for.")
+    count = max(1, min(12, int(count)))
+    wildcard = choice.get("wildcard")
+    system = _OPTIONS_PROMPT.format(
+        count=count, label=choice.get("label") or choice_id,
+        about=f' (the user wrote {{{{{wildcard}}}}})' if wildcard and wildcard.lower() != str(choice.get("label", "")).lower() else "",
+        keep="; short, a few words, like the user's own wording" if entry.get("elaborate") is False else "",
+    )
+    have = list(dict.fromkeys(str(x) for x in existing if str(x).strip()))
+    user = "\n".join([
+        f"User's prompt:\n{entry.get('prompt', '')}",
+        "",
+        f"Example prompt:\n{entry.get('example') or entry.get('enhanced') or ''}",
+        "",
+        "Existing options (don't repeat these):",
+        *[f"- {o}" for o in have],
+    ])
+    seen = {o.lower() for o in have}
+    out: List[str] = []
+    for _ in range(2):  # one retry if the model repeats itself
+        reply = await _ask_model([{"role": "system", "content": system}, {"role": "user", "content": user}], project_id)
+        for o in _parse_options(reply):
+            if o.lower() not in seen and len(out) < count:
+                seen.add(o.lower())
+                out.append(o)
+        if len(out) >= count:
+            break
+    if not out:
+        raise ProgramError("The model didn't write any new options.")
+    return out
+
+
+__all__ = ["ensure_program", "realize", "draw_seed", "realized_text", "tidy_text", "suggest_options", "ProgramError"]

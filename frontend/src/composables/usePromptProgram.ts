@@ -216,6 +216,24 @@ export function usePromptProgram(o: Options) {
     return { program: data?.program || '', enhanced: data?.enhanced || '' }
   }
 
+  /** The card's More like these (adds options) and Reroll all (replaces every option,
+      and clears the pins on it). One small model call; the result lives in the edits. */
+  async function suggestOptions(c: ProgramChoice, mode: 'more' | 'reroll', count = 6): Promise<void> {
+    const current = optionsOf(c)
+    const { data } = await axios.post(`${getApiBase()}/prompt-programs/options`, request({
+      cache_only: true, choice_id: c.id, existing: current, count,
+    }))
+    const fresh: string[] = (data?.options || []).filter((x: string) => !current.includes(x))
+    if (!fresh.length) return
+    const e = edits.value[c.id] || {}
+    if (mode === 'more') {
+      setEdit(c.id, { ...e, add: [...(e.add || []), ...fresh] })
+    } else {
+      setEdit(c.id, { ...e, remove: [...c.options], add: fresh })
+      setPins(c.id, [])
+    }
+  }
+
   /** Dev debugging: a few runs with the current pins and edits, no model call. */
   async function previewRuns(n = 5): Promise<Array<{ prompt: string; draws: any[]; params: Record<string, any> }>> {
     const out = []
@@ -336,7 +354,7 @@ export function usePromptProgram(o: Options) {
 
   return {
     program, status, error, signature, elaborate: o.elaborate, pins, edits, choices, rows, byId, openCard,
-    prepare, ensureReady, needsPrepare, payload, lookup, fetchProgramText, previewRuns,
+    prepare, ensureReady, needsPrepare, payload, lookup, fetchProgramText, previewRuns, suggestOptions,
     setPins, setManyPins, setEdit, optionsOf, valueText, isPinned, visible,
     loraControl, paramControl, open, close,
   }

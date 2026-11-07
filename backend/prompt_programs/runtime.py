@@ -250,11 +250,14 @@ class _Runner:
         edit = self.edits.get(cid) or {}
         if edit.get("off"):
             return None  # removed by the user: the detail is left to the image model
+        written = opts
         if edit.get("remove"):
-            opts = [o for o in opts if o not in set(edit["remove"])] or opts
+            opts = [o for o in opts if o not in set(edit["remove"])]
         for extra in edit.get("add") or []:
             if str(extra).strip() and str(extra) not in opts:
                 opts.append(str(extra))
+        if not opts:  # never leave a choice empty: removing everything means the program's own
+            opts = written
         if not opts:
             return None
         value, pinned = self._choose(cid, opts, uniform=(source == "list"), exclude=exclude or ())

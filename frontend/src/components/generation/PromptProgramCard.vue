@@ -1,75 +1,89 @@
 <template>
-  <!-- A choice's card: the same look as the prompt-idea submenu. Options are pills;
-       selecting some limits the draw, one pins it, none is "any". -->
+  <!-- A choice's card. Each image draws one of the options; ticking some limits the
+       draw to those. The model can write more options or a whole new set. -->
   <Teleport to="body">
-    <div v-if="card" class="fixed inset-0 z-menu" @click="program.close()" @keydown.escape="program.close()">
+    <div v-if="card" class="fixed inset-0 z-menu" @click="program.close()">
       <div
         ref="menuRef"
         data-escape-layer
         data-program-card
-        :class="['fixed z-menu suggestion-submenu-card rounded-lg border border-edge p-3 max-w-[calc(100vw-16px)]', long ? 'w-[420px]' : 'w-[340px]']"
+        :class="['fixed z-menu bg-surface border border-edge-subtle rounded-lg shadow-lg max-w-[calc(100vw-16px)] flex flex-col max-h-[70vh]', wide ? 'w-[420px]' : 'w-[340px]']"
         :style="menuStyle"
         @click.stop
       >
         <!-- One person's attribute, opened from the group grid -->
         <template v-if="member">
-          <div class="relative text-xs font-semibold text-content-secondary text-center mb-0.5">
-            <button type="button" class="absolute left-0 top-0 font-medium text-content-tertiary hover:text-content-secondary" @click="memberId = null">‹ {{ group?.label }}</button>
-            {{ group?.label }} {{ member.index }} · {{ attrLabel(member) }}
-          </div>
-          <div v-if="ruleNote(member)" class="text-[11px] text-content-muted text-center mb-2">{{ ruleNote(member) }}</div>
-          <OptionPills :choice="member" :program="program" deletable />
-          <div class="border-t border-edge mt-2 pt-2 flex justify-center gap-1">
-            <button type="button" :class="actionClass" @click="program.setPins(member.id, [])">any</button>
-          </div>
+          <CardHeader :title="`${group?.label} ${member.index} · ${member.label}`" :back="group?.label" @back="memberId = null" />
+          <DrawLine :choice="member" :program="program" />
+          <OptionRows :choice="member" :program="program" deletable addable />
         </template>
 
         <!-- A group (People ×3): rows are attributes, columns are people -->
         <template v-else-if="group">
-          <div class="text-xs font-semibold text-content-secondary text-center">{{ group.label }} ×{{ group.count }}</div>
-          <div class="text-[11px] text-content-muted text-center mb-2">From your prompt</div>
-          <table class="w-full border-collapse">
-            <tr>
-              <th />
-              <th v-for="i in group.count" :key="i" class="text-[11px] font-semibold text-content-tertiary text-left px-1 pb-1">{{ i }}</th>
-            </tr>
-            <tr v-for="attr in groupAttrs" :key="attr">
-              <td class="pr-2 py-0.5 text-[12px] text-content-secondary whitespace-nowrap align-middle">
-                <WandSparklesIcon v-if="attrChoice(attr, 1)?.source === 'added'" class="inline w-2.5 h-2.5 mr-0.5 text-content-tertiary" />{{ attrLabel(attrChoice(attr, 1)) }}
-              </td>
-              <td v-for="i in group.count" :key="i" class="px-1 py-0.5">
-                <button
-                  v-if="attrChoice(attr, i)"
-                  type="button"
-                  :class="['px-2 py-0.5 text-[11.5px] rounded-full whitespace-nowrap suggestion-submenu-pill', program.isPinned(attrChoice(attr, i)!) ? '!bg-selection/20 !text-selection' : '']"
-                  @click="memberId = attrChoice(attr, i)!.id"
-                >{{ program.valueText(attrChoice(attr, i)!) }}</button>
-              </td>
-            </tr>
-          </table>
-          <div class="border-t border-edge mt-2 pt-2 flex justify-center gap-1">
-            <button type="button" :class="actionClass" @click="clearGroup">any</button>
-            <button v-if="group.line" type="button" :class="actionClass" @click="show(group.line)">show in prompt</button>
+          <CardHeader :title="`${group.label} ×${group.count}`" note="From your prompt" :line="group.line" @show="show" />
+          <div class="px-3 pb-3 overflow-y-auto">
+            <table class="w-full border-collapse">
+              <tr>
+                <th />
+                <th v-for="i in group.count" :key="i" class="text-[11px] font-medium text-content-tertiary text-left px-1 pb-1">{{ i }}</th>
+              </tr>
+              <tr v-for="attr in groupAttrs" :key="attr">
+                <td class="pr-2 py-0.5 text-xs text-content-secondary whitespace-nowrap align-middle">
+                  <WandSparklesIcon v-if="attrChoice(attr, 1)?.source === 'added'" class="inline w-2.5 h-2.5 mr-0.5 text-content-tertiary" />{{ attrChoice(attr, 1)?.label }}
+                </td>
+                <td v-for="i in group.count" :key="i" class="px-0.5 py-0.5">
+                  <button
+                    v-if="attrChoice(attr, i)"
+                    type="button"
+                    :class="['w-full text-left px-2 py-1 text-xs rounded-md truncate max-w-[9rem] outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
+                      program.isPinned(attrChoice(attr, i)!) ? 'bg-selection/15 text-selection' : 'bg-overlay-subtle text-content-secondary hover:text-content']"
+                    @click="memberId = attrChoice(attr, i)!.id"
+                  >{{ program.valueText(attrChoice(attr, i)!) }}</button>
+                </td>
+              </tr>
+            </table>
+            <button v-if="groupLimited" type="button" class="mt-2 text-xs text-content-tertiary hover:text-content" @click="clearGroup">Use all options for everyone</button>
           </div>
         </template>
 
         <!-- One choice -->
         <template v-else-if="choice">
-          <div class="flex items-center justify-center gap-1 text-xs font-semibold text-content-secondary text-center">
-            <WandSparklesIcon v-if="choice.source === 'added'" class="w-3 h-3 text-content-tertiary" />
-            {{ choice.label }}
+          <CardHeader
+            :title="choice.label"
+            :note="note"
+            :added="choice.source === 'added'"
+            :line="choice.source !== 'added' ? choice.line : undefined"
+            @show="show"
+          />
+          <div v-if="choice.kind === 'param'" class="px-3 pb-3 text-xs text-content-secondary">
+            Each image draws a value from <span class="font-mono text-selection">{{ choice.options[0] }} – {{ choice.options[1] }}</span>.
           </div>
-          <div class="text-[11px] text-content-muted text-center mb-2 break-words">{{ note }}</div>
-          <div v-if="choice.kind === 'param'" class="flex flex-col items-center gap-0.5 py-1">
-            <span class="font-mono text-[13px] text-selection">{{ choice.options[0] }} – {{ choice.options[1] }}</span>
-            <span class="text-[11px] text-content-muted">each image draws a value</span>
-          </div>
-          <OptionPills v-else :choice="choice" :program="program" :long="long" :deletable="choice.source !== 'list' && choice.kind !== 'lora'" :addable="choice.source !== 'list' && choice.kind !== 'lora'" />
-          <div class="border-t border-edge mt-2 pt-2 flex justify-center gap-1">
-            <button v-if="choice.kind !== 'param'" type="button" :class="actionClass" @click="program.setPins(choice.id, [])">any</button>
-            <button v-if="choice.line && choice.source !== 'added'" type="button" :class="actionClass" @click="show(choice.line)">show in prompt</button>
-            <button v-if="choice.source === 'added'" type="button" :class="[actionClass, 'hover:!text-red-400']" @click="removeChoice">remove</button>
-          </div>
+          <template v-else>
+            <DrawLine :choice="choice" :program="program" />
+            <OptionRows
+              :choice="choice"
+              :program="program"
+              :deletable="editable"
+              :addable="editable"
+            />
+            <div v-if="writable || choice.source === 'added'" class="border-t border-edge-subtle px-2 py-1.5 flex items-center gap-1">
+              <template v-if="writable">
+                <button type="button" :class="footClass" :disabled="!!writing" @click="write('more')">
+                  <Spinner v-if="writing === 'more'" size="sm" /><SparklesIcon v-else class="w-3.5 h-3.5" />
+                  More like these
+                </button>
+                <button type="button" :class="footClass" :disabled="!!writing" title="Replace every option with a new set" @click="write('reroll')">
+                  <Spinner v-if="writing === 'reroll'" size="sm" /><ArrowPathIcon v-else class="w-3.5 h-3.5" />
+                  Reroll all
+                </button>
+              </template>
+              <span class="flex-1" />
+              <button v-if="choice.source === 'added'" type="button" :class="[footClass, 'hover:!text-red-400']" title="Stop varying this; the image model decides it" @click="removeChoice">
+                <TrashIcon class="w-3.5 h-3.5" /> Remove
+              </button>
+            </div>
+            <div v-if="writeError" class="px-3 pb-2 text-[11px] text-red-400">{{ writeError }}</div>
+          </template>
         </template>
       </div>
     </div>
@@ -77,15 +91,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, ref, watch } from 'vue'
+import { computed, defineComponent, h, nextTick, ref, watch } from 'vue'
+import { ArrowPathIcon, CheckIcon, ChevronLeftIcon, PlusIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
+import Spinner from '../ui/Spinner.vue'
 import { useAnchoredMenuPosition } from '../../composables/useContextMenuPosition'
 import type { PromptProgram, ProgramChoice } from '../../composables/usePromptProgram'
 
 const props = defineProps<{ program: PromptProgram }>()
 const emit = defineEmits<{ (e: 'show-line', line: number): void }>()
 
-const actionClass = 'flex items-center gap-1 px-2 py-1 text-xs rounded-full whitespace-nowrap text-content-muted hover:text-content-secondary suggestion-submenu-pill'
+const footClass = 'flex items-center gap-1.5 px-2 py-1 coarse:py-2 text-xs rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle disabled:opacity-50 disabled:pointer-events-none'
 
 const card = computed(() => props.program.openCard.value)
 const menuRef = ref<HTMLElement | null>(null)
@@ -94,7 +110,7 @@ const visible = computed(() => !!card.value)
 const { menuStyle } = useAnchoredMenuPosition(menuRef, anchorRect, visible, { gap: 6 })
 
 const memberId = ref<string | null>(null)
-watch(() => card.value?.id, () => { memberId.value = null })
+watch(() => card.value?.id, () => { memberId.value = null; writeError.value = '' })
 
 const choice = computed(() => {
   const id = card.value?.id
@@ -109,17 +125,20 @@ const group = computed(() => {
 const members = computed(() => group.value ? props.program.choices.value.filter(c => c.group === group.value!.id) : [])
 const groupAttrs = computed(() => [...new Set(members.value.map(m => m.attr || m.id))])
 const member = computed(() => memberId.value ? props.program.byId.value[memberId.value] : null)
-// Phrase-length options read as a list of wrapped rows, not pills that scroll sideways.
-const long = computed(() => !!choice.value && props.program.optionsOf(choice.value).some(o => o.length > 32))
+const groupLimited = computed(() => members.value.some(m => props.program.isPinned(m)))
+// Phrase-length options get a wider card so they wrap less.
+const wide = computed(() => {
+  const c = member.value || choice.value
+  return !!c && props.program.optionsOf(c).some(o => o.length > 32)
+})
+
+// The user's own {a|b} list and LoRA choices keep exactly what the user gave.
+const editable = computed(() => !!choice.value && choice.value.source !== 'list' && choice.value.kind === 'pick')
+// The model writes options for plain picks (not ones whose options depend on another pick).
+const writable = computed(() => editable.value && !choice.value!.follows)
 
 function attrChoice(attr: string, index: number): ProgramChoice | undefined {
   return members.value.find(m => (m.attr || m.id) === attr && m.index === index)
-}
-function attrLabel(c?: ProgramChoice) {
-  return c?.label || ''
-}
-function ruleNote(_c: ProgramChoice) {
-  return ''
 }
 
 const note = computed(() => {
@@ -135,6 +154,23 @@ const note = computed(() => {
   if (c.follows) parts.push(`follows ${props.program.byId.value[c.follows]?.label || c.follows}`)
   return parts.join(' · ')
 })
+
+const writing = ref<'' | 'more' | 'reroll'>('')
+const writeError = ref('')
+async function write(mode: 'more' | 'reroll') {
+  const c = choice.value
+  if (!c || writing.value) return
+  writing.value = mode
+  writeError.value = ''
+  try {
+    await props.program.suggestOptions(c, mode)
+  } catch (e: any) {
+    const d = e?.response?.data?.detail
+    writeError.value = (typeof d === 'string' ? d : d?.message) || 'Couldn’t write new options.'
+  } finally {
+    writing.value = ''
+  }
+}
 
 function show(line: number) {
   props.program.close()
@@ -153,12 +189,60 @@ function clearGroup() {
   props.program.setManyPins(next)
 }
 
-// Option pills (with delete and add) -----------------------------------------------
-const OptionPills = defineComponent({
-  props: { choice: { type: Object, required: true }, program: { type: Object, required: true }, deletable: Boolean, addable: Boolean, long: Boolean },
+// Header: the choice's name, where it comes from, and a quiet link to its line --------
+const CardHeader = defineComponent({
+  props: { title: String, note: String, back: String, added: Boolean, line: Number },
+  emits: ['back', 'show'],
+  setup(p, { emit: e }) {
+    return () => h('div', { class: 'px-3 pt-2.5 pb-2 flex items-start gap-2' }, [
+      p.back ? h('button', {
+        type: 'button', class: 'mt-0.5 -ml-1 p-0.5 rounded text-content-tertiary hover:text-content', title: `Back to ${p.back}`,
+        onClick: () => e('back'),
+      }, [h(ChevronLeftIcon, { class: 'w-3.5 h-3.5' })]) : null,
+      h('div', { class: 'min-w-0 flex-1' }, [
+        h('div', { class: 'flex items-center gap-1 text-[13px] font-semibold text-content' }, [
+          p.added ? h(WandSparklesIcon, { class: 'w-3 h-3 text-content-tertiary' }) : null, p.title,
+        ]),
+        p.note ? h('div', { class: 'text-[11px] text-content-muted break-words leading-snug' }, p.note) : null,
+      ]),
+      p.line ? h('button', {
+        type: 'button', class: 'shrink-0 mt-0.5 text-[11px] text-content-muted hover:text-content-secondary', title: 'Show this line in the prompt',
+        onClick: () => e('show', p.line),
+      }, `line ${p.line}`) : null,
+    ])
+  },
+})
+
+// What a run will draw from, and the way back to all options --------------------------
+const DrawLine = defineComponent({
+  props: { choice: { type: Object, required: true }, program: { type: Object, required: true } },
   setup(p) {
-    const adding = ref(false)
+    return () => {
+      const prog = p.program as PromptProgram
+      const c = p.choice as ProgramChoice
+      const all = prog.optionsOf(c)
+      const pinned = (prog.pins.value[c.id] || []).filter(v => all.includes(v))
+      const text = !pinned.length
+        ? `Each image draws one of these ${all.length}. Tick some to draw only from those.`
+        : pinned.length === 1
+          ? 'Every image uses the ticked option.'
+          : `Each image draws one of the ${pinned.length} ticked.`
+      return h('div', { class: 'px-3 pb-1.5 flex items-baseline gap-2 text-[11px] text-content-tertiary' }, [
+        h('span', { class: 'flex-1' }, text),
+        pinned.length ? h('button', {
+          type: 'button', class: 'shrink-0 text-content-secondary hover:text-content font-medium', onClick: () => prog.setPins(c.id, []),
+        }, `Use all ${all.length}`) : null,
+      ])
+    }
+  },
+})
+
+// Option rows: tick to limit the draw, trash to delete, and a field to add your own ----
+const OptionRows = defineComponent({
+  props: { choice: { type: Object, required: true }, program: { type: Object, required: true }, deletable: Boolean, addable: Boolean },
+  setup(p) {
     const draft = ref('')
+    const list = ref<HTMLElement | null>(null)
     return () => {
       const prog = p.program as PromptProgram
       const c = p.choice as ProgramChoice
@@ -179,72 +263,56 @@ const OptionPills = defineComponent({
       }
       const commit = () => {
         const v = draft.value.trim()
-        if (v && !opts.includes(v)) prog.setEdit(c.id, { ...edit, add: [...(edit.add || []), v] })
+        if (v && !opts.includes(v)) {
+          prog.setEdit(c.id, { ...edit, add: [...(edit.add || []), v] })
+          void nextTick(() => list.value?.scrollTo({ top: list.value.scrollHeight }))
+        }
         draft.value = ''
-        adding.value = false
       }
-      const pills = opts.map(o => h('button', {
-        type: 'button', key: o,
-        class: ['group/opt relative text-xs transition-all duration-150 suggestion-submenu-pill coarse:text-[13px]',
-          p.long ? 'px-3 py-1.5 rounded-lg text-left leading-snug' : 'px-2.5 py-1 rounded-full whitespace-nowrap coarse:py-1.5',
-          pinned.has(o) ? '!bg-selection/20 !text-selection' : ''],
-        onClick: () => toggle(o),
-      }, [
-        o,
-        lora(o)?.trigger ? h('span', { class: 'ml-1 font-mono text-[10px] opacity-60' }, lora(o)!.trigger.split(',')[0]) : null,
-        p.deletable ? h('span', {
-          class: 'hidden group-hover/opt:flex absolute -top-1.5 -right-1.5 w-4 h-4 items-center justify-center rounded-full bg-surface-active text-content text-[10px] coarse:flex',
-          title: 'Delete option',
-          onClick: (e: Event) => { e.stopPropagation(); del(o) },
-        }, '×') : null,
-      ]))
-      if (p.addable) {
-        pills.push(adding.value
-          ? h('input', {
-              class: 'px-2.5 py-1 text-xs rounded-full bg-transparent border border-dashed border-edge-strong text-content outline-none w-32',
-              placeholder: 'new option', value: draft.value, autofocus: true,
+      const rows = opts.map(o => {
+        const on = pinned.has(o)
+        return h('div', {
+          key: o,
+          role: 'checkbox', 'aria-checked': on, tabindex: 0,
+          class: ['group/opt flex items-start gap-2.5 px-2 py-1.5 coarse:py-2.5 rounded-md cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
+            on ? 'bg-selection/10' : 'hover:bg-overlay-subtle'],
+          onClick: () => toggle(o),
+          onKeydown: (e: KeyboardEvent) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(o) } },
+        }, [
+          h('span', {
+            class: ['mt-[2px] shrink-0 w-3.5 h-3.5 rounded-[4px] flex items-center justify-center border',
+              on ? 'bg-selection border-selection text-white' : 'border-edge-strong'],
+          }, on ? [h(CheckIcon, { class: 'w-2.5 h-2.5', 'stroke-width': 3 })] : []),
+          h('span', { class: ['flex-1 min-w-0 text-xs coarse:text-[13px] leading-snug break-words', on ? 'text-content' : 'text-content-secondary group-hover/opt:text-content'] }, [
+            o,
+            lora(o)?.trigger ? h('span', { class: 'ml-1.5 font-mono text-[10px] text-content-muted' }, lora(o)!.trigger.split(',')[0]) : null,
+          ]),
+          p.deletable ? h('button', {
+            type: 'button', title: 'Delete option', 'aria-label': `Delete ${o}`,
+            class: 'shrink-0 -my-0.5 p-0.5 rounded text-content-muted hover:text-red-400 opacity-0 group-hover/opt:opacity-100 focus-visible:opacity-100 coarse:opacity-100',
+            onClick: (e: Event) => { e.stopPropagation(); del(o) },
+          }, [h(TrashIcon, { class: 'w-3.5 h-3.5' })]) : null,
+        ])
+      })
+      return h('div', { class: 'min-h-0 flex flex-col' }, [
+        h('div', { ref: list, class: 'min-h-0 overflow-y-auto px-1.5 pb-1.5 flex flex-col gap-px' }, rows),
+        p.addable ? h('div', { class: 'px-1.5 pb-1.5' }, [
+          h('div', { class: 'flex items-center gap-2.5 px-2 py-1 rounded-md focus-within:bg-overlay-subtle' }, [
+            h(PlusIcon, { class: 'shrink-0 w-3.5 h-3.5 text-content-muted' }),
+            h('input', {
+              class: 'flex-1 min-w-0 bg-transparent text-xs coarse:text-[13px] text-content placeholder:text-content-muted outline-none py-0.5',
+              placeholder: 'Add your own…', value: draft.value,
               onInput: (e: Event) => { draft.value = (e.target as HTMLInputElement).value },
-              onKeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { adding.value = false; e.stopPropagation() } },
+              onKeydown: (e: KeyboardEvent) => {
+                if (e.key === 'Enter') commit()
+                if (e.key === 'Escape' && draft.value) { draft.value = ''; e.stopPropagation() }
+              },
               onBlur: commit,
-            })
-          : h('button', {
-              type: 'button',
-              class: 'px-2.5 py-1 text-xs rounded-full border border-dashed border-edge-strong text-content-tertiary hover:text-content-secondary',
-              onClick: () => { adding.value = true },
-            }, '+ add'))
-      }
-      return h('div', { class: ['max-h-[50vh] overflow-y-auto overflow-x-hidden p-1.5 -m-1', p.long ? 'flex flex-col gap-1' : 'flex flex-wrap justify-center gap-1.5'] }, pills)
+            }),
+          ]),
+        ]) : null,
+      ])
     }
   },
 })
 </script>
-
-<style>
-/* Card container */
-[data-theme="dark"] .suggestion-submenu-card {
-  background-color: var(--color-surface-raised);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-}
-[data-theme="light"] .suggestion-submenu-card {
-  background-color: #ffffff;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-}
-
-/* Pills - simple, no individual shadows */
-[data-theme="dark"] .suggestion-submenu-pill {
-  background-color: var(--color-surface);
-  color: var(--color-text-secondary);
-}
-[data-theme="dark"] .suggestion-submenu-pill:hover {
-  background-color: var(--color-surface-overlay);
-  color: var(--color-text-primary);
-}
-[data-theme="light"] .suggestion-submenu-pill {
-  background-color: var(--color-surface);
-  color: var(--color-text-secondary);
-}
-[data-theme="light"] .suggestion-submenu-pill:hover {
-  background-color: var(--color-surface-raised);
-  color: var(--color-text-primary);
-}
-</style>

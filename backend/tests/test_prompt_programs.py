@@ -389,3 +389,50 @@ class TestDrawSeed:
         a, b = await self._run(1, draw_seed=7), await self._run(999, draw_seed=7)
         assert a["draw_seed"] == b["draw_seed"] == 7
         assert [d["value"] for d in a["draws"]] == [d["value"] for d in b["draws"]]
+
+
+class TestSuggestOptions:
+    ENTRY = {"prompt": "a woman in {{stylish tank top}}", "example": "a woman in a silk tank top", "elaborate": False,
+             "choices": [{"id": "stylish_tank_top", "kind": "pick", "label": "Tank Top", "wildcard": "stylish tank top",
+                          "options": ["a silk tank top", "a linen tank top"]},
+                         {"id": "look", "kind": "lora", "label": "Look", "options": ["A"]}]}
+
+    async def test_new_options_skip_existing_and_repeats(self, monkeypatch):
+        calls = []
+
+        async def fake_ask(messages, project_id):
+            calls.append(messages)
+            return '```json\n["a silk tank top", "a ribbed cotton tank", "A ribbed cotton tank", "a sheer mesh tank"]\n```'
+
+        monkeypatch.setattr(prep, "_ask_model", fake_ask)
+        out = await prep.suggest_options(self.ENTRY, "stylish_tank_top", ["a silk tank top", "a linen tank top"], 2, None)
+        assert out == ["a ribbed cotton tank", "a sheer mesh tank"] and len(calls) == 1
+        system, user = calls[0][0]["content"], calls[0][1]["content"]
+        assert "exactly 2 new options" in system and "{{stylish tank top}}" in system and "a few words" in system
+        assert "- a linen tank top" in user
+
+    async def test_retries_once_when_short_and_parses_lines(self, monkeypatch):
+        replies = ["- a ribbed cotton tank", "1. a sheer mesh tank\n2. a crochet halter"]
+
+        async def fake_ask(messages, project_id):
+            return replies.pop(0)
+
+        monkeypatch.setattr(prep, "_ask_model", fake_ask)
+        out = await prep.suggest_options(self.ENTRY, "stylish_tank_top", [], 3, None)
+        assert out == ["a ribbed cotton tank", "a sheer mesh tank", "a crochet halter"]
+
+    async def test_only_picks(self):
+        with pytest.raises(ProgramError):
+            await prep.suggest_options(self.ENTRY, "look", [], 3, None)
+
+
+class TestRerollEdits:
+    def test_removing_every_option_uses_the_added_ones(self):
+        src = 'top = pick("top", ["a", "b"], label="Top")\nemit(top)\n'
+        edits = {"top": {"remove": ["a", "b"], "add": ["c", "d"]}}
+        got = {run(src, s, None, [], set(), None, edits).prompt.lower() for s in range(20)}
+        assert got <= {"c", "d"} and got
+
+    def test_removing_everything_with_nothing_added_keeps_the_program_options(self):
+        src = 'top = pick("top", ["a", "b"], label="Top")\nemit(top)\n'
+        assert run(src, 1, None, [], set(), None, {"top": {"remove": ["a", "b"]}}).prompt.lower() in {"a", "b"}

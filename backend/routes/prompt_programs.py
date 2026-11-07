@@ -76,6 +76,30 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
     return out
 
 
+class OptionsRequest(PrepareRequest):
+    choice_id: str
+    # The options the card shows now (after the user's edits), so new ones differ.
+    existing: List[str] = Field(default_factory=list)
+    count: int = 6
+
+
+@router.post("/options")
+async def options(req: OptionsRequest) -> Dict[str, Any]:
+    """New options for one choice (the card's More like these and Reroll all)."""
+    from llm_resolver import LLMNotConfiguredError, LLMUnavailableError
+    from prompt_programs.prepare import ProgramError, suggest_options
+    entry = await _prepare(req.model_copy(update={"cache_only": True}))
+    if entry is None or entry.get("unsupported"):
+        raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
+    try:
+        out = await suggest_options(entry, req.choice_id, req.existing, req.count, req.project_id)
+    except ProgramError as e:
+        raise HTTPException(status_code=422, detail={"code": "options_failed", "message": str(e)}) from None
+    except (LLMNotConfiguredError, LLMUnavailableError) as e:
+        raise HTTPException(status_code=424, detail={"code": "llm_not_configured", "message": str(e)}) from None
+    return {"options": out}
+
+
 @router.post("/preview")
 async def preview(req: PreviewRequest) -> Dict[str, Any]:
     from prompt_programs.prepare import draw_seed, realize
