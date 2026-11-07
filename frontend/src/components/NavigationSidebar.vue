@@ -126,21 +126,6 @@
             </button>
           </div>
 
-          <!-- Trash holds only Assets, so it sits under them as a quiet child
-               row, outside the saved-views fold so it never hides. The footer
-               stays for the account and the app. -->
-          <div class="pl-4">
-            <button
-              @click="handleNavClick('trash')"
-              data-testid="sidebar-trash"
-              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-tertiary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
-              :class="activeTab === 'trash' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
-            >
-              <TrashIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
-              <span>Trash</span>
-            </button>
-          </div>
-
           <!-- Boards landing link (with drag-drop to create new) -->
           <div class="group relative">
             <button
@@ -237,6 +222,19 @@
           >
             <WrenchScrewdriverIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
             <span>Tools</span>
+          </button>
+
+          <!-- Trash closes the nav run, where trash conventionally lives. It is
+               a plain row: last in the list is emphasis enough, and the
+               Assets fold stays for saved views alone. -->
+          <button
+            @click="handleNavClick('trash')"
+            data-testid="sidebar-trash"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
+            :class="activeTab === 'trash' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
+          >
+            <TrashIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
+            <span>Trash</span>
           </button>
 
 
