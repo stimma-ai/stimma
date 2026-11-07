@@ -3,8 +3,9 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 
 /**
- * Prompt programs: with Enhance on, the prompt is prepared once into a small program
- * (one model call, cached on the server) and every generation runs it. This holds
+ * Prompt programs: unless Raw is on, the prompt is prepared once into a small program
+ * (model calls once, cached on the server) and every generation runs it. Enhance on
+ * writes a rich program; off keeps the user's own words. This holds
  * the prepared program for the current prompt, its status, and the user's pins and
  * edits to its choices. Pins and edits live in promptOptions, so they persist per
  * tool and ride presets like the rest of the prompt's settings.
@@ -33,6 +34,8 @@ export interface ProgramGroup { id: string; count: number; label: string; source
 export interface ProgramLora { name: string; path: string; weight: number; trigger: string }
 
 export interface PreparedProgram {
+  /** false: prepared with Enhance off (the user's words kept). */
+  elaborate?: boolean
   key: string
   choices: ProgramChoice[]
   groups: ProgramGroup[]
@@ -53,6 +56,8 @@ interface Options {
   toolId: Ref<string | null>
   prompt: Ref<string>
   enabled: ComputedRef<boolean>
+  /** Enhance on: the program elaborates. Off: it keeps the user's words. */
+  elaborate: ComputedRef<boolean>
   loraItems: ComputedRef<Array<{ lora: string; weight: number }>>
   /** What the enhancer's style depends on: input images (count and ids), canvas size. */
   contextParams: ComputedRef<Record<string, any>>
@@ -78,6 +83,7 @@ export function usePromptProgram(o: Options) {
     loras: o.loraItems.value.map(i => [i.lora, i.weight]),
     context: o.contextParams.value,
     instructions: o.instructions.value,
+    elaborate: o.elaborate.value,
   }))
 
   const status = computed<ProgramStatus>(() => {
@@ -121,6 +127,7 @@ export function usePromptProgram(o: Options) {
       loras: o.loraItems.value.map(i => ({ lora: i.lora, weight: i.weight })),
       parameters: o.contextParams.value,
       instructions: o.instructions.value || '',
+      elaborate: o.elaborate.value,
       project_id: o.projectId.value ?? null,
       ...extra,
     }

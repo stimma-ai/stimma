@@ -503,12 +503,12 @@ async def _apply_generation_prompt_pipeline(
     enhance_on = not raw and bool(((prompt_options or {}).get("autoImprove") or {}).get("enabled"))
     program_run = None
     program_opts = (prompt_options or {}).get("program")
-    if enhance_on and isinstance(program_opts, dict) and program_opts.get("enabled") and ctx["program_supported"]:
-        # Prompt program: Enhance prepared a program once; this generation runs it.
-        # No LLM call unless the program for this prompt isn't prepared yet.
+    if not raw and isinstance(program_opts, dict) and program_opts.get("enabled") and ctx["program_supported"]:
+        # Prompt program: prepared once (Enhance on: rich; off: the user's own words);
+        # this generation runs it. No LLM call unless it isn't prepared yet.
         program_run, prompt = await _run_prompt_program(
             prompt, parameters, program_opts, ctx=ctx, tool_id=tool_id, prompt_options=prompt_options,
-            project_id=project_id, profile_id=profile_id,
+            project_id=project_id, profile_id=profile_id, elaborate=enhance_on,
         )
         auto_improve = dict((prompt_options or {}).get("autoImprove") or {})
         auto_improve["enabled"] = False
@@ -546,6 +546,7 @@ async def _run_prompt_program(
     prompt_options: Optional[Dict[str, Any]],
     project_id: Optional[int],
     profile_id: Optional[str],
+    elaborate: bool = True,
 ) -> tuple[Dict[str, Any], str]:
     from llm_resolver import LLMUnavailableError
     from prompt_programs.prepare import ProgramError, draw_seed, ensure_program, realize
@@ -555,6 +556,7 @@ async def _run_prompt_program(
             prompt=prompt, tool_id=tool_id, ctx=ctx,
             instructions=(((prompt_options or {}).get("autoImprove") or {}).get("instructions") or "").strip(),
             lora_items=program_opts.get("loras") or [], project_id=project_id, profile_id=profile_id,
+            elaborate=elaborate,
         )
         # Independent of the image seed; an explicit draw_seed repeats the same draws.
         result = realize(entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"), fixed=program_opts.get("fixed"),
@@ -563,7 +565,7 @@ async def _run_prompt_program(
         raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
     except LLMUnavailableError as e:
         raise HTTPException(status_code=424, detail=f"Generation was not started: {e}") from None
-    record = {"key": entry["key"], "mode": entry.get("mode"), **result.to_dict(), "pins": program_opts.get("pins") or {},
+    record = {"key": entry["key"], "mode": entry.get("mode"), "elaborate": entry.get("elaborate", True), **result.to_dict(), "pins": program_opts.get("pins") or {},
               "choices": [c for c in entry.get("choices") or [] if not c.get("hidden")]}
     return record, result.prompt
 

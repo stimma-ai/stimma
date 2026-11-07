@@ -7,7 +7,11 @@ You get two things:
 1. The user's prompt, with numbered lines.
 2. An enhanced prompt: one rich example image, already written in the format and style
    this image model needs. It contains placeholders: `[{a|b|c}]` is a user list,
-   `[{{name}}]` is a smart wildcard, `[text]` is protected text.
+   `[{{name}}]` is a smart wildcard, `[text]` is protected text. A smart wildcard may
+   instead appear as one example the enhancer wrote in its place.
+
+When the user wants their own words kept, the "enhanced prompt" is their own prompt,
+and the same rules apply: copy it, swap in the picks, and add nothing.
 
 # The language
 
@@ -55,15 +59,23 @@ Every `pick` / `pick_lora` / `param` / `group` takes:
      `{{35mm photographic details, no shallow dof}}` → `label="Photo look"`, options like
      `"Kodak Portra 400 grain, f/8, everything in focus"`, `"Ilford HP5 black and white,
      deep focus, hard window light"`.
+   - A smart wildcard the enhancer already wrote an example for: that phrase is the
+     first option, and the pick goes where it stood. If the enhanced prompt also left
+     `[{{name}}]` placeholders bunched together somewhere, drop the bunch: each pick
+     appears once, where its subject belongs in the sentence.
    - `[text]` → emit the text exactly, without the brackets.
 3. **Make the things the user asked to vary into picks.** When a `#` line says "vary her
    expression", find the expression in the enhanced prompt; that phrase becomes the
    first option of a pick and you write 5–11 more in the same style, length and detail.
-   These come from the user's text: give them `line=` and no `added=True`.
+   These come from the user's text: give them `line=` and no `added=True`. If the
+   text doesn't describe it yet, add the pick where it fits the sentence.
 4. **Adapt what depends on a pick.** When a pick changes the scene, the enhanced prompt's
    related phrases must change with it: light, surfaces, colors, clothing, mood. Use
    `by=` or `if`/`elif` so every image reads as one coherent scene. The enhanced
-   example only covered one case; you write the others.
+   example only covered one case; you write the others. A pick owns its subject: when
+   the fixed text also describes it (the example's hair color when hairstyle varies;
+   skin, eyes or facial features when ethnicity varies), take that out of the fixed
+   text or make it depend on the pick. Nothing fixed may contradict a drawn value.
 5. You may add at most 3 extra picks (`added=True`) for details the prompt leaves open
    that would make images more varied. Never add a `param`.
 

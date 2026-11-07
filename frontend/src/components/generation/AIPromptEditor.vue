@@ -221,7 +221,7 @@
                     <code class="text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded text-xs" v-text="'{{name}}'"></code>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    Picks a random value from a named wildcard list defined in Settings &gt; Wildcards. With Enhance on, any other name works too: Enhance writes the options.
+                    Picks a random value from a named wildcard list defined in Settings &gt; Wildcards. With a chat model set up, any other name works too: the model writes its options.
                   </p>
                 </div>
 
@@ -231,7 +231,7 @@
                     <code class="text-gray-500 italic bg-zinc-500/10 px-1.5 py-0.5 rounded text-xs"># comment</code>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    Instructions for Enhance (&ldquo;# vary her expression&rdquo;). They are never sent to the generation tool, and without Enhance they are ignored.
+                    Instructions for the chat model (&ldquo;# vary her expression&rdquo;). They are never sent to the generation tool, and without a chat model they are ignored.
                   </p>
                 </div>
 
@@ -346,6 +346,9 @@ interface Props {
   // generate-time pipeline (which silently rewrites the prompt at submit time)
   // would break the execution model. Hide the affordances in those contexts.
   hideAutoImprove?: boolean
+  /** The prompt runs as a prepared program (Tool View with a chat model): {{name}}
+      and # lines are understood whether Enhance is on or off. */
+  programs?: boolean
   // When set, this editor renders no chat affordance of its own (no sparkle, no
   // inline panel). The embedder (ToolView) owns a page-level PromptAgentChat and
   // drives this editor through the exposed handle.
@@ -474,7 +477,7 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
     onBlur: () => {},
   })
 
-// --- How the prompt will be read: Raw, Enhance, or plain (Enhance off / no model) ---
+// --- How the prompt will be read: Raw, by a model (a program, or Enhance), or plain (no model) ---
 const rawMode = computed(() => !!props.promptOptions.raw)
 function setRaw(on: boolean) {
   emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
@@ -484,7 +487,7 @@ const { segments } = useSegments()
 const syntaxMode = computed<PromptSyntaxMode>(() =>
   rawMode.value ? 'raw'
     // Flow inputs don't run the prompt pipeline here; keep their highlighting as it was.
-    : props.hideAutoImprove || (!llmUnconfigured.value && props.promptOptions.autoImprove?.enabled) ? 'enhance'
+    : props.hideAutoImprove || props.programs || (!llmUnconfigured.value && props.promptOptions.autoImprove?.enabled) ? 'enhance'
     : 'plain')
 watch([syntaxMode, wildcards, segments], () => {
   setSyntax(syntaxMode.value, [...wildcards.value.map(w => w.name), ...segments.value.map(sg => sg.name)])

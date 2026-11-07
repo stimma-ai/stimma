@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/prompt-programs", tags=["prompt-programs"])
 
 # What the editor needs from a prepared program (the program text itself stays server-side
 # unless asked for).
-_PUBLIC_KEYS = ("key", "mode", "choices", "groups", "params", "loras", "lora_choices", "example", "warnings",
+_PUBLIC_KEYS = ("key", "mode", "elaborate", "choices", "groups", "params", "loras", "lora_choices", "example", "warnings",
                 "seconds", "upsample_seconds", "attempts")
 
 
@@ -32,6 +32,8 @@ class PrepareRequest(BaseModel):
     cache_only: bool = False
     # force: prepare again from scratch even if a program for these inputs exists.
     force: bool = False
+    # elaborate: Enhance on (rich, per-model example). Off: keep the user's own words.
+    elaborate: bool = True
 
 
 class PreviewRequest(PrepareRequest):
@@ -52,7 +54,7 @@ async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
         return await ensure_program(
             prompt=req.prompt, tool_id=req.tool_id, ctx=ctx, instructions=req.instructions.strip(),
             lora_items=req.loras, project_id=req.project_id, profile_id=get_current_profile(),
-            cache_only=req.cache_only, force=req.force,
+            cache_only=req.cache_only, force=req.force, elaborate=req.elaborate,
         )
     except ProgramError as e:
         raise HTTPException(status_code=422, detail={"code": "program_failed", "message": str(e)}) from None

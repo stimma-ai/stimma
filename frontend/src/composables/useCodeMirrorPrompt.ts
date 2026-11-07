@@ -174,10 +174,10 @@ function promptSyntaxHighlighter() {
 const wildcardDeco = Decoration.mark({ class: 'cm-wildcard' })
 const namedWildcardDeco = Decoration.mark({ class: 'cm-named-wildcard' })
 const commentDeco = Decoration.mark({ class: 'cm-comment-line' })
-// Plain mode: # lines are for the model, and no model reads them.
-const unreadCommentDeco = Decoration.mark({ class: 'cm-comment-line', attributes: { title: 'Only Enhance reads # lines. They are left out of the prompt.' } })
-// Plain mode: a {{name}} that isn't a wildcard or segment is filled by Enhance only.
-const needsEnhanceDeco = Decoration.mark({ class: 'cm-needs-enhance', attributes: { title: 'No wildcard or segment has this name, so it needs Enhance to fill it. Without Enhance it is sent as typed.' } })
+// Plain mode (no chat model reads this prompt): # lines are for a model.
+const unreadCommentDeco = Decoration.mark({ class: 'cm-comment-line', attributes: { title: 'No chat model reads this prompt, so # lines are left out of it.' } })
+// Plain mode: a {{name}} that isn't a wildcard or segment needs a model to fill it.
+const needsEnhanceDeco = Decoration.mark({ class: 'cm-needs-enhance', attributes: { title: 'No wildcard or segment has this name. A chat model fills it; without one it is sent as typed.' } })
 const verbatimDeco = Decoration.mark({ class: 'cm-verbatim' })
 
 // --- Theme ---

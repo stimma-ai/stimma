@@ -23,7 +23,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-13"
+PREPARE_VERSION = "pp-18"
 MAX_ATTEMPTS = 3
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8")
 
@@ -89,18 +89,27 @@ def _numbered(prompt: str) -> str:
 
 
 def build_user_message(prompt: str, enhanced: str, model_name: Optional[str], mode: str,
-                       params: Dict[str, Dict[str, Any]], loras: Sequence[LoraInfo], notes: Dict[str, str]) -> str:
-    parts = [
-        f"User's prompt (lines numbered):\n{_numbered(prompt)}",
-        "",
-        f"Enhanced prompt (one example image, written for {model_name or 'the image model'} in its "
-        f"\"{mode}\" style). Copy this text and its format into emit(); vary only what should vary:",
-        "",
-        enhanced.strip(),
-        "",
-        "(End of the enhanced prompt.)",
-        "",
-    ]
+                       params: Dict[str, Dict[str, Any]], loras: Sequence[LoraInfo], notes: Dict[str, str],
+                       elaborate: bool = True) -> str:
+    parts = [f"User's prompt (lines numbered):\n{_numbered(prompt)}", ""]
+    smart = smart_wildcards(prompt)
+    if elaborate:
+        parts.append(
+            f"Enhanced prompt (one example image, written for {model_name or 'the image model'} in its "
+            f"\"{mode}\" style). Copy this text and its format into emit(); vary only what should vary:")
+    else:
+        parts.append(
+            "Prompt to emit: the user's own words, joined into one example image with nothing added. "
+            "The user wants their wording kept: copy it into emit() as written. Options you write are "
+            "short phrases (a few words) in the same register as the user's words. Add no extra picks "
+            "(no added=True).")
+        if mode == "keyword":
+            parts.append("This model reads comma-separated tags: write options as tags.")
+    parts += ["", enhanced.strip(), "", "(End of the enhanced prompt.)" if elaborate else "(End of the prompt.)", ""]
+    if smart and (elaborate or "[{{" not in enhanced):
+        names = ", ".join("{{" + n + "}}" for n in smart)
+        parts += [f"Smart wildcards: {names}. The prompt above wrote one example of each where it stood; "
+                  "find that phrase, make it the first option, and put the pick in its place.", ""]
     if params:
         desc = ", ".join(
             f"{n} ({p.get('minimum', '?')}–{p.get('maximum', '?')})" for n, p in sorted(params.items()))
@@ -118,9 +127,50 @@ def build_user_message(prompt: str, enhanced: str, model_name: Optional[str], mo
 
 _PLACEHOLDER_NOTE = (
     "This prompt will become a template: some details vary from image to image. Keep every "
-    "[...] placeholder exactly where it belongs in the sentence. Where the prompt asks for "
-    "something to vary, write one concrete, vivid example of it."
+    "[...] placeholder exactly where it belongs in the sentence. Words in angle brackets, like "
+    "\u27e8hairstyle\u27e9, name something that changes from image to image: write one concrete, "
+    "vivid example of each in its place, without the brackets, and describe it only there. "
+    "Where the prompt asks for something to vary, write one concrete example of it."
 )
+
+
+def _for_enhancer(prompt: str) -> str:
+    """{{name}} becomes \u27e8name\u27e9 for the enhancer, which writes one example of it in place.
+    Weak enhancers asked to keep a {{name}} placeholder also describe it, then dump the
+    placeholders at the end; writing the example is what they do well."""
+    return re.sub(r"\{\{([^{}]+)\}\}", lambda m: "\u27e8" + m.group(1).strip() + "\u27e9", prompt)
+
+
+def plain_example(prompt: str) -> str:
+    """The user's text without its # lines, with the varying spots protected."""
+    lines = [ln for ln in prompt.splitlines() if not ln.lstrip().startswith("#")]
+    return protect_variable_spots("\n".join(lines).strip())
+
+
+_KEEP_WORDS = """Rewrite an image prompt so it reads naturally, keeping the user's words.
+
+- Keep every word the user wrote and their order where you can. Add only the small words a
+  reader needs: "a", "and", "wearing", "with", commas. Add no description, detail, style or mood.
+- Words in angle brackets, like \u27e8hairstyle\u27e9, name something that changes from image to
+  image. Replace each with one short, concrete example of it (a few words), in its place.
+- Keep every [{a|b}] and [text] placeholder exactly as written, brackets included.
+- Lines starting with # are instructions for you: follow them, and leave them out.
+{format}
+Reply with only the rewritten prompt."""
+
+_KEEP_FORMAT = {
+    "keyword": "- This model reads comma-separated tags, not sentences: write the prompt as tags.",
+}
+
+
+async def keep_words(prompt: str, mode: str, project_id: Optional[int]) -> str:
+    """Enhance off, step one: the user's own words as one readable example, with an
+    example written for each smart wildcard. Nothing is added beyond joining words."""
+    system = _KEEP_WORDS.replace("{format}", _KEEP_FORMAT.get(mode, "- Write it as plain sentences."))
+    reply = await _ask_model([{"role": "system", "content": system},
+                              {"role": "user", "content": protect_variable_spots(_for_enhancer(prompt))}], project_id)
+    out = re.sub(r"^```\w*\s*|\s*```$", "", (reply or "").strip()).strip().strip('"')
+    return out.replace("\u27e8", "").replace("\u27e9", "") or plain_example(prompt)
 
 
 def protect_variable_spots(prompt: str) -> str:
@@ -138,11 +188,12 @@ async def upsample(prompt: str, ctx: Dict[str, Any], instructions: str, lora_con
     from prompt_pipeline import _improve_with_verbatim_protection
 
     db = get_database_registry().get_database(profile_id)
-    return await _improve_with_verbatim_protection(
-        db, protect_variable_spots(prompt),
+    out = await _improve_with_verbatim_protection(
+        db, protect_variable_spots(_for_enhancer(prompt)),
         instructions="\n".join(x for x in (instructions, _PLACEHOLDER_NOTE) if x),
         model=ctx.get("model"), project_id=project_id, lora_context=lora_context, **ctx["enhance"],
     )
+    return out.replace("\u27e8", "").replace("\u27e9", "")
 
 
 async def _ask_model(messages: List[Dict[str, str]], project_id: Optional[int]) -> str:
@@ -240,20 +291,28 @@ def _word_count(text: str) -> int:
 
 
 def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[str],
-             enhanced: str = "") -> Dict[str, Any]:
+             enhanced: str = "", elaborate: bool = True) -> Dict[str, Any]:
     info = discover(source, loras, params)
     samples = [run(source, s, None, loras, params) for s in (11, 23, 37, 51)]
     problems: List[str] = []
     if enhanced:
         want = _word_count(enhanced)
         got = min(_word_count(realized_text(r.prompt)) for r in samples)
-        if want >= 20 and got < 0.6 * want:
+        if elaborate and want >= 20 and got < 0.6 * want:
             problems.append(f"The prompts your program emits are too short ({got} words; the enhanced prompt has {want}). "
                             "Copy the enhanced prompt's full text into emit() and only swap the parts that vary.")
         if any(re.search(r"<<<|>>>|^\s*[\"']{3}", r.prompt) for r in samples):
             problems.append("Emit only the prompt text itself, with no quote marks or <<< >>> around it.")
         if any("[{" in r.prompt or "{{" in r.prompt for r in samples):
             problems.append("Replace every [{...}] placeholder with its pick's value; never emit the braces.")
+        if not elaborate:  # kept words: every word of the example outside the picks survives
+            in_options = set().union(*(_words(o) for c in info["choices"] for o in c.get("options") or []), set())
+            fixed = _words(re.sub(r"\[\{.*?\}\]", " ", enhanced)) - in_options
+            emitted = set().union(*(_words(r.prompt) for r in samples))
+            lost = sorted(fixed - emitted)
+            if lost:
+                problems.append("Keep the user's words: these are missing from what you emit: "
+                                + ", ".join(f'"{w}"' for w in lost) + ". Copy the prompt's text into emit() as written.")
     for seg in _verbatim_segments(prompt):
         bad = [r for r in samples if seg.lower() not in realized_text(r.prompt).lower()]
         if bad:
@@ -275,6 +334,15 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
             if re.search(rf"\b{re.escape(name)}\b\s*[:=]?\s*[0-9]", r.prompt, re.I):
                 problems.append(f'Don\'t write {name} into the prompt text. param("{name}", ...) already sets it.')
                 break
+    twice: Dict[str, str] = {}
+    for r in samples:  # each pick stands in one place ("holding dreadlocks" came from emitting it twice)
+        text = realized_text(r.prompt).lower()
+        for d in r.draws:
+            v = str(d.value or "").lower().strip()
+            if d.kind == "pick" and not d.hidden and len(v.split()) >= 2 and text.count(v) > 1:
+                twice.setdefault(d.id, str(d.value))
+    for cid, value in twice.items():
+        problems.append(f'pick("{cid}") appears more than once in the prompt ("{value}"). Emit each pick once, where its subject belongs.')
     for cid, value in missing.items():
         problems.append(f'pick("{cid}") drew "{value}" but it never appears in the emitted prompt. Pass its result to emit(...).')
     for name in smart_wildcards(prompt):
@@ -355,8 +423,11 @@ async def lora_candidates(tool_id: str, items: Sequence[Dict[str, Any]], profile
 
 async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], instructions: str,
                          lora_items: Sequence[Dict[str, Any]], project_id: Optional[int],
-                         profile_id: Optional[str], cache_only: bool = False, force: bool = False) -> Optional[Dict[str, Any]]:
-    """The prepared program for these inputs, from cache or by asking the model."""
+                         profile_id: Optional[str], cache_only: bool = False, force: bool = False,
+                         elaborate: bool = True) -> Optional[Dict[str, Any]]:
+    """The prepared program for these inputs, from cache or by asking the model.
+    elaborate (Enhance on): the per-model enhancer writes a rich example first and the
+    program keeps it. Off: the program keeps the user's own words."""
     from prompt_pipeline import _profile_wildcards_and_segments
 
     wildcards, segments = _profile_wildcards_and_segments(profile_id)
@@ -373,6 +444,7 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         "v": PREPARE_VERSION, "prompt": source_prompt, "tool": tool_id, "model": ctx.get("model"),
         "mode": ctx.get("mode"), "enhance": enhance, "instructions": instructions,
         "params": sorted(params), "loras": [vars(lo) for lo in loras], "notes": lora_context,
+        "elaborate": bool(elaborate),
     })
     store = _store(profile_id)
     cached = None if force else store.get(key)
@@ -385,6 +457,7 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         running = asyncio.ensure_future(_prepare_new(
             key=key, store=store, tool_id=tool_id, ctx=ctx, instructions=instructions, source_prompt=source_prompt,
             params=params, loras=loras, notes=notes, lora_context=lora_context, project_id=project_id, profile_id=profile_id,
+            elaborate=bool(elaborate),
         ))
         _in_flight[key] = running
         running.add_done_callback(lambda _t, k=key: _in_flight.pop(k, None) if _in_flight.get(k) is _t else None)
@@ -397,14 +470,15 @@ _in_flight: Dict[str, "asyncio.Future[Dict[str, Any]]"] = {}
 async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict[str, Any], instructions: str,
                        source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo], notes: Dict[str, str],
                        lora_context: List[Dict[str, Any]], project_id: Optional[int],
-                       profile_id: Optional[str]) -> Dict[str, Any]:
+                       profile_id: Optional[str], elaborate: bool = True) -> Dict[str, Any]:
     started = time.monotonic()
-    enhanced = await upsample(source_prompt, ctx, instructions, lora_context, project_id, profile_id)
+    enhanced = (await upsample(source_prompt, ctx, instructions, lora_context, project_id, profile_id)
+                if elaborate else await keep_words(source_prompt, ctx.get("mode") or "prose", project_id))
     upsampled_at = time.monotonic()
     messages = [
         {"role": "system", "content": _INSTRUCTIONS},
         {"role": "user", "content": build_user_message(source_prompt, enhanced, ctx.get("model"), ctx.get("mode") or "prose",
-                                                        params, loras, notes)},
+                                                        params, loras, notes, elaborate)},
     ]
     last_error = ""
     for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -412,7 +486,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
         source = drop_name_options(extract_code(reply), source_prompt)
         try:
             check(source)
-            checked = validate(source, source_prompt, loras, set(params), enhanced)
+            checked = validate(source, source_prompt, loras, set(params), enhanced, elaborate)
         except ProgramError as e:
             last_error = str(e)
         else:
@@ -421,7 +495,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                 normalize_sources(info, source_prompt)
                 entry = {
                     "key": key, "version": PREPARE_VERSION, "prompt": source_prompt, "tool_id": tool_id,
-                    "mode": ctx.get("mode"), "enhanced": enhanced,
+                    "mode": ctx.get("mode"), "elaborate": bool(elaborate), "enhanced": enhanced,
                     "program": source, "choices": info["choices"], "groups": info["groups"],
                     "params": {n: params[n] for n in info["params"] if n in params},
                     "loras": [vars(lo) for lo in loras],

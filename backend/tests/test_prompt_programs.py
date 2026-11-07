@@ -226,6 +226,51 @@ class TestPrepare:
         assert "too short" in calls[2][-1]["content"]
         assert entry["attempts"] == 3 and entry["warnings"]  # accepted with the problem noted
 
+    async def test_enhance_off_keeps_the_users_words(self, stub):
+        calls, replies = stub
+        replies.append("A woman waiting for a train on a [{rainy|foggy|bright}] morning, wearing a trench coat. [Shot on Portra 400]")
+        replies.append(f"```python\n{TRAIN}```")
+        kept = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="",
+                                         lora_items=[], project_id=None, profile_id="p", elaborate=False)
+        assert [c[0]["role"] for c in calls] == ["system", "system"]  # keep-words step, then the writer; no enhancer
+        assert "keeping the user's words" in calls[0][0]["content"]
+        msg = calls[1][1]["content"]
+        assert "user's own words" in msg and "Enhanced prompt" not in msg and "wearing a trench coat" in msg
+        assert kept["elaborate"] is False
+        replies.append(f"```python\n{TRAIN}```")
+        rich = await self._ensure()
+        assert rich["key"] != kept["key"]  # a separate program per mode
+
+    async def test_keyword_models_keep_words_as_tags(self, stub):
+        calls, replies = stub
+        replies.append("woman, waiting for a train, [{rainy|foggy|bright}] morning, [Shot on Portra 400]")
+        replies.append(f"```python\n{TRAIN}```")
+        await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx={**ctx(SCHEMA), "mode": "keyword"}, instructions="",
+                                  lora_items=[], project_id=None, profile_id="p", elaborate=False)
+        assert "comma-separated tags" in calls[0][0]["content"] and "tags" in calls[1][1]["content"]
+
+    async def test_kept_words_that_go_missing_are_sent_back(self, stub):
+        calls, replies = stub
+        replies.append("A woman waiting for a train on a [{rainy|foggy|bright}] morning, wearing a trench coat. [Shot on Portra 400]")
+        replies.append("```python\n" + TRAIN.replace('"A woman waiting for a train on a"', '"A woman for a train on a"') + "```")
+        replies.append(f"```python\n{TRAIN}```")
+        entry = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="",
+                                          lora_items=[], project_id=None, profile_id="p", elaborate=False)
+        assert entry["attempts"] == 2 and '"waiting"' in calls[2][-1]["content"]
+
+    async def test_a_pick_emitted_twice_is_sent_back(self, stub):
+        calls, replies = stub
+        replies.append("```python\n" + TRAIN.replace('", umbrella, ". [Shot', '", umbrella, ", in", clothing, ". [Shot') + "```")
+        replies.append(f"```python\n{TRAIN}```")
+        entry = await self._ensure()
+        assert entry["attempts"] == 2 and 'pick("clothing") appears more than once' in calls[2][-1]["content"]
+
+    def test_the_enhancer_writes_examples_for_smart_wildcards(self):
+        assert prep._for_enhancer("a woman with {{hair style}} on a {red|blue} wall") == "a woman with \u27e8hair style\u27e9 on a {red|blue} wall"
+
+    def test_plain_example_drops_instruction_lines(self):
+        assert prep.plain_example("a {{hair}} woman\n# vary her mood\non a {red|blue} wall") == "a [{{hair}}] woman\non a [{red|blue}] wall"
+
     def test_protects_variable_spots(self):
         out = prep.protect_variable_spots("a {{hair style}} on a {red|blue} wall, [keep] {single}")
         assert out == "a [{{hair style}}] on a [{red|blue}] wall, [keep] {single}"

@@ -335,6 +335,7 @@
             :promptOptions="globalPrefs.promptOptions"
             @update:promptOptions="globalPrefs.promptOptions = $event"
             :placeholder="promptPlaceholder"
+            :programs="promptProgram.status.value !== 'off'"
           >
             <template #corner><PromptProgramDot :program="promptProgram" /></template>
             <template #below-editor><PromptProgramChoices :program="promptProgram" /></template>
@@ -643,7 +644,7 @@
           :upload-file-name="loraUploadFileName"
           :upload-config="loraUploadConfig"
           :lora-notes="loraNotes"
-          :verbatim-prompt="globalPrefs.promptOptions?.autoImprove?.enabled && !globalPrefs.promptOptions?.raw ? null : (globalPrefs.prompt || '')"
+          :verbatim-prompt="(globalPrefs.promptOptions?.autoImprove?.enabled || promptProgram.status.value !== 'off') && !globalPrefs.promptOptions?.raw ? null : (globalPrefs.prompt || '')"
           :program-loras="promptProgram.loraControl.value"
           @program-lora="(path, el) => promptProgram.open(promptProgram.loraControl.value[path]?.choiceId, el)"
           @refresh-loras="refreshLoras"
@@ -3855,12 +3856,14 @@ const {
 })
 
 // Prompt programs ----------------------------------------------------------------
-// With Enhance on, the prompt is prepared once into a program and each run draws from
-// it (no model call per image). See composables/usePromptProgram.ts.
+// Unless Raw is on, the prompt is prepared once into a program and each run draws from
+// it (no model call per image). Enhance on elaborates; off keeps the user's words.
+// Without a chat model, Enhance-off runs the plain pipeline. See usePromptProgram.ts.
 const promptProgram = usePromptProgram({
   toolId: computed(() => fullToolIdFromProps || null),
   prompt: computed(() => globalPrefs.value.prompt || ''),
-  enabled: computed(() => !!hasPrompt.value && !llmUnconfigured.value && !globalPrefs.value.promptOptions?.raw && !!globalPrefs.value.promptOptions?.autoImprove?.enabled),
+  enabled: computed(() => !!hasPrompt.value && !llmUnconfigured.value && !globalPrefs.value.promptOptions?.raw),
+  elaborate: computed(() => !!globalPrefs.value.promptOptions?.autoImprove?.enabled),
   loraItems: computed(() => hasLoras.value
     ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight }))
     : []),
