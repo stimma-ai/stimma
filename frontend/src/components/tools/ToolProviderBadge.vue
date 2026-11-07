@@ -1,7 +1,7 @@
 <template>
   <Tooltip :text="detail || providerName" class="shrink-0">
     <span role="img" :aria-label="providerName" class="flex h-5 w-5 items-center justify-center text-content-muted">
-      <span v-if="cloud" class="h-4 w-4 bg-gradient-to-br from-teal-600 via-cyan-500 to-indigo-500 [mask-image:url('/logo.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]" />
+      <span v-if="cloud" class="h-4 w-4 bg-current [mask-image:url('/logo.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.svg')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]" />
       <ComfyUIIcon v-else-if="isComfy" class="h-4 w-4" />
       <img v-else-if="isDrawThings" src="/drawthings.png" alt="" class="h-4 w-4 rounded-md" draggable="false" />
       <span v-else class="flex h-5 w-5 items-center justify-center rounded-full bg-overlay-subtle text-[9px] font-medium leading-none">{{ initials }}</span>
