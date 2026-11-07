@@ -202,6 +202,12 @@ async def test_publish_open_revise_and_review(client, db_session, tmp_path, no_a
         assert json.loads(message.item_metadata)["contact_sheet_review"]["asset_id"] == asset.id
         again = await client.post(f"/api/contact-sheets/{asset.id}/review/send", json={"chat_id": chat.id})
         assert again.json() == {"sent": 0, "delivery": None}
+        # Taking back a sent answer is news the agent needs.
+        await client.put(f"/api/contact-sheets/{asset.id}/review/answers/direction", json={"value": None})
+        review = (await client.get(f"/api/contact-sheets/{asset.id}/review")).json()
+        assert review["pending"] == 1 and review["answers"]["direction"]["was_sent"] is True
+        retracted = await client.post(f"/api/contact-sheets/{asset.id}/review/send", json={"chat_id": chat.id})
+        assert retracted.json()["sent"] == 1
 
         # Continue the sheet: a new section at the top, a new version of the same asset.
         reopened = await api.open()

@@ -27,6 +27,8 @@ export interface SheetComment {
 export interface SheetAnswer {
   value: unknown
   sent: boolean
+  /** The agent has seen some value for this answer, so clearing it is news. */
+  wasSent: boolean
 }
 
 export interface CommentTarget {
@@ -73,6 +75,8 @@ export interface SheetContext {
   addComment(anchor: string, text: string): Promise<void>
   deleteComment(id: number): Promise<void>
   pendingCount: ComputedRef<number>
+  pendingAnswerCount: ComputedRef<number>
+  pendingCommentCount: ComputedRef<number>
   send(): Promise<void>
   sending: Ref<boolean>
   commentFor: Ref<CommentTarget | null>
@@ -192,7 +196,7 @@ export function provideContactSheet(options: {
     try {
       const { data } = await axios.get(`${api()}/review`)
       const next: Record<string, SheetAnswer> = {}
-      for (const [anchor, row] of Object.entries<any>(data.answers || {})) next[anchor] = { value: row.value, sent: row.sent }
+      for (const [anchor, row] of Object.entries<any>(data.answers || {})) next[anchor] = { value: row.value, sent: row.sent, wasSent: !!row.was_sent }
       answers.value = next
       comments.value = (data.comments || []).map((row: any) => ({ ...row, value: String(row.value ?? '') }))
     } catch (error) {
@@ -212,21 +216,45 @@ export function provideContactSheet(options: {
     return comments.value.filter(c => c.anchor === anchor)
   }
 
-  const answerTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  // Unsaved answers by anchor, and saves in flight. Send waits for both.
+  const answerTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; save: () => Promise<void> }>()
+  const savesInFlight = new Set<Promise<void>>()
+  function startSave(save: () => Promise<void>) {
+    const running = save()
+    savesInFlight.add(running)
+    running.finally(() => savesInFlight.delete(running))
+    return running
+  }
   function setAnswer(anchor: string, value: unknown) {
     if (readonly.value) return
-    answers.value = { ...answers.value, [anchor]: { value, sent: false } }
-    clearTimeout(answerTimers.get(anchor))
+    const previous = answers.value[anchor]
+    answers.value = { ...answers.value, [anchor]: { value, sent: false, wasSent: !!previous?.wasSent || !!previous?.sent } }
+    const pending = answerTimers.get(anchor)
+    if (pending) clearTimeout(pending.timer)
+    const save = async () => {
+      answerTimers.delete(anchor)
+      await axios.put(`${api()}/review/answers/${encodeURIComponent(anchor)}`, { value })
+    }
     // Free text settles before it's saved; everything else saves at once.
     const delay = typeof value === 'string' ? 400 : 0
-    answerTimers.set(anchor, setTimeout(async () => {
-      try {
-        await axios.put(`${api()}/review/answers/${encodeURIComponent(anchor)}`, { value })
-      } catch (error) {
-        console.error('Failed to save a review answer:', error)
-        addToast("Couldn't save your answer. Try again.", 'error')
-      }
-    }, delay))
+    answerTimers.set(anchor, {
+      save,
+      timer: setTimeout(() => {
+        startSave(save).catch(error => {
+          console.error('Failed to save a review answer:', error)
+          addToast("Couldn't save your answer. Try again.", 'error')
+        })
+      }, delay),
+    })
+  }
+  /** Save everything still waiting; rejects if any save fails. */
+  async function flushAnswers() {
+    for (const { timer, save } of [...answerTimers.values()]) {
+      clearTimeout(timer)
+      startSave(save)
+    }
+    const results = await Promise.allSettled([...savesInFlight])
+    if (results.some(result => result.status === 'rejected')) throw new Error('an answer did not save')
   }
 
   async function addComment(anchor: string, text: string) {
@@ -253,16 +281,24 @@ export function provideContactSheet(options: {
 
   const isEmpty = (value: unknown) => value == null || value === false || value === '' || value === 0
     || (Array.isArray(value) && value.length === 0)
-  const pendingCount = computed(() =>
-    Object.values(answers.value).filter(a => !a.sent && !isEmpty(a.value)).length
-    + comments.value.filter(c => !c.sent).length)
+  // An unsent answer is news if it says something, or if it takes back one
+  // the agent already has.
+  const pendingAnswerCount = computed(() =>
+    Object.values(answers.value).filter(a => !a.sent && (!isEmpty(a.value) || a.wasSent)).length)
+  const pendingCommentCount = computed(() => comments.value.filter(c => !c.sent).length)
+  const pendingCount = computed(() => pendingAnswerCount.value + pendingCommentCount.value)
 
   async function send() {
     if (readonly.value || chatId.value == null || sending.value) return
     sending.value = true
     try {
-      // Let a pending free-text save land first.
-      await new Promise(resolve => setTimeout(resolve, 450))
+      try {
+        await flushAnswers()
+      } catch (error) {
+        console.error('Failed to save the review before sending:', error)
+        addToast("Couldn't save your review, so it wasn't sent. Try again.", 'error')
+        return
+      }
       const { data } = await axios.post(`${api()}/review/send`, { chat_id: chatId.value })
       if (!data?.sent) addToast('Nothing new to send.', 'info')
       await loadReview()
@@ -280,7 +316,8 @@ export function provideContactSheet(options: {
     refOf: id => refsById.value[id] ?? null,
     newIds, newCount, markSeen, flashIds,
     selected, toggleSelect, clearSelection,
-    answers, comments, commentsFor, setAnswer, addComment, deleteComment, pendingCount, send, sending,
+    answers, comments, commentsFor, setAnswer, addComment, deleteComment,
+    pendingCount, pendingAnswerCount, pendingCommentCount, send, sending,
     commentFor,
     openSlideshow(componentId: string) {
       if (!openSheetSlideshow) return

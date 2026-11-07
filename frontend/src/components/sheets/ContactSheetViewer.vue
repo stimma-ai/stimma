@@ -99,8 +99,8 @@ watch(() => props.mediaId, async (mediaId, previous) => {
 onBeforeUnmount(() => { if (sheet.content.value) sheet.markSeen() })
 
 const pendingSummary = computed(() => {
-  const answers = Object.values(sheet.answers.value).filter(a => !a.sent && a.value !== null && a.value !== false && a.value !== '' && a.value !== 0 && !(Array.isArray(a.value) && !a.value.length)).length
-  const comments = sheet.comments.value.filter(c => !c.sent).length
+  const answers = sheet.pendingAnswerCount.value
+  const comments = sheet.pendingCommentCount.value
   const parts = []
   if (answers) parts.push(`${answers} ${answers === 1 ? 'answer' : 'answers'}`)
   if (comments) parts.push(`${comments} ${comments === 1 ? 'comment' : 'comments'}`)

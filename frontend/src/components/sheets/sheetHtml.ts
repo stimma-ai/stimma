@@ -56,28 +56,75 @@ export function mediaIdOfRef(ref: string | null | undefined): number | null {
   return match ? Number(match[1]) : null
 }
 
-/** Nest the agent's CSS under the sheet's scope; drop it if it could escape. */
-export function scopeCss(css: string, scope: string): string {
-  const cleaned = css
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/@import[^;]*;?/gi, '')
-    .replace(/url\(\s*(['"]?)\s*(?:https?:)?\/\/[^)]*\)/gi, 'none')
+// Anything that makes the browser fetch something.
+const LOADS_RESOURCE = /\b(?:url|image-set|-webkit-image-set|image|element|cross-fade|src)\s*\(/i
+// Selectors that could reach outside the sheet once nested or scoped.
+const ESCAPES_SCOPE = /&|:root|:host|:scope/i
+
+/** Split a selector list at top-level commas (not inside :is(), :not() …). */
+function splitSelectors(text: string): string[] {
+  const out: string[] = []
   let depth = 0
   let quote: string | null = null
-  for (const char of cleaned) {
-    if (quote) {
-      if (char === quote) quote = null
-      continue
-    }
-    if (char === '"' || char === "'") quote = char
-    else if (char === '{') depth += 1
-    else if (char === '}') {
-      depth -= 1
-      if (depth < 0) return ''
-    }
+  let current = ''
+  for (const char of text) {
+    if (quote) { if (char === quote) quote = null }
+    else if (char === '"' || char === "'") quote = char
+    else if (char === '(' || char === '[') depth += 1
+    else if (char === ')' || char === ']') depth -= 1
+    else if (char === ',' && depth === 0) { out.push(current.trim()); current = ''; continue }
+    current += char
   }
-  if (depth !== 0 || quote) return ''
-  return cleaned.trim() ? `${scope} {\n${cleaned}\n}` : ''
+  if (current.trim()) out.push(current.trim())
+  return out
+}
+
+/** Drop every declaration that would load a resource. Values are read back
+ *  decoded from CSSOM, so escapes like u\72l( can't hide one. */
+function stripResources(style: CSSStyleDeclaration) {
+  for (let i = style.length - 1; i >= 0; i--) {
+    const name = style[i]
+    if (LOADS_RESOURCE.test(style.getPropertyValue(name))) style.removeProperty(name)
+  }
+}
+
+function scopeRules(rules: CSSRuleList, scope: string, out: string[]) {
+  for (const rule of Array.from(rules)) {
+    if (rule instanceof CSSStyleRule) {
+      // Nested rules can climb back out through &, so a sheet rule is flat.
+      if (rule.cssRules?.length) continue
+      const selectors = splitSelectors(rule.selectorText)
+      if (!selectors.length || selectors.some(selector => ESCAPES_SCOPE.test(selector))) continue
+      stripResources(rule.style)
+      if (!rule.style.cssText) continue
+      out.push(`${selectors.map(selector => `${scope} ${selector}`).join(', ')} { ${rule.style.cssText} }`)
+    } else if (rule instanceof CSSMediaRule || rule instanceof CSSSupportsRule) {
+      const inner: string[] = []
+      scopeRules(rule.cssRules, scope, inner)
+      if (inner.length) out.push(`@${rule instanceof CSSMediaRule ? 'media' : 'supports'} ${rule.conditionText} {\n${inner.join('\n')}\n}`)
+    } else if (rule instanceof CSSKeyframesRule) {
+      if (!LOADS_RESOURCE.test(rule.cssText)) out.push(rule.cssText)
+    }
+    // @import, @font-face, @page, @layer, @namespace and the rest are dropped.
+  }
+}
+
+/**
+ * The agent's CSS, parsed by the browser and confined to the sheet: every
+ * selector is rewritten under the sheet's scope, selectors that could reach
+ * the app around it are dropped, and nothing loads a resource.
+ */
+export function scopeCss(css: string, scope: string): string {
+  if (!css.trim() || typeof CSSStyleSheet === 'undefined') return ''
+  const sheet = new CSSStyleSheet()
+  try {
+    sheet.replaceSync(css.replace(/@import[^;]*;?/gi, ''))
+  } catch {
+    return ''
+  }
+  const out: string[] = []
+  scopeRules(sheet.cssRules, scope, out)
+  return out.join('\n')
 }
 
 export interface ParsedSheet {
@@ -111,9 +158,10 @@ export function parseSheet(html: string, scope: string): ParsedSheet {
     if (/^(?:https?:)?\/\//i.test(src)) el.removeAttribute('src')
     el.removeAttribute('srcset')
   })
-  doc.body.querySelectorAll('[style]').forEach(el => {
-    const style = el.getAttribute('style') || ''
-    if (/url\(/i.test(style)) el.setAttribute('style', style.replace(/url\(\s*(['"]?)\s*(?:https?:)?\/\/[^)]*\)/gi, 'none'))
+  doc.body.querySelectorAll<HTMLElement>('[style]').forEach(el => {
+    stripResources(el.style)
+    if (el.style.cssText) el.setAttribute('style', el.style.cssText)
+    else el.removeAttribute('style')
   })
   doc.body.querySelectorAll('a[href]').forEach(el => {
     el.setAttribute('target', '_blank')
