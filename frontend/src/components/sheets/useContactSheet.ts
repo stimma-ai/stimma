@@ -228,12 +228,12 @@ export function provideContactSheet(options: {
     const entry = dirty.get(anchor)
     if (!entry) return saving.get(anchor) ?? Promise.resolve()
     if (entry.timer) { clearTimeout(entry.timer); entry.timer = null }
-    const value = entry.value
     const previous = saving.get(anchor) ?? Promise.resolve()
     const run = previous.catch(() => {}).then(async () => {
-      await axios.put(`${api()}/review/answers/${encodeURIComponent(anchor)}`, { value })
-      // Only a save of the latest value makes the answer clean.
-      if (dirty.get(anchor)?.value === value) dirty.delete(anchor)
+      await axios.put(`${api()}/review/answers/${encodeURIComponent(anchor)}`, { value: entry.value })
+      // Only a save of the latest edit makes the answer clean. Each edit is a
+      // new entry, so an older save of an equal value can't clear a newer one.
+      if (dirty.get(anchor) === entry) dirty.delete(anchor)
     })
     saving.set(anchor, run)
     run.finally(() => { if (saving.get(anchor) === run) saving.delete(anchor) }).catch(() => {})

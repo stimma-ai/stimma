@@ -88,7 +88,7 @@ function stripResources(style: CSSStyleDeclaration) {
   }
 }
 
-function flatRules(rules: CSSRuleList, out: string[], keyframes: string[]) {
+function flatRules(rules: CSSRuleList, out: string[], keyframes: string[], nested = false) {
   for (const rule of Array.from(rules)) {
     if (rule instanceof CSSStyleRule) {
       // Nested rules are dropped: a sheet rule is flat.
@@ -97,10 +97,12 @@ function flatRules(rules: CSSRuleList, out: string[], keyframes: string[]) {
       if (rule.style.cssText) out.push(`${rule.selectorText} { ${rule.style.cssText} }`)
     } else if (rule instanceof CSSMediaRule || rule instanceof CSSSupportsRule) {
       const inner: string[] = []
-      flatRules(rule.cssRules, inner, keyframes)
+      flatRules(rule.cssRules, inner, keyframes, true)
       if (inner.length) out.push(`@${rule instanceof CSSMediaRule ? 'media' : 'supports'} ${rule.conditionText} {\n${inner.join('\n')}\n}`)
     } else if (rule instanceof CSSKeyframesRule) {
-      if (!LOADS_RESOURCE.test(rule.cssText) && !rule.cssText.includes('\\')) keyframes.push(rule.cssText)
+      // Keyframes can't sit inside @scope, so only top-level ones are kept:
+      // one inside @media or @supports would lose its condition.
+      if (!nested && !LOADS_RESOURCE.test(rule.cssText) && !rule.cssText.includes('\\')) keyframes.push(rule.cssText)
     }
     // @import, @font-face, @page, @layer, @namespace and the rest are dropped.
   }

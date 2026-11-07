@@ -42,6 +42,8 @@ test('agent CSS stays inside the sheet and loads nothing', async t => {
       [data-x="a\\""], body { border-top: 7px solid red }
       .pic { --pic: u\\72l(https://evil.example/custom); background-image: var(--pic) }
       .ok { --tone: rgb(4, 5, 6); border-left: 2px solid var(--tone) }
+      @keyframes kept { to { opacity: 0.5 } }
+      @media (max-width: 1px) { @keyframes conditional { to { opacity: 0 } } }
     </style>
     <div class="tile">tile</div>
     <div class="pic">pic</div>
@@ -78,5 +80,7 @@ test('agent CSS stays inside the sheet and loads nothing', async t => {
   assert.equal(result.tilePadding, '2px', 'media queries are kept, scoped')
   assert.equal(result.cardMargin, '4px', 'safe inline styles are kept')
   assert.ok(!/url|evil/i.test(result.css + result.cardStyle), result.css + result.cardStyle)
+  assert.ok(result.css.includes('kept'), 'top-level keyframes are kept')
+  assert.ok(!result.css.includes('conditional'), 'keyframes never lose their condition')
   assert.deepEqual(external, [], 'no external requests')
 })
