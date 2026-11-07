@@ -340,10 +340,11 @@
             <template #mode="{ openHelp }"><FluentControl
               :program="promptProgram"
               :raw="!!globalPrefs.promptOptions?.raw"
+              :direct="!!globalPrefs.promptOptions?.direct"
               :elaborate="!!globalPrefs.promptOptions?.autoImprove?.enabled"
               :llm-unconfigured="llmUnconfigured"
               :model-name="tool?.name"
-              @raw="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: on || undefined }"
+              @way="(w) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined }"
               @mode="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, autoImprove: { ...globalPrefs.promptOptions?.autoImprove, enabled: on } }"
               @help="(anchor) => openHelp(anchor)"
             /></template>
@@ -653,7 +654,7 @@
           :upload-file-name="loraUploadFileName"
           :upload-config="loraUploadConfig"
           :lora-notes="loraNotes"
-          :verbatim-prompt="(globalPrefs.promptOptions?.autoImprove?.enabled || promptProgram.status.value !== 'off') && !globalPrefs.promptOptions?.raw ? null : (globalPrefs.prompt || '')"
+          :verbatim-prompt="((globalPrefs.promptOptions?.autoImprove?.enabled && !globalPrefs.promptOptions?.direct) || promptProgram.status.value !== 'off') && !globalPrefs.promptOptions?.raw ? null : (globalPrefs.prompt || '')"
           :program-loras="promptProgram.loraControl.value"
           @program-lora="(path, el) => promptProgram.open(promptProgram.loraControl.value[path]?.choiceId, el)"
           @refresh-loras="refreshLoras"
@@ -3873,7 +3874,7 @@ const {
 const promptProgram = usePromptProgram({
   toolId: computed(() => fullToolIdFromProps || null),
   prompt: computed(() => globalPrefs.value.prompt || ''),
-  enabled: computed(() => !!hasPrompt.value && !llmUnconfigured.value && !globalPrefs.value.promptOptions?.raw),
+  enabled: computed(() => !!hasPrompt.value && !llmUnconfigured.value && !globalPrefs.value.promptOptions?.raw && !globalPrefs.value.promptOptions?.direct),
   elaborate: computed(() => !!globalPrefs.value.promptOptions?.autoImprove?.enabled),
   loraItems: computed(() => hasLoras.value
     ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight }))
@@ -3898,7 +3899,7 @@ const promptProgram = usePromptProgram({
 })
 // Fluent's "nothing was run" is about the prompt as it was: once the prompt, its mode or
 // Fluent's state moves on, the message is no longer true.
-watch(() => [globalPrefs.value.prompt, globalPrefs.value.promptOptions?.raw, globalPrefs.value.promptOptions?.autoImprove?.enabled],
+watch(() => [globalPrefs.value.prompt, globalPrefs.value.promptOptions?.raw, globalPrefs.value.promptOptions?.direct, globalPrefs.value.promptOptions?.autoImprove?.enabled],
   () => { if (submissionError.value?.endsWith('so nothing ran.')) submissionError.value = null })
 
 function replayProgramRun(run: any) {
@@ -4030,6 +4031,7 @@ const { clear: clearPromptWarmPool } = usePromptWarmPool({
     // prompt text alone, so it must be enhanced at submission time.
     !enhanceIsMiniMaxH3.value &&
     !globalPrefs.value.promptOptions?.raw &&
+    !globalPrefs.value.promptOptions?.direct &&
     // A prompt program runs without an LLM: nothing to pre-enhance.
     promptProgram.status.value === 'off'
   ),
@@ -5424,11 +5426,17 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
 
   // No chat model: {a|b}, saved wildcards and # lines still work, but a {{name}} that
   // isn't a saved wildcard can't be filled. Never send it through as literal text.
-  const unfillable = !globalPrefs.value.promptOptions?.raw && llmUnconfigured.value && hasPrompt.value
+  // Direct is the same: only saved wildcards fill in.
+  const direct = !!globalPrefs.value.promptOptions?.direct
+  const unfillable = !globalPrefs.value.promptOptions?.raw && (llmUnconfigured.value || direct) && hasPrompt.value
     ? unknownSmartNames(globalPrefs.value.prompt || '') : []
   if (unfillable.length) {
-    submissionError.value = `${PROMPT_BRAND} needs a chat model for {{${unfillable[0]}}}, so nothing ran.`
-    addToast(submissionError.value, 'error', 10000, { label: 'Settings', onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) })
+    submissionError.value = direct
+      ? `{{${unfillable[0]}}} isn’t a saved wildcard, so Direct can’t fill it and nothing ran.`
+      : `${PROMPT_BRAND} needs a chat model for {{${unfillable[0]}}}, so nothing ran.`
+    addToast(submissionError.value, 'error', 10000, direct && !llmUnconfigured.value
+      ? { label: `Use ${PROMPT_BRAND}`, onClick: () => { globalPrefs.value.promptOptions = { ...globalPrefs.value.promptOptions, direct: undefined } } }
+      : { label: 'Settings', onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) })
     return noSubmit(options)
   }
 
@@ -5582,7 +5590,8 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         // visibly rather than sending the raw prompt.
         autoImprove: {
           ...rawPromptOptions.autoImprove,
-          enabled: toolHasPrompt && !!rawPromptOptions.autoImprove?.enabled,
+          // Direct: no model rewrites the prompt.
+          enabled: toolHasPrompt && !!rawPromptOptions.autoImprove?.enabled && !rawPromptOptions.direct,
           model: toolModelString.value || null,
           // Task-authoritative: video tools always get cinematography.
           isVideo: enhanceIsVideo.value,

@@ -275,7 +275,7 @@
                     <span class="text-xs font-medium text-content-secondary">{{ brand }}</span>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    {{ brand }} writes your prompt the way this model understands it and gives every image a fresh take. The text in the editor never changes. Verbatim sends it exactly as typed.
+                    {{ brand }} writes your prompt the way this model understands it and gives every image a fresh take. The text in the editor never changes. Raw sends it exactly as typed.
                   </p>
                 </div>
 
@@ -564,6 +564,7 @@ const { segments } = useSegments()
 const syntaxMode = computed<PromptSyntaxMode>(() =>
   rawMode.value ? 'raw'
     // Flow inputs don't run the prompt pipeline here; keep their highlighting as it was.
+    : props.promptOptions.direct ? 'plain'
     : props.hideAutoImprove || props.programs || (!llmUnconfigured.value && props.promptOptions.autoImprove?.enabled) ? 'enhance'
     : 'plain')
 watch([syntaxMode, wildcards, segments], () => {

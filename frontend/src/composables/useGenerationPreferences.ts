@@ -60,6 +60,9 @@ export interface PromptOptions {
   // Raw: the prompt is sent exactly as typed (no wildcards, comments, brackets,
   // Enhance or Translate), for prompts another stage will process.
   raw?: boolean
+  // Direct: no model reads the prompt. {a|b} lists, saved wildcards and segments fill
+  // in, [brackets] unwrap and # lines drop (the classic pipeline). Raw wins over it.
+  direct?: boolean
 }
 
 export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {

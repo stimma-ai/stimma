@@ -1,7 +1,7 @@
 <template>
   <!-- Fluent: how Tool View sends a prompt to the image model. Fluent (the default)
        writes it the way this model understands it and varies it every image;
-       Verbatim sends it exactly as typed. The chip says which, at rest. Status only
+       Direct fills in lists and saved wildcards with no model; Raw sends it exactly as typed. The chip says which, at rest. Status only
        shows when there's something to wait for or fix. -->
   <div class="relative flex items-center">
     <button
@@ -11,12 +11,13 @@
       :data-status="program.status.value"
       :aria-expanded="menuOpen"
       :class="['flex items-center gap-1.5 text-ctl transition-colors -mx-1.5 px-1.5 py-0.5 rounded-md outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
-        llmUnconfigured && !raw ? 'text-content-muted hover:text-content-secondary' : 'text-content bg-overlay-subtle']"
+        llmUnconfigured && way === 'fluent' ? 'text-content-muted hover:text-content-secondary' : 'text-content bg-overlay-subtle']"
       :title="chipTitle"
       @click="toggle"
     >
       <Spinner v-if="busy" size="sm" />
-      <Bars3BottomLeftIcon v-else-if="raw" class="w-3.5 h-3.5" />
+      <CodeBracketSquareIcon v-else-if="way === 'raw'" class="w-3.5 h-3.5" />
+      <Bars3BottomLeftIcon v-else-if="way === 'direct'" class="w-3.5 h-3.5" />
       <WandSparklesIcon v-else :class="['w-3.5 h-3.5', llmUnconfigured ? 'opacity-60' : '']" />
       <span>{{ chipText }}</span>
       <span v-if="failed" class="w-[6px] h-[6px] rounded-full bg-red-400" aria-label="Couldn’t read this prompt" />
@@ -50,9 +51,9 @@
             <SegmentedControl
               class="!flex !w-full [&>button]:flex-1 [&>button]:justify-center"
               :model-value="way"
-              :options="[{ label: BRAND, value: 'fluent', icon: WandSparklesIcon }, { label: 'Verbatim', value: 'verbatim', icon: Bars3BottomLeftIcon }]"
+              :options="[{ label: BRAND, value: 'fluent', icon: WandSparklesIcon }, { label: 'Direct', value: 'direct', icon: Bars3BottomLeftIcon }, { label: 'Raw', value: 'raw', icon: CodeBracketSquareIcon }]"
               aria-label="How the prompt is sent"
-              @update:model-value="(v) => pickWay(v as 'fluent' | 'verbatim')"
+              @update:model-value="(v) => pickWay(v as Way)"
             />
           </div>
           <div class="px-3 pt-2.5 pb-2.5 text-[12px] leading-snug text-content-secondary">{{ tagline }}</div>
@@ -151,7 +152,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon } from '@heroicons/vue/24/solid'
-import { ArrowPathIcon, Bars3BottomLeftIcon, CodeBracketIcon, QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, Bars3BottomLeftIcon, CodeBracketIcon, CodeBracketSquareIcon, QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
 import SegmentedControl from '../ui/SegmentedControl.vue'
 import Toggle from '../ui/Toggle.vue'
 import type { PromptProgram } from '../../composables/usePromptProgram'
@@ -164,8 +165,10 @@ import { PROMPT_BRAND as BRAND } from './promptBrand'
 
 const props = defineProps<{
   program: PromptProgram
-  /** Verbatim: sent exactly as typed. */
+  /** Raw: sent exactly as typed. */
   raw: boolean
+  /** Direct: lists and saved wildcards fill in, no model reads the prompt. */
+  direct: boolean
   /** Upsample prompt (true), or just your wording joined up (false). */
   elaborate: boolean
   /** No chat model is set up, so Fluent can't read prompts. */
@@ -175,7 +178,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   (e: 'mode', elaborate: boolean): void
-  (e: 'raw', on: boolean): void
+  (e: 'way', way: Way): void
   (e: 'help', anchor: DOMRect | null): void
 }>()
 
@@ -185,29 +188,33 @@ const BRACES = '{' + '{ }' + '}'
 const menuOpen = ref(false)
 const programText = ref<string | null>(null)
 
-const way = computed(() => (props.raw ? 'verbatim' : 'fluent'))
+type Way = 'fluent' | 'direct' | 'raw'
+const way = computed<Way>(() => (props.raw ? 'raw' : props.direct ? 'direct' : 'fluent'))
 // What Fluent honestly does with the current setting: fresh choices always; the
 // model's own style only when it upsamples.
 const tagline = computed(() => {
   const model = props.modelName || 'the model'
-  if (props.raw) return `Your prompt goes to ${model} exactly as you typed it.`
+  if (props.raw) return `Your prompt goes to ${model} exactly as you typed it, for a later step to process.`
+  if (props.direct) return 'Your lists and saved wildcards are filled in. Nothing else changes.'
   return props.elaborate || props.program.unsupported.value
     ? `Every image gets fresh choices, in a prompt written the way ${model} likes.`
     : 'Every image gets fresh choices, in your own words.'
 })
 const detail = computed(() => props.elaborate || props.program.unsupported.value)
-const on = computed(() => !props.raw && !props.llmUnconfigured)
+const on = computed(() => way.value === 'fluent' && !props.llmUnconfigured)
 const busy = computed(() => on.value && props.program.status.value === 'busy')
 const failed = computed(() => on.value && props.program.status.value === 'error')
 
 
 const chipText = computed(() => {
-  if (props.raw) return 'Verbatim'
+  if (props.raw) return 'Raw'
+  if (props.direct) return 'Direct'
   if (props.llmUnconfigured) return `${BRAND} · set up`
   return detail.value ? BRAND : `${BRAND} · your words`
 })
 const chipTitle = computed(() => {
-  if (props.raw) return 'Verbatim: sent exactly as typed'
+  if (props.raw) return 'Raw: sent exactly as typed'
+  if (props.direct) return 'Direct: lists and saved wildcards filled in'
   if (props.llmUnconfigured) return `${BRAND} needs a chat model`
   if (busy.value) return 'Reading your prompt…'
   if (failed.value) return `${BRAND} couldn’t read this prompt`
@@ -216,9 +223,9 @@ const chipTitle = computed(() => {
 
 type Action = { label: string; run: () => void }
 type Notice = { head: string; body?: string; detail?: string; tone?: 'bad'; actions?: Action[] }
-const useVerbatim: Action = { label: 'Use Verbatim', run: () => { menuOpen.value = false; emit('raw', true) } }
+const useDirect: Action = { label: 'Use Direct', run: () => { menuOpen.value = false; emit('way', 'direct') } }
 const notice = computed<Notice | null>(() => {
-  if (props.raw) return null
+  if (way.value !== 'fluent') return null
   if (props.llmUnconfigured) return {
     head: 'Needs a chat model',
     actions: [{ label: 'Set one up', run: () => { menuOpen.value = false; window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) } }],
@@ -230,7 +237,7 @@ const notice = computed<Notice | null>(() => {
       head: unreachable ? 'Can’t reach your chat model' : 'Couldn’t read this prompt',
       tone: 'bad',
       detail: devModeRef.value ? props.program.error.value?.message : undefined,
-      actions: [{ label: 'Try again', run: () => { void props.program.prepare(true) } }, useVerbatim],
+      actions: [{ label: 'Try again', run: () => { void props.program.prepare(true) } }, useDirect],
     }
   }
   return null
@@ -255,9 +262,9 @@ const retake = computed(() => {
   return { label, hint: `${what[0].toUpperCase()}${what.slice(1)}. Options you ticked or added stay, and so does your prompt.` }
 })
 
-function pickWay(id: 'fluent' | 'verbatim') {
+function pickWay(id: Way) {
   // The menu stays open: choosing Fluent shows its settings right under it.
-  if ((id === 'verbatim') !== props.raw) emit('raw', id === 'verbatim')
+  if (id !== way.value) emit('way', id)
 }
 
 const menuStyle = ref<Record<string, string>>({})
