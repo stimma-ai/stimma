@@ -38,7 +38,7 @@
               <WandSparklesIcon class="w-3.5 h-3.5 text-accent" /> {{ BRAND }}
             </div>
             <div class="mt-0.5 text-[12px] leading-snug text-content-secondary">
-              Your prompt, written the way {{ modelName || 'this model' }} understands it. {{ BRACES }} choices and # notes come alive, and every image gets a fresh take.
+              Prompts written the way {{ modelName || 'this model' }} likes them.
             </div>
           </div>
 
@@ -69,7 +69,7 @@
             </span>
             <span class="min-w-0">
               <span class="block text-[12px] coarse:text-[13px] text-content">{{ ways[0].label }}</span>
-              <span class="block text-[11px] text-content-muted leading-snug">{{ ways[0].hint }}</span>
+
             </span>
           </button>
 
@@ -88,12 +88,8 @@
             </span>
             <span class="min-w-0">
               <span class="block text-[12px] coarse:text-[13px] text-content">Add detail</span>
-              <span class="block text-[11px] text-content-muted leading-snug">{{ elaborate ? 'Writes the fuller prompt this model does best with' : 'Off: your wording stays, only joined up' }}</span>
             </span>
           </button>
-          <div v-if="way === 'fluent' && program.unsupported.value" class="pl-[34px] pr-3 pb-1 text-[11px] text-content-muted leading-snug">
-            This model takes structured prompts, so Fluent writes one for each image; {{ BRACES }} choices aren’t available.
-          </div>
 
           <button
                         type="button"
@@ -115,13 +111,12 @@
             <div class="border-t border-edge-subtle my-1" />
             <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 hover:bg-overlay-subtle" @click="menuOpen = false; program.rethink()">
               <span class="block text-[12px] coarse:text-[13px] text-content">{{ retake.label }}</span>
-              <span class="block text-[11px] text-content-muted leading-snug">{{ retake.hint }}</span>
             </button>
           </template>
 
           <div class="border-t border-edge-subtle my-1" />
           <button type="button" role="menuitem" class="w-full text-left px-3 py-1.5 coarse:py-3 text-[12px] coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="menuOpen = false; emit('help', chip?.getBoundingClientRect() ?? null)">
-            How to write for {{ BRAND }}
+            Prompt tips
           </button>
           <button
             v-if="devModeRef && program.status.value !== 'off'"
@@ -234,8 +229,8 @@ const busy = computed(() => on.value && props.program.status.value === 'busy')
 const failed = computed(() => on.value && props.program.status.value === 'error')
 
 const ways = [
-  { id: 'fluent' as const, label: BRAND, hint: 'Written for this model, with fresh choices every image' },
-  { id: 'verbatim' as const, label: 'Verbatim', hint: 'Exactly as typed: braces and # lines included, for a later step to handle' },
+  { id: 'fluent' as const, label: BRAND, hint: '' },
+  { id: 'verbatim' as const, label: 'Verbatim', hint: 'Sent exactly as you typed it' },
 ]
 
 const chipText = computed(() => {
@@ -257,16 +252,14 @@ const useVerbatim: Action = { label: 'Use Verbatim', run: () => { menuOpen.value
 const notice = computed<Notice | null>(() => {
   if (props.raw) return null
   if (props.llmUnconfigured) return {
-    head: `${BRAND} needs a chat model`,
-    body: 'Until then, {a|b} lists and saved wildcards still fill in, and # lines are left out.',
-    actions: [{ label: 'Add one in Settings', run: () => { menuOpen.value = false; window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) } }],
+    head: 'Needs a chat model',
+    actions: [{ label: 'Set one up', run: () => { menuOpen.value = false; window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) } }],
   }
-  if (busy.value) return { head: 'Reading your prompt…', body: 'First run only, a few seconds.' }
+  if (busy.value) return { head: 'Reading your prompt…' }
   if (failed.value) {
     const unreachable = props.program.error.value?.code === 'llm_unavailable'
     return {
-      head: unreachable ? `${BRAND} couldn’t reach your chat model` : `${BRAND} couldn’t make sense of this prompt`,
-      body: unreachable ? 'Nothing runs until it can read the prompt.' : 'Try again, or simplify the # notes.',
+      head: unreachable ? 'Can’t reach your chat model' : 'Couldn’t read this prompt',
       tone: 'bad',
       detail: devModeRef.value ? props.program.error.value?.message : undefined,
       actions: [{ label: 'Try again', run: () => { void props.program.prepare(true) } }, useVerbatim],

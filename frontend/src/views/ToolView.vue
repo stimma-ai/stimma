@@ -3899,7 +3899,7 @@ const promptProgram = usePromptProgram({
 // Fluent's "nothing was run" is about the prompt as it was: once the prompt, its mode or
 // Fluent's state moves on, the message is no longer true.
 watch(() => [globalPrefs.value.prompt, globalPrefs.value.promptOptions?.raw, globalPrefs.value.promptOptions?.autoImprove?.enabled],
-  () => { if (submissionError.value?.startsWith(PROMPT_BRAND)) submissionError.value = null })
+  () => { if (submissionError.value?.endsWith('so nothing ran.')) submissionError.value = null })
 
 function replayProgramRun(run: any) {
   const fixed = Object.fromEntries((run?.draws || []).map((d: any) => [d.id, d.value]))
@@ -5427,7 +5427,7 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   const unfillable = !globalPrefs.value.promptOptions?.raw && llmUnconfigured.value && hasPrompt.value
     ? unknownSmartNames(globalPrefs.value.prompt || '') : []
   if (unfillable.length) {
-    submissionError.value = `${PROMPT_BRAND} needs a chat model to fill {{${unfillable[0]}}}. Add one in Settings, make it a saved wildcard, or switch to Verbatim.`
+    submissionError.value = `${PROMPT_BRAND} needs a chat model for {{${unfillable[0]}}}, so nothing ran.`
     addToast(submissionError.value, 'error', 10000, { label: 'Settings', onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) })
     return noSubmit(options)
   }
@@ -5456,12 +5456,12 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     const code = promptProgram.error.value?.code
     const retry = { label: 'Try again', onClick: () => { void submitJob(options) } }
     if (code === 'llm_not_configured') {
-      submissionError.value = `${PROMPT_BRAND} needs a chat model, so nothing was run.`
+      submissionError.value = `${PROMPT_BRAND} needs a chat model, so nothing ran.`
       addToast(submissionError.value, 'error', 8000, { label: 'Settings', onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) })
     } else {
       submissionError.value = code === 'llm_unavailable'
-        ? `${PROMPT_BRAND} couldn’t reach your chat model, so nothing was run.`
-        : `${PROMPT_BRAND} couldn’t make sense of this prompt, so nothing was run.`
+        ? `Can’t reach your chat model, so nothing ran.`
+        : `${PROMPT_BRAND} couldn’t read this prompt, so nothing ran.`
       addToast(submissionError.value, 'error', 8000, retry)
     }
     return noSubmit(options)
