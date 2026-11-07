@@ -65,7 +65,7 @@ ID_KEYED_CACHE_HEADERS = {
     'Access-Control-Allow-Origin': '*',
 }
 
-THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout', 'stimmapackage', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
+THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout', 'stimmapackage', 'stimmasheet.html', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
 
 CONTAINER_IMAGE_FORMATS = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'}
 CONTAINER_VIDEO_FORMATS = {'mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'}
@@ -995,6 +995,33 @@ def _generate_grid_preview(
         return _generate_placeholder_thumbnail(size, 'grid', palette=palette)
 
 
+def _generate_sheet_preview(size: int, palette=None, normalized_content: dict | None = None) -> Image.Image:
+    """A contact sheet's card: its first four pictures as a 2x2 mosaic."""
+    palette = palette or THEME_PALETTES['dark']
+    members = (normalized_content or {}).get('members') or {}
+    image_paths: list[str] = []
+    pending = False
+    for member in members.values():
+        path = (member or {}).get('file_path')
+        if not path or Path(path).suffix.lower().lstrip('.') not in CONTAINER_VISUAL_FORMATS:
+            continue
+        if Path(path).exists():
+            image_paths.append(path)
+        else:
+            pending = True
+        if len(image_paths) == 4:
+            break
+    if not image_paths:
+        if pending:
+            raise ContainerMembersPending('contact sheet')
+        return _generate_placeholder_thumbnail(size, 'grid', palette=palette)
+    cols = 1 if len(image_paths) == 1 else 2
+    rows = 1 if len(image_paths) <= 2 else 2
+    return _create_grid_mosaic(
+        image_paths, size, palette['grid_accent'], grid_cols=cols, grid_rows=rows, palette=palette,
+    )
+
+
 def _load_container_preview_image(path: str | Path) -> Image.Image:
     """Load a still image or a video's first frame for a container thumbnail."""
     if Path(path).suffix.lower().lstrip('.') in CONTAINER_VIDEO_FORMATS:
@@ -1703,7 +1730,7 @@ async def get_media_face_positions(
 
 async def _normalized_thumbnail_content(session, item: MediaItem) -> dict | None:
     """Resolve container members before thumbnail work leaves the DB thread."""
-    if item.file_format not in {"stimmaset.json", "stimmagrid.json", "stimmasprite.json"}:
+    if item.file_format not in {"stimmaset.json", "stimmagrid.json", "stimmasprite.json", "stimmasheet.html"}:
         return None
     from container_service import get_normalized_container_content
 
@@ -1778,6 +1805,11 @@ def _generate_thumbnail_sync(
                 palette=palette,
                 normalized_content=normalized_content,
             )
+            _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
+            return True
+
+        if format_lower == 'stimmasheet.html':
+            img = _generate_sheet_preview(size, palette=palette, normalized_content=normalized_content)
             _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
             return True
 

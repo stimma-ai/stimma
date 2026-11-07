@@ -1445,6 +1445,8 @@ class StimmaSDK:
         self._effective_model_slug = effective_model_slug
         self.library = StimmaLibraryAPI(self)
         self.packages = StimmaPackagesAPI(self)
+        from .contact_sheet_sdk import StimmaContactSheetsAPI
+        self.contact_sheets = StimmaContactSheetsAPI(self)
         self._display_lock = threading.Lock()
         self._pending_display_calls: list[dict[str, Any]] = []
         self._display_receipts: list[str] = []
@@ -2994,7 +2996,7 @@ async def run_code_in_sandbox(
 
     from .code_execution import SDKBridge, CodeWorker
     sdk_bridge = SDKBridge(asyncio.get_running_loop(),
-                           (StimmaSDK, *StimmaSDK.NAMESPACES.values(), PackageDraft))
+                           (StimmaSDK, *StimmaSDK.NAMESPACES.values(), PackageDraft, ContactSheetDraft))
     worker_sdk = sdk_bridge.wrap(sdk_instance)
 
     # Create a tqdm class bound to this SDK instance so `from tqdm import tqdm` just works
@@ -3254,4 +3256,7 @@ def compute_file_hash(path: Path) -> str:
     return digest.hexdigest()
 
 
-StimmaSDK.NAMESPACES = {"library": StimmaLibraryAPI, "packages": StimmaPackagesAPI}
+from .contact_sheet_sdk import ContactSheetDraft, StimmaContactSheetsAPI  # noqa: E402
+
+StimmaSDK.NAMESPACES = {"library": StimmaLibraryAPI, "packages": StimmaPackagesAPI,
+                        "contact_sheets": StimmaContactSheetsAPI}

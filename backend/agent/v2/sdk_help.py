@@ -40,6 +40,74 @@ Parallel execution:
         group="core",
         is_async=True,
     ),
+    "contact_sheets.new": SDKMethodHelp(
+        name="contact_sheets.new",
+        signature="stimma.contact_sheets.new(title) -> ContactSheet; sheet.set_html(html_or_path); sheet.add_section(id, label, note=None, layout='rows', size='m', position='end') -> group_id; sheet.add(group_id, items, captions=None) -> tile ids; await sheet.publish(note=None) -> {asset_id, version, warnings}",
+        summary="Present work for the user to review: an organized sheet they read in the chat's panel, with questions they can answer.",
+        details="""\
+A contact sheet is your organized presentation of what the user should look
+at: sections, notes, comparisons, and the questions you need answered, next to
+the work they're about. Not a thumbnail dump: include only what is worth their
+attention, in the order they should read it.
+
+The sheet is HTML you write. Use kit elements wherever it shows media or asks
+for review; everything else (headings, prose, layout, CSS) is yours:
+
+  <stimma-section id="round-2" label="Round 2" note="What changed and why">
+    <stimma-media-group layout="rows" size="m">     rows | masonry | uniform; s | m | l
+      <stimma-media ref="812" caption="..."></stimma-media>   ref = media id, asset:<id>, or workspace path
+    </stimma-media-group>
+  </stimma-section>
+  <stimma-columns><stimma-column>...</stimma-column></stimma-columns>
+  <stimma-compare a="810" b="812" caption="Before and after"></stimma-compare>
+  <stimma-choice id="direction" label="Which direction should I develop?">
+    <stimma-option value="a" ref="801">Evergreen</stimma-option> ...</stimma-choice>
+  <stimma-check id="ok-hero" for="hero">Approved</stimma-check>     for = a stimma-media id
+  <stimma-rating id="rate-hero" for="hero"></stimma-rating>
+  <stimma-field id="notes" label="Anything else?"></stimma-field>
+
+Pictures are never cropped. No scripts or external URLs. Give components ids
+you'll keep: the user's answers and comments are tied to them.
+
+  sheet = stimma.contact_sheets.new("Spring campaign directions")
+  sheet.set_html("sheet.html")            # or build it up:
+  group = sheet.add_section("round-1", "Round 1", "First pass", position="start")
+  sheet.add(group, results, captions=[...])
+  print(await sheet.publish("Round 1"))   # first publish opens it for the user
+
+Keep the same sheet current as the work changes: open it, change it, publish
+again. Each publish is a new version of the same sheet.""",
+        group="contact_sheets",
+        is_async=True,
+    ),
+    "contact_sheets.open": SDKMethodHelp(
+        name="contact_sheets.open",
+        signature="await stimma.contact_sheets.open(asset_id=None) -> ContactSheet; sheet.html(); sheet.write_html(path) -> path; sheet.append(element_id, html)",
+        summary="Continue a published sheet (this chat's latest when no id): change it and publish the next version.",
+        details="""\
+  sheet = await stimma.contact_sheets.open()       # this chat's most recent sheet
+  group = sheet.add_section("round-3", "Round 3", "Slower camera moves", position="start")
+  sheet.add(group, new_results)
+  print(await sheet.publish("Round 3"))
+
+For bigger edits: path = sheet.write_html("sheet.html"), change it with
+edit_file, then sheet.set_html(path) and publish(). Refs in a published sheet
+read media:<id>. Keep existing ids: the review is tied to them.""",
+        group="contact_sheets",
+        is_async=True,
+    ),
+    "contact_sheets.review": SDKMethodHelp(
+        name="contact_sheets.review",
+        signature="await stimma.contact_sheets.review(asset_id=None) -> {answers, comments, unsent}",
+        summary="Read the user's answers and comments on a sheet.",
+        details="""\
+When the user sends their review it arrives as a chat message. This returns the
+whole review at any time: every answer (question, text, the media it's about)
+and comment, each marked unsent if they haven't sent it yet. Markers on the
+media are the user's own library marks; read them with the library if useful.""",
+        group="contact_sheets",
+        is_async=True,
+    ),
     "packages.open": SDKMethodHelp(
         name="packages.open",
         signature="await stimma.packages.open(media_id_or_preview_folder) -> PackageDraft",
@@ -627,11 +695,12 @@ Example:
 }
 
 
-_GROUP_ORDER = ["core", "display", "library", "packages", "image", "similarity", "ai"]
+_GROUP_ORDER = ["core", "display", "library", "contact_sheets", "packages", "image", "similarity", "ai"]
 _GROUP_LABELS = {
     "core": "Core",
     "display": "Display",
     "library": "Library",
+    "contact_sheets": "Contact sheets",
     "packages": "Packages",
     "image": "Image",
     "similarity": "Similarity",
@@ -641,6 +710,7 @@ _GROUP_DESCRIPTIONS = {
     "core": "generated tools, parallel batches, progress, shared project paths",
     "display": "show, show_grid",
     "library": "search, browse, get, by_hash, save, export, lineage, regeneration",
+    "contact_sheets": "present work for review in the chat's panel and read the user's review",
     "packages": "assemble, preview, edit and save deliverable packages",
     "image": "adjust, filters, rasterize, ffmpeg",
     "similarity": "faces and CLIP: detect_faces, same-person search, similar images, pairwise matrices",
@@ -707,6 +777,7 @@ stimma quick reference (inside run_code / run_file):
     returns items/total/has_more; .options('loras') discovers recorded names.
     .inspect([ids]) reads metadata/history without copying files.
     .lineage(media_ids=[ids], direction='ancestors') returns paginated source/output edges.
+  Contact sheets: sheet = stimma.contact_sheets.new(title) or await stimma.contact_sheets.open(); sheet.set_html(...) / add_section / add; await sheet.publish(note).
   Existing package: pkg = await stimma.packages.open(media_id); inspect manifest() and preview(); replace_member()/rerun() for sources, replace_file(extra_ref, path) for extras.
   Packages: pkg = stimma.packages.new(title); await pkg.add_member(x, role=..); await pkg.run(recipe, inputs, params);
     await pkg.manifest() lists output paths; await pkg.preview() writes a workspace snapshot; pkg.set_cover('cover.html');

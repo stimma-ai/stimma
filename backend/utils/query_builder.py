@@ -42,16 +42,17 @@ GRID_FORMATS = ['stimmagrid.json']
 SPRITE_FORMATS = ['stimmasprite.json']
 LAYOUT_FORMATS = ['stimmalayout']
 PACKAGE_FORMATS = ['stimmapackage']
+SHEET_FORMATS = ['stimmasheet.html']
 
 # Composite media: containers that hold references to other media items
 # These are "grouping" operations that don't transform media
-COMPOSITE_FORMATS = SET_FORMATS + GRID_FORMATS + SPRITE_FORMATS + PACKAGE_FORMATS
+COMPOSITE_FORMATS = SET_FORMATS + GRID_FORMATS + SPRITE_FORMATS + PACKAGE_FORMATS + SHEET_FORMATS
 
 # Atomic media: standalone files that don't contain other media
 ATOMIC_FORMATS = VIDEO_FORMATS + IMAGE_FORMATS + AUDIO_FORMATS + TEXT_FORMATS + VECTOR_FORMATS
 
 # Structured = all non-binary formats (text + vector + composite)
-STRUCTURED_FORMATS = TEXT_FORMATS + VECTOR_FORMATS + SET_FORMATS + GRID_FORMATS + SPRITE_FORMATS + LAYOUT_FORMATS + PACKAGE_FORMATS
+STRUCTURED_FORMATS = TEXT_FORMATS + VECTOR_FORMATS + SET_FORMATS + GRID_FORMATS + SPRITE_FORMATS + LAYOUT_FORMATS + PACKAGE_FORMATS + SHEET_FORMATS
 
 
 def is_composite_format(file_format: str) -> bool:
@@ -342,6 +343,7 @@ def _media_type_word():
     Starfire package even though nothing in its name says "package"."""
     return case(
         (MediaItem.file_format.in_(PACKAGE_FORMATS), 'package'),
+        (MediaItem.file_format.in_(SHEET_FORMATS), 'contact sheet'),
         (MediaItem.file_format.in_(SET_FORMATS), 'set'),
         (MediaItem.file_format.in_(GRID_FORMATS), 'grid'),
         (MediaItem.file_format.in_(SPRITE_FORMATS), 'sprite'),

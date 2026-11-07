@@ -32,7 +32,8 @@ SPRITE_EXTENSION = ".stimmasprite.json"
 # Every container format the asset model knows. Sets and grids are members-by-
 # position; sprites are members-by-role.
 PACKAGE_FORMAT = "stimmapackage"
-CONTAINER_FORMATS = frozenset({"stimmaset.json", "stimmagrid.json", SPRITE_FORMAT, PACKAGE_FORMAT})
+SHEET_FORMAT = "stimmasheet.html"  # contact sheets; see contact_sheet.py
+CONTAINER_FORMATS = frozenset({"stimmaset.json", "stimmagrid.json", SPRITE_FORMAT, PACKAGE_FORMAT, SHEET_FORMAT})
 
 DOCUMENT_REF_FIELDS = ("base_image", "base_image_nobg", "portrait")
 ANIMATION_REF_FIELDS = ("anchor", "source_video", "animation")
@@ -63,6 +64,8 @@ def container_type_for_format(file_format: Optional[str]) -> Optional[str]:
         return "sprite"
     if fmt == PACKAGE_FORMAT:
         return "package"
+    if fmt == SHEET_FORMAT:
+        return "sheet"
     return None
 
 

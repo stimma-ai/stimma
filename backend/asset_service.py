@@ -53,6 +53,8 @@ def infer_asset_type(media: MediaItem) -> str:
         return "sprite"
     if fmt == "stimmapackage":
         return "package"
+    if fmt == "stimmasheet.html":
+        return "sheet"
     if fmt in {"mp4", "mov", "mkv", "webm", "avi", "m4v"}:
         return "video"
     if fmt in {"mp3", "wav", "flac", "aac", "m4a", "ogg", "opus"}:

@@ -518,6 +518,35 @@ class ContainerMember(Base):
     )
 
 
+class ContactSheetReview(Base):
+    """One review answer or comment on a contact sheet component.
+
+    Keyed by (sheet asset, component id), not by revision, so a review survives
+    the agent rewriting the sheet. Answers are one live row per component;
+    comments are many. ``sent_at``/``sent_value`` record what the agent has
+    already been sent. Authors are shaped for guests from the start.
+    """
+    __tablename__ = "contact_sheet_reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    anchor = Column(String, nullable=False)
+    kind = Column(String, nullable=False)  # answer | comment
+    value = Column(Text, nullable=True)  # JSON
+    author_kind = Column(String, nullable=False, default="owner")  # owner | guest | agent
+    author_name = Column(String, nullable=True)
+    sent_at = Column(DateTime, nullable=True)
+    sent_value = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        Index('idx_contact_sheet_reviews_anchor', 'asset_id', 'anchor', 'kind'),
+        {'sqlite_autoincrement': True},
+    )
+
+
 class AssetMigrationMap(Base):
     """Recoverable explanation of how one legacy MediaItem was classified."""
     __tablename__ = "asset_migration_map"

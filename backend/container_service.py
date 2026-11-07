@@ -43,7 +43,7 @@ from sprite_document import (
     sprite_member_specs,
 )
 
-CONTAINER_TYPES = {"set", "grid", "sprite", "package"}
+CONTAINER_TYPES = {"set", "grid", "sprite", "package", "sheet"}
 
 
 async def _assert_no_link_cycle(
@@ -414,6 +414,10 @@ async def get_normalized_container_content(
     """Project normalized membership into the set/grid/sprite content shape."""
     if container_media.file_format not in CONTAINER_FORMATS:
         return None
+    if container_media.file_format == "stimmasheet.html":
+        from contact_sheet import sheet_content
+
+        return await sheet_content(session, container_media)
     revision = await session.scalar(
         select(AssetRevision).where(
             AssetRevision.primary_media_id == container_media.id,
@@ -750,6 +754,13 @@ async def infer_structured_member_specs(
         if doc is None:
             raise AssetServiceError("Sprite document is invalid")
         return await sprite_member_specs(session, doc)
+    if container_media.file_format == "stimmasheet.html":
+        from contact_sheet import parse_sheet_metadata, sheet_member_specs
+
+        meta = parse_sheet_metadata(payload)
+        if meta is None:
+            raise AssetServiceError("Contact sheet document is invalid")
+        return await sheet_member_specs(session, meta)
     if container_media.file_format == "stimmapackage":
         from packages.bundle import package_member_specs
         from packages.manifest import parse_manifest

@@ -223,7 +223,10 @@ async def show(
         # A package is an artifact whether or not the caller said so: it is a
         # deliverable with revisions, and it belongs on the stage rather than in
         # the image viewer. Making it implicit means no caller has to remember.
-        if normalized_media_ids and is_package_format(format_map.get(normalized_media_ids[0])):
+        if normalized_media_ids and (
+            is_package_format(format_map.get(normalized_media_ids[0]))
+            or format_map.get(normalized_media_ids[0]) == "stimmasheet.html"
+        ):
             artifact = True
         if artifact and normalized_media_ids:
             artifact_media_id = normalized_media_ids[0]
@@ -284,6 +287,17 @@ async def show(
             f"revision=v{artifact_info['revision_number']} "
             f"revision_id={artifact_info['revision_id']}"
         )
+    if role == "final" and chat_id is not None and normalized_media_ids and not any(
+        format_map.get(mid) == "stimmasheet.html" for mid in normalized_media_ids
+    ):
+        from contact_sheet import latest_sheet_for_chat
+
+        sheet = await latest_sheet_for_chat(session, chat_id)
+        if sheet is not None:
+            result += (
+                f"\nThis chat has a contact sheet (asset_id={sheet.id}). If these belong with that work, "
+                "add them to it with stimma.contact_sheets.open() and publish() so the user finds them there."
+            )
     return result
 
 
@@ -327,6 +341,8 @@ async def _commit_show_artifact(
                 container_kind = "sprite"
             elif media is not None and is_package_format(media.file_format):
                 container_kind = "package"
+            elif media is not None and media.file_format == "stimmasheet.html":
+                container_kind = "sheet"
             if container_kind is not None:
                 from container_service import (
                     infer_structured_member_specs,
