@@ -337,10 +337,10 @@
             :placeholder="promptPlaceholder"
             :programs="promptProgram.status.value !== 'off'"
           >
-            <template #mode="{ openHelp }"><FluentControl
+            <template v-if="fluentOn" #mode="{ openHelp }"><FluentControl
               :program="promptProgram"
-              :raw="!!globalPrefs.promptOptions?.raw"
-              :direct="!!globalPrefs.promptOptions?.direct"
+              :raw="rawMode"
+              :direct="directMode"
               :elaborate="!!globalPrefs.promptOptions?.autoImprove?.enabled"
               :llm-unconfigured="llmUnconfigured"
               :model-name="tool?.name"
@@ -658,7 +658,7 @@
           :upload-file-name="loraUploadFileName"
           :upload-config="loraUploadConfig"
           :lora-notes="loraNotes"
-          :verbatim-prompt="((globalPrefs.promptOptions?.autoImprove?.enabled && !globalPrefs.promptOptions?.direct) || promptProgram.status.value !== 'off') && !globalPrefs.promptOptions?.raw ? null : (globalPrefs.prompt || '')"
+          :verbatim-prompt="((globalPrefs.promptOptions?.autoImprove?.enabled && !directMode) || promptProgram.status.value !== 'off') && !rawMode ? null : (globalPrefs.prompt || '')"
           :program-loras="promptProgram.loraControl.value"
           @program-lora="(path, el) => promptProgram.open(promptProgram.loraControl.value[path]?.choiceId, el)"
           @refresh-loras="refreshLoras"
@@ -3406,7 +3406,7 @@ import { useLoraPool } from '../composables/useLoraPool'
 import { usePromptProgram } from '../composables/usePromptProgram'
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
-import { PROMPT_BRAND } from '../components/generation/promptBrand'
+import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
@@ -3874,10 +3874,14 @@ const {
 // Unless Raw is on, the prompt is prepared once into a program and each run draws from
 // it (no model call per image). Enhance on elaborates; off keeps the user's words.
 // Without a chat model, Enhance-off runs the plain pipeline. See usePromptProgram.ts.
+// Fluent's modes, only where Fluent ships (promptBrand.ts).
+const fluentOn = fluentEnabled
+const rawMode = computed(() => fluentOn.value && !!globalPrefs.value.promptOptions?.raw)
+const directMode = computed(() => fluentOn.value && !!globalPrefs.value.promptOptions?.direct)
 const promptProgram = usePromptProgram({
   toolId: computed(() => fullToolIdFromProps || null),
   prompt: computed(() => globalPrefs.value.prompt || ''),
-  enabled: computed(() => !!hasPrompt.value && !llmUnconfigured.value && !globalPrefs.value.promptOptions?.raw && !globalPrefs.value.promptOptions?.direct),
+  enabled: computed(() => fluentOn.value && !!hasPrompt.value && !llmUnconfigured.value && !rawMode.value && !directMode.value),
   elaborate: computed(() => !!globalPrefs.value.promptOptions?.autoImprove?.enabled),
   loraNotes: computed(() => globalPrefs.value.promptOptions?.loraNotes !== false),
   loraItems: computed(() => hasLoras.value
@@ -4034,8 +4038,8 @@ const { clear: clearPromptWarmPool } = usePromptWarmPool({
     // H3 Context-IR depends on live duration/audio/keyframe parameters, not
     // prompt text alone, so it must be enhanced at submission time.
     !enhanceIsMiniMaxH3.value &&
-    !globalPrefs.value.promptOptions?.raw &&
-    !globalPrefs.value.promptOptions?.direct &&
+    !rawMode.value &&
+    !directMode.value &&
     // A prompt program runs without an LLM: nothing to pre-enhance.
     promptProgram.status.value === 'off'
   ),
@@ -5431,8 +5435,8 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   // No chat model: {a|b}, saved wildcards and # lines still work, but a {{name}} that
   // isn't a saved wildcard can't be filled. Never send it through as literal text.
   // Direct is the same: only saved wildcards fill in.
-  const direct = !!globalPrefs.value.promptOptions?.direct
-  const unfillable = !globalPrefs.value.promptOptions?.raw && (llmUnconfigured.value || direct) && hasPrompt.value
+  const direct = directMode.value
+  const unfillable = fluentOn.value && !rawMode.value && (llmUnconfigured.value || direct) && hasPrompt.value
     ? unknownSmartNames(globalPrefs.value.prompt || '') : []
   // It's a mistake in the prompt, so the editor marks it (like a syntax error) and the
   // run waits; one quiet line says why, no toast.
@@ -5579,7 +5583,16 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
   // Enhance Prompt is family-aware: thread the tool's model + enhancement mode
   // into the generate-time pipeline. The backend picks the style from the model;
   // Ideogram (mode 'ideogram-json') runs as the post-resolve JSON step.
-  const rawPromptOptions = capturedState.promptOptions
+  // Without Fluent (beta/production for now), the prompt goes the classic way: settings a
+  // canary build saved (Raw, Direct, the LoRA choices) don't apply.
+  const savedPromptOptions = capturedState.promptOptions
+  const rawPromptOptions = savedPromptOptions && !fluentOn.value
+    ? (({ raw: _r, direct: _d, loraTriggers: _t, loraNotes: _n, ...rest }) => rest)(savedPromptOptions as any)
+    : savedPromptOptions
+      // Fluent sends the LoRA choices explicitly; the backend only adds trigger
+      // words when asked to.
+      ? { ...savedPromptOptions, loraTriggers: savedPromptOptions.loraTriggers !== false, loraNotes: savedPromptOptions.loraNotes !== false }
+      : savedPromptOptions
   const promptOptions = rawPromptOptions?.raw
     ? { ...rawPromptOptions, raw: true, autoImprove: { ...rawPromptOptions.autoImprove, enabled: false }, translate: { ...rawPromptOptions.translate, enabled: false } }
     : rawPromptOptions

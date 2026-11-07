@@ -345,7 +345,7 @@ import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
 import Caret from '../ui/Caret.vue'
 import OverflowButton from '../ui/OverflowButton.vue'
 import { useWildcards, useSegments } from '../../composables/useWildcards'
-import { PROMPT_BRAND } from './promptBrand'
+import { PROMPT_BRAND, fluentEnabled } from './promptBrand'
 import type { PromptSyntaxMode } from '../../composables/useCodeMirrorPrompt'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
@@ -534,12 +534,13 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
   })
 
 // --- How the prompt will be read: Raw, by a model (a program, or Enhance), or plain (no model) ---
-const rawMode = computed(() => !!props.promptOptions.raw)
+// Raw and the newer highlighting ship with Fluent (see promptBrand.ts).
+const rawMode = computed(() => fluentEnabled.value && !!props.promptOptions.raw)
 // A host with its own prompt control (Tool View's Fluent, in the mode slot) owns Enhance,
 // Raw and the syntax help's entry point.
 const slots = useSlots()
 const hasMode = computed(() => !!slots.mode)
-const rawInMenu = computed(() => !props.hideAutoImprove && !hasMode.value)
+const rawInMenu = computed(() => fluentEnabled.value && !props.hideAutoImprove && !hasMode.value)
 const brand = PROMPT_BRAND
 // The tips panel in Tool View: what Fluent is, then what to write, in the user's words.
 // (Copy reviewed for plain, human wording.)
@@ -556,7 +557,9 @@ const fluentTips = [
   { title: 'Wildcards', examples: [{ code: '{{hairstyle}}', tone: AMBER }, { code: '{red|blue|green}', tone: GREEN }],
     text: [`Use {{hairstyle}} to have ${PROMPT_BRAND} write hairstyle options. Each image uses one. If you have a saved wildcard with that name, ${PROMPT_BRAND} uses yours. To supply your own options, write {red|blue|green}.`] },
   { title: 'Wildcards that work together', examples: [],
-    text: [`${PROMPT_BRAND} chooses wildcard options based on how well they fit together, so unlikely combinations come up rarely unless you ask for them. With {sunny|rainy|snowy} and {t-shirt|raincoat|parka}, a snowy day usually gets the parka, not the t-shirt. Without ${PROMPT_BRAND}, every wildcard is drawn on its own.`] },
+    // Only what's true today: options Fluent writes can follow another pick. Your own
+    // {a|b} lists are still drawn independently (smarter draws are separate work).
+    text: [`The options ${PROMPT_BRAND} writes can follow your other choices, so they fit together. With {sunny|rainy|snowy} and {{outfit}}, a snowy day gets a winter coat, not a t-shirt. Without ${PROMPT_BRAND}, every wildcard is drawn on its own.`] },
   { title: 'Comments', examples: [{ code: '# vary her expression', tone: GREY }],
     text: [`Start a line with # to leave ${PROMPT_BRAND} a note about what to vary or keep the same between images. Notes never reach the image model.`,
       'You can also give instructions about settings: # guidance between 3 and 5 or # use my curtain bangs LoRA.'] },
@@ -571,9 +574,10 @@ function setRaw(on: boolean) {
 const { wildcards } = useWildcards()
 const { segments } = useSegments()
 const syntaxMode = computed<PromptSyntaxMode>(() =>
-  rawMode.value ? 'raw'
+  !fluentEnabled.value ? 'enhance'
+    : rawMode.value ? 'raw'
     // Flow inputs don't run the prompt pipeline here; keep their highlighting as it was.
-    : props.promptOptions.direct ? 'plain'
+    : props.promptOptions.direct && hasMode.value ? 'plain'
     : props.hideAutoImprove || props.programs || (!llmUnconfigured.value && props.promptOptions.autoImprove?.enabled) ? 'enhance'
     : 'plain')
 watch([syntaxMode, wildcards, segments], () => {

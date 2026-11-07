@@ -483,3 +483,37 @@ class TestLoraChoices:
         await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="", lora_items=[],
                                   project_id=None, profile_id="p", lora_notes=False)
         assert "SECRET-NOTE" not in " ".join(m["content"] for c in calls for m in c)
+
+
+class TestTriggerWordsAreOptIn:
+    """Builds without Fluent (and the agent) send no loraTriggers: nothing is added."""
+
+    async def _run(self, monkeypatch, prompt_options):
+        import routes.generation as gen
+
+        async def fake_pipeline(db, prompt, options, **kw):
+            return prompt
+
+        async def fake_context(tool_id, parameters, profile_id=None):
+            return [{"name": "Wolf cut", "trigger_words": ["wolfcut"], "notes": ""}]
+
+        monkeypatch.setattr("prompt_pipeline.run_prompt_pipeline", fake_pipeline)
+        monkeypatch.setattr("lora_notes.lora_context_for", fake_context)
+        monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {
+            "model": "m", "model_vendor": None, "schema_props": {}, "mode": "prose", "program_supported": True, "enhance": {}})
+        monkeypatch.setattr(gen, "get_database_registry", lambda: type("R", (), {"get_database": lambda self, p: None})())
+        monkeypatch.setattr(gen, "get_current_profile", lambda: "p")
+        out = await gen._apply_generation_prompt_pipeline(
+            {"prompt": "a woman", "loras": [{"lora": "wc.safetensors", "weight": 1}]},
+            tool_id="t", task_type=None, prompt_options=prompt_options, prompt_preload=None)
+        return out["prompt"]
+
+    async def test_absent_adds_nothing(self, monkeypatch):
+        assert await self._run(monkeypatch, {"autoImprove": {"enabled": False}}) == "a woman"
+
+    async def test_fluent_builds_add_missing_triggers(self, monkeypatch):
+        assert await self._run(monkeypatch, {"loraTriggers": True}) == "wolfcut, a woman"
+        assert await self._run(monkeypatch, {"loraTriggers": False}) == "a woman"
+
+    async def test_raw_never(self, monkeypatch):
+        assert await self._run(monkeypatch, {"raw": True, "loraTriggers": True}) == "a woman"

@@ -500,8 +500,12 @@ async def _apply_generation_prompt_pipeline(
     model, model_vendor, schema_props = ctx["model"], ctx["model_vendor"], ctx["schema_props"]
     from lora_notes import lora_context_for, prepend_missing_triggers
     raw = bool((prompt_options or {}).get("raw"))
-    # The prompt menu's LoRA choices (both on unless turned off).
-    lora_triggers = (prompt_options or {}).get("loraTriggers") is not False
+    # The prompt menu's LoRA choices. Absent (older clients, the agent, builds without
+    # Fluent) means the classic behaviour: the enhancer is told triggers and notes, and
+    # nothing is added after. Fluent builds send both explicitly.
+    lora_choice = (prompt_options or {}).get("loraTriggers")
+    lora_triggers = lora_choice is not False
+    add_triggers = lora_choice is True
     lora_notes = (prompt_options or {}).get("loraNotes") is not False
     enhance_on = not raw and bool(((prompt_options or {}).get("autoImprove") or {}).get("enabled"))
     program_run = None
@@ -541,7 +545,7 @@ async def _apply_generation_prompt_pipeline(
     # Trigger words for every LoRA this run uses, at the front when missing (Fluent and
     # Direct; never Raw, and never inside a structured format).
     structured = ctx["mode"] == "minimax-h3" or (ctx["mode"] == "ideogram" and enhance_on)
-    if not raw and lora_triggers and not structured and isinstance(updated.get("prompt"), str):
+    if not raw and add_triggers and not structured and isinstance(updated.get("prompt"), str):
         updated["prompt"] = prepend_missing_triggers(updated["prompt"], await lora_context_for(tool_id, updated, profile_id))
     return updated
 
