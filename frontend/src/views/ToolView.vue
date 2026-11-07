@@ -3895,6 +3895,10 @@ const promptProgram = usePromptProgram({
   promptOptions: computed(() => globalPrefs.value.promptOptions),
   setPromptOptions: (next: any) => { globalPrefs.value.promptOptions = next },
 })
+// Riff's "nothing was run" is about the prompt as it was: once the prompt, its mode or
+// Riff's state moves on, the message is no longer true.
+watch(() => [globalPrefs.value.prompt, globalPrefs.value.promptOptions?.raw, globalPrefs.value.promptOptions?.autoImprove?.enabled],
+  () => { if (submissionError.value?.startsWith(PROMPT_BRAND)) submissionError.value = null })
 
 function replayProgramRun(run: any) {
   const fixed = Object.fromEntries((run?.draws || []).map((d: any) => [d.id, d.value]))

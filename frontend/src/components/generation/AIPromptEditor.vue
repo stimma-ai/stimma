@@ -137,7 +137,7 @@
           <div class="relative flex items-center" ref="helpPopoverContainer">
             <OverflowButton
               label="Prompt editor options"
-              :active="showEditorMenu || showHelp"
+              :active="showEditorMenu || (showHelp && !helpFromHost)"
               @click="toggleEditorMenu"
             />
             <!-- Teleported with fixed positioning, like the Translate menu: inside the
@@ -409,6 +409,8 @@ const sizeVars = computed(() => {
 const editorMount = ref<HTMLElement | null>(null)
 const helpPopoverContainer = ref<HTMLElement | null>(null)
 const showHelp = ref(false)
+// Help opened from the host's control (Riff), not from …, so … shouldn't look pressed.
+const helpFromHost = ref(false)
 const showEditorMenu = ref(false)
 // Fixed coords for the teleported menu and help, anchored to the … button.
 const editorMenuPos = ref<Record<string, string>>({})
@@ -428,6 +430,7 @@ function toggleEditorMenu() {
   }
   showEditorMenu.value = !showEditorMenu.value
   showHelp.value = false
+  helpFromHost.value = false
 }
 /** Open the syntax help on its own, anchored to the host's control that asked for it
     (or to … when there's none). */
@@ -446,7 +449,7 @@ function openHelp(anchor?: DOMRect | null) {
     }
   }
   // After this click finishes, or the outside-click handler would close it again.
-  setTimeout(() => { showHelp.value = true })
+  setTimeout(() => { showHelp.value = true; helpFromHost.value = true })
 }
 const translateMenuContainer = ref<HTMLElement | null>(null)
 const translateButton = ref<HTMLElement | null>(null)
