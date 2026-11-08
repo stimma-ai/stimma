@@ -1057,7 +1057,10 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
             break
     lora_sets = [(c["id"], set(c.get("options") or [])) for c in info["choices"] if c.get("kind") == "lora"]
     stacked: Set[Tuple[str, str]] = set()
-    for r in samples:  # a LoRA applies to the whole image: two picks over one set in one run stack
+    # a LoRA applies to the whole image: two picks over one set in one run stack. With more
+    # than one LoRA pick, look across discovery's runs, since one may run only sometimes.
+    lora_runs = samples if len(lora_sets) < 2 else [run(source, 7 + i * 7919, None, loras, params) for i in range(48)]
+    for r in lora_runs:
         ran = [(d.id, set(d.options or [])) for d in r.draws if d.kind == "lora"]
         for i, (a, sa) in enumerate(ran):
             for b, sb in ran[i + 1:]:

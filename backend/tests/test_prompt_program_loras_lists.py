@@ -308,3 +308,13 @@ class TestSubjectsGroup:
         src = 'a = pick("p_hair", ["a bob", "braids"], label="Person 1 Hair")\nemit(a)\n'
         info = discover(src, [], set(), runs=4)
         assert not info["groups"] and "group" not in info["choices"][0]
+
+
+class TestConditionalStacking:
+    def test_a_sometimes_second_pick_is_caught(self):
+        src = ('mood = pick("mood", ["calm", "wild", "sad", "happy", "bored"], source="list", line=1)\n'
+               'a = pick_lora("main", ["acups", "torpedo"], line=1)\n'
+               'if mood == "calm":\n    b = pick_lora("extra", ["acups", "bcups"], line=1)\n'
+               'emit("A", mood, "portrait.")\n')
+        problems = prep.validate(src, "A {calm|wild|sad|happy|bored} portrait, pick a lora", LORAS, set())["problems"]
+        assert any("same LoRAs" in p for p in problems)
