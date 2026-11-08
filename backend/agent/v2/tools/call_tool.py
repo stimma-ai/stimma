@@ -26,6 +26,8 @@ from agent.tools.stp_utils import (
     _resolve_lora_paths,
     _get_allowed_dimensions,
     _snap_to_allowed,
+    follow_input_dims,
+    nearest_aspect_choice,
 )
 
 log = get_logger(__name__)
@@ -485,6 +487,42 @@ async def _resolve_input_media_ref(img: Any, label: str, kwargs: dict, metadata_
         "a digit string, or a path to a file that exists."
     )
 
+def _pinned_frame_media_id(final_params: Dict[str, Any], nested_ids: Dict[str, list]) -> Optional[int]:
+    """Library id of the earliest frame pinned on the output timeline, if any.
+
+    Pinned items (e.g. `keyframes[]`) carry an `at` time; the one nearest the
+    start sets the output's shape. A negative `at` counts from the end."""
+    best: Optional[tuple] = None
+    for name, ids in nested_ids.items():
+        items = final_params.get(name)
+        if not isinstance(items, list) or len(items) != len(ids):
+            continue
+        for item, media_id in zip(items, ids):
+            if media_id is None or not isinstance(item, dict):
+                continue
+            at = item.get("at")
+            if isinstance(at, bool) or not isinstance(at, (int, float)):
+                continue
+            key = (at < 0, abs(at))
+            if best is None or key < best[0]:
+                best = (key, media_id)
+    return best[1] if best else None
+
+
+async def _media_dims(media_id: int) -> Optional[tuple]:
+    """(width, height) of a library item, or None when unknown."""
+    from database_registry import get_database_registry
+
+    db = get_database_registry().get_database(get_current_profile())
+    async with db.async_session_maker() as dims_session:
+        row = (await dims_session.execute(
+            select(MediaItem.width, MediaItem.height).where(MediaItem.id == int(media_id))
+        )).first()
+    if row and row[0] and row[1]:
+        return int(row[0]), int(row[1])
+    return None
+
+
 async def execute_call_tool(
     tool_id: str,
     parameters: Optional[Dict[str, Any]] = None,
@@ -558,7 +596,9 @@ async def execute_call_tool(
         except ValueError as e:
             raise ValueError(f"Error resolving LoRAs: {e}") from e
 
-    # 4. Handle dimensions
+    # 4. Handle dimensions. Omitted dims may follow the frame input below (4b).
+    caller_set_dims = bool(params.get("width") or params.get("height"))
+    caller_set_aspect = params.get("aspect_ratio") is not None
     width = final_params.pop("width", None) or 1024
     height = final_params.pop("height", None) or 1024
 
@@ -573,15 +613,20 @@ async def execute_call_tool(
         getattr(provider, "provider_type", None) == "builtin"
         and (getattr(tool_descriptor, "metadata", None) or {}).get("metadata_only")
     )
+    first_input_id: Optional[int] = (
+        input_media_ids[0] if isinstance(input_media_ids, list) and input_media_ids else None
+    )
     if isinstance(input_images, list) and not input_media_ids:
         derived_ids = []
         resolved_inputs = []
-        for img in input_images:
+        for index, img in enumerate(input_images):
             resolved, media_id = await _resolve_input_media_ref(
                 img, "input image", kwargs, metadata_only)
             resolved_inputs.append(resolved)
             if media_id is not None:
                 derived_ids.append(media_id)
+                if index == 0:
+                    first_input_id = media_id
         final_params["input_images"] = resolved_inputs
         if derived_ids:
             final_params["input_media_ids"] = derived_ids
@@ -601,6 +646,25 @@ async def execute_call_tool(
     for name, ids in nested_ids.items():
         if any(i is not None for i in ids):
             final_params.setdefault(lineage_id_key(name), ids)
+
+    # 4b. A caller that leaves the output size to the tool gets the shape of
+    #     the media that sets the frame, as in ToolView; schema defaults would
+    #     otherwise stretch or crop a start frame of another shape.
+    if not metadata_only:
+        frame_id = _pinned_frame_media_id(final_params, nested_ids) or first_input_id
+        props = param_schema.get("properties", {})
+        follow_dims = not caller_set_dims and "width" in props and "height" in props
+        follow_aspect = not caller_set_aspect and "aspect_ratio" in props
+        if frame_id is not None and (follow_dims or follow_aspect):
+            src = await _media_dims(frame_id)
+            if src:
+                if follow_dims:
+                    width, height = follow_input_dims(tool_descriptor, *src)
+                if follow_aspect:
+                    choice = nearest_aspect_choice(
+                        props["aspect_ratio"].get("enum") or [], *src)
+                    if choice is not None:
+                        final_params["aspect_ratio"] = choice
 
     # 5a. Metadata-only builtin tools (e.g. detect-objects) don't produce media —
     #     the generation queue is image-shaped end to end (output file, ingest,
