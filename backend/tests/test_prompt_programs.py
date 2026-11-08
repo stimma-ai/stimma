@@ -373,7 +373,7 @@ emit("A woman on a platform.", look)
         replies.append('```python\nlook = pick("film_look", ["Portra grain", "HP5 black and white"], label="Look", line=1)\nemit("A woman.", look)\n```')
         entry = await self._ensure(prompt)
         feedback = calls[2][-1]["content"]
-        assert entry["attempts"] == 2 and "not the name itself" in feedback
+        assert entry["attempts"] == 2 and "never the word \"film look\" itself" in feedback
 
     def test_descriptive_name_is_cut_from_its_options(self):
         src = 'note = "it’s – fine"\nlook = pick("film_look", ["“Portra” grain", "film look", "HP5"], label="Look")\nemit(note, look)\n'
@@ -448,6 +448,61 @@ class TestFixInCode:
         assert 'emit("A man ", e, " at a dog.")' in out and "red hair" not in out
         assert 'v = pick("v"' in out  # visible variety the writer forgot goes back to it, not away
         assert len(notes) == 2
+
+    STATED = "A {nun|nurse} in her thirties waiting on a rainy platform, {{outfit}}, candid photo"
+    STATED_EX = "A candid photo of a [{nun|nurse}] in her thirties waiting on a rainy platform, wearing a grey coat."
+
+    def test_a_pick_holding_what_the_user_stated_becomes_fixed_text(self):
+        src = ('job = pick("job", ["nun", "nurse"], label="Job", source="list", phase=1, line=1)\n'
+               'age = pick("age", about="her age", seed=["in her thirties"], phase=1, added=True)\n'
+               'place = pick("place", about="the setting", seed=["a rainy platform"], phase=1, added=True)\n'
+               'outfit = pick("outfit", about=f"what a {job} wears", seed=["a grey coat"], phase=2, line=1)\n'
+               'emit("A candid photo of a", job, age, "waiting on", place, ", wearing", outfit, ".")\n')
+        assert set(prep.lost_stated(src, self.STATED, self.STATED_EX).values()) == {"thirties", "rainy", "platform"}
+        problems = prep.validate(src, self.STATED, [], set(), self.STATED_EX)["problems"]
+        assert any('"thirties"' in p and "stays fixed text" in p for p in problems)
+        out, notes = prep.fix_stated(src, self.STATED, self.STATED_EX)
+        assert 'age = "in her thirties"' in out and 'place = "a rainy platform"' in out and len(notes) == 2
+        assert 'outfit = pick(' in out  # the user's wildcard stays a pick
+        assert not prep.validate(out, self.STATED, [], set(), self.STATED_EX)["problems"]
+
+    def test_a_fixed_copy_of_the_users_words_is_never_cut(self):
+        src = ('w = pick("w", about="the weather", seed=["a rainy platform"], phase=1, added=True)\n'
+               'emit("A nun waiting, a rainy platform, candid photo", w)\n')
+        out, _ = prep.fix_duplicates(src, self.STATED)
+        assert "waiting, a rainy platform, candid" in out
+        out, notes = prep.fix_stated(src, self.STATED, self.STATED_EX)
+        assert out.splitlines()[1] == 'emit("A nun waiting, a rainy platform, candid photo")' and notes
+
+    def test_what_a_hash_line_asks_to_vary_is_shown_and_an_unused_group_goes(self):
+        src = ('people = group("people", 3, label="People", line=1)\n'
+               'o1 = pick("o1", about="x", seed=["a coat"], phase=2, line=2, hidden=True)\n'
+               'o2 = pick("o2", about="x", seed=["a dress"], phase=2,\n    line=2, added=True)\n'
+               'h = pick("h", about="x", seed=["grey hair"], phase=2, line=1, hidden=True)\n'
+               'emit("Three friends,", o1, o2, h)\n')
+        out, notes = prep.fix_requested(src, "Three friends on a bench\n# vary their outfits")
+        assert "group(" not in out and "hidden=True" in out.splitlines()[-2] and len(notes) == 3
+        assert 'line=2)\n' in out and "added" not in out
+
+    def test_a_generated_pick_named_in_about_is_described_instead(self):
+        from prompt_programs.draws import analyze
+        src = ('age = pick("people[1].age", about="the first friend\'s age", seed=["an old man"], phase=1)\n'
+               'job = pick("job", ["nun", "nurse"], source="list", phase=1)\n'
+               'o = pick("o", about=f"what {age} wears as a {job}", seed=["a coat"], phase=2)\n'
+               'o2 = pick("o2", about=f"what {age} wears", seed=["a coat"], phase=2)\nemit(age, job, o, o2)\n')
+        out, notes = prep.fix_generated_refs(src)
+        assert 'about=f"what [the first friend\'s age] wears as a {job}"' in out
+        assert 'about="what [the first friend\'s age] wears"' in out and len(notes) == 2
+        analyze(out)
+
+    def test_placeholder_brackets_around_a_pick_go(self):
+        out, notes = prep.fix_brackets('job = pick("job", ["a", "b"], source="list", phase=1)\nemit("A [", job, "] at work")\n')
+        assert 'emit("A ", job, " at work")' in out and notes
+
+    def test_a_wildcards_name_with_an_article_is_not_a_seed(self):
+        src = 'brand = pick("brand", about="the brand", seed=["a brand", "Acme"], phase=1)\nemit(brand)\n'
+        assert 'seed=["Acme"]' in prep.drop_name_options(src, "a {{brand}} laptop")
+        assert prep.is_name_of("The Brands.", "brand") and not prep.is_name_of("a brand new laptop", "brand")
 
     def test_more_than_three_added_picks_become_fixed_text(self):
         src = "".join(f'p{i} = pick("p{i}", about="x", seed=["s{i}"], phase=1, added=True)\n' for i in range(5))

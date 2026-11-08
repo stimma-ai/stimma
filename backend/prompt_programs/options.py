@@ -41,7 +41,7 @@ from prompt_programs.runtime import RANK_DECAY
 
 log = get_logger(__name__)
 
-OPTIONS_VERSION = "opts-1"     # bump to invalidate every generated pool on purpose
+OPTIONS_VERSION = "opts-2"     # bump to invalidate every generated pool on purpose
 BATCH_SIZE = 12                # options asked for per generation call
 GEN_DECAY = 0.96               # rank decay across generated options (gentler than the writer's lists)
 THIN = 6                       # a generated pool with fewer usable options asks for more, high priority
@@ -74,24 +74,31 @@ class ProgramContext:
     template: str = ""
     mode: str = "prose"
     elaborate: bool = True
+    lists: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = ()   # (id, label, options) of the user's lists
 
     @classmethod
     def of(cls, entry: Dict[str, Any]) -> "ProgramContext":
         from prompt_programs.draws import fixed_text
         template = entry.get("template") or fixed_text(entry["program"])
         signature = str(entry.get("context") or "").strip() or template
+        lists = tuple((str(c.get("id")), str(c.get("label") or c.get("id")), tuple(str(o) for o in c.get("options") or []))
+                      for c in entry.get("choices") or []
+                      if c.get("source") == "list" and c.get("kind", "pick") == "pick" and c.get("options"))
         return cls(str(entry.get("key") or ""), signature, template, str(entry.get("mode") or "prose"),
-                   entry.get("elaborate") is not False)
+                   entry.get("elaborate") is not False, lists)
 
 
 # --------------------------------------------------------------------------- the on-disk cache
 
-def gen_key(spec: PickSpec, context: Dict[str, Any], signature: str, mode: str, elaborate: bool) -> str:
+def gen_key(spec: PickSpec, context: Dict[str, Any], signature: str, mode: str, elaborate: bool,
+            lists: Sequence[Tuple[str, str, Sequence[str]]] = ()) -> str:
     """The generated pool's identity across prompts: what the pick is, the values of the
-    picks it depends on, the context signature, and the style options are written in."""
+    picks it depends on, the context signature, the user's lists it is shown (those it
+    doesn't depend on), and the style options are written in."""
+    shown = sorted([label, list(opts)] for cid, label, opts in lists if cid not in context and cid != spec.id)
     blob = json.dumps({
         "v": OPTIONS_VERSION, "about": _norm(spec.about or spec.label), "deps": sorted((k, str(v)) for k, v in context.items()),
-        "context": _norm(signature), "mode": mode, "elaborate": bool(elaborate),
+        "context": _norm(signature), "mode": mode, "elaborate": bool(elaborate), **({"lists": shown} if shown else {}),
     }, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
 
@@ -230,6 +237,11 @@ def generation_messages(job: OptionJob, count: int = BATCH_SIZE) -> List[Dict[st
     lines = [f"The prompt, with the details that vary shown as [Label]:\n{prog.template or job.signature}"]
     if job.signature and job.signature != prog.template:
         lines += ["", f"In short: {job.signature}"]
+    open_lists = [(label, opts) for cid, label, opts in prog.lists if cid not in job.context and cid != spec.id]
+    if open_lists:  # a pool shared across a list's values: cover each of them
+        lines += ["", "These details are the user's own lists; each image draws one option. Write options that "
+                      "suit each of them (an image keeps only the ones that fit what it drew):",
+                  *[f"- [{label}]: {', '.join(opts[:12])}{' …' if len(opts) > 12 else ''}" for label, opts in open_lists]]
     examples = list(dict.fromkeys([*spec.seeds, *spec.literal]))
     if examples:
         lines += ["", "Examples of the style (you may include them):", *[f"- {o}" for o in examples]]
@@ -463,7 +475,8 @@ class GeneratedOptions:
         specific = spec.id in self.specific and self.program.template != self.program.signature
         signature = self.program.template if specific else self.program.signature
         key = pool_key(spec, context) + (" | written for this prompt" if specific else "")
-        return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate), signature
+        return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate,
+                            self.program.lists), signature
 
     def get(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
         if not generated_pick(spec):

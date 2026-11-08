@@ -46,6 +46,7 @@ TIERS = ("typical", "plausible", "unusual", "wrong")
 DEFAULT_RARITY = 0.3   # keep rate of an *unusual* value (the rarity knob)
 WRONG_CUT = 0.5        # P(wrong) above this keeps nothing (tuned on train data later)
 BATCH = 16             # proposals per re-proposal batch
+MAX_POOLS = 32         # pools a generated pick may have: one per combination of the lists it names
 MAX_BATCHES = 3        # batches before a pick falls back and counts as unresolved
 
 _PICK_PARAMS = ("id", "options", "label", "by", "source", "line", "exclude", "hidden", "added", "about", "phase", "seed")
@@ -91,6 +92,7 @@ class Site:
     line: int
     phase: int = 1
     generated: bool = False         # its pool grows (about=, not a user list): values aren't known up front
+    size: Optional[int] = None      # how many options it has, when they're written out as a list
     deps: Dict[int, str] = field(default_factory=dict)      # site -> where its value is used
     exclude_deps: Set[int] = field(default_factory=set)
 
@@ -408,6 +410,8 @@ def analyze(source: str) -> Analysis:
                 args = _Analyzer._args(node, _PICK_PARAMS)
                 src = args.get("source")
                 site.generated = "about" in args and not (isinstance(src, ast.Constant) and src.value == "list")
+                if isinstance(args.get("options"), ast.List):
+                    site.size = len(args["options"].elts)
                 has_options = "options" in args and not (isinstance(args["options"], ast.Constant) and args["options"].value is None)
                 if not has_options and "seed" not in args:
                     raise _err(node, f'pick("{site.id_text}") has no options: give it seed=[1 to 3 options] '
@@ -432,6 +436,27 @@ def analyze(source: str) -> Analysis:
                         f'Line {s.line}: pick("{s.id_text}") is in phase {s.phase} but uses pick("{dep.id_text}") '
                         f'(phase {dep.phase}) in {where}. A pick can only depend on picks in earlier phases: give '
                         f'"{dep.id_text}" a lower phase than "{s.id_text}", or don\'t use its value there.')
+            named = [an.sites[d] for d, where in sorted(s.deps.items())
+                     if where in ("its about=", "its seed=", "its label") and an.sites[d].generated and d != s.index]
+            if s.generated and named:
+                dep = named[0]
+                raise ProgramError(
+                    f'Line {s.line}: pick("{s.id_text}") names pick("{dep.id_text}") in {s.deps[dep.index]}, but '
+                    f'"{dep.id_text}" is written with about=, so it gets new values as it is used and each would need '
+                    "its own options. Only a user list (or another short list written out) may be named this way. "
+                    f'Describe "{dep.id_text}" in words instead (about="what he wears for his job"): each value is '
+                    "still checked against what earlier phases drew.")
+            if s.generated:
+                pools = 1
+                for d in s.deps:
+                    dep = an.sites[d]
+                    if d != s.index and not dep.generated and dep.size:
+                        pools *= dep.size
+                if pools > MAX_POOLS:
+                    raise ProgramError(
+                        f'Line {s.line}: pick("{s.id_text}") depends on lists with {pools} combinations of values, '
+                        f"each needing its own options (at most {MAX_POOLS}). Name only the one or two lists it "
+                        "must fit in its about=.")
             if s.generated and s.index in an.keyed:
                 raise ProgramError(
                     f'Line {an.keyed[s.index]}: pick("{s.id_text}") gets new options as it is used, so its value '
@@ -650,8 +675,13 @@ class _Exec(_Runner):
         self.spans: List[Tuple[str, Taint]] = []
 
     def _context(self, site: Site) -> Dict[str, Any]:
+        """The values a pick's pool is keyed by: the fixed-list picks it depends on.
+        A generated pick's value never keys a pool (each would need its own options);
+        the judge checks the pick against it instead."""
         ctx: Dict[str, Any] = {}
         for d in sorted(site.deps):
+            if self.eng.an.sites[d].generated:
+                continue
             for cid in self.site_ids.get(d, []):
                 if cid in self.by_id:
                     ctx[cid] = self.by_id[cid].value

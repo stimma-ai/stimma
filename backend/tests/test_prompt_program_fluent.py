@@ -222,6 +222,22 @@ class TestGenerationMessages:
         assert "[Hairstyle]" in user and "a jazz portrait" in user and "- finger waves" in user
         assert "- a bob" in user and "- a mohawk" in user
 
+    def test_the_users_lists_it_does_not_depend_on_are_shown(self):
+        entry = entry_for('job = pick("job", ["nun", "lifeguard"], label="Job", source="list", phase=1)\n'
+                          'w = pick("w", ["rain", "sun"], label="Weather", source="list", phase=1)\n'
+                          'o = pick("o", about=f"what a {job} wears", seed=["a coat"], label="Outfit", phase=2)\n'
+                          'emit(job, w, o)\n',
+                          choices=[{"id": "job", "label": "Job", "source": "list", "kind": "pick", "options": ["nun", "lifeguard"]},
+                                   {"id": "w", "label": "Weather", "source": "list", "kind": "pick", "options": ["rain", "sun"]},
+                                   {"id": "o", "label": "Outfit", "source": "text", "kind": "pick", "options": ["a coat"]}])
+        prog = ProgramContext.of(entry)
+        s = spec(id="o", about="what a nun wears", label="Outfit")
+        user = generation_messages(OptionJob("k", s, {"job": "nun"}, prog, prog.signature, 0))[1]["content"]
+        assert "- [Weather]: rain, sun" in user and "[Job]:" not in user
+        # the lists it is shown are part of the pool's identity
+        assert gen_key(s, {"job": "nun"}, "t", "prose", True, prog.lists) != gen_key(s, {"job": "nun"}, "t", "prose", True)
+        assert gen_key(s, {}, "t", "prose", True, (("o", "Outfit", ("x",)),)) == gen_key(s, {}, "t", "prose", True)
+
     def test_keyword_style(self):
         prog = ProgramContext("k", "t", "t", "keyword", True)
         assert "tags" in generation_messages(OptionJob("k", spec(), {}, prog, "t", 0))[0]["content"]
@@ -626,6 +642,39 @@ class TestLookupKeyRule:
         from prompt_programs.runtime import ProgramError
         with pytest.raises(ProgramError, match="can't be a key to look something up"):
             analyze(src)
+
+    def test_a_generated_pick_is_never_named_in_about(self):
+        from prompt_programs.draws import analyze
+        from prompt_programs.runtime import ProgramError
+        src = ('h = pick("h", about="her job", seed=["nun"], phase=1)\n'
+               'o = pick("o", about=f"what a {h} wears", seed=["x"], phase=2)\nemit(h, o)\n')
+        with pytest.raises(ProgramError, match="Describe \"h\" in words"):
+            analyze(src)
+
+    def test_a_pick_names_few_enough_lists(self):
+        from prompt_programs.draws import analyze
+        from prompt_programs.runtime import ProgramError
+        six = '["1", "2", "3", "4", "5", "6"]'
+        src = (f'a = pick("a", {six}, source="list", phase=1)\nb = pick("b", {six}, source="list", phase=1)\n'
+               'o = pick("o", about=f"for {a} and {b}", seed=["x"], phase=2)\nemit(a, b, o)\n')
+        with pytest.raises(ProgramError, match="36 combinations"):
+            analyze(src)
+        assert analyze(src.replace(" and {b}", "")).phased
+
+    def test_a_list_named_in_about_keys_the_pool_and_a_generated_pick_does_not(self, tmp_path):
+        src = ('job = pick("job", ["nun", "lifeguard"], label="Job", source="list", phase=1, line=1)\n'
+               'mood = pick("mood", about="her mood", seed=["calm"], phase=1)\n'
+               'outfit = pick("outfit", about=f"what a {job} wears", seed=["a coat"], phase=2)\n'
+               'if mood == "calm":\n    hat = pick("hat", about="her hat", seed=["a cap"], phase=2)\n'
+               'emit(job, mood, outfit)\n')
+        entry = entry_for(src)
+        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
+        for seed in range(12):
+            prep.realize(entry, seed=seed, runtime=rt)
+            rt.options.reset()
+        specs = {(spec.id, tuple(sorted(ctx.items()))) for spec, ctx in rt.options.seen_specs()}
+        assert ("outfit", (("job", "nun"),)) in specs and ("outfit", (("job", "lifeguard"),)) in specs
+        assert ("hat", ()) in specs  # the generated mood steers the branch but keys no pool
 
     @pytest.mark.parametrize("src", [
         # a user list (or a pick without about=) may be a key; derived text may be looked up too

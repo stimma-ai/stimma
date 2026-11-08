@@ -35,8 +35,11 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   when the user's text asks to vary that parameter. Use the parameter names given. It
   sets the parameter directly: never put the value in the prompt text.
 - `group(id, count, label=..., line=...)` declares a repeated subject (people). Returns the
-  count; loop over it and give the picks ids like `f"people[{i+1}].age"`. For "all
-  different", pass `exclude=` a list of the values drawn so far.
+  count; loop over it with `for i in range(...)` and give the picks ids like
+  `f"people[{i+1}].age"`. For "all different", pass `exclude=` a list of the values drawn so
+  far. When the enhanced prompt already describes each person on their own, write them out
+  by hand instead, with no `group()`: for each detail the user asked to vary, one pick per
+  person (`outfit_1`, `outfit_2`, ...), and the rest fixed text.
 - `emit(*parts)` appends text to the finished prompt. Spacing and stray commas are tidied.
   Keep punctuation inside the text parts: `emit("A woman with", hair, ", sitting at a counter.")`.
 
@@ -55,9 +58,21 @@ phases drew; picks in the same phase are drawn without seeing each other.
 
 - Phase 1: what sets up the image. User lists, who the subject is (species, job, age,
   gender, ethnicity), the place, the era, the weather, the time of day.
+- A user list that must fit another user list goes in a later phase than it: with
+  `{knight|pirate|senator}` and `{armor|greatcoat|toga}`, the clothing list is phase 2, so it
+  is drawn to fit who he is.
 - A later phase for anything that must fit an earlier pick: outfit after job and weather,
   hairstyle after age, the dish after the city, lighting after the time of day.
 - Picks that can't conflict share a phase.
+- **A pick that must fit a user list names it in its `about`**, with an f-string:
+  `about=f"what a {job} wears at the harbour"`. Each of the list's values then gets
+  options written for it (a chef gets whites, a diver a wetsuit). Its seeds must fit
+  every value of the list. Name only the one or two lists it must fit. The enhanced prompt
+  was written for one value of each list: any phrase of it that only fits that value (a
+  woodworking studio for a carpenter) must become a pick that names the list.
+- A pick written with `about=` is never named that way (it gets new values as it is used):
+  describe it in words instead, `about="what he wears for his job"`. The draw still checks
+  each value against what earlier phases drew.
 - If your code uses a pick's value (in an `if`, a `[...]` lookup, `range()`, or in another
   pick's arguments), that pick must be in an earlier phase than everything it controls.
   Only a user list's values can be keys (`[...]` lookups, `by=`, dict keys): a pick
@@ -87,12 +102,15 @@ phases drew; picks in the same phase are drawn without seeing each other.
      written, where it belongs, and don't describe or guess what it says.
 3. **Make the things the user asked to vary into picks.** When a `#` line says "vary her
    expression", the enhanced prompt's phrase for it becomes the first seed. These come
-   from the user's text: give them `line=` and no `added=True`.
+   from the user's text: give them `line=` and no `added=True`, and never `hidden=True`.
 4. **Add variety.** Add 1 to 3 picks (`added=True`, with a label) for the details the
    prompt leaves open that change the image most: her outfit, the setting, the light, the
-   pose. Fewer when the user's lists already vary a lot. Never add a `param`. What the
-   user stated stays fixed: never make a pick of something they wrote (a blue frock, an
-   owl on her shoulder) unless they asked for it to vary.
+   pose. Fewer when the user's lists already vary a lot. Never add a `param`.
+   **What the user stated stays fixed text**, worded as the enhanced prompt words it: an
+   age ("in his sixties"), the weather ("in a snowstorm"), a place, a colour, a blue
+   frock, an owl on her shoulder. Never make a pick of something they wrote unless they
+   asked for it to vary, and never write a pick whose options would change or drop it. An
+   added pick only covers what their prompt leaves open.
 5. **A pick owns its subject.** Only when a fixed phrase would be wrong for some value of
    another pick (her trench coat when the weather varies; skin and eyes when ethnicity
    varies), make that phrase a pick too, `hidden=True`, in a later phase, with the
@@ -128,25 +146,25 @@ Reply with only the program in one ```python block.
 
 Example. User's prompt:
 ```
-1: A woman waiting for a train on a {rainy|bright} morning.
-2: # Vary her expression.
+1: A {chef|firefighter} in his fifties walking home on a snowy street at night, {{outfit}}.
+2: # Vary his expression.
 ```
 Enhanced prompt:
 ```
-A candid photograph of a woman in her thirties waiting on an elevated train platform on a [{rainy|bright}] morning. She wears a belted olive trench coat and stands near the yellow safety line, a faint private smile on her face as she glances down the tracks. Puddles on the concrete reflect the station lights, and soft grey light falls through the steel canopy. Shot on 35mm film, shallow depth of field, natural color.
+A candid street photograph of a [{chef|firefighter}] in his fifties walking home down a snowy street at night, wearing a heavy wool coat over his work clothes. Snow settles on his shoulders, and he has a tired, contented half-smile. Warm light spills from shop windows onto the fresh snow, and his breath fogs in the cold air. Shot on 35mm film, natural color.
 ```
 Program:
 ```python
-weather = pick("weather", ["rainy", "bright"], label="Weather", source="list", phase=1, line=1)
-expression = pick("expression", about="her expression while she waits", seed=[
-    "a faint private smile on her face as she glances down the tracks",
-    "her brow slightly furrowed as she checks the time on her phone"], label="Expression", phase=2, line=2)
-age = pick("age", about="the woman's age", seed=["in her thirties"], label="Age", phase=1, added=True)
-coat = pick("coat", about="her coat in this weather", seed=["a belted olive trench coat"], phase=2, hidden=True)
-ground = pick("ground", about="the platform and the light in this weather", seed=[
-    "Puddles on the concrete reflect the station lights, and soft grey light falls through the steel canopy."],
-    phase=2, hidden=True)
-emit("A candid photograph of a woman", age, "waiting on an elevated train platform on a", weather,
-     "morning. She wears", coat, "and stands near the yellow safety line,", expression, ".", ground,
-     "Shot on 35mm film, shallow depth of field, natural color.")
+job = pick("job", ["chef", "firefighter"], label="Job", source="list", phase=1, line=1)
+outfit = pick("outfit", about=f"what a {job} wears walking home on a snowy night", seed=[
+    "a heavy wool coat over his work clothes"], label="Outfit", phase=2, line=1)
+expression = pick("expression", about="his expression on the walk home", seed=[
+    "a tired, contented half-smile", "a distant, thoughtful look"], label="Expression", phase=2, line=2)
+light = pick("light", about="the light on a snowy street at night", seed=[
+    "Warm light spills from shop windows onto the fresh snow"], label="Light", phase=1, added=True)
+emit("A candid street photograph of a", job, "in his fifties walking home down a snowy street at night, wearing",
+     outfit, ". Snow settles on his shoulders, and he has", expression, ".", light,
+     ", and his breath fogs in the cold air. Shot on 35mm film, natural color.")
 ```
+"in his fifties", "a snowy street" and "at night" are the user's: they stay fixed. The outfit
+names `{job}`, so a chef and a firefighter each get outfits written for them.
