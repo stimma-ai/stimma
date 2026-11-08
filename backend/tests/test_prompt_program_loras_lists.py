@@ -384,3 +384,18 @@ class TestLorasShownToTheModels:
                                   instructions="", lora_items=[], project_id=None, profile_id="p")
         assert [c["name"] for c in seen["ctx"]] == ["Wolf cut"]
         assert "ultra real krea2" not in seen["writer"].split("(End of the enhanced prompt.)")[0]
+
+
+class TestPlainWordLoraNames:
+    def test_plain_word_names_leave_the_text_alone(self):
+        loras = [LoraInfo("Dress", "k/d"), LoraInfo("Detail", "k/x"), LoraInfo("Curtain bangs", "k/c")]
+        text = "A woman wearing a dress, detailed portrait, curtain bangs."
+        assert prep.drop_lora_names(text, loras, "a woman, pick a lora") == text
+        src = 'emit("A woman wearing a dress, detailed portrait, curtain bangs.")\n'
+        problems = prep.validate(src, "a woman wearing a dress, pick a lora", loras, set())["problems"]
+        assert not any("LoRA names" in p for p in problems)
+
+    def test_name_like_names_are_cut_whole_words_only(self):
+        loras = [LoraInfo("facial krea", "k/f"), LoraInfo("KNP 000003000", "k/k")]
+        assert prep.drop_lora_names("Soft light, facial krea, KNP 000003000.", loras, "x") == "Soft light."
+        assert prep.drop_lora_names("prefacial kreative", loras, "x") == "prefacial kreative"

@@ -989,14 +989,31 @@ def _word_count(text: str) -> int:
     return len(re.findall(r"[\w'-]+", re.sub(r"\[\{.*?\}\]", " x ", text)))
 
 
+_MODEL_WORDS = {"krea", "flux", "sdxl", "xl", "sd", "lora", "pony", "illustrious", "qwen", "wan", "hunyuan",
+                "ltx", "chroma", "hidream", "klein", "lycoris", "locon"}
+
+
+def _name_like(name: str) -> bool:
+    """A LoRA name that can't be ordinary prompt text ("ultra real krea2", "KNP 000003000",
+    "facial krea"), unlike one that is ("Dress", "Curtain bangs"): only these are cut or flagged."""
+    words = re.findall(r"[A-Za-z0-9_.]+", name)
+    return any(re.search(r"\d|_", w) or w.lower() in _MODEL_WORDS for w in words)
+
+
+def _mentions(text: str, name: str) -> bool:
+    return re.search(rf"(?i)(?<![\w]){re.escape(name)}(?![\w])", text) is not None
+
+
 def drop_lora_names(text: str, loras: Sequence[LoraInfo], prompt: str) -> str:
     """LoRA names the example text picked up, cut out (unless the user wrote them): the
     writer copies that text, and every image would carry them."""
     for lo in sorted(loras, key=lambda x: -len(x.name)):
-        if len(lo.name) > 3 and lo.name.lower() not in prompt.lower():
+        if _name_like(lo.name) and not _mentions(prompt, lo.name):
             text = re.sub(rf"(?i)(?<![\w]){re.escape(lo.name)}(?![\w])", "", text)
     text = re.sub(r"\s*,(\s*,)+", ",", text)   # ", ," left where a name stood
     text = re.sub(r"\s+([,.])", r"\1", text)
+    text = re.sub(r",([.;:!?])", r"\1", text)
+    text = re.sub(r"^\s*,\s*", "", text)
     return re.sub(r"[ \t]{2,}", " ", text).strip()
 
 
@@ -1065,7 +1082,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
     for r in samples:  # LoRAs work by being on; a name in the text is noise to the image model
         text = r.prompt.lower()
         named = [n for n in dict.fromkeys([lu.name for lu in r.loras] + [lo.name for lo in loras])
-                 if len(n) > 3 and n.lower() in text and n.lower() not in prompt.lower()]
+                 if _name_like(n) and _mentions(text, n) and not _mentions(prompt, n)]
         if named:
             problems.append(f'Don\'t write LoRA names into the prompt ("{named[0]}"). pick_lora() already turns the LoRA on; '
                             "emit only words that describe the image.")
@@ -1225,6 +1242,7 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         # switching a plain LoRA on or off doesn't need a new program
         "params": sorted(params), "loras": [{k: v for k, v in vars(lo).items() if k != "on"} for lo in loras],
         "notes": lora_context,
+        "lora_notes": {lo.name: notes[lo.name] for lo in loras if notes.get(lo.name)},  # what the writer reads
         "elaborate": bool(elaborate),
     }
     key = program_key({**parts, "prompt": source_prompt})
