@@ -69,6 +69,20 @@ interface Options {
   setPromptOptions: (next: any) => void
 }
 
+const FILLER = new Set(['a', 'an', 'the', 'her', 'his', 'their', 'with', 'and', 'of', 'in', 'eyes', 'eye', 'hair',
+  'colored', 'coloured', 'color', 'colour', 'shade', 'tone'])
+const contentWords = (s: string) => new Set((s.toLowerCase().match(/[a-z0-9]+/g) || []).filter(w => !FILLER.has(w) && w.length > 1))
+/** Deleted, or a wording of something deleted ("hazel" covers "striking hazel eyes"). Same rule as the backend. */
+export function removedBy(option: string, removed: string[]): boolean {
+  const words = contentWords(option)
+  const norm = (x: string) => x.trim().toLowerCase().replace(/\s+/g, ' ')
+  return removed.some(r => {
+    if (norm(r) === norm(option)) return true
+    const rw = contentWords(r)
+    return rw.size > 0 && [...rw].every(w => words.has(w))
+  })
+}
+
 export function usePromptProgram(o: Options) {
   const program = ref<PreparedProgram | null>(null)
   const preparedSig = ref<string | null>(null)
@@ -117,7 +131,29 @@ export function usePromptProgram(o: Options) {
   const unsupported = computed(() => unsupportedSig.value !== null && unsupportedSig.value === signature.value)
 
   const pins = computed<Record<string, string[]>>(() => o.promptOptions.value?.programPins || {})
-  const edits = computed<Record<string, ChoiceEdit>>(() => o.promptOptions.value?.programEdits || {})
+  const ownEdits = computed<Record<string, ChoiceEdit>>(() => o.promptOptions.value?.programEdits || {})
+  /** What the user deleted from a detail ("Eye Color"), remembered by its name so it
+      stays deleted when the prompt changes and the program is written again. */
+  const dislikes = computed<Record<string, string[]>>(() => o.promptOptions.value?.programDislikes || {})
+  const labelKey = (label: string) => (label || '').trim().toLowerCase()
+  /** The edits a run and the pickers use: each choice's own, plus what was deleted from
+      the detail of the same name in earlier versions of the prompt. */
+  const edits = computed<Record<string, ChoiceEdit>>(() => {
+    const out: Record<string, ChoiceEdit> = { ...ownEdits.value }
+    for (const c of program.value?.choices || []) {
+      const gone = dislikes.value[labelKey(c.label)]
+      if (!gone?.length || c.source === 'list' || c.kind !== 'pick') continue
+      const e = out[c.id] || {}
+      out[c.id] = { ...e, remove: [...new Set([...(e.remove || []), ...gone])] }
+    }
+    return out
+  })
+  function dislike(c: ProgramChoice, value: string) {
+    const k = labelKey(c.label)
+    if (!k) return
+    const next = { ...dislikes.value, [k]: [...new Set([...(dislikes.value[k] || []), value])] }
+    writeOptions({ programDislikes: next })
+  }
 
   function writeOptions(patch: Record<string, any>) {
     o.setPromptOptions({ ...(o.promptOptions.value || {}), ...patch })
@@ -132,7 +168,7 @@ export function usePromptProgram(o: Options) {
     writeOptions({ programPins: { ...pins.value, ...values } })
   }
   function setEdit(id: string, edit: ChoiceEdit) {
-    const next = { ...edits.value }
+    const next = { ...ownEdits.value }
     const clean: ChoiceEdit = {}
     if (edit.add?.length) clean.add = edit.add
     if (edit.remove?.length) clean.remove = edit.remove
@@ -341,9 +377,9 @@ export function usePromptProgram(o: Options) {
 
   function optionsOf(c: ProgramChoice): string[] {
     const e = edits.value[c.id] || {}
-    const removed = new Set(e.remove || [])
+    const removed = e.remove || []
     const base = [...c.options, ...(pools.value[c.id] || []).filter(x => !c.options.includes(x))]
-    return [...base.filter(x => !removed.has(x)), ...(e.add || []).filter(x => !base.includes(x))]
+    return [...base.filter(x => !removedBy(x, removed)), ...(e.add || []).filter(x => !base.includes(x))]
   }
 
   function visible(c: ProgramChoice): boolean {
@@ -432,7 +468,7 @@ export function usePromptProgram(o: Options) {
   return {
     program, status, error, signature, elaborate: o.elaborate, unsupported, pins, edits, choices, rows, byId, openCard,
     prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, lookup, fetchProgramText, previewRuns, suggestOptions,
-    setPins, setManyPins, setEdit, optionsOf, valueText, isPinned, visible,
+    setPins, setManyPins, setEdit, dislike, optionsOf, valueText, isPinned, visible,
     loraControl, paramControl, open, close,
   }
 }

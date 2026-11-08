@@ -417,3 +417,32 @@ class TestArticles:
         from prompt_programs.runtime import tidy_text
         assert tidy_text(["A", "a spontaneous photo of a woman. She has a", "a warm smile."]) == "A spontaneous photo of a woman. She has a warm smile."
         assert tidy_text(["A cat and a dog"]) == "A cat and a dog"
+
+
+class TestOptionContinuity:
+    def test_a_deleted_value_covers_its_rewordings(self):
+        from prompt_programs.options import removed_by
+        assert removed_by("striking hazel eyes", ["hazel"])
+        assert removed_by("warm hazel", ["hazel eyes"])
+        assert not removed_by("deep brown eyes", ["hazel"])
+        assert removed_by("Crimson", ["crimson"])
+
+    def test_a_new_version_of_the_prompt_starts_from_the_last_options(self, tmp_path):
+        from prompt_programs.draws import PickSpec
+        from prompt_programs.options import GeneratedOptions, OptionStore, ProgramContext, lineage_key
+
+        store = OptionStore(tmp_path)
+        spec = PickSpec("eye_color", "Eye Color", "her eye color", 2, "text", "pick", ["emerald green"], [])
+        old = ProgramContext(key="p1", signature="old prompt", template="old prompt", tool="comfyui:t")
+        new = ProgramContext(key="p2", signature="new prompt", template="new prompt", tool="comfyui:t")
+        a = GeneratedOptions(store, old, generate=True)
+        _, skey_old, _ = a._where(spec, {})
+        store.append(skey_old, {"round": 0, "options": ["deep blue", "warm hazel", "dark brown", "amber", "steel blue",
+                                                         "honey gold", "light gray", "violet"],
+                                "lineage": lineage_key("comfyui:t", spec, {}, "prose", True)})
+        b = GeneratedOptions(store, new, edits={"eye_color": {"remove": ["violet", "hazel"]}}, generate=True)
+        pool = b.get(spec, {})
+        assert "deep blue" in pool.items and "amber" in pool.items
+        assert not any("hazel" in o or "violet" in o for o in pool.items)
+        _, skey_new, _ = b._where(spec, {})
+        assert skey_new != skey_old and store.records(skey_new)[0]["model"] == "carried"
