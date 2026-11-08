@@ -57,6 +57,20 @@ llms: {}
 
 
 @pytest.fixture(scope="session", autouse=True)
+def no_fluent_background_generation():
+    """Fluent draws never generate options in the background during tests: sync
+    tests resolve to whatever profile the machine has, and a queued fill must never
+    call a model or write there. Tests of generation pass their own store and filler."""
+    old = os.environ.get("STIMMA_FLUENT_GENERATE")
+    os.environ["STIMMA_FLUENT_GENERATE"] = "0"
+    yield
+    if old is None:
+        os.environ.pop("STIMMA_FLUENT_GENERATE", None)
+    else:
+        os.environ["STIMMA_FLUENT_GENERATE"] = old
+
+
+@pytest.fixture(scope="session", autouse=True)
 def no_model_downloads():
     """Suite-wide guard: tests must NEVER download ML model weights.
 
