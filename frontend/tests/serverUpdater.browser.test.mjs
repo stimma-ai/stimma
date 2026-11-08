@@ -36,17 +36,38 @@ async function fixture(t, { desktop = false } = {}) {
   page.on('request', request => { if (request.url().includes('/api/')) requests.add(request) })
   page.on('requestfinished', request => requests.delete(request))
   page.on('requestfailed', request => requests.delete(request))
+  // The page counts its own fetches until their responses are read and the
+  // code waiting on them has run (two real task turns later: MessageChannel
+  // isn't faked by the clock). Playwright's request events alone can report
+  // "finished" before the page's continuation reschedules the next poll, and
+  // advancing virtual time then skips a tick. Math.random is seeded so retry
+  // jitter is the same on every run.
+  await page.addInitScript(() => {
+    let seed = 1
+    Math.random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646 }
+    const turn = () => new Promise(resolve => {
+      const channel = new MessageChannel()
+      channel.port1.onmessage = () => resolve()
+      channel.port2.postMessage(0)
+    })
+    const fetch = window.fetch.bind(window)
+    let pending = 0
+    window.__fixtureTurn = turn
+    window.__fixturePending = () => pending
+    window.fetch = (...args) => {
+      pending++
+      const settled = async () => { await turn(); await turn(); pending-- }
+      const response = fetch(...args)
+      response.then(r => r.clone().arrayBuffer().catch(() => {}).then(settled), settled)
+      return response
+    }
+  })
   settleNetwork.set(page, async () => {
     if (server.gate) return // This test deliberately holds a response open.
+    const pendingInPage = () => page.evaluate(async () => { await window.__fixtureTurn(); return window.__fixturePending() })
     const deadline = Date.now() + 5000
     while (Date.now() < deadline) {
-      // Browser tasks also let fetch's JSON/continuations settle before the
-      // next virtual tick. A fixed 25 ms sleep races a busy CI runner.
-      await page.evaluate(() => Promise.resolve())
-      if (!requests.size) {
-        await page.evaluate(() => Promise.resolve())
-        if (!requests.size) return
-      }
+      if (!requests.size && !await pendingInPage() && !requests.size && !await pendingInPage()) return
       await new Promise(resolve => setTimeout(resolve, 1))
     }
     assert.fail('fixture API requests did not settle before advancing time')
