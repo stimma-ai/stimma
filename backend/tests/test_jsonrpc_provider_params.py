@@ -1,5 +1,6 @@
 """Regression tests for STP JSON-RPC outbound parameter shaping."""
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -343,3 +344,24 @@ async def test_execute_download_retry_does_not_resubmit_generation(tmp_path, mon
     provider._send_request.assert_awaited_once()
     provider.download_asset.assert_awaited_once_with("two.mp4")
     assert [o.data for o in result.outputs] == [b"one", b"two"]
+
+
+@pytest.mark.asyncio
+async def test_reply_to_another_hosts_request_does_not_resolve_ours():
+    # A provider shared with other hosts can echo their replies to us; they
+    # number requests from 1, so our ids must never collide with theirs.
+    provider = JsonRpcProvider(StdioProviderConfig(id="comfyui", command="noop"))
+    sent = []
+    transport = MagicMock(is_connected=True)
+    transport.send = AsyncMock(side_effect=sent.append)
+    provider._transport = transport
+
+    reply = asyncio.create_task(provider._send_request("tools.list", timeout=5))
+    while not sent:
+        await asyncio.sleep(0)
+    for stray_id in (1, 2, "1"):
+        await provider._process_message({"jsonrpc": "2.0", "id": stray_id, "result": {"tools": ["theirs"]}})
+    assert not reply.done()
+
+    await provider._process_message({"jsonrpc": "2.0", "id": sent[0]["id"], "result": {"tools": ["ours"]}})
+    assert await reply == {"tools": ["ours"]}
