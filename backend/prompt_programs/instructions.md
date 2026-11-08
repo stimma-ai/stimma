@@ -136,11 +136,16 @@ from the enhanced prompt. Only protected `[text]` is emitted exactly as the user
 
 # LoRAs
 
-Only use `pick_lora` when the user's text asks you to choose among LoRAs. Use the names
-from the LoRA list, or the short names the user wrote for them. A LoRA changes the image
-by being on: its name never goes into the prompt (emit() skips it), and the text doesn't
-describe what the LoRA does, so it can't contradict the one that's picked. If a LoRA's
-notes say it needs extra words, add them when that LoRA is picked:
+LoRAs are add-on weights that change the image by being on. Two separate things, and neither
+puts a LoRA's name in the prompt:
+- **Choosing LoRAs.** Only when the user's text asks you to choose among LoRAs, use
+  `pick_lora` with names from the list given (or the short names the user wrote). One
+  pick_lora per set: a LoRA applies to the whole image, never to one person. Its value is for
+  comparing or looking up; emit() skips it. Don't describe in the text what the LoRA does,
+  so the text can't contradict the one that's on.
+- **Trigger words.** The trigger words of the LoRA that's picked are added for you, and the
+  ones for LoRAs already on are in the enhanced prompt. If a LoRA's notes ask for extra
+  words, add them when that LoRA is picked:
 ```
 hair = pick_lora("hairstyle", ["Curtain bangs", "Braided crown"], label="Hairstyle", phase=1, line=3)
 hair_words = {"Braided crown": "her hair in a braided crown"}.get(hair, "")

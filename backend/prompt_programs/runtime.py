@@ -160,6 +160,7 @@ class LoraInfo:
     path: str
     weight: float = 1.0
     trigger: str = ""
+    on: bool = False   # switched on in the LoRA panel (runs unless the prompt chooses among it)
 
 
 class LoraName(str):

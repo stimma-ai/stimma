@@ -3924,7 +3924,7 @@ const promptProgram = usePromptProgram({
   elaborate: computed(() => !!globalPrefs.value.promptOptions?.autoImprove?.enabled),
   loraNotes: computed(() => globalPrefs.value.promptOptions?.loraNotes !== false),
   loraItems: computed(() => hasLoras.value
-    ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight }))
+    ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight, enabled: !!i.enabled }))
     : []),
   contextParams: computed(() => {
     // Only what the enhancer's style depends on; never the images themselves.

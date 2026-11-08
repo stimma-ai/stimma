@@ -60,7 +60,7 @@ interface Options {
   elaborate: ComputedRef<boolean>
   /** Tell the model the user's LoRA notes. */
   loraNotes: ComputedRef<boolean>
-  loraItems: ComputedRef<Array<{ lora: string; weight: number }>>
+  loraItems: ComputedRef<Array<{ lora: string; weight: number; enabled?: boolean }>>
   /** What the enhancer's style depends on: input images (count and ids), canvas size. */
   contextParams: ComputedRef<Record<string, any>>
   instructions: ComputedRef<string>
@@ -82,7 +82,7 @@ export function usePromptProgram(o: Options) {
   /** Everything but the prompt text: a prompt prepared under the same settings can still run. */
   const settingsSig = computed(() => JSON.stringify({
     tool: o.toolId.value,
-    loras: o.loraItems.value.map(i => [i.lora, i.weight]),
+    loras: o.loraItems.value.map(i => [i.lora, i.weight, !!i.enabled]),
     context: o.contextParams.value,
     instructions: o.instructions.value,
     elaborate: o.elaborate.value,
@@ -146,7 +146,7 @@ export function usePromptProgram(o: Options) {
     return {
       tool_id: o.toolId.value,
       prompt: o.prompt.value || '',
-      loras: o.loraItems.value.map(i => ({ lora: i.lora, weight: i.weight })),
+      loras: o.loraItems.value.map(i => ({ lora: i.lora, weight: i.weight, enabled: !!i.enabled })),
       parameters: o.contextParams.value,
       instructions: o.instructions.value || '',
       elaborate: o.elaborate.value,
@@ -307,7 +307,7 @@ export function usePromptProgram(o: Options) {
       enabled: true,
       pins: pins.value,
       edits: edits.value,
-      loras: o.loraItems.value.map(i => ({ lora: i.lora, weight: i.weight })),
+      loras: o.loraItems.value.map(i => ({ lora: i.lora, weight: i.weight, enabled: !!i.enabled })),
       ...(fixed ? { fixed } : {}),
       // Its own seed, never the image's. Absent: each image draws fresh.
       ...(drawSeed != null ? { draw_seed: drawSeed } : {}),

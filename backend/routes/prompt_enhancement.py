@@ -443,23 +443,21 @@ def _protected_text_guidance(
 
 
 def _lora_guidance(lora_context: List[Dict[str, Any]]) -> str:
-    """What the user has told us about the LoRAs this generation uses."""
-    if not lora_context:
-        return ""
+    """The trigger words and notes of the LoRAs that are on for this image."""
+    useful = [lo for lo in lora_context or [] if (lo.get("trigger_words") or (lo.get("notes") or "").strip())]
+    if not useful:
+        return ""  # nothing the prompt needs: LoRAs work by being on
     lines = []
-    for lora in lora_context:
-        lines.append(f"- {lora.get('name')}")
-        words = lora.get("trigger_words") or []
-        if words:
-            lines.append(f"  Trigger words: {', '.join(words)}")
-        notes = (lora.get("notes") or "").strip()
-        if notes:
-            lines.append(f"  Notes: {notes}")
+    for lora in useful:
+        words = ", ".join(f'"{w}"' for w in lora.get("trigger_words") or []) or "none"
+        notes = (lora.get("notes") or "").strip() or "none"
+        lines.append(f"- {lora.get('name')}: trigger words {words}; notes: {notes}")
     return (
-        "\n\nThis generation uses the LoRAs below, which are add-on model weights. The notes are the "
-        "user's own guidance about what each one does and how to prompt for it, so follow them. Use every "
-        "trigger word in the prompt exactly as written, because a LoRA may do little without its trigger. "
-        "Don't explain any of this in your output.\n" + "\n".join(lines)
+        "\n\nLoRAs (add-on model weights) are switched on for this image. They work by being on: their "
+        "names are not prompt text, so never write a LoRA's name. Put each trigger word below into the prompt "
+        "exactly as written; a LoRA without trigger words needs nothing in the prompt. The notes are the user's "
+        "own guidance for prompting that LoRA: follow them. Don't explain any of this in your output.\n"
+        + "\n".join(lines)
     )
 
 

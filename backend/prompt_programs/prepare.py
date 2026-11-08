@@ -26,7 +26,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-22"
+PREPARE_VERSION = "pp-23"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -129,11 +129,14 @@ def build_user_message(prompt: str, enhanced: str, model_name: Optional[str], mo
     else:
         parts.append("This tool has no parameters you may vary.")
     if loras:
-        parts.append("LoRA list (name — trigger — notes):")
+        parts.append("LoRAs the user may want chosen per image with pick_lora (only if their prompt asks to "
+                     "choose LoRAs). A name goes only in pick_lora([...]), never in emit(): LoRAs work by being "
+                     "on, and the trigger words of the one picked are added to the prompt for you.")
         for lo in loras:
-            parts.append(f"- {lo.name} — {lo.trigger or '(none)'} — {notes.get(lo.name, '')}".rstrip(" —"))
+            words = ", ".join(f'"{t.strip()}"' for t in lo.trigger.split(",") if t.strip()) or "none"
+            parts.append(f'- "{lo.name}" (trigger words: {words}; notes: {notes.get(lo.name) or "none"})')
     else:
-        parts.append("LoRA list: none. Don't use pick_lora.")
+        parts.append("No LoRAs to choose among: don't use pick_lora.")
     return "\n".join(parts)
 
 
@@ -986,6 +989,17 @@ def _word_count(text: str) -> int:
     return len(re.findall(r"[\w'-]+", re.sub(r"\[\{.*?\}\]", " x ", text)))
 
 
+def drop_lora_names(text: str, loras: Sequence[LoraInfo], prompt: str) -> str:
+    """LoRA names the example text picked up, cut out (unless the user wrote them): the
+    writer copies that text, and every image would carry them."""
+    for lo in sorted(loras, key=lambda x: -len(x.name)):
+        if len(lo.name) > 3 and lo.name.lower() not in prompt.lower():
+            text = re.sub(rf"(?i)(?<![\w]){re.escape(lo.name)}(?![\w])", "", text)
+    text = re.sub(r"\s*,(\s*,)+", ",", text)   # ", ," left where a name stood
+    text = re.sub(r"\s+([,.])", r"\1", text)
+    return re.sub(r"[ \t]{2,}", " ", text).strip()
+
+
 def _lora_marks(names: Sequence[str]) -> Set[str]:
     """The word that tells each LoRA of a set apart ("acups" in "KREA2 bodyshop acups v1"),
     with the words they all share left out."""
@@ -1048,9 +1062,10 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
         for d in r.draws:
             if d.kind == "pick" and not d.hidden and d.value and str(d.value).lower() not in text:
                 missing.setdefault(d.id, str(d.value))
-    for r in samples:  # a LoRA is turned on by pick_lora; its name is not something to draw
+    for r in samples:  # LoRAs work by being on; a name in the text is noise to the image model
         text = r.prompt.lower()
-        named = [lu.name for lu in r.loras if lu.name.lower() in text and lu.name.lower() not in prompt.lower()]
+        named = [n for n in dict.fromkeys([lu.name for lu in r.loras] + [lo.name for lo in loras])
+                 if len(n) > 3 and n.lower() in text and n.lower() not in prompt.lower()]
         if named:
             problems.append(f'Don\'t write LoRA names into the prompt ("{named[0]}"). pick_lora() already turns the LoRA on; '
                             "emit only words that describe the image.")
@@ -1171,7 +1186,7 @@ async def lora_candidates(tool_id: str, items: Sequence[Dict[str, Any]], profile
             weight = float(item.get("weight", 1.0))
         except (TypeError, ValueError):
             weight = 1.0
-        out.append(LoraInfo(name=name, path=path, weight=weight, trigger=", ".join(triggers)))
+        out.append(LoraInfo(name=name, path=path, weight=weight, trigger=", ".join(triggers), on=bool(item.get("enabled"))))
         if note.get("notes"):
             notes[name] = str(note["notes"])[:300]
     return out, notes
@@ -1194,16 +1209,22 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     candidates, notes = await lora_candidates(tool_id, lora_items, profile_id)
     if not lora_notes:  # the prompt menu's "LoRA notes" is off: the model isn't told them
         notes = {}
+    # Two separate things. The writer may choose among `loras` with pick_lora (only when the
+    # prompt asks to choose LoRAs). The enhancer is told only about the LoRAs switched on,
+    # for their trigger words and notes; choosing isn't its job, and names aren't prompt text.
     loras = match_loras(source_prompt, candidates)
     lora_context = [{"name": lo.name, "trigger_words": [t.strip() for t in lo.trigger.split(",") if t.strip()],
-                     "notes": notes.get(lo.name, "")} for lo in loras]
+                     "notes": notes.get(lo.name, "")} for lo in candidates if lo.on and (lo.trigger or notes.get(lo.name))]
     # The canvas only matters to layout formats (Ideogram), which have no programs;
     # leaving it out keeps a prepared program valid across sizes.
     enhance = {k: v for k, v in (ctx.get("enhance") or {}).items() if k not in ("width", "height")}
     parts = {
         "v": PREPARE_VERSION, "tool": tool_id, "model": ctx.get("model"),
         "mode": ctx.get("mode"), "enhance": enhance, "instructions": instructions,
-        "params": sorted(params), "loras": [vars(lo) for lo in loras], "notes": lora_context,
+        # on/off reaches the key only through `notes` (the on LoRAs' trigger words and notes):
+        # switching a plain LoRA on or off doesn't need a new program
+        "params": sorted(params), "loras": [{k: v for k, v in vars(lo).items() if k != "on"} for lo in loras],
+        "notes": lora_context,
         "elaborate": bool(elaborate),
     }
     key = program_key({**parts, "prompt": source_prompt})
@@ -1624,6 +1645,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     started = time.monotonic()
     enhanced = (await upsample(source_prompt, ctx, instructions, lora_context, project_id, profile_id)
                 if elaborate else await keep_words(source_prompt, ctx.get("mode") or "prose", project_id))
+    enhanced = drop_lora_names(enhanced, loras, source_prompt)
     upsampled_at = time.monotonic()
     base = [
         {"role": "system", "content": _INSTRUCTIONS},
