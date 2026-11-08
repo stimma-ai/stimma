@@ -739,8 +739,7 @@ class JsonRpcProvider(ToolProvider):
         self._supports_cancel: bool = False
 
         # Request tracking
-        self._request_id: int = 0
-        self._pending_requests: Dict[int, asyncio.Future] = {}
+        self._pending_requests: Dict[str, asyncio.Future] = {}
 
         # Queue status
         self._queue_status: Dict[str, int] = {"queued": 0, "running": 0, "capacity": 1}
@@ -873,9 +872,10 @@ class JsonRpcProvider(ToolProvider):
             return self._transport.get_stderr_logs()
         return [], 0
 
-    def _next_request_id(self) -> int:
-        self._request_id += 1
-        return self._request_id
+    def _next_request_id(self) -> str:
+        # Unique, not a counter: a provider shared with other hosts can echo
+        # their replies to us, and a counter id would match ours.
+        return uuid.uuid4().hex
 
     async def _send_request(
         self, method: str, params: Optional[dict] = None, timeout: float = 30.0
