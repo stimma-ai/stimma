@@ -13,6 +13,7 @@
       :inline="true"
       @close="exitSlideshow"
       @compare-with-source="handleCompareFromSlideshow"
+      @update:current-media-id="onSlideshowItem"
     />
 
     <!-- Compare Mode (overlays slideshow when active) -->
@@ -1006,6 +1007,7 @@
         :style="isCompact ? {} : { width: layoutMode === 'stage' ? '160px' : (100 - studioControlsPct) + '%' }"
       >
         <JobsGrid
+          ref="jobsGridRef"
           :jobs="allJobs"
           empty-message=""
           :markers="jobsManager.availableMarkers.value"
@@ -3500,6 +3502,40 @@ function exitSlideshow() {
   slideshowState.active = false
   exitSlideshowMode()
 }
+
+// The slideshow and the tool view are one place in the results. Whatever the
+// slideshow last showed becomes the stage's current image, and the results
+// rail scrolls to it, so closing the slideshow lands where it left off.
+// Only the results slideshow takes part; a set's slideshow browses inside one
+// result.
+const jobsGridRef = ref<{ revealJob: (jobId: number) => Promise<boolean> } | null>(null)
+const slideshowLastJob = ref<any | null>(null)
+function jobForSlideshowItem(identity: number): any | null {
+  const jobs: any[] = jobsManager?.sortedCompletedJobs.value || []
+  // Slideshow items are keyed by asset, falling back to the media payload.
+  return jobs.find((j: any) => j.result_asset_id === identity)
+    || jobs.find((j: any) => j.result_asset_id == null && j.result_media_id === identity)
+    || jobs.find((j: any) => jobsManager?.mediaData.value?.[j.result_media_id]?.asset_id === identity)
+    || null
+}
+function onSlideshowItem(identity: number | null) {
+  if (!slideshowState.autoAdvanceOnNew || identity == null) return
+  // Older history the rail doesn't hold has no tool-view position to keep.
+  const job = jobForSlideshowItem(identity)
+  if (job) slideshowLastJob.value = job
+}
+watch(() => slideshowState.active, async (active) => {
+  if (active) { slideshowLastJob.value = null; return }
+  const job = slideshowLastJob.value
+  slideshowLastJob.value = null
+  if (!job?.result_media_id) return
+  // Stage: the hero shows it. Landing on the newest resumes following, as
+  // arrow navigation does.
+  clearStageLive()
+  stagePinnedMediaId.value = stageCompletedJobs.value[0]?.id === job.id ? null : job.result_media_id
+  await nextTick()
+  await jobsGridRef.value?.revealJob(job.id)
+})
 
 // Handle compare from slideshow (source image compare)
 async function handleCompareFromSlideshow({ leftMediaId, rightMediaId }: { leftMediaId: number, rightMediaId: number }) {
