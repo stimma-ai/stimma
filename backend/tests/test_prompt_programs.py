@@ -587,6 +587,20 @@ class TestFastPrepare:
         assert '"woman" became "man"' in note and "1: A man waiting" in note
         assert "A man waiting" in prep.realize(entry, seed=1).prompt
 
+    async def test_the_patch_writer_can_say_this_is_a_different_prompt(self, stub):
+        calls, replies = stub
+        replies.append(f"```python\n{TRAIN_S}```")
+        first = await self._ensure()
+        n = len(calls)
+        other = PROMPT.replace("A woman waiting for a train", "A man fishing off a pier")
+        replies.append("START OVER")                 # the patch call
+        replies.append(f"```python\n{TRAIN_S}```")  # then a fresh write
+        entry = await self._ensure(other)
+        assert len(calls) == n + 2 and "patched_from" not in entry
+        assert "START OVER" in calls[n][-1]["content"]          # it was offered the way out
+        assert entry["lineage"] == entry["key"] != first["key"]  # its own options, not the old prompt's
+        assert "previous version" not in calls[n + 1][1]["content"]
+
     async def test_a_patch_that_still_says_what_was_removed_is_prepared_anew(self, stub):
         calls, replies = stub
         replies.append(f"```python\n{TRAIN_S}```")

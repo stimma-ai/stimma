@@ -35,6 +35,10 @@ PREPARE_SOFT_SECONDS = 30.0
 PREPARE_LIMIT_SECONDS = 45.0
 
 
+class StartOver(Exception):
+    """The patch writer judged the new prompt a different prompt, not an edit: write it fresh."""
+
+
 class PrepareTimeout(ProgramError):
     """Preparing took longer than PREPARE_LIMIT_SECONDS."""
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8")
@@ -1338,6 +1342,9 @@ async def _prepare_once(*, context: str, force: bool, **args: Any) -> Dict[str, 
         if base is not None:
             try:
                 entry = await _prepare_patch(base=base, **args)
+            except StartOver as e:
+                log.info(f"[prompt-program] starting over: {e}")
+                base = None  # a new prompt: its own program, lineage and options
             except ProgramError as e:
                 log.info(f"[prompt-program] patch from {base.get('key')} failed: {e}")
     if entry is None:
@@ -1476,9 +1483,12 @@ def edit_kind(old: str, new: str) -> Optional[str]:
     f1, l1 = _lists_and_frame(new)
     if f0 == f1 and len(l0) == len(l1):
         return "lists"
+    # Whether a text change is an edit of this prompt or a different prompt is the patch
+    # writer's call (it can answer START OVER). Here only prompts that share nothing much
+    # are ruled out, so an unrelated prompt never costs a patch call.
     changes = prompt_changes(old, new)
-    words = sum(max(len(x.split()), len(y.split())) for x, y in changes)
-    if changes and len(changes) <= 3 and words <= max(8, len(_prompt_words(old)) // 4):
+    a, b = set(_prompt_words(old)), set(_prompt_words(new))
+    if changes and a and b and len(a & b) / len(a | b) >= 0.3:
         return "text"
     return None
 
@@ -1546,7 +1556,11 @@ The program, with line numbers:
 {numbered}
 
 Update the program to match, changing as little as you can: the emitted text and the picks this edit
-affects, by the same rules. """ + _LINE_EDIT_HOW
+affects, by the same rules.
+
+If this is a different prompt rather than an edit of the same one (what it's about has changed, so
+little of the program would survive), don't patch it: reply with only START OVER and it will be
+written fresh. """ + _LINE_EDIT_HOW
 
 
 def _describe_changes(changes: Sequence[Tuple[str, str]]) -> str:
@@ -1608,8 +1622,6 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
                 enhanced = enhanced.replace("[{" + a + "}]", "[{" + b + "}]")
     if source is None:
         changes = prompt_changes(old, new)
-        if len(changes) > 3:
-            return None
         program = base["program"]
         guide, images = (await writer_style(new, ctx, instructions, lora_context, project_id, profile_id)
                          if elaborate else ("", []))
@@ -1622,6 +1634,8 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
         ]
         t0 = time.monotonic()
         reply = await _ask_patch(messages, project_id, max_tokens=_repair_cap(program))
+        if re.match(r"\s*\**\s*START OVER", reply or "", re.I):
+            raise StartOver(f"the writer judged {key} a different prompt from {base.get('key')}")
         source = apply_line_edits(program, reply)
         calls.append({"kind": "patch", "seconds": round(time.monotonic() - t0, 2), "chars": len(reply or ""),
                       "applied": source is not None})
