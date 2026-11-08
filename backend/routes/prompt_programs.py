@@ -73,6 +73,8 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
         return {"key": None}
     if entry.get("unsupported"):  # structured formats are still enhanced per image
         return {"key": None, "unsupported": entry["unsupported"]}
+    from prompt_programs.fluent import start_options
+    start_options(entry, profile_id=get_current_profile(), project_id=req.project_id)  # background, low priority
     out = {k: entry.get(k) for k in _PUBLIC_KEYS}
     if req.include_program:
         out["program"] = entry["program"]
@@ -108,12 +110,17 @@ async def options(req: OptionsRequest) -> Dict[str, Any]:
 
 @router.post("/preview")
 async def preview(req: PreviewRequest) -> Dict[str, Any]:
+    import asyncio
     from prompt_programs.prepare import DrawAborted, ProgramError, draw_seed, realize
     entry = await _prepare(req)
     if entry is None or entry.get("unsupported"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
     try:
-        result = realize(entry, seed=draw_seed(req.seed), pins=req.pins, edits=req.edits)
+        from prompt_programs.fluent import attach_filler
+        attach_filler(entry, get_current_profile())
+        # In a thread: a judge on CPU must not hold up the event loop.
+        result = await asyncio.to_thread(realize, entry, seed=draw_seed(req.seed), pins=req.pins, edits=req.edits,
+                                         profile_id=get_current_profile(), project_id=req.project_id)
     except DrawAborted as e:  # e.g. "Nothing left to draw for Hairstyle": shown at the choice
         raise HTTPException(status_code=422, detail=e.to_dict()) from None
     except ProgramError as e:

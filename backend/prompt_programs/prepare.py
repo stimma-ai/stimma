@@ -565,17 +565,28 @@ def draw_seed(seed: Any = None) -> int:
 
 def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] = None,
             fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
-            triggers: bool = True) -> RunResult:
+            triggers: bool = True, profile_id: Optional[str] = None, project_id: Optional[int] = None,
+            revision: Optional[Dict[str, Any]] = None, runtime: Any = None) -> RunResult:
+    """One generation's prompt from a prepared program. Programs with pick specs draw
+    with generated options and the configured judge (prompt_programs.fluent); pass a
+    recorded `revision` to replay its pools and knobs, or a `runtime` to draw with a
+    given options service and judge (evaluations, tests)."""
     loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
     if not triggers:  # the prompt menu's "Trigger words" is off: a picked LoRA adds none
         loras = [LoraInfo(lo.name, lo.path, lo.weight, "") for lo in loras]
     clean_pins = {str(k): [str(x) for x in (v if isinstance(v, list) else [v])] for k, v in (pins or {}).items() if v}
     clean_edits = {str(k): v for k, v in (edits or {}).items() if isinstance(v, dict)}
+    params = set(entry.get("params") or {}) or None
     # Programs with pick specs take the phased draw path; programs prepared before it
     # run exactly as they always have.
-    draw_fn = draw if uses_draws(entry["program"]) else run
-    result = draw_fn(entry["program"], seed, clean_pins, loras, set(entry.get("params") or {}) or None, fixed or None,
-                     clean_edits or None)
+    if uses_draws(entry["program"]):
+        from prompt_programs.fluent import runtime_for
+        rt = runtime or runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
+                                    revision=revision)
+        result = draw(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None,
+                      options=rt.options, judge=rt.judge, rarity=rt.rarity, wrong_cut=rt.wrong_cut)
+    else:
+        result = run(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None)
     if entry.get("exact"):  # the user's [exact text], straight to the image model
         result.prompt = unmask_exact(result.prompt, entry["exact"])
     return result

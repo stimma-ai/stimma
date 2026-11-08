@@ -440,6 +440,22 @@ class ServerConfig(BaseModel):
     log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
 
 
+class FluentConfig(BaseModel):
+    """Fluent (Tool View prompt programs) draws: the judge and its knobs.
+
+    judge: none | local | http. ``local`` runs the decision model in-process on CPU
+    (needs torch + transformers); ``http`` asks a judge server at ``judge_url``.
+    Without a working judge, draws use the null judge (keep everything).
+    """
+    judge: str = "none"
+    judge_model: str = "d3-edge"
+    judge_url: str = ""
+    judge_threads: int = 0
+    rarity: float = 0.3      # keep rate of an "unusual" value
+    wrong_cut: float = 0.5   # P(wrong) above this keeps nothing
+    generate_options: bool = True
+
+
 class TelemetryConfig(BaseModel):
     """Anonymous usage telemetry configuration.
 
@@ -962,6 +978,7 @@ class Settings(BaseSettings):
     telemetry: TelemetryConfig = TelemetryConfig()
     compliance: ComplianceConfig = ComplianceConfig()
     feedback: FeedbackConfig = FeedbackConfig()
+    fluent: FluentConfig = FluentConfig()
 
     def get_llm_role_config(self, role: str) -> LLMRoleConfig:
         """Get LLM role config by role (agent, agent-fast).

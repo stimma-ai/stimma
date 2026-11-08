@@ -583,8 +583,13 @@ async def _run_prompt_program(
             elaborate=elaborate, lora_notes=lora_notes,
         )
         # Independent of the image seed; an explicit draw_seed repeats the same draws.
-        result = realize(entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"), fixed=program_opts.get("fixed"),
-                         edits=program_opts.get("edits"), triggers=lora_triggers)
+        from prompt_programs.fluent import attach_filler
+        attach_filler(entry, profile_id)
+        # In a thread: a judge on CPU must not hold up the event loop.
+        result = await asyncio.to_thread(
+            realize, entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"),
+            fixed=program_opts.get("fixed"), edits=program_opts.get("edits"), triggers=lora_triggers,
+            profile_id=profile_id, project_id=project_id)
     except ProgramError as e:
         raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
     except LLMUnavailableError as e:
