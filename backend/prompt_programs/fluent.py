@@ -22,11 +22,12 @@ from typing import Any, Dict, List, Optional
 
 from core.logging import get_logger
 from prompt_programs.draws import (
-    DEFAULT_RARITY, WRONG_CUT, NullJudge, PickSpec, Question, draw, fixed_text, keep_rate, uses_draws,
+    DEFAULT_RARITY, WRONG_CUT, NullJudge, PickSpec, Question, draw, fixed_text, keep_rate, legacy_program, uses_draws,
 )
 from prompt_programs.judge import FluentSettings, configured_judge, settings
 from prompt_programs.options import (
-    GeneratedOptions, OptionFiller, OptionJob, OptionStore, ProgramContext, filler_for, generated_pick, store_for,
+    FIRST_OPTIONS_VERSION, OPTIONS_VERSIONS, GeneratedOptions, OptionFiller, OptionJob, OptionStore, ProgramContext,
+    filler_for, generated_pick, store_for,
 )
 from prompt_programs.runtime import LoraInfo, ProgramError
 
@@ -91,13 +92,18 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
     rarity = _number(rev.get("rarity"), DEFAULT_RARITY if rev else cfg.rarity)
     wrong_cut = _number(rev.get("wrong_cut"), WRONG_CUT if rev else cfg.wrong_cut)
     keep = str(rev.get("keep", "tiers")) if rev else cfg.keep  # a revision without "keep" drew with tiers
+    version = str(rev.get("options") or FIRST_OPTIONS_VERSION) if rev else None  # none recorded: drew before opts-2
+    if version is not None and version not in OPTIONS_VERSIONS:
+        raise ProgramError(f"This prompt was drawn from options version {version}, which this version of Stimma "
+                           "can't read, so it can't be replayed exactly.")
     pools = rev.get("pools")
     limits = ({str(k): int(v) for k, v in pools.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
               if isinstance(pools, dict) else None)
     options = GeneratedOptions(store, program_context(entry), edits=edits, filler=filler,
                                limits=limits, project_id=project_id,
                                generate=cfg.generate_options,
-                               checker=pool_checker(judge, wrong_cut) if not getattr(judge, "null", False) else None)
+                               checker=pool_checker(judge, wrong_cut) if not getattr(judge, "null", False) else None,
+                               version=version)
     return Runtime(options, judge, rarity, wrong_cut, keep)
 
 
@@ -141,7 +147,7 @@ def start_options(entry: Dict[str, Any], *, profile_id: Optional[str] = None, pr
         for seed in range(WARM_DRAWS):
             try:
                 draw(entry["program"], 7919 * seed + 1, None, loras, params, None, None,
-                     options=rt.options, judge=NullJudge())
+                     options=rt.options, judge=NullJudge(), legacy=legacy_program(entry))
             except ProgramError:
                 continue
             rt.options.reset()
@@ -182,7 +188,7 @@ def prefill_judgments(entry: Dict[str, Any], judge: Any, *, store: Optional[Opti
             try:
                 draw(entry["program"], 104729 * seed + 3, clean_pins, loras, params, None, None,
                      options=rt.options, judge=judge, rarity=rt.rarity, wrong_cut=rt.wrong_cut, keep=rt.keep,
-                     prefetch=pool)
+                     prefetch=pool, legacy=legacy_program(entry))
                 done += 1
             except ProgramError:
                 continue

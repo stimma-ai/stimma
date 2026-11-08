@@ -42,6 +42,8 @@ from prompt_programs.runtime import RANK_DECAY
 log = get_logger(__name__)
 
 OPTIONS_VERSION = "opts-2"     # bump to invalidate every generated pool on purpose
+FIRST_OPTIONS_VERSION = "opts-1"   # what a revision that records no options version drew with
+OPTIONS_VERSIONS = (FIRST_OPTIONS_VERSION, OPTIONS_VERSION)   # versions a recorded revision can replay
 BATCH_SIZE = 12                # options asked for per generation call
 GEN_DECAY = 0.96               # rank decay across generated options (gentler than the writer's lists)
 THIN = 6                       # a generated pool with fewer usable options asks for more, high priority
@@ -91,13 +93,16 @@ class ProgramContext:
 # --------------------------------------------------------------------------- the on-disk cache
 
 def gen_key(spec: PickSpec, context: Dict[str, Any], signature: str, mode: str, elaborate: bool,
-            lists: Sequence[Tuple[str, str, Sequence[str]]] = ()) -> str:
+            lists: Sequence[Tuple[str, str, Sequence[str]]] = (), version: str = OPTIONS_VERSION) -> str:
     """The generated pool's identity across prompts: what the pick is, the values of the
     picks it depends on, the context signature, the user's lists it is shown (those it
-    doesn't depend on), and the style options are written in."""
+    doesn't depend on), and the style options are written in. `version` names an older
+    pool (a replay): opts-1 showed the generator no lists."""
     shown = sorted([label, list(opts)] for cid, label, opts in lists if cid not in context and cid != spec.id)
+    if version == FIRST_OPTIONS_VERSION:
+        shown = []
     blob = json.dumps({
-        "v": OPTIONS_VERSION, "about": _norm(spec.about or spec.label), "deps": sorted((k, str(v)) for k, v in context.items()),
+        "v": version, "about": _norm(spec.about or spec.label), "deps": sorted((k, str(v)) for k, v in context.items()),
         "context": _norm(signature), "mode": mode, "elaborate": bool(elaborate), **({"lists": shown} if shown else {}),
     }, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
@@ -446,8 +451,13 @@ class GeneratedOptions:
                  edits: Optional[Dict[str, Dict[str, Any]]] = None, filler: Optional[OptionFiller] = None,
                  resolver: Optional[ClassResolver] = None, limits: Optional[Dict[str, int]] = None,
                  project_id: Optional[int] = None, generate: bool = True,
-                 checker: Optional[Callable[[OptionJob, "GeneratedOptions"], Awaitable[Any]]] = None):
+                 checker: Optional[Callable[[OptionJob, "GeneratedOptions"], Awaitable[Any]]] = None,
+                 version: Optional[str] = None):
         self.store, self.program, self.filler = store, program, filler
+        # The pools' options version: a replay reads the version its revision drew from,
+        # and never writes to an older one.
+        self.version = version or OPTIONS_VERSION
+        generate = generate and self.version == OPTIONS_VERSION
         self.edits = edits or {}
         self.literal = LiteralOptions(self.edits)
         self.resolver = resolver or NoVocabulary()
@@ -460,6 +470,12 @@ class GeneratedOptions:
         self.requests: List[Tuple[str, str]] = []
         self.queued: List[str] = []
         self._seen: Dict[str, Tuple[PickSpec, Dict[str, Any]]] = {}
+
+    @property
+    def revision_version(self) -> Optional[str]:
+        """The options version a draw's revision records (none for the first, so revisions
+        drawn before versions were recorded keep their ids)."""
+        return None if self.version == FIRST_OPTIONS_VERSION else self.version
 
     def seen_specs(self) -> List[Tuple[PickSpec, Dict[str, Any]]]:
         """Every generated pick and dependency context read through this service."""
@@ -476,7 +492,7 @@ class GeneratedOptions:
         signature = self.program.template if specific else self.program.signature
         key = pool_key(spec, context) + (" | written for this prompt" if specific else "")
         return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate,
-                            self.program.lists), signature
+                            self.program.lists, self.version), signature
 
     def get(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
         if not generated_pick(spec):

@@ -47,6 +47,13 @@ DEFAULT_RARITY = 0.3   # keep rate of an *unusual* value (the rarity knob)
 WRONG_CUT = 0.5        # P(wrong) above this keeps nothing (tuned on train data later)
 BATCH = 16             # proposals per re-proposal batch
 MAX_POOLS = 32         # pools a generated pick may have: one per combination of the lists it names
+LEGACY_BEFORE = 21     # programs prepared before pp-21 key a pool by generated picks' values too
+
+
+def legacy_program(entry: Dict[str, Any]) -> bool:
+    """A prepared program from before pp-21: it draws (and replays) as it did then."""
+    m = re.fullmatch(r"pp-(\d+)", str(entry.get("version") or ""))
+    return bool(m) and int(m.group(1)) < LEGACY_BEFORE
 MAX_BATCHES = 3        # batches before a pick falls back and counts as unresolved
 
 _PICK_PARAMS = ("id", "options", "label", "by", "source", "line", "exclude", "hidden", "added", "about", "phase", "seed")
@@ -94,6 +101,7 @@ class Site:
     generated: bool = False         # its pool grows (about=, not a user list): values aren't known up front
     size: Optional[int] = None      # how many options it has, when they're written out as a list
     deps: Dict[int, str] = field(default_factory=dict)      # site -> where its value is used
+    named: Dict[int, str] = field(default_factory=dict)     # site -> the argument (about=, seed=, label) naming it
     exclude_deps: Set[int] = field(default_factory=set)
 
 
@@ -293,6 +301,8 @@ class _Analyzer:
         for t, where in uses:
             for s, _ in t:
                 site.deps.setdefault(s, where)
+                if where in _NAMING:  # tracked apart: an if test above may have recorded it first
+                    site.named.setdefault(s, where)
         if "exclude" in args:
             for s, _ in self.expr(args["exclude"], ctx, local):
                 site.exclude_deps.add(s)
@@ -382,6 +392,45 @@ class _Analyzer:
         return out
 
 
+_NAMING = ("its about=", "its seed=", "its label")
+
+
+def _list_sizes(tree: ast.Module) -> Dict[str, int]:
+    """Names bound once, at the top level, to a list written out: their length."""
+    bound: Dict[str, List[ast.AST]] = {}
+    for node in ast.walk(tree):
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(
+            node, (ast.AugAssign, ast.AnnAssign, ast.For)) else []
+        for t in targets:
+            for n in ast.walk(t):
+                if isinstance(n, ast.Name):
+                    bound.setdefault(n.id, []).append(node)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):  # options.append(...)
+            root = node.func.value
+            if isinstance(root, ast.Name):
+                bound.setdefault(root.id, []).append(node)
+    top = {id(st) for st in tree.body}
+    return {name: len(nodes[0].value.elts) for name, nodes in bound.items()
+            if len(nodes) == 1 and id(nodes[0]) in top and isinstance(nodes[0], ast.Assign)
+            and isinstance(nodes[0].value, (ast.List, ast.Tuple))}
+
+
+def _size(node: Optional[ast.AST], sizes: Dict[str, int]) -> Optional[int]:
+    """How many values a pick's options hold, when that's known before drawing."""
+    if isinstance(node, (ast.List, ast.Tuple)):
+        return len(node.elts)
+    if isinstance(node, ast.Name):
+        return sizes.get(node.id)
+    if isinstance(node, ast.Dict):  # options by an earlier pick: every value any key lists
+        values: Set[Any] = set()
+        for v in node.values:
+            if not isinstance(v, (ast.List, ast.Tuple)) or not all(isinstance(e, ast.Constant) for e in v.elts):
+                return None
+            values |= {e.value for e in v.elts}
+        return len(values)
+    return None
+
+
 def _phase_of(node: ast.Call, site: Site, phased: bool) -> int:
     args = _Analyzer._args(node, _PICK_PARAMS if site.kind == "pick" else _LORA_PARAMS)
     ph = args.get("phase")
@@ -396,12 +445,16 @@ def _phase_of(node: ast.Call, site: Site, phased: bool) -> int:
 
 
 @functools.lru_cache(maxsize=64)
-def analyze(source: str) -> Analysis:
+def analyze(source: str, strict: bool = False) -> Analysis:
     """Check a program's phases and dependencies, and compile it for drawing.
-    Raises ProgramError with a message the program writer can act on."""
+    Raises ProgramError with a message the program writer can act on. `strict` adds
+    the rules a newly written program must follow (validation): no pick names a
+    generated pick, and a generated pick's pools stay few. Drawing an already prepared
+    program never applies them: programs written before them draw as they always did."""
     tree = check(source)
     an = _Analyzer(tree)
     phased = uses_draws(source)
+    sizes = _list_sizes(tree)
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and id(node) in an.site_of:
             site = an.sites[an.site_of[id(node)]]
@@ -410,8 +463,7 @@ def analyze(source: str) -> Analysis:
                 args = _Analyzer._args(node, _PICK_PARAMS)
                 src = args.get("source")
                 site.generated = "about" in args and not (isinstance(src, ast.Constant) and src.value == "list")
-                if isinstance(args.get("options"), ast.List):
-                    site.size = len(args["options"].elts)
+                site.size = _size(args.get("options"), sizes)
                 has_options = "options" in args and not (isinstance(args["options"], ast.Constant) and args["options"].value is None)
                 if not has_options and "seed" not in args:
                     raise _err(node, f'pick("{site.id_text}") has no options: give it seed=[1 to 3 options] '
@@ -420,6 +472,7 @@ def analyze(source: str) -> Analysis:
         an.changed = False
         for s in an.sites:
             s.deps.clear()
+            s.named.clear()
             s.exclude_deps.clear()
         an.block(tree.body, [])
         if not an.changed:
@@ -436,22 +489,27 @@ def analyze(source: str) -> Analysis:
                         f'Line {s.line}: pick("{s.id_text}") is in phase {s.phase} but uses pick("{dep.id_text}") '
                         f'(phase {dep.phase}) in {where}. A pick can only depend on picks in earlier phases: give '
                         f'"{dep.id_text}" a lower phase than "{s.id_text}", or don\'t use its value there.')
-            named = [an.sites[d] for d, where in sorted(s.deps.items())
-                     if where in ("its about=", "its seed=", "its label") and an.sites[d].generated and d != s.index]
-            if s.generated and named:
+            named = [an.sites[d] for d in sorted(s.named) if an.sites[d].generated and d != s.index]
+            if strict and s.generated and named:
                 dep = named[0]
                 raise ProgramError(
-                    f'Line {s.line}: pick("{s.id_text}") names pick("{dep.id_text}") in {s.deps[dep.index]}, but '
+                    f'Line {s.line}: pick("{s.id_text}") names pick("{dep.id_text}") in {s.named[dep.index]}, but '
                     f'"{dep.id_text}" is written with about=, so it gets new values as it is used and each would need '
                     "its own options. Only a user list (or another short list written out) may be named this way. "
                     f'Describe "{dep.id_text}" in words instead (about="what he wears for his job"): each value is '
                     "still checked against what earlier phases drew.")
-            if s.generated:
+            if strict and s.generated:
                 pools = 1
-                for d in s.deps:
+                for d in sorted(s.deps):
                     dep = an.sites[d]
-                    if d != s.index and not dep.generated and dep.size:
-                        pools *= dep.size
+                    if d == s.index or dep.generated:
+                        continue
+                    if dep.kind == "pick" and dep.size is None:
+                        raise ProgramError(
+                            f'Line {s.line}: pick("{s.id_text}") depends on pick("{dep.id_text}"), whose options '
+                            "aren't written out, so how many pools it needs isn't known. Write "
+                            f'"{dep.id_text}"\'s options as a list in its pick() (or in a name assigned once).')
+                    pools *= dep.size or 1
                 if pools > MAX_POOLS:
                     raise ProgramError(
                         f'Line {s.line}: pick("{s.id_text}") depends on lists with {pools} combinations of values, '
@@ -677,10 +735,11 @@ class _Exec(_Runner):
     def _context(self, site: Site) -> Dict[str, Any]:
         """The values a pick's pool is keyed by: the fixed-list picks it depends on.
         A generated pick's value never keys a pool (each would need its own options);
-        the judge checks the pick against it instead."""
+        the judge checks the pick against it instead. Programs prepared before that rule
+        (`legacy`) key by every pick they depend on, as they drew then."""
         ctx: Dict[str, Any] = {}
         for d in sorted(site.deps):
-            if self.eng.an.sites[d].generated:
+            if self.eng.an.sites[d].generated and not self.eng.legacy:
                 continue
             for cid in self.site_ids.get(d, []):
                 if cid in self.by_id:
@@ -854,8 +913,9 @@ class _Engine:
     def __init__(self, an: Analysis, seed: int, pins: Dict[str, Sequence[str]], loras: Dict[str, LoraInfo],
                  tool_params: Optional[Set[str]], fixed: Dict[str, Any], edits: Dict[str, Dict[str, Any]],
                  options: OptionsService, judge: Judge, rarity: float, wrong_cut: float = WRONG_CUT,
-                 keep: str = "tiers", prefetch: int = 0):
+                 keep: str = "tiers", prefetch: int = 0, legacy: bool = False):
         self.an, self.rng, self.seed = an, random.Random(seed), seed
+        self.legacy = legacy
         self.loras, self.tool_params = loras, tool_params
         # A choice the user turned off has no value to pin.
         self.pins = {str(k): {str(v) for v in vs} for k, vs in pins.items()
@@ -1095,6 +1155,9 @@ class _Engine:
             "rarity": self.rarity,
             "judge": getattr(self.judge, "version", type(self.judge).__name__),
         }
+        options_version = getattr(self.options, "revision_version", None)
+        if options_version:  # the generated pools' version: replay reads those, not today's
+            rev["options"] = options_version
         if self.wrong_cut != WRONG_CUT:
             rev["wrong_cut"] = self.wrong_cut
         if self.keep != "tiers":
@@ -1108,14 +1171,16 @@ def draw(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None
          fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Dict[str, Any]]] = None, *,
          options: Optional[OptionsService] = None, judge: Optional[Judge] = None,
          rarity: float = DEFAULT_RARITY, wrong_cut: float = WRONG_CUT, keep: str = "tiers",
-         prefetch: int = 0) -> DrawResult:
+         prefetch: int = 0, legacy: bool = False) -> DrawResult:
     """Draw one prompt from a program with pick specs. Deterministic for a given
     revision, seed and pins. Raises DrawAborted when a pick has nothing left to draw
-    or a pin can't be satisfied, and ProgramError for a broken program."""
+    or a pin can't be satisfied, and ProgramError for a broken program. `legacy` draws
+    a program prepared before generated picks stopped keying pools (see LEGACY_BEFORE)."""
     an = analyze(source)
     edits = edits or {}
     eng = _Engine(an, seed, pins or {}, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params,
-                  dict(fixed or {}), edits, options or LiteralOptions(edits), judge or NullJudge(), rarity, wrong_cut, keep, prefetch)
+                  dict(fixed or {}), edits, options or LiteralOptions(edits), judge or NullJudge(), rarity, wrong_cut, keep, prefetch,
+                  legacy)
     for k in an.phases:
         eng.run_phase(k)
     final = eng.execute(math.inf, {}, record=True)
@@ -1150,6 +1215,6 @@ def fixed_text(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_par
 
 __all__ = [
     "Analysis", "DrawAborted", "DrawResult", "Judge", "LiteralOptions", "NullJudge", "OptionsService", "PickSpec",
-    "KEEP_MODES", "Pool", "Question", "TIERS", "WRONG_CUT", "candidate_score", "analyze", "draw", "fixed_text", "keep_rate", "pool_key", "tier_score",
+    "KEEP_MODES", "Pool", "Question", "TIERS", "WRONG_CUT", "candidate_score", "analyze", "draw", "fixed_text", "keep_rate", "legacy_program", "pool_key", "tier_score",
     "uses_draws",
 ]

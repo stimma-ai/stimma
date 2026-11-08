@@ -466,6 +466,18 @@ class TestFixInCode:
         assert 'outfit = pick(' in out  # the user's wildcard stays a pick
         assert not prep.validate(out, self.STATED, [], set(), self.STATED_EX)["problems"]
 
+    def test_grammar_is_not_stated_and_unclassifiable_words_are_never_frozen(self):
+        src = ('outfit = pick("outfit", about="what she wears", seed=["eine rote Jacke"], phase=1, added=True)\n'
+               'emit("Ein Porträt einer Frau, sie trägt", outfit)\n')
+        enhanced = "Ein Porträt einer Frau, sie trägt eine rote Jacke."
+        assert prep.lost_stated(src, "Eine Frau", enhanced) == {}
+        assert prep.fix_stated(src, "Eine Frau", enhanced) == (src, [])
+        # In English, "a"/"her" are grammar: only stated content words count as lost.
+        en = ('outfit = pick("outfit", about="what she wears", seed=["a red jacket on her"], phase=1, added=True)\n'
+              'emit("A portrait of a woman", outfit)\n')
+        assert prep.lost_stated(en, "A portrait of a woman, the light on her", "A portrait of a woman, a red jacket on her, the light") \
+            == {"light": "light"}
+
     def test_a_fixed_copy_of_the_users_words_is_never_cut(self):
         src = ('w = pick("w", about="the weather", seed=["a rainy platform"], phase=1, added=True)\n'
                'emit("A nun waiting, a rainy platform, candid photo", w)\n')
@@ -498,6 +510,13 @@ class TestFixInCode:
     def test_placeholder_brackets_around_a_pick_go(self):
         out, notes = prep.fix_brackets('job = pick("job", ["a", "b"], source="list", phase=1)\nemit("A [", job, "] at work")\n')
         assert 'emit("A ", job, " at work")' in out and notes
+
+    def test_adjacent_bracketed_picks_share_the_literal_between_them(self):
+        src = ('a = pick("a", ["x", "y"], source="list", phase=1)\nb = pick("b", ["p", "q"], source="list", phase=1)\n'
+               'emit("A [", a, "] in [", b, "]")\n')
+        out, notes = prep.fix_brackets(src)
+        assert 'emit("A ", a, " in ", b, " ")' in out and notes == ["2 placeholder bracket pair(s) taken out of emit()"]
+        compile(out, "<program>", "exec")
 
     def test_a_wildcards_name_with_an_article_is_not_a_seed(self):
         src = 'brand = pick("brand", about="the brand", seed=["a brand", "Acme"], phase=1)\nemit(brand)\n'

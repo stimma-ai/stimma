@@ -21,7 +21,7 @@ from core.logging import get_logger
 from prompt_programs.runtime import (
     LoraInfo, ProgramError, RunResult, check, discover, extract_code, run, tidy_text,
 )
-from prompt_programs.draws import DrawAborted, analyze, draw, uses_draws
+from prompt_programs.draws import DrawAborted, analyze, draw, legacy_program, uses_draws
 from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
@@ -514,8 +514,17 @@ def trim_added(source: str) -> Tuple[str, List[str]]:
 
 # --------------------------------------------------------------------------- what the user stated
 
-_STATED_STOP = {"a", "an", "the", "and", "or", "of", "in", "on", "at", "to", "for", "with", "by", "from", "is", "are",
-                "her", "his", "its", "their", "this", "that", "it", "as", "be", "into", "very", "some", "each", "while"}
+# English function words: grammar, not something the user stated about the image.
+_STATED_STOP = {"a", "an", "the", "and", "or", "but", "nor", "so", "of", "in", "on", "at", "to", "for", "with", "by",
+                "from", "into", "onto", "over", "under", "about", "through", "near", "off", "up", "down", "out",
+                "is", "are", "was", "were", "be", "been", "being", "has", "have", "had", "do", "does", "did",
+                "her", "his", "its", "their", "our", "my", "your", "she", "he", "they", "it", "we", "you", "him", "them",
+                "this", "that", "these", "those", "there", "here", "as", "than", "then", "very", "some", "each",
+                "while", "who", "which", "whose", "where", "when", "not", "no", "all", "any", "both", "such"}
+# Words only English uses this way. A prompt with none of them (or with letters English
+# doesn't use) can't be told apart into stated words and grammar, so nothing is frozen.
+_ENGLISH_MARKERS = {"the", "and", "with", "her", "his", "she", "are", "their", "this", "that", "wearing", "who",
+                    "which", "from", "into"}
 
 
 def _stem(word: str) -> str:
@@ -533,6 +542,14 @@ def _stem(word: str) -> str:
 
 def _stems(text: str) -> Set[str]:
     return {_stem(w) for w in re.findall(r"[a-z0-9]+", text.lower())}
+
+
+def _english(text: str) -> bool:
+    """Whether a prompt reads as English, so its function words are known."""
+    words = re.findall(r"[^\W\d_]+", text.lower())
+    if sum(1 for w in words if not w.isascii()) * 10 > len(words):  # letters English doesn't use
+        return False
+    return bool(set(words) & _ENGLISH_MARKERS)
 
 
 def stated_words(prompt: str) -> Dict[str, str]:
@@ -591,7 +608,7 @@ def lost_stated(source: str, prompt: str, enhanced: str) -> Dict[str, str]:
     """stem → word for words the user stated (and the example kept) that the program's
     fixed text never says: a pick swallowed them, or they were dropped. Words a user
     list or a pick the user asked for covers don't count."""
-    if not uses_draws(source):
+    if not uses_draws(source) or not _english(prompt):  # unclassifiable words: report nothing
         return {}
     stated = stated_words(prompt)
     if not stated:
@@ -622,7 +639,7 @@ def fix_stated(source: str, prompt: str, enhanced: str) -> Tuple[str, List[str]]
     ("in her thirties" made an age pick) turns back into fixed text, its first seed:
     what the user wrote is never drawn away."""
     stated = stated_words(prompt)
-    if not stated or not uses_draws(source):
+    if not stated or not uses_draws(source) or not _english(prompt):  # never freeze words it can't classify
         return source, []
     lost = lost_stated(source, prompt, enhanced)
     try:
@@ -679,7 +696,10 @@ def fix_brackets(source: str) -> Tuple[str, List[str]]:
     except SyntaxError:
         return source, []
     pos = _offsets(source)
-    edits: List[Tuple[int, int, str]] = []
+    # A literal between two bracketed picks ("] in [") loses both ends: its cuts are
+    # gathered first, then it is rewritten once.
+    cuts: Dict[int, Tuple[ast.Constant, Set[str]]] = {}
+    pairs = 0
     for call in ast.walk(tree):
         if not (isinstance(call, ast.Call) and getattr(call.func, "id", None) == "emit"):
             continue
@@ -690,16 +710,23 @@ def fix_brackets(source: str) -> Tuple[str, List[str]]:
                     and isinstance(after, ast.Constant) and isinstance(after.value, str)):
                 continue
             if before.value.rstrip().endswith("[") and after.value.lstrip().startswith("]"):
-                b = before.value.rstrip()[:-1].rstrip() + " "
-                f = " " + after.value.lstrip()[1:].lstrip()
-                for node, text in ((before, b), (after, f)):
-                    edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset),
-                                  json.dumps(text, ensure_ascii=False)))
-    if not edits:
+                cuts.setdefault(id(before), (before, set()))[1].add("tail")
+                cuts.setdefault(id(after), (after, set()))[1].add("head")
+                pairs += 1
+    if not cuts:
         return source, []
-    for start, end, text in sorted(set(edits), reverse=True):
+    edits: List[Tuple[int, int, str]] = []
+    for node, ends in cuts.values():
+        text = str(node.value)
+        if "head" in ends:
+            text = " " + text.lstrip()[1:].lstrip()
+        if "tail" in ends:
+            text = text.rstrip()[:-1].rstrip() + " "
+        edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset),
+                      json.dumps(text, ensure_ascii=False)))
+    for start, end, text in sorted(edits, reverse=True):
         source = source[:start] + text + source[end:]
-    return source, [f"{len(edits) // 2} placeholder bracket pair(s) taken out of emit()"]
+    return source, [f"{pairs} placeholder bracket pair(s) taken out of emit()"]
 
 
 def fix_generated_refs(source: str) -> Tuple[str, List[str]]:
@@ -879,7 +906,7 @@ def _word_count(text: str) -> int:
 def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[str],
              enhanced: str = "", elaborate: bool = True) -> Dict[str, Any]:
     if uses_draws(source):  # phases and dependencies, checked on the code (raises ProgramError)
-        analyze(source)
+        analyze(source, strict=True)
         draw(source, 11, None, loras, params)  # and the draw path runs it
     info = discover(source, loras, params)
     samples = [run(source, s, None, loras, params) for s in (11, 23, 37, 51)]
@@ -1597,7 +1624,7 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
         def _draw(rt: Any) -> RunResult:
             return draw(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None,
                         options=rt.options, judge=rt.judge, rarity=rt.rarity, wrong_cut=rt.wrong_cut,
-                        keep=getattr(rt, "keep", "cut"))
+                        keep=getattr(rt, "keep", "cut"), legacy=legacy_program(entry))
         try:
             result = _draw(rt)
         except JudgeUnavailable as e:

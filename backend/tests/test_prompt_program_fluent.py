@@ -485,6 +485,28 @@ class TestRealize:
         grown = prep.realize(entry, seed=0, runtime=self._runtime(tmp_path, entry)[1])
         assert grown.revision["pools"]["hair: her hairstyle"] == 6
 
+    def test_a_revision_replays_from_the_options_version_it_drew(self, tmp_path):
+        import dataclasses
+        from prompt_programs.options import GeneratedOptions
+        entry = entry_for(PORTRAIT)
+        store, rt = self._runtime(tmp_path, entry)
+        sig = program_context(entry).signature
+        store.append(gen_key(spec(), {}, sig, "prose", True, version="opts-1"),
+                     {"round": 0, "options": ["braids", "pin curls", "an updo"]})
+        store.append(gen_key(spec(), {}, sig, "prose", True), {"round": 0, "options": ["x1", "x2", "x3"]})
+        # Revisions drawn before the version was recorded drew opts-1 pools and record no version.
+        old = dataclasses.replace(rt, options=GeneratedOptions(store, program_context(entry), version="opts-1"))
+        first = [prep.realize(entry, seed=s, runtime=old) for s in range(12) if not old.options.reset()]
+        assert all("options" not in r.revision for r in first) and any("braids" in r.prompt for r in first)
+        for s, r in enumerate(first):
+            again = prep.realize(entry, seed=s, revision=r.revision,
+                                 runtime=self._runtime(tmp_path, entry, revision=r.revision)[1])
+            assert again.prompt == r.prompt and again.revision["id"] == r.revision["id"]
+        new = prep.realize(entry, seed=0, runtime=self._runtime(tmp_path, entry)[1])
+        assert new.revision["options"] == "opts-2"
+        with pytest.raises(ProgramError, match="options version opts-9"):
+            self._runtime(tmp_path, entry, revision={**new.revision, "options": "opts-9"})
+
     def test_dependent_pools_are_per_upstream_value(self, tmp_path):
         entry = entry_for(DEPENDENT)
         store = OptionStore(tmp_path)
@@ -649,7 +671,7 @@ class TestLookupKeyRule:
         src = ('h = pick("h", about="her job", seed=["nun"], phase=1)\n'
                'o = pick("o", about=f"what a {h} wears", seed=["x"], phase=2)\nemit(h, o)\n')
         with pytest.raises(ProgramError, match="Describe \"h\" in words"):
-            analyze(src)
+            analyze(src, strict=True)
 
     def test_a_pick_names_few_enough_lists(self):
         from prompt_programs.draws import analyze
@@ -658,8 +680,43 @@ class TestLookupKeyRule:
         src = (f'a = pick("a", {six}, source="list", phase=1)\nb = pick("b", {six}, source="list", phase=1)\n'
                'o = pick("o", about=f"for {a} and {b}", seed=["x"], phase=2)\nemit(a, b, o)\n')
         with pytest.raises(ProgramError, match="36 combinations"):
-            analyze(src)
-        assert analyze(src.replace(" and {b}", "")).phased
+            analyze(src, strict=True)
+        assert analyze(src.replace(" and {b}", ""), strict=True).phased
+
+    def test_a_list_passed_through_a_name_counts_its_values(self):
+        from prompt_programs.draws import analyze
+        from prompt_programs.runtime import ProgramError
+        values = ", ".join(f'"{i}"' for i in range(33))
+        src = (f'options = [{values}]\na = pick("a", options, source="list", phase=1)\n'
+               'o = pick("o", about=f"for {a}", seed=["x"], phase=2)\nemit(a, o)\n')
+        with pytest.raises(ProgramError, match="33 combinations"):
+            analyze(src, strict=True)
+        grown = src.replace("\na = pick", '\noptions.append("34")\na = pick')
+        with pytest.raises(ProgramError, match="aren't written out"):
+            analyze(grown, strict=True)
+
+    def test_a_generated_pick_named_under_an_if_on_it_is_still_named(self):
+        from prompt_programs.draws import analyze
+        from prompt_programs.runtime import ProgramError
+        src = ('h = pick("h", about="her job", seed=["nun"], phase=1)\n'
+               'if h:\n    o = pick("o", about=f"what a {h} wears", seed=["x"], phase=2)\n    emit(o)\nemit(h)\n')
+        with pytest.raises(ProgramError, match="Describe \"h\" in words"):
+            analyze(src, strict=True)
+
+    def test_a_program_prepared_before_the_rule_draws_as_it_did(self, tmp_path):
+        # pp-20 programs could name a generated pick in about=; they still draw, keyed by its value.
+        src = ('job = pick("job", about="her job", seed=["nun", "lifeguard"], phase=1)\n'
+               'outfit = pick("outfit", about=f"what a {job} wears", seed=["a coat"], phase=2)\nemit(job, outfit)\n')
+        entry = entry_for(src, version="pp-20")
+        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
+        for seed in range(8):
+            prep.realize(entry, seed=seed, runtime=rt)
+            rt.options.reset()
+        specs = {(spec.id, tuple(sorted(ctx.items()))) for spec, ctx in rt.options.seen_specs()}
+        assert ("outfit", (("job", "nun"),)) in specs and ("outfit", (("job", "lifeguard"),)) in specs
+        rt = runtime_for(entry_for(src, version="pp-21"), store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
+        prep.realize(entry_for(src, version="pp-21"), seed=1, runtime=rt)
+        assert [ctx for spec, ctx in rt.options.seen_specs() if spec.id == "outfit"] == [{}]  # today's rule
 
     def test_a_list_named_in_about_keys_the_pool_and_a_generated_pick_does_not(self, tmp_path):
         src = ('job = pick("job", ["nun", "lifeguard"], label="Job", source="list", phase=1, line=1)\n'
