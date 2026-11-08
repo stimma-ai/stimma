@@ -1056,19 +1056,26 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
                             "emit only words that describe the image.")
             break
     lora_sets = [(c["id"], set(c.get("options") or [])) for c in info["choices"] if c.get("kind") == "lora"]
-    for i, (a, sa) in enumerate(lora_sets):  # a LoRA applies to the whole image: two picks stack
-        for b, sb in lora_sets[i + 1:]:
-            if sa & sb:
-                problems.append(f'pick_lora("{a}") and pick_lora("{b}") choose from the same LoRAs, so every image '
-                                "would get two of them: a LoRA applies to the whole image, not to one person. "
-                                "Use one pick_lora for them.")
+    stacked: Set[Tuple[str, str]] = set()
+    for r in samples:  # a LoRA applies to the whole image: two picks over one set in one run stack
+        ran = [(d.id, set(d.options or [])) for d in r.draws if d.kind == "lora"]
+        for i, (a, sa) in enumerate(ran):
+            for b, sb in ran[i + 1:]:
+                if sa & sb and (a, b) not in stacked:
+                    stacked.add((a, b))
+                    problems.append(f'pick_lora("{a}") and pick_lora("{b}") choose from the same LoRAs, so every image '
+                                    "would get two of them: a LoRA applies to the whole image, not to one person. "
+                                    "Use one pick_lora for them.")
     named: Set[str] = set()
     for cid, names in lora_sets:  # the LoRA carries its trait; text that names it can disagree with it
         marks = _lora_marks(names)
         for c in info["choices"]:
             if c["id"] in named:
                 continue
-            if c.get("kind") == "pick" and len({o.lower().strip() for o in c.get("options") or []} & marks) >= 2:
+            opts = {o.lower().strip() for o in c.get("options") or []}
+            # a list made of the LoRAs' own names (acups, torpedo, tuberous…), not one that
+            # happens to share a word or two with them ("long", "short")
+            if c.get("kind") == "pick" and len(opts) >= 3 and opts <= marks:
                 named.add(c["id"])
                 problems.append(f'pick("{c["id"]}") names the same things as pick_lora("{cid}") ({", ".join(c["options"][:3])}…), '
                                 "so the text can disagree with the LoRA that's on. The LoRA alone carries it: remove that pick "

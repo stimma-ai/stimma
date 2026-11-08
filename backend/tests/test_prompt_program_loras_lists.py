@@ -262,3 +262,19 @@ class TestOneLoraPickPerSet:
                'emit("Two friends on a sofa.")\n')
         problems = prep.validate(src, self.PROMPT, LORAS, set())["problems"]
         assert not any("same LoRAs" in p or "names the same things" in p for p in problems)
+
+    def test_an_unrelated_pick_sharing_words_is_left_alone(self):
+        hair = [LoraInfo("Long hair", "h/long.safetensors", 1.0, ""), LoraInfo("Short hair", "h/short.safetensors", 1.0, "")]
+        src = ('h = pick_lora("hair", ["Long hair", "Short hair"], line=1)\n'
+               's = pick("skirt_length", ["long", "short"], label="Skirt", line=1)\n'
+               'emit("A woman in a", s, "skirt.")\n')
+        problems = prep.validate(src, "A woman in a {long|short} skirt, pick a hair lora", hair, set())["problems"]
+        assert not any("names the same things" in p for p in problems)
+
+    def test_picks_in_separate_branches_dont_stack(self):
+        src = ('mood = pick("mood", ["calm", "wild"], source="list", line=1)\n'
+               'if mood == "calm":\n    a = pick_lora("calm_lora", ["acups", "torpedo"], line=1)\n'
+               'else:\n    b = pick_lora("wild_lora", ["acups", "bcups"], line=1)\n'
+               'emit("A", mood, "portrait.")\n')
+        problems = prep.validate(src, "A {calm|wild} portrait, pick a lora", LORAS, set())["problems"]
+        assert not any("same LoRAs" in p for p in problems)
