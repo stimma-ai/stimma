@@ -897,11 +897,9 @@ class _Engine:
             out.append(re.sub(r"\x00(\d+)\x00", lambda m: f"[{labels[int(m.group(1))]}]", masked))
         text = tidy_text(out)
         # Single-value pins are authoritative context for every phase, even when their
-        # pick sits in a branch that isn't active yet or inside a masked span.
-        shown = text.lower()
+        # pick sits in a branch that isn't active yet or inside a masked span: always listed.
         extra = [f"{exe.by_id[cid].label if cid in exe.by_id else self.labels.get(cid, _label_from_id(cid))}: {v}"
-                 for cid, v in sorted(self.single_pins.items())
-                 if self.an.sites_for_id(cid) and v.lower() not in shown]
+                 for cid, v in sorted(self.single_pins.items()) if self.an.sites_for_id(cid)]
         return text if not extra else f"{text}\n(Fixed: {'; '.join(extra)})"
 
     # -- hard constraints

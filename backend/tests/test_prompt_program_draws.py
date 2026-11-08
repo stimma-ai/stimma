@@ -349,6 +349,13 @@ class TestMasking:
         assert {q.pick_id for q in q1} == {"weather"}
         assert "a clear umbrella" in state1
 
+    def test_a_pin_is_listed_even_when_its_text_appears_elsewhere(self):
+        src = ('a = pick("animal", ["cat", "dog"], phase=1)\nc = pick("colour", ["red", "blue"], phase=1)\n'
+               'emit("A hundred", [a, c])\n')
+        judge = FakeJudge()
+        draw(src, 1, pins={"colour": ["red"]}, judge=judge)
+        assert "Colour: red" in judge.calls[0][0]
+
 
 class TestPins:
     def test_pins_come_first_and_upstream_keeps_them_satisfiable(self):
