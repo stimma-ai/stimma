@@ -290,7 +290,7 @@ class OptionFiller:
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self._heap: List[Tuple[int, int, str]] = []
         self._jobs: Dict[str, Tuple[int, OptionJob]] = {}
-        self._running: set = set()
+        self._running: Dict[str, OptionJob] = {}   # key -> the job holding it
         self._seq = itertools.count()
         self._lock = threading.Lock()
         self._wake: Optional[asyncio.Event] = None
@@ -303,6 +303,12 @@ class OptionFiller:
     def busy(self, key: str) -> bool:
         with self._lock:
             return key in self._jobs or key in self._running
+
+    def _release(self, job: OptionJob) -> None:
+        """Give up `job`'s hold on its pool (callers hold the lock). Only the job that
+        took the pool can release it: a later round may already have taken it."""
+        if self._running.get(job.key) is job:
+            del self._running[job.key]
 
     # -- queueing
     def submit(self, job: OptionJob, priority: str = "low") -> bool:
@@ -352,7 +358,7 @@ class OptionFiller:
                 if have is None or have[0] != rank:
                     continue  # promoted or already taken
                 del self._jobs[key]
-                self._running.add(key)
+                self._running[key] = have[1]
                 return have[1]
         return None
 
@@ -375,7 +381,7 @@ class OptionFiller:
                 log.warning(f"[fluent-options] generating {job.spec.label!r} failed: {e}")
             finally:
                 with self._lock:
-                    self._running.discard(job.key)
+                    self._release(job)
 
     async def run(self, job: OptionJob) -> List[str]:
         """Generate one round for a pool and append it (unless that round exists)."""
@@ -394,7 +400,7 @@ class OptionFiller:
                            "seeds": job.spec.seeds, "avoid": job.avoid},
             })
         with self._lock:  # the pool is filled: a check may queue its next round
-            self._running.discard(job.key)
+            self._release(job)
         if job.check is not None:
             result = await job.check(job)
             if result:
@@ -414,7 +420,7 @@ class OptionFiller:
                 log.warning(f"[fluent-options] generating {job.spec.label!r} failed: {e}")
             finally:
                 with self._lock:
-                    self._running.discard(job.key)
+                    self._release(job)
 
 
 # --------------------------------------------------------------------------- the options service

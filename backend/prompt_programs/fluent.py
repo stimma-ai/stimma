@@ -21,7 +21,9 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from core.logging import get_logger
-from prompt_programs.draws import PickSpec, Question, draw, fixed_text, keep_rate, uses_draws
+from prompt_programs.draws import (
+    DEFAULT_RARITY, WRONG_CUT, NullJudge, PickSpec, Question, draw, fixed_text, keep_rate, uses_draws,
+)
 from prompt_programs.judge import FluentSettings, configured_judge, settings
 from prompt_programs.options import (
     GeneratedOptions, OptionFiller, OptionJob, OptionStore, ProgramContext, filler_for, generated_pick, store_for,
@@ -79,8 +81,15 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
             log.debug(f"[fluent] no option filler: {e}")
     judge = judge if judge is not None else configured_judge(cfg)
     rev = revision if isinstance(revision, dict) else {}
-    rarity = _number(rev.get("rarity"), cfg.rarity)
-    wrong_cut = _number(rev.get("wrong_cut"), cfg.wrong_cut)
+    if rev:  # replay: the recorded judge and knobs, never today's
+        recorded = rev.get("judge")
+        if recorded in (None, NullJudge.version):
+            judge = NullJudge()
+        elif getattr(judge, "version", None) != recorded:
+            raise ProgramError(f"This prompt was drawn with judge {recorded}, which isn't available now, "
+                               "so it can't be replayed exactly.")
+    rarity = _number(rev.get("rarity"), DEFAULT_RARITY if rev else cfg.rarity)
+    wrong_cut = _number(rev.get("wrong_cut"), WRONG_CUT if rev else cfg.wrong_cut)
     keep = str(rev.get("keep", "tiers")) if rev else cfg.keep  # a revision without "keep" drew with tiers
     pools = rev.get("pools")
     limits = ({str(k): int(v) for k, v in pools.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}

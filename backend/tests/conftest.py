@@ -58,16 +58,19 @@ llms: {}
 
 @pytest.fixture(scope="session", autouse=True)
 def no_fluent_background_generation():
-    """Fluent draws never generate options in the background during tests: sync
-    tests resolve to whatever profile the machine has, and a queued fill must never
-    call a model or write there. Tests of generation pass their own store and filler."""
-    old = os.environ.get("STIMMA_FLUENT_GENERATE")
-    os.environ["STIMMA_FLUENT_GENERATE"] = "0"
+    """Fluent draws never generate options in the background or call a judge during
+    tests: sync tests resolve to whatever profile and config the machine has, and a
+    queued fill or a configured judge server must never be reached from there. Tests of
+    generation and judging pass their own store, filler and judge."""
+    pinned = {"STIMMA_FLUENT_GENERATE": "0", "STIMMA_FLUENT_JUDGE": "none"}
+    old = {k: os.environ.get(k) for k in pinned}
+    os.environ.update(pinned)
     yield
-    if old is None:
-        os.environ.pop("STIMMA_FLUENT_GENERATE", None)
-    else:
-        os.environ["STIMMA_FLUENT_GENERATE"] = old
+    for k, v in old.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -1275,11 +1275,25 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
     # run exactly as they always have.
     if uses_draws(entry["program"]):
         from prompt_programs.fluent import runtime_for
+        from prompt_programs.judge import JudgeUnavailable
         rt = runtime or runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
                                     revision=revision)
-        result = draw(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None,
-                      options=rt.options, judge=rt.judge, rarity=rt.rarity, wrong_cut=rt.wrong_cut,
-                      keep=getattr(rt, "keep", "cut"))
+
+        def _draw(rt: Any) -> RunResult:
+            return draw(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None,
+                        options=rt.options, judge=rt.judge, rarity=rt.rarity, wrong_cut=rt.wrong_cut,
+                        keep=getattr(rt, "keep", "cut"))
+        try:
+            result = _draw(rt)
+        except JudgeUnavailable as e:
+            if revision or runtime is not None:  # an exact replay or an evaluation: say so
+                raise ProgramError(str(e)) from None
+            # The judge went away mid-session: this image draws without one, and its
+            # revision records the null judge.
+            log.warning(f"[prompt-program] {e}; drawing without the judge")
+            from prompt_programs.draws import NullJudge
+            result = _draw(runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
+                                       judge=NullJudge()))
     else:
         result = run(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None)
     if entry.get("exact"):  # the user's [exact text], straight to the image model

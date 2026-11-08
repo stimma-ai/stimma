@@ -207,9 +207,12 @@ class HttpJudge:
             return []
         body = {"state": state, "questions": [{"pick_id": q.pick_id, "label": q.label, "about": q.about, "value": q.value}
                                                for q in questions]}
-        r = self._client.post(f"{self.url}/judge", json=body)
-        r.raise_for_status()
-        out = r.json()
+        try:
+            r = self._client.post(f"{self.url}/judge", json=body)
+            r.raise_for_status()
+            out = r.json()
+        except Exception as e:  # the server went away after loading: callers fall back
+            raise JudgeUnavailable(f"judge server at {self.url} stopped answering ({e})") from None
         if out.get("version") != self.version:
             raise RuntimeError(f"judge server changed version ({self.version} -> {out.get('version')})")
         return [{t: float(p.get(t, 0.0)) for t in TIERS} for p in out["tiers"]]

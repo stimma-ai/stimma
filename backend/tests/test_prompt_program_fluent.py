@@ -8,7 +8,8 @@ import threading
 import pytest
 
 from prompt_programs import prepare as prep
-from prompt_programs.draws import DrawResult, NullJudge, PickSpec, Question, draw, fixed_text
+from prompt_programs.draws import DEFAULT_RARITY, WRONG_CUT, DrawResult, NullJudge, PickSpec, Question, draw, fixed_text
+from prompt_programs.runtime import ProgramError
 from prompt_programs.evaluate import draw_many, fill_options
 from prompt_programs.fluent import (
     CHECK_PROPOSALS, Runtime, pool_checker, prefill_judgments, program_context, runtime_for, start_options,
@@ -244,6 +245,20 @@ class TestOptionFiller:
         await f.drain()
         assert [j.spec.id for j in gen.calls] == ["c", "b", "a"]
         assert store.options(a.key)[0] == "a variant 0.0"
+
+    async def test_a_finished_round_never_releases_the_next(self, tmp_path):
+        store = OptionStore(tmp_path)
+        f = OptionFiller(store, FakeGen())
+        first = self._job(store, "a", "thing a")
+        f.submit(first)
+        assert f._next() is first
+        with f._lock:  # its round is stored; a check queues the next round
+            f._release(first)
+        second = self._job(store, "a", "thing a", 1)
+        assert f.submit(second) and f._next() is second
+        with f._lock:  # the first worker's cleanup runs late
+            f._release(first)
+        assert f.busy(second.key)
 
     async def test_a_round_on_disk_is_never_asked_again(self, tmp_path):
         store = OptionStore(tmp_path)
@@ -515,6 +530,37 @@ class TestRealize:
         assert r.revision["rarity"] == 0.2 and r.revision["wrong_cut"] == 0.4 and r.revision["judge"] == "fake-1"
         replay = runtime_for(entry, store=OptionStore(tmp_path), judge=FakeJudge(), cfg=OFF, revision=r.revision)
         assert (replay.rarity, replay.wrong_cut) == (0.2, 0.4)
+
+    def test_a_replay_uses_the_recorded_judge_and_the_old_defaults(self, tmp_path):
+        entry = entry_for(PORTRAIT)
+        r = prep.realize(entry, seed=3, runtime=runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF))
+        today = FluentSettings(wrong_cut=0.9, rarity=0.9, generate_options=False)
+        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=FakeJudge(wrong={"role", "hair", "light"}), cfg=today,
+                         revision=r.revision)
+        assert isinstance(rt.judge, NullJudge)
+        assert prep.realize(entry, seed=3, revision=r.revision, runtime=rt).prompt == r.prompt
+        old = {k: v for k, v in r.revision.items() if k not in ("rarity", "wrong_cut")}
+        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=today, revision=old)
+        assert (rt.rarity, rt.wrong_cut) == (DEFAULT_RARITY, WRONG_CUT)
+
+    def test_a_replay_whose_judge_is_gone_says_so(self, tmp_path):
+        entry = entry_for(PORTRAIT)
+        r = prep.realize(entry, seed=1, runtime=runtime_for(entry, store=OptionStore(tmp_path), judge=FakeJudge(), cfg=OFF))
+        with pytest.raises(ProgramError):
+            runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=r.revision)
+
+    def test_a_judge_that_stops_answering_falls_back_to_none(self, monkeypatch):
+        import prompt_programs.fluent as fl
+
+        class Dropping(FakeJudge):
+            def judge(self, state, questions):
+                raise JudgeUnavailable("gone")
+        monkeypatch.setattr(fl, "_profile_store", lambda pid: None)
+        monkeypatch.setattr(fl, "configured_judge", lambda cfg=None: Dropping())
+        r = prep.realize(entry_for(PORTRAIT), seed=2)
+        assert r.revision["judge"] == "null"
+        with pytest.raises(ProgramError):  # an exact replay never falls back
+            prep.realize(entry_for(PORTRAIT), seed=2, revision={**r.revision, "judge": "fake-1"})
 
 
 # --------------------------------------------------------------------------- the evaluation hook
