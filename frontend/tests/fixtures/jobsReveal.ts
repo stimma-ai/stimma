@@ -9,6 +9,9 @@ const jobs = Array.from({ length: 80 }, (_, index) => ({
 }))
 const grid = ref<any>(null)
 Object.assign(window, { revealJob: (id: number) => grid.value.revealJob(id) })
+// The phone strip scrolls sideways inside a fixed-height rail; the desktop
+// rail scrolls down.
+const compact = document.documentElement.dataset.viewport === 'compact'
 createApp({ render: () => h('div', {
-  id: 'rail', style: { height: '400px', width: '200px', overflowY: 'auto' },
-}, [h(JobsGrid, { ref: grid, jobs, imageMode: 'cover' })]) }).mount('#app')
+  id: 'rail', style: compact ? { height: '60px', padding: '2px', overflow: 'hidden', width: '100%' } : { height: '400px', width: '200px', overflowY: 'auto' },
+}, [h(JobsGrid, { ref: grid, jobs, imageMode: 'cover', compactOverlays: compact })]) }).mount('#app')

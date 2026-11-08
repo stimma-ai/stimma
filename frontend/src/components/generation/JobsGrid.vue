@@ -799,8 +799,11 @@ async function revealJob(jobId: number): Promise<boolean> {
   const root = rootEl.value
   if (!root) return false
   const key = completedDisplayItems.value[index]?.key
-  const el = root.querySelector<HTMLElement>(`[data-job-id="${jobId}"]`)
+  const holder = root.querySelector<HTMLElement>(`[data-job-id="${jobId}"]`)
     || (key ? root.querySelector<HTMLElement>(`[data-reveal-key="${key}"]`) : null)
+  // Measure the artwork: the phone strip lays its wrappers out as
+  // display: contents, which have no box of their own.
+  const el = holder?.querySelector<HTMLElement>('.jobs-tile') || holder
   if (!el) return false
   // Scroll only the rail's own scroller. scrollIntoView would also shift
   // overflow-hidden ancestors (the phone strip, the view's frame).
