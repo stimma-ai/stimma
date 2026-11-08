@@ -1,6 +1,6 @@
 """Prompt enhancement routes for AI-assisted prompt editing."""
 from core.logging import get_logger
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
@@ -796,29 +796,11 @@ Guidelines:
 - For an already detailed prompt, refine its wording while retaining all specific choices
 - Output ONLY the improved prompt, no explanations or additional text"""
 
-@router.post("/improve", response_model=ImprovePromptResponse)
-async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = Depends(get_db_session)):
-    """
-    Auto-improve an image generation prompt using AI.
-
-    Fleshes out sparse requests and refines detailed descriptions while
-    preserving the original intent. Retries unchanged model responses.
-    """
-    if not request.prompt.strip():
-        # Nothing to improve (e.g. a tool with no prompt input) — don't spend
-        # an LLM call asking the model to improve an empty string.
-        return ImprovePromptResponse(improved_prompt=request.prompt)
-
-    from llm_resolver import LLMUnavailableError, get_effective_llm_config
-
-    try:
-        llm_config = await get_effective_llm_config('tool_assistant', request.project_id)
-    except LLMUnavailableError as e:
-        raise HTTPException(
-            status_code=e.status_code,
-            detail={"code": e.code, "message": str(e)},
-        )
-
+async def style_guide(request: "ImprovePromptRequest", session) -> Tuple[str, List[Tuple[int, str]], str]:
+    """How to write a prompt for this request's image model: the per-model system prompt
+    with this request's slots filled (images, canvas, audio, protected text, LoRAs), the
+    source images the writer should see, and the mode. The enhancer rewrites one prompt
+    with it; Fluent's program writer uses it to write the program's text."""
     # Pick the enhancement style. Task drives video (cinematography) and edits
     # (input images on a natural-language model); model family drives the rest
     # (keyword / ideogram / prose). Falls back to prose for unknown families and
@@ -911,6 +893,33 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
     )
     system_prompt += _lora_guidance(request.lora_context)
     system_prompt = re.sub(r"\n{3,}", "\n\n", system_prompt)
+    return system_prompt, source_images_b64, mode
+
+
+@router.post("/improve", response_model=ImprovePromptResponse)
+async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = Depends(get_db_session)):
+    """
+    Auto-improve an image generation prompt using AI.
+
+    Fleshes out sparse requests and refines detailed descriptions while
+    preserving the original intent. Retries unchanged model responses.
+    """
+    if not request.prompt.strip():
+        # Nothing to improve (e.g. a tool with no prompt input) — don't spend
+        # an LLM call asking the model to improve an empty string.
+        return ImprovePromptResponse(improved_prompt=request.prompt)
+
+    from llm_resolver import LLMUnavailableError, get_effective_llm_config
+
+    try:
+        llm_config = await get_effective_llm_config('tool_assistant', request.project_id)
+    except LLMUnavailableError as e:
+        raise HTTPException(
+            status_code=e.status_code,
+            detail={"code": e.code, "message": str(e)},
+        )
+
+    system_prompt, source_images_b64, mode = await style_guide(request, session)
     log.info(
         f"Prompt improve mode={mode} images={len(source_images_b64)} "
         f"audio_conditioned={request.audio_conditioned}"

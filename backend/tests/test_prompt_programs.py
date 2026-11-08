@@ -7,6 +7,10 @@ from prompt_programs import prepare as prep
 from prompt_programs.runtime import LoraInfo, ProgramError, discover, run
 from prompt_programs.store import ProgramStore
 
+
+async def fake_style(*a, **kw):
+    return "STYLE GUIDE: write rich prose.", []
+
 TRAIN = '''
 weather = pick("weather", ["rainy", "foggy", "bright"], label="Weather", source="list", line=1)
 umbrella = None
@@ -136,6 +140,7 @@ def stub(monkeypatch, tmp_path):
         return enhanced["text"]
 
     monkeypatch.setattr(prep, "upsample", fake_upsample)
+    monkeypatch.setattr(prep, "writer_style", fake_style)
     monkeypatch.setattr(prep, "_ask_model", fake_ask)
     monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
     monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
@@ -167,14 +172,14 @@ class TestPrepare:
         assert {c["id"] for c in entry["choices"]} >= {"weather", "umbrella", "clothing", "hairstyle"}
         assert "[" not in entry["example"]
         again = await self._ensure()
-        assert again["key"] == entry["key"] and len(calls) == 2  # one upsample, one program
+        assert again["key"] == entry["key"] and len(calls) == 1  # one model call writes the program
 
     async def test_concurrent_runs_share_one_prepare(self, stub):
         import asyncio
         calls, replies = stub
         replies.append(f"```python\n{TRAIN_M}```")
         first, second = await asyncio.gather(self._ensure(), self._ensure())
-        assert first["key"] == second["key"] and len(calls) == 2
+        assert first["key"] == second["key"] and len(calls) == 1
 
     async def test_canvas_size_does_not_change_the_key(self, stub):
         calls, replies = stub
@@ -183,7 +188,7 @@ class TestPrepare:
         unsized = {**ctx(SCHEMA), "enhance": {"is_video": False, "width": None, "height": None}}
         a = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=sized, instructions="", lora_items=[], project_id=None, profile_id="p")
         b = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=unsized, instructions="", lora_items=[], project_id=None, profile_id="p")
-        assert a["key"] == b["key"] and len(calls) == 2
+        assert a["key"] == b["key"] and len(calls) == 1
 
     async def test_retries_with_the_problem(self, stub):
         calls, replies = stub
@@ -191,7 +196,7 @@ class TestPrepare:
         replies.append(f"```python\n{TRAIN_M}```")
         entry = await self._ensure()
         assert entry["attempts"] == 2 and not entry["warnings"]
-        feedback = calls[2][-1]["content"]
+        feedback = calls[1][-1]["content"]
         assert "EXACT_1" in feedback and "{rainy|foggy|bright}" in feedback
 
     async def test_a_pick_that_never_reaches_the_prompt_is_sent_back(self, stub):
@@ -200,7 +205,7 @@ class TestPrepare:
         replies.append(f"```python\n{TRAIN_M}```")
         entry = await self._ensure()
         assert entry["attempts"] == 2
-        assert 'pick("clothing")' in calls[2][-1]["content"]
+        assert 'pick("clothing")' in calls[1][-1]["content"]
 
     async def test_marks_asked_for_choices_as_from_text(self, stub):
         _, replies = stub
@@ -209,36 +214,21 @@ class TestPrepare:
         clothing = next(c for c in entry["choices"] if c["id"] == "clothing")
         assert clothing["source"] == "text" and clothing["line"] == 2
 
-    async def test_the_enhanced_prompt_reaches_the_program_writer(self, stub):
+    async def test_one_call_writes_the_program_with_the_models_style_guide(self, stub):
         calls, replies = stub
         replies.append(f"```python\n{TRAIN_M}```")
         await self._ensure()
-        assert calls[0][0]["role"] == "upsample"
-        assert "Enhanced prompt" in calls[1][1]["content"] and "[EXACT_1]" in calls[1][1]["content"]
-
-    async def test_a_program_much_shorter_than_the_enhanced_prompt_is_sent_back(self, stub):
-        calls, replies = stub
-        stub_state["enhanced"]["text"] = ("A candid photograph of a woman waiting on an elevated train platform on a "
-            "[{rainy|foggy|bright}] morning, wearing a belted olive trench coat, puddles on the concrete reflecting "
-            "the station lights, soft grey light through the steel canopy, shallow depth of field, natural color, "
-            "fine film grain, quiet commuter atmosphere. [EXACT_1]")
-        replies.append(f"```python\n{TRAIN_M}```")
-        replies.append(f"```python\n{TRAIN_M}```")
-        replies.append(f"```python\n{TRAIN_M}```")
-        entry = await self._ensure()
-        assert "too short" in calls[2][-1]["content"]
-        assert entry["attempts"] == 3 and entry["warnings"]  # accepted with the problem noted
+        assert len(calls) == 1
+        assert "STYLE GUIDE" in calls[0][0]["content"] and "[EXACT_1]" in calls[0][1]["content"]
+        assert "Enhanced prompt" not in calls[0][1]["content"]
 
     async def test_enhance_off_keeps_the_users_words(self, stub):
         calls, replies = stub
-        replies.append("A woman waiting for a train on a [{rainy|foggy|bright}] morning, wearing a trench coat. [EXACT_1]")
         replies.append(f"```python\n{TRAIN_M}```")
         kept = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="",
                                          lora_items=[], project_id=None, profile_id="p", elaborate=False)
-        assert [c[0]["role"] for c in calls] == ["system", "system"]  # keep-words step, then the writer; no enhancer
-        assert "keeping the user's words" in calls[0][0]["content"]
-        msg = calls[1][1]["content"]
-        assert "user's own words" in msg and "Enhanced prompt" not in msg and "wearing a trench coat" in msg
+        assert len(calls) == 1 and "STYLE GUIDE" not in calls[0][0]["content"]
+        assert "keeping the user's words" in calls[0][1]["content"]
         assert kept["elaborate"] is False
         replies.append(f"```python\n{TRAIN_M}```")
         rich = await self._ensure()
@@ -246,27 +236,25 @@ class TestPrepare:
 
     async def test_keyword_models_keep_words_as_tags(self, stub):
         calls, replies = stub
-        replies.append("woman, waiting for a train, [{rainy|foggy|bright}] morning, [EXACT_1]")
         replies.append(f"```python\n{TRAIN_M}```")
         await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx={**ctx(SCHEMA), "mode": "keyword"}, instructions="",
                                   lora_items=[], project_id=None, profile_id="p", elaborate=False)
-        assert "comma-separated tags" in calls[0][0]["content"] and "tags" in calls[1][1]["content"]
+        assert "comma-separated tags" in calls[0][1]["content"]
 
     async def test_kept_words_that_go_missing_are_sent_back(self, stub):
         calls, replies = stub
-        replies.append("A woman waiting for a train on a [{rainy|foggy|bright}] morning, wearing a trench coat. [EXACT_1]")
         replies.append("```python\n" + TRAIN_M.replace('"A woman waiting for a train on a"', '"A woman for a train on a"') + "```")
         replies.append(f"```python\n{TRAIN_M}```")
         entry = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="",
                                           lora_items=[], project_id=None, profile_id="p", elaborate=False)
-        assert entry["attempts"] == 2 and '"waiting"' in calls[2][-1]["content"]
+        assert entry["attempts"] == 2 and '"waiting"' in calls[1][-1]["content"]
 
     async def test_a_pick_emitted_twice_is_sent_back(self, stub):
         calls, replies = stub
         replies.append("```python\n" + TRAIN_M.replace('", umbrella, ". [EXACT_1]', '", umbrella, ", in", clothing, ". [EXACT_1]') + "```")
         replies.append(f"```python\n{TRAIN_M}```")
         entry = await self._ensure()
-        assert entry["attempts"] == 2 and 'pick("clothing") appears more than once' in calls[2][-1]["content"]
+        assert entry["attempts"] == 2 and 'pick("clothing") appears more than once' in calls[1][-1]["content"]
 
     def test_the_enhancer_writes_examples_for_smart_wildcards(self):
         assert prep._for_enhancer("a woman with {{hair style}} on a {red|blue} wall") == "a woman with \u27e8hair style\u27e9 on a {red|blue} wall"
@@ -349,7 +337,7 @@ class TestSmartWildcards:
         replies.append(f"```python\n{SMART_GOOD}```")
         entry = await self._ensure(SMART_PROMPT)
         assert entry["attempts"] == 2
-        feedback = calls[2][-1]["content"]
+        feedback = calls[1][-1]["content"]
         assert 'pick("hair_style"' in feedback and "Don't emit {{" in feedback
 
     async def test_long_wildcard_names_get_short_labels(self, stub):
@@ -362,7 +350,7 @@ emit("A woman on a platform.", look)
         replies.append("```python\n" + long.replace("{label}", "35mm photographic details, no shallow dof") + "```")
         replies.append("```python\n" + long.replace("{label}", "Photo look") + "```")
         entry = await self._ensure(prompt)
-        assert entry["attempts"] == 2 and "too long" in calls[2][-1]["content"]
+        assert entry["attempts"] == 2 and "too long" in calls[1][-1]["content"]
         assert entry["choices"][0]["label"] == "Photo look"
         assert entry["choices"][0]["wildcard"] == "35mm photographic details, no shallow dof"
 
@@ -372,7 +360,7 @@ emit("A woman on a platform.", look)
         replies.append('```python\nlook = pick("film_look", ["film look", "film look"], label="Look", line=1)\nemit("A woman.", look)\n```')
         replies.append('```python\nlook = pick("film_look", ["Portra grain", "HP5 black and white"], label="Look", line=1)\nemit("A woman.", look)\n```')
         entry = await self._ensure(prompt)
-        feedback = calls[2][-1]["content"]
+        feedback = calls[1][-1]["content"]
         assert entry["attempts"] == 2 and "never the word \"film look\" itself" in feedback
 
     def test_descriptive_name_is_cut_from_its_options(self):
@@ -545,7 +533,7 @@ class TestFastPrepare:
         assert by["clothing"]["about"] == "her coat in this weather" and by["clothing"]["phase"] == 2
         assert by["clothing"]["options"] == ["a belted olive trench coat"] and not entry["warnings"]
         assert entry["attempts"] == 1 and entry["timing"]["calls"][0]["kind"] == "write"
-        assert "seed=" in calls[1][0]["content"] and "check every combination" not in calls[1][0]["content"]
+        assert "seed=" in calls[0][0]["content"] and "check every combination" not in calls[0][0]["content"]
 
     async def test_a_problem_is_fixed_with_line_edits(self, stub):
         calls, replies = stub
@@ -555,7 +543,7 @@ class TestFastPrepare:
         replies.append(f'{line}: emit("A woman waiting for a train on a", weather, "morning, wearing", clothing, ". [EXACT_1]")')
         entry = await self._ensure()
         assert not entry["warnings"] and [c["kind"] for c in entry["timing"]["calls"]] == ["write", "repair"]
-        repair = calls[2][-1]["content"]
+        repair = calls[1][-1]["content"]
         assert 'pick("clothing")' in repair and f"{line}: emit(" in repair  # the problem, and the numbered program
 
     async def test_a_repair_that_does_not_settle_it_is_followed_by_a_rewrite(self, stub):
@@ -564,7 +552,7 @@ class TestFastPrepare:
         replies += [f"```python\n{broken}```", "1:", f"```python\n{TRAIN_S}```"]  # the repair deletes a line
         entry = await self._ensure()
         assert [c["kind"] for c in entry["timing"]["calls"]] == ["write", "repair", "write"] and not entry["warnings"]
-        assert "Reply with the corrected program only." in calls[3][-1]["content"]
+        assert "Reply with the corrected program only." in calls[2][-1]["content"]
 
     async def test_a_runaway_reply_is_written_again(self, stub):
         _, replies = stub
@@ -580,7 +568,6 @@ class TestFastPrepare:
         lists = await self._ensure(PROMPT.replace("{rainy|foggy|bright}", "{rainy|foggy|bright|snowy}"))
         assert lists["patch"] == "lists" and lists["patched_from"] == first["key"] and len(calls) == n
         assert '["rainy", "foggy", "bright", "snowy"]' in lists["program"]
-        assert "[{rainy|foggy|bright|snowy}]" in lists["enhanced"]
         exact = await self._ensure(PROMPT.replace("Portra 400", "Ektar 100").replace("{rainy|foggy|bright}", "{rainy|foggy|bright|snowy}"))
         assert exact["patch"] == "same" and exact["program"] == lists["program"] and len(calls) == n
         assert prep.realize(exact, seed=3).prompt.endswith("[Shot on Ektar 100]")
@@ -609,7 +596,7 @@ class TestFastPrepare:
                     "No change needed.", f"```python\n{TRAIN_S.replace('A woman', 'A man')}```"]
         entry = await self._ensure(edited)
         assert "patch" not in entry and "A man waiting" in entry["program"]
-        assert 'no longer says "woman"' in calls[3][-1]["content"]  # upsample, write, patch, repair, then anew
+        assert 'no longer says "woman"' in calls[2][-1]["content"]  # write, patch, repair, then anew
 
     async def test_try_different_choices_never_patches(self, stub):
         _, replies = stub
@@ -815,8 +802,7 @@ class TestAcceptanceFakeWritesPrograms:
     def test_the_fake_reply_is_a_runnable_program(self):
         from llm import _acceptance_program
         from prompt_programs.runtime import check, extract_code
-        msg = prep.build_user_message("acceptance test image\n# keep it simple", "Acceptance dummy reply: x",
-                                      "m", "prose", {}, [], {})
+        msg = prep.build_user_message("acceptance test image\n# keep it simple", "m", "prose", {}, [], {})
         reply = _acceptance_program([{"role": "system", "content": prep._INSTRUCTIONS}, {"role": "user", "content": msg}])
         source = extract_code(reply)
         check(source)
@@ -826,7 +812,7 @@ class TestAcceptanceFakeWritesPrograms:
         from llm import _acceptance_program
         from prompt_programs.runtime import extract_code
         prompt = "a {red|blue} car on a {sunny|rainy} day"
-        msg = prep.build_user_message(prompt, "a [{red|blue}] car", "m", "prose", {}, [], {})
+        msg = prep.build_user_message(prompt, "m", "prose", {}, [], {})
         source = extract_code(_acceptance_program([{"role": "system", "content": prep._INSTRUCTIONS},
                                                    {"role": "user", "content": msg}]))
         checked = prep.validate(source, prompt, [], set())

@@ -26,7 +26,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-23"
+PREPARE_VERSION = "pp-24"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -100,28 +100,25 @@ def _numbered(prompt: str) -> str:
     return "\n".join(f"{i + 1}: {line}" for i, line in enumerate(prompt.splitlines()))
 
 
-def build_user_message(prompt: str, enhanced: str, model_name: Optional[str], mode: str,
+def build_user_message(prompt: str, model_name: Optional[str], mode: str,
                        params: Dict[str, Dict[str, Any]], loras: Sequence[LoraInfo], notes: Dict[str, str],
                        elaborate: bool = True) -> str:
     parts = [f"User's prompt (lines numbered):\n{_numbered(prompt)}", ""]
     smart = smart_wildcards(prompt)
     if elaborate:
-        parts.append(
-            f"Enhanced prompt (one example image, written for {model_name or 'the image model'} in its "
-            f"\"{mode}\" style). Copy this text and its format into emit(); vary only what should vary:")
+        parts.append(f"Write the program. What it emits is the prompt {model_name or 'the image model'} reads: "
+                     "write it the way the style guide says, complete and rich, with a pick wherever the "
+                     "image should vary.")
     else:
-        parts.append(
-            "Prompt to emit: the user's own words, joined into one example image with nothing added. "
-            "The user wants their wording kept: copy it into emit() as written. Seeds you write are "
-            "short phrases (a few words) in the same register as the user's words. Add no extra picks "
-            "(no added=True).")
+        parts.append("Write the program, keeping the user's words: emit their prompt as written, joined into "
+                     "readable text with nothing added. Seeds you write are short phrases (a few words) in the "
+                     "same register as the user's words. Add no extra picks (no added=True).")
         if mode == "keyword":
-            parts.append("This model reads comma-separated tags: write seeds as tags.")
-    parts += ["", enhanced.strip(), "", "(End of the enhanced prompt.)" if elaborate else "(End of the prompt.)", ""]
-    if smart and (elaborate or "[{{" not in enhanced):
+            parts.append("This model reads comma-separated tags: emit tags, and write seeds as tags.")
+    parts.append("")
+    if smart:
         names = ", ".join("{{" + n + "}}" for n in smart)
-        parts += [f"Smart wildcards: {names}. The prompt above wrote one example of each where it stood; "
-                  "find that phrase, make it the first seed, and put the pick in its place.", ""]
+        parts += [f"Smart wildcards: {names}. Each is a pick with about= and 1 to 3 seeds, emitted where it stands.", ""]
     if params:
         desc = ", ".join(
             f"{n} ({p.get('minimum', '?')}–{p.get('maximum', '?')})" for n, p in sorted(params.items()))
@@ -219,7 +216,7 @@ async def upsample(prompt: str, ctx: Dict[str, Any], instructions: str, lora_con
     return out.replace("\u27e8", "").replace("\u27e9", "")
 
 
-async def _ask_model(messages: List[Dict[str, str]], project_id: Optional[int], max_tokens: int = 4096) -> str:
+async def _ask_model(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int = 4096) -> str:
     from llm import llm_complete_text
     from llm_correlation import llm_correlation_context
     from llm_resolver import get_effective_llm_config
@@ -227,6 +224,51 @@ async def _ask_model(messages: List[Dict[str, str]], project_id: Optional[int], 
     cfg = await get_effective_llm_config("tool_assistant", project_id)
     with llm_correlation_context("prompt-program"):
         return await llm_complete_text(config=cfg, messages=messages, max_tokens=max_tokens, temperature=0.3)
+
+
+_STYLE_NOTE = """
+
+# The image model's prompt style
+
+The text your program emits is the prompt the image model reads. Write it the way the guide
+below says. The guide was written for rewriting one prompt; here it applies to every prompt
+your program emits, with picks in place of what varies. Its rules about how to reply don't
+apply: you reply with the program.
+
+"""
+
+
+async def writer_style(prompt: str, ctx: Dict[str, Any], instructions: str, lora_context: List[Dict[str, Any]],
+                       project_id: Optional[int], profile_id: Optional[str]) -> Tuple[str, List[Tuple[int, str]]]:
+    """This model's prompt-style guide (the enhancer's per-model guidance, with this
+    request's images, canvas, protected text and LoRAs filled in) and the source images it
+    refers to. No model call."""
+    from database_registry import get_database_registry
+    from routes.prompt_enhancement import ImprovePromptRequest, style_guide
+
+    request = ImprovePromptRequest(prompt=prompt, instructions=instructions or None, model=ctx.get("model") or None,
+                                   project_id=project_id, lora_context=lora_context or [], **(ctx.get("enhance") or {}))
+    db = get_database_registry().get_database(profile_id)
+    async with db.async_session_maker() as session:
+        guide, images, _mode = await style_guide(request, session)
+    return guide, images
+
+
+def writer_messages(prompt: str, guide: str, images: Sequence[Tuple[int, str]], model_name: Optional[str], mode: str,
+                    params: Dict[str, Dict[str, Any]], loras: Sequence[LoraInfo], notes: Dict[str, str],
+                    elaborate: bool, instructions: str = "") -> List[Dict[str, Any]]:
+    system = _INSTRUCTIONS + (_STYLE_NOTE + guide.strip() if elaborate and guide else "")
+    user = build_user_message(prompt, model_name, mode, params, loras, notes, elaborate)
+    if instructions.strip():
+        user += f"\n\nThe user's standing instructions for prompts: {instructions.strip()}"
+    if images:
+        content: Any = [{"type": "text", "text": user}]
+        for n, b64 in images:
+            content += [{"type": "text", "text": f"Image {n}:"},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]
+    else:
+        content = user
+    return [{"role": "system", "content": system}, {"role": "user", "content": content}]
 
 
 async def _ask_repair(messages: List[Dict[str, str]], project_id: Optional[int], max_tokens: int = 1024) -> str:
@@ -1045,10 +1087,6 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
         if elaborate and want >= 20 and got < 0.6 * want:
             problems.append(f"The prompts your program emits are too short ({got} words; the enhanced prompt has {want}). "
                             "Copy the enhanced prompt's full text into emit() and only swap the parts that vary.")
-        if any(re.search(r"<<<|>>>|^\s*[\"']{3}", r.prompt) for r in samples):
-            problems.append("Emit only the prompt text itself, with no quote marks or <<< >>> around it.")
-        if any("[{" in r.prompt or "{{" in r.prompt for r in samples):
-            problems.append("Replace every [{...}] placeholder with its pick's value; never emit the braces.")
         if not elaborate:  # kept words: every word of the example outside the picks survives
             in_options = set().union(*(_words(o) for c in info["choices"] for o in c.get("options") or []), set())
             fixed = _words(re.sub(r"\[\{.*?\}\]", " ", enhanced)) - in_options
@@ -1057,13 +1095,17 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
             if lost:
                 problems.append("Keep the user's words: these are missing from what you emit: "
                                 + ", ".join(f'"{w}"' for w in lost) + ". Copy the prompt's text into emit() as written.")
-    if enhanced and elaborate:  # (kept words have their own check above)
+    if any(re.search(r"<<<|>>>|^\s*[\"']{3}", r.prompt) for r in samples):
+        problems.append("Emit only the prompt text itself, with no quote marks or <<< >>> around it.")
+    if any(re.search(r"\{[^{}]*\|[^{}]*\}", r.prompt) or "[{" in r.prompt for r in samples):
+        problems.append("Replace every {a|b} list with its pick's value; never emit the braces.")
+    if elaborate:
         lost = lost_stated(source, prompt, enhanced)
         if lost:
             words = ", ".join(f'"{w}"' for w in lost.values())
             problems.append(f"The user wrote {words}, but the text your program always emits doesn't say it: it is "
-                            "inside a pick, or left out. What the user states stays fixed text in emit(), as the "
-                            "enhanced prompt words it; make picks only of what the user's prompt leaves open.")
+                            "inside a pick, or left out. What the user states stays fixed text in emit(), in their "
+                            "words; make picks only of what the user's prompt leaves open.")
     for seg in _verbatim_segments(prompt):
         bad = [r for r in samples if seg.lower() not in realized_text(r.prompt).lower()]
         if bad:
@@ -1528,7 +1570,7 @@ def stale_words(source: str, old: str, new: str, loras: Sequence[LoraInfo], para
             "edited prompt." for w in still]
 
 
-async def _ask_patch(messages: List[Dict[str, str]], project_id: Optional[int], max_tokens: int = 1024) -> str:
+async def _ask_patch(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int = 1024) -> str:
     """Edits that carry a prompt edit into its program (its own name for timing)."""
     return await _ask_model(messages, project_id, max_tokens=max_tokens)
 
@@ -1559,10 +1601,11 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
         if len(changes) > 3:
             return None
         program = base["program"]
+        guide, images = (await writer_style(new, ctx, instructions, lora_context, project_id, profile_id)
+                         if elaborate else ("", []))
         messages = [
-            {"role": "system", "content": _INSTRUCTIONS},
-            {"role": "user", "content": build_user_message(old, enhanced, ctx.get("model"), ctx.get("mode") or "prose",
-                                                            params, loras, notes, elaborate)},
+            *writer_messages(old, guide, images, ctx.get("model"), ctx.get("mode") or "prose",
+                             params, loras, notes, elaborate, instructions),
             {"role": "assistant", "content": f"```python\n{program}```"},
             {"role": "user", "content": PATCH_NOTE.format(prompt=_numbered(new), changes=_describe_changes(changes),
                                                            numbered=_numbered_program(program))},
@@ -1637,10 +1680,10 @@ def _notify_prepared(entry: Dict[str, Any], project_id: Optional[int], profile_i
         log.warning(f"[prompt-program] on_prepared failed for {entry.get('key')}: {e}")
 
 
-def _writer_cap(enhanced: str) -> int:
-    """Output tokens for a structure-only program: the copied text plus a line per pick.
-    Bounds a runaway reply (a repeating model) instead of letting it fill 4096 tokens."""
-    return min(4096, 768 + len(enhanced) // 2)
+def _writer_cap(prompt: str) -> int:
+    """Output tokens for a program: its prompt text plus a line per pick. Bounds a runaway
+    reply (a repeating model) instead of letting it fill 4096 tokens."""
+    return min(4096, 1800 + len(prompt) // 2)
 
 
 def _repair_cap(source: str) -> int:
@@ -1662,16 +1705,16 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     doesn't settle it, the writer rewrites, told what was wrong. At most MAX_ATTEMPTS
     model calls."""
     started = time.monotonic()
-    enhanced = (await upsample(source_prompt, ctx, instructions, lora_context, project_id, profile_id)
-                if elaborate else await keep_words(source_prompt, ctx.get("mode") or "prose", project_id))
-    enhanced = drop_lora_names(enhanced, loras, source_prompt)
+    # One model call writes the program, its text already in this model's style: the
+    # enhancer's per-model guide is the writer's own instructions, not a separate step.
+    guide, images = (await writer_style(source_prompt, ctx, instructions, lora_context, project_id, profile_id)
+                     if elaborate else ("", []))
+    # What validation compares the program with: the user's own words (kept-words mode).
+    enhanced = "" if elaborate else plain_example(source_prompt)
     upsampled_at = time.monotonic()
-    base = [
-        {"role": "system", "content": _INSTRUCTIONS},
-        {"role": "user", "content": build_user_message(source_prompt, enhanced, ctx.get("model"), ctx.get("mode") or "prose",
-                                                        params, loras, notes, elaborate)},
-    ]
-    cap = _writer_cap(enhanced)
+    base = writer_messages(source_prompt, guide, images, ctx.get("model"), ctx.get("mode") or "prose",
+                           params, loras, notes, elaborate, instructions)
+    cap = _writer_cap(source_prompt)
     calls: List[Dict[str, Any]] = []
     fixes: List[str] = []
     source: Optional[str] = None
@@ -1692,7 +1735,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
             if _truncated(reply):
                 last_error = "The reply was cut off: it was far too long."
                 retry = (reply[:2000], "Your reply was cut off because it was far too long. Write the program "
-                         "again, short: copy the text once into emit() and give each pick 1 to 3 seeds.")
+                         "again, short: write the text once in emit() and give each pick 1 to 3 seeds.")
                 continue
             source, repaired = drop_name_options(extract_code(reply), source_prompt), False
         source, fixed = fix_quotes(source)

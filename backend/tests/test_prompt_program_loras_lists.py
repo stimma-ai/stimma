@@ -9,6 +9,10 @@ from prompt_programs.draws import draw
 from prompt_programs.runtime import LoraInfo, ProgramError, lora_names, run, _lora_key
 from prompt_programs.store import ProgramStore
 
+
+async def fake_style(*a, **kw):
+    return "STYLE GUIDE: write rich prose.", []
+
 LORAS = [
     LoraInfo("KREA2 bodyshop flatchest v1", "k/flat.safetensors", 0.7, ""),
     LoraInfo("PornMaster Flat chest & Innie krea2 V1", "k/pm.safetensors", 0.8, ""),
@@ -129,6 +133,7 @@ def slow_model(monkeypatch, tmp_path):
         return "A woman waiting for a train on a [{rainy|foggy}] morning."
 
     monkeypatch.setattr(prep, "upsample", fake_upsample)
+    monkeypatch.setattr(prep, "writer_style", fake_style)
     monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
     monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
     monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
@@ -335,7 +340,7 @@ class TestSubjectCells:
 class TestLorasShownToTheModels:
     def test_writer_sees_choosable_loras_with_their_words_and_notes_spelled_out(self):
         loras = [LoraInfo("KREA2 bodyshop acups v1", "k/a", 0.6, ""), LoraInfo("Wolf cut", "k/w", 0.9, "wolfcut")]
-        msg = prep.build_user_message("pick a lora", "A woman.", "m", "prose", {}, loras, {"Wolf cut": "short layered hair"})
+        msg = prep.build_user_message("pick a lora", "m", "prose", {}, loras, {"Wolf cut": "short layered hair"})
         assert '- "KREA2 bodyshop acups v1" (trigger words: none; notes: none)' in msg
         assert '- "Wolf cut" (trigger words: "wolfcut"; notes: short layered hair)' in msg
         assert "never in emit()" in msg
@@ -358,12 +363,12 @@ class TestLorasShownToTheModels:
         problems = prep.validate(src, "a woman in a kitchen, pick a lora", loras, set())["problems"]
         assert any("LoRA names" in p for p in problems)
 
-    async def test_enhancer_only_hears_about_loras_that_are_on_and_have_words_or_notes(self, monkeypatch, tmp_path):
+    async def test_style_guide_hears_only_about_loras_that_are_on_and_have_words_or_notes(self, monkeypatch, tmp_path):
         seen = {}
 
-        async def fake_upsample(prompt, ctx, instructions, lora_context, project_id, profile_id):
+        async def style(prompt, ctx, instructions, lora_context, project_id, profile_id):
             seen["ctx"] = lora_context
-            return "A woman in a kitchen, ultra real krea2."
+            return "STYLE GUIDE", []
 
         async def fake_candidates(tool_id, items, profile_id):
             return [LoraInfo("ultra real krea2", "k/u", 0.8, "", on=True),
@@ -371,10 +376,9 @@ class TestLorasShownToTheModels:
                     LoraInfo("KREA2 bodyshop acups v1", "k/a", 0.6, "", on=False)], {}
 
         async def ask(messages, project_id, max_tokens=4096):
-            seen["writer"] = messages[1]["content"]
             return '```python\nemit("A woman in a kitchen.")\n```'
 
-        monkeypatch.setattr(prep, "upsample", fake_upsample)
+        monkeypatch.setattr(prep, "writer_style", style)
         monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
         monkeypatch.setattr(prep, "_ask_model", ask)
         monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
@@ -383,7 +387,6 @@ class TestLorasShownToTheModels:
                                   ctx={"model": "m", "mode": "prose", "schema_props": {}, "enhance": {}},
                                   instructions="", lora_items=[], project_id=None, profile_id="p")
         assert [c["name"] for c in seen["ctx"]] == ["Wolf cut"]
-        assert "ultra real krea2" not in seen["writer"].split("(End of the enhanced prompt.)")[0]
 
 
 class TestPlainWordLoraNames:
@@ -407,3 +410,10 @@ class TestPlainWordLoraNames:
         src = 'emit("A woman wearing an XL shirt, riding a pony.")\n'
         problems = prep.validate(src, "a woman in an oversized shirt, pick a lora", loras, set())["problems"]
         assert not any("LoRA names" in p for p in problems)
+
+
+class TestArticles:
+    def test_an_article_before_a_value_that_has_one_collapses(self):
+        from prompt_programs.runtime import tidy_text
+        assert tidy_text(["A", "a spontaneous photo of a woman. She has a", "a warm smile."]) == "A spontaneous photo of a woman. She has a warm smile."
+        assert tidy_text(["A cat and a dog"]) == "A cat and a dog"

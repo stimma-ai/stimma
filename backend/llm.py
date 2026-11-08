@@ -204,7 +204,7 @@ def _acceptance_program(messages: List[Dict[str, Any]]) -> Optional[str]:
     """Tool View's prompt-program writer expects a program back. Answer with the
     smallest valid one, emitting the user's own prompt, so runs work end to end."""
     system = next((_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "system"), "")
-    if not system.startswith("You turn an enhanced image prompt into a small program."):
+    if not system.startswith("You turn a user's image prompt into a small program."):
         return None
     user = next((_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "user"), "")
     m = re.search(r"User's prompt \(lines numbered\):\n(.*?)(?:\n\n|$)", user, flags=re.S)

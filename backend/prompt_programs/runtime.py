@@ -401,9 +401,14 @@ def _label_from_id(cid: str) -> str:
     return base.replace("_", " ").strip().capitalize()
 
 
+_ARTICLE = re.compile(r"\b(a|an|the)\s+(?=(?:a|an|the)\s)", re.I)
+
+
 def tidy_text(parts: List[str]) -> str:
     s = " ".join(parts)
     s = re.sub(r"\s+", " ", s)
+    # "a" written before a value that brings its own ("A a candid snapshot"): keep the value's
+    s = _ARTICLE.sub("", s)
     s = re.sub(r"\s+([,.;:!?])", r"\1", s)
     s = re.sub(r"([,;])\1+", r"\1", s)
     s = re.sub(r",\s*\.", ".", s)
