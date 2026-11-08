@@ -239,13 +239,11 @@ const OptionRows = defineComponent({
       }
       const del = (o: string) => {
         // One the user added just goes; anything else (seeds and generated options alike)
-        // is remembered as deleted, for this detail across versions of the prompt too.
-        const own = prog.edits.value[c.id] || {}
-        const userAdded = (own.add || []).includes(o)
-        const added = (own.add || []).filter(x => x !== o)
-        const removed = userAdded ? own.remove : [...new Set([...(own.remove || []), o])]
-        prog.setEdit(c.id, { ...own, add: added, remove: removed })
-        if (!userAdded) prog.dislike(c, o)
+        // is remembered as deleted for this pick, which keeps its id through prompt edits.
+        const userAdded = (edit.add || []).includes(o)
+        const added = (edit.add || []).filter(x => x !== o)
+        const removed = userAdded ? edit.remove : [...new Set([...(edit.remove || []), o])]
+        prog.setEdit(c.id, { ...edit, add: added, remove: removed })
         prog.setPins(c.id, [...pinned].filter(x => x !== o))
       }
       const commit = () => {

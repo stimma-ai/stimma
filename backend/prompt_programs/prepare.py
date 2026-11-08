@@ -304,6 +304,11 @@ def _smart_choice(info: Dict[str, Any], name: str) -> Optional[Dict[str, Any]]:
     for c in info["choices"]:
         if c["kind"] == "pick" and c.get("source") != "list" and c.get("about") and words <= _words(c["about"]):
             return c
+    head = [w for w in want.split("_") if len(w) > 2][-1:]  # {{happy expression}} → a pick about her expression
+    for c in info["choices"]:
+        if (head and c["kind"] == "pick" and c.get("source") != "list"
+                and head[0] in _words(" ".join([c["id"].replace("_", " "), c.get("label") or "", c.get("about") or ""]))):
+            return c
     return None
 
 
@@ -1080,12 +1085,13 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
         draw(source, 11, None, loras, params)  # and the draw path runs it
     info = discover(source, loras, params)
     samples = [run(source, s, None, loras, params) for s in (11, 23, 37, 51)]
-    problems: List[str] = []
+    problems: List[str] = []   # broken or visibly wrong: one repair, as line edits
+    notes: List[str] = []      # quality hints: logged and shown in dev mode, never a retry
     if enhanced:
         want = _word_count(enhanced)
         got = min(_word_count(realized_text(r.prompt)) for r in samples)
         if elaborate and want >= 20 and got < 0.6 * want:
-            problems.append(f"The prompts your program emits are too short ({got} words; the enhanced prompt has {want}). "
+            notes.append(f"The prompts your program emits are too short ({got} words; the enhanced prompt has {want}). "
                             "Copy the enhanced prompt's full text into emit() and only swap the parts that vary.")
         if not elaborate:  # kept words: every word of the example outside the picks survives
             in_options = set().union(*(_words(o) for c in info["choices"] for o in c.get("options") or []), set())
@@ -1093,7 +1099,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
             emitted = set().union(*(_words(r.prompt) for r in samples))
             lost = sorted(fixed - emitted)
             if lost:
-                problems.append("Keep the user's words: these are missing from what you emit: "
+                notes.append("Keep the user's words: these are missing from what you emit: "
                                 + ", ".join(f'"{w}"' for w in lost) + ". Copy the prompt's text into emit() as written.")
     if any(re.search(r"<<<|>>>|^\s*[\"']{3}", r.prompt) for r in samples):
         problems.append("Emit only the prompt text itself, with no quote marks or <<< >>> around it.")
@@ -1103,7 +1109,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
         lost = lost_stated(source, prompt, enhanced)
         if lost:
             words = ", ".join(f'"{w}"' for w in lost.values())
-            problems.append(f"The user wrote {words}, but the text your program always emits doesn't say it: it is "
+            notes.append(f"The user wrote {words}, but the text your program always emits doesn't say it: it is "
                             "inside a pick, or left out. What the user states stays fixed text in emit(), in their "
                             "words; make picks only of what the user's prompt leaves open.")
     for seg in _verbatim_segments(prompt):
@@ -1155,7 +1161,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
             # happens to share a word or two with them ("long", "short")
             if c.get("kind") == "pick" and len(opts) >= 3 and opts <= marks:
                 named.add(c["id"])
-                problems.append(f'pick("{c["id"]}") names the same things as pick_lora("{cid}") ({", ".join(c["options"][:3])}…), '
+                notes.append(f'pick("{c["id"]}") names the same things as pick_lora("{cid}") ({", ".join(c["options"][:3])}…), '
                                 "so the text can disagree with the LoRA that's on. The LoRA alone carries it: remove that pick "
                                 "and don't describe it in the text.")
     for r in samples:  # parameters are set by param(); the image model must not read them
@@ -1171,7 +1177,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
             if d.kind == "pick" and not d.hidden and len(v.split()) >= 2 and text.count(v) > 1:
                 twice.setdefault(d.id, str(d.value))
     for cid, value in twice.items():
-        problems.append(f'pick("{cid}") appears more than once in the prompt ("{value}"). Emit each pick once, where its subject belongs.')
+        notes.append(f'pick("{cid}") appears more than once in the prompt ("{value}"). Emit each pick once, where its subject belongs.')
     for cid, value in missing.items():
         problems.append(f'pick("{cid}") drew "{value}" but it never appears in the emitted prompt. Pass its variable to '
                         "emit(...) where its subject stands, and drop any other pick or fixed text that says the same thing.")
@@ -1181,18 +1187,18 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
     for name in smart_wildcards(prompt):  # a descriptive name says what to write, it isn't an option
         c = _smart_choice(info, name)
         if c and any(is_name_of(o, name) for o in c["options"]):
-            problems.append(f'{{{{{name}}}}} needs seeds that are concrete examples of "{name}" (one to three specific '
+            notes.append(f'{{{{{name}}}}} needs seeds that are concrete examples of "{name}" (one to three specific '
                             f'ones, as they would read in the sentence), never the word "{name}" itself.')
     for c in info["choices"]:  # labels are pill names, not descriptions
         if len(c["label"]) > 24 or len(c["label"].split()) > 3:
-            problems.append(f'label="{c["label"]}" is too long for {c["id"]}: use one or two words, like "Weather" or "Photo look".')
+            notes.append(f'label="{c["label"]}" is too long for {c["id"]}: use one or two words, like "Weather" or "Photo look".')
     if any("{{" in r.prompt for r in samples):
         problems.append("Don't emit {{...}}: replace each smart wildcard with its pick's value.")
     for m in _INLINE_LIST.finditer(prompt):
         opts = [o.strip() for o in m.group(1).split("|")]
         if not any(c["options"][: len(opts)] == opts and c.get("source") == "list" for c in info["choices"]):
             problems.append(f'The user list {{{m.group(1)}}} must be a pick with exactly these options in order and source="list".')
-    return {"info": info, "problems": list(dict.fromkeys(problems))}
+    return {"info": info, "problems": list(dict.fromkeys(problems)), "notes": list(dict.fromkeys(notes))}
 
 
 def normalize_sources(info: Dict[str, Any], prompt: str) -> None:
@@ -1326,6 +1332,7 @@ async def _prepare_once(*, context: str, force: bool, **args: Any) -> Dict[str, 
     else (or a patch that doesn't validate, or "Try different choices") prepares anew."""
     store: ProgramStore = args["store"]
     entry = None
+    base = None
     if not force:
         base = _patch_base(store, context, args["source_prompt"])
         if base is not None:
@@ -1334,7 +1341,10 @@ async def _prepare_once(*, context: str, force: bool, **args: Any) -> Dict[str, 
             except ProgramError as e:
                 log.info(f"[prompt-program] patch from {base.get('key')} failed: {e}")
     if entry is None:
-        entry = await _prepare_new(**args)
+        # A small edit whose patch didn't hold is still the same prompt's next version: the
+        # writer sees the old program and keeps what didn't change, and its options stay.
+        prev = base if not force and base is not None else None
+        entry = await _prepare_new(prev=prev, **args)
     store.remember(context, entry["key"])
     _notify_prepared(entry, args["project_id"], args["profile_id"])
     return entry
@@ -1653,6 +1663,7 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
                    exact=exact, source=source, checked=checked, params=params, loras=loras)
     entry.update({
         "attempts": len(calls), "repairs": fixed, "patched_from": base.get("key"), "patch": kind,
+        "lineage": base.get("lineage") or base.get("key"),
         "seconds": round(time.monotonic() - started, 2), "upsample_seconds": 0.0,
         "timing": {"enhance": 0.0, "calls": calls},
     })
@@ -1680,6 +1691,15 @@ def _notify_prepared(entry: Dict[str, Any], project_id: Optional[int], profile_i
         log.warning(f"[prompt-program] on_prepared failed for {entry.get('key')}: {e}")
 
 
+def _with_previous(content: Any, prev: Dict[str, Any]) -> Any:
+    note = ("\n\nThe previous version of this prompt read:\n" + _numbered(prev.get("prompt") or "")
+            + "\n\nIts program:\n```python\n" + prev["program"] + "```\nWrite the program for the new prompt, "
+            "keeping the id, label, about and seeds of every pick whose part of the prompt didn't change.")
+    if isinstance(content, list):
+        return [{**content[0], "text": content[0]["text"] + note}, *content[1:]]
+    return content + note
+
+
 def _writer_cap(prompt: str) -> int:
     """Output tokens for a program: its prompt text plus a line per pick. Bounds a runaway
     reply (a repeating model) instead of letting it fill 4096 tokens."""
@@ -1697,8 +1717,9 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                        source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo], notes: Dict[str, str],
                        lora_context: List[Dict[str, Any]], project_id: Optional[int],
                        profile_id: Optional[str], elaborate: bool = True,
-                       exact: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
-    """source_prompt arrives with [exact text] already masked (see mask_exact).
+                       exact: Optional[Dict[str, str]] = None, prev: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """source_prompt arrives with [exact text] already masked (see mask_exact). `prev`: the
+    previous version of this prompt's program (a small edit whose patch didn't hold).
 
     One write, then fixes in place: phases and doubled phrases are fixed in code, and
     other problems go back as numbered-line edits instead of a full rewrite. If a repair
@@ -1714,6 +1735,8 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     upsampled_at = time.monotonic()
     base = writer_messages(source_prompt, guide, images, ctx.get("model"), ctx.get("mode") or "prose",
                            params, loras, notes, elaborate, instructions)
+    if prev and prev.get("program"):
+        base[-1] = {**base[-1], "content": _with_previous(base[-1]["content"], prev)}
     cap = _writer_cap(source_prompt)
     calls: List[Dict[str, Any]] = []
     fixes: List[str] = []
@@ -1798,6 +1821,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                    exact=exact, source=source, checked=checked, params=params, loras=loras)
     entry.update({
         "attempts": len(calls), "repairs": fixes,
+        "lineage": (prev.get("lineage") or prev.get("key")) if prev else key,
         "seconds": round(time.monotonic() - started, 2), "upsample_seconds": round(upsampled_at - started, 2),
         "timing": {"enhance": round(upsampled_at - started, 2), "calls": calls},
     })
@@ -1821,7 +1845,7 @@ def _entry(*, key: str, tool_id: str, ctx: Dict[str, Any], elaborate: bool, prom
         "loras": [vars(lo) for lo in loras],
         "lora_choices": {c["id"]: c["options"] for c in info["choices"] if c["kind"] == "lora"},
         "example": realized_text(info["example"]),
-        "warnings": checked["problems"], "created_at": time.time(),
+        "warnings": checked["problems"] + checked.get("notes", []), "created_at": time.time(),
     }
 
 

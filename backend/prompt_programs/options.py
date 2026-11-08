@@ -60,23 +60,6 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", str(s).strip().lower())
 
 
-_FILLER = {"a", "an", "the", "her", "his", "their", "with", "and", "of", "in", "eyes", "eye", "hair", "colored",
-           "coloured", "color", "colour", "shade", "tone"}
-
-
-def _content(s: str) -> set:
-    return {w for w in re.findall(r"[a-z0-9]+", str(s).lower()) if w not in _FILLER and len(w) > 1}
-
-
-def removed_by(option: str, removed: Sequence[str]) -> bool:
-    """The user removed this option or a wording of it: every content word of a removed
-    value is in it ("hazel" removes "striking hazel eyes" and "warm hazel")."""
-    words = _content(option)
-    for r in removed:
-        rw = _content(r)
-        if _norm(r) == _norm(option) or (rw and rw <= words):
-            return True
-    return False
 
 
 # --------------------------------------------------------------------------- program context
@@ -96,7 +79,12 @@ class ProgramContext:
     mode: str = "prose"
     elaborate: bool = True
     lists: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = ()   # (id, label, options) of the user's lists
-    tool: str = ""   # options carry over between versions of a prompt within one tool
+    tool: str = ""
+    # The program's edit lineage: a prompt edit patched into a program keeps its lineage,
+    # so every pick the edit didn't touch keeps its options.
+    lineage: str = ""
+    # {{wildcards}} in the user's words, by pick id: what that pick's options must stay within
+    intents: Tuple[Tuple[str, str], ...] = ()
 
     @classmethod
     def of(cls, entry: Dict[str, Any]) -> "ProgramContext":
@@ -106,24 +94,17 @@ class ProgramContext:
         lists = tuple((str(c.get("id")), str(c.get("label") or c.get("id")), tuple(str(o) for o in c.get("options") or []))
                       for c in entry.get("choices") or []
                       if c.get("source") == "list" and c.get("kind", "pick") == "pick" and c.get("options"))
+        intents = tuple((str(c.get("id")), str(c["wildcard"])) for c in entry.get("choices") or [] if c.get("wildcard"))
         return cls(str(entry.get("key") or ""), signature, template, str(entry.get("mode") or "prose"),
-                   entry.get("elaborate") is not False, lists, str(entry.get("tool_id") or ""))
+                   entry.get("elaborate") is not False, lists, str(entry.get("tool_id") or ""),
+                   str(entry.get("lineage") or ""), intents)
 
 
 # --------------------------------------------------------------------------- the on-disk cache
 
-def lineage_key(tool: str, spec: PickSpec, context: Dict[str, Any], mode: str, elaborate: bool) -> str:
-    """One detail of one tool across versions of the prompt: the label (and the values of
-    the lists it depends on), not the prompt's text."""
-    if not tool:
-        return ""
-    blob = json.dumps({"tool": tool, "label": _norm(spec.label), "deps": sorted((k, str(v)) for k, v in context.items()),
-                       "mode": mode, "elaborate": bool(elaborate)}, sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:24]
-
-
 def gen_key(spec: PickSpec, context: Dict[str, Any], signature: str, mode: str, elaborate: bool,
-            lists: Sequence[Tuple[str, str, Sequence[str]]] = (), version: str = OPTIONS_VERSION) -> str:
+            lists: Sequence[Tuple[str, str, Sequence[str]]] = (), version: str = OPTIONS_VERSION,
+            lineage: str = "", intent: str = "") -> str:
     """The generated pool's identity across prompts: what the pick is, the values of the
     picks it depends on, the context signature, the user's lists it is shown (those it
     doesn't depend on), and the style options are written in. `version` names an older
@@ -133,7 +114,11 @@ def gen_key(spec: PickSpec, context: Dict[str, Any], signature: str, mode: str, 
         shown = []
     blob = json.dumps({
         "v": version, "about": _norm(spec.about or spec.label), "deps": sorted((k, str(v)) for k, v in context.items()),
-        "context": _norm(signature), "mode": mode, "elaborate": bool(elaborate), **({"lists": shown} if shown else {}),
+        # a program's edit lineage when it has one (so untouched picks keep their options
+        # through prompt edits), else the prompt's context signature
+        **({"lineage": lineage} if lineage else {"context": _norm(signature)}),
+        **({"intent": _norm(intent)} if intent else {}),
+        "mode": mode, "elaborate": bool(elaborate), **({"lists": shown} if shown else {}),
     }, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
 
@@ -187,34 +172,6 @@ class OptionStore:
     def rounds(self, key: str) -> int:
         return len(self.records(key))
 
-    # The latest pool for each detail of each tool ("Eye Color" in this tool), so a new
-    # version of the prompt starts from the options the last one had, not from nothing.
-    def _lineage_path(self) -> Path:
-        return self.root / "lineage.json"
-
-    def lineage(self, lineage: str) -> Optional[str]:
-        try:
-            return json.loads(self._lineage_path().read_text("utf-8")).get(lineage)
-        except (OSError, ValueError):
-            return None
-
-    def set_lineage(self, lineage: str, key: str) -> None:
-        if not lineage:
-            return
-        with self._lock:
-            p = self._lineage_path()
-            try:
-                data = json.loads(p.read_text("utf-8"))
-            except (OSError, ValueError):
-                data = {}
-            if data.get(lineage) == key:
-                return
-            data[lineage] = key
-            p.parent.mkdir(parents=True, exist_ok=True)
-            tmp = p.with_suffix(".tmp")
-            tmp.write_text(json.dumps(data), "utf-8")
-            os.replace(tmp, p)
-
     def has_round(self, key: str, round_: int) -> bool:
         return any(r.get("round") == round_ for r in self.records(key))
 
@@ -228,8 +185,6 @@ class OptionStore:
                 f.flush()
                 os.fsync(f.fileno())
             self._mem.pop(key, None)
-        if record.get("lineage") and record.get("options"):
-            self.set_lineage(str(record["lineage"]), key)
 
     # Per-program flags (a pick whose shared pool failed the bad-pool check gets options
     # written for this prompt's own text).
@@ -316,6 +271,10 @@ def generation_messages(job: OptionJob, count: int = BATCH_SIZE) -> List[Dict[st
     if job.avoid:
         lines += ["", "These were judged to contradict this prompt; write options that fit it instead:",
                   *[f"- {o}" for o in job.avoid]]
+    intent = dict(job.program.intents).get(job.spec.id)
+    if intent:
+        lines += ["", f'The user asked for this detail in their own words: "{intent}". That is a rule, not an example: '
+                      "every option must be within it (\"asian or euro ethnicity\" means only Asian and European ones)."]
     if job.removed:
         lines += ["", "The user deleted these: never write them or any wording of them:", *[f"- {o}" for o in job.removed]]
     return [{"role": "system", "content": system}, {"role": "user", "content": "\n".join(lines)}]
@@ -471,11 +430,11 @@ class OptionFiller:
             self.calls += 1
             have = {_norm(o) for o in job.existing}
             cleaned = [c for c in (clean_option(x) for x in options) if c]
-            fresh = [o for o in dict.fromkeys(cleaned) if _norm(o) not in have and not removed_by(o, job.removed)]
+            gone = {_norm(x) for x in job.removed}
+            fresh = [o for o in dict.fromkeys(cleaned) if _norm(o) not in have and _norm(o) not in gone]
             self.store.append(job.key, {
                 "round": job.round, "options": fresh, "model": model, "at": time.time(),
                 "seconds": round(time.monotonic() - started, 2),
-                "lineage": lineage_key(job.program.tool, job.spec, job.context, job.program.mode, job.program.elaborate),
                 "inputs": {"about": job.spec.about, "label": job.spec.label, "context": job.context,
                            "signature": job.signature, "mode": job.program.mode, "elaborate": job.program.elaborate,
                            "seeds": job.spec.seeds, "avoid": job.avoid},
@@ -555,8 +514,10 @@ class GeneratedOptions:
         specific = spec.id in self.specific and self.program.template != self.program.signature
         signature = self.program.template if specific else self.program.signature
         key = pool_key(spec, context) + (" | written for this prompt" if specific else "")
+        lineage = "" if specific else self.program.lineage
+        intent = dict(self.program.intents).get(spec.id, "")
         return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate,
-                            self.program.lists, self.version), signature
+                            self.program.lists, self.version, lineage, intent), signature
 
     def get(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
         if not generated_pick(spec):
@@ -566,8 +527,6 @@ class GeneratedOptions:
             return self._pools[key]
         self._seen.setdefault(key, (spec, dict(context)))
         pool, items, rounds = self._read(spec, context, key, skey)
-        if rounds == 0 and self.generate and key not in self.limits and self._carry(spec, context, skey):
-            pool, items, rounds = self._read(spec, context, key, skey)
         if self.generate and key not in self.limits and rounds < MAX_ROUNDS:
             if rounds == 0:
                 self._submit(spec, context, skey, signature, "low", items)
@@ -576,24 +535,6 @@ class GeneratedOptions:
         pool.more_coming = bool(self.filler is not None and self.filler.busy(skey))
         self._pools[key] = pool
         return pool
-
-    def _carry(self, spec: PickSpec, context: Dict[str, Any], skey: str) -> bool:
-        """A new version of the prompt starts this detail from the options its last version
-        had in this tool (minus what the user deleted), so the list doesn't reshuffle on
-        every edit. No model call; the pool is topped up later only if it runs thin."""
-        if self.store is None:
-            return False
-        lineage = lineage_key(self.program.tool, spec, context, self.program.mode, self.program.elaborate)
-        prev = self.store.lineage(lineage) if lineage else None
-        if not prev or prev == skey:
-            return False
-        removed = [str(x) for x in (self.edits.get(spec.id) or {}).get("remove") or []]
-        carried = [o for o in self.store.options(prev) if not removed_by(o, removed)]
-        if len(carried) < THIN:
-            return False
-        self.store.append(skey, {"round": 0, "options": carried, "model": "carried", "at": time.time(),
-                                 "carried_from": prev, "lineage": lineage})
-        return True
 
     def fresh_pool(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
         """The pool as the cache holds it now (no memo, no requests)."""
@@ -628,8 +569,8 @@ class GeneratedOptions:
                 seen.add(_norm(o))
                 items.append(o)
         weights = [_weight(i, len(written) + len(adds)) for i in range(len(items))]
-        gone = [str(x) for x in edit.get("remove") or []]
-        kept = [(o, w) for o, w in zip(items, weights) if not removed_by(o, gone)]
+        gone = {_norm(x) for x in edit.get("remove") or []}
+        kept = [(o, w) for o, w in zip(items, weights) if _norm(o) not in gone]
         if key in self.limits:  # replaying a recorded revision
             kept = kept[: int(self.limits[key])]
         pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False)

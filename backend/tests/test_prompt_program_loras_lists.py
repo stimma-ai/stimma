@@ -259,7 +259,7 @@ class TestOneLoraPickPerSet:
         src = ('b = pick_lora("breasts", ["acups", "torpedo", "bcups"], line=1)\n'
                't = pick("breast_type", ["acups", "torpedo", "bcups"], label="Breasts", line=1)\n'
                'emit("Two friends on a sofa, her", t, "breasts.")\n')
-        problems = prep.validate(src, self.PROMPT, LORAS, set())["problems"]
+        problems = prep.validate(src, self.PROMPT, LORAS, set())["notes"]
         assert any("names the same things" in p for p in problems)
 
     def test_one_pick_and_plain_text_pass_those_checks(self):
@@ -420,29 +420,26 @@ class TestArticles:
 
 
 class TestOptionContinuity:
-    def test_a_deleted_value_covers_its_rewordings(self):
-        from prompt_programs.options import removed_by
-        assert removed_by("striking hazel eyes", ["hazel"])
-        assert removed_by("warm hazel", ["hazel eyes"])
-        assert not removed_by("deep brown eyes", ["hazel"])
-        assert removed_by("Crimson", ["crimson"])
-
-    def test_a_new_version_of_the_prompt_starts_from_the_last_options(self, tmp_path):
+    def test_a_patched_program_keeps_the_pools_of_picks_it_didnt_touch(self):
         from prompt_programs.draws import PickSpec
-        from prompt_programs.options import GeneratedOptions, OptionStore, ProgramContext, lineage_key
+        from prompt_programs.options import GeneratedOptions, ProgramContext
 
-        store = OptionStore(tmp_path)
         spec = PickSpec("eye_color", "Eye Color", "her eye color", 2, "text", "pick", ["emerald green"], [])
-        old = ProgramContext(key="p1", signature="old prompt", template="old prompt", tool="comfyui:t")
-        new = ProgramContext(key="p2", signature="new prompt", template="new prompt", tool="comfyui:t")
-        a = GeneratedOptions(store, old, generate=True)
-        _, skey_old, _ = a._where(spec, {})
-        store.append(skey_old, {"round": 0, "options": ["deep blue", "warm hazel", "dark brown", "amber", "steel blue",
-                                                         "honey gold", "light gray", "violet"],
-                                "lineage": lineage_key("comfyui:t", spec, {}, "prose", True)})
-        b = GeneratedOptions(store, new, edits={"eye_color": {"remove": ["violet", "hazel"]}}, generate=True)
-        pool = b.get(spec, {})
-        assert "deep blue" in pool.items and "amber" in pool.items
-        assert not any("hazel" in o or "violet" in o for o in pool.items)
-        _, skey_new, _ = b._where(spec, {})
-        assert skey_new != skey_old and store.records(skey_new)[0]["model"] == "carried"
+        v1 = ProgramContext(key="p1", signature="a woman with {eyes}", template="a woman with {eyes}", lineage="p1")
+        v2 = ProgramContext(key="p2", signature="a tall woman with {eyes}", template="a tall woman with {eyes}", lineage="p1")
+        other = ProgramContext(key="p3", signature="a tall woman with {eyes}", template="a tall woman with {eyes}", lineage="p3")
+        k1 = GeneratedOptions(None, v1)._where(spec, {})[1]
+        assert GeneratedOptions(None, v2)._where(spec, {})[1] == k1      # same lineage: same options
+        assert GeneratedOptions(None, other)._where(spec, {})[1] != k1   # a new prompt: its own
+
+    def test_a_wildcard_in_the_users_words_bounds_its_options(self):
+        from prompt_programs.draws import PickSpec
+        from prompt_programs.options import GeneratedOptions, OptionJob, ProgramContext, generation_messages
+        spec = PickSpec("asian_or_euro_ethnicity", "Ethnicity", "her ethnicity", 1, "text", "pick", ["Korean"], [])
+        prog = ProgramContext(key="p", signature="a woman", template="a [Ethnicity] woman", lineage="p",
+                              intents=(("asian_or_euro_ethnicity", "asian or euro ethnicity"),))
+        plain = ProgramContext(key="p", signature="a woman", template="a [Ethnicity] woman", lineage="p")
+        assert GeneratedOptions(None, prog)._where(spec, {})[1] != GeneratedOptions(None, plain)._where(spec, {})[1]
+        job = OptionJob("k", spec, {}, prog, "a woman", 0)
+        user = generation_messages(job)[1]["content"]
+        assert '"asian or euro ethnicity"' in user and "rule, not an example" in user

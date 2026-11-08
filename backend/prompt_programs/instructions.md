@@ -89,9 +89,11 @@ phases drew; picks in the same phase are drawn without seeing each other.
      those options, in that order. Never add to or replace them, and don't write a second
      pick for the same thing.
    - `{{name}}` → a smart wildcard: `pick(<name in lowercase with underscores>, about=...,
-     seed=[...], label=<short name>, phase=N, line=N)`, emitted where it stood. The name can
-     be a long description; the label is one or two words for what varies, and each seed is
-     a concrete phrase that fits it, never the name itself:
+     seed=[...], label=<short name>, phase=N, line=N)`, emitted where it stood. The name is
+     the user's request in their own words, and it sets the limits: every option must be
+     inside it (`{{asian or euro ethnicity}}` means only Asian and European ethnicities, not
+     "Asian" and "Euro" as two options). Keep their words in `about`. The label is one or two
+     words for what varies, and each seed is a concrete instance of it, never the name itself:
      `{{35mm photographic details, no shallow dof}}` → `label="Photo look"`,
      `seed=["Kodak Portra 400 grain, f/8, everything in focus"]`.
    - `[text]` → emit the text exactly, without the brackets. `[EXACT_1]`, `[EXACT_2]`, …
