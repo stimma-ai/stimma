@@ -63,6 +63,10 @@ async function bootedDesktop(browser: Browser, profileId: string, tabs: any[], e
 const STATE_KEY = (instance: string) => `tool_${TEST_T2I_TOOL_ID.replace(/:/g, '_')}__i_${instance}_state`;
 
 test.describe('carrying a local workspace onto the server', () => {
+  // Each test boots a fresh desktop context, which loads ~900 unbundled
+  // modules from the lane's Vite dev server (about 20 s on a CI runner).
+  test.describe.configure({ timeout: 60000 });
+
   test('the first desktop with a workspace claims it, and it survives intact', async ({ page, browser }) => {
     const { id } = await newProfile(page);
     const desktop = await bootedDesktop(browser, id, [

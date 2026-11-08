@@ -27,6 +27,12 @@ async function sameToolTab(desktop: Page, phone: Page) {
 }
 
 test.describe('two clients share one workspace', () => {
+  // Every test here opens a second browser context. The lane serves the app
+  // from Vite's dev server, so a fresh context loads ~900 unbundled modules:
+  // about 20 s on a CI runner before any assertion (seen in traces). With
+  // reloads on both clients, the phone lane's 30 s budget is too tight.
+  test.describe.configure({ timeout: 60000 });
+
   test('a tool tab opened on one client appears on the other, without moving it', async ({ page: phone, browser }) => {
     // This case cold-loads both app clients. The first ToolView transform
     // alone has taken 19s on CI; leave room for both startups and assertions.
