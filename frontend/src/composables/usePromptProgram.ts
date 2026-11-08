@@ -79,15 +79,30 @@ export function usePromptProgram(o: Options) {
   // Which choice card is open, and where it hangs from.
   const openCard = ref<{ id: string; anchor: DOMRect } | null>(null)
 
-  const signature = computed(() => JSON.stringify({
+  /** Everything but the prompt text: a prompt prepared under the same settings can still run. */
+  const settingsSig = computed(() => JSON.stringify({
     tool: o.toolId.value,
-    prompt: (o.prompt.value || '').trim(),
     loras: o.loraItems.value.map(i => [i.lora, i.weight]),
     context: o.contextParams.value,
     instructions: o.instructions.value,
     elaborate: o.elaborate.value,
     loraNotes: o.loraNotes.value,
   }))
+  const signature = computed(() => JSON.stringify({ prompt: (o.prompt.value || '').trim(), settings: settingsSig.value }))
+  // The last prompt that was prepared, with the settings it was prepared under. Generate
+  // forever keeps running it while a newer version of the prompt is being written or prepared.
+  const lastReady = ref<{ prompt: string; settings: string } | null>(null)
+  function markReady(sig: string) {
+    try {
+      const { prompt, settings } = JSON.parse(sig)
+      if (prompt) lastReady.value = { prompt, settings }
+    } catch { /* not ours */ }
+  }
+  /** The last prepared prompt, if it still fits the current settings. */
+  function readyPrompt(): string | null {
+    const r = lastReady.value
+    return r && r.settings === settingsSig.value ? r.prompt : null
+  }
 
   const status = computed<ProgramStatus>(() => {
     if (!o.enabled.value || !(o.prompt.value || '').trim()) return 'off'
@@ -161,6 +176,7 @@ export function usePromptProgram(o: Options) {
       if (!data?.key) { forget(sig); return }
       program.value = data
       preparedSig.value = sig
+      markReady(sig)
     } catch {
       // Not prepared yet: the dot says so; Run prepares.
     }
@@ -168,11 +184,21 @@ export function usePromptProgram(o: Options) {
 
   // The prepare in flight, so concurrent runs wait on it instead of starting another.
   let inFlight: { sig: string; force: boolean; done: Promise<boolean> } | null = null
+  // At most one more, for the newest prompt: a prompt that changes again while one is
+  // being prepared waits its turn rather than piling another model call on top.
+  let queued: { done: Promise<boolean> } | null = null
 
   /** Prepare for the current inputs (the model call happens here, if needed). */
   function prepare(force = false): Promise<boolean> {
     const sig = signature.value
     if (inFlight && inFlight.sig === sig && (inFlight.force || !force)) return inFlight.done
+    if (inFlight) {
+      if (!queued) {
+        const done = inFlight.done.catch(() => false).then(() => { queued = null; return prepare(force) })
+        queued = { done }
+      }
+      return queued.done
+    }
     const done = prepareNow(sig, force).finally(() => { if (inFlight?.done === done) inFlight = null })
     inFlight = { sig, force, done }
     return done
@@ -186,6 +212,7 @@ export function usePromptProgram(o: Options) {
         unsupportedSig.value = sig
         return true
       }
+      markReady(sig)  // runnable now, whatever the box says by the time it's back
       if (sig !== signature.value) return true  // the prompt moved on; its own prepare will follow
       program.value = data
       preparedSig.value = sig
@@ -383,7 +410,7 @@ export function usePromptProgram(o: Options) {
 
   return {
     program, status, error, signature, elaborate: o.elaborate, unsupported, pins, edits, choices, rows, byId, openCard,
-    prepare, rethink, ensureReady, needsPrepare, payload, lookup, fetchProgramText, previewRuns, suggestOptions,
+    prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, lookup, fetchProgramText, previewRuns, suggestOptions,
     setPins, setManyPins, setEdit, optionsOf, valueText, isPinned, visible,
     loraControl, paramControl, open, close,
   }

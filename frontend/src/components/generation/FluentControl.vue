@@ -63,6 +63,7 @@
               <div class="flex items-center gap-1.5 font-medium">
                 <Spinner v-if="busy" size="sm" />{{ notice.head }}
               </div>
+              <div v-if="notice.body" class="mt-0.5">{{ notice.body }}</div>
               <div v-if="notice.detail" class="mt-1 font-mono text-[10.5px] text-content-muted break-words">{{ notice.detail }}</div>
               <div v-if="notice.actions?.length" class="mt-1.5 flex gap-3">
                 <button v-for="a in notice.actions" :key="a.label" type="button" class="text-[12px] font-medium text-content hover:underline" @click="a.run()">{{ a.label }}</button>
@@ -126,7 +127,7 @@
           </div>
           <div v-if="programText === ''" class="mx-4 mb-4 rounded-md border border-edge-subtle bg-surface-overlay px-3 py-6 text-[12px] text-content-secondary flex items-center justify-center gap-2">
             <template v-if="showError"><span class="text-red-400">{{ showError }}</span></template>
-            <template v-else><span class="w-3 h-3 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" /> Reading your prompt…</template>
+            <template v-else><span class="w-3 h-3 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" /> Preparing {{ BRAND }} prompt…</template>
           </div>
           <template v-else>
           <div v-if="program.program.value?.warnings?.length" class="mx-4 mb-2 rounded-md bg-amber-500/10 px-3 py-2 text-[12px] text-amber-600 dark:text-amber-400">
@@ -197,6 +198,8 @@ const props = defineProps<{
   hasLoras?: boolean
   loraTriggers?: boolean
   loraNotes?: boolean
+  /** Generate forever is running the last prepared version while this one prepares. */
+  previousRunning?: boolean
 }>()
 const emit = defineEmits<{
   (e: 'mode', elaborate: boolean): void
@@ -240,7 +243,7 @@ const chipTitle = computed(() => {
   if (props.raw) return 'Raw: sent exactly as typed'
   if (props.direct) return 'Direct: lists and saved wildcards filled in'
   if (props.llmUnconfigured) return `${BRAND} needs a chat model`
-  if (busy.value) return 'Reading your prompt…'
+  if (busy.value) return `Preparing ${BRAND} prompt…${props.previousRunning ? ' Images use your previous prompt until it’s ready.' : ''}`
   if (failed.value) return `${BRAND} couldn’t read this prompt`
   return detail.value ? `${BRAND}, enhancing the prompt` : `${BRAND}, in your own words`
 })
@@ -254,7 +257,10 @@ const notice = computed<Notice | null>(() => {
     head: 'Needs a chat model',
     actions: [{ label: 'Set one up', run: () => { menuOpen.value = false; window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) } }],
   }
-  if (busy.value) return { head: 'Reading your prompt…' }
+  if (busy.value) return {
+    head: `Preparing ${BRAND} prompt…`,
+    body: props.previousRunning ? 'Images use your previous prompt until it’s ready.' : undefined,
+  }
   if (failed.value) {
     const unreachable = props.program.error.value?.code === 'llm_unavailable'
     return {

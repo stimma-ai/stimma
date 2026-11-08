@@ -349,6 +349,7 @@
               :has-loras="hasLoras"
               :lora-triggers="globalPrefs.promptOptions?.loraTriggers !== false"
               :lora-notes="globalPrefs.promptOptions?.loraNotes !== false"
+              :previous-running="uiState.generateForeverMode && promptProgram.needsPrepare() && promptProgram.readyPrompt() != null"
               @lora="(key, on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, [key]: on ? undefined : false }"
               @way="(w) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined }"
               @mode="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, autoImprove: { ...globalPrefs.promptOptions?.autoImprove, enabled: on } }"
@@ -5432,6 +5433,9 @@ type ForeverSubmitOptions = {
   // Prompt programs: replay these draws exactly (same choices, new seed).
   programFixed?: Record<string, any>
   programDrawSeed?: number
+  // Generate forever while a newer prompt is written or prepared: run this, the last
+  // version of the prompt that was prepared.
+  programPrompt?: string
 }
 
 type SubmitJobResult = {
@@ -5492,18 +5496,30 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     return noSubmit(options)
   }
 
+  // Generate forever never waits on, or prepares, a prompt you're still writing: it keeps
+  // running the last prepared version, and moves to the new one once you leave the box
+  // and it's prepared. Generate runs what's in the box.
+  if (options.foreverSessionId != null && promptProgram.needsPrepare()) {
+    const last = promptProgram.readyPrompt()
+    if (last) {
+      const editing = !!aiPromptEditorRef.value?.$el?.contains?.(document.activeElement)
+      if (!editing && promptProgram.status.value === 'stale') void promptProgram.prepare()
+      options = { ...options, programPrompt: last }
+    }
+  }
+
   // Prompt programs: an out-of-date program is prepared once, before the batch.
   // The wait is its own tile in the strip, beside any runs already going.
-  const preparingId = promptProgram.needsPrepare()
+  const preparingId = options.programPrompt == null && promptProgram.needsPrepare()
     ? jobsManager.addPendingJob(globalPrefs.value.prompt, {
         model_name: tool.value!.model,
         generator_name: tool.value!.generator,
         width: modelParams.width,
         height: modelParams.height,
-      }, 'Reading prompt…')
+      }, `Preparing ${PROMPT_BRAND} prompt…`)
     : null
   const finishPreparing = preparingId ? beginInstanceWork(generatorInstanceId) : null
-  const ready = await promptProgram.ensureReady()
+  const ready = options.programPrompt != null || await promptProgram.ensureReady()
   const preparingCancelled = !!preparingId && !jobsManager.hasPendingJob(preparingId)
   if (preparingId) {
     jobsManager.removePendingJob(preparingId)
@@ -5609,6 +5625,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
 
   // Build captured state from schema
   const capturedState = buildCapturedState(builderConfig, builderState, uploadResults)
+  if (options.programPrompt != null) capturedState.parameters.prompt = options.programPrompt
 
   // Thread inspiration lineage into parameters
   if (remixSource.value) {
