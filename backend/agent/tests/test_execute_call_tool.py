@@ -591,3 +591,16 @@ def test_follow_input_dims_freeform_scales_into_bounds():
     assert follow_input_dims(desc, 4000, 3000) == (2048, 1536)
     # In range: the input's own size.
     assert follow_input_dims(desc, 896, 1152) == (896, 1152)
+
+
+def test_follow_input_dims_list_tool_keeps_default_short_edge():
+    """A square default on a multi-tier list keeps its short edge at the
+    input's shape (ToolView's tier), rather than its pixel area."""
+    from agent.tools.stp_utils import follow_input_dims
+
+    desc = SimpleNamespace(parameter_schema={"properties": {
+        "width": {"type": "integer", "default": 1536,
+                  "x-allowed-dimensions": [[1536, 1536], [1080, 1920], [1440, 2560], [2048, 2048]]},
+        "height": {"type": "integer", "default": 1536},
+    }})
+    assert follow_input_dims(desc, 720, 1280) == (1440, 2560)

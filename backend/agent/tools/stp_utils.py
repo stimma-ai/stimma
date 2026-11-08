@@ -256,7 +256,7 @@ def follow_input_dims(tool_descriptor, src_w: float, src_h: float) -> Tuple[int,
     """Output size for a call that left width/height to the tool, given the
     input that sets the frame. Mirrors ToolView's default resolution policy:
     the shape always follows the input; a tool with a fixed size list keeps
-    the size of its default pair, while a freeform tool also follows the
+    the short edge of its default pair, while a freeform tool also follows the
     input's size, scaled uniformly into the schema's bounds."""
     props = (tool_descriptor.parameter_schema or {}).get("properties", {})
     allowed = _get_allowed_dimensions(tool_descriptor)
@@ -269,10 +269,10 @@ def follow_input_dims(tool_descriptor, src_w: float, src_h: float) -> Tuple[int,
         best = min(dist(p) for p in allowed)
         shape = [p for p in allowed if dist(p) - best < 0.02]
         try:
-            base_area = float(props["width"]["default"]) * float(props["height"]["default"])
+            tier = min(float(props["width"]["default"]), float(props["height"]["default"]))
         except (KeyError, TypeError, ValueError):
-            base_area = float(shape[0][0] * shape[0][1])
-        pick = min(shape, key=lambda p: abs(p[0] * p[1] - base_area))
+            tier = float(min(shape[0]))
+        pick = min(shape, key=lambda p: abs(min(p) - tier))
         return int(pick[0]), int(pick[1])
 
     w_p = props.get("width", {})
