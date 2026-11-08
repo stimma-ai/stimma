@@ -334,6 +334,22 @@ class TestMasking:
         assert judge.calls[1][0].startswith("A [Colour] collar on a sleeping ")
 
 
+    def test_a_list_passed_to_emit_is_masked_once(self):
+        src = ('a = pick("animal", ["cat", "dog"], phase=1)\nc = pick("colour", ["red", "blue"], phase=2)\n'
+               'emit("A", [a, c], "collar.")\n')
+        judge = FakeJudge()
+        draw(src, 1, judge=judge)
+        state = judge.calls[0][0]  # no candidate leaks; the list is masked conservatively
+        assert all(v not in state for v in ("cat", "dog", "red", "blue")) and state.startswith("A [Animal]")
+
+    def test_a_pin_in_a_branch_not_yet_taken_is_still_context(self):
+        judge = FakeJudge()
+        draw(RAIN, 3, pins={"umbrella": ["a clear umbrella"]}, judge=judge)
+        state1, q1 = judge.calls[0]
+        assert {q.pick_id for q in q1} == {"weather"}
+        assert "a clear umbrella" in state1
+
+
 class TestPins:
     def test_pins_come_first_and_upstream_keeps_them_satisfiable(self):
         for seed in range(30):

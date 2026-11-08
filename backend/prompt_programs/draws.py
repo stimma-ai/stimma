@@ -729,11 +729,20 @@ class _Exec(_Runner):
     def emit(self, *parts: Any, _site: int = -1) -> None:
         taints = self.eng.an.emits.get(_site, [])
         for i, p in enumerate(parts):
-            before = len(self.parts)
-            super().emit(p)
             t = taints[i] if i < len(taints) else _EMPTY
-            for s in self.parts[before:]:
+            for s in _flatten(p):  # each span recorded once, with its part's taint
+                self.parts.append(s)
                 self.spans.append((s, t))
+
+
+def _flatten(p: Any) -> List[str]:
+    """runtime._Runner.emit's flattening, without re-entering emit()."""
+    if p is None:
+        return []
+    if isinstance(p, (list, tuple)):
+        return [s for q in p for s in _flatten(q)]
+    s = str(p).strip()
+    return [s] if s else []
 
 
 def _execute(code: Any, runner: _Exec) -> None:
@@ -886,7 +895,14 @@ class _Engine:
                 out.append(f"[{first}]")
                 continue
             out.append(re.sub(r"\x00(\d+)\x00", lambda m: f"[{labels[int(m.group(1))]}]", masked))
-        return tidy_text(out)
+        text = tidy_text(out)
+        # Single-value pins are authoritative context for every phase, even when their
+        # pick sits in a branch that isn't active yet or inside a masked span.
+        shown = text.lower()
+        extra = [f"{exe.by_id[cid].label if cid in exe.by_id else self.labels.get(cid, _label_from_id(cid))}: {v}"
+                 for cid, v in sorted(self.single_pins.items())
+                 if self.an.sites_for_id(cid) and v.lower() not in shown]
+        return text if not extra else f"{text}\n(Fixed: {'; '.join(extra)})"
 
     # -- hard constraints
     def hard_ok(self, cid: str, value: str, k: int, proposals: Dict[str, str], site: int) -> bool:
