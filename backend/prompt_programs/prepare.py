@@ -1103,10 +1103,10 @@ def _truncated(reply: str) -> bool:
 
 
 def on_prepared(entry: Dict[str, Any], *, project_id: Optional[int], profile_id: Optional[str]) -> None:
-    """Called once a program is stored, before prepare returns. The options service
-    hooks in here to start filling the program's pools in the background (it must not
-    block). Nothing to do until it exists."""
-    return None
+    """Called once a program is stored, before prepare returns: start filling its
+    option pools (and judgment prefill) in the background. Never blocks."""
+    from prompt_programs.fluent import start_options  # fluent imports prepare
+    start_options(entry, profile_id=profile_id, project_id=project_id)
 
 
 def _notify_prepared(entry: Dict[str, Any], project_id: Optional[int], profile_id: Optional[str]) -> None:

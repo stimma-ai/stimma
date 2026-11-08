@@ -60,6 +60,8 @@ phases drew; picks in the same phase are drawn without seeing each other.
 - Picks that can't conflict share a phase.
 - If your code uses a pick's value (in an `if`, a `[...]` lookup, `range()`, or in another
   pick's arguments), that pick must be in an earlier phase than everything it controls.
+  Only a user list's values can be keys (`[...]` lookups, `by=`, dict keys): a pick
+  written with `about=` gets more values later that your code has never seen.
 
 # How to build the program
 
