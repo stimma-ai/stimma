@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import difflib
+import json
 import random
 import re
 import time
@@ -24,7 +26,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-19"
+PREPARE_VERSION = "pp-20"
 MAX_ATTEMPTS = 3
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8")
 
@@ -101,16 +103,16 @@ def build_user_message(prompt: str, enhanced: str, model_name: Optional[str], mo
     else:
         parts.append(
             "Prompt to emit: the user's own words, joined into one example image with nothing added. "
-            "The user wants their wording kept: copy it into emit() as written. Options you write are "
+            "The user wants their wording kept: copy it into emit() as written. Seeds you write are "
             "short phrases (a few words) in the same register as the user's words. Add no extra picks "
             "(no added=True).")
         if mode == "keyword":
-            parts.append("This model reads comma-separated tags: write options as tags.")
+            parts.append("This model reads comma-separated tags: write seeds as tags.")
     parts += ["", enhanced.strip(), "", "(End of the enhanced prompt.)" if elaborate else "(End of the prompt.)", ""]
     if smart and (elaborate or "[{{" not in enhanced):
         names = ", ".join("{{" + n + "}}" for n in smart)
         parts += [f"Smart wildcards: {names}. The prompt above wrote one example of each where it stood; "
-                  "find that phrase, make it the first option, and put the pick in its place.", ""]
+                  "find that phrase, make it the first seed, and put the pick in its place.", ""]
     if params:
         desc = ", ".join(
             f"{n} ({p.get('minimum', '?')}–{p.get('maximum', '?')})" for n, p in sorted(params.items()))
@@ -131,8 +133,15 @@ _PLACEHOLDER_NOTE = (
     "[...] placeholder exactly where it belongs in the sentence. Words in angle brackets, like "
     "\u27e8hairstyle\u27e9, name something that changes from image to image: write one concrete, "
     "vivid example of each in its place, without the brackets, and describe it only there. "
-    "Where the prompt asks for something to vary, write one concrete example of it."
+    "Where the prompt asks for something to vary, write one concrete example of it. Add no "
+    "placeholders or brackets of your own: write everything else out in full."
 )
+
+
+def _needs_placeholder_note(prompt: str) -> bool:
+    """Only prompts with placeholders or # lines need the note; without any, it invites
+    the enhancer to invent placeholders ("[location]") of its own."""
+    return bool(re.search(r"[\[{\u27e8]", prompt)) or any(ln.lstrip().startswith("#") for ln in prompt.splitlines())
 
 
 def _for_enhancer(prompt: str) -> str:
@@ -189,22 +198,28 @@ async def upsample(prompt: str, ctx: Dict[str, Any], instructions: str, lora_con
     from prompt_pipeline import _improve_with_verbatim_protection
 
     db = get_database_registry().get_database(profile_id)
+    note = _PLACEHOLDER_NOTE if _needs_placeholder_note(prompt) else ""
     out = await _improve_with_verbatim_protection(
         db, protect_variable_spots(_for_enhancer(prompt)),
-        instructions="\n".join(x for x in (instructions, _PLACEHOLDER_NOTE) if x),
+        instructions="\n".join(x for x in (instructions, note) if x),
         model=ctx.get("model"), project_id=project_id, lora_context=lora_context, **ctx["enhance"],
     )
     return out.replace("\u27e8", "").replace("\u27e9", "")
 
 
-async def _ask_model(messages: List[Dict[str, str]], project_id: Optional[int]) -> str:
+async def _ask_model(messages: List[Dict[str, str]], project_id: Optional[int], max_tokens: int = 4096) -> str:
     from llm import llm_complete_text
     from llm_correlation import llm_correlation_context
     from llm_resolver import get_effective_llm_config
 
     cfg = await get_effective_llm_config("tool_assistant", project_id)
     with llm_correlation_context("prompt-program"):
-        return await llm_complete_text(config=cfg, messages=messages, max_tokens=4096, temperature=0.3)
+        return await llm_complete_text(config=cfg, messages=messages, max_tokens=max_tokens, temperature=0.3)
+
+
+async def _ask_repair(messages: List[Dict[str, str]], project_id: Optional[int], max_tokens: int = 1024) -> str:
+    """Edits that fix a program in place (its own name so timing can tell it apart)."""
+    return await _ask_model(messages, project_id, max_tokens=max_tokens)
 
 
 # --------------------------------------------------------------------------- validation
@@ -231,6 +246,10 @@ def _smart_choice(info: Dict[str, Any], name: str) -> Optional[Dict[str, Any]]:
     for c in info["choices"]:
         if c["kind"] == "pick" and (c["id"] == want or smart_id(c["label"]) == want):
             return c
+    words = set(want.split("_"))  # a pick that says it is this wildcard: about="the local street food"
+    for c in info["choices"]:
+        if c["kind"] == "pick" and c.get("source") != "list" and c.get("about") and words <= _words(c["about"]):
+            return c
     return None
 
 
@@ -245,37 +264,285 @@ def drop_name_options(source: str, prompt: str) -> str:
         tree = ast.parse(source)
     except SyntaxError:
         return source
-    lines = source.splitlines(keepends=True)
-    offsets = [0]
-    for ln in lines:
-        offsets.append(offsets[-1] + len(ln))
-
-    def pos(lineno: int, col: int) -> int:  # ast columns count UTF-8 bytes
-        return offsets[lineno - 1] + len(lines[lineno - 1].encode()[:col].decode("utf-8", "ignore"))
-
+    pos = _offsets(source)
     cuts = []
     for node in ast.walk(tree):
         if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick" and node.args
                 and isinstance(node.args[0], ast.Constant) and node.args[0].value in names):
             continue
-        opts = node.args[1] if len(node.args) > 1 else next((k.value for k in node.keywords if k.arg == "options"), None)
-        if not isinstance(opts, ast.List):
-            continue
+        lists = [node.args[1] if len(node.args) > 1 else next((k.value for k in node.keywords if k.arg == "options"), None),
+                 next((k.value for k in node.keywords if k.arg == "seed"), None)]
         name = names[node.args[0].value]
-        keep = [e for e in opts.elts if not (isinstance(e, ast.Constant) and str(e.value).strip().lower() == name)]
-        if len(keep) < 2 or len(keep) == len(opts.elts):
-            continue
-        for i, e in enumerate(opts.elts):
-            if e in keep:
+        for opts, least in zip(lists, (2, 1)):  # an option list keeps two, a seed list one
+            if not isinstance(opts, ast.List):
                 continue
-            start = pos(e.lineno, e.col_offset)
-            # through the following comma (or back to the preceding one for the last element)
-            nxt = opts.elts[i + 1] if i + 1 < len(opts.elts) else None
-            end = pos(nxt.lineno, nxt.col_offset) if nxt else pos(e.end_lineno, e.end_col_offset)
-            cuts.append((start, end))
+            keep = [e for e in opts.elts if not (isinstance(e, ast.Constant) and str(e.value).strip().lower() == name)]
+            if len(keep) < least or len(keep) == len(opts.elts):
+                continue
+            for i, e in enumerate(opts.elts):
+                if e in keep:
+                    continue
+                start = pos(e.lineno, e.col_offset)
+                # through the following comma (or back to the preceding one for the last element)
+                nxt = opts.elts[i + 1] if i + 1 < len(opts.elts) else None
+                end = pos(nxt.lineno, nxt.col_offset) if nxt else pos(e.end_lineno, e.end_col_offset)
+                cuts.append((start, end))
     for start, end in sorted(cuts, reverse=True):
         source = source[:start] + source[end:]
     return source
+
+
+def _offsets(source: str):
+    """(lineno, ast col) → index into source. ast columns count UTF-8 bytes."""
+    lines = source.splitlines(keepends=True)
+    starts = [0]
+    for ln in lines:
+        starts.append(starts[-1] + len(ln))
+
+    def pos(lineno: int, col: int) -> int:
+        return starts[lineno - 1] + len(lines[lineno - 1].encode()[:col].decode("utf-8", "ignore"))
+    return pos
+
+
+def fix_phases(source: str) -> Tuple[str, List[str]]:
+    """Repair phases in place instead of sending the program back: a pick with no
+    phase= gets phase 1, and a pick that uses another pick's value (by=, an if test, a
+    lookup, a loop count, its arguments) moves to a later phase than it, as the
+    dependency rule requires. Returns the source and what changed; anything it can't
+    settle (a pick that uses its own value, a cycle) is left for validation to report."""
+    from prompt_programs.draws import _Analyzer
+
+    if not uses_draws(source):
+        return source, []
+    try:
+        tree = check(source)
+        an = _Analyzer(tree)
+        for _ in range(50):  # the same fixed point analyze() runs
+            an.changed = False
+            for s in an.sites:
+                s.deps.clear()
+                s.exclude_deps.clear()
+            an.block(tree.body, [])
+            if not an.changed:
+                break
+    except (ProgramError, RecursionError):
+        return source, []
+    calls = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and id(node) in an.site_of:
+            calls[an.site_of[id(node)]] = node
+    written: Dict[int, Optional[ast.AST]] = {}
+    phase: Dict[int, int] = {}
+    for i, node in calls.items():
+        kw = next((k for k in node.keywords if k.arg == "phase"), None)
+        written[i] = kw.value if kw else None
+        ok = kw is not None and isinstance(kw.value, ast.Constant) and type(kw.value.value) is int and kw.value.value >= 1
+        if kw is not None and not ok:
+            return source, []  # a phase that isn't a number: validation says how to write it
+        phase[i] = kw.value.value if ok else 1
+    for s in an.sites:
+        if s.index in s.deps:
+            return source, []
+    for _ in range(len(an.sites) + 1):
+        moved = False
+        for s in an.sites:
+            need = max([phase[s.index]] + [phase[d] + 1 for d in s.deps] + [phase[d] for d in s.exclude_deps])
+            if need != phase[s.index]:
+                phase[s.index], moved = need, True
+        if not moved:
+            break
+    else:
+        return source, []  # a cycle
+    pos = _offsets(source)
+    edits: List[Tuple[int, int, str]] = []
+    notes: List[str] = []
+    for i, node in calls.items():
+        site = an.sites[i]
+        kw_value = written[i]
+        if site.kind != "pick" and kw_value is None and phase[i] == 1:
+            continue  # pick_lora defaults to phase 1
+        if kw_value is None:
+            end = pos(node.end_lineno, node.end_col_offset) - 1  # the closing parenthesis
+            j = end - 1
+            while j > 0 and source[j].isspace():
+                j -= 1
+            edits.append((end, end, f"{' ' if source[j] == ',' else ', '}phase={phase[i]}"))
+            notes.append(f'pick("{site.id_text}"): phase={phase[i]} added')
+        elif kw_value.value != phase[i]:  # type: ignore[attr-defined]
+            start, end = pos(kw_value.lineno, kw_value.col_offset), pos(kw_value.end_lineno, kw_value.end_col_offset)
+            edits.append((start, end, str(phase[i])))
+            notes.append(f'pick("{site.id_text}"): phase {kw_value.value} → {phase[i]}')  # type: ignore[attr-defined]
+    for start, end, text in sorted(edits, reverse=True):
+        source = source[:start] + text + source[end:]
+    return source, notes
+
+
+_BARE_TEXT = re.compile(r"(?<=,)(\s+)([A-Za-z][^\",()\[\]{}]*?\")")
+
+
+def fix_quotes(source: str) -> Tuple[str, List[str]]:
+    """Weak writers drop a quote between emit() parts: `",", resting its hands atop", desk`.
+    Put the opening quote back where a bare run of words ends in one, and keep the fix only
+    if the syntax error goes away (or moves past that line)."""
+    notes: List[str] = []
+    for _ in range(5):
+        try:
+            ast.parse(source)
+            return source, notes
+        except SyntaxError as e:
+            lines = source.split("\n")
+            if not e.lineno or "emit(" not in source:
+                return source, notes
+            n = e.lineno - 1
+            while n > 0 and "emit(" not in lines[n]:  # the error may surface on a continuation line
+                n -= 1
+            line = lines[n]
+            tries = [_BARE_TEXT.sub(lambda m: m.group(1) + '"' + m.group(2), line)]
+            tries += [line[:m.start(2)] + '"' + line[m.start(2):] for m in _BARE_TEXT.finditer(line)]
+            for fixed in dict.fromkeys(t for t in tries if t != line):
+                candidate = "\n".join(lines[:n] + [fixed] + lines[n + 1:])
+                try:
+                    ast.parse(candidate)
+                except SyntaxError as again:
+                    if not again.lineno or again.lineno <= n + 1:
+                        continue
+                source = candidate
+                notes.append(f"a missing quote put back on line {n + 1}")
+                break
+            else:
+                return source, notes
+    return source, notes
+
+
+def fix_unplaced(source: str) -> Tuple[str, List[str]]:
+    """A pick the program never uses does nothing. When its first seed still stands in
+    emit()'s fixed text (the writer forgot to swap it in), the pick goes there; a hidden
+    one whose seed stands nowhere is dropped and the text stays as written."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, []
+    used = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+    texts = [a for c in ast.walk(tree) if isinstance(c, ast.Call) and getattr(c.func, "id", None) == "emit"
+             for a in c.args if isinstance(a, ast.Constant) and isinstance(a.value, str)]
+    pos = _offsets(source)
+    lines = source.splitlines(keepends=True)
+    edits: List[Tuple[int, int, str]] = []
+    notes: List[str] = []
+    for st in tree.body:
+        if not (isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name)
+                and isinstance(st.value, ast.Call) and getattr(st.value.func, "id", None) == "pick"
+                and st.targets[0].id not in used):
+            continue
+        var = st.targets[0].id
+        seed = next((k.value for k in st.value.keywords if k.arg == "seed"), None)
+        if not isinstance(seed, ast.List):
+            continue  # a user list or written options: the writer has to place it
+        first = seed.elts[0].value if seed.elts and isinstance(seed.elts[0], ast.Constant) else None
+        holders = [a for a in texts if isinstance(first, str) and len(first.split()) >= 2
+                   and a.value.lower().count(first.lower()) == 1]
+        if len(holders) == 1:
+            arg = holders[0]
+            at = arg.value.lower().index(first.lower())
+            before, after = arg.value[:at], arg.value[at + len(first):]
+            parts = [json.dumps(before, ensure_ascii=False)] if before.strip() else []
+            parts.append(var)
+            if after.strip():
+                parts.append(json.dumps(after, ensure_ascii=False))
+            edits.append((pos(arg.lineno, arg.col_offset), pos(arg.end_lineno, arg.end_col_offset), ", ".join(parts)))
+            texts.remove(arg)
+            notes.append(f"{var} placed where its seed stood")
+        elif any(k.arg == "hidden" and isinstance(k.value, ast.Constant) and k.value.value is True
+                 for k in st.value.keywords) and not any(
+                isinstance(first, str) and first.lower() in a.value.lower() for a in texts):
+            # only a hidden detail: a choice the user sees (theirs, or variety added) goes back to the writer
+            start = sum(len(ln) for ln in lines[: st.lineno - 1])
+            end = sum(len(ln) for ln in lines[: st.end_lineno])
+            if source[start:end].strip() == ast.get_source_segment(source, st):  # the statement has its lines to itself
+                edits.append((start, end, ""))
+                notes.append(f"{var} dropped: never used")
+    for start, end, text in sorted(edits, reverse=True):
+        source = source[:start] + text + source[end:]
+    return source, notes
+
+
+MAX_ADDED = 3
+
+
+def trim_added(source: str) -> Tuple[str, List[str]]:
+    """More than MAX_ADDED picks the writer added on its own: the extras become fixed
+    text (their first seed), so the prompt reads the same and the choices stay few."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, []
+    added = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick":
+            kw = {k.arg: k.value for k in node.keywords}
+            flag, seed = kw.get("added"), kw.get("seed")
+            if (isinstance(flag, ast.Constant) and flag.value is True and isinstance(seed, ast.List) and seed.elts
+                    and isinstance(seed.elts[0], ast.Constant) and isinstance(seed.elts[0].value, str)):
+                added.append(node)
+    if len(added) <= MAX_ADDED:
+        return source, []
+    added.sort(key=lambda n: (n.lineno, n.col_offset))
+    pos = _offsets(source)
+    edits, notes = [], []
+    for node in added[MAX_ADDED:]:
+        value = node.keywords[[k.arg for k in node.keywords].index("seed")].value.elts[0].value  # type: ignore[attr-defined]
+        edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset),
+                      json.dumps(value, ensure_ascii=False)))
+        name = node.args[0].value if node.args and isinstance(node.args[0], ast.Constant) else "?"
+        notes.append(f'pick("{name}") made fixed text: more than {MAX_ADDED} added picks')
+    for start, end, text in sorted(edits, reverse=True):
+        source = source[:start] + text + source[end:]
+    return source, notes
+
+
+def fix_duplicates(source: str) -> Tuple[str, List[str]]:
+    """A pick's seed phrase left in emit()'s fixed text while the same emit() also passes
+    the pick says it twice, and contradicts every other value the pick draws: cut the
+    fixed copy. Returns the source and what changed."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, []
+    seeds: Dict[str, List[str]] = {}
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+                and isinstance(node.value, ast.Call) and getattr(node.value.func, "id", None) == "pick"):
+            seed = next((k.value for k in node.value.keywords if k.arg == "seed"), None)
+            if isinstance(seed, ast.List):
+                seeds[node.targets[0].id] = [str(e.value).strip() for e in seed.elts if isinstance(e, ast.Constant)
+                                             and isinstance(e.value, str) and len(e.value.split()) >= 2]
+    pos = _offsets(source)
+    edits: List[Tuple[int, int, str]] = []
+    notes: List[str] = []
+    for call in ast.walk(tree):
+        if not (isinstance(call, ast.Call) and getattr(call.func, "id", None) == "emit"):
+            continue
+        passed = [a.id for a in call.args if isinstance(a, ast.Name) and a.id in seeds]
+        for arg in call.args:
+            if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str)):
+                continue
+            text = arg.value
+            for var in passed:
+                for phrase in seeds[var]:
+                    at = text.lower().find(phrase.lower())
+                    before, after = text[:at].rstrip(), text[at + len(phrase):].lstrip()
+                    # only a phrase that stands alone between punctuation: cutting one mid-clause
+                    # ("glints under the dramatic light") would leave the sentence broken
+                    if at >= 0 and (not before or before[-1] in ",.;:") and (not after or after[0] in ",.;:"):
+                        text = text[:at] + text[at + len(phrase):]
+                        notes.append(f'"{phrase}" cut from the fixed text: {var} says it')
+            if text != arg.value:
+                text = re.sub(r"\s{2,}", " ", text)
+                edits.append((pos(arg.lineno, arg.col_offset), pos(arg.end_lineno, arg.end_col_offset),
+                              json.dumps(text, ensure_ascii=False)))
+    for start, end, text in sorted(edits, reverse=True):
+        source = source[:start] + text + source[end:]
+    return source, notes
 
 
 _EXACT = re.compile(r"\[([^\[\]{}][^\[\]]*)\]")
@@ -372,14 +639,15 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
     for cid, value in twice.items():
         problems.append(f'pick("{cid}") appears more than once in the prompt ("{value}"). Emit each pick once, where its subject belongs.')
     for cid, value in missing.items():
-        problems.append(f'pick("{cid}") drew "{value}" but it never appears in the emitted prompt. Pass its result to emit(...).')
+        problems.append(f'pick("{cid}") drew "{value}" but it never appears in the emitted prompt. Pass its variable to '
+                        "emit(...) where its subject stands, and drop any other pick or fixed text that says the same thing.")
     for name in smart_wildcards(prompt):
         if not _smart_choice(info, name):
-            problems.append(f'{{{{{name}}}}} is a smart wildcard: make it pick("{smart_id(name)}", [6-12 options], label=<one or two words>, line=...) and emit its value where {{{{{name}}}}} stands.')
+            problems.append(f'{{{{{name}}}}} is a smart wildcard: make it pick("{smart_id(name)}", about=..., seed=[1 to 3 examples], label=<one or two words>, phase=..., line=...) and emit its value where {{{{{name}}}}} stands.')
     for name in smart_wildcards(prompt):  # a descriptive name says what to write, it isn't an option
         c = _smart_choice(info, name)
         if c and name.lower() in (o.lower() for o in c["options"]):
-            problems.append(f'{{{{{name}}}}} needs 6-12 different concrete options that each fit "{name}", not the name itself.')
+            problems.append(f'{{{{{name}}}}} needs seeds that are concrete examples of "{name}", not the name itself.')
     for c in info["choices"]:  # labels are pill names, not descriptions
         if len(c["label"]) > 24 or len(c["label"].split()) > 3:
             problems.append(f'label="{c["label"]}" is too long for {c["id"]}: use one or two words, like "Weather" or "Photo look".')
@@ -472,25 +740,28 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     # The canvas only matters to layout formats (Ideogram), which have no programs;
     # leaving it out keeps a prepared program valid across sizes.
     enhance = {k: v for k, v in (ctx.get("enhance") or {}).items() if k not in ("width", "height")}
-    key = program_key({
-        "v": PREPARE_VERSION, "prompt": source_prompt, "tool": tool_id, "model": ctx.get("model"),
+    parts = {
+        "v": PREPARE_VERSION, "tool": tool_id, "model": ctx.get("model"),
         "mode": ctx.get("mode"), "enhance": enhance, "instructions": instructions,
         "params": sorted(params), "loras": [vars(lo) for lo in loras], "notes": lora_context,
         "elaborate": bool(elaborate),
-    })
+    }
+    key = program_key({**parts, "prompt": source_prompt})
+    context = program_key(parts)  # the same editing context, whatever the prompt says
     store = _store(profile_id)
     cached = None if force else store.get(key)
+    if cached and not cache_only and (store.recent(context) or [None])[0] != key:
+        store.remember(context, key)  # back to this prompt: the next small edit patches it
     if cached or cache_only:
         return cached
     # One prepare per key: concurrent runs and the editor share it instead of each
     # asking the model.
     running = _in_flight.get(key)
     if running is None:
-        running = asyncio.ensure_future(_prepare_new(
-            key=key, store=store, tool_id=tool_id, ctx=ctx, instructions=instructions, source_prompt=masked_prompt,
-            params=params, loras=loras, notes=notes, lora_context=lora_context, project_id=project_id, profile_id=profile_id,
-            elaborate=bool(elaborate), exact=exact,
-        ))
+        args = dict(key=key, store=store, tool_id=tool_id, ctx=ctx, instructions=instructions, source_prompt=masked_prompt,
+                    params=params, loras=loras, notes=notes, lora_context=lora_context, project_id=project_id,
+                    profile_id=profile_id, elaborate=bool(elaborate), exact=exact)
+        running = asyncio.ensure_future(_prepare(context=context, force=force, **args))
         _in_flight[key] = running
         running.add_done_callback(lambda _t, k=key: _in_flight.pop(k, None) if _in_flight.get(k) is _t else None)
     return await asyncio.shield(running)
@@ -499,57 +770,480 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
 _in_flight: Dict[str, "asyncio.Future[Dict[str, Any]]"] = {}
 
 
+async def _prepare(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
+    """A small edit of a prompt prepared in this context patches that program; anything
+    else (or a patch that doesn't validate, or "Try different choices") prepares anew."""
+    store: ProgramStore = args["store"]
+    entry = None
+    if not force:
+        base = _patch_base(store, context, args["source_prompt"])
+        if base is not None:
+            try:
+                entry = await _prepare_patch(base=base, **args)
+            except ProgramError as e:
+                log.info(f"[prompt-program] patch from {base.get('key')} failed: {e}")
+    if entry is None:
+        entry = await _prepare_new(**args)
+    store.remember(context, entry["key"])
+    _notify_prepared(entry, args["project_id"], args["profile_id"])
+    return entry
+
+
+# --------------------------------------------------------------------------- fixing in place
+
+_LINE_EDIT_HOW = """Reply with only your changed lines, already changed: for each, its line number, a colon and its
+new text, like
+7: emit("A portrait of a", subject, "in the rain.")
+Don't repeat lines you keep. To delete a line, write its number and a colon with nothing after it. To add
+a line after line 4, number it 4.5. No explanation."""
+
+REPAIR_NOTE = """That program has a problem:
+{problems}
+
+The program, with line numbers:
+{numbered}
+
+Fix only that, changing as little as you can. """ + _LINE_EDIT_HOW
+
+_LINE_EDIT = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*:(?:\s|$)(.*)$")
+
+
+def _numbered_program(source: str) -> str:
+    return "\n".join(f"{i + 1}: {ln}" for i, ln in enumerate(source.rstrip("\n").splitlines()))
+
+
+def _open_brackets(text: str) -> int:
+    """Brackets left open at the end of a line of code (string literals skipped)."""
+    depth, quote, i = 0, "", 0
+    while i < len(text):
+        ch = text[i]
+        if quote:
+            if ch == "\\":
+                i += 1
+            elif ch == quote:
+                quote = ""
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "#":
+            break
+        elif ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        i += 1
+    return depth
+
+
+def apply_line_edits(source: str, reply: str) -> Optional[str]:
+    """Apply numbered-line edits ("7: new text", "7:" deletes, "4.5: ..." inserts after 4)
+    to a program. A changed line that starts a statement spanning several lines replaces
+    the whole statement. None when the reply holds no edits."""
+    edits: Dict[float, List[str]] = {}
+    current: Optional[float] = None
+    for raw in (reply or "").splitlines():
+        if raw.strip().startswith("```"):
+            current = None
+            continue
+        m = _LINE_EDIT.match(raw)
+        if m:
+            current = float(m.group(1))
+            edits[current] = [m.group(2).rstrip()] if m.group(2).strip() else []
+        elif current is not None and edits.get(current) and _open_brackets("\n".join(edits[current])) > 0:
+            edits[current].append(raw.rstrip())  # the edited statement continues
+        else:
+            current = None
+    if not edits:
+        return None
+    lines = source.rstrip("\n").splitlines()
+    try:
+        spans = {st.lineno: st.end_lineno for st in ast.walk(ast.parse(source)) if isinstance(st, ast.stmt)}
+    except SyntaxError:
+        spans = {}
+    out: List[str] = []
+    skip_to = 0
+    for n, line in enumerate(lines, start=1):
+        if n <= skip_to and float(n) not in edits:
+            continue
+        if float(n) in edits:
+            new = edits[float(n)]
+            end = spans.get(n, n)
+            if new and end > n and not any(float(k) in edits for k in range(n + 1, end + 1)):
+                try:
+                    ast.parse("\n".join(x.strip() for x in new) if len(new) == 1 else "\n".join(new))
+                    skip_to = end  # the new text is the whole statement
+                except SyntaxError:
+                    pass
+            indent = line[: len(line) - len(line.lstrip())]
+            if new and not new[0].startswith((" ", "\t")):
+                new = [indent + new[0], *new[1:]]
+            out.extend(new)
+        else:
+            out.append(line)
+        for k in sorted(k for k in edits if n < k < n + 1):
+            out.extend(edits[k])
+    for k in sorted(k for k in edits if k > len(lines)):
+        out.extend(edits[k])
+    result = "\n".join(out) + "\n"
+    return result
+
+
+# --------------------------------------------------------------------------- small edits
+
+def _prompt_words(text: str) -> List[str]:
+    return re.findall(r"\S+", text)
+
+
+def prompt_changes(old: str, new: str) -> List[Tuple[str, str]]:
+    """Word-level changes from old to new: (removed, added) runs."""
+    a, b = _prompt_words(old), _prompt_words(new)
+    sm = difflib.SequenceMatcher(a=a, b=b, autojunk=False)
+    return [(" ".join(a[i1:i2]), " ".join(b[j1:j2])) for tag, i1, i2, j1, j2 in sm.get_opcodes() if tag != "equal"]
+
+
+def _lists_and_frame(prompt: str) -> Tuple[str, List[str]]:
+    return _INLINE_LIST.sub("{\u2026}", prompt), [m.group(1) for m in _INLINE_LIST.finditer(prompt)]
+
+
+def edit_kind(old: str, new: str) -> Optional[str]:
+    """How a prompt edit can be applied to the old prompt's program:
+    "same" (only [exact text] changed: the program is unchanged), "lists" (only the items
+    of {a|b} lists changed: rewritten in code), "text" (a small edit the writer patches),
+    or None (prepare anew)."""
+    if old == new:
+        return "same"
+    f0, l0 = _lists_and_frame(old)
+    f1, l1 = _lists_and_frame(new)
+    if f0 == f1 and len(l0) == len(l1):
+        return "lists"
+    changes = prompt_changes(old, new)
+    words = sum(max(len(x.split()), len(y.split())) for x, y in changes)
+    if changes and len(changes) <= 3 and words <= max(8, len(_prompt_words(old)) // 4):
+        return "text"
+    return None
+
+
+def _patch_base(store: ProgramStore, context: str, prompt: str) -> Optional[Dict[str, Any]]:
+    """The recent program in this context whose prompt is closest to this one, if this
+    prompt is a small edit of it."""
+    best: Optional[Tuple[int, Dict[str, Any]]] = None
+    for k in store.recent(context):
+        e = store.get(k)
+        if not e or e.get("version") != PREPARE_VERSION or not e.get("program") or edit_kind(e["prompt"], prompt) is None:
+            continue
+        size = sum(len(x) + len(y) for x, y in prompt_changes(e["prompt"], prompt))
+        if best is None or size < best[0]:
+            best = (size, e)
+    return best[1] if best else None
+
+
+def patch_lists(source: str, old: str, new: str) -> Optional[str]:
+    """Rewrite the options of user-list picks whose {a|b} items changed. None if a
+    changed list has no single pick holding exactly its old items."""
+    _, before = _lists_and_frame(old)
+    _, after = _lists_and_frame(new)
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return None
+    holders: Dict[Tuple[str, ...], List[ast.List]] = {}
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick"):
+            continue
+        kw = {k.arg: k.value for k in node.keywords}
+        if not (isinstance(kw.get("source"), ast.Constant) and kw["source"].value == "list"):
+            continue
+        opts = node.args[1] if len(node.args) > 1 else kw.get("options")
+        if isinstance(opts, ast.List) and all(isinstance(e, ast.Constant) for e in opts.elts):
+            holders.setdefault(tuple(str(e.value) for e in opts.elts), []).append(opts)
+    pos = _offsets(source)
+    edits = []
+    for a, b in zip(before, after):
+        if a == b:
+            continue
+        found = holders.get(tuple(o.strip() for o in a.split("|"))) or []
+        if len(found) != 1:
+            return None
+        node = found[0]
+        text = "[" + ", ".join(json.dumps(o.strip(), ensure_ascii=False) for o in b.split("|")) + "]"
+        edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset), text))
+    for start, end, text in sorted(edits, reverse=True):
+        source = source[:start] + text + source[end:]
+    return source
+
+
+PATCH_NOTE = """The user edited their prompt. It now reads (lines numbered):
+{prompt}
+
+What changed: {changes}.
+
+The program, with line numbers:
+{numbered}
+
+Update the program to match, changing as little as you can: the emitted text and the picks this edit
+affects, by the same rules. """ + _LINE_EDIT_HOW
+
+
+def _describe_changes(changes: Sequence[Tuple[str, str]]) -> str:
+    out = []
+    for removed, added in changes:
+        if removed and added:
+            out.append(f'"{removed}" became "{added}"')
+        elif added:
+            out.append(f'added "{added}"')
+        else:
+            out.append(f'removed "{removed}"')
+    return "; ".join(out)
+
+
+_STOP = {"a", "an", "the", "and", "or", "of", "in", "on", "at", "to", "for", "with", "by", "from", "is", "are", "her",
+         "his", "its", "their", "very"}
+
+
+def stale_words(source: str, old: str, new: str, loras: Sequence[LoraInfo], params: Set[str]) -> List[str]:
+    """Words the edit took out of the prompt that the patched program still writes
+    ("an axe" became "a sword", but the seed still says axe)."""
+    gone = set().union(*(_words(removed) for removed, _ in prompt_changes(old, new)), set()) - _words(new) - _STOP
+    gone = {w for w in gone if len(w) > 2 and not w.startswith("exact")}
+    if not gone:
+        return []
+    written = set()
+    for s in (11, 23, 37, 51):
+        written |= _words(run(source, s, None, loras, params).prompt)
+    still = sorted(gone & written)
+    return [f'The prompt no longer says "{w}", but the program still writes it. Change or remove it to match the '
+            "edited prompt." for w in still]
+
+
+async def _ask_patch(messages: List[Dict[str, str]], project_id: Optional[int], max_tokens: int = 1024) -> str:
+    """Edits that carry a prompt edit into its program (its own name for timing)."""
+    return await _ask_model(messages, project_id, max_tokens=max_tokens)
+
+
+async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore, tool_id: str, ctx: Dict[str, Any],
+                         instructions: str, source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo],
+                         notes: Dict[str, str], lora_context: List[Dict[str, Any]], project_id: Optional[int],
+                         profile_id: Optional[str], elaborate: bool = True,
+                         exact: Optional[Dict[str, str]] = None) -> Optional[Dict[str, Any]]:
+    """Carry a small prompt edit into the program it was prepared from: no enhancer, a
+    short model call for a text edit (none for list items or [exact text]), and at most
+    one repair. None (prepare anew) when the patch doesn't validate."""
+    started = time.monotonic()
+    old, new = base["prompt"], source_prompt
+    kind = edit_kind(old, new)
+    enhanced = base.get("enhanced") or ""
+    calls: List[Dict[str, Any]] = []
+    source: Optional[str] = None
+    if kind == "same":
+        source = base["program"]
+    elif kind == "lists":
+        source = patch_lists(base["program"], old, new)
+        if source is not None:
+            for a, b in zip(_lists_and_frame(old)[1], _lists_and_frame(new)[1]):
+                enhanced = enhanced.replace("[{" + a + "}]", "[{" + b + "}]")
+    if source is None:
+        changes = prompt_changes(old, new)
+        if len(changes) > 3:
+            return None
+        program = base["program"]
+        messages = [
+            {"role": "system", "content": _INSTRUCTIONS},
+            {"role": "user", "content": build_user_message(old, enhanced, ctx.get("model"), ctx.get("mode") or "prose",
+                                                            params, loras, notes, elaborate)},
+            {"role": "assistant", "content": f"```python\n{program}```"},
+            {"role": "user", "content": PATCH_NOTE.format(prompt=_numbered(new), changes=_describe_changes(changes),
+                                                           numbered=_numbered_program(program))},
+        ]
+        t0 = time.monotonic()
+        reply = await _ask_patch(messages, project_id, max_tokens=_repair_cap(program))
+        source = apply_line_edits(program, reply)
+        calls.append({"kind": "patch", "seconds": round(time.monotonic() - t0, 2), "chars": len(reply or ""),
+                      "applied": source is not None})
+        if source is None or source == program:
+            return None
+        kind = "text"
+    fixed: List[str] = []
+    for round_ in range(2):  # the patch, then at most one repair of it
+        source = drop_name_options(source, new)
+        source, more = fix_phases(source)
+        fixed += more
+        check(source)
+        checked = validate(source, new, loras, set(params), enhanced if elaborate else plain_example(new), elaborate)
+        problems = checked["problems"] + (stale_words(source, old, new, loras, set(params)) if kind == "text" else [])
+        if not problems:
+            break
+        log.info(f"[prompt-program] patch ({kind}) rejected: {' '.join(problems)[:300]}")
+        if kind != "text" or round_:
+            return None
+        messages += [{"role": "assistant", "content": reply},
+                     {"role": "user", "content": REPAIR_NOTE.format(problems="\n".join(problems),
+                                                                     numbered=_numbered_program(source))}]
+        t0 = time.monotonic()
+        reply = await _ask_repair(messages, project_id, max_tokens=_repair_cap(source))
+        edited = apply_line_edits(source, reply)
+        calls.append({"kind": "repair", "seconds": round(time.monotonic() - t0, 2), "chars": len(reply or ""),
+                      "applied": edited is not None and edited != source})
+        if edited is None or edited == source:
+            return None
+        source = edited
+    entry = _entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, prompt=new, enhanced=enhanced,
+                   exact=exact, source=source, checked=checked, params=params, loras=loras)
+    entry.update({
+        "attempts": len(calls), "repairs": fixed, "patched_from": base.get("key"), "patch": kind,
+        "seconds": round(time.monotonic() - started, 2), "upsample_seconds": 0.0,
+        "timing": {"enhance": 0.0, "calls": calls},
+    })
+    store.put(key, entry)
+    log.info(f"[prompt-program] patched {base.get('key')} → {key} ({kind}) in {entry['seconds']}s")
+    return entry
+
+
+def _truncated(reply: str) -> bool:
+    """A reply cut off at the token cap: an open code fence that never closes."""
+    return reply.count("```") == 1
+
+
+def on_prepared(entry: Dict[str, Any], *, project_id: Optional[int], profile_id: Optional[str]) -> None:
+    """Called once a program is stored, before prepare returns. The options service
+    hooks in here to start filling the program's pools in the background (it must not
+    block). Nothing to do until it exists."""
+    return None
+
+
+def _notify_prepared(entry: Dict[str, Any], project_id: Optional[int], profile_id: Optional[str]) -> None:
+    try:
+        on_prepared(entry, project_id=project_id, profile_id=profile_id)
+    except Exception as e:  # never fails a prepare
+        log.warning(f"[prompt-program] on_prepared failed for {entry.get('key')}: {e}")
+
+
+def _writer_cap(enhanced: str) -> int:
+    """Output tokens for a structure-only program: the copied text plus a line per pick.
+    Bounds a runaway reply (a repeating model) instead of letting it fill 4096 tokens."""
+    return min(4096, 768 + len(enhanced) // 2)
+
+
+def _repair_cap(source: str) -> int:
+    """Edits rewrite a line or two: room for the longest line (usually emit()) plus a
+    short one, so a rambling reply is cut off early."""
+    longest = max((len(ln) for ln in source.splitlines()), default=0)
+    return min(2048, 192 + (2 * longest) // 3)
+
+
 async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict[str, Any], instructions: str,
                        source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo], notes: Dict[str, str],
                        lora_context: List[Dict[str, Any]], project_id: Optional[int],
                        profile_id: Optional[str], elaborate: bool = True,
                        exact: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
-    """source_prompt arrives with [exact text] already masked (see mask_exact)."""
+    """source_prompt arrives with [exact text] already masked (see mask_exact).
+
+    One write, then fixes in place: phases and doubled phrases are fixed in code, and
+    other problems go back as numbered-line edits instead of a full rewrite. If a repair
+    doesn't settle it, the writer rewrites, told what was wrong. At most MAX_ATTEMPTS
+    model calls."""
     started = time.monotonic()
     enhanced = (await upsample(source_prompt, ctx, instructions, lora_context, project_id, profile_id)
                 if elaborate else await keep_words(source_prompt, ctx.get("mode") or "prose", project_id))
     upsampled_at = time.monotonic()
-    messages = [
+    base = [
         {"role": "system", "content": _INSTRUCTIONS},
         {"role": "user", "content": build_user_message(source_prompt, enhanced, ctx.get("model"), ctx.get("mode") or "prose",
                                                         params, loras, notes, elaborate)},
     ]
+    cap = _writer_cap(enhanced)
+    calls: List[Dict[str, Any]] = []
+    fixes: List[str] = []
+    source: Optional[str] = None
+    retry: Optional[Tuple[str, str]] = None   # (program, what was wrong) for a rewrite
+    best: Optional[Tuple[str, Dict[str, Any]]] = None
     last_error = ""
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        reply = await _ask_model(messages, project_id)
-        source = drop_name_options(extract_code(reply), source_prompt)
+    repaired = False  # the current source came from a repair, not a write
+    while True:
+        if source is None:  # write the program (again)
+            if len(calls) >= MAX_ATTEMPTS:
+                break
+            t0 = time.monotonic()
+            msgs = base + ([{"role": "assistant", "content": retry[0]}, {"role": "user", "content": retry[1]}]
+                           if retry else [])
+            reply = await _ask_model(msgs, project_id, max_tokens=cap)
+            calls.append({"kind": "write", "seconds": round(time.monotonic() - t0, 2), "chars": len(reply or "")})
+            if _truncated(reply):
+                last_error = "The reply was cut off: it was far too long."
+                retry = (reply[:2000], "Your reply was cut off because it was far too long. Write the program "
+                         "again, short: copy the text once into emit() and give each pick 1 to 3 seeds.")
+                continue
+            source, repaired = drop_name_options(extract_code(reply), source_prompt), False
+        source, fixed = fix_quotes(source)
+        fixes += fixed
+        source, fixed = fix_phases(source)
+        fixes += fixed
+        source, fixed = fix_unplaced(source)
+        fixes += fixed
+        source, fixed = fix_duplicates(source)
+        fixes += fixed
+        source, fixed = trim_added(source)
+        fixes += fixed
         try:
             check(source)
             checked = validate(source, source_prompt, loras, set(params), enhanced, elaborate)
         except ProgramError as e:
-            last_error = str(e)
+            problems = [str(e)]
         else:
-            if not checked["problems"] or attempt == MAX_ATTEMPTS:
-                info = checked["info"]
-                normalize_sources(info, source_prompt)
-                entry = {
-                    "key": key, "version": PREPARE_VERSION, "prompt": source_prompt, "tool_id": tool_id,
-                    "mode": ctx.get("mode"), "elaborate": bool(elaborate), "enhanced": enhanced, "exact": exact or {},
-                    "program": source, "choices": info["choices"], "groups": info["groups"],
-                    "params": {n: params[n] for n in info["params"] if n in params},
-                    "loras": [vars(lo) for lo in loras],
-                    "lora_choices": {c["id"]: c["options"] for c in info["choices"] if c["kind"] == "lora"},
-                    "example": realized_text(info["example"]),
-                    "warnings": checked["problems"], "attempts": attempt,
-                    "seconds": round(time.monotonic() - started, 2),
-                    "upsample_seconds": round(upsampled_at - started, 2), "created_at": time.time(),
-                }
-                store.put(key, entry)
-                log.info(f"[prompt-program] prepared {key} ({entry['mode']}) in {entry['seconds']}s "
-                         f"(upsample {entry['upsample_seconds']}s, {attempt} attempt(s), {len(info['choices'])} choices)")
-                return entry
-            last_error = "\n".join(checked["problems"])
-        log.info(f"[prompt-program] attempt {attempt} rejected: {last_error[:300]}")
-        messages += [
-            {"role": "assistant", "content": reply},
-            {"role": "user", "content": f"That program has a problem:\n{last_error}\nReply with the corrected program only."},
-        ]
-    raise ProgramError(f"Couldn't prepare this prompt: {last_error}")
+            problems = checked["problems"]
+            if best is None or len(problems) <= len(best[1]["problems"]):
+                best = (source, checked)
+        if not problems or len(calls) >= MAX_ATTEMPTS:
+            break
+        last_error = "\n".join(problems)
+        log.info(f"[prompt-program] attempt {len(calls)} rejected: {last_error[:300]}")
+        retry = (f"```python\n{source}```", f"That program has a problem:\n{last_error}\nReply with the corrected program only.")
+        if repaired:  # a repair didn't settle it: rewrite, told what was wrong
+            source = None
+            continue
+        t0 = time.monotonic()
+        reply = await _ask_repair(base + [{"role": "assistant", "content": f"```python\n{source}```"},
+                                          {"role": "user", "content": REPAIR_NOTE.format(
+                                              problems=last_error, numbered=_numbered_program(source))}],
+                                  project_id, max_tokens=_repair_cap(source))
+        edited = apply_line_edits(source, reply)
+        if edited is None and "```" in (reply or "") and "emit(" in reply and not _LINE_EDIT.search(reply):
+            edited = extract_code(reply)  # it wrote the whole program instead: take it
+        if edited == source:
+            edited = None
+        calls.append({"kind": "repair", "seconds": round(time.monotonic() - t0, 2), "chars": len(reply or ""),
+                      "applied": edited is not None})
+        source, repaired = (drop_name_options(edited, source_prompt), True) if edited is not None else (None, False)
+    if best is None:
+        raise ProgramError(f"Couldn't prepare this prompt: {last_error}")
+    source, checked = best
+    entry = _entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, prompt=source_prompt, enhanced=enhanced,
+                   exact=exact, source=source, checked=checked, params=params, loras=loras)
+    entry.update({
+        "attempts": len(calls), "repairs": fixes,
+        "seconds": round(time.monotonic() - started, 2), "upsample_seconds": round(upsampled_at - started, 2),
+        "timing": {"enhance": round(upsampled_at - started, 2), "calls": calls},
+    })
+    store.put(key, entry)
+    log.info(f"[prompt-program] prepared {key} ({entry['mode']}) in {entry['seconds']}s "
+             f"(upsample {entry['upsample_seconds']}s, model calls {[c['kind'] for c in calls]}, "
+             f"{len(entry['choices'])} choices, {len(fixes)} fixed in code)")
+    return entry
+
+
+def _entry(*, key: str, tool_id: str, ctx: Dict[str, Any], elaborate: bool, prompt: str, enhanced: str,
+           exact: Optional[Dict[str, str]], source: str, checked: Dict[str, Any], params: Dict[str, Any],
+           loras: Sequence[LoraInfo]) -> Dict[str, Any]:
+    info = checked["info"]
+    normalize_sources(info, prompt)
+    return {
+        "key": key, "version": PREPARE_VERSION, "prompt": prompt, "tool_id": tool_id,
+        "mode": ctx.get("mode"), "elaborate": bool(elaborate), "enhanced": enhanced, "exact": exact or {},
+        "program": source, "choices": info["choices"], "groups": info["groups"],
+        "params": {n: params[n] for n in info["params"] if n in params},
+        "loras": [vars(lo) for lo in loras],
+        "lora_choices": {c["id"]: c["options"] for c in info["choices"] if c["kind"] == "lora"},
+        "example": realized_text(info["example"]),
+        "warnings": checked["problems"], "created_at": time.time(),
+    }
 
 
 def draw_seed(seed: Any = None) -> int:

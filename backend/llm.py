@@ -209,8 +209,22 @@ def _acceptance_program(messages: List[Dict[str, Any]]) -> Optional[str]:
     user = next((_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "user"), "")
     m = re.search(r"User's prompt \(lines numbered\):\n(.*?)(?:\n\n|$)", user, flags=re.S)
     lines = [re.sub(r"^\d+: ", "", ln) for ln in (m.group(1).splitlines() if m else [])]
-    text = " ".join(ln for ln in lines if ln.strip() and not ln.lstrip().startswith("#")) or "an image"
-    return f"```python\nemit({text!r})\n```"
+    picks: List[str] = []
+    parts: List[str] = []
+    for n, line in enumerate(lines, start=1):  # each {a|b} list becomes a list pick, drawn first
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        at = 0
+        for spot in re.finditer(r"(?<!\{)\{([^{}]+\|[^{}]+)\}(?!\})", line):
+            parts.append(repr(line[at:spot.start()]))
+            var = f"list_{len(picks) + 1}"
+            options = [o.strip() for o in spot.group(1).split("|")]
+            picks.append(f"{var} = pick({var!r}, {options!r}, source='list', phase=1, line={n})")
+            parts.append(var)
+            at = spot.end()
+        parts.append(repr(line[at:]))
+    code = "\n".join([*picks, f"emit({', '.join(p for p in parts if p != repr('')) or repr('an image')})"])
+    return f"```python\n{code}\n```"
 
 
 def _acceptance_response(config: LLMConfig, messages: List[Dict[str, Any]]) -> LLMResponse:
