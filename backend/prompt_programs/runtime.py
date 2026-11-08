@@ -105,6 +105,8 @@ class Draw:
     pinned: bool = False
     options: List[str] = field(default_factory=list)   # what was available this time
     follows: Optional[str] = None  # id of the pick whose value keyed these options (by=)
+    phase: Optional[int] = None    # pick specs (see draws.py); unset for older programs
+    about: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         d = {"id": self.id, "value": self.value, "kind": self.kind, "label": self.label, "source": self.source}
@@ -116,6 +118,10 @@ class Draw:
             d["pinned"] = True
         if self.follows:
             d["follows"] = self.follows
+        if self.phase is not None:
+            d["phase"] = self.phase
+        if self.about:
+            d["about"] = self.about
         return d
 
 
@@ -228,8 +234,11 @@ class _Runner:
 
     # -- API
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
-             line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False) -> Optional[str]:
+             line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
+             about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None) -> Optional[str]:
         cid = str(id)
+        if about is not None or phase is not None or seed is not None:
+            return self._spec_pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed)
         if added:
             source = "added"
         if source not in SOURCES:
@@ -264,7 +273,32 @@ class _Runner:
         self._record(Draw(cid, value, "pick", label or _label_from_id(cid), source, line, bool(hidden), pinned, opts, follows))
         return value
 
-    def pick_lora(self, id: str, names: Any = None, label: str = "", source: str = "text", line: Optional[int] = None) -> Optional[str]:
+    def _spec_pick(self, cid: str, options: Any, label: str, by: Any, source: str, line: Optional[int], exclude: Any,
+                   hidden: bool, added: bool, about: Optional[str], phase: Optional[int], seed: Any) -> Optional[str]:
+        """A pick with a spec (draws.py), run the plain way for discovery and validation:
+        seeds stand in for options it doesn't list, and it is recorded even with none."""
+        seeds = _as_list(seed if seed is not None else [], f'pick("{cid}") seed')
+        written = list(options) if isinstance(options, (list, tuple)) else options
+        if isinstance(written, dict) or written:
+            if isinstance(written, dict):
+                written = {k: [*seeds, *(v or [])] for k, v in written.items()}
+            else:
+                written = [*seeds, *written]
+        else:
+            written = seeds
+        n = len(self.draws)
+        value = self.pick(cid, written, label, by, source, line, exclude, hidden, added) if written else None
+        if len(self.draws) == n:  # off, or nothing to draw: still a choice
+            if (self.edits.get(cid) or {}).get("off"):
+                return None
+            self._record(Draw(cid, None, "pick", label or _label_from_id(cid), "added" if added else (source if source in SOURCES else "text"),
+                              line, bool(hidden), False, []))
+        d = self.draws[-1]
+        d.phase, d.about = int(phase) if isinstance(phase, int) else None, str(about or "")
+        return value
+
+    def pick_lora(self, id: str, names: Any = None, label: str = "", source: str = "text", line: Optional[int] = None,
+                  phase: Optional[int] = None) -> Optional[str]:
         cid = str(id)
         names = _as_list(names if names is not None else [], f'pick_lora("{cid}")')
         known = [n for n in names if _lora_key(n) in self.loras]
@@ -416,6 +450,9 @@ class Choice:
     group: Optional[str] = None                 # "people" for people[2].age
     index: Optional[int] = None
     attr: Optional[str] = None
+    phase: Optional[int] = None                 # pick specs (see draws.py)
+    about: Optional[str] = None
+    deps: List[str] = field(default_factory=list)   # picks this one's structure depends on
     seen: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
@@ -438,7 +475,8 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
             if c is None:
                 m = _GROUP_ID.match(d.id)
                 c = Choice(d.id, d.kind, d.label, d.source, d.line, [], d.hidden, d.follows,
-                           group=m.group(1) if m else None, index=int(m.group(2)) if m else None, attr=m.group(3) if m else None)
+                           group=m.group(1) if m else None, index=int(m.group(2)) if m else None, attr=m.group(3) if m else None,
+                           phase=d.phase, about=d.about or None)
                 choices[d.id] = c
                 order.append(d.id)
             c.seen += 1
@@ -466,6 +504,15 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
             if on and not (on & off) and None not in on:
                 c.parent, c.when = pid, sorted(str(v) for v in on)
                 break
+    if any(c.phase is not None for c in choices.values()):  # pick specs: static dependencies
+        from prompt_programs.draws import analyze
+        try:
+            an = analyze(source)
+        except ProgramError:  # validate() reports it; discovery still lists the choices
+            an = None
+        for c in choices.values() if an else ():
+            deps = {d for s in an.sites_for_id(c.id) for d in s.deps}
+            c.deps = [an.sites[d].id_text for d in sorted(deps)]
     groups: Dict[str, Dict[str, Any]] = {}
     for res in results:
         for gid, g in res.groups.items():

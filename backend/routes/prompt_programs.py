@@ -108,9 +108,14 @@ async def options(req: OptionsRequest) -> Dict[str, Any]:
 
 @router.post("/preview")
 async def preview(req: PreviewRequest) -> Dict[str, Any]:
-    from prompt_programs.prepare import draw_seed, realize
+    from prompt_programs.prepare import DrawAborted, ProgramError, draw_seed, realize
     entry = await _prepare(req)
     if entry is None or entry.get("unsupported"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
-    result = realize(entry, seed=draw_seed(req.seed), pins=req.pins, edits=req.edits)
+    try:
+        result = realize(entry, seed=draw_seed(req.seed), pins=req.pins, edits=req.edits)
+    except DrawAborted as e:  # e.g. "Nothing left to draw for Hairstyle": shown at the choice
+        raise HTTPException(status_code=422, detail=e.to_dict()) from None
+    except ProgramError as e:
+        raise HTTPException(status_code=422, detail={"code": "program_failed", "message": str(e)}) from None
     return {"key": entry["key"], **result.to_dict()}

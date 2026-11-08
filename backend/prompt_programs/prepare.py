@@ -19,6 +19,7 @@ from core.logging import get_logger
 from prompt_programs.runtime import (
     LoraInfo, ProgramError, RunResult, check, discover, extract_code, run, tidy_text,
 )
+from prompt_programs.draws import DrawAborted, analyze, draw, uses_draws
 from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
@@ -316,6 +317,9 @@ def _word_count(text: str) -> int:
 
 def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[str],
              enhanced: str = "", elaborate: bool = True) -> Dict[str, Any]:
+    if uses_draws(source):  # phases and dependencies, checked on the code (raises ProgramError)
+        analyze(source)
+        draw(source, 11, None, loras, params)  # and the draw path runs it
     info = discover(source, loras, params)
     samples = [run(source, s, None, loras, params) for s in (11, 23, 37, 51)]
     problems: List[str] = []
@@ -567,8 +571,11 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
         loras = [LoraInfo(lo.name, lo.path, lo.weight, "") for lo in loras]
     clean_pins = {str(k): [str(x) for x in (v if isinstance(v, list) else [v])] for k, v in (pins or {}).items() if v}
     clean_edits = {str(k): v for k, v in (edits or {}).items() if isinstance(v, dict)}
-    result = run(entry["program"], seed, clean_pins, loras, set(entry.get("params") or {}) or None, fixed or None,
-                 clean_edits or None)
+    # Programs with pick specs take the phased draw path; programs prepared before it
+    # run exactly as they always have.
+    draw_fn = draw if uses_draws(entry["program"]) else run
+    result = draw_fn(entry["program"], seed, clean_pins, loras, set(entry.get("params") or {}) or None, fixed or None,
+                     clean_edits or None)
     if entry.get("exact"):  # the user's [exact text], straight to the image model
         result.prompt = unmask_exact(result.prompt, entry["exact"])
     return result
@@ -638,4 +645,5 @@ async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Seque
     return out
 
 
-__all__ = ["ensure_program", "realize", "draw_seed", "realized_text", "tidy_text", "suggest_options", "ProgramError"]
+__all__ = ["ensure_program", "realize", "draw_seed", "realized_text", "tidy_text", "suggest_options", "ProgramError",
+           "DrawAborted"]
