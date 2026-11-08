@@ -399,3 +399,11 @@ class TestPlainWordLoraNames:
         loras = [LoraInfo("facial krea", "k/f"), LoraInfo("KNP 000003000", "k/k")]
         assert prep.drop_lora_names("Soft light, facial krea, KNP 000003000.", loras, "x") == "Soft light."
         assert prep.drop_lora_names("prefacial kreative", loras, "x") == "prefacial kreative"
+
+    def test_ordinary_words_that_are_model_names_are_kept(self):
+        loras = [LoraInfo("XL", "k/xl"), LoraInfo("Pony", "k/p"), LoraInfo("Flux", "k/f")]
+        text = "A woman wearing an XL shirt, riding a pony, everything in flux."
+        assert prep.drop_lora_names(text, loras, "a woman, pick a lora") == text
+        src = 'emit("A woman wearing an XL shirt, riding a pony.")\n'
+        problems = prep.validate(src, "a woman in an oversized shirt, pick a lora", loras, set())["problems"]
+        assert not any("LoRA names" in p for p in problems)

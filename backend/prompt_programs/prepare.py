@@ -989,8 +989,9 @@ def _word_count(text: str) -> int:
     return len(re.findall(r"[\w'-]+", re.sub(r"\[\{.*?\}\]", " x ", text)))
 
 
-_MODEL_WORDS = {"krea", "flux", "sdxl", "xl", "sd", "lora", "pony", "illustrious", "qwen", "wan", "hunyuan",
-                "ltx", "chroma", "hidream", "klein", "lycoris", "locon"}
+# Words that only ever name models or LoRA kinds. Not ones that are also ordinary words
+# ("XL" shirts, "pony", "in flux"): a LoRA named only that is left alone.
+_MODEL_WORDS = {"krea", "sdxl", "lora", "loras", "qwen", "hunyuan", "ltx", "hidream", "lycoris", "locon"}
 
 
 def _name_like(name: str) -> bool:
