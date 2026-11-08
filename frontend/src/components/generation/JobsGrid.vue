@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col">
+  <div ref="rootEl" class="h-full flex flex-col">
     <!-- Empty only when there's truly nothing to show: a job whose chain is
          running is hidden from `jobs` (the chain bar represents it), so the
          bar must keep the grid alive or the whole strip blinks out. -->
@@ -139,7 +139,7 @@
 
         <!-- Completed batch output set - set tile -->
         <template v-if="item.type === 'completed-batch'">
-          <div class="jobs-group grid grid-cols-1">
+          <div class="jobs-group grid grid-cols-1" :data-reveal-key="item.key">
             <div
               class="jobs-tile group relative aspect-square rounded-media overflow-hidden cursor-pointer bg-matte"
               @click="$emit('job-click', { status: 'completed', result_media_id: item.batch.output_set_id, is_set: true, set_data: item.batch.output_set_data })"
@@ -205,6 +205,7 @@
         <!-- Completed media-batch (presentation-only) - same grid, all filled -->
         <template v-else-if="item.type === 'media-batch-done'">
           <BatchGroup
+            :data-reveal-key="item.key"
             :cells="batchCells(item.batch)"
             :total="item.batch.total"
             :completed-count="batchCompletedCount(item.batch)"
@@ -234,7 +235,7 @@
 
         <!-- Completed individual job - image tile -->
         <template v-else-if="item.type === 'completed-job'">
-          <div class="jobs-group grid grid-cols-1">
+          <div class="jobs-group grid grid-cols-1" :data-reveal-key="item.key">
             <JobTile
               :job="item.job"
               :is-video="jobIsVideo(item.job)"
@@ -276,7 +277,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { MediaImage, AppImage } from '../media'
 import PipelineProgressBar from './postprocessing/PipelineProgressBar.vue'
 import LiveJobTile from './LiveJobTile.vue'
@@ -781,6 +782,51 @@ const hiddenCompletedCount = computed(() =>
 watch(() => props.toolDisplayName, () => {
   completedDisplayLimit.value = COMPLETED_DISPLAY_CHUNK
 })
+
+// Bring a finished job's tile on screen, mounting older chunks if it sits past
+// the display cap. Jobs inside a set or a batch reveal their own cell when it
+// has one, else the group. Returns false when the job isn't in this grid.
+const rootEl = ref<HTMLElement | null>(null)
+async function revealJob(jobId: number): Promise<boolean> {
+  const index = completedDisplayItems.value.findIndex(item =>
+    item.job?.id === jobId || !!item.batch?.jobs?.some(j => j.id === jobId)
+  )
+  // Not in the finished list: it may still be a cell of a batch in progress.
+  if (index >= completedDisplayLimit.value) {
+    completedDisplayLimit.value = Math.ceil((index + 1) / COMPLETED_DISPLAY_CHUNK) * COMPLETED_DISPLAY_CHUNK
+  }
+  await nextTick()
+  const root = rootEl.value
+  if (!root) return false
+  const key = completedDisplayItems.value[index]?.key
+  const holder = root.querySelector<HTMLElement>(`[data-job-id="${jobId}"]`)
+    || (key ? root.querySelector<HTMLElement>(`[data-reveal-key="${key}"]`) : null)
+  // Measure the artwork: the phone strip lays its wrappers out as
+  // display: contents, which have no box of their own.
+  const el = holder?.querySelector<HTMLElement>('.jobs-tile') || holder
+  if (!el) return false
+  // Scroll only the rail's own scroller. scrollIntoView would also shift
+  // overflow-hidden ancestors (the phone strip, the view's frame).
+  const scroller = scrollParent(el)
+  if (!scroller) return true
+  const box = el.getBoundingClientRect()
+  const view = scroller.getBoundingClientRect()
+  // Leave a tile that is already fully on screen where it is.
+  if (box.top >= view.top && box.bottom <= view.bottom && box.left >= view.left && box.right <= view.right) return true
+  scroller.scrollTop += (box.top + box.height / 2) - (view.top + view.height / 2)
+  scroller.scrollLeft += (box.left + box.width / 2) - (view.left + view.width / 2)
+  return true
+}
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    const cs = getComputedStyle(node)
+    const scrollsY = /auto|scroll/.test(cs.overflowY) && node.scrollHeight > node.clientHeight
+    const scrollsX = /auto|scroll/.test(cs.overflowX) && node.scrollWidth > node.clientWidth
+    if (scrollsY || scrollsX) return node
+  }
+  return null
+}
+defineExpose({ revealJob })
 
 // Generation slots currently occupied by active items. A post-processing
 // chain does NOT hold a slot — the backend frees the generation slot before

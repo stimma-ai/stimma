@@ -468,3 +468,139 @@ async def test_metadata_only_builtin_tool_executes_in_process(tmp_path):
     assert result["count"] == 1
     assert result["image_size"] == {"width": 451, "height": 679}
     assert "media_id" not in result
+
+
+# ── output size follows the frame input ──────────────────────────────────────
+
+_VIDEO_DIMS = [[1344, 768], [768, 1344], [1024, 768], [768, 1024], [768, 768], [960, 544], [544, 960]]
+
+
+def _video_reg(extra_props=None):
+    props = {
+        "prompt": {"type": "string", "default": ""},
+        "input_images": {"type": "array"},
+        "width": {"type": "integer", "default": 1344, "x-allowed-dimensions": _VIDEO_DIMS},
+        "height": {"type": "integer", "default": 768},
+        "keyframes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"media": {"type": "string", "x-media": ["image", "video"]},
+                               "at": {"type": "number"}},
+            },
+        },
+    }
+    props.update(extra_props or {})
+    desc = _Desc(
+        name="Mock I2V",
+        task_types=["image-to-video"],
+        task_type="image-to-video",
+        parameter_schema={"type": "object", "properties": props, "required": ["prompt"]},
+    )
+
+    class _Reg2:
+        @staticmethod
+        def get_instance():
+            return _Reg2()
+
+        def get_tool(self, tool_id):
+            return (_Prov(), desc)
+
+    return _Reg2
+
+
+async def _submit(reg, parameters, dims_by_id):
+    captured = {}
+
+    class _Queue:
+        async def submit_job(self, **kw):
+            captured["params"] = kw["parameters"]
+            raise RuntimeError("__stop__")
+
+        async def cancel_job(self, *a, **k):
+            pass
+
+    async def _dims(media_id):
+        return dims_by_id.get(int(media_id))
+
+    with patch.object(ct, "ProviderRegistry", reg), \
+         patch.object(ct, "get_generation_queue", lambda: _Queue()), \
+         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"), \
+         patch.object(ct, "_media_dims", _dims):
+        with pytest.raises(RuntimeError, match="__stop__"):
+            await ct.execute_call_tool(
+                tool_id="comfyui:mock-i2v",
+                parameters=parameters,
+                task_type_override="image-to-video",
+                session=object(),
+            )
+    return captured["params"]
+
+
+@pytest.mark.asyncio
+async def test_omitted_size_follows_portrait_start_frame():
+    """A portrait start frame on a tool whose default is landscape gets the
+    portrait pair at the default's size, not the landscape default."""
+    p = await _submit(_video_reg(), {"prompt": "walks", "input_images": [11]}, {11: (896, 1152)})
+    assert (p["width"], p["height"]) == (768, 1024)
+
+
+@pytest.mark.asyncio
+async def test_omitted_size_follows_earliest_keyframe_over_reference_images():
+    """Pinned keyframes are frames of the output; reference images are not."""
+    p = await _submit(
+        _video_reg(),
+        {"prompt": "walks", "input_images": [5],
+         "keyframes": [{"media": 22, "at": -1}, {"media": 21, "at": 0}]},
+        {5: (1024, 1024), 21: (768, 1344), 22: (1344, 768)},
+    )
+    assert (p["width"], p["height"]) == (768, 1344)
+
+
+@pytest.mark.asyncio
+async def test_explicit_size_is_kept_even_when_frame_differs():
+    p = await _submit(
+        _video_reg(),
+        {"prompt": "walks", "input_images": [11], "width": 1344, "height": 768},
+        {11: (896, 1152)},
+    )
+    assert (p["width"], p["height"]) == (1344, 768)
+
+
+@pytest.mark.asyncio
+async def test_omitted_aspect_ratio_follows_start_frame():
+    reg = _video_reg({"aspect_ratio": {"type": "string", "enum": ["16:9", "9:16", "1:1"], "default": "16:9"}})
+    p = await _submit(reg, {"prompt": "walks", "input_images": [11]}, {11: (720, 1280)})
+    assert p["aspect_ratio"] == "9:16"
+
+
+@pytest.mark.asyncio
+async def test_without_a_frame_input_schema_default_size_stands():
+    p = await _submit(_video_reg(), {"prompt": "walks"}, {})
+    assert (p["width"], p["height"]) == (1344, 768)
+
+
+def test_follow_input_dims_freeform_scales_into_bounds():
+    from agent.tools.stp_utils import follow_input_dims
+
+    desc = SimpleNamespace(parameter_schema={"properties": {
+        "width": {"type": "integer", "default": 1024, "minimum": 256, "maximum": 2048, "x-step": 16},
+        "height": {"type": "integer", "default": 1024, "minimum": 256, "maximum": 2048, "x-step": 16},
+    }})
+    # Too large: scaled uniformly, aspect kept (not clamped per axis to a square).
+    assert follow_input_dims(desc, 4000, 3000) == (2048, 1536)
+    # In range: the input's own size.
+    assert follow_input_dims(desc, 896, 1152) == (896, 1152)
+
+
+def test_follow_input_dims_list_tool_keeps_default_short_edge():
+    """A square default on a multi-tier list keeps its short edge at the
+    input's shape (ToolView's tier), rather than its pixel area."""
+    from agent.tools.stp_utils import follow_input_dims
+
+    desc = SimpleNamespace(parameter_schema={"properties": {
+        "width": {"type": "integer", "default": 1536,
+                  "x-allowed-dimensions": [[1536, 1536], [1080, 1920], [1440, 2560], [2048, 2048]]},
+        "height": {"type": "integer", "default": 1536},
+    }})
+    assert follow_input_dims(desc, 720, 1280) == (1440, 2560)

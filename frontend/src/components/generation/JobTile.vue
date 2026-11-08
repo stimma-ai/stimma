@@ -1,5 +1,5 @@
 <template>
-  <div class="job-tile group flex flex-col">
+  <div class="job-tile group flex flex-col" :data-job-id="job.id">
     <!-- Artwork: natural aspect ratio at full rail width when dimensions are
          known (fit mode) — the image IS the tile, no matte letterbox. Falls
          back to the square matte until dims load / in cover mode. -->

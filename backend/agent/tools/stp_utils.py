@@ -5,6 +5,7 @@ Helpers for LoRA resolution, dimension snapping, and tool schema inspection.
 Used by v2 agent tools (call_tool, discover).
 """
 
+import math
 import os
 import re
 from collections import defaultdict
@@ -249,6 +250,40 @@ def snap_dims_to_schema(tool_descriptor, width: float, height: float) -> Tuple[i
         snap_axis(width, props.get("width", {})),
         snap_axis(height, props.get("height", props.get("width", {}))),
     )
+
+
+def follow_input_dims(tool_descriptor, src_w: float, src_h: float) -> Tuple[int, int]:
+    """Output size for a call that left width/height to the tool, given the
+    input that sets the frame. Mirrors ToolView's default resolution policy:
+    the shape always follows the input; a tool with a fixed size list keeps
+    the short edge of its default pair, while a freeform tool also follows the
+    input's size, scaled uniformly into the schema's bounds."""
+    props = (tool_descriptor.parameter_schema or {}).get("properties", {})
+    allowed = _get_allowed_dimensions(tool_descriptor)
+    if allowed:
+        target = math.log(src_w / src_h)
+
+        def dist(pair):
+            return abs(math.log(pair[0] / pair[1]) - target)
+
+        best = min(dist(p) for p in allowed)
+        shape = [p for p in allowed if dist(p) - best < 0.02]
+        try:
+            tier = min(float(props["width"]["default"]), float(props["height"]["default"]))
+        except (KeyError, TypeError, ValueError):
+            tier = float(min(shape[0]))
+        pick = min(shape, key=lambda p: abs(min(p) - tier))
+        return int(pick[0]), int(pick[1])
+
+    w_p = props.get("width", {})
+    h_p = props.get("height", w_p)
+    low = max((w_p.get("minimum") or 0) / src_w, (h_p.get("minimum") or 0) / src_h)
+    high = min(
+        (w_p.get("maximum") or math.inf) / src_w,
+        (h_p.get("maximum") or math.inf) / src_h,
+    )
+    scale = min(high, max(low, 1.0))
+    return snap_dims_to_schema(tool_descriptor, src_w * scale, src_h * scale)
 
 
 def nearest_aspect_choice(choices: List[Any], width: float, height: float) -> Optional[str]:

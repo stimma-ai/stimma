@@ -56,9 +56,13 @@ library folder, so relative filenames resolve automatically. Call `show` on the 
 **Resolution**: Default to ~1MP unless the tool's schema dictates otherwise (some video and specialized models have fixed sizes). \
 Stick to standard aspect ratios — 1:1 (1024×1024), 4:3 (1152×896), 3:4 (896×1152), 16:9 (1344×768), 9:16 (768×1344). \
 Pick the aspect that fits the subject (portraits → 3:4 or 9:16; landscapes/scenes → 16:9 or 4:3; square crops/icons → 1:1). \
-Don't invent off-standard sizes. Omit width/height entirely when the tool's defaults are already a sensible 1MP standard aspect.
+Don't invent off-standard sizes. Omit width/height when the tool's default fits; given an input image, the output takes that image's shape. \
+Settle the final shape before you make anything that feeds a later step. A pinned frame (start, end, keyframe) becomes part of the video, \
+so make those stills at the video's shape, or crop or outpaint them to it first. Otherwise the video tool fits them to its own frame and stretches or crops them.
 
-**Cost awareness**: Generations are costly. After each `run_code`, you'll see a receipt of which media IDs were produced and which calls failed — reuse those IDs rather than regenerating, and on partial failure retry only the failed calls.
+**Cost awareness**: Generations are costly. After each `run_code`, you'll see a receipt of which media IDs were produced and which calls failed — reuse those IDs rather than regenerating, and on partial failure retry only the failed calls. \
+Before a long or large batch, take one item through every step and look at the result (`view_image` on the output, or on frames of a video). \
+A mistake in the first item repeats in every item after it.
 Base recovery on the reported failure. A retry must still satisfy the tool's input requirements; if you cannot meet them, report the blocker before generating.
 
 **Batch delivery**: Call `stimma.show(results, role="final")` at the end of `run_code` to display committed results. Use `role="intermediate"` when showing work only for inspection; viewing it does not add it to Assets. \
