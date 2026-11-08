@@ -933,7 +933,9 @@ def fix_list_sources(source: str, prompt: str) -> Tuple[str, List[str]]:
         earlier = taken.setdefault(idx, [])
         # "{red|blue} car next to a {red|blue} bike" writes the list twice: two free draws.
         # One list written once but held by several picks is one list filling several places.
-        shared = holders[idx] > times[tuple(lists[idx])]
+        # Only when the prompt writes the list once: with copies elsewhere ("coats in
+        # different {red|blue}" beside "a {red|blue} car") which picks share it is a guess.
+        shared = times[tuple(lists[idx])] == 1 and holders[idx] > 1
         if shared and earlier and not any(k.arg == "exclude" for k in call.keywords) and len(earlier) < len(values):
             add.append(f"exclude=[{', '.join(earlier)}]")
             notes.append(f"{var} draws from the same list as {', '.join(earlier)}: a different value")
@@ -1390,7 +1392,9 @@ def patch_lists(source: str, old: str, new: str) -> Optional[str]:
         found = holders.get(tuple(o.strip() for o in a.split("|"))) or []
         # One list can fill several places (each its own pick); that's only certain when
         # the old prompt wrote it once. Two identical lists, one edited, is ambiguous.
-        if not found or (len(found) > 1 and before.count(a) != 1):
+        items = tuple(o.strip() for o in a.split("|"))
+        written = sum(1 for x in before if tuple(o.strip() for o in x.split("|")) == items)
+        if not found or (len(found) > 1 and written != 1):
             return None
         text = "[" + ", ".join(json.dumps(o.strip(), ensure_ascii=False) for o in b.split("|")) + "]"
         for node in found:

@@ -199,3 +199,16 @@ class TestListReviewFixes:
         src = ('a = pick("car", ["red", "blue"], source="list", line=1)\n'
                'b = pick("bike", ["red", "blue"], source="list", line=1)\nemit("A", a, "car next to a", b, "bicycle.")\n')
         assert prep.patch_lists(src, old, "A {red|green} car next to a {red|blue} bicycle.") is None
+
+    def test_a_list_written_twice_never_gains_exclusions(self):
+        prompt = "Two friends in different {red|blue|green} coats beside a {red|blue|green} car."
+        src = ('a = pick("coat1", ["red", "blue", "green"], line=1)\nb = pick("coat2", ["red", "blue", "green"], line=1)\n'
+               'c = pick("car", ["red", "blue", "green"], line=1)\nemit("Two friends in", a, "and", b, "coats beside a", c, "car.")\n')
+        fixed, _ = prep.fix_list_sources(src, prompt)
+        assert "exclude" not in fixed and fixed.count('source="list"') == 3
+
+    def test_patch_counts_lists_the_way_it_matches_them(self):
+        old = "A {red|blue} car next to a {red | blue} bicycle."
+        src = ('a = pick("car", ["red", "blue"], source="list", line=1)\n'
+               'b = pick("bike", ["red", "blue"], source="list", line=1)\nemit("A", a, "car next to a", b, "bicycle.")\n')
+        assert prep.patch_lists(src, old, "A {red|blue|green} car next to a {red | blue} bicycle.") is None
