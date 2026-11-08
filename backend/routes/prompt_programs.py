@@ -110,6 +110,18 @@ async def options(req: OptionsRequest) -> Dict[str, Any]:
     return {"options": out}
 
 
+@router.post("/pools")
+async def pools(req: PreviewRequest) -> Dict[str, Any]:
+    """What each generated choice's picker shows: its seeds plus the options generated so far."""
+    import asyncio
+    from prompt_programs.fluent import attach_filler, pool_options
+    entry = await _prepare(req.model_copy(update={"cache_only": True}))
+    if entry is None or entry.get("unsupported"):
+        return {"options": {}, "more": []}
+    attach_filler(entry, get_current_profile())
+    return await asyncio.to_thread(pool_options, entry, req.pins, profile_id=get_current_profile(), project_id=req.project_id)
+
+
 @router.post("/preview")
 async def preview(req: PreviewRequest) -> Dict[str, Any]:
     import asyncio

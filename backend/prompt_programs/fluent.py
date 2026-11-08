@@ -160,6 +160,47 @@ def start_options(entry: Dict[str, Any], *, profile_id: Optional[str] = None, pr
         return []
 
 
+# --------------------------------------------------------------------------- what a picker shows
+
+POOL_DRAWS = 4  # null-judge draws per pick: enough to visit the pool its upstream picks key
+
+
+def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *, profile_id: Optional[str] = None,
+                 project_id: Optional[int] = None, store: Optional[OptionStore] = None,
+                 cfg: Optional[FluentSettings] = None) -> Dict[str, Any]:
+    """The options each generated pick draws from now: its seeds plus whatever has been
+    generated, for the upstream values pinned (or drawn, when nothing upstream is pinned).
+    A pick's own pins don't narrow what it shows. Never calls a model (an unseen pool is
+    queued to fill, like any draw); `more` lists picks whose pools are still filling."""
+    out: Dict[str, List[str]] = {}
+    more: List[str] = []
+    if not uses_draws(entry.get("program") or ""):
+        return {"options": out, "more": more}
+    rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, judge=NullJudge(), cfg=cfg)
+    loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
+    params = set(entry.get("params") or {}) or None
+    pins = {k: v for k, v in (pins or {}).items() if v}
+    generated = [c["id"] for c in entry.get("choices") or [] if c.get("kind") == "pick" and c.get("source") != "list"]
+    for cid in generated:
+        others = {k: v for k, v in pins.items() if k != cid}
+        seen: List[str] = []
+        for seed in range(POOL_DRAWS):
+            try:
+                res = draw(entry["program"], 7919 * seed + 3, others, loras, params, None, None,
+                           options=rt.options, judge=NullJudge(), legacy=legacy_program(entry))
+            except ProgramError:
+                continue
+            if cid in (res.more_coming or []) and cid not in more:
+                more.append(cid)
+            for d in res.draws:
+                if d.id == cid:
+                    seen.extend(o for o in d.options if o not in seen)
+            rt.options.reset()
+        if seen:
+            out[cid] = seen[:60]
+    return {"options": out, "more": more}
+
+
 # --------------------------------------------------------------------------- judgment prefill
 
 _prefill_lock = threading.Lock()

@@ -319,10 +319,31 @@ export function usePromptProgram(o: Options) {
   const choices = computed(() => (program.value?.choices || []).filter(c => !c.hidden))
   const byId = computed(() => Object.fromEntries(choices.value.map(c => [c.id, c])))
 
+  // What each generated choice draws from now: its seeds plus the options generated in the
+  // background (they keep arriving for a while after preparing).
+  const pools = ref<Record<string, string[]>>({})
+  let poolsTimer: ReturnType<typeof setTimeout> | null = null
+  let poolsId = 0
+  async function fetchPools(rounds = 0) {
+    if (poolsTimer) { clearTimeout(poolsTimer); poolsTimer = null }
+    if (status.value !== 'ready') return
+    const sig = signature.value
+    const id = ++poolsId
+    try {
+      const { data } = await axios.post(`${getApiBase()}/prompt-programs/pools`, request({ pins: pins.value }))
+      if (id !== poolsId || sig !== signature.value) return
+      pools.value = data?.options || {}
+      if ((data?.more || []).length && rounds < 20) poolsTimer = setTimeout(() => { void fetchPools(rounds + 1) }, 3000)
+    } catch { /* the seeds still show */ }
+  }
+  watch([() => program.value?.key, pins], () => { void fetchPools() })
+  onUnmounted(() => { if (poolsTimer) clearTimeout(poolsTimer) })
+
   function optionsOf(c: ProgramChoice): string[] {
     const e = edits.value[c.id] || {}
     const removed = new Set(e.remove || [])
-    return [...c.options.filter(x => !removed.has(x)), ...(e.add || []).filter(x => !c.options.includes(x))]
+    const base = [...c.options, ...(pools.value[c.id] || []).filter(x => !c.options.includes(x))]
+    return [...base.filter(x => !removed.has(x)), ...(e.add || []).filter(x => !base.includes(x))]
   }
 
   function visible(c: ProgramChoice): boolean {
