@@ -26,7 +26,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-21"
+PREPARE_VERSION = "pp-22"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -986,6 +986,19 @@ def _word_count(text: str) -> int:
     return len(re.findall(r"[\w'-]+", re.sub(r"\[\{.*?\}\]", " x ", text)))
 
 
+def _lora_marks(names: Sequence[str]) -> Set[str]:
+    """The word that tells each LoRA of a set apart ("acups" in "KREA2 bodyshop acups v1"),
+    with the words they all share left out."""
+    words = [_words(n) for n in names]
+    common = set.intersection(*words) if words else set()
+    marks: Set[str] = set()
+    for w in words:
+        rest = w - common
+        if len(rest) == 1:
+            marks |= rest
+    return marks
+
+
 def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[str],
              enhanced: str = "", elaborate: bool = True) -> Dict[str, Any]:
     if uses_draws(source):  # phases and dependencies, checked on the code (raises ProgramError)
@@ -1042,6 +1055,24 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
             problems.append(f'Don\'t write LoRA names into the prompt ("{named[0]}"). pick_lora() already turns the LoRA on; '
                             "emit only words that describe the image.")
             break
+    lora_sets = [(c["id"], set(c.get("options") or [])) for c in info["choices"] if c.get("kind") == "lora"]
+    for i, (a, sa) in enumerate(lora_sets):  # a LoRA applies to the whole image: two picks stack
+        for b, sb in lora_sets[i + 1:]:
+            if sa & sb:
+                problems.append(f'pick_lora("{a}") and pick_lora("{b}") choose from the same LoRAs, so every image '
+                                "would get two of them: a LoRA applies to the whole image, not to one person. "
+                                "Use one pick_lora for them.")
+    named: Set[str] = set()
+    for cid, names in lora_sets:  # the LoRA carries its trait; text that names it can disagree with it
+        marks = _lora_marks(names)
+        for c in info["choices"]:
+            if c["id"] in named:
+                continue
+            if c.get("kind") == "pick" and len({o.lower().strip() for o in c.get("options") or []} & marks) >= 2:
+                named.add(c["id"])
+                problems.append(f'pick("{c["id"]}") names the same things as pick_lora("{cid}") ({", ".join(c["options"][:3])}…), '
+                                "so the text can disagree with the LoRA that's on. The LoRA alone carries it: remove that pick "
+                                "and don't describe it in the text.")
     for r in samples:  # parameters are set by param(); the image model must not read them
         for name in r.params:
             if re.search(rf"\b{re.escape(name)}\b\s*[:=]?\s*[0-9]", r.prompt, re.I):

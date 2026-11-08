@@ -3,7 +3,7 @@
     :class="[
       'group flex items-start gap-1.5 py-1.5 border-b border-edge-subtle last:border-b-0 text-sm text-content select-none cursor-pointer transition-colors',
       'coarse:items-center coarse:min-h-11 coarse:py-0',
-      unavailable ? 'opacity-60' : (item.enabled || programLabel) ? '' : 'opacity-50'
+      unavailable ? 'opacity-60' : (item.enabled || owned) ? '' : 'opacity-50'
     ]"
     @pointerdown="onPointerDown"
     @click.stop="onClick"
@@ -11,9 +11,9 @@
   >
     <!-- Enable dot -->
     <div class="shrink-0 w-3 flex items-center justify-center mt-[5px] coarse:mt-0">
-      <div v-if="item.enabled && !unavailable" class="w-2.5 h-2.5 rounded-full bg-accent-hi" />
-      <!-- Off, but the prompt picks it (a prompt-program choice) -->
-      <div v-else-if="programLabel && !unavailable" class="w-2.5 h-2.5 rounded-full bg-selection ring-2 ring-selection/30" />
+      <!-- The prompt owns this one: it's on when the prompt picks it, whatever its switch says -->
+      <LockClosedIcon v-if="owned" class="w-3 h-3 text-selection" data-program-lock />
+      <div v-else-if="item.enabled && !unavailable" class="w-2.5 h-2.5 rounded-full bg-accent-hi" />
       <div v-else class="w-2.5 h-2.5 rounded-full border border-content-muted" />
     </div>
 
@@ -28,23 +28,20 @@
           class="shrink-0 text-[9px] leading-none px-1 py-0.5 rounded bg-overlay-subtle text-content-tertiary font-mono"
         >{{ chip }}</span>
         <span
-          v-if="programLabel && !unavailable"
+          v-if="owned"
           class="shrink-0 text-[9px] leading-none px-1 py-0.5 rounded bg-selection/15 text-selection font-mono uppercase"
           data-program-mark
-          :title="`Your prompt picks this (${programLabel})`"
-        >prompt</span>
-      </div>
-      <div v-if="programLabel && !item.enabled && !unavailable" class="mt-0.5 truncate text-[11px] leading-snug text-content-tertiary">
-        {{ programLabel }} picks{{ triggerWords.length ? ` · ${triggerWords.join(', ')}` : '' }}
+          :title="`Your prompt decides when this is on (${programLabel})`"
+        >set by prompt</span>
       </div>
       <div v-if="showRaw" class="font-mono text-[10px] text-content-muted truncate mt-0.5">
         {{ item.lora }}
       </div>
       <!-- Only rows that are on: the words this LoRA needs, or what's missing
            when the prompt goes out verbatim. -->
-      <template v-if="item.enabled && !unavailable && triggerWords.length">
+      <template v-if="(item.enabled || owned) && !unavailable && triggerWords.length">
         <div
-          v-if="missingTrigger"
+          v-if="missingTrigger && !owned"
           class="mt-0.5 text-[11px] leading-snug text-amber-600 dark:text-amber-400"
           data-lora-trigger-warning
         >
@@ -129,6 +126,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { LockClosedIcon } from '@heroicons/vue/24/outline'
 import type { LoraPoolItem } from '../../composables/useLoraPool'
 import { getDirectoryPath } from '../../composables/useLoraDisplayNames'
 import ScrubValue from '../ui/ScrubValue.vue'
@@ -172,6 +170,9 @@ const emit = defineEmits<{
   (e: 'insert-trigger', word: string): void
   (e: 'program', event: MouseEvent): void
 }>()
+
+/** The prompt chooses among this LoRA, so the prompt, not its switch, decides when it runs. */
+const owned = computed(() => !!props.programLabel && !props.unavailable)
 
 const directoryPath = computed(() => getDirectoryPath(props.item.lora))
 
@@ -218,9 +219,9 @@ function onClick(event: MouseEvent) {
     suppressClick.value = false
     return
   }
-  // A LoRA the prompt picks opens the choice that picks it (pin it there); one you
-  // turned on yourself toggles as usual.
-  if (props.programLabel && !props.item.enabled && !props.unavailable) {
+  // A LoRA the prompt owns opens the choice that picks it (pin it there): its own
+  // switch doesn't apply while the prompt chooses among it.
+  if (owned.value) {
     emit('program', event)
     return
   }

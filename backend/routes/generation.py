@@ -594,13 +594,21 @@ async def _run_prompt_program(
         raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
     except LLMUnavailableError as e:
         raise HTTPException(status_code=424, detail=f"Generation was not started: {e}") from None
+    by_name = {lo.get("name"): lo.get("path") for lo in entry.get("loras") or [] if isinstance(lo, dict)}
+    controlled = sorted({by_name[n] for names in (entry.get("lora_choices") or {}).values() for n in names if by_name.get(n)})
     record = {"key": entry["key"], "mode": entry.get("mode"), "elaborate": entry.get("elaborate", True), **result.to_dict(), "pins": program_opts.get("pins") or {},
+              "lora_controlled": controlled,
               "choices": [c for c in entry.get("choices") or [] if not c.get("hidden")]}
     return record, result.prompt
 
 
 def _apply_program_run(updated: Dict[str, Any], record: Dict[str, Any], schema_props: Dict[str, Any]) -> None:
     """Add the program's LoRAs and parameter values to one job's parameters."""
+    controlled = set(record.get("lora_controlled") or [])
+    picked = {lu.get("path") for lu in record.get("loras") or []}
+    if controlled:  # the prompt owns the LoRAs it chooses among: only the picked ones run
+        updated["loras"] = [x for x in (updated.get("loras") or []) if not isinstance(x, dict)
+                            or str(x.get("lora") or x.get("path") or "") not in controlled - picked]
     if record.get("loras"):
         current = list(updated.get("loras") or [])
         have = {str(x.get("lora") or x.get("path") or "") for x in current if isinstance(x, dict)}

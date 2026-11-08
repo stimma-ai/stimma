@@ -212,3 +212,53 @@ class TestListReviewFixes:
         src = ('a = pick("car", ["red", "blue"], source="list", line=1)\n'
                'b = pick("bike", ["red", "blue"], source="list", line=1)\nemit("A", a, "car next to a", b, "bicycle.")\n')
         assert prep.patch_lists(src, old, "A {red|blue|green} car next to a {red | blue} bicycle.") is None
+
+
+class TestPromptOwnsItsLoras:
+    def test_only_the_picked_one_of_the_prompts_loras_runs(self):
+        from routes.generation import _apply_program_run
+        updated = {"prompt": "x", "loras": [
+            {"lora": "k/flat.safetensors", "weight": 0.7},      # on in the panel, one the prompt chooses among
+            {"lora": "k/phone.safetensors", "weight": 1.0},     # on in the panel, not the prompt's
+        ]}
+        record = {"key": "k", "loras": [{"path": "k/torpedo.safetensors", "weight": 0.6}],
+                  "lora_controlled": ["k/flat.safetensors", "k/torpedo.safetensors", "k/acups.safetensors"]}
+        _apply_program_run(updated, record, {})
+        assert [x["lora"] for x in updated["loras"]] == ["k/phone.safetensors", "k/torpedo.safetensors"]
+
+    def test_a_picked_lora_already_on_stays_once(self):
+        from routes.generation import _apply_program_run
+        updated = {"prompt": "x", "loras": [{"lora": "k/flat.safetensors", "weight": 0.7}]}
+        record = {"key": "k", "loras": [{"path": "k/flat.safetensors", "weight": 0.7}], "lora_controlled": ["k/flat.safetensors"]}
+        _apply_program_run(updated, record, {})
+        assert [x["lora"] for x in updated["loras"]] == ["k/flat.safetensors"]
+
+    def test_records_without_the_list_keep_the_old_behaviour(self):
+        from routes.generation import _apply_program_run
+        updated = {"prompt": "x", "loras": [{"lora": "k/flat.safetensors", "weight": 0.7}]}
+        _apply_program_run(updated, {"key": "k", "loras": [{"path": "k/torpedo.safetensors", "weight": 0.6}]}, {})
+        assert [x["lora"] for x in updated["loras"]] == ["k/flat.safetensors", "k/torpedo.safetensors"]
+
+
+class TestOneLoraPickPerSet:
+    PROMPT = "Two friends on a sofa. Pick a breast lora per photo: acups, torpedo, bcups."
+
+    def test_two_picks_from_the_same_set_are_sent_back(self):
+        src = ('a = pick_lora("g1_lora", ["acups", "torpedo", "bcups"], line=1)\n'
+               'b = pick_lora("g2_lora", ["acups", "torpedo", "bcups"], line=1)\n'
+               'emit("Two friends on a sofa.")\n')
+        problems = prep.validate(src, self.PROMPT, LORAS, set())["problems"]
+        assert any("same LoRAs" in p for p in problems)
+
+    def test_text_that_names_the_loras_is_sent_back(self):
+        src = ('b = pick_lora("breasts", ["acups", "torpedo", "bcups"], line=1)\n'
+               't = pick("breast_type", ["acups", "torpedo", "bcups"], label="Breasts", line=1)\n'
+               'emit("Two friends on a sofa, her", t, "breasts.")\n')
+        problems = prep.validate(src, self.PROMPT, LORAS, set())["problems"]
+        assert any("names the same things" in p for p in problems)
+
+    def test_one_pick_and_plain_text_pass_those_checks(self):
+        src = ('b = pick_lora("breasts", ["acups", "torpedo", "bcups"], line=1)\n'
+               'emit("Two friends on a sofa.")\n')
+        problems = prep.validate(src, self.PROMPT, LORAS, set())["problems"]
+        assert not any("same LoRAs" in p or "names the same things" in p for p in problems)
