@@ -166,3 +166,36 @@ class TestPrepareLimit:
         monkeypatch.setattr(prep, "_ask_model", ask)
         entry = await _ensure()
         assert len(calls) == 1 and entry["attempts"] == 1
+
+
+class TestListReviewFixes:
+    def test_the_same_list_written_twice_draws_freely(self):
+        prompt = "A {red|blue} car next to a {red|blue} bicycle."
+        src = ('a = pick("car", ["red", "blue"], line=1)\nb = pick("bike", ["red", "blue"], line=1)\n'
+               'emit("A", a, "car next to a", b, "bicycle.")\n')
+        fixed, _ = prep.fix_list_sources(src, prompt)
+        assert fixed.count('source="list"') == 2 and "exclude" not in fixed
+        pairs = {tuple(d.value for d in run(fixed, s, None, [], set()).draws) for s in range(40)}
+        assert ("red", "red") in pairs and ("blue", "blue") in pairs
+
+    def test_multiline_call_with_trailing_comment(self):
+        src = ('c1 = pick("color1", ["hot pink", "jet black", "teal"],\n'
+               '         label="Color 1", line=1)\n'
+               'c2 = pick(\n    "color2",\n    ["hot pink", "jet black", "teal"],\n    line=1,  # the second friend\n)\n'
+               'emit("Two friends in", c1, "and", c2, "bodysuits.")\n')
+        fixed, _ = prep.fix_list_sources(src, LIST_PROMPT)
+        import ast as _ast
+        _ast.parse(fixed)
+        assert 'exclude=[c1]' in fixed and fixed.count('source="list"') == 2
+
+    def test_patching_a_shared_list_updates_every_pick(self):
+        fixed, _ = prep.fix_list_sources(TWO_PICKS, LIST_PROMPT)
+        new_prompt = LIST_PROMPT.replace("teal", "mint")
+        patched = prep.patch_lists(fixed, LIST_PROMPT, new_prompt)
+        assert patched is not None and patched.count('"mint"') == 2 and '"teal"' not in patched
+
+    def test_patching_one_of_two_identical_lists_is_ambiguous(self):
+        old = "A {red|blue} car next to a {red|blue} bicycle."
+        src = ('a = pick("car", ["red", "blue"], source="list", line=1)\n'
+               'b = pick("bike", ["red", "blue"], source="list", line=1)\nemit("A", a, "car next to a", b, "bicycle.")\n')
+        assert prep.patch_lists(src, old, "A {red|green} car next to a {red|blue} bicycle.") is None

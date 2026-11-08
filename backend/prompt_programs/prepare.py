@@ -887,9 +887,11 @@ def fix_list_sources(source: str, prompt: str) -> Tuple[str, List[str]]:
     and give the second and later picks of the same list exclude= of the earlier ones,
     so one list can fill several places with different values. Returns the source and
     what changed."""
-    lists = [[o.strip() for o in m.group(1).split("|")] for m in _INLINE_LIST.finditer(prompt)]
-    if not lists:
+    written = [tuple(o.strip() for o in m.group(1).split("|")) for m in _INLINE_LIST.finditer(prompt)]
+    if not written:
         return source, []
+    lists = [list(t) for t in dict.fromkeys(written)]
+    times = {t: written.count(t) for t in written}  # how often the prompt writes each list
     try:
         tree = ast.parse(source)
     except SyntaxError:
@@ -898,6 +900,16 @@ def fix_list_sources(source: str, prompt: str) -> Tuple[str, List[str]]:
     edits: List[Tuple[int, int, str]] = []
     notes: List[str] = []
     taken: Dict[int, List[str]] = {}  # list index -> variables of its picks so far
+    holders = {i: 0 for i in range(len(lists))}
+    for st in tree.body:  # count first: exclusions only when picks outnumber the places written
+        call = st.value if isinstance(st, ast.Assign) else None
+        if isinstance(call, ast.Call) and getattr(call.func, "id", None) == "pick":
+            opts = call.args[1] if len(call.args) > 1 else next((k.value for k in call.keywords if k.arg == "options"), None)
+            if isinstance(opts, ast.List):
+                vals = [str(e.value).strip() for e in opts.elts if isinstance(e, ast.Constant)]
+                idx = next((i for i, lst in enumerate(lists) if lst == vals), None)
+                if idx is not None:
+                    holders[idx] += 1
     for st in tree.body:  # top-level `name = pick(...)` only: order and scope are plain there
         if not (isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name)
                 and isinstance(st.value, ast.Call) and getattr(st.value.func, "id", None) == "pick"):
@@ -919,15 +931,17 @@ def fix_list_sources(source: str, prompt: str) -> Tuple[str, List[str]]:
         if src is None or not (isinstance(src.value, ast.Constant) and src.value.value == "list"):
             notes.append(f"{var} marked as the user's list")
         earlier = taken.setdefault(idx, [])
-        if earlier and not any(k.arg == "exclude" for k in call.keywords) and len(earlier) < len(values):
+        # "{red|blue} car next to a {red|blue} bike" writes the list twice: two free draws.
+        # One list written once but held by several picks is one list filling several places.
+        shared = holders[idx] > times[tuple(lists[idx])]
+        if shared and earlier and not any(k.arg == "exclude" for k in call.keywords) and len(earlier) < len(values):
             add.append(f"exclude=[{', '.join(earlier)}]")
             notes.append(f"{var} draws from the same list as {', '.join(earlier)}: a different value")
         earlier.append(var)
-        if add:
-            end = pos(call.end_lineno, call.end_col_offset) - 1  # the closing paren
-            head = source[:end].rstrip()
-            sep = "" if head.endswith(("(", ",")) else ", "
-            edits.append((end, end, sep + ", ".join(add)))
+        if add:  # right after the last argument: a trailing comma or comment after it stays valid
+            last = max([*call.args, *(k.value for k in call.keywords)], key=lambda n: (n.end_lineno, n.end_col_offset))
+            end = pos(last.end_lineno, last.end_col_offset)
+            edits.append((end, end, ", " + ", ".join(add)))
     for start, end, text in sorted(edits, reverse=True):
         source = source[:start] + text + source[end:]
     return source, notes
@@ -1350,7 +1364,8 @@ def _patch_base(store: ProgramStore, context: str, prompt: str) -> Optional[Dict
 
 def patch_lists(source: str, old: str, new: str) -> Optional[str]:
     """Rewrite the options of user-list picks whose {a|b} items changed. None if a
-    changed list has no single pick holding exactly its old items."""
+    changed list has no pick holding exactly its old items, or several picks hold them and
+    the old prompt wrote that list more than once."""
     _, before = _lists_and_frame(old)
     _, after = _lists_and_frame(new)
     try:
@@ -1373,11 +1388,13 @@ def patch_lists(source: str, old: str, new: str) -> Optional[str]:
         if a == b:
             continue
         found = holders.get(tuple(o.strip() for o in a.split("|"))) or []
-        if len(found) != 1:
+        # One list can fill several places (each its own pick); that's only certain when
+        # the old prompt wrote it once. Two identical lists, one edited, is ambiguous.
+        if not found or (len(found) > 1 and before.count(a) != 1):
             return None
-        node = found[0]
         text = "[" + ", ".join(json.dumps(o.strip(), ensure_ascii=False) for o in b.split("|")) + "]"
-        edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset), text))
+        for node in found:
+            edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset), text))
     for start, end, text in sorted(edits, reverse=True):
         source = source[:start] + text + source[end:]
     return source
