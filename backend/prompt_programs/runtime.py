@@ -485,6 +485,47 @@ class Choice:
         return d
 
 
+_SUBJECT_LABEL = re.compile(r"^(?P<subject>[A-Za-z][A-Za-z ]*?)\s*(?P<index>\d{1,2})\s*[:·-]?\s+(?P<attr>[A-Za-z][\w ]*)$")
+
+
+def _group_by_subject(choices: Dict[str, "Choice"], order: List[str], groups: Dict[str, Dict[str, Any]]) -> None:
+    """Show one subject's details together. Picks written out by hand per person
+    ("Girl 1 Hair", "Girl 1 Eyes", "Girl 2 Hair", or ids like girl[1].hair) become a group,
+    as if the program had looped with group(): the card shows Girl ×2 with Hair and Eyes
+    as rows. Ids, pins and draws are unchanged; only the display structure is added."""
+    found: Dict[str, List[Tuple["Choice", int, str]]] = {}
+    labels: Dict[str, str] = {}
+    for cid in order:
+        c = choices[cid]
+        if c.group or c.kind == "param":
+            continue
+        m = _SUBJECT_LABEL.match(c.label.strip())
+        if not m:
+            continue
+        subject = m.group("subject").strip()
+        key = re.sub(r"[^a-z0-9]+", "_", subject.lower()).strip("_")
+        found.setdefault(key, []).append((c, int(m.group("index")), m.group("attr").strip()))
+        labels.setdefault(key, subject)
+    for key, members in found.items():
+        indices = {i for _, i, _ in members}
+        attrs: Dict[str, Set[int]] = {}
+        for _, i, a in members:
+            attrs.setdefault(a.lower(), set()).add(i)
+        if len(indices) < 2 or not any(len(v) >= 2 for v in attrs.values()):
+            continue  # one person, or nothing shared between them: not a group
+        gid = key if key not in groups else f"{key}_subjects"
+        for c, i, a in members:
+            c.group, c.index, c.attr, c.label = gid, i, re.sub(r"[^a-z0-9]+", "_", a.lower()).strip("_"), a[:1].upper() + a[1:]
+        first = members[0][0]
+        groups[gid] = {"id": gid, "count": max(indices), "label": labels[key], "source": first.source, "line": first.line}
+    for cid in order:  # people[1].age written by hand, with no group() call
+        c = choices[cid]
+        if c.group and c.group not in groups:
+            n = max((x.index or 0) for x in choices.values() if x.group == c.group)
+            groups[c.group] = {"id": c.group, "count": n, "label": c.group.replace("_", " ").capitalize(),
+                               "source": c.source, "line": c.line}
+
+
 def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_params: Optional[Set[str]] = None,
              runs: int = 48, seed: int = 7) -> Dict[str, Any]:
     """Run a program over many seeds to learn its choices and their structure."""
@@ -541,6 +582,7 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
     for res in results:
         for gid, g in res.groups.items():
             groups.setdefault(gid, dict(g))
+    _group_by_subject(choices, order, groups)
     sample = results[0]
     return {
         "choices": [choices[cid].to_dict() for cid in order],

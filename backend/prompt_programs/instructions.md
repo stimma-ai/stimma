@@ -42,7 +42,8 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   `f"people[{i+1}].age"`. For "all different", pass `exclude=` a list of the values drawn so
   far. When the enhanced prompt already describes each person on their own, write them out
   by hand instead, with no `group()`: for each detail the user asked to vary, one pick per
-  person (`outfit_1`, `outfit_2`, ...), and the rest fixed text.
+  person with ids like `girl[1].hair`, `girl[2].hair` and the label of the detail alone
+  ("Hair"), and the rest fixed text. The app shows each person's details together.
 - `emit(*parts)` appends text to the finished prompt. Spacing and stray commas are tidied.
   Keep punctuation inside the text parts: `emit("A woman with", hair, ", sitting at a counter.")`.
 

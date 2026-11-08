@@ -278,3 +278,33 @@ class TestOneLoraPickPerSet:
                'emit("A", mood, "portrait.")\n')
         problems = prep.validate(src, "A {calm|wild} portrait, pick a lora", LORAS, set())["problems"]
         assert not any("same LoRAs" in p for p in problems)
+
+
+class TestSubjectsGroup:
+    def test_hand_written_people_group_by_label(self):
+        from prompt_programs.runtime import discover
+        src = ('a = pick("g1_hair", ["a bob", "braids"], label="Girl 1 Hair")\n'
+               'b = pick("g1_eyes", ["green eyes", "brown eyes"], label="Girl 1 Eyes")\n'
+               'c = pick("g2_hair", ["a bob", "braids"], label="Girl 2 Hair")\n'
+               'd = pick("g2_eyes", ["green eyes", "brown eyes"], label="Girl 2 Eyes")\n'
+               'e = pick("color1", ["red", "blue"], label="Color 1")\n'
+               'emit("One with", a, b, "and one with", c, d, e)\n')
+        info = discover(src, [], set(), runs=4)
+        by = {c["id"]: c for c in info["choices"]}
+        assert by["g2_eyes"]["group"] == "girl" and by["g2_eyes"]["index"] == 2 and by["g2_eyes"]["label"] == "Eyes"
+        assert "group" not in by["color1"]
+        assert info["groups"] == [{"id": "girl", "count": 2, "label": "Girl", "source": "text", "line": None}]
+
+    def test_bracket_ids_without_group_call_get_a_group(self):
+        from prompt_programs.runtime import discover
+        src = ('a = pick("girl[1].hair", ["a bob", "braids"], label="Hair")\n'
+               'b = pick("girl[2].hair", ["a bob", "braids"], label="Hair")\n'
+               'emit(a, b)\n')
+        info = discover(src, [], set(), runs=4)
+        assert info["groups"][0]["id"] == "girl" and info["groups"][0]["count"] == 2
+
+    def test_one_person_is_not_a_group(self):
+        from prompt_programs.runtime import discover
+        src = 'a = pick("p_hair", ["a bob", "braids"], label="Person 1 Hair")\nemit(a)\n'
+        info = discover(src, [], set(), runs=4)
+        assert not info["groups"] and "group" not in info["choices"][0]
