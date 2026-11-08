@@ -5485,8 +5485,19 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     } else {
       submissionError.value = code === 'llm_unavailable'
         ? `Can’t reach your chat model, so nothing ran.`
-        : `${PROMPT_BRAND} couldn’t read this prompt, so nothing ran.`
+        : code === 'prepare_timeout'
+          ? `Your chat model took too long to read this prompt, so nothing ran.`
+          : `${PROMPT_BRAND} couldn’t read this prompt, so nothing ran.`
       addToast(submissionError.value, 'error', 8000, retry)
+    }
+    // Generate-forever would ask again for every free slot, each ask waiting on the
+    // same failing prepare: stop it, with the reason above.
+    if (options.foreverSessionId != null && isForeverSubmissionCurrent(options)) {
+      if (options.foreverBackendName && options.foreverReserved !== false) {
+        declineWorkRequest(options.foreverBackendName, options.foreverReservationId)
+      }
+      await stopForeverMode()
+      return { submitted: false, declineReservation: false }
     }
     return noSubmit(options)
   }

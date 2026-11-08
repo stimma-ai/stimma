@@ -28,6 +28,15 @@ log = get_logger(__name__)
 
 PREPARE_VERSION = "pp-21"
 MAX_ATTEMPTS = 3
+# A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
+# it don't sit for minutes. Past the soft budget no new model call starts while a
+# usable program is in hand; the hard limit stops everything.
+PREPARE_SOFT_SECONDS = 30.0
+PREPARE_LIMIT_SECONDS = 45.0
+
+
+class PrepareTimeout(ProgramError):
+    """Preparing took longer than PREPARE_LIMIT_SECONDS."""
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8")
 
 # Schema parameters a program may vary when the user asks. Others (seed, sizes,
@@ -872,6 +881,58 @@ def fix_duplicates(source: str, prompt: str = "") -> Tuple[str, List[str]]:
     return source, notes
 
 
+def fix_list_sources(source: str, prompt: str) -> Tuple[str, List[str]]:
+    """A user list the writer made into picks without source="list" ("two girls in
+    different colored {red|blue|green} bodysuits" as two picks): mark each source="list",
+    and give the second and later picks of the same list exclude= of the earlier ones,
+    so one list can fill several places with different values. Returns the source and
+    what changed."""
+    lists = [[o.strip() for o in m.group(1).split("|")] for m in _INLINE_LIST.finditer(prompt)]
+    if not lists:
+        return source, []
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, []
+    pos = _offsets(source)
+    edits: List[Tuple[int, int, str]] = []
+    notes: List[str] = []
+    taken: Dict[int, List[str]] = {}  # list index -> variables of its picks so far
+    for st in tree.body:  # top-level `name = pick(...)` only: order and scope are plain there
+        if not (isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name)
+                and isinstance(st.value, ast.Call) and getattr(st.value.func, "id", None) == "pick"):
+            continue
+        call, var = st.value, st.targets[0].id
+        opts = call.args[1] if len(call.args) > 1 else next((k.value for k in call.keywords if k.arg == "options"), None)
+        if not (isinstance(opts, ast.List) and all(isinstance(e, ast.Constant) and isinstance(e.value, str) for e in opts.elts)):
+            continue
+        values = [str(e.value).strip() for e in opts.elts]
+        idx = next((i for i, lst in enumerate(lists) if lst == values), None)
+        if idx is None:
+            continue
+        add: List[str] = []
+        src = next((k for k in call.keywords if k.arg == "source"), None)
+        if src is None:
+            add.append('source="list"')
+        elif not (isinstance(src.value, ast.Constant) and src.value.value == "list"):
+            edits.append((pos(src.value.lineno, src.value.col_offset), pos(src.value.end_lineno, src.value.end_col_offset), '"list"'))
+        if src is None or not (isinstance(src.value, ast.Constant) and src.value.value == "list"):
+            notes.append(f"{var} marked as the user's list")
+        earlier = taken.setdefault(idx, [])
+        if earlier and not any(k.arg == "exclude" for k in call.keywords) and len(earlier) < len(values):
+            add.append(f"exclude=[{', '.join(earlier)}]")
+            notes.append(f"{var} draws from the same list as {', '.join(earlier)}: a different value")
+        earlier.append(var)
+        if add:
+            end = pos(call.end_lineno, call.end_col_offset) - 1  # the closing paren
+            head = source[:end].rstrip()
+            sep = "" if head.endswith(("(", ",")) else ", "
+            edits.append((end, end, sep + ", ".join(add)))
+    for start, end, text in sorted(edits, reverse=True):
+        source = source[:start] + text + source[end:]
+    return source, notes
+
+
 _EXACT = re.compile(r"\[([^\[\]{}][^\[\]]*)\]")
 
 
@@ -958,6 +1019,13 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
         for d in r.draws:
             if d.kind == "pick" and not d.hidden and d.value and str(d.value).lower() not in text:
                 missing.setdefault(d.id, str(d.value))
+    for r in samples:  # a LoRA is turned on by pick_lora; its name is not something to draw
+        text = r.prompt.lower()
+        named = [lu.name for lu in r.loras if lu.name.lower() in text and lu.name.lower() not in prompt.lower()]
+        if named:
+            problems.append(f'Don\'t write LoRA names into the prompt ("{named[0]}"). pick_lora() already turns the LoRA on; '
+                            "emit only words that describe the image.")
+            break
     for r in samples:  # parameters are set by param(); the image model must not read them
         for name in r.params:
             if re.search(rf"\b{re.escape(name)}\b\s*[:=]?\s*[0-9]", r.prompt, re.I):
@@ -1106,6 +1174,15 @@ _in_flight: Dict[str, "asyncio.Future[Dict[str, Any]]"] = {}
 
 
 async def _prepare(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
+    try:
+        return await asyncio.wait_for(_prepare_once(context=context, force=force, **args), PREPARE_LIMIT_SECONDS)
+    except asyncio.TimeoutError:
+        log.warning(f"[prompt-program] prepare {args.get('key')} gave up after {PREPARE_LIMIT_SECONDS:.0f}s")
+        raise PrepareTimeout(f"Preparing took longer than {PREPARE_LIMIT_SECONDS:.0f} seconds, so it stopped. "
+                             "The chat model may be busy or too slow for this prompt.") from None
+
+
+async def _prepare_once(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
     """A small edit of a prompt prepared in this context patches that program; anything
     else (or a patch that doesn't validate, or "Try different choices") prepares anew."""
     store: ProgramStore = args["store"]
@@ -1401,6 +1478,8 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
         source = drop_name_options(source, new)
         source, more = fix_generated_refs(source)
         fixed += more
+        source, more = fix_list_sources(source, new)
+        fixed += more
         source, more = fix_phases(source)
         fixed += more
         for fix in (lambda x: fix_requested(x, new), lambda x: fix_stated(x, new, enhanced if elaborate else "")):
@@ -1498,8 +1577,9 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     last_error = ""
     repaired = False  # the current source came from a repair, not a write
     while True:
+        out_of_time = best is not None and time.monotonic() - started > PREPARE_SOFT_SECONDS
         if source is None:  # write the program (again)
-            if len(calls) >= MAX_ATTEMPTS:
+            if len(calls) >= MAX_ATTEMPTS or out_of_time:
                 break
             t0 = time.monotonic()
             msgs = base + ([{"role": "assistant", "content": retry[0]}, {"role": "user", "content": retry[1]}]
@@ -1515,6 +1595,8 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
         source, fixed = fix_quotes(source)
         fixes += fixed
         source, fixed = fix_generated_refs(source)
+        fixes += fixed
+        source, fixed = fix_list_sources(source, source_prompt)
         fixes += fixed
         source, fixed = fix_phases(source)
         fixes += fixed
@@ -1540,6 +1622,9 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
             if best is None or len(problems) <= len(best[1]["problems"]):
                 best = (source, checked)
         if not problems or len(calls) >= MAX_ATTEMPTS:
+            break
+        if best is not None and time.monotonic() - started > PREPARE_SOFT_SECONDS:
+            log.info(f"[prompt-program] out of time after {len(calls)} call(s): keeping the best program")
             break
         last_error = "\n".join(problems)
         log.info(f"[prompt-program] attempt {len(calls)} rejected: {last_error[:300]}")

@@ -46,7 +46,7 @@ class PreviewRequest(PrepareRequest):
 
 async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
     from llm_resolver import LLMNotConfiguredError, LLMUnavailableError
-    from prompt_programs.prepare import ProgramError, ensure_program
+    from prompt_programs.prepare import PrepareTimeout, ProgramError, ensure_program
     from routes.generation import prompt_enhance_context
 
     ctx = prompt_enhance_context(req.parameters, req.tool_id, req.task_type, None)
@@ -58,6 +58,8 @@ async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
             lora_items=req.loras, project_id=req.project_id, profile_id=get_current_profile(),
             cache_only=req.cache_only, force=req.force, elaborate=req.elaborate, lora_notes=req.lora_notes,
         )
+    except PrepareTimeout as e:
+        raise HTTPException(status_code=422, detail={"code": "prepare_timeout", "message": str(e)}) from None
     except ProgramError as e:
         raise HTTPException(status_code=422, detail={"code": "program_failed", "message": str(e)}) from None
     except LLMNotConfiguredError as e:

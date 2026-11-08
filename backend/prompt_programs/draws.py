@@ -37,7 +37,7 @@ from typing import Any, Dict, FrozenSet, List, Optional, Protocol, Sequence, Set
 
 from prompt_programs.runtime import (
     MAX_STEPS, RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _SAFE_BUILTINS, _Runner,
-    _as_list, _label_from_id, _lora_key, check, tidy_text,
+    LoraName, _as_list, _label_from_id, _lora_key, check, lora_names, tidy_text,
 )
 
 DRAW_VERSION = "draws-2"
@@ -832,7 +832,7 @@ class _Exec(_Runner):
                   phase: Optional[int] = None, _site: int = -1) -> Optional[str]:
         cid = str(id)
         names = _as_list(names if names is not None else [], f'pick_lora("{cid}")')
-        known = [n for n in names if _lora_key(n) in self.loras]
+        known = lora_names(names, self.loras)
         if not known:
             raise ProgramError(f'pick_lora("{cid}"): none of {names} are in the LoRA list. Use the exact names given.')
         site = self.eng.an.sites[_site]
@@ -846,7 +846,7 @@ class _Exec(_Runner):
         info = self.loras.get(_lora_key(str(value)))
         if info is not None:
             self.lora_uses.append(LoraUse(info.name, info.weight, info.trigger, info.path, cid))
-        return value
+        return LoraName(value) if isinstance(value, str) else value
 
     def _eligible(self, cid: str, spec: PickSpec, context: Dict[str, Any], exclude: Any) -> List[Tuple[str, float]]:
         pool = self.eng.options.get(spec, context)
@@ -883,6 +883,8 @@ def _flatten(p: Any) -> List[str]:
         return []
     if isinstance(p, (list, tuple)):
         return [s for q in p for s in _flatten(q)]
+    if isinstance(p, LoraName):
+        return []
     s = str(p).strip()
     return [s] if s else []
 

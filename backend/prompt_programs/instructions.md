@@ -28,9 +28,12 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
     sentence. The enhanced prompt's own phrase comes first. One seed is fine.
   - `phase`: when it is drawn (see Phases).
 - A user list: `pick(id, ["a", "b", "c"], source="list", phase=1, line=N)`, with exactly the
-  user's items in their order. No about or seed.
+  user's items in their order. No about or seed. When one list fills several places
+  ("two friends in different colored {red|blue|green} dresses"), give each place its own
+  pick of the same list, each later one with `exclude=[` the earlier ones `]`.
 - `pick_lora(id, names, label=..., line=..., phase=N)` draws one LoRA from the LoRA list and
-  turns it on. Its trigger words are added automatically. Returns the LoRA's name.
+  turns it on. Its trigger words are added automatically. Returns the LoRA's name, to
+  compare or look up; it is never prompt text.
 - `param(name, low, high, line=...)` draws a number for a generation parameter. **Only**
   when the user's text asks to vary that parameter. Use the parameter names given. It
   sets the parameter directly: never put the value in the prompt text.
@@ -132,9 +135,11 @@ from the enhanced prompt. Only protected `[text]` is emitted exactly as the user
 
 # LoRAs
 
-Only use `pick_lora` when the user's text asks you to choose among LoRAs. Use the exact
-names from the LoRA list. If a LoRA's notes say it needs extra words, add them when that
-LoRA is picked:
+Only use `pick_lora` when the user's text asks you to choose among LoRAs. Use the names
+from the LoRA list, or the short names the user wrote for them. A LoRA changes the image
+by being on: its name never goes into the prompt (emit() skips it), and the text doesn't
+describe what the LoRA does, so it can't contradict the one that's picked. If a LoRA's
+notes say it needs extra words, add them when that LoRA is picked:
 ```
 hair = pick_lora("hairstyle", ["Curtain bangs", "Braided crown"], label="Hairstyle", phase=1, line=3)
 hair_words = {"Braided crown": "her hair in a braided crown"}.get(hair, "")

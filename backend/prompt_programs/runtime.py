@@ -162,6 +162,27 @@ class LoraInfo:
     trigger: str = ""
 
 
+class LoraName(str):
+    """What pick_lora returns: the LoRA's name, for the program to compare or look up.
+    It turns the LoRA on; it is never prompt text, so emit() skips it."""
+
+
+def lora_names(names: Sequence[str], loras: Dict[str, LoraInfo]) -> List[str]:
+    """The list's names for what a program wrote: an exact name, or a short one the user
+    used ("flatchest") when every word of it is a word of exactly one listed name
+    ("KREA2 bodyshop flatchest v1"). Unknown or ambiguous names are dropped."""
+    out: List[str] = []
+    for n in names:
+        info = loras.get(_lora_key(n))
+        if info is None:
+            words = set(re.findall(r"[a-z0-9]+", str(n).lower()))
+            hits = [lo for lo in loras.values() if words and words <= set(re.findall(r"[a-z0-9]+", lo.name.lower()))]
+            info = hits[0] if len(hits) == 1 else None
+        if info is not None and info.name not in out:
+            out.append(info.name)
+    return out
+
+
 # --------------------------------------------------------------------------- running
 
 def _weights(n: int, uniform: bool) -> List[float]:
@@ -301,14 +322,15 @@ class _Runner:
                   phase: Optional[int] = None) -> Optional[str]:
         cid = str(id)
         names = _as_list(names if names is not None else [], f'pick_lora("{cid}")')
-        known = [n for n in names if _lora_key(n) in self.loras]
+        known = lora_names(names, self.loras)
         if not known:
             raise ProgramError(f'pick_lora("{cid}"): none of {names} are in the LoRA list. Use the exact names given.')
         value, pinned = self._choose(cid, known, uniform=True)
         self._record(Draw(cid, value, "lora", label or _label_from_id(cid), source, line, False, pinned, known))
-        info = self.loras[_lora_key(value)]
-        self.lora_uses.append(LoraUse(info.name, info.weight, info.trigger, info.path, cid))
-        return value
+        info = self.loras.get(_lora_key(value))
+        if info is not None:
+            self.lora_uses.append(LoraUse(info.name, info.weight, info.trigger, info.path, cid))
+        return LoraName(value) if isinstance(value, str) else value
 
     def param(self, name: str, low: Any = None, high: Any = None, label: str = "", source: str = "text",
               line: Optional[int] = None) -> Any:
@@ -360,6 +382,8 @@ class _Runner:
                 continue
             if isinstance(p, (list, tuple)):
                 self.emit(*p)
+                continue
+            if isinstance(p, LoraName):  # a LoRA is turned on, never written into the prompt
                 continue
             s = str(p).strip()
             if s:
