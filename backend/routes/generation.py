@@ -589,7 +589,7 @@ async def _run_prompt_program(
         result = await asyncio.to_thread(
             realize, entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"),
             fixed=program_opts.get("fixed"), edits=program_opts.get("edits"), triggers=lora_triggers,
-            profile_id=profile_id, project_id=project_id)
+            profile_id=profile_id, project_id=project_id, revision=program_opts.get("revision"))
     except ProgramError as e:
         raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
     except LLMUnavailableError as e:

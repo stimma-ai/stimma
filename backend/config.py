@@ -453,6 +453,9 @@ class FluentConfig(BaseModel):
     judge_threads: int = 0
     rarity: float = 0.3      # keep rate of an "unusual" value
     wrong_cut: float = 0.5   # P(wrong) above this keeps nothing
+    # cut: only the wrong cut acts (every other value is kept). tiers: unusual values are
+    # also kept at the rarity rate. "cut" until the judge's lower tiers are calibrated.
+    keep: str = "cut"
     generate_options: bool = True
 
 

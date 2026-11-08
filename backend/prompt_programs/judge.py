@@ -21,8 +21,11 @@ Configuration (config.yaml `fluent:`, or environment for evaluations):
     judge_model: d3-edge               STIMMA_FLUENT_JUDGE_MODEL
     judge_url: http://host:8790        STIMMA_FLUENT_JUDGE_URL
     judge_threads: 0 (torch default)   STIMMA_FLUENT_JUDGE_THREADS
-    rarity: 0.3                        STIMMA_FLUENT_RARITY      (keep rate of an unusual value)
+    (weights cache dir)                STIMMA_FLUENT_JUDGE_CACHE
+    rarity: 0.3                        STIMMA_FLUENT_RARITY      (keep rate of an unusual value, keep: tiers)
     wrong_cut: 0.5                     STIMMA_FLUENT_WRONG_CUT   (P(wrong) above this keeps nothing)
+    keep: cut | tiers                  STIMMA_FLUENT_KEEP        (cut: only the wrong cut acts; the default
+                                                                  until the lower tiers are calibrated)
     generate_options: true             STIMMA_FLUENT_GENERATE    (background option generation)
 """
 
@@ -60,10 +63,13 @@ RULE = "Rare is never wrong: only a contradiction with what the prompt states, o
 
 # name -> (repo, pinned revision, family). Pinned so the remote code we run is the code
 # that was read; a new revision is a deliberate change (and a new judge version).
+# Sizes: edge 0.59B, lite 0.85B, nano 2B (CPU candidates); mini ~4B, flash ~9B (GPU only).
 MODELS: Dict[str, Tuple[str, str, str]] = {
     "d3-edge": ("vllm-sr/d3-edge", "bee5e872f75b9c5d1405767bf244a6948b95c0af", "d3"),
-    "d3-lite": ("vllm-sr/d3-lite", "main", "d3"),
-    "d3-nano": ("vllm-sr/d3-nano", "main", "d3"),
+    "d3-lite": ("vllm-sr/d3-lite", "6c01fba14e74f63b70e1ef442b0b6d1b934339d5", "d3"),
+    "d3-nano": ("vllm-sr/d3-nano", "8198c9f763b046605b2f4827b4999971fa2c92c4", "d3"),
+    "d3-mini": ("vllm-sr/d3-mini", "df99bf4ca4418bc6908ee68e9b7479af1f3b8800", "d3"),
+    "d3-flash": ("vllm-sr/d3-flash", "67e03e1bc157961c582ee7c6a35d9b15fada3dec", "d3"),
 }
 
 
@@ -116,7 +122,12 @@ class LocalJudge:
         path = snapshot_download(repo, revision=revision, cache_dir=str(cache),
                                  ignore_patterns=["assets/*", "eval/*", "*.mp4"])
         self.revision = Path(path).name
+        device = "cuda:0" if device == "cuda" else device  # the d3 loader wants an indexed device
         self.model = AutoModel.from_pretrained(path, trust_remote_code=True, device=device)
+        if device == "cpu":
+            # The runtime loads bf16; CPUs without bf16 matmul units are far faster in fp32.
+            self.model.runtime.backbone.float()
+            _fast_depthwise_conv()
         self.name, self.device, self.family = name, device, family
         self.version = f"{name}@{self.revision[:8]}/{QUESTION_VERSION}"
         self.load_seconds = round(time.monotonic() - started, 1)
@@ -130,6 +141,50 @@ class LocalJudge:
         with self._lock:
             answers = self.model.system_one(state=state, questions=qs)["answers"]
         return [tiers_from_answer(answers[f"q{i}"]) for i in range(len(questions))]
+
+
+def _fast_depthwise_conv() -> None:
+    """CPU fix: Qwen3.5's linear-attention layers run a 4-tap depthwise causal conv through
+    F.conv1d(groups=channels), which PyTorch's CPU backend runs as one tiny conv per
+    channel (most of a small model's pass). The same math as k shifted multiply-adds is
+    3-4x faster end to end (max |dP| about 1e-5)."""
+    import torch.nn.functional as F
+    from transformers.models.qwen3_5 import modeling_qwen3_5 as mq
+
+    def causal_conv1d_fn(hidden_states, weight, bias=None, activation=None, **kwargs):
+        k = weight.shape[-1]
+        n = hidden_states.shape[-1]
+        x = F.pad(hidden_states.to(weight.dtype), (k - 1, 0))
+        out = x[:, :, 0:n] * weight[:, 0][None, :, None]
+        for j in range(1, k):
+            out = out + x[:, :, j:j + n] * weight[:, j][None, :, None]
+        if bias is not None:
+            out = out + bias[None, :, None]
+        if activation is not None:
+            out = mq.ACT2FN[activation](out)
+        return out.to(hidden_states.dtype)
+
+    mq.causal_conv1d_fn = causal_conv1d_fn
+
+
+class AdapterJudge:
+    """A judge from an evaluation adapter module: `module.load(name, device)` returning an
+    object with `judge(state, [(label, about, value), ...], form=...) -> [tiers]`. Lets the
+    judge server run the eval board's adapters (its question wording and model fixes)."""
+    null = False
+
+    def __init__(self, module: str, name: str, device: str = "cuda", form: str = "score"):
+        import importlib
+        self.obj = importlib.import_module(module).load(name, device=device)
+        self.form = form
+        rev = str(getattr(self.obj, "revision", "") or "")[:8]
+        self.version = f"{name}@{rev}/adapter-{form}"
+
+    def judge(self, state: str, questions: Sequence[Question]) -> List[Dict[str, float]]:
+        if not questions:
+            return []
+        got = self.obj.judge(state, [(q.label, q.about, q.value) for q in questions], form=self.form)
+        return [{t: float(p.get(t, 0.0)) for t in TIERS} for p in got]
 
 
 class HttpJudge:
@@ -167,12 +222,13 @@ class CachedJudge:
     proposals, later draws of the same prompt and re-runs of an evaluation are free.
     Counts model passes and questions so evaluations can report judge cost."""
 
-    def __init__(self, inner: Any, path: Optional[Path] = None, max_items: int = 100_000):
+    def __init__(self, inner: Any, path: Optional[Path] = None, max_items: int = 100_000, batch: int = 32):
         self.inner = inner
         self.version = inner.version
         self.null = bool(getattr(inner, "null", False))
         self._mem: "OrderedDict[str, Dict[str, float]]" = OrderedDict()
         self._max = max_items
+        self.batch = max(1, batch)   # questions per model pass (prefetching asks for many)
         self._lock = threading.Lock()
         self._db: Optional[sqlite3.Connection] = None
         if path is not None:
@@ -213,14 +269,15 @@ class CachedJudge:
         out: List[Optional[Dict[str, float]]] = [self._get(k) for k in keys]
         todo = [i for i, v in enumerate(out) if v is None]
         self.hits += len(questions) - len(todo)
-        if todo:
+        for at in range(0, len(todo), self.batch):
+            part = todo[at: at + self.batch]
             started = time.monotonic()
-            got = self.inner.judge(state, [questions[i] for i in todo])
+            got = self.inner.judge(state, [questions[i] for i in part])
             self.seconds += time.monotonic() - started
             self.passes += 1
-            self.questions += len(todo)
+            self.questions += len(part)
             with self._lock:
-                for i, v in zip(todo, got):
+                for i, v in zip(part, got):
                     v = dict(v)
                     out[i] = v
                     self._put_mem(keys[i], v)
@@ -245,6 +302,7 @@ class FluentSettings:
     rarity: float = DEFAULT_RARITY
     wrong_cut: float = WRONG_CUT
     generate_options: bool = True
+    keep: str = "cut"
 
 
 def settings() -> FluentSettings:
@@ -259,18 +317,25 @@ def settings() -> FluentSettings:
         base = {}
     fields = {f: base[f] for f in FluentSettings.__dataclass_fields__ if f in base}
     env = {"judge": "STIMMA_FLUENT_JUDGE", "judge_model": "STIMMA_FLUENT_JUDGE_MODEL", "judge_url": "STIMMA_FLUENT_JUDGE_URL",
-           "judge_threads": "STIMMA_FLUENT_JUDGE_THREADS", "rarity": "STIMMA_FLUENT_RARITY", "wrong_cut": "STIMMA_FLUENT_WRONG_CUT"}
+           "judge_threads": "STIMMA_FLUENT_JUDGE_THREADS", "rarity": "STIMMA_FLUENT_RARITY", "wrong_cut": "STIMMA_FLUENT_WRONG_CUT",
+           "keep": "STIMMA_FLUENT_KEEP"}
     for f, var in env.items():
         if os.environ.get(var):
             fields[f] = os.environ[var]
     if os.environ.get("STIMMA_FLUENT_GENERATE"):
         fields["generate_options"] = os.environ["STIMMA_FLUENT_GENERATE"].lower() not in ("0", "false", "no", "off")
     out = FluentSettings(**fields)
+    keep = str(out.keep or "cut").lower()
     return FluentSettings(str(out.judge or "none").lower(), str(out.judge_model), str(out.judge_url or ""),
-                          int(out.judge_threads or 0), float(out.rarity), float(out.wrong_cut), bool(out.generate_options))
+                          int(out.judge_threads or 0), float(out.rarity), float(out.wrong_cut), bool(out.generate_options),
+                          keep if keep in ("cut", "tiers") else "cut")
 
 
 def _model_cache_dir() -> Path:
+    """Where judge weights download: the app cache dir, or STIMMA_FLUENT_JUDGE_CACHE
+    (an evaluation box can point it at a Hugging Face cache it already has)."""
+    if os.environ.get("STIMMA_FLUENT_JUDGE_CACHE"):
+        return Path(os.environ["STIMMA_FLUENT_JUDGE_CACHE"])
     import app_dirs
     return app_dirs.get_cache_dir() / "models" / "fluent-judge"
 
@@ -381,9 +446,11 @@ def make_server(judge: Any, host: str, port: int, device: str = ""):
     return ThreadingHTTPServer((host, port), Handler)
 
 
-def serve(model: str, device: str, host: str, port: int, threads: int = 0) -> None:  # pragma: no cover - manual tool
-    """Run an HTTP judge server around LocalJudge, for evaluations on a GPU box."""
-    judge = LocalJudge(model, device, threads)
+def serve(model: str, device: str, host: str, port: int, threads: int = 0, adapter: str = "",
+          form: str = "score") -> None:  # pragma: no cover - manual tool
+    """Run an HTTP judge server, for evaluations on a GPU box: LocalJudge, or an
+    evaluation adapter module (`--adapter fluent_draws.judge.adapters`)."""
+    judge: Any = AdapterJudge(adapter, model, device, form) if adapter else LocalJudge(model, device, threads)
     print(f"judge server: {judge.version} on {device}, port {port}", file=sys.stderr)
     make_server(judge, host, port, device).serve_forever()
 
@@ -398,6 +465,8 @@ def _main(argv: Optional[Sequence[str]] = None) -> None:  # pragma: no cover - m
     sv.add_argument("--host", default="0.0.0.0")
     sv.add_argument("--port", type=int, default=8790)
     sv.add_argument("--threads", type=int, default=0)
+    sv.add_argument("--adapter", default="", help="an adapter module with load(name, device), e.g. fluent_draws.judge.adapters")
+    sv.add_argument("--form", default="score", help="the adapter's question form")
     bench = sub.add_parser("bench", help="time judge passes in this process")
     bench.add_argument("--model", default="d3-edge")
     bench.add_argument("--device", default="cpu")
@@ -406,7 +475,7 @@ def _main(argv: Optional[Sequence[str]] = None) -> None:  # pragma: no cover - m
     bench.add_argument("--reps", type=int, default=5)
     a = ap.parse_args(argv)
     if a.cmd == "serve":
-        serve(a.model, a.device, a.host, a.port, a.threads)
+        serve(a.model, a.device, a.host, a.port, a.threads, a.adapter, a.form)
         return
     j = LocalJudge(a.model, a.device, a.threads)
     state = ("A cinematic portrait of a [Role] in the 1920s, a woman of about 30 with [Hair], wearing [Outfit], "
@@ -431,6 +500,6 @@ if __name__ == "__main__":  # pragma: no cover
 
 
 __all__ = [
-    "CachedJudge", "FluentSettings", "HttpJudge", "JudgeUnavailable", "LocalJudge", "MODELS", "QUESTION_VERSION",
+    "AdapterJudge", "CachedJudge", "FluentSettings", "HttpJudge", "JudgeUnavailable", "LocalJudge", "MODELS", "QUESTION_VERSION",
     "build_judge", "configured_judge", "make_server", "score_question", "settings", "tiers_from_answer",
 ]

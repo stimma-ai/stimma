@@ -10,7 +10,9 @@ import pytest
 from prompt_programs import prepare as prep
 from prompt_programs.draws import DrawResult, NullJudge, PickSpec, Question, draw, fixed_text
 from prompt_programs.evaluate import draw_many, fill_options
-from prompt_programs.fluent import CHECK_PROPOSALS, Runtime, pool_checker, program_context, runtime_for, start_options
+from prompt_programs.fluent import (
+    CHECK_PROPOSALS, Runtime, pool_checker, prefill_judgments, program_context, runtime_for, start_options,
+)
 from prompt_programs.judge import (
     CachedJudge, FluentSettings, HttpJudge, JudgeUnavailable, build_judge, configured_judge, make_server,
     score_question, settings, tiers_from_answer,
@@ -56,7 +58,7 @@ class FakeGen:
         if job.spec.id in self.table:
             return list(self.table[job.spec.id]), "fake"
         ctx = ",".join(f"{v}" for v in job.context.values())
-        return [f"{job.spec.id} {ctx} option {job.round}.{i}".replace("  ", " ") for i in range(self.per_call)], "fake"
+        return [f"{job.spec.id} {ctx} variant {job.round}.{i}".replace("  ", " ") for i in range(self.per_call)], "fake"
 
 
 class FakeJudge:
@@ -241,7 +243,7 @@ class TestOptionFiller:
         assert f.submit(self._job(store, "b", "thing b"), "high")         # promoted
         await f.drain()
         assert [j.spec.id for j in gen.calls] == ["c", "b", "a"]
-        assert store.options(a.key)[0] == "a option 0.0"
+        assert store.options(a.key)[0] == "a variant 0.0"
 
     async def test_a_round_on_disk_is_never_asked_again(self, tmp_path):
         store = OptionStore(tmp_path)
@@ -470,7 +472,7 @@ class TestRealize:
         await filler.drain()
         assert len(gen.calls) == 3
         r = prep.realize(entry, seed=1, runtime=runtime_for(entry, store=store, judge=NullJudge(), cfg=OFF))
-        assert any("option 0." in d.value for d in r.draws)
+        assert any("variant 0." in d.value for d in r.draws)
         assert start_options(entry, store=store, filler=filler, cfg=ON) == []  # already filled
 
     def test_the_prepare_hook_ignores_older_programs_and_never_raises(self, tmp_path):
@@ -547,3 +549,172 @@ class TestEvaluate:
     def test_rows_are_json(self, tmp_path):
         out = draw_many(entry_for(PORTRAIT), 2, store=OptionStore(tmp_path))
         json.dumps(out)
+
+
+# --------------------------------------------------------------------------- parsing and the lookup-key rule
+
+class TestParseOptions:
+    def test_the_first_json_list_wins(self):
+        from prompt_programs.options import parse_options
+        reply = 'Sure:\n```json\n["a sleek bob", "pin curls (expected)", "finger waves"]\n```\n["ignored"]'
+        assert parse_options(reply) == ["a sleek bob", "pin curls", "finger waves"]
+
+    def test_leaked_reasoning_is_not_an_option(self):
+        from prompt_programs.options import parse_options
+        reply = ("[\nof South Asian descent\nof Hispanic descent\n]\n```\nWait, the instructions say \"Write 12 options\".\n"
+                 "of East Asian descent (Default/Expected)\nActually, the prompt asks for 12 *different* options.\n"
+                 "Here is the corrected list:\nLet's try a real list.\n- of West African descent")
+        assert parse_options(reply) == ["of South Asian descent", "of Hispanic descent", "of East Asian descent",
+                                        "of West African descent"]
+
+
+class TestLookupKeyRule:
+    @pytest.mark.parametrize("src", [
+        'e = pick("e", about="her ethnicity", phase=1, seed=["a", "b"])\ntone = {"a": "x", "b": "y"}[e]\nemit(tone, e)\n',
+        'e = pick("e", about="her ethnicity", phase=1, seed=["a", "b"])\ntone = {"a": "x"}.get(e, "z")\nemit(tone, e)\n',
+        'e = pick("e", about="the era", phase=1, seed=["a", "b"])\n'
+        'h = pick("h", by=e, options={"a": ["x"], "b": ["y"]}, phase=2)\nemit(e, h)\n',
+    ])
+    def test_a_generated_pick_cannot_be_a_lookup_key(self, src):
+        from prompt_programs.draws import analyze
+        from prompt_programs.runtime import ProgramError
+        with pytest.raises(ProgramError, match="can't be a key to look something up"):
+            analyze(src)
+
+    @pytest.mark.parametrize("src", [
+        # a user list (or a pick without about=) may be a key; derived text may be looked up too
+        'e = pick("e", ["a", "b"], about="the era", source="list", phase=1)\ntone = {"a": "x", "b": "y"}[e]\nemit(tone)\n',
+        'e = pick("e", ["a", "b"], phase=1)\ntone = {"a": "x", "b": "y"}[e]\nemit(tone)\n',
+        'e = pick("e", about="her mood", phase=1, seed=["calm"])\nwords = {"x": 1}\nn = words[str(len(e) > 3)] if False else 1\nemit(e)\n',
+    ])
+    def test_fixed_lists_may_be_keys(self, src):
+        from prompt_programs.draws import analyze
+        assert analyze(src).phased
+
+
+def test_a_malformed_revision_is_ignored(tmp_path):
+    entry = entry_for(PORTRAIT)
+    rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF,
+                     revision={"pools": ["x"], "rarity": "lots", "wrong_cut": None})
+    assert (rt.rarity, rt.wrong_cut, rt.options.limits) == (0.3, 0.5, {})
+    assert prep.realize(entry, seed=1, revision="nonsense", runtime=None).prompt
+
+
+# --------------------------------------------------------------------------- keep mode, prefill, adapters
+
+class CountingJudge(FakeJudge):
+    """Scores from a table by value; counts the questions it is asked."""
+
+    def __init__(self, table=None):
+        super().__init__()
+        self.table = table or {}
+        self.asked = 0
+
+    def judge(self, state, questions):
+        self.calls.append((state, list(questions)))
+        self.asked += len(questions)
+        return [self.table.get(q.value, {"typical": 1.0}) for q in questions]
+
+
+class TestKeepMode:
+    SRC = 'hair = pick("hair", ["brown hair", "grey hair", "blue hair"], source="list", phase=1)\nemit("A woman with", hair)\n'
+
+    def test_cut_mode_keeps_every_value_that_isnt_wrong(self):
+        judge = CountingJudge({"grey hair": {"unusual": 1.0}, "blue hair": {"wrong": 0.9, "typical": 0.1}})
+        got = [{d.id: d.value for d in draw(self.SRC, s, judge=judge, keep="cut", rarity=0.0).draws}["hair"] for s in range(300)]
+        assert "blue hair" not in got and 0.35 < got.count("grey hair") / 300 < 0.65  # unusual isn't scaled down
+        tiers = [{d.id: d.value for d in draw(self.SRC, s, judge=judge, keep="tiers", rarity=0.0).draws}["hair"] for s in range(100)]
+        assert set(tiers) == {"brown hair"}
+
+    def test_the_runtime_defaults_to_cut_and_records_it(self, tmp_path):
+        assert FluentSettings().keep == "cut" and settings().keep == "cut"
+        entry = entry_for(PORTRAIT)
+        r = prep.realize(entry, seed=1, runtime=runtime_for(entry, store=OptionStore(tmp_path), judge=FakeJudge(), cfg=OFF))
+        assert r.revision["keep"] == "cut"
+        old = dict(r.revision)
+        old.pop("keep")  # a revision from before keep modes drew with tiers
+        assert runtime_for(entry, store=OptionStore(tmp_path), judge=FakeJudge(), cfg=OFF, revision=old).keep == "tiers"
+
+    def test_keep_mode_from_the_environment(self, monkeypatch):
+        monkeypatch.setenv("STIMMA_FLUENT_KEEP", "tiers")
+        assert settings().keep == "tiers"
+        monkeypatch.setenv("STIMMA_FLUENT_KEEP", "nonsense")
+        assert settings().keep == "cut"
+
+
+class TestPrefill:
+    def test_phase_one_is_judged_against_the_fixed_text(self):
+        judge = FakeJudge()
+        draw(PORTRAIT, 3, judge=judge)
+        assert judge.calls[0][0] == fixed_text(PORTRAIT)
+
+    def test_prefetch_changes_no_draw(self):
+        table = {"nurse": {"wrong": 1.0}, "pin curls": {"unusual": 1.0}}
+        for seed in range(10):
+            a = draw(PORTRAIT, seed, judge=CountingJudge(table))
+            b = draw(PORTRAIT, seed, judge=CountingJudge(table), prefetch=48)
+            assert a.prompt == b.prompt
+
+    def test_prefilled_judgments_serve_later_draws(self, tmp_path):
+        entry = entry_for(PORTRAIT)
+        store = OptionStore(tmp_path)
+        ctx = program_context(entry)
+        for s, opts in ((spec(), ["a sleek bob", "pin curls", "an updo"]),
+                        (spec(id="role", about="the woman's job", seeds=("jazz singer", "nurse"), label="Role"), ["a pilot", "a chemist"]),
+                        (spec(id="light", about="the lighting", seeds=("soft window light",), label="Light"), ["neon glow"])):
+            store.append(gen_key(s, {}, ctx.signature, "prose", True), {"round": 0, "options": opts})
+        cold = CountingJudge()
+        draw_many(entry, 10, judge=CachedJudge(cold), store=store, seeds=range(100, 110))
+        inner = CountingJudge()
+        judge = CachedJudge(inner, tmp_path / "j.sqlite")
+        stats = prefill_judgments(entry, judge, store=store, draws=12, cfg=OFF)
+        assert stats["draws"] == 12 and stats["questions"] > 0
+        before = inner.asked
+        out = draw_many(entry, 10, judge=judge, store=store, seeds=range(100, 110))
+        assert inner.asked - before < cold.asked / 3  # most of what the draws asked was already judged
+        assert out["stats"]["aborted"] == 0
+        again = CachedJudge(CountingJudge(), tmp_path / "j.sqlite")  # and it survives a restart
+        assert again.judge(fixed_text(PORTRAIT), [Question("role", "Role", "the woman's job", "a pilot")]) and again.passes == 0
+
+    def test_the_null_judge_prefills_nothing(self, tmp_path):
+        assert prefill_judgments(entry_for(PORTRAIT), NullJudge(), store=OptionStore(tmp_path)) == {"draws": 0}
+
+    async def test_prefill_runs_in_the_background_after_the_fills(self, tmp_path):
+        from prompt_programs.fluent import schedule_prefill
+        entry = entry_for(PORTRAIT)
+        store = OptionStore(tmp_path)
+        filler = OptionFiller(store, FakeGen())
+        judge = CachedJudge(CountingJudge())
+        queued = start_options(entry, store=store, filler=filler, cfg=ON, prefill=False)
+        task = schedule_prefill(entry, judge, filler, queued, store=store, wait_seconds=10)
+        await filler.drain()
+        stats = await asyncio.wait_for(task, 30)
+        assert stats["draws"] > 0 and stats["questions"] > 0
+        assert schedule_prefill(entry, NullJudge(), filler, queued, store=store) is None
+
+
+class TestAdapterAndBatching:
+    def test_the_adapter_judge_wraps_an_eval_adapter(self, monkeypatch):
+        import sys
+        import types
+        from prompt_programs.judge import AdapterJudge
+        mod = types.ModuleType("fake_adapters")
+
+        class Obj:
+            revision = "abcdef123456"
+
+            def judge(self, state, picks, form="score"):
+                return [{"wrong": 1.0 if v == "grey hair" else 0.0, "typical": 0.0 if v == "grey hair" else 1.0}
+                        for _, _, v in picks]
+        mod.load = lambda name, device="cuda": Obj()
+        monkeypatch.setitem(sys.modules, "fake_adapters", mod)
+        j = AdapterJudge("fake_adapters", "d3-mini", "cuda")
+        assert j.version == "d3-mini@abcdef12/adapter-score"
+        got = j.judge("s", [Question("hair", "Hair", "", "grey hair"), Question("hair", "Hair", "", "a bob")])
+        assert got[0]["wrong"] == 1.0 and got[1] == {"typical": 1.0, "plausible": 0.0, "unusual": 0.0, "wrong": 0.0}
+
+    def test_big_passes_are_split(self):
+        inner = CountingJudge()
+        j = CachedJudge(inner, batch=8)
+        j.judge("s", [Question("p", "P", "", f"v{i}") for i in range(20)])
+        assert [len(qs) for _, qs in inner.calls] == [8, 8, 4] and j.passes == 3

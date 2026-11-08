@@ -14,7 +14,9 @@ bad-pool check) when a judge is configured.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import random
+import threading
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -28,6 +30,8 @@ from prompt_programs.runtime import LoraInfo, ProgramError
 
 log = get_logger(__name__)
 
+PREFILL_DRAWS = 8      # draws per prefill: each one judges the pools in the states it reaches
+PREFILL_POOL = 48      # pool options judged per pick and state when prefilling
 CHECK_PROPOSALS = 20   # proposals judged per generated pool at the bad-pool check
 CHECK_MIN_OK = 5       # fewer non-wrong proposals than this: ask for options written for this prompt
 WARM_DRAWS = 8         # null-judge draws at prepare that find the pools to fill
@@ -39,6 +43,7 @@ class Runtime:
     judge: Any
     rarity: float
     wrong_cut: float
+    keep: str = "cut"
 
 
 def program_context(entry: Dict[str, Any]) -> ProgramContext:
@@ -73,13 +78,18 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
         except Exception as e:
             log.debug(f"[fluent] no option filler: {e}")
     judge = judge if judge is not None else configured_judge(cfg)
-    rarity = float((revision or {}).get("rarity", cfg.rarity))
-    wrong_cut = float((revision or {}).get("wrong_cut", cfg.wrong_cut))
+    rev = revision if isinstance(revision, dict) else {}
+    rarity = _number(rev.get("rarity"), cfg.rarity)
+    wrong_cut = _number(rev.get("wrong_cut"), cfg.wrong_cut)
+    keep = str(rev.get("keep", "tiers")) if rev else cfg.keep  # a revision without "keep" drew with tiers
+    pools = rev.get("pools")
+    limits = ({str(k): int(v) for k, v in pools.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
+              if isinstance(pools, dict) else None)
     options = GeneratedOptions(store, program_context(entry), edits=edits, filler=filler,
-                               limits=(revision or {}).get("pools"), project_id=project_id,
+                               limits=limits, project_id=project_id,
                                generate=cfg.generate_options,
                                checker=pool_checker(judge, wrong_cut) if not getattr(judge, "null", False) else None)
-    return Runtime(options, judge, rarity, wrong_cut)
+    return Runtime(options, judge, rarity, wrong_cut, keep)
 
 
 def attach_filler(entry: Dict[str, Any], profile_id: Optional[str] = None) -> None:
@@ -93,14 +103,22 @@ def attach_filler(entry: Dict[str, Any], profile_id: Optional[str] = None) -> No
         log.debug(f"[fluent] no option filler: {e}")
 
 
+def _number(v: Any, default: float) -> float:
+    try:
+        return float(v) if v is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
 # --------------------------------------------------------------------------- prepare hook
 
 def start_options(entry: Dict[str, Any], *, profile_id: Optional[str] = None, project_id: Optional[int] = None,
                   store: Optional[OptionStore] = None, filler: Optional[OptionFiller] = None, judge: Any = None,
-                  cfg: Optional[FluentSettings] = None) -> List[str]:
-    """Queue background option generation for a just-prepared program. Returns the
-    storage keys queued. Never calls a model itself and never raises: a program whose
-    pools can't fill still draws from its seeds."""
+                  cfg: Optional[FluentSettings] = None, prefill: bool = True) -> List[str]:
+    """Queue background option generation for a just-prepared program, and (with a
+    judge configured) judgment prefill once those pools have filled. Returns the storage
+    keys queued. Never calls a model itself and never raises: a program whose pools can't
+    fill still draws from its seeds."""
     if not uses_draws(entry.get("program") or ""):
         return []
     try:
@@ -118,10 +136,81 @@ def start_options(entry: Dict[str, Any], *, profile_id: Optional[str] = None, pr
             except ProgramError:
                 continue
             rt.options.reset()
-        return rt.options.queued
+        queued = rt.options.queued
+        if prefill:
+            schedule_prefill(entry, rt.judge, rt.options.filler, queued, profile_id=profile_id, store=rt.options.store)
+        return queued
     except Exception as e:
         log.warning(f"[fluent] couldn't start option generation: {e}")
         return []
+
+
+# --------------------------------------------------------------------------- judgment prefill
+
+_prefill_lock = threading.Lock()
+
+
+def prefill_judgments(entry: Dict[str, Any], judge: Any, *, store: Optional[OptionStore] = None,
+                      profile_id: Optional[str] = None, draws: int = PREFILL_DRAWS, pool: int = PREFILL_POOL,
+                      pins: Optional[Dict[str, Any]] = None, cfg: Optional[FluentSettings] = None) -> Dict[str, Any]:
+    """Judge a program's pools ahead of its draws, so a judge too slow to run per image
+    (a CPU) still serves them from the cache. Judgments are keyed by the judge state and
+    the option, so they're exactly what later draws ask for. Phase 1's state is the
+    prompt's fixed text (with any pins), the same for every draw; later phases' states
+    depend on earlier values, so each prefill draw judges the pools in the states it
+    reaches. Blocking: run it in a thread. Never generates options."""
+    if getattr(judge, "null", False) or not uses_draws(entry.get("program") or ""):
+        return {"draws": 0}
+    cfg = cfg or settings()
+    loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
+    params = set(entry.get("params") or {}) or None
+    clean_pins = {str(k): [str(x) for x in (v if isinstance(v, list) else [v])] for k, v in (pins or {}).items() if v}
+    done = 0
+    with _prefill_lock:  # one prefill at a time: it's background work
+        for seed in range(draws):
+            rt = runtime_for(entry, profile_id=profile_id, store=store, judge=judge,
+                             cfg=dataclasses.replace(cfg, generate_options=False))
+            try:
+                draw(entry["program"], 104729 * seed + 3, clean_pins, loras, params, None, None,
+                     options=rt.options, judge=judge, rarity=rt.rarity, wrong_cut=rt.wrong_cut, keep=rt.keep,
+                     prefetch=pool)
+                done += 1
+            except ProgramError:
+                continue
+    return {"draws": done, **(judge.stats() if hasattr(judge, "stats") else {})}
+
+
+def schedule_prefill(entry: Dict[str, Any], judge: Any, filler: Optional[OptionFiller], keys: List[str], *,
+                     profile_id: Optional[str] = None, store: Optional[OptionStore] = None,
+                     wait_seconds: float = 300.0) -> Optional["asyncio.Future[Any]"]:
+    """After the pools queued at prepare have filled (or `wait_seconds` pass), prefill
+    judgments in a background thread. Returns the task, or None when there's no judge
+    or no event loop."""
+    if getattr(judge, "null", False):
+        return None
+    running = _running_loop()
+    loop = running or (filler.loop if filler is not None else None)
+    if loop is None or loop.is_closed():
+        return None
+
+    async def run():
+        deadline = loop.time() + wait_seconds
+        while filler is not None and any(filler.busy(k) for k in keys) and loop.time() < deadline:
+            await asyncio.sleep(0.5)
+        try:
+            return await asyncio.to_thread(prefill_judgments, entry, judge, store=store, profile_id=profile_id)
+        except Exception as e:
+            log.warning(f"[fluent] judgment prefill failed: {e}")
+            return None
+
+    return loop.create_task(run()) if running is loop else asyncio.run_coroutine_threadsafe(run(), loop)
+
+
+def _running_loop() -> Optional[asyncio.AbstractEventLoop]:
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        return None
 
 
 # --------------------------------------------------------------------------- bad-pool check
@@ -159,4 +248,4 @@ def pool_checker(judge: Any, wrong_cut: float):
     return check
 
 
-__all__ = ["Runtime", "attach_filler", "program_context", "pool_checker", "runtime_for", "start_options"]
+__all__ = ["Runtime", "attach_filler", "prefill_judgments", "schedule_prefill", "program_context", "pool_checker", "runtime_for", "start_options"]

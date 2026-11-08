@@ -11,7 +11,7 @@ from what this returns. Nothing here is used by the app.
 
 CLI (one prepared entry as JSON, rows as JSONL):
     uv run python -m prompt_programs.evaluate --entry e.json --n 20 \\
-        [--judge none|local|http://host:8790] [--options-dir DIR] [--fill] [--rarity 0.3]
+        [--judge none|local|http://host:8790] [--options-dir DIR] [--fill] [--prefill] [--keep cut|tiers]
 """
 
 from __future__ import annotations
@@ -30,28 +30,28 @@ from prompt_programs.options import Generator, OptionFiller, OptionStore, llm_ge
 from prompt_programs.runtime import ProgramError
 
 
-def _cfg(rarity: Optional[float], wrong_cut: Optional[float], generate: bool) -> FluentSettings:
+def _cfg(rarity: Optional[float], wrong_cut: Optional[float], generate: bool, keep: Optional[str] = None) -> FluentSettings:
     base = settings()
     return FluentSettings(base.judge, base.judge_model, base.judge_url, base.judge_threads,
                           base.rarity if rarity is None else float(rarity),
-                          base.wrong_cut if wrong_cut is None else float(wrong_cut), generate)
+                          base.wrong_cut if wrong_cut is None else float(wrong_cut), generate, keep or base.keep)
 
 
 def draw_many(entry: Dict[str, Any], n: int = 20, *, judge: Any = None, seeds: Optional[Sequence[int]] = None,
               pins: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
               rarity: Optional[float] = None, wrong_cut: Optional[float] = None,
-              store: Optional[OptionStore] = None) -> Dict[str, Any]:
+              store: Optional[OptionStore] = None, keep: Optional[str] = None) -> Dict[str, Any]:
     """Draw `n` times (seeds 0..n-1 unless given) and return every draw plus totals.
     Pools are read from `store` as they are; nothing is generated while drawing."""
     from prompt_programs.prepare import realize
     judge = judge if judge is not None else NullJudge()
-    cfg = _cfg(rarity, wrong_cut, generate=False)
+    cfg = _cfg(rarity, wrong_cut, generate=False, keep=keep)
     seeds = list(seeds) if seeds is not None else list(range(n))
     rows: List[Dict[str, Any]] = []
     times: List[float] = []
     for seed in seeds:
         rt = runtime_for(entry, edits=edits, judge=judge, store=store, cfg=cfg)
-        rt = Runtime(rt.options, judge, cfg.rarity, cfg.wrong_cut)
+        rt = Runtime(rt.options, judge, cfg.rarity, cfg.wrong_cut, cfg.keep)
         started = time.perf_counter()
         try:
             r = realize(entry, seed=seed, pins=pins, edits=edits, runtime=rt)
@@ -80,7 +80,7 @@ def draw_many(entry: Dict[str, Any], n: int = 20, *, judge: Any = None, seeds: O
         "ms_p99": round(times[min(len(times) - 1, int(0.99 * len(times)))], 2) if times else None,
         "judge_passes_per_draw": round(sum(r["judge_passes"] for r in ok) / len(ok), 2) if ok else None,
         "rejected_per_draw": round(sum(r["rejected"] for r in ok) / len(ok), 2) if ok else None,
-        "rarity": cfg.rarity, "wrong_cut": cfg.wrong_cut,
+        "rarity": cfg.rarity, "wrong_cut": cfg.wrong_cut, "keep": cfg.keep,
         "judge": judge.stats() if isinstance(judge, CachedJudge) else {"version": getattr(judge, "version", "?")},
     }
     return {"draws": rows, "stats": stats}
@@ -92,7 +92,8 @@ async def fill_options(entry: Dict[str, Any], store: OptionStore, *, generator: 
     bad-pool check when a judge is given. `rounds` > 1 asks each pool for more."""
     from prompt_programs.draws import draw
     filler = OptionFiller(store, generator)
-    queued = start_options(entry, store=store, filler=filler, judge=judge or NullJudge(), cfg=_cfg(None, None, True))
+    queued = start_options(entry, store=store, filler=filler, judge=judge or NullJudge(), cfg=_cfg(None, None, True),
+                           prefill=False)
     await filler.drain()
     for _ in range(max(0, rounds - 1)):
         rt = runtime_for(entry, store=store, filler=filler, judge=NullJudge(), cfg=_cfg(None, None, True))
@@ -120,6 +121,8 @@ def _main(argv: Optional[Sequence[str]] = None) -> None:  # pragma: no cover - m
     ap.add_argument("--fill", action="store_true", help="generate pools first with the configured LLM")
     ap.add_argument("--rarity", type=float, default=None)
     ap.add_argument("--wrong-cut", type=float, default=None)
+    ap.add_argument("--keep", choices=["cut", "tiers"], default=None)
+    ap.add_argument("--prefill", action="store_true", help="prefill judgments first (the precompute path)")
     ap.add_argument("--out", default="", help="write draws as JSONL here; stats go to stdout")
     a = ap.parse_args(argv)
     from prompt_programs.judge import HttpJudge, LocalJudge
@@ -134,7 +137,10 @@ def _main(argv: Optional[Sequence[str]] = None) -> None:  # pragma: no cover - m
         judge = CachedJudge(judge, Path(a.judgments) if a.judgments else None)
     if a.fill and store is not None:
         print(json.dumps({"fill": asyncio.run(fill_options(entry, store, judge=judge))}), file=sys.stderr)
-    out = draw_many(entry, a.n, judge=judge, rarity=a.rarity, wrong_cut=a.wrong_cut, store=store)
+    if a.prefill and not getattr(judge, "null", False):
+        from prompt_programs.fluent import prefill_judgments
+        print(json.dumps({"prefill": prefill_judgments(entry, judge, store=store)}), file=sys.stderr)
+    out = draw_many(entry, a.n, judge=judge, rarity=a.rarity, wrong_cut=a.wrong_cut, store=store, keep=a.keep)
     if a.out:
         Path(a.out).write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in out["draws"]), "utf-8")
     print(json.dumps(out["stats"], indent=1))

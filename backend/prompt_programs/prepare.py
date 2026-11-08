@@ -584,7 +584,8 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
         rt = runtime or runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
                                     revision=revision)
         result = draw(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None,
-                      options=rt.options, judge=rt.judge, rarity=rt.rarity, wrong_cut=rt.wrong_cut)
+                      options=rt.options, judge=rt.judge, rarity=rt.rarity, wrong_cut=rt.wrong_cut,
+                      keep=getattr(rt, "keep", "cut"))
     else:
         result = run(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None)
     if entry.get("exact"):  # the user's [exact text], straight to the image model

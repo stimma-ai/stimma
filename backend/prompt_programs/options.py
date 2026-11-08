@@ -241,11 +241,43 @@ def generation_messages(job: OptionJob, count: int = BATCH_SIZE) -> List[Dict[st
     return [{"role": "system", "content": system}, {"role": "user", "content": "\n".join(lines)}]
 
 
+_META = re.compile(r"\b(wait|let's|let me|actually|options?|the prompt|instructions?|here is|here are|i need|json)\b", re.I)
+_NOTE = re.compile(r"\s*\((?:[^()]*\b(?:expected|typical|default|common|unusual|rare|alternative)\b[^()]*)\)\s*$", re.I)
+
+
+def parse_options(reply: str, limit: int = 2 * BATCH_SIZE) -> List[str]:
+    """The options in a model's reply: the first JSON list of strings in it, else one
+    per line. Reasoning the model leaked, notes like "(expected)", stray brackets and
+    over-long lines are dropped, never kept as options."""
+    text = reply or ""
+    items: List[str] = []
+    for m in re.finditer(r"\[[^\[\]]*\]", text, re.S):
+        try:
+            got = json.loads(m.group(0))
+        except ValueError:
+            continue
+        if isinstance(got, list) and got and all(isinstance(x, str) for x in got):
+            items = got
+            break
+    if not items:
+        items = [re.sub(r"^\s*(?:[-*\u2022]|\d+[.)])\s*", "", ln).strip().strip('",') for ln in text.splitlines()]
+    return [o for o in (clean_option(x) for x in items) if o][:limit]
+
+
+def clean_option(o: Any) -> Optional[str]:
+    """One option as it goes in a pool, or None when it isn't one."""
+    o = _NOTE.sub("", str(o)).strip().strip('"').strip()
+    if (not o or len(o) > 120 or len(o.split()) > 16 or not re.search(r"[^\W\d_]", o)
+            or _META.search(o) or o.startswith(("`", "[", "{")) or o.endswith((":", "?"))):
+        return None
+    return o
+
+
 async def llm_generator(job: OptionJob) -> Tuple[List[str], str]:
     """Options from the configured chat model (the same role and plumbing as prepare)."""
-    from prompt_programs.prepare import _ask_model, _parse_options
+    from prompt_programs.prepare import _ask_model
     reply = await _ask_model(generation_messages(job), job.project_id)
-    return _parse_options(reply), "tool_assistant"
+    return parse_options(reply), "tool_assistant"
 
 
 class OptionFiller:
@@ -352,7 +384,8 @@ class OptionFiller:
             options, model = await self.generator(job)
             self.calls += 1
             have = {_norm(o) for o in job.existing}
-            fresh = [o for o in dict.fromkeys(str(x).strip() for x in options) if o and _norm(o) not in have]
+            cleaned = [c for c in (clean_option(x) for x in options) if c]
+            fresh = [o for o in dict.fromkeys(cleaned) if _norm(o) not in have]
             self.store.append(job.key, {
                 "round": job.round, "options": fresh, "model": model, "at": time.time(),
                 "seconds": round(time.monotonic() - started, 2),
@@ -549,5 +582,5 @@ def filler_for(profile_id: Optional[str]) -> OptionFiller:
 
 __all__ = [
     "GeneratedOptions", "OptionFiller", "OptionJob", "OptionStore", "ProgramContext", "filler_for", "gen_key",
-    "generated_pick", "generation_messages", "llm_generator", "store_for",
+    "generated_pick", "generation_messages", "llm_generator", "parse_options", "store_for",
 ]
