@@ -513,6 +513,9 @@ def _group_by_subject(choices: Dict[str, "Choice"], order: List[str], groups: Di
             attrs.setdefault(a.lower(), set()).add(i)
         if len(indices) < 2 or not any(len(v) >= 2 for v in attrs.values()):
             continue  # one person, or nothing shared between them: not a group
+        cells = [(i, a.lower()) for _, i, a in members]
+        if len(cells) != len(set(cells)):
+            continue  # two choices for one person's detail (alternatives by branch): a grid cell holds one
         gid = key if key not in groups else f"{key}_subjects"
         for c, i, a in members:
             c.group, c.index, c.attr, c.label = gid, i, re.sub(r"[^a-z0-9]+", "_", a.lower()).strip("_"), a[:1].upper() + a[1:]

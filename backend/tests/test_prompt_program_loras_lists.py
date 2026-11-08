@@ -318,3 +318,15 @@ class TestConditionalStacking:
                'emit("A", mood, "portrait.")\n')
         problems = prep.validate(src, "A {calm|wild|sad|happy|bored} portrait, pick a lora", LORAS, set())["problems"]
         assert any("same LoRAs" in p for p in problems)
+
+
+class TestSubjectCells:
+    def test_alternatives_for_one_cell_stay_flat(self):
+        from prompt_programs.runtime import discover
+        src = ('w = pick("weather", ["cold", "hot"], source="list", line=1)\n'
+               'a = pick("g1_hair", ["a bob", "braids"], label="Girl 1 Hair")\n'
+               'if w == "cold":\n    b = pick("g2_hair_cold", ["a beanie", "a hood"], label="Girl 2 Hair")\n'
+               'else:\n    b = pick("g2_hair_hot", ["a ponytail", "a bun"], label="Girl 2 Hair")\n'
+               'emit(w, a, b)\n')
+        info = discover(src, [], set(), runs=24)
+        assert not info["groups"] and all("group" not in c for c in info["choices"])

@@ -14,7 +14,7 @@
         <!-- One person's attribute, opened from the group grid -->
         <template v-if="member">
           <CardHeader :title="`${group?.label} ${member.index} · ${member.label}`" :back="group?.label" :choice="member" :program="program" @back="memberId = null" />
-          <OptionRows :choice="member" :program="program" deletable addable />
+          <OptionRows :choice="member" :program="program" :deletable="memberEditable" :addable="memberEditable" />
         </template>
 
         <!-- A group (People ×3): rows are attributes, columns are people -->
@@ -28,7 +28,7 @@
               </tr>
               <tr v-for="attr in groupAttrs" :key="attr">
                 <td class="pr-2 py-0.5 text-xs text-content-secondary whitespace-nowrap align-middle">
-                  <WandSparklesIcon v-if="attrChoice(attr, 1)?.source === 'added'" class="inline w-2.5 h-2.5 mr-0.5 text-content-tertiary" />{{ attrChoice(attr, 1)?.label }}
+                  <WandSparklesIcon v-if="attrLabel(attr)?.source === 'added'" class="inline w-2.5 h-2.5 mr-0.5 text-content-tertiary" />{{ attrLabel(attr)?.label }}
                 </td>
                 <td v-for="i in group.count" :key="i" class="px-0.5 py-0.5">
                   <button
@@ -134,6 +134,12 @@ const wide = computed(() => {
 const editable = computed(() => !!choice.value && choice.value.source !== 'list' && choice.value.kind === 'pick')
 // The model writes options for plain picks (not ones whose options depend on another pick).
 const writable = computed(() => editable.value && !choice.value!.follows)
+const memberEditable = computed(() => !!member.value && member.value.source !== 'list' && member.value.kind === 'pick')
+
+/** The row's name: any member with that detail (person 1 may not have it). */
+function attrLabel(attr: string): ProgramChoice | undefined {
+  return members.value.find(m => (m.attr || m.id) === attr)
+}
 
 function attrChoice(attr: string, index: number): ProgramChoice | undefined {
   return members.value.find(m => (m.attr || m.id) === attr && m.index === index)
