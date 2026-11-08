@@ -472,6 +472,9 @@ class TestFixInCode:
         enhanced = "Ein Porträt einer Frau, sie trägt eine rote Jacke."
         assert prep.lost_stated(src, "Eine Frau", enhanced) == {}
         assert prep.fix_stated(src, "Eine Frau", enhanced) == (src, [])
+        # One word that is English too ("her") is not enough to call a prompt English.
+        assert prep.lost_stated(src, "Eine Frau kommt von rechts her", enhanced) == {}
+        assert prep.fix_stated(src, "Eine Frau kommt von rechts her", enhanced) == (src, [])
         # In English, "a"/"her" are grammar: only stated content words count as lost.
         en = ('outfit = pick("outfit", about="what she wears", seed=["a red jacket on her"], phase=1, added=True)\n'
               'emit("A portrait of a woman", outfit)\n')

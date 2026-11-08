@@ -523,8 +523,13 @@ _STATED_STOP = {"a", "an", "the", "and", "or", "but", "nor", "so", "of", "in", "
                 "while", "who", "which", "whose", "where", "when", "not", "no", "all", "any", "both", "such"}
 # Words only English uses this way. A prompt with none of them (or with letters English
 # doesn't use) can't be told apart into stated words and grammar, so nothing is frozen.
-_ENGLISH_MARKERS = {"the", "and", "with", "her", "his", "she", "are", "their", "this", "that", "wearing", "who",
-                    "which", "from", "into"}
+_ENGLISH_MARKERS = {"a", "an", "the", "and", "with", "in", "on", "of", "at", "to", "by", "for", "her", "his",
+                    "she", "he", "their", "this", "that", "is", "are", "wearing", "who", "which", "from", "into"}
+# Grammar words of other languages that English prompts don't use: one of these means the
+# prompt's function words are unknown, so nothing is treated as stated.
+_FOREIGN_MARKERS = {"der", "das", "und", "ein", "eine", "einer", "einem", "einen", "mit", "von", "ist", "sie",
+                    "le", "la", "les", "et", "une", "des", "du", "avec", "el", "los", "las", "y", "con", "una",
+                    "il", "di", "che", "och", "het", "een"}
 
 
 def _stem(word: str) -> str:
@@ -549,7 +554,8 @@ def _english(text: str) -> bool:
     words = re.findall(r"[^\W\d_]+", text.lower())
     if sum(1 for w in words if not w.isascii()) * 10 > len(words):  # letters English doesn't use
         return False
-    return bool(set(words) & _ENGLISH_MARKERS)
+    found = set(words)
+    return len(found & _ENGLISH_MARKERS) >= 2 and not found & _FOREIGN_MARKERS
 
 
 def stated_words(prompt: str) -> Dict[str, str]:

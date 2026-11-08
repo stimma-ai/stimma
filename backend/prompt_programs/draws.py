@@ -409,10 +409,21 @@ def _list_sizes(tree: ast.Module) -> Dict[str, int]:
             root = node.func.value
             if isinstance(root, ast.Name):
                 bound.setdefault(root.id, []).append(node)
+    # A list read anywhere but as a pick's options (aliased, passed on, concatenated) may
+    # grow out of sight: its size is unknown.
+    passed: Set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in ("pick", "pick_lora"):
+            arg = node.args[1] if len(node.args) > 1 else next(
+                (k.value for k in node.keywords if k.arg in ("options", "names")), None)
+            if isinstance(arg, ast.Name):
+                passed.add(id(arg))
+    escaped = {n.id for n in ast.walk(tree)
+               if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load) and id(n) not in passed}
     top = {id(st) for st in tree.body}
     return {name: len(nodes[0].value.elts) for name, nodes in bound.items()
             if len(nodes) == 1 and id(nodes[0]) in top and isinstance(nodes[0], ast.Assign)
-            and isinstance(nodes[0].value, (ast.List, ast.Tuple))}
+            and isinstance(nodes[0].value, (ast.List, ast.Tuple)) and name not in escaped}
 
 
 def _size(node: Optional[ast.AST], sizes: Dict[str, int]) -> Optional[int]:

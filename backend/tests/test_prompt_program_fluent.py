@@ -694,6 +694,11 @@ class TestLookupKeyRule:
         grown = src.replace("\na = pick", '\noptions.append("34")\na = pick')
         with pytest.raises(ProgramError, match="aren't written out"):
             analyze(grown, strict=True)
+        aliased = ('options = ["base"]\nalias = options\nalias.extend([' + values + '])\n'
+                   'a = pick("a", options, source="list", phase=1)\n'
+                   'o = pick("o", about=f"for {a}", seed=["x"], phase=2)\nemit(a, o)\n')
+        with pytest.raises(ProgramError, match="aren't written out"):
+            analyze(aliased, strict=True)
 
     def test_a_generated_pick_named_under_an_if_on_it_is_still_named(self):
         from prompt_programs.draws import analyze
