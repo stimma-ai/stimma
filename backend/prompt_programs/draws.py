@@ -423,6 +423,7 @@ def _list_sizes(tree: ast.Module) -> Dict[str, int]:
     top = {id(st) for st in tree.body}
     return {name: len(nodes[0].value.elts) for name, nodes in bound.items()
             if len(nodes) == 1 and id(nodes[0]) in top and isinstance(nodes[0], ast.Assign)
+            and len(nodes[0].targets) == 1 and isinstance(nodes[0].targets[0], ast.Name)  # not a = b = [...]
             and isinstance(nodes[0].value, (ast.List, ast.Tuple)) and name not in escaped}
 
 
