@@ -1,0 +1,124 @@
+{
+ "version": "v1",
+ "facets": {
+  "genre": {
+   "values": [
+    "realistic",
+    "fantasy",
+    "scifi",
+    "cyberpunk",
+    "steampunk",
+    "post_apocalyptic",
+    "horror",
+    "fairy_tale"
+   ],
+   "default": "realistic",
+   "about": "the world the image is set in. Context with no genre given is realistic, so a value tagged only fantasy is out of a plain prompt."
+  },
+  "era": {
+   "values": [
+    "ancient",
+    "medieval",
+    "early_modern",
+    "19th_century",
+    "1900s_1940s",
+    "1950s_1970s",
+    "1980s_1990s",
+    "contemporary",
+    "future"
+   ],
+   "default": "contemporary",
+   "about": "when the image is set. early_modern is roughly 1500-1799. Context with no era given is contemporary."
+  },
+  "space": {
+   "values": [
+    "indoor",
+    "outdoor"
+   ],
+   "default": null,
+   "about": "indoors or outdoors"
+  },
+  "locale": {
+   "values": [
+    "urban",
+    "suburban",
+    "rural",
+    "wilderness",
+    "coastal"
+   ],
+   "default": null,
+   "about": "what kind of place around the subject"
+  },
+  "climate": {
+   "values": [
+    "hot",
+    "temperate",
+    "cold"
+   ],
+   "default": null,
+   "about": "the temperature the scene implies"
+  },
+  "time_of_day": {
+   "values": [
+    "dawn",
+    "day",
+    "golden_hour",
+    "dusk",
+    "night"
+   ],
+   "default": null,
+   "about": "the time of day the scene implies"
+  },
+  "presentation": {
+   "values": [
+    "feminine",
+    "masculine"
+   ],
+   "default": null,
+   "about": "gendered presentation, only for values that are clearly gendered in images"
+  },
+  "age": {
+   "values": [
+    "child",
+    "teen",
+    "adult",
+    "elderly"
+   ],
+   "default": null,
+   "about": "the age of the person, only for values that clearly don't fit every age"
+  },
+  "formality": {
+   "values": [
+    "casual",
+    "smart",
+    "formal"
+   ],
+   "default": null,
+   "about": "how dressed-up an outfit or place is"
+  },
+  "budget": {
+   "values": [
+    "modest",
+    "mid",
+    "luxury"
+   ],
+   "default": null,
+   "about": "how expensive a place or outfit looks"
+  },
+  "region": {
+   "values": [
+    "east_asian",
+    "south_asian",
+    "southeast_asian",
+    "middle_eastern",
+    "african",
+    "european",
+    "latin_american",
+    "north_american",
+    "oceanian"
+   ],
+   "default": null,
+   "about": "a cultural region, only for values that are culturally specific (a tatami room, a sari)"
+  }
+ }
+}

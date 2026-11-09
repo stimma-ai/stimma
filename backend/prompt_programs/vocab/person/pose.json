@@ -1,0 +1,152 @@
+{
+  "id": "person.pose",
+  "label": "Pose",
+  "description": "Body postures and arrangements of limbs that fit an unspecified setting.",
+  "pos": "participle phrase",
+  "frame": "a woman ___",
+  "notes": "Stationary body posture only, including head angle as part of posture. Gaze owns viewing direction; expression owns facial emotion. Excludes props, furniture, named places, clothing, and movement sequences. Seated and reclining poses require appropriate space but have no indoor or outdoor restriction.",
+  "facets": [],
+  "closed": false,
+  "values": [
+    {
+      "text": "standing with the subject’s arms relaxed at the subject’s sides",
+      "tier": "typical"
+    },
+    {
+      "text": "standing with the subject’s arms crossed",
+      "tier": "typical"
+    },
+    {
+      "text": "standing with the subject’s hands clasped in front",
+      "tier": "typical"
+    },
+    {
+      "text": "standing with the subject’s hands clasped behind the subject’s back",
+      "tier": "typical"
+    },
+    {
+      "text": "standing with one hand on the subject’s hip",
+      "tier": "typical"
+    },
+    {
+      "text": "standing with the subject’s weight on one leg",
+      "tier": "typical"
+    },
+    {
+      "text": "standing with the subject’s feet shoulder-width apart",
+      "tier": "typical"
+    },
+    {
+      "text": "standing with the subject’s torso turned three-quarters sideways",
+      "tier": "typical"
+    },
+    {
+      "text": "standing in profile with the subject’s back straight",
+      "tier": "typical"
+    },
+    {
+      "text": "standing with the subject’s back turned and the subject’s head slightly rotated",
+      "tier": "typical"
+    },
+    {
+      "text": "standing with the subject’s head tilted to one side",
+      "tier": "typical"
+    },
+    {
+      "text": "sitting cross-legged",
+      "tier": "typical"
+    },
+    {
+      "text": "sitting with the subject’s ankles crossed",
+      "tier": "typical"
+    },
+    {
+      "text": "sitting with the subject’s legs extended straight ahead",
+      "tier": "typical"
+    },
+    {
+      "text": "sitting with one knee drawn toward the subject’s chest",
+      "tier": "typical"
+    },
+    {
+      "text": "sitting with the subject’s hands resting on the subject’s knees",
+      "tier": "typical"
+    },
+    {
+      "text": "sitting with the subject’s torso inclined slightly forward",
+      "tier": "typical"
+    },
+    {
+      "text": "sitting with the subject’s back upright and feet apart",
+      "tier": "typical"
+    },
+    {
+      "text": "sitting with the subject’s chin resting on one hand",
+      "tier": "typical"
+    },
+    {
+      "text": "standing with one forearm across the subject’s waist",
+      "tier": "plausible"
+    },
+    {
+      "text": "standing with one elbow raised and the subject’s hand behind the subject’s head",
+      "tier": "plausible"
+    },
+    {
+      "text": "standing with one arm extended overhead",
+      "tier": "plausible"
+    },
+    {
+      "text": "standing with the subject’s upper body folded forward",
+      "tier": "plausible"
+    },
+    {
+      "text": "standing on tiptoe with the subject’s arms at the subject’s sides",
+      "tier": "plausible"
+    },
+    {
+      "text": "sitting with the subject’s knees hugged against the subject’s chest",
+      "tier": "plausible"
+    },
+    {
+      "text": "sitting with one knee raised and an elbow resting on it",
+      "tier": "plausible"
+    },
+    {
+      "text": "sitting with the subject’s legs crossed at the knees",
+      "tier": "plausible"
+    },
+    {
+      "text": "kneeling upright with the subject’s hands on the subject’s thighs",
+      "tier": "plausible"
+    },
+    {
+      "text": "kneeling with one knee raised",
+      "tier": "plausible"
+    },
+    {
+      "text": "crouching with the subject’s heels raised and elbows near the subject’s knees",
+      "tier": "plausible"
+    },
+    {
+      "text": "squatting with the subject’s heels down and hands clasped",
+      "tier": "plausible"
+    },
+    {
+      "text": "lying on the subject’s back with the subject’s arms at the subject’s sides",
+      "tier": "plausible"
+    },
+    {
+      "text": "lying on the subject’s side with the subject’s knees loosely bent",
+      "tier": "plausible"
+    },
+    {
+      "text": "lying on the subject’s stomach with the subject’s forearms folded beneath the subject’s chin",
+      "tier": "plausible"
+    },
+    {
+      "text": "reclining with the subject’s weight supported on both elbows",
+      "tier": "plausible"
+    }
+  ]
+}

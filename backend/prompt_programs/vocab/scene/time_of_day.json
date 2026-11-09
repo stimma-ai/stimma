@@ -1,0 +1,123 @@
+{
+  "id": "scene.time_of_day",
+  "label": "Time of day",
+  "description": "The hour or daily phase in which the scene takes place.",
+  "pos": "noun phrase",
+  "frame": "at ___",
+  "notes": "Clock times and daily phases belong here. lighting.natural owns the appearance and direction of sunlight, skylight or moonlight; scene.weather owns atmospheric conditions and scene.season owns the annual phase. Blue hour includes morning and evening twilight.",
+  "facets": [
+    "time_of_day"
+  ],
+  "closed": true,
+  "values": [
+    {
+      "text": "dawn",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "dawn"
+        ]
+      }
+    },
+    {
+      "text": "midmorning",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "day"
+        ]
+      }
+    },
+    {
+      "text": "high noon",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "day"
+        ]
+      }
+    },
+    {
+      "text": "midafternoon",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "day"
+        ]
+      }
+    },
+    {
+      "text": "golden hour",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunset",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "dusk",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "dusk"
+        ]
+      }
+    },
+    {
+      "text": "midnight",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "night"
+        ]
+      }
+    },
+    {
+      "text": "late morning",
+      "tier": "plausible",
+      "tags": {
+        "time_of_day": [
+          "day"
+        ]
+      }
+    },
+    {
+      "text": "blue hour",
+      "tier": "plausible",
+      "tags": {
+        "time_of_day": [
+          "dawn",
+          "dusk"
+        ]
+      }
+    },
+    {
+      "text": "an hour after nightfall",
+      "tier": "plausible",
+      "tags": {
+        "time_of_day": [
+          "night"
+        ]
+      }
+    },
+    {
+      "text": "the last hour before dawn",
+      "tier": "plausible",
+      "tags": {
+        "time_of_day": [
+          "night"
+        ]
+      }
+    }
+  ]
+}

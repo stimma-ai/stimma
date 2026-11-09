@@ -1,0 +1,840 @@
+{
+  "id": "person.accessory",
+  "label": "Accessory",
+  "description": "A worn accessory such as jewelry, eyewear, headwear or a watch.",
+  "pos": "noun phrase",
+  "frame": "wearing ___",
+  "notes": "Worn objects only, never held props or full outfits. person.makeup owns applied cosmetics and person.hairstyle owns hair arrangements; clips and pins worn in hair belong here. Cultural items are not restricted by descent or geographic region: wearers and diaspora can be anywhere. Each value is one accessory or a matched pair.",
+  "facets": [
+    "era",
+    "genre"
+  ],
+  "closed": false,
+  "untagged": {
+    "genre": [
+      "realistic",
+      "fantasy",
+      "scifi",
+      "cyberpunk",
+      "steampunk",
+      "post_apocalyptic",
+      "horror",
+      "fairy_tale"
+    ],
+    "era": [
+      "ancient",
+      "medieval",
+      "early_modern",
+      "19th_century",
+      "1900s_1940s",
+      "1950s_1970s",
+      "1980s_1990s",
+      "contemporary",
+      "future"
+    ]
+  },
+  "values": [
+    {
+      "text": "round wire-rimmed glasses",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "cat-eye glasses",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "dark sunglasses",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "small gold hoop earrings",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "silver stud earrings",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "pearl earrings",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a silver nose ring",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a thin chain necklace",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a pendant necklace",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a beaded necklace",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a leather-strap watch",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a gold wedding band",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a silver signet ring",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a woven bracelet",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a cuff bracelet",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a knitted scarf",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a silk neck scarf",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a baseball cap",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a knitted beanie",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a wide-brimmed sun hat",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a beret",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a patterned headscarf",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a fabric headband",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a metal hair clip",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a wooden hair stick",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "tinted aviator glasses",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a monocle",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a single ear cuff",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "long chandelier earrings",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a septum ring",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a nose stud",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a shell choker",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a ribbon choker",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a locket",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a string of pearls",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a brooch",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a stack of bangles",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a charm bracelet",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a stone-set ring",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a digital wristwatch",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a pocket watch on a waistcoat chain",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a feathered fascinator",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a flat cap",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a fedora",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a boater hat",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a fur-lined trapper hat",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a straw conical hat",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a turban",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a hijab",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a kippah",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a kufi cap",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a floral hair wreath",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a jeweled tiara",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "a scrunchie",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a crown of floating crystal shards",
+      "tier": "unusual",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": "any"
+      }
+    },
+    {
+      "text": "a holographic visor",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a pair of wireless earbuds",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    }
+  ]
+}

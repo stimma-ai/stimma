@@ -1,0 +1,108 @@
+{
+  "id": "camera.lens",
+  "label": "Camera lens",
+  "description": "Generic photographic optics, focal lengths and aperture choices.",
+  "pos": "noun phrase",
+  "frame": "shot on ___",
+  "notes": "Optical capture choices belong here, including projection, focus behaviour and lens movement. camera.shot_size owns framing, camera.angle owns viewpoint and camera.film_look owns grain and colour rendering. Lens choices describe capture rather than the depicted era; focal-length effects assume a full-frame reference.",
+  "facets": [],
+  "closed": true,
+  "values": [
+    {
+      "text": "a 24mm wide-angle lens",
+      "tier": "typical"
+    },
+    {
+      "text": "a 35mm lens at f/2",
+      "tier": "typical"
+    },
+    {
+      "text": "a 50mm lens at f/1.8",
+      "tier": "typical"
+    },
+    {
+      "text": "an 85mm lens at f/1.8",
+      "tier": "typical"
+    },
+    {
+      "text": "a 135mm telephoto lens",
+      "tier": "typical"
+    },
+    {
+      "text": "a 100mm macro lens",
+      "tier": "typical"
+    },
+    {
+      "text": "a 50mm lens at f/8",
+      "tier": "typical"
+    },
+    {
+      "text": "a 14mm ultra-wide-angle lens",
+      "tier": "plausible"
+    },
+    {
+      "text": "a 28mm lens at f/5.6",
+      "tier": "plausible"
+    },
+    {
+      "text": "a 40mm pancake lens",
+      "tier": "plausible"
+    },
+    {
+      "text": "a 300mm telephoto lens",
+      "tier": "plausible"
+    },
+    {
+      "text": "a 600mm supertelephoto lens",
+      "tier": "unusual"
+    },
+    {
+      "text": "a circular fisheye lens",
+      "tier": "unusual"
+    },
+    {
+      "text": "a full-frame diagonal fisheye lens",
+      "tier": "unusual"
+    },
+    {
+      "text": "a tilt-shift lens with the focus plane tilted",
+      "tier": "plausible"
+    },
+    {
+      "text": "a perspective-control lens shifted upward",
+      "tier": "plausible"
+    },
+    {
+      "text": "a 24mm lens at f/1.4",
+      "tier": "plausible"
+    },
+    {
+      "text": "a 50mm lens at f/16",
+      "tier": "plausible"
+    },
+    {
+      "text": "an anamorphic lens with oval bokeh",
+      "tier": "plausible"
+    },
+    {
+      "text": "a soft-focus portrait lens",
+      "tier": "plausible"
+    },
+    {
+      "text": "a pinhole lens",
+      "tier": "unusual"
+    },
+    {
+      "text": "a vintage portrait lens with swirling bokeh",
+      "tier": "unusual"
+    },
+    {
+      "text": "a mirror telephoto lens with ring-shaped bokeh",
+      "tier": "unusual"
+    },
+    {
+      "text": "a split-diopter attachment on a standard lens",
+      "tier": "unusual"
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "id": "lighting.studio",
+  "label": "Studio lighting",
+  "description": "Photographic lighting equipment and deliberate portrait-lighting arrangements.",
+  "pos": "noun phrase",
+  "frame": "lit by ___",
+  "notes": "Photographic sources, modifiers and placement belong here, indoors or outdoors. Natural owns ambient sun and sky; indoor_practical owns fixtures within the scene; dramatic owns cinematic effects described independently of equipment. These are capture setups, so the depicted era does not restrict them.",
+  "facets": [],
+  "closed": false,
+  "values": [
+    {
+      "text": "a large softbox from camera left",
+      "tier": "typical"
+    },
+    {
+      "text": "a white shoot-through umbrella",
+      "tier": "typical"
+    },
+    {
+      "text": "a ring light around the lens",
+      "tier": "typical"
+    },
+    {
+      "text": "hard on-camera flash",
+      "tier": "typical"
+    },
+    {
+      "text": "a beauty dish above the camera",
+      "tier": "typical"
+    },
+    {
+      "text": "a bounced flash aimed at the ceiling",
+      "tier": "typical"
+    },
+    {
+      "text": "a soft key light and a white fill card",
+      "tier": "typical"
+    },
+    {
+      "text": "two large softboxes flanking the camera",
+      "tier": "typical"
+    },
+    {
+      "text": "a single bare studio strobe",
+      "tier": "typical"
+    },
+    {
+      "text": "a rectangular LED panel beside the camera",
+      "tier": "typical"
+    },
+    {
+      "text": "a three-light portrait setup",
+      "tier": "typical"
+    },
+    {
+      "text": "a silver reflective umbrella",
+      "tier": "plausible"
+    },
+    {
+      "text": "a gridded strip softbox behind the subject",
+      "tier": "plausible"
+    },
+    {
+      "text": "a snooted strobe aimed at the face",
+      "tier": "plausible"
+    },
+    {
+      "text": "a clamshell arrangement of two softboxes",
+      "tier": "plausible"
+    },
+    {
+      "text": "a split-lighting setup with a hard side key",
+      "tier": "plausible"
+    },
+    {
+      "text": "a loop-lighting setup with a small softbox",
+      "tier": "plausible"
+    },
+    {
+      "text": "a broad-lighting setup illuminating the near cheek",
+      "tier": "plausible"
+    },
+    {
+      "text": "a large overhead diffusion silk",
+      "tier": "plausible"
+    },
+    {
+      "text": "a strobe reflected from a silver card",
+      "tier": "plausible"
+    },
+    {
+      "text": "a warm gold reflector beneath the face",
+      "tier": "plausible"
+    },
+    {
+      "text": "a softbox feathered across the subject",
+      "tier": "plausible"
+    },
+    {
+      "text": "a pair of strobes aimed at a white backdrop",
+      "tier": "plausible"
+    },
+    {
+      "text": "a soft key light with black flags absorbing fill",
+      "tier": "plausible"
+    },
+    {
+      "text": "a strobe bounced into a large white V-flat",
+      "tier": "plausible"
+    },
+    {
+      "text": "a broad fluorescent photography bank",
+      "tier": "plausible"
+    },
+    {
+      "text": "a softbox placed close to the floor",
+      "tier": "plausible"
+    },
+    {
+      "text": "a focused optical spot projecting a window pattern",
+      "tier": "unusual"
+    },
+    {
+      "text": "a circular array of synchronized strobes",
+      "tier": "unusual"
+    },
+    {
+      "text": "a strobe fired through a water-filled glass tray",
+      "tier": "unusual"
+    }
+  ]
+}

@@ -1,0 +1,332 @@
+{
+  "id": "person.ethnicity",
+  "label": "Descent",
+  "description": "National or ethnic descent adjectives, sampled with a uniform prior.",
+  "pos": "adjective",
+  "frame": "a ___ woman",
+  "notes": "National or ethnic descent adjectives at a named people or country level, never continental categories. All values are typical and untagged: descent does not constrain appearance, region, genre or presentation. person.skin_tone owns skin color; hair and eye leaves own their respective traits. Membership categories can overlap and are neither exhaustive nor a claim about citizenship. The fixed article “a” needs writer-side a/an agreement before vowel-initial adjectives. Mixed descent is left to explicit composition rather than enumerating pairs.",
+  "facets": [],
+  "closed": true,
+  "values": [
+    {
+      "text": "Korean",
+      "tier": "typical"
+    },
+    {
+      "text": "Japanese",
+      "tier": "typical"
+    },
+    {
+      "text": "Chinese",
+      "tier": "typical"
+    },
+    {
+      "text": "Taiwanese",
+      "tier": "typical"
+    },
+    {
+      "text": "Mongolian",
+      "tier": "typical"
+    },
+    {
+      "text": "Tibetan",
+      "tier": "typical"
+    },
+    {
+      "text": "Vietnamese",
+      "tier": "typical"
+    },
+    {
+      "text": "Thai",
+      "tier": "typical"
+    },
+    {
+      "text": "Cambodian",
+      "tier": "typical"
+    },
+    {
+      "text": "Lao",
+      "tier": "typical"
+    },
+    {
+      "text": "Burmese",
+      "tier": "typical"
+    },
+    {
+      "text": "Filipino",
+      "tier": "typical"
+    },
+    {
+      "text": "Indonesian",
+      "tier": "typical"
+    },
+    {
+      "text": "Malay",
+      "tier": "typical"
+    },
+    {
+      "text": "Indian",
+      "tier": "typical"
+    },
+    {
+      "text": "Pakistani",
+      "tier": "typical"
+    },
+    {
+      "text": "Bangladeshi",
+      "tier": "typical"
+    },
+    {
+      "text": "Sri Lankan",
+      "tier": "typical"
+    },
+    {
+      "text": "Nepali",
+      "tier": "typical"
+    },
+    {
+      "text": "Punjabi",
+      "tier": "typical"
+    },
+    {
+      "text": "Tamil",
+      "tier": "typical"
+    },
+    {
+      "text": "Bengali",
+      "tier": "typical"
+    },
+    {
+      "text": "Pashtun",
+      "tier": "typical"
+    },
+    {
+      "text": "Iranian",
+      "tier": "typical"
+    },
+    {
+      "text": "Kurdish",
+      "tier": "typical"
+    },
+    {
+      "text": "Turkish",
+      "tier": "typical"
+    },
+    {
+      "text": "Armenian",
+      "tier": "typical"
+    },
+    {
+      "text": "Georgian",
+      "tier": "typical"
+    },
+    {
+      "text": "Lebanese",
+      "tier": "typical"
+    },
+    {
+      "text": "Palestinian",
+      "tier": "typical"
+    },
+    {
+      "text": "Saudi",
+      "tier": "typical"
+    },
+    {
+      "text": "Yemeni",
+      "tier": "typical"
+    },
+    {
+      "text": "Nigerian",
+      "tier": "typical"
+    },
+    {
+      "text": "Ghanaian",
+      "tier": "typical"
+    },
+    {
+      "text": "Senegalese",
+      "tier": "typical"
+    },
+    {
+      "text": "Ethiopian",
+      "tier": "typical"
+    },
+    {
+      "text": "Eritrean",
+      "tier": "typical"
+    },
+    {
+      "text": "Somali",
+      "tier": "typical"
+    },
+    {
+      "text": "Kenyan",
+      "tier": "typical"
+    },
+    {
+      "text": "Tanzanian",
+      "tier": "typical"
+    },
+    {
+      "text": "Congolese",
+      "tier": "typical"
+    },
+    {
+      "text": "Angolan",
+      "tier": "typical"
+    },
+    {
+      "text": "Zimbabwean",
+      "tier": "typical"
+    },
+    {
+      "text": "South African",
+      "tier": "typical"
+    },
+    {
+      "text": "Moroccan",
+      "tier": "typical"
+    },
+    {
+      "text": "Algerian",
+      "tier": "typical"
+    },
+    {
+      "text": "Egyptian",
+      "tier": "typical"
+    },
+    {
+      "text": "Irish",
+      "tier": "typical"
+    },
+    {
+      "text": "Scottish",
+      "tier": "typical"
+    },
+    {
+      "text": "Welsh",
+      "tier": "typical"
+    },
+    {
+      "text": "English",
+      "tier": "typical"
+    },
+    {
+      "text": "French",
+      "tier": "typical"
+    },
+    {
+      "text": "German",
+      "tier": "typical"
+    },
+    {
+      "text": "Polish",
+      "tier": "typical"
+    },
+    {
+      "text": "Ukrainian",
+      "tier": "typical"
+    },
+    {
+      "text": "Russian",
+      "tier": "typical"
+    },
+    {
+      "text": "Italian",
+      "tier": "typical"
+    },
+    {
+      "text": "Spanish",
+      "tier": "typical"
+    },
+    {
+      "text": "Portuguese",
+      "tier": "typical"
+    },
+    {
+      "text": "Greek",
+      "tier": "typical"
+    },
+    {
+      "text": "Swedish",
+      "tier": "typical"
+    },
+    {
+      "text": "Finnish",
+      "tier": "typical"
+    },
+    {
+      "text": "Mexican",
+      "tier": "typical"
+    },
+    {
+      "text": "Guatemalan",
+      "tier": "typical"
+    },
+    {
+      "text": "Jamaican",
+      "tier": "typical"
+    },
+    {
+      "text": "Haitian",
+      "tier": "typical"
+    },
+    {
+      "text": "Cuban",
+      "tier": "typical"
+    },
+    {
+      "text": "Brazilian",
+      "tier": "typical"
+    },
+    {
+      "text": "Colombian",
+      "tier": "typical"
+    },
+    {
+      "text": "Peruvian",
+      "tier": "typical"
+    },
+    {
+      "text": "Chilean",
+      "tier": "typical"
+    },
+    {
+      "text": "Argentinian",
+      "tier": "typical"
+    },
+    {
+      "text": "Māori",
+      "tier": "typical"
+    },
+    {
+      "text": "Samoan",
+      "tier": "typical"
+    },
+    {
+      "text": "Tongan",
+      "tier": "typical"
+    },
+    {
+      "text": "Fijian",
+      "tier": "typical"
+    },
+    {
+      "text": "Aboriginal Australian",
+      "tier": "typical"
+    },
+    {
+      "text": "Navajo",
+      "tier": "typical"
+    },
+    {
+      "text": "Cherokee",
+      "tier": "typical"
+    },
+    {
+      "text": "Inuit",
+      "tier": "typical"
+    }
+  ]
+}

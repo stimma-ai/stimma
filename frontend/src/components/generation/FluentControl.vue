@@ -44,6 +44,10 @@
               @click="menuOpen = false; showProgram()">
               <CodeBracketIcon class="w-4 h-4" />
             </button>
+            <button v-if="devModeRef" type="button" class="p-1 rounded-md text-amber-500 hover:text-amber-400 hover:bg-overlay-subtle" title="Vocabulary (dev)" aria-label="Show vocabulary"
+              @click="menuOpen = false; vocabOpen = true">
+              <BookOpenIcon class="w-4 h-4" />
+            </button>
           </div>
 
           <!-- Two ways to send a prompt, as tabs; each tab holds its own line and settings. -->
@@ -165,13 +169,15 @@
         </div>
       </div>
     </Teleport>
+    <!-- Dev: the vocabulary lists picks can draw from. -->
+    <FluentVocabularyBrowser v-if="devModeRef" :show="vocabOpen" @close="vocabOpen = false" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon } from '@heroicons/vue/24/solid'
-import { ArrowPathIcon, Bars3BottomLeftIcon, CodeBracketIcon, CodeBracketSquareIcon, QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, Bars3BottomLeftIcon, BookOpenIcon, CodeBracketIcon, CodeBracketSquareIcon, QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
 import SegmentedControl from '../ui/SegmentedControl.vue'
 import Toggle from '../ui/Toggle.vue'
 import type { PromptProgram } from '../../composables/usePromptProgram'
@@ -180,6 +186,7 @@ import ReadOnlyCode from '../viewers/ReadOnlyCode.vue'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import Spinner from '../ui/Spinner.vue'
 import Caret from '../ui/Caret.vue'
+import FluentVocabularyBrowser from './FluentVocabularyBrowser.vue'
 import { PROMPT_BRAND as BRAND } from './promptBrand'
 
 const props = defineProps<{
@@ -213,6 +220,7 @@ const chip = ref<HTMLElement | null>(null)
 const BRACES = '{' + '{ }' + '}'
 const menuOpen = ref(false)
 const programText = ref<string | null>(null)
+const vocabOpen = ref(false)
 
 type Way = 'fluent' | 'direct' | 'raw'
 const way = computed<Way>(() => (props.raw ? 'raw' : props.direct ? 'direct' : 'fluent'))

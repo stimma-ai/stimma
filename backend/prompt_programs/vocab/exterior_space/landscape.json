@@ -1,0 +1,461 @@
+{
+  "id": "exterior_space.landscape",
+  "label": "Landscape",
+  "description": "Natural inland settings across biomes, terrain types, and continents.",
+  "pos": "noun phrase",
+  "frame": "the setting is ___",
+  "notes": "Wild inland landforms and vegetation belong here; shorelines belong to coastal, cultivated land and villages to countryside, designed green spaces to park_garden. Genre and era are unrestricted for untagged natural landforms: the same terrain can occur in any world or period. Only magical and alien terrain carries world restrictions. The noun-predicate frame accommodates valleys, shores, roads and platforms; choose an appropriate in/on/at preposition when composing a different sentence.",
+  "facets": [
+    "era",
+    "genre",
+    "region",
+    "budget",
+    "formality",
+    "locale",
+    "climate"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "a broad valley with a braided river and gravel bars",
+      "tier": "typical"
+    },
+    {
+      "text": "a limestone gorge with sheer walls and scrubby ledges",
+      "tier": "typical"
+    },
+    {
+      "text": "a sandstone canyon with layered cliffs and a dry wash",
+      "tier": "typical"
+    },
+    {
+      "text": "a basalt plateau with columnar cliffs and sparse grass",
+      "tier": "typical"
+    },
+    {
+      "text": "a volcanic caldera with a crater lake and broken ridges",
+      "tier": "typical"
+    },
+    {
+      "text": "a lava field with rope-textured rock and fissures",
+      "tier": "typical"
+    },
+    {
+      "text": "a karst basin with limestone towers and sinkholes",
+      "tier": "typical"
+    },
+    {
+      "text": "a cave entrance with hanging vines and a rocky streambed",
+      "tier": "typical"
+    },
+    {
+      "text": "an alpine valley with scree slopes and dwarf shrubs",
+      "tier": "typical"
+    },
+    {
+      "text": "a mountain pass with jagged peaks and loose stone",
+      "tier": "typical"
+    },
+    {
+      "text": "a glacial valley with moraine ridges and a turquoise lake",
+      "tier": "typical"
+    },
+    {
+      "text": "a mountain meadow with wildflowers and exposed boulders",
+      "tier": "typical"
+    },
+    {
+      "text": "a badlands basin with eroded pinnacles and clay gullies",
+      "tier": "typical"
+    },
+    {
+      "text": "a slot canyon with sculpted walls and a sandy floor",
+      "tier": "typical"
+    },
+    {
+      "text": "a desert basin with crescent dunes and gravel flats",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a salt flat with polygonal crusts and distant escarpments",
+      "tier": "plausible",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a desert oasis with date palms and reed beds",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a thorn savanna with acacia trees and termite mounds",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a grass savanna with scattered baobabs and rocky outcrops",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a tropical rainforest with buttress roots and tangled lianas",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a cloud forest with tree ferns and moss-covered branches",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a palm swamp with shallow pools and tangled root mats",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a papyrus wetland with open channels and floating vegetation",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a deciduous forest with beech trunks and leaf-covered ground",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a pine forest with needle-covered ground and exposed roots",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a redwood grove with massive trunks and fern undergrowth",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a eucalyptus forest with peeling bark and grass trees",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a bamboo grove with dense stems and a narrow track",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a temperate rainforest with mossy logs and giant ferns",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "an open heath with heather clumps and sandy hollows",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a moorland with peat pools and rocky tors",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a freshwater marsh with reed beds and narrow channels",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a river bend with pebble beaches and leaning trees",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a waterfall basin with rounded rocks and fern-lined ledges",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a tundra plain with dwarf shrubs and patterned ground",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a taiga forest with thin spruce and lichen-covered ground",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a glacier margin with blue ice walls and rubble heaps",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "an icefield with crevasses and exposed rock islands",
+      "tier": "plausible",
+      "tags": {
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a polar desert with frost-shattered rock and gravel terraces",
+      "tier": "plausible",
+      "tags": {
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a remote lake with rocky islets and reed-fringed coves",
+      "tier": "typical",
+      "tags": {
+        "locale": [
+          "wilderness"
+        ]
+      }
+    },
+    {
+      "text": "a river delta with branching channels and silt islands",
+      "tier": "typical",
+      "tags": {
+        "locale": [
+          "wilderness"
+        ]
+      }
+    },
+    {
+      "text": "a cave chamber with stalagmites and rimstone pools",
+      "tier": "typical",
+      "tags": {
+        "locale": [
+          "wilderness"
+        ]
+      }
+    },
+    {
+      "text": "a miombo woodland with broad-crowned trees and red soil",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a loess landscape with steep gullies and rounded earthen ridges",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ]
+      }
+    },
+    {
+      "text": "a desert wadi with gravel terraces and scattered tamarisks",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a Mediterranean scrubland with limestone shelves and aromatic shrubs",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ]
+      }
+    },
+    {
+      "text": "a páramo valley with frailejón plants and glacial pools",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ]
+      }
+    },
+    {
+      "text": "a Patagonian steppe with tufted grasses and basalt ridges",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ]
+      }
+    },
+    {
+      "text": "a cerrado landscape with twisted trees and red earth",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ]
+      }
+    },
+    {
+      "text": "a tallgrass prairie with broad swales and scattered cottonwoods",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "north_american"
+        ]
+      }
+    },
+    {
+      "text": "a meteor crater with a raised rim and shattered rock",
+      "tier": "unusual"
+    },
+    {
+      "text": "a geothermal basin with mineral terraces and bubbling pools",
+      "tier": "unusual"
+    },
+    {
+      "text": "a petrified forest with mineralized trunks and eroded clay beds",
+      "tier": "plausible"
+    },
+    {
+      "text": "a forest of giant mushrooms with gnarled roots and mossy paths",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a valley with floating rock islands and cascading streams",
+      "tier": "unusual",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a crystalline desert with jagged spires and glassy sand",
+      "tier": "unusual",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "an alien plain with branching silica growths and shallow craters",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    }
+  ],
+  "untagged": {}
+}

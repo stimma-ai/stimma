@@ -30,6 +30,7 @@ from prompt_programs.options import (
     filler_for, generated_pick, store_for,
 )
 from prompt_programs.runtime import LoraInfo, ProgramError
+from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
@@ -174,13 +175,15 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
     queued to fill, like any draw); `more` lists picks whose pools are still filling."""
     out: Dict[str, List[str]] = {}
     more: List[str] = []
+    vocab: Dict[str, Dict[str, Any]] = {}
     if not uses_draws(entry.get("program") or ""):
-        return {"options": out, "more": more}
+        return {"options": out, "more": more, "vocab": vocab}
     rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, judge=NullJudge(), cfg=cfg)
     loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
     params = set(entry.get("params") or {}) or None
     pins = {k: v for k, v in (pins or {}).items() if v}
     generated = [c["id"] for c in entry.get("choices") or [] if c.get("kind") == "pick" and c.get("source") != "list"]
+    bound_cls = {c["id"]: c.get("cls") for c in entry.get("choices") or [] if c.get("cls")}
     for cid in generated:
         others = {k: v for k, v in pins.items() if k != cid}
         seen: List[str] = []
@@ -196,9 +199,17 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
                 if d.id == cid:
                     seen.extend(o for o in d.options if o not in seen)
             rt.options.reset()
-        if seen:
+        leaf = vocabulary().get(bound_cls.get(cid))
+        if leaf is not None and seen:
+            # A bound pick shows its whole list (the picker searches and groups it), each
+            # value's tier, and which values were generated to extend an open list.
+            tiers = {v.text: v.tier for v in leaf.values}
+            out[cid] = seen
+            vocab[cid] = {"cls": leaf.id, "label": leaf.label, "closed": leaf.closed,
+                          "tiers": {o: tiers.get(o, "generated") for o in seen}}
+        elif seen:
             out[cid] = seen[:60]
-    return {"options": out, "more": more}
+    return {"options": out, "more": more, "vocab": vocab}
 
 
 # --------------------------------------------------------------------------- judgment prefill

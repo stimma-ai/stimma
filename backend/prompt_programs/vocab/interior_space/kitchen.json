@@ -1,0 +1,878 @@
+{
+  "id": "interior_space.kitchen",
+  "label": "Kitchen",
+  "description": "Domestic cooking spaces ranging from tiny kitchenettes to substantial household kitchens.",
+  "pos": "noun phrase",
+  "frame": "in ___",
+  "notes": "Home food preparation belongs here; commercial dining venues belong to cafe_restaurant and institutional rooms to any_room.",
+  "facets": [
+    "era",
+    "genre",
+    "region",
+    "budget",
+    "formality",
+    "locale",
+    "climate"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "a galley kitchen with open shelves and a narrow counter",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a central island and hanging pots",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchenette with a two-burner stove and mini fridge",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with chipped cabinets and a crowded dish rack",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with stainless counters and a tiled backsplash",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a farmhouse sink and butcher-block worktop",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a walk-in pantry and labeled glass jars",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a low accessible counter and knee clearance",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "an apartment kitchen with a pass-through hatch and bar stools",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with pull-out drawers and an induction hob",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a wood-fired range and stacked firewood",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a deep sink and drying herbs",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "an open-plan kitchen with a long communal worktable",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a tiled hearth and copper pans",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a refrigerator covered in magnets and notes",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with mesh-front cupboards and a stone mortar",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a portable hotplate and plastic storage tubs",
+      "tier": "typical",
+      "tags": {
+        "budget": [
+          "modest"
+        ],
+        "genre": [
+          "realistic",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a curtain beneath a salvaged sink",
+      "tier": "plausible",
+      "tags": {
+        "budget": [
+          "modest"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a stone waterfall island and integrated appliances",
+      "tier": "typical",
+      "tags": {
+        "budget": [
+          "luxury"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a Japanese kitchen with a fish grill and sliding pantry doors",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a Chinese kitchen with a wok burner and cleaver block",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a Korean kitchen with a kimchi refrigerator and steel worktop",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a sunken earthen hearth and hanging kettle",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a tandoor and a rolling board",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with steel spice tins and a stone grinding slab",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a dosa griddle and stacked stainless vessels",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a charcoal brazier and woven food covers",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a domed bread oven and tiled preparation bench",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a clay cooking hearth and woven storage baskets",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with an injera griddle and stacked wicker trays",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a built-in comal and painted tile counters",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a brick fogão and hanging enamel pans",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a country kitchen with a ceramic stove and painted dresser",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a Victorian kitchen with a coal range and plate rack",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a cottage kitchen with an open hearth and iron crane",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a masonry hearth and a turning spit",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a Roman kitchen with masonry burners and terracotta storage jars",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "ancient"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with mint cabinets and a chrome-edged table",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with meal synthesizers and sealed ingredient cartridges",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a spacecraft galley with restraint rails and recessed appliances",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a dragon-shaped oven and enormous copper cauldron",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a burrow kitchen with root shelves and round cupboard doors",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kitchen with a salvaged stove and ration tins",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a microapartment kitchen with robotic preparation arms and ration cartridges",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    }
+  ],
+  "untagged": {
+    "genre": [
+      "realistic"
+    ],
+    "era": [
+      "contemporary"
+    ]
+  }
+}

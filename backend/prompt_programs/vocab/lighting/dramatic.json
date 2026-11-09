@@ -1,0 +1,140 @@
+{
+  "id": "lighting.dramatic",
+  "label": "Dramatic lighting",
+  "description": "Stylised colour, contrast and shadow effects for cinematic images.",
+  "pos": "noun phrase",
+  "frame": "lit by ___",
+  "notes": "Designed colour relationships, silhouettes and expressive light patterns belong here. Studio owns named photographic rigs and modifiers; indoor_practical owns ordinary in-scene fixtures; natural owns literal sun, sky and moon sources. Colour treatments can be used across depicted eras.",
+  "facets": [],
+  "closed": false,
+  "values": [
+    {
+      "text": "a single hard spotlight from above",
+      "tier": "typical"
+    },
+    {
+      "text": "strong rim light against a dark background",
+      "tier": "typical"
+    },
+    {
+      "text": "warm key light against cool blue fill",
+      "tier": "typical"
+    },
+    {
+      "text": "hard side light dividing the face into light and shadow",
+      "tier": "typical"
+    },
+    {
+      "text": "soft amber light against deep shadows",
+      "tier": "typical"
+    },
+    {
+      "text": "pink and teal light",
+      "tier": "plausible"
+    },
+    {
+      "text": "red light from one side and blue light from the other",
+      "tier": "plausible"
+    },
+    {
+      "text": "cool cyan light across a dark scene",
+      "tier": "plausible"
+    },
+    {
+      "text": "a bright shaft of light through smoky air",
+      "tier": "typical"
+    },
+    {
+      "text": "deep red light with sharp black shadows",
+      "tier": "plausible"
+    },
+    {
+      "text": "violet light edged with pale blue highlights",
+      "tier": "plausible"
+    },
+    {
+      "text": "an emerald glow rising from below",
+      "tier": "plausible"
+    },
+    {
+      "text": "a thin slash of white light across the face",
+      "tier": "plausible"
+    },
+    {
+      "text": "alternating bands of light and shadow",
+      "tier": "plausible"
+    },
+    {
+      "text": "an oval pool of light surrounded by darkness",
+      "tier": "plausible"
+    },
+    {
+      "text": "crossing beams of white light",
+      "tier": "plausible"
+    },
+    {
+      "text": "pale blue underlighting beneath the chin",
+      "tier": "plausible"
+    },
+    {
+      "text": "warm light reflected from below",
+      "tier": "plausible"
+    },
+    {
+      "text": "orange backlight through drifting smoke",
+      "tier": "plausible"
+    },
+    {
+      "text": "magenta highlights against green shadows",
+      "tier": "plausible"
+    },
+    {
+      "text": "a moving searchlight sweeping across the scene",
+      "tier": "plausible"
+    },
+    {
+      "text": "soft pink light fading into lavender shadow",
+      "tier": "plausible"
+    },
+    {
+      "text": "fragmented light through a patterned screen",
+      "tier": "plausible"
+    },
+    {
+      "text": "rippling reflected light across the walls",
+      "tier": "plausible"
+    },
+    {
+      "text": "a luminous halo directly behind the head",
+      "tier": "plausible"
+    },
+    {
+      "text": "pulsing red emergency light",
+      "tier": "plausible"
+    },
+    {
+      "text": "a bright triangle of light on one cheek",
+      "tier": "plausible"
+    },
+    {
+      "text": "a spiralling pattern of projected light",
+      "tier": "unusual"
+    },
+    {
+      "text": "rainbow caustics scattered across the skin",
+      "tier": "unusual"
+    },
+    {
+      "text": "concentric rings of projected light",
+      "tier": "unusual"
+    },
+    {
+      "text": "saturated yellow light against cobalt shadows",
+      "tier": "unusual"
+    },
+    {
+      "text": "a web of fine laser beams in haze",
+      "tier": "unusual"
+    }
+  ]
+}

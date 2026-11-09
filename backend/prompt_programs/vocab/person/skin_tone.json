@@ -1,0 +1,94 @@
+{
+  "id": "person.skin_tone",
+  "label": "Skin tone",
+  "description": "Skin color and visible complexion variation across the full tonal range.",
+  "pos": "adjective phrase",
+  "frame": "___ skin",
+  "notes": "Literal tone and visible complexion variation only, independent of descent. Broad base tones have equal typical tiers; freckles, sun spots and depigmentation are separate visual variations within this leaf, with rarer variants downweighted. No food comparisons, group labels or health judgments.",
+  "facets": [
+    "genre"
+  ],
+  "closed": true,
+  "values": [
+    {
+      "text": "very fair",
+      "tier": "typical"
+    },
+    {
+      "text": "fair",
+      "tier": "typical"
+    },
+    {
+      "text": "light beige",
+      "tier": "typical"
+    },
+    {
+      "text": "warm beige",
+      "tier": "typical"
+    },
+    {
+      "text": "medium beige",
+      "tier": "typical"
+    },
+    {
+      "text": "light brown",
+      "tier": "typical"
+    },
+    {
+      "text": "medium brown",
+      "tier": "typical"
+    },
+    {
+      "text": "deep brown",
+      "tier": "typical"
+    },
+    {
+      "text": "very deep brown",
+      "tier": "typical"
+    },
+    {
+      "text": "golden-brown",
+      "tier": "typical"
+    },
+    {
+      "text": "olive",
+      "tier": "typical"
+    },
+    {
+      "text": "fair and freckled",
+      "tier": "typical"
+    },
+    {
+      "text": "light brown and freckled",
+      "tier": "typical"
+    },
+    {
+      "text": "deep brown and freckled",
+      "tier": "typical"
+    },
+    {
+      "text": "fair and patchily depigmented",
+      "tier": "unusual"
+    },
+    {
+      "text": "medium brown and patchily depigmented",
+      "tier": "unusual"
+    },
+    {
+      "text": "deep brown and patchily depigmented",
+      "tier": "unusual"
+    },
+    {
+      "text": "fair and sun-spotted",
+      "tier": "plausible"
+    },
+    {
+      "text": "light brown and sun-spotted",
+      "tier": "plausible"
+    },
+    {
+      "text": "deep brown and sun-spotted",
+      "tier": "plausible"
+    }
+  ]
+}

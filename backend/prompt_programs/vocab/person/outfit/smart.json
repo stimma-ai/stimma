@@ -1,0 +1,1075 @@
+{
+  "id": "person.outfit.smart",
+  "label": "Smart outfits",
+  "description": "Business and smart casual looks with tailored or polished everyday garments.",
+  "pos": "noun phrase",
+  "frame": "wearing ___",
+  "notes": "Complete workwear and smart casual outfits. Casual owns relaxed daily clothes; formal owns evening and ceremonial dress. Garments define presentation rather than wearer identity; excludes occupational equipment, accessories, and uniforms with insignia. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity.",
+  "facets": [
+    "presentation",
+    "age",
+    "era",
+    "genre",
+    "climate",
+    "formality",
+    "budget",
+    "region"
+  ],
+  "closed": false,
+  "untagged": {
+    "genre": [
+      "realistic"
+    ],
+    "era": [
+      "contemporary"
+    ]
+  },
+  "values": [
+    {
+      "text": "a navy blazer, white shirt, and grey tailored trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ]
+      }
+    },
+    {
+      "text": "a charcoal wool suit with a pale blue shirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ]
+      }
+    },
+    {
+      "text": "a beige linen blazer and matching tapered trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ]
+      }
+    },
+    {
+      "text": "a cream silk blouse and navy cigarette trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a black turtleneck and grey wool dress trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a brown tweed blazer and dark straight-leg jeans",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a navy knit polo and stone tailored chinos",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a white Oxford shirt and olive pleated trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ]
+      }
+    },
+    {
+      "text": "a burgundy blouse and a charcoal pencil skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a grey cardigan over a blue shirt and navy trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ]
+      }
+    },
+    {
+      "text": "a blue pinstriped suit with a white cotton shirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ]
+      }
+    },
+    {
+      "text": "a charcoal waistcoat over a cream shirt and black trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a black jersey top and a cream trouser suit",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a cream sheath dress with a cropped navy jacket",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a brown wool skirt suit with a silk blouse",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a black collarless jacket and matching straight trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a navy shift dress with three-quarter sleeves",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a bottle-green shirt dress with a structured waist",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a cream knit twinset and a navy pencil skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a navy sweater vest over a shirt and grey trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a charcoal roll-neck and a brown checked midi skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a taupe belted jumpsuit with a tailored collar",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a white blouse and a grey pinafore midi dress",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a grey linen waistcoat and matching pleated trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a white tunic blouse and charcoal palazzo trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a deep blue silk kurta and cream straight trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a charcoal band-collar jacket and matching tailored trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a cream cotton sari with a navy tailored blouse",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a plum salwar kameez with fine tonal embroidery",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a black tailored abaya over an ivory crepe dress",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a crisp white kandura with structured collar and cuffs",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "masculine"
+        ]
+      }
+    },
+    {
+      "text": "a navy batik shirt and pressed black trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a short-sleeved cotton barong Tagalog and grey tailored trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a jade silk blouse and a tailored black batik skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a blue embroidered guayabera and ivory dress trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a charcoal tang jacket and black tailored trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a burgundy wax-print jacket and navy tailored trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a cream kaftan with structured shoulders and matching trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a fitted wool doublet over a linen shirt and hose",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "smart"
+        ]
+      }
+    },
+    {
+      "text": "a blue wool kirtle beneath a neatly laced brown surcoat",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "smart"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a green wool cotehardie with fitted sleeves and cloth buttons",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "smart"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a burgundy belted robe over a fine cream linen tunic",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "smart"
+        ]
+      }
+    },
+    {
+      "text": "a charcoal wool tunic and hose beneath a short mantle",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "smart"
+        ]
+      }
+    },
+    {
+      "text": "a cream linen gown beneath an embroidered sleeveless wool overdress",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "smart"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a dark red wool kaftan over a shirt and trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "smart"
+        ]
+      }
+    }
+  ]
+}

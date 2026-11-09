@@ -1,0 +1,658 @@
+{
+  "id": "interior_space.office",
+  "label": "Office",
+  "description": "Workplaces for administrative, professional, and organizational work.",
+  "pos": "noun phrase",
+  "frame": "in ___",
+  "notes": "Office workspaces and meeting rooms belong here; private reading rooms belong to library_study, production spaces to workshop_studio, and public waiting rooms to any_room.",
+  "facets": [
+    "era",
+    "genre",
+    "region",
+    "budget",
+    "formality",
+    "locale",
+    "climate"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "an open-plan office with desk clusters and cable trays",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a private office with a wooden desk and filing cabinets",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a shared office with partitioned cubicles and swivel chairs",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a home office with a corner desk and storage shelves",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a meeting room with a long table and whiteboard",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a cramped office with stacked folders and a metal desk",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "an office with standing desks and acoustic screens",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a reception office with a counter and pigeonhole shelves",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a warehouse office with wire-glass windows and dispatch boards",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "an office with drafting tables and flat-file drawers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "an office with glass partitions and phone booths",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "an office with mismatched desks and tangled power strips",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "an office with a wall of archive boxes",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "an office with map drawers and pinned survey charts",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "an office with a server rack and antistatic floor tiles",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a portable office with plywood walls and metal storage lockers",
+      "tier": "typical",
+      "tags": {
+        "budget": [
+          "modest"
+        ],
+        "genre": [
+          "realistic",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a corner office with a stone desk and leather seating",
+      "tier": "typical",
+      "tags": {
+        "budget": [
+          "luxury"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a Japanese office with island desks and partitioned manager seating",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "an office with a low meeting table and tatami platform",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a municipal office with steel almirahs and string-tied files",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a countinghouse with tall desks and leather-bound ledgers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a telegraph office with brass instruments and message cubbies",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a typing office with manual typewriters and steel filing drawers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "an Art Deco office with a curved desk and chrome chairs",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a computer office with beige terminals and dot-matrix printers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a scribal office with reed pens and clay tablet shelves",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "ancient"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a chancery office with writing desks and bundled parchment rolls",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a station office with curved consoles and modular storage walls",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "an office with volumetric planning displays and retractable workstations",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a corporate office with armored glass partitions and biometric terminals",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a guild office with scroll cubbies and a carved contract desk",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a command office with scavenged desks and hand-drawn supply maps",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a corporate boardroom with holographic planning tables and retinal access panels",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a castle chancery with seal presses and pigeonholes for parchment",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a guild counting room with tally sticks and ironbound document chests",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    }
+  ],
+  "untagged": {
+    "genre": [
+      "realistic"
+    ],
+    "era": [
+      "contemporary"
+    ]
+  }
+}

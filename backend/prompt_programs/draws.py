@@ -39,9 +39,10 @@ from prompt_programs.runtime import (
     MAX_STEPS, RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _SAFE_BUILTINS, _Runner,
     LoraName, _as_list, _label_from_id, _lora_key, check, lora_names, tidy_text,
 )
+from prompt_programs.vocab import vocabulary
 
 DRAW_VERSION = "draws-2"
-SPEC_ARGS = ("about", "phase", "seed")
+SPEC_ARGS = ("about", "phase", "seed", "cls")
 TIERS = ("typical", "plausible", "unusual", "wrong")
 DEFAULT_RARITY = 0.3   # keep rate of an *unusual* value (the rarity knob)
 WRONG_CUT = 0.5        # P(wrong) above this keeps nothing (tuned on train data later)
@@ -56,7 +57,8 @@ def legacy_program(entry: Dict[str, Any]) -> bool:
     return bool(m) and int(m.group(1)) < LEGACY_BEFORE
 MAX_BATCHES = 3        # batches before a pick falls back and counts as unresolved
 
-_PICK_PARAMS = ("id", "options", "label", "by", "source", "line", "exclude", "hidden", "added", "about", "phase", "seed")
+_PICK_PARAMS = ("id", "options", "label", "by", "source", "line", "exclude", "hidden", "added", "about", "phase", "seed",
+                "cls")
 _LORA_PARAMS = ("id", "names", "label", "source", "line", "phase")
 
 
@@ -474,10 +476,11 @@ def analyze(source: str, strict: bool = False) -> Analysis:
             if phased and site.kind == "pick":
                 args = _Analyzer._args(node, _PICK_PARAMS)
                 src = args.get("source")
-                site.generated = "about" in args and not (isinstance(src, ast.Constant) and src.value == "list")
+                # a pick bound to a vocabulary list counts as generated: its value never keys a lookup
+                site.generated = ("about" in args or "cls" in args) and not (isinstance(src, ast.Constant) and src.value == "list")
                 site.size = _size(args.get("options"), sizes)
                 has_options = "options" in args and not (isinstance(args["options"], ast.Constant) and args["options"].value is None)
-                if not has_options and "seed" not in args:
+                if not has_options and "seed" not in args and "cls" not in args:
                     raise _err(node, f'pick("{site.id_text}") has no options: give it seed=[1 to 3 options] '
                                      "(and about= to say what it is), or a list of options.")
     for _ in range(50):  # taint to a fixed point (loops feed values back)
@@ -564,6 +567,7 @@ class PickSpec:
     kind: str = "pick"           # pick | lora
     seeds: List[str] = field(default_factory=list)
     literal: List[str] = field(default_factory=list)   # the program's own options on this branch
+    cls: str = ""                # the vocabulary list it is bound to (vocab.py); "" for none
 
 
 @dataclass
@@ -796,7 +800,8 @@ class _Exec(_Runner):
 
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
-             about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None, _site: int = -1) -> Optional[str]:
+             about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None, cls: Optional[str] = None,
+             _site: int = -1) -> Optional[str]:
         cid = str(id)
         if added:
             source = "added"
@@ -819,12 +824,16 @@ class _Exec(_Runner):
             return None  # removed by the user: the detail is left to the image model
         site = self.eng.an.sites[_site]
         lbl = label or _label_from_id(cid)
+        # A list the vocabulary no longer has: the pick draws as an unbound one (seeds and
+        # generated options), never fails a stored program.
+        leaf = vocabulary().get(cls) if cls and source != "list" else None
         spec = PickSpec(cid, lbl, str(about or ""), site.phase, source, "pick",
-                        _as_list(seed if seed is not None else [], f'pick("{cid}") seed'), opts)
+                        _as_list(seed if seed is not None else [], f'pick("{cid}") seed'), opts,
+                        leaf.id if leaf is not None else "")
         context = self._context(site)
         value, pinned = self._settle(cid, site, spec, self._eligible(cid, spec, context, exclude), context)
         d = Draw(cid, value, "pick", lbl, source, line, bool(hidden), pinned, [o for o, _ in self.seen[cid].items], follows)
-        d.phase, d.about = site.phase, spec.about
+        d.phase, d.about, d.cls = site.phase, spec.about, spec.cls
         self._record(d)
         return value
 

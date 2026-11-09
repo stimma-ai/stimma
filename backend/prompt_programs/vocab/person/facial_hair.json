@@ -1,0 +1,300 @@
+{
+  "id": "person.facial_hair",
+  "label": "Facial hair",
+  "description": "The shape and grooming of a beard, moustache or stubble.",
+  "pos": "noun phrase",
+  "frame": "a person with ___",
+  "notes": "Facial hair only; scalp hair belongs to person.hair_color, person.hair_length_texture and person.hairstyle. Shapes may include density and grooming needed to distinguish them. Values do not imply descent. Age tags exclude children; lighter growth and some grooming styles also allow teens, while developed beards are limited to adults and elders. The masculine presentation default is a visual styling filter, not a restriction on gender identity; the writer may override the subject wording.",
+  "facets": [
+    "age",
+    "era",
+    "presentation"
+  ],
+  "closed": true,
+  "values": [
+    {
+      "text": "light stubble",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "teen",
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "heavy stubble",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "teen",
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a short full beard",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a sculpted jawline beard",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a full moustache",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "teen",
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a goatee",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "teen",
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a medium-length beard",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a long full beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a pointed beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a square-cut beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a forked beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a braided beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a chinstrap beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a circle beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a moustache and soul patch",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "teen",
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a pencil moustache",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "teen",
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a chevron moustache",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a handlebar moustache",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a horseshoe moustache",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a walrus moustache",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a ducktail beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "an anchor beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a wispy beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "teen",
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a patchy beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "teen",
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a bushy beard",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "mutton-chop sideburns",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "long narrow sideburns",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "teen",
+          "adult",
+          "elderly"
+        ]
+      }
+    }
+  ],
+  "untagged": {
+    "presentation": [
+      "masculine"
+    ]
+  }
+}

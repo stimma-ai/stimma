@@ -1,0 +1,986 @@
+{
+  "id": "interior_space.cafe_restaurant",
+  "label": "Cafe Restaurant",
+  "description": "Indoor dining venues, coffee shops, and food-service interiors.",
+  "pos": "noun phrase",
+  "frame": "in ___",
+  "notes": "Commercial dining and their serving counters belong here; drink-led venues belong to bar, home cooking to kitchen, and food retail to shop.",
+  "facets": [
+    "era",
+    "genre",
+    "region",
+    "budget",
+    "formality",
+    "locale",
+    "climate"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "a corner cafe with a pastry case and bentwood chairs",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a diner with vinyl booths and a long counter",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a restaurant with communal tables and an open kitchen",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a cafe with mismatched mugs and a book exchange shelf",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a cafeteria with tray rails and bolted tables",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a pizzeria with a brick oven and flour-dusted workbench",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a steakhouse with leather booths and paneled walls",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "an ice cream parlor with a glass freezer counter",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a vegetarian cafe with plant shelves and cork tables",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a fast-food restaurant with molded seats and ordering kiosks",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a basement restaurant with vaulted brick ceilings",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a conservatory cafe with climbing plants and tiled flooring",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "an espresso bar with a standing counter and grinder shelves",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a restaurant with an indoor charcoal grill and extraction hood",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a tapas restaurant with small tables and tiled walls",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a noodle shop with counter stools and hanging menus",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a restaurant with an indoor courtyard and central fountain",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a food hall with shared seating and individual serving stalls",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a tea room with tiered cake stands and floral china",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a dining room with linen tablecloths and silver service carts",
+      "tier": "typical",
+      "tags": {
+        "budget": [
+          "luxury"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a tasting restaurant with a curved counter and ceramic place settings",
+      "tier": "plausible",
+      "tags": {
+        "budget": [
+          "luxury"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a ramen shop with ticket machines and counter seating",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a sushi restaurant with a cypress counter and fish display",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a dim sum restaurant with round tables and serving trolleys",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a hotpot restaurant with individual burners and tiled booths",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a Korean barbecue restaurant with tabletop grills and extraction ducts",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a tea house with bamboo chairs and stone tea trays",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a thali restaurant with steel plate stacks and marble tables",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a dosa restaurant with a long griddle and washbasin",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kopitiam with marble tables and wooden coffee cabinets",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a pho restaurant with condiment caddies and metal stools",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a covered hawker dining hall with tiled stalls and fixed tables",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a padang restaurant with stacked dishes in its window",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a kebab restaurant with a charcoal grill and tiled counter",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a tea house with carpeted platforms and low tables",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a mezze restaurant with arched niches and patterned plates",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a restaurant with woven mesob tables and low stools",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a cafe with a sand coffee brazier and carved benches",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a taqueria with a griddle counter and metal stools",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a churrascaria with a carving station and broad wooden tables",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a trattoria with terracotta floors and hanging copper pans",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a brasserie with mirrored walls and red leather banquettes",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a mountain restaurant with carved benches and a tiled stove",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a railway refreshment room with a marble counter and wooden benches",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a diner with a jukebox and chrome-edged booths",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a spaceport cafe with docking displays and molded booth seating",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a restaurant with automated serving tracks and nutrient dispensers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a tree-trunk tearoom with acorn cups and root benches",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a noodle cafe with robotic wok stations and holographic menu panels",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    }
+  ],
+  "untagged": {
+    "genre": [
+      "realistic"
+    ],
+    "era": [
+      "contemporary"
+    ]
+  }
+}

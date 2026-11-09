@@ -1,0 +1,153 @@
+{
+  "id": "person.eye_color",
+  "label": "Eye color",
+  "description": "Iris colors, with supernatural colors separated from realistic eyes.",
+  "pos": "adjective",
+  "frame": "___ eyes",
+  "notes": "Iris color only; expressions and eye shape belong to other person leaves. Common color variations stay realistic; crimson and luminous colors use genre filters. Bare silver means a fantastical metallic iris, while gray is realistic.",
+  "facets": [
+    "genre"
+  ],
+  "closed": true,
+  "values": [
+    {
+      "text": "dark brown",
+      "tier": "typical"
+    },
+    {
+      "text": "medium brown",
+      "tier": "typical"
+    },
+    {
+      "text": "light brown",
+      "tier": "typical"
+    },
+    {
+      "text": "hazel",
+      "tier": "typical"
+    },
+    {
+      "text": "blue",
+      "tier": "typical"
+    },
+    {
+      "text": "gray",
+      "tier": "plausible"
+    },
+    {
+      "text": "green",
+      "tier": "plausible"
+    },
+    {
+      "text": "amber",
+      "tier": "plausible"
+    },
+    {
+      "text": "blue-gray",
+      "tier": "plausible"
+    },
+    {
+      "text": "gray-green",
+      "tier": "plausible"
+    },
+    {
+      "text": "dark blue",
+      "tier": "plausible"
+    },
+    {
+      "text": "pale blue",
+      "tier": "plausible"
+    },
+    {
+      "text": "mismatched blue and brown",
+      "tier": "unusual"
+    },
+    {
+      "text": "crimson",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "glowing violet",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "silver",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "luminous gold",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "solid black",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "opal-white",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "glowing turquoise",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "neon cyan",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ]
+      }
+    }
+  ]
+}

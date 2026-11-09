@@ -125,6 +125,13 @@ async def pools(req: PreviewRequest) -> Dict[str, Any]:
     return await asyncio.to_thread(pool_options, entry, req.pins, profile_id=get_current_profile(), project_id=req.project_id)
 
 
+@router.get("/vocabulary")
+async def vocabulary_tree() -> Dict[str, Any]:
+    """The whole vocabulary (nodes, leaves, values with tiers and facet tags), for the dev browser."""
+    from prompt_programs.vocab import vocabulary
+    return vocabulary().to_dict()
+
+
 @router.post("/preview")
 async def preview(req: PreviewRequest) -> Dict[str, Any]:
     import asyncio

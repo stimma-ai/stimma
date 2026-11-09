@@ -1,0 +1,675 @@
+{
+  "id": "interior_space.library_study",
+  "label": "Library Study",
+  "description": "Libraries, reading rooms, and dedicated private spaces for reading and scholarship.",
+  "pos": "noun phrase",
+  "frame": "in ___",
+  "notes": "Book collections and scholarly reading spaces belong here; retail books belong to shop, general workplaces to office, and classrooms to any_room.",
+  "facets": [
+    "era",
+    "genre",
+    "region",
+    "budget",
+    "formality",
+    "locale",
+    "climate"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "a public library with book stacks and communal reading tables",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a university library with study carrels and reference shelves",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a private study with a writing desk and book-lined walls",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a reading room with leather chairs and newspaper racks",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a law library with bound volumes and rolling ladders",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a music library with score cabinets and listening desks",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a map library with flat drawers and oversized reading tables",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "an archive reading room with document cradles and numbered desks",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a library with compact shelving and rolling handwheels",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a branch library with computer stations and return carts",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a library with a mezzanine walkway and spiral stairs",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a library with wooden card catalogs and broad worktables",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a study with books piled around a worn armchair",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a theological library with commentary shelves and wooden reading desks",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a shipboard library with retaining rails across its shelves",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a community reading room with donated shelves and folding chairs",
+      "tier": "typical",
+      "tags": {
+        "budget": [
+          "modest"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a private library with carved galleries and a marble fireplace",
+      "tier": "typical",
+      "tags": {
+        "budget": [
+          "luxury"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a study with a calligraphy desk and scroll storage racks",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a reading room with tatami mats and low bookstands",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a manuscript library with tiled alcoves and carved bookstands",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a palm-leaf manuscript library with bundle shelves and low desks",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a library with papyrus scroll niches and stone reading benches",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "ancient"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a scriptorium with sloped desks and parchment storage chests",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a chained library with iron book rods and timber stalls",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a scholar's study with a globe and folio shelves",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a reading room with cast-iron galleries and green leather desks",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a data library with crystal storage stacks and terminal alcoves",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a wizard's study with levitating folios and a stone lectern",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a library carved into a giant tree with spiral shelves",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a library with dragon-scale bindings and enchanted scroll cabinets",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a library with salvaged books in sealed supply crates",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "post_apocalyptic",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a data archive with robotic retrieval arms and encrypted terminal booths",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a street archive with scavenged terminals and armored server cabinets",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    }
+  ],
+  "untagged": {
+    "genre": [
+      "realistic"
+    ],
+    "era": [
+      "contemporary"
+    ]
+  }
+}

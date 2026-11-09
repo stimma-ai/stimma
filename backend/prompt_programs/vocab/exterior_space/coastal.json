@@ -1,0 +1,518 @@
+{
+  "id": "exterior_space.coastal",
+  "label": "Coastal",
+  "description": "Shoreline settings where land meets the sea, including working waterfronts.",
+  "pos": "noun phrase",
+  "frame": "the setting is ___",
+  "notes": "Sea beaches, cliffs, tidal habitats, and coastal harbor edges belong here; inland lakes belong to landscape, urban canal infrastructure to urban_spot, and seaside village centers to countryside. Genre and era are unrestricted for untagged natural shorelines because they fit any world or period. Built harbor edges, bathing huts, concrete defenses, and speculative coasts carry explicit era and genre restrictions; historic infrastructure can survive into later eras. The noun-predicate frame accommodates valleys, shores, roads and platforms; choose an appropriate in/on/at preposition when composing a different sentence.",
+  "facets": [
+    "era",
+    "genre",
+    "region",
+    "budget",
+    "formality",
+    "locale",
+    "climate"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "a sandy beach with dune grass and a timber boardwalk",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a rocky shore with tide pools and seaweed-covered shelves",
+      "tier": "typical"
+    },
+    {
+      "text": "a cliff-backed cove with a narrow gravel beach",
+      "tier": "typical"
+    },
+    {
+      "text": "a broad tidal flat with winding channels and shell beds",
+      "tier": "typical"
+    },
+    {
+      "text": "an estuary bank with saltmarsh and exposed mud",
+      "tier": "typical"
+    },
+    {
+      "text": "an old harbor with stone steps and fishing-boat berths",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a fishing quay with rope coils and stacked lobster pots",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a marina edge with floating pontoons and sailboat masts",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a waterfront promenade with sea walls and concrete benches",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a tidal causeway with marker poles and stone verges",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a rocky headland with low scrub and a narrow trail",
+      "tier": "typical"
+    },
+    {
+      "text": "a coral-sand beach with coconut palms and shell fragments",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a volcanic black-sand beach with basalt shelves",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a mangrove creek with arching roots and mud banks",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a coastal salt pan with crusted basins and narrow embankments",
+      "tier": "plausible",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a coastal desert with dunes descending to a stony beach",
+      "tier": "plausible",
+      "tags": {
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a chalk-cliff shore with flint pebbles and fallen slabs",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a granite coast with rounded boulders and heather patches",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a coastal pine wood bordering a dune-backed beach",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a limestone coast with sea arches and pebble coves",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a beach with weathered bathing huts and timber groynes",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "temperate"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a fjord shore with steep rock walls and gravel margins",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "an arctic coast with raised beach ridges and dwarf willow",
+      "tier": "plausible",
+      "tags": {
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a glacial inlet with ice fragments and dark rock beaches",
+      "tier": "plausible",
+      "tags": {
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a tidal shore with bamboo oyster racks and shallow channels",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a coastal boardwalk between stilt houses and moored longboats",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a coral-stone harbor with dhow berths and timber loading ramps",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a fishing cove with slipways and whitewashed boat sheds",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a tropical fishing beach with painted skiffs and net racks",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a Roman harbor with stone mooring blocks and warehouse arcades",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "ancient"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "steampunk",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a coast with enormous shell formations and a carved sea gate",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a shoreline with tidal turbines and elevated habitat platforms",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a coast with stranded freighters and collapsed seawalls",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "post_apocalyptic",
+          "horror",
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    }
+  ],
+  "untagged": {}
+}

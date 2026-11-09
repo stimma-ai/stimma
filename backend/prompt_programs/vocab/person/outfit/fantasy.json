@@ -1,0 +1,600 @@
+{
+  "id": "person.outfit.fantasy",
+  "label": "Fantasy outfits",
+  "description": "Imaginary fantasy and fairy-tale wardrobes with concrete garment construction.",
+  "pos": "noun phrase",
+  "frame": "wearing ___",
+  "notes": "Complete invented outfits, including robes, dresses, layered travel clothes, and wearable armour. Period owns historical reconstruction; formal owns realistic ceremonial clothes; scifi owns technical speculative garments. Genre tags keep these out of realistic draws. Excludes weapons, carried gear, body traits, and scenery. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity.",
+  "facets": [
+    "presentation",
+    "age",
+    "era",
+    "genre",
+    "climate",
+    "formality",
+    "budget",
+    "region"
+  ],
+  "closed": false,
+  "untagged": {
+    "genre": [
+      "fantasy",
+      "fairy_tale"
+    ],
+    "era": [
+      "medieval",
+      "early_modern"
+    ]
+  },
+  "values": [
+    {
+      "text": "a moss-green wool tunic and brown lace-up trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a blue linen robe over cream gathered trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a brown leather jerkin over a green shirt and breeches",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a burgundy hooded cloak over a grey wool dress",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a navy velvet robe over a silver brocade undergown",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a green leaf-panelled gown with a fitted linen bodice",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": "any",
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a cream silk gown with gold vine embroidery",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a plum layered robe with wide silver-trimmed sleeves",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a silver mail shirt over a padded tunic and wool trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a bronze scale cuirass over a rust tunic and leggings",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a steel breastplate over a blue gambeson and quilted trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a brown leather brigandine over a cream shirt and breeches",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a white layered gown with petal-shaped overskirts",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": "any",
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a red wool hooded cape over a cream pinafore dress",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a patched brown tunic and oversized grey wool trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "budget": [
+          "modest"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a charcoal wizard robe with broad blue velvet cuffs",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": "any"
+      }
+    },
+    {
+      "text": "a turquoise wrap tunic and indigo gathered trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a black feather-panelled mantle over a grey ankle-length robe",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a blue quilted surcoat over mail and padded trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a silver brocade gown with structured crescent-shaped sleeves",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": "any",
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a bark-textured bodice and a full woven-grass skirt",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": "any",
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a dark blue robe sewn with tiny brass discs",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a deep green robe with embroidered fern-shaped sleeve panels",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a brown patchwork cloak over a linen shirt and trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a copper mail vest over a black quilted jumpsuit",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a gold-threaded robe over a crimson pleated undergown",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a silver lamellar coat over a blue tunic and trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a charcoal silk gown with overlapping scale-shaped panels",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": "any",
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a sand-coloured linen robe over loose white trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "climate": [
+          "hot"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ]
+      }
+    },
+    {
+      "text": "a gown of overlapping iridescent fabric scales over a silver silk underdress",
+      "tier": "unusual",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": "any",
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a sculpted gold lamellar robe over black pleated trousers",
+      "tier": "unusual",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": "any"
+      }
+    },
+    {
+      "text": "a midnight velvet frock coat and silver brocade waistcoat with trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century"
+        ]
+      }
+    },
+    {
+      "text": "a burgundy silk bustle gown with embroidered thorn-patterned trim",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a green wool riding habit with a fitted double-breasted jacket",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    }
+  ]
+}

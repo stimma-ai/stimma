@@ -1,0 +1,220 @@
+{
+  "id": "person.expression",
+  "label": "Expression",
+  "description": "Visible facial expressions, from subtle reactions to strong emotion.",
+  "pos": "noun phrase",
+  "frame": "with ___",
+  "notes": "Facial muscle configurations and visible emotion only. Gaze owns viewing direction and eye contact; pose owns head placement and body posture. Excludes enduring facial features, makeup, actions, and inferred personality.",
+  "facets": [],
+  "closed": false,
+  "values": [
+    {
+      "text": "a relaxed neutral expression",
+      "tier": "typical"
+    },
+    {
+      "text": "a small closed-mouth smile",
+      "tier": "typical"
+    },
+    {
+      "text": "a broad toothy smile",
+      "tier": "typical"
+    },
+    {
+      "text": "a tired half-smile",
+      "tier": "typical"
+    },
+    {
+      "text": "a faint smile with slightly parted lips",
+      "tier": "typical"
+    },
+    {
+      "text": "a smile that creases the corners of the eyes",
+      "tier": "typical"
+    },
+    {
+      "text": "a lopsided smile with one raised cheek",
+      "tier": "typical"
+    },
+    {
+      "text": "a look of quiet concentration with lightly knitted brows",
+      "tier": "typical"
+    },
+    {
+      "text": "a thoughtful expression with pursed lips",
+      "tier": "typical"
+    },
+    {
+      "text": "a serious expression with a relaxed brow",
+      "tier": "typical"
+    },
+    {
+      "text": "a concerned expression with raised inner brows",
+      "tier": "typical"
+    },
+    {
+      "text": "a faint frown with downturned mouth corners",
+      "tier": "typical"
+    },
+    {
+      "text": "a weary expression with heavy eyelids",
+      "tier": "typical"
+    },
+    {
+      "text": "a curious expression with one raised eyebrow",
+      "tier": "typical"
+    },
+    {
+      "text": "a surprised expression with parted lips",
+      "tier": "typical"
+    },
+    {
+      "text": "a hesitant smile with tense mouth corners",
+      "tier": "typical"
+    },
+    {
+      "text": "a mildly annoyed expression with tightened lips",
+      "tier": "typical"
+    },
+    {
+      "text": "a puzzled expression with unevenly raised brows",
+      "tier": "typical"
+    },
+    {
+      "text": "a determined expression with a set jaw",
+      "tier": "typical"
+    },
+    {
+      "text": "a sleepy expression with drooping eyelids",
+      "tier": "typical"
+    },
+    {
+      "text": "a relieved smile with a softened brow",
+      "tier": "typical"
+    },
+    {
+      "text": "a wide-eyed expression of delight",
+      "tier": "plausible"
+    },
+    {
+      "text": "a startled expression with a dropped jaw",
+      "tier": "plausible"
+    },
+    {
+      "text": "a skeptical half-smile with narrowed eyes",
+      "tier": "plausible"
+    },
+    {
+      "text": "a rueful grin with a creased brow",
+      "tier": "plausible"
+    },
+    {
+      "text": "a nervous smile showing clenched teeth",
+      "tier": "plausible"
+    },
+    {
+      "text": "a sheepish smile with a wrinkled nose",
+      "tier": "plausible"
+    },
+    {
+      "text": "a bittersweet smile with tearful eyes",
+      "tier": "plausible"
+    },
+    {
+      "text": "a sad expression with a trembling lower lip",
+      "tier": "plausible"
+    },
+    {
+      "text": "a tearful expression with a tightly closed mouth",
+      "tier": "plausible"
+    },
+    {
+      "text": "a pained grimace with bared upper teeth",
+      "tier": "plausible"
+    },
+    {
+      "text": "a wince with one eye squeezed shut",
+      "tier": "plausible"
+    },
+    {
+      "text": "a scowl with deeply drawn-together brows",
+      "tier": "plausible"
+    },
+    {
+      "text": "a disgusted expression with a curled upper lip",
+      "tier": "plausible"
+    },
+    {
+      "text": "a disapproving expression with a pinched mouth",
+      "tier": "plausible"
+    },
+    {
+      "text": "a sulky pout with lowered eyebrows",
+      "tier": "plausible"
+    },
+    {
+      "text": "a bored expression with half-lidded eyes",
+      "tier": "plausible"
+    },
+    {
+      "text": "a dazed expression with slack jaw",
+      "tier": "plausible"
+    },
+    {
+      "text": "an apprehensive expression with stretched mouth corners",
+      "tier": "plausible"
+    },
+    {
+      "text": "a fearful expression with widened eyes and tense lips",
+      "tier": "plausible"
+    },
+    {
+      "text": "a panicked expression with an open mouth",
+      "tier": "plausible"
+    },
+    {
+      "text": "a defiant expression with a jutting jaw",
+      "tier": "plausible"
+    },
+    {
+      "text": "a playful expression with puckered lips",
+      "tier": "plausible"
+    },
+    {
+      "text": "a serene expression with gently closed eyes",
+      "tier": "plausible"
+    },
+    {
+      "text": "a look of anticipation with raised brows and a small grin",
+      "tier": "plausible"
+    },
+    {
+      "text": "a suspicious expression with narrowed eyes and flared nostrils",
+      "tier": "plausible"
+    },
+    {
+      "text": "a resigned expression with flattened mouth corners",
+      "tier": "plausible"
+    },
+    {
+      "text": "an anguished expression with a fully open mouth",
+      "tier": "unusual"
+    },
+    {
+      "text": "a tooth-baring snarl with a deeply wrinkled nose",
+      "tier": "unusual"
+    },
+    {
+      "text": "a sobbing expression with tightly squeezed eyes and an open mouth",
+      "tier": "unusual"
+    },
+    {
+      "text": "a terrified expression with raised upper eyelids and a rigid jaw",
+      "tier": "unusual"
+    },
+    {
+      "text": "a tongue-out grimace with one eye scrunched closed",
+      "tier": "unusual"
+    }
+  ]
+}

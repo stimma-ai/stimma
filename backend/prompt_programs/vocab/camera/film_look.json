@@ -1,0 +1,149 @@
+{
+  "id": "camera.film_look",
+  "label": "Film and digital look",
+  "description": "Grain, colour, contrast and optical texture of the finished image.",
+  "pos": "noun phrase",
+  "frame": "with ___",
+  "notes": "Rendering and photographic surface texture belong here; camera.lens owns optical equipment, lighting leaves own illumination and scene.time_of_day owns the hour. Genre and era do not filter this leaf: they describe the depicted world, while any rendering process or period-inspired look can be applied to a scene set in any world or era.",
+  "facets": [],
+  "closed": false,
+  "values": [
+    {
+      "text": "fine 35mm film grain and muted colours",
+      "tier": "typical"
+    },
+    {
+      "text": "crisp digital clarity",
+      "tier": "typical"
+    },
+    {
+      "text": "high-contrast black-and-white grain",
+      "tier": "typical"
+    },
+    {
+      "text": "soft highlight halation and warm colour grading",
+      "tier": "typical"
+    },
+    {
+      "text": "rich colour and deep clean shadows",
+      "tier": "typical"
+    },
+    {
+      "text": "gentle contrast and pastel colours",
+      "tier": "typical"
+    },
+    {
+      "text": "neutral colour and smooth tonal gradients",
+      "tier": "typical"
+    },
+    {
+      "text": "cool shadows and warm highlights",
+      "tier": "typical"
+    },
+    {
+      "text": "clean monochrome tones and fine detail",
+      "tier": "typical"
+    },
+    {
+      "text": "coarse grain and saturated primary colours",
+      "tier": "plausible"
+    },
+    {
+      "text": "silvery monochrome midtones and luminous highlights",
+      "tier": "plausible"
+    },
+    {
+      "text": "a faded matte finish and warm paper tones",
+      "tier": "plausible"
+    },
+    {
+      "text": "a magenta cast and streaked emulsion damage",
+      "tier": "unusual"
+    },
+    {
+      "text": "bleach-bypass contrast and reduced saturation",
+      "tier": "plausible"
+    },
+    {
+      "text": "cross-processed green shadows and yellow highlights",
+      "tier": "plausible"
+    },
+    {
+      "text": "subtle red light leaks along the frame edge",
+      "tier": "unusual"
+    },
+    {
+      "text": "uneven exposure and darkened corners",
+      "tier": "plausible"
+    },
+    {
+      "text": "monochrome lith-print texture and gritty shadow clumps",
+      "tier": "plausible"
+    },
+    {
+      "text": "warm sepia toning and visible paper fibres",
+      "tier": "plausible"
+    },
+    {
+      "text": "a cool selenium-toned monochrome finish",
+      "tier": "plausible"
+    },
+    {
+      "text": "infrared monochrome tones and pale foliage",
+      "tier": "unusual"
+    },
+    {
+      "text": "false-colour infrared tones and crimson foliage",
+      "tier": "unusual"
+    },
+    {
+      "text": "a solarised silver outline around high-contrast edges",
+      "tier": "unusual"
+    },
+    {
+      "text": "a glossy instant-print finish and uneven colour development",
+      "tier": "plausible"
+    },
+    {
+      "text": "an ultraviolet fluorescence palette against dark shadows",
+      "tier": "unusual"
+    },
+    {
+      "text": "faint scratches and dust flecks across the image",
+      "tier": "plausible"
+    },
+    {
+      "text": "the mirrorlike silver surface of an early photographic plate",
+      "tier": "plausible"
+    },
+    {
+      "text": "the brown-grey tones and irregular edges of a wet-plate portrait",
+      "tier": "plausible"
+    },
+    {
+      "text": "the hand-tinted colours of an early postcard photograph",
+      "tier": "plausible"
+    },
+    {
+      "text": "the bold dye colours of a mid-century colour transparency",
+      "tier": "plausible"
+    },
+    {
+      "text": "the warm fading and rounded corners of a seventies snapshot",
+      "tier": "plausible"
+    },
+    {
+      "text": "the harsh colour noise and scan lines of an analogue video still",
+      "tier": "unusual"
+    },
+    {
+      "text": "the blocky pixels and narrow tonal range of an early digital photograph",
+      "tier": "unusual"
+    },
+    {
+      "text": "a cyanotype-blue monochrome print texture",
+      "tier": "unusual"
+    }
+  ],
+  "untagged": {}
+}

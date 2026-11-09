@@ -25,7 +25,7 @@
       <button
         v-else
         type="button"
-        :class="pillClass(groupPinned(row.members), openId === `group:${row.group.id}`)"
+        :class="pillClass(groupPinned(row.members) > 0, openId === `group:${row.group.id}`)"
         :data-choice="`group:${row.group.id}`"
         @click="program.open(`group:${row.group.id}`, $event.currentTarget as Element)"
       >

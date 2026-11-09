@@ -23,10 +23,11 @@ from prompt_programs.runtime import (
 )
 from prompt_programs.draws import DrawAborted, analyze, draw, legacy_program, uses_draws
 from prompt_programs.store import ProgramStore, program_key
+from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-34"
+PREPARE_VERSION = "pp-35"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -41,7 +42,10 @@ class StartOver(Exception):
 
 class PrepareTimeout(ProgramError):
     """Preparing took longer than PREPARE_LIMIT_SECONDS."""
-_INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8")
+# The vocabulary's catalogue (the lists a pick may bind to with cls=) is part of the
+# instructions; a vocabulary change changes the instructions, and so PREPARE_VERSION's key.
+_INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8").replace(
+    "{vocabulary}", vocabulary().catalogue())
 
 # Schema parameters a program may vary when the user asks. Others (seed, sizes,
 # media inputs, prompts, LoRAs) are never program-controlled.
@@ -1535,7 +1539,7 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     # leaving it out keeps a prepared program valid across sizes.
     enhance = {k: v for k, v in (ctx.get("enhance") or {}).items() if k not in ("width", "height")}
     parts = {
-        "v": PREPARE_VERSION, "tool": tool_id, "model": ctx.get("model"),
+        "v": PREPARE_VERSION, "vocab": vocabulary().version, "tool": tool_id, "model": ctx.get("model"),
         "mode": ctx.get("mode"), "enhance": enhance, "instructions": instructions,
         # on/off reaches the key only through `notes` (the on LoRAs' trigger words and notes):
         # switching a plain LoRA on or off doesn't need a new program

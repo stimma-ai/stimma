@@ -1,0 +1,54 @@
+{
+  "id": "scene.season",
+  "label": "Season",
+  "description": "The stage of the year visible in the landscape and seasonal surroundings.",
+  "pos": "noun phrase",
+  "frame": "in ___",
+  "notes": "Annual phases belong here; scene.weather owns current atmospheric conditions, scene.time_of_day owns daily phases and lighting.natural owns seasonal light. Seasons alone do not fix temperature: winter and summer differ across climates.",
+  "facets": [
+    "climate"
+  ],
+  "closed": true,
+  "values": [
+    {
+      "text": "early spring",
+      "tier": "typical"
+    },
+    {
+      "text": "late spring",
+      "tier": "typical"
+    },
+    {
+      "text": "early summer",
+      "tier": "typical"
+    },
+    {
+      "text": "the height of summer",
+      "tier": "typical"
+    },
+    {
+      "text": "early autumn",
+      "tier": "typical"
+    },
+    {
+      "text": "late autumn",
+      "tier": "typical"
+    },
+    {
+      "text": "early winter",
+      "tier": "typical"
+    },
+    {
+      "text": "deep winter",
+      "tier": "typical"
+    },
+    {
+      "text": "the rainy season",
+      "tier": "plausible"
+    },
+    {
+      "text": "the dry season",
+      "tier": "plausible"
+    }
+  ]
+}

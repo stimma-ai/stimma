@@ -1,0 +1,1536 @@
+{
+  "id": "person.outfit.summer",
+  "label": "Summer outfits",
+  "description": "Lightweight hot-weather outfits, beach separates, and tasteful swimwear.",
+  "pos": "noun phrase",
+  "frame": "wearing ___",
+  "notes": "Complete looks for heat, including swimwear described by garment construction. Casual owns year-round daily separates; athletic owns competitive swim and exercise clothing; sleep_lounge owns nightwear. Excludes bodies, tanning, props, and named locations.",
+  "facets": [
+    "presentation",
+    "age",
+    "era",
+    "genre",
+    "climate",
+    "formality",
+    "budget",
+    "region"
+  ],
+  "closed": false,
+  "untagged": {
+    "genre": [
+      "realistic"
+    ],
+    "era": [
+      "contemporary"
+    ]
+  },
+  "values": [
+    {
+      "text": "a white linen shirt and tan cotton shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a pale blue cotton tank and white drawstring shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a green linen tunic and loose cream trousers",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic",
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a yellow cotton sundress with a gathered waist",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a navy sleeveless jersey dress with a straight hem",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a coral cotton blouse and beige linen culottes",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a striped short-sleeved shirt and navy chino shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a rust linen jumpsuit with cropped wide legs",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a white eyelet blouse and a blue cotton skirt",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a teal cotton wrap dress with short sleeves",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a cream crochet top and loose brown linen trousers",
+      "tier": "plausible",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a pink seersucker shirt and matching cotton shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a black cotton tank and olive drawstring trousers",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a lilac sleeveless blouse and white cropped jeans",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a blue floral cotton romper with an elastic waist",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a green cotton playsuit with short legs",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "age": [
+          "child"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a red gingham sundress with broad shoulder straps",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a peach linen shirt dress with rolled sleeves",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a navy cotton polo and pale yellow shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a white muslin top and rust wide-leg trousers",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a patterned cotton kurta and white linen trousers",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "region": [
+          "south_asian"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic",
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a pale green cotton sari with a cream blouse",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "region": [
+          "south_asian"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a white linen thobe with loose long sleeves",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "region": [
+          "middle_eastern"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic",
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a cream cotton caftan with blue woven borders",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "region": [
+          "african"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic",
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a blue aloha shirt and beige linen shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "region": [
+          "oceanian"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a white sleeveless blouse and a green batik sarong",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "region": [
+          "southeast_asian"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a pink cotton ao ba ba with loose black trousers",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "region": [
+          "southeast_asian"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a blue printed pareo over a plain black swimsuit",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "region": [
+          "oceanian"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a turquoise one-piece swimsuit with a square neckline",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a navy one-piece swimsuit with a modest skirted hem",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a black long-sleeved swimsuit with full-length legs",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a red halter-neck swimsuit with a high back",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a blue tankini top and matching swim shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a green bikini with a high-waisted bottom",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a plum bikini with broad straps and full-coverage bottoms",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a striped rash guard and navy knee-length swim shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a coral swim tunic and black ankle-length swim trousers",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a yellow swim shirt and blue elastic-waist swim shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "age": [
+          "child",
+          "teen"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a plain navy pair of knee-length swim trunks",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a green pair of board shorts with white piping",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a cream linen cover-up over a burgundy one-piece swimsuit",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a white cotton overshirt and blue swim shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a black swim dress with attached fitted shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a terracotta linen waistcoat and matching loose shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a pale green smocked top and cream cotton trousers",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a white cotton peasant blouse and an orange tiered skirt",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a blue chambray playsuit with short cuffed legs",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a beige sleeveless tunic and white ankle-length trousers",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic",
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a striped cotton T-shirt dress with side slits",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a purple cotton crop top and high-waisted linen shorts",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "hot"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a sleeveless undyed linen tunic and loose knee-length linen breeches",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "climate": [
+          "hot",
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a pale flax gown with short sleeves and a woven girdle",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "climate": [
+          "hot",
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a light cotton wrap tunic and loosely gathered linen trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "climate": [
+          "hot",
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a thin cream linen shift beneath a blue sleeveless overdress",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "climate": [
+          "hot",
+          "temperate"
+        ]
+      }
+    },
+    {
+      "text": "a striped cotton seaside dress with a broad sailor collar",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "climate": [
+          "hot",
+          "temperate"
+        ],
+        "formality": [
+          "casual"
+        ]
+      }
+    }
+  ]
+}

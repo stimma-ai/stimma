@@ -1,6 +1,9 @@
 import { computed, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
+import type { ChoiceVocab } from '../utils/programVocab'
+
+export type { ChoiceVocab } from '../utils/programVocab'
 
 /**
  * Prompt programs: unless Raw is on, the prompt is prepared once into a small program
@@ -27,6 +30,8 @@ export interface ProgramChoice {
   attr?: string
   /** The user's own {{name}} smart wildcard this choice fills. */
   wildcard?: string
+  /** The vocabulary list this pick draws from; its options are the list's values. */
+  cls?: string
 }
 
 export interface ProgramGroup { id: string; count: number; label: string; source: string; line?: number }
@@ -46,6 +51,17 @@ export interface PreparedProgram {
   warnings?: string[]
   seconds?: number
   program?: string
+  // Dev details the program dialog shows.
+  attempts?: number
+  mode?: string
+  upsample_seconds?: number
+}
+
+/** POST /prompt-programs/pools. Bound picks carry the whole list (uncapped) and a `vocab` entry. */
+export interface PoolsResponse {
+  options: Record<string, string[]>
+  more: string[]
+  vocab?: Record<string, ChoiceVocab>
 }
 
 export interface ChoiceEdit { add?: string[]; remove?: string[]; off?: boolean }
@@ -324,6 +340,8 @@ export function usePromptProgram(o: Options) {
   // What each generated choice draws from now: its seeds plus the options generated in the
   // background (they keep arriving for a while after preparing).
   const pools = ref<Record<string, string[]>>({})
+  // Bound picks' lists: name, closed or open, and each value's tier.
+  const vocab = ref<Record<string, ChoiceVocab>>({})
   let poolsTimer: ReturnType<typeof setTimeout> | null = null
   let poolsId = 0
   async function fetchPools(rounds = 0) {
@@ -332,9 +350,10 @@ export function usePromptProgram(o: Options) {
     const sig = signature.value
     const id = ++poolsId
     try {
-      const { data } = await axios.post(`${getApiBase()}/prompt-programs/pools`, request({ pins: pins.value }))
+      const { data } = await axios.post<PoolsResponse>(`${getApiBase()}/prompt-programs/pools`, request({ pins: pins.value }))
       if (id !== poolsId || sig !== signature.value) return
       pools.value = data?.options || {}
+      vocab.value = data?.vocab || {}
       if ((data?.more || []).length && rounds < 20) poolsTimer = setTimeout(() => { void fetchPools(rounds + 1) }, 3000)
     } catch { /* the seeds still show */ }
   }
@@ -344,8 +363,16 @@ export function usePromptProgram(o: Options) {
   function optionsOf(c: ProgramChoice): string[] {
     const e = edits.value[c.id] || {}
     const removed = new Set(e.remove || [])
-    const base = [...c.options, ...(pools.value[c.id] || []).filter(x => !c.options.includes(x))]
-    return [...base.filter(x => !removed.has(x)), ...(e.add || []).filter(x => !base.includes(x))]
+    // Sets: a bound pick's list runs to hundreds of values.
+    const seeds = new Set(c.options)
+    const base = [...c.options, ...(pools.value[c.id] || []).filter(x => !seeds.has(x))]
+    const have = new Set(base)
+    return [...base.filter(x => !removed.has(x)), ...(e.add || []).filter(x => !have.has(x))]
+  }
+
+  /** The list a bound pick draws from, once the pools have said (null for other picks). */
+  function vocabOf(c: ProgramChoice): ChoiceVocab | null {
+    return vocab.value[c.id] || null
   }
 
   function visible(c: ProgramChoice): boolean {
@@ -434,7 +461,7 @@ export function usePromptProgram(o: Options) {
   return {
     program, status, error, signature, elaborate: o.elaborate, unsupported, pins, edits, choices, rows, byId, openCard,
     prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, lookup, fetchProgramText, previewRuns, suggestOptions,
-    setPins, setManyPins, setEdit, optionsOf, valueText, isPinned, visible,
+    setPins, setManyPins, setEdit, optionsOf, vocabOf, valueText, isPinned, visible,
     loraControl, paramControl, open, close,
   }
 }

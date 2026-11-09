@@ -1,0 +1,565 @@
+{
+  "id": "lighting.natural",
+  "label": "Natural light",
+  "description": "Sunlight, skylight and moonlight shaped by the surroundings.",
+  "pos": "noun phrase",
+  "frame": "lit by ___",
+  "notes": "Natural sources and their direction, diffusion or reflection belong here. Use scene.time_of_day for the hour itself, indoor_practical for visible lamps, studio for photographic equipment and dramatic for designed cinematic effects. Window light implies an indoor subject.",
+  "facets": [
+    "space",
+    "time_of_day",
+    "climate"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "soft overcast daylight",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "day"
+        ]
+      }
+    },
+    {
+      "text": "clear midday sunlight",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "day"
+        ]
+      }
+    },
+    {
+      "text": "cool light from an open blue sky",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "day"
+        ]
+      }
+    },
+    {
+      "text": "dappled sunlight through a leafy canopy",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight reflected from a pale stone wall",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight filtered through a fabric awning",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "slanting sunlight between tall buildings",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight reflected from rippling water",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight spilling beneath a deep porch roof",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "soft daylight from a large window",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight falling through sheer curtains",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "a narrow shaft of sunlight through a partly open door",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight striped by window blinds",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "diffuse daylight from a skylight",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "low golden-hour sun raking across the scene",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "warm sunset light beneath a bank of clouds",
+      "tier": "typical",
+      "tags": {
+        "time_of_day": [
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "the pale first light above the horizon",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn"
+        ]
+      }
+    },
+    {
+      "text": "pink dawn light reflected from high clouds",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn"
+        ]
+      }
+    },
+    {
+      "text": "sunrise breaking through a line of trees",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn"
+        ]
+      }
+    },
+    {
+      "text": "cool blue twilight after sunset",
+      "tier": "plausible",
+      "tags": {
+        "time_of_day": [
+          "dusk"
+        ]
+      }
+    },
+    {
+      "text": "cold blue moonlight",
+      "tier": "plausible",
+      "tags": {
+        "time_of_day": [
+          "night"
+        ]
+      }
+    },
+    {
+      "text": "silver moonlight reflected from still water",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "night"
+        ]
+      }
+    },
+    {
+      "text": "faint starlight beneath a clear sky",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "night"
+        ]
+      }
+    },
+    {
+      "text": "a bar of moonlight across the floor",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "night"
+        ]
+      }
+    },
+    {
+      "text": "sunlight coloured by a stained-glass window",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight softened by a paper window screen",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "green-tinted daylight through greenhouse glass",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "daylight entering through high clerestory windows",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight broken into small patches by a carved screen",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight through a round porthole",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight scattered by sea mist",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight reflected upward from pale sand",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight streaming through gaps in storm clouds",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight cutting through tall reeds",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight diffused by a translucent canopy",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "bright daylight reflected from fresh snow",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "day"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "blue daylight filtered through thick ice",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "day"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "green auroral light across the sky",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "night"
+        ]
+      }
+    },
+    {
+      "text": "the brief white flare of lightning",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "night"
+        ]
+      }
+    },
+    {
+      "text": "the dim copper light of a solar eclipse",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "day"
+        ]
+      }
+    },
+    {
+      "text": "sunlight refracted into rainbow bands by a glass prism",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "low sunlight glowing through dry grasses",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "golden_hour"
+        ]
+      }
+    },
+    {
+      "text": "sunlight reflected from copper-coloured canyon walls",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day",
+          "golden_hour"
+        ]
+      }
+    }
+  ]
+}

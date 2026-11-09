@@ -1,0 +1,669 @@
+{
+  "id": "person.outfit.scifi",
+  "label": "Science-fiction outfits",
+  "description": "Technical future clothing, cyberpunk streetwear, and salvaged post-apocalyptic outfits.",
+  "pos": "noun phrase",
+  "frame": "wearing ___",
+  "notes": "Complete speculative looks with concrete garments and materials, all genre-tagged. Fantasy owns magical wardrobes; athletic owns ordinary performance clothing; casual owns contemporary streetwear. Excludes weapons, carried technology, body modifications, logos, and environmental effects. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity.",
+  "facets": [
+    "presentation",
+    "age",
+    "era",
+    "genre",
+    "climate",
+    "formality",
+    "budget",
+    "region"
+  ],
+  "closed": false,
+  "untagged": {
+    "genre": [
+      "scifi",
+      "cyberpunk"
+    ],
+    "era": [
+      "future"
+    ]
+  },
+  "values": [
+    {
+      "text": "a grey pressure suit with black articulated knee panels",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a white flight jumpsuit with blue reinforced seams",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a navy utility coverall with orange quilted shoulder panels",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a cream high-collared jacket and matching seamless trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a blue polymer-panelled jacket and black fitted trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a black ribbed undersuit beneath white segmented body armour",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a white woven-fibre robe over silver tailored trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a navy formal jacket with metallic piping and matching trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a silver pleated gown with a structured polymer collar",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "era": [
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a pale blue modular coat and cream articulated trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a black thermal jumpsuit beneath a white insulated parka",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "climate": [
+          "cold"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a blue sealed coverall with ribbed flexible joint sections",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a black vinyl trench coat and red technical trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a purple reflective bomber and black coated denim jeans",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a silver mesh top over a black undershirt and trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a navy asymmetric coat and grey strapped utility trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a green translucent raincoat over a black technical jumpsuit",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a black neoprene dress with purple polymer side panels",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a red synthetic-leather jacket and silver pleated midi skirt",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a blue segmented vest over a charcoal shirt and trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a white oversized technical hoodie and black panelled leggings",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a metallic teal trouser suit with a black mesh underlayer",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a black holographic-fabric gown with angular shoulder panels",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "era": [
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a black quilted kimono-cut jacket and grey technical trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a lime ripstop poncho over a grey jumpsuit",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a patched brown canvas coat and faded cargo trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a rust quilted jacket and mismatched denim patchwork trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a sand linen wrap coat and loose patched cotton trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic",
+          "fantasy",
+          "fairy_tale"
+        ],
+        "climate": [
+          "hot",
+          "temperate"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a blue work coverall with hand-stitched leather knee patches",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a green salvaged-fabric poncho over a wool tunic and trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic",
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a grey quilted robe over a patched blue jumpsuit",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a black rubberised rain cape and reinforced tan trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a beige hooded coat sewn from mismatched canvas panels and jeans",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a black reinforced duster over a quilted tunic and trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a patched wool hooded cloak over a linen tunic and trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "post_apocalyptic",
+          "horror",
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "formality": [
+          "casual"
+        ]
+      }
+    }
+  ]
+}

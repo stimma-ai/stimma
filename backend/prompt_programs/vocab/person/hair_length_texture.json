@@ -1,0 +1,158 @@
+{
+  "id": "person.hair_length_texture",
+  "label": "Hair length and texture",
+  "description": "The length, density and natural or styled texture of scalp hair.",
+  "pos": "adjective phrase",
+  "frame": "her ___ auburn hair",
+  "notes": "Length, density and texture phrases that stack before person.hair_color; person.hairstyle owns cuts and arrangements. Waves or curls describe the hair rather than a named setting technique. Sparse and thinning describe density and do not imply a particular age.",
+  "facets": [
+    "age"
+  ],
+  "closed": true,
+  "values": [
+    {
+      "text": "short straight",
+      "tier": "typical"
+    },
+    {
+      "text": "short wavy",
+      "tier": "typical"
+    },
+    {
+      "text": "short curly",
+      "tier": "typical"
+    },
+    {
+      "text": "short tightly coiled",
+      "tier": "typical"
+    },
+    {
+      "text": "shoulder-length straight",
+      "tier": "typical"
+    },
+    {
+      "text": "shoulder-length wavy",
+      "tier": "typical"
+    },
+    {
+      "text": "shoulder-length curly",
+      "tier": "typical"
+    },
+    {
+      "text": "shoulder-length coily",
+      "tier": "typical"
+    },
+    {
+      "text": "long straight",
+      "tier": "typical"
+    },
+    {
+      "text": "long wavy",
+      "tier": "typical"
+    },
+    {
+      "text": "long curly",
+      "tier": "typical"
+    },
+    {
+      "text": "long tightly coiled",
+      "tier": "typical"
+    },
+    {
+      "text": "fine",
+      "tier": "typical"
+    },
+    {
+      "text": "thick",
+      "tier": "typical"
+    },
+    {
+      "text": "thinning",
+      "tier": "typical"
+    },
+    {
+      "text": "chin-length straight",
+      "tier": "typical"
+    },
+    {
+      "text": "chin-length wavy",
+      "tier": "typical"
+    },
+    {
+      "text": "chin-length curly",
+      "tier": "typical"
+    },
+    {
+      "text": "ear-length curly",
+      "tier": "plausible"
+    },
+    {
+      "text": "ear-length coily",
+      "tier": "plausible"
+    },
+    {
+      "text": "neck-length straight",
+      "tier": "plausible"
+    },
+    {
+      "text": "neck-length wavy",
+      "tier": "plausible"
+    },
+    {
+      "text": "waist-length straight",
+      "tier": "plausible"
+    },
+    {
+      "text": "waist-length wavy",
+      "tier": "plausible"
+    },
+    {
+      "text": "waist-length curly",
+      "tier": "plausible"
+    },
+    {
+      "text": "waist-length coily",
+      "tier": "plausible"
+    },
+    {
+      "text": "long frizzy",
+      "tier": "plausible"
+    },
+    {
+      "text": "short frizzy",
+      "tier": "plausible"
+    },
+    {
+      "text": "short springy-curled",
+      "tier": "plausible"
+    },
+    {
+      "text": "shoulder-length corkscrew-curled",
+      "tier": "plausible"
+    },
+    {
+      "text": "long wiry",
+      "tier": "plausible"
+    },
+    {
+      "text": "short wiry",
+      "tier": "plausible"
+    },
+    {
+      "text": "long voluminous",
+      "tier": "plausible"
+    },
+    {
+      "text": "short fluffy",
+      "tier": "plausible"
+    },
+    {
+      "text": "sparse",
+      "tier": "plausible"
+    },
+    {
+      "text": "long flyaway",
+      "tier": "plausible"
+    }
+  ]
+}

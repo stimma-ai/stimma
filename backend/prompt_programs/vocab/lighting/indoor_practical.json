@@ -1,0 +1,1280 @@
+{
+  "id": "lighting.indoor_practical",
+  "label": "Practical light",
+  "description": "Light from lamps, fires, screens and other sources within the scene.",
+  "pos": "noun phrase",
+  "frame": "lit by ___",
+  "notes": "Real fixtures, flames and screens belong here, including outdoor practicals such as street lamps. Natural owns sunlight and moonlight; studio owns photographic rigs; dramatic owns stylised colour and contrast effects rather than ordinary fixtures. Era tags describe source availability. Untagged values fit realistic contemporary sources. Flame sources span genres and eras; electric fixtures require electrical worlds, and gas and kerosene begin in the nineteenth century. Magical and speculative emitters are tagged by world.",
+  "facets": [
+    "space",
+    "era",
+    "genre",
+    "time_of_day"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "the warm glow of a single desk lamp",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a shaded bedside lamp",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a ceiling pendant above a table",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a row of recessed ceiling lights",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a bright fluorescent ceiling panel",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a frosted bathroom mirror light",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "under-cabinet kitchen lights",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a warm floor lamp beside an armchair",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a bare bulb hanging from a cord",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror",
+          "post_apocalyptic"
+        ]
+      }
+    },
+    {
+      "text": "small wall sconces along a corridor",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "flickering candlelight",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a crackling hearth fire",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a television screen flickering across the room",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "the light inside an open refrigerator",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a backlit shop display",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a red photographic darkroom lamp",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a caged workshop bulb",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror",
+          "post_apocalyptic"
+        ]
+      }
+    },
+    {
+      "text": "rows of makeup mirror bulbs",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a luminous aquarium beside the subject",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a green emergency exit sign",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "an illuminated vending machine",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a string of tiny decorative bulbs",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a low table lamp with a paper shade",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a light fixture beneath a ceiling fan",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "the blue light of a laptop screen",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ]
+      }
+    },
+    {
+      "text": "warm LED strips beneath a shelf",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ]
+      }
+    },
+    {
+      "text": "a phone screen held close to the face",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ]
+      }
+    },
+    {
+      "text": "an LED headlamp",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ]
+      }
+    },
+    {
+      "text": "a pool of amber streetlamp light",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "time_of_day": [
+          "dusk",
+          "night",
+          "dawn"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "white floodlights over a playing field",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "time_of_day": [
+          "dusk",
+          "night",
+          "dawn"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "strings of bulbs above an outdoor market",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "time_of_day": [
+          "dusk",
+          "night",
+          "dawn"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "lights along a garden path",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "time_of_day": [
+          "dusk",
+          "night",
+          "dawn"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "an illuminated bus shelter",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "time_of_day": [
+          "dusk",
+          "night",
+          "dawn"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a gas station canopy",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "time_of_day": [
+          "dusk",
+          "night",
+          "dawn"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "headlights from a parked car",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "time_of_day": [
+          "dusk",
+          "night",
+          "dawn"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a glowing shop sign across the street",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "time_of_day": [
+          "dusk",
+          "night",
+          "dawn"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a small campfire",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a flaming torch fixed to a stone wall",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a hurricane lantern",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a brass oil lamp",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a paper lantern with a candle inside",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a wall-mounted gaslight",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "space": [
+          "indoor"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a row of gas street lamps",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dusk",
+          "night",
+          "dawn"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "the fire inside a wood-burning stove",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a candle chandelier above the room",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "post_apocalyptic",
+          "horror",
+          "fairy_tale"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a handheld flashlight",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror",
+          "post_apocalyptic"
+        ]
+      }
+    },
+    {
+      "text": "a red railway signal lamp",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "steampunk",
+          "horror",
+          "post_apocalyptic"
+        ]
+      }
+    },
+    {
+      "text": "a bubbling lava lamp",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "purple grow lights above indoor plants",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ]
+      }
+    },
+    {
+      "text": "a portable work light on a tripod",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ]
+      }
+    },
+    {
+      "text": "glowing holographic control panels",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "luminous floor panels along a spacecraft corridor",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a glowing crystal suspended above a table",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "indoor"
+        ],
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    }
+  ],
+  "untagged": {
+    "genre": [
+      "realistic"
+    ],
+    "era": [
+      "contemporary"
+    ]
+  }
+}

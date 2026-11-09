@@ -1,0 +1,60 @@
+{
+  "id": "camera.shot_size",
+  "label": "Shot size",
+  "description": "How much of the subject and surroundings the frame includes.",
+  "pos": "noun phrase",
+  "frame": "___ of a person",
+  "notes": "Framing extent and anatomical crops belong here. camera.angle owns viewpoint, camera.lens owns optics and camera.film_look owns rendering. A detail shot may include only part of the person; it still composes with the person phrase.",
+  "facets": [],
+  "closed": true,
+  "values": [
+    {
+      "text": "a tight close-up",
+      "tier": "typical"
+    },
+    {
+      "text": "a head-and-shoulders portrait",
+      "tier": "typical"
+    },
+    {
+      "text": "a chest-up shot",
+      "tier": "typical"
+    },
+    {
+      "text": "a waist-up medium shot",
+      "tier": "typical"
+    },
+    {
+      "text": "a knee-up three-quarter shot",
+      "tier": "typical"
+    },
+    {
+      "text": "a full-length shot",
+      "tier": "typical"
+    },
+    {
+      "text": "a wide environmental portrait",
+      "tier": "typical"
+    },
+    {
+      "text": "an extreme wide shot",
+      "tier": "plausible"
+    },
+    {
+      "text": "a loosely framed full-length portrait",
+      "tier": "plausible"
+    },
+    {
+      "text": "a head-to-mid-thigh shot",
+      "tier": "plausible"
+    },
+    {
+      "text": "a neck-to-waist torso crop",
+      "tier": "plausible"
+    },
+    {
+      "text": "a panoramic environmental portrait",
+      "tier": "unusual"
+    }
+  ]
+}

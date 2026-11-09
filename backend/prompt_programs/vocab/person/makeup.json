@@ -1,0 +1,239 @@
+{
+  "id": "person.makeup",
+  "label": "Makeup",
+  "description": "Visible cosmetic treatments and combinations for the face.",
+  "pos": "noun phrase",
+  "frame": "with ___",
+  "notes": "Applied cosmetics only, for any gender or presentation. Lip colors explicitly mean lipstick or tint, not underlying complexion. Modern cosmetic formulations default to contemporary/future electrical worlds; period looks and magical effects use explicit tags. No uncovered skin, skin tone or worn accessories. Kohl and loose face powder are the cross-era backbone; they describe visible pigments rather than modern formulations.",
+  "facets": [
+    "era",
+    "genre"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "smudged black eyeliner",
+      "tier": "typical"
+    },
+    {
+      "text": "bold red lipstick",
+      "tier": "typical"
+    },
+    {
+      "text": "soft brown eyeshadow",
+      "tier": "typical"
+    },
+    {
+      "text": "a thin line of liquid eyeliner",
+      "tier": "typical"
+    },
+    {
+      "text": "subtle peach blush",
+      "tier": "typical"
+    },
+    {
+      "text": "clear lip gloss",
+      "tier": "typical"
+    },
+    {
+      "text": "a light dusting of face powder",
+      "tier": "typical",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "softly defined brows",
+      "tier": "typical"
+    },
+    {
+      "text": "black mascara",
+      "tier": "typical"
+    },
+    {
+      "text": "a berry lip stain",
+      "tier": "typical"
+    },
+    {
+      "text": "a sheer pink lip tint",
+      "tier": "typical"
+    },
+    {
+      "text": "a dewy foundation finish",
+      "tier": "typical"
+    },
+    {
+      "text": "a matte foundation finish",
+      "tier": "typical"
+    },
+    {
+      "text": "a softly blended smoky eye",
+      "tier": "typical"
+    },
+    {
+      "text": "winged eyeliner",
+      "tier": "plausible"
+    },
+    {
+      "text": "gold eyeshadow",
+      "tier": "plausible"
+    },
+    {
+      "text": "silver eyeshadow",
+      "tier": "plausible"
+    },
+    {
+      "text": "cobalt blue eyeliner",
+      "tier": "plausible"
+    },
+    {
+      "text": "emerald eyeshadow",
+      "tier": "plausible"
+    },
+    {
+      "text": "violet eyeshadow",
+      "tier": "plausible"
+    },
+    {
+      "text": "copper eyeshadow",
+      "tier": "plausible"
+    },
+    {
+      "text": "coral lipstick",
+      "tier": "plausible"
+    },
+    {
+      "text": "deep plum lipstick",
+      "tier": "plausible"
+    },
+    {
+      "text": "black lipstick",
+      "tier": "unusual"
+    },
+    {
+      "text": "glitter along the eyelids",
+      "tier": "unusual"
+    },
+    {
+      "text": "tiny painted freckles",
+      "tier": "plausible"
+    },
+    {
+      "text": "a sharp cut crease",
+      "tier": "unusual"
+    },
+    {
+      "text": "graphic white eyeliner",
+      "tier": "unusual"
+    },
+    {
+      "text": "glossy brown lipstick",
+      "tier": "plausible"
+    },
+    {
+      "text": "shimmering cheek highlighter",
+      "tier": "plausible"
+    },
+    {
+      "text": "bronze contouring",
+      "tier": "plausible"
+    },
+    {
+      "text": "two-tone lipstick",
+      "tier": "unusual"
+    },
+    {
+      "text": "a small painted beauty mark",
+      "tier": "plausible"
+    },
+    {
+      "text": "kohl-lined eyes",
+      "tier": "plausible",
+      "tags": {
+        "genre": "any",
+        "era": "any"
+      }
+    },
+    {
+      "text": "terracotta lipstick",
+      "tier": "plausible"
+    },
+    {
+      "text": "pale powder and a cupid’s-bow lip",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "rouge circles high on the cheeks",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "pastel blue lids and thick false lashes",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "neon pink blush swept to the temples",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "luminous runes painted across the cheeks",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "glowing circuit lines around the eyes",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ]
+      }
+    }
+  ],
+  "untagged": {
+    "genre": [
+      "realistic",
+      "scifi",
+      "cyberpunk",
+      "horror"
+    ],
+    "era": [
+      "contemporary",
+      "future"
+    ]
+  }
+}

@@ -25,6 +25,7 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   - `seed`: 1 to 3 different example values, concrete phrases that read naturally in the
     sentence. One seed is fine.
   - `phase`: when it is drawn (see Phases).
+  - `cls`: optional, the id of a vocabulary list the pick draws from (see Vocabulary).
   - Every pick you write has `about=` and `seed=`. Only a user list gives its options as a
     list (below).
 - A user list: `pick(id, ["a", "b", "c"], source="list", phase=1, line=N)`, with exactly the
@@ -119,6 +120,9 @@ phases drew; picks in the same phase are drawn without seeing each other.
 4. **Add variety.** Add 1 to 3 picks (`added=True`, with a label) for the details the
    prompt leaves open that change the image most: her outfit, the setting, the light, the
    pose. Fewer when the user's lists already vary a lot. Never add a `param`.
+   A detail of a person that has a list (see Vocabulary: hair colour, hairstyle, eyes,
+   expression, outfit, pose…) is a pick bound to that list with `cls=`, one list per pick:
+   hair is a colour pick and a hairstyle pick, not one "hair" pick.
    **What the user stated stays fixed text**: the subject ("a girl", "a dog", "a knight"),
    what it does ("running", "waving"), an age ("in his sixties"), the weather ("in a
    snowstorm"), a place, a colour, a blue frock, an owl on her shoulder. Never make a pick of
@@ -144,6 +148,32 @@ Never write negations into the prompt. Image models don't understand "no" or "wi
 shallow dof"), describe the opposite positively ("sharp focus from foreground to
 background"). This applies to everything you emit and every seed. Only protected `[text]`
 is emitted exactly as the user wrote it.
+
+# Vocabulary
+
+Curated lists of options for details of people. When a pick varies one of these details and
+the user said nothing specific about it, bind the pick to its list with `cls=`, and its
+options come from the list:
+`eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["hazel"], label="Eyes", phase=2, line=1)`.
+Still write `about=` and a seed in the list's form.
+
+- Each list holds one kind of phrase, shown with where it fits. Write the words around it
+  yourself (`emit("a woman with", eyes, "eyes")`), and build one detail from several lists:
+  `emit("her", hair_length, hair_color, "hair in", hairstyle)`.
+- Bind only when the list covers the detail as the user means it. When the user was specific
+  ("her grandmother's silver braid", "eyes like a winter sea"), write the pick without
+  `cls=`, or keep their words as fixed text. A list is a partial catalogue: most picks have
+  no list, and that's fine.
+- What the user stated stays fixed text, as always: a detail they wrote gets no pick, bound
+  or not. "A woman with emerald eyes and long red hair in a braid" keeps "emerald eyes",
+  "long red hair" and "in a braid" in every image; only what they left open (her expression,
+  her outfit) can be a pick.
+- Each person's details bind to the same lists: `girl[1].eyes` and `girl[2].eyes` both use
+  `person.eye_color`.
+- Like any pick written with `about=`, a bound pick's value is never a lookup key.
+- Use only these ids, exactly:
+
+{vocabulary}
 
 # LoRAs
 
@@ -177,8 +207,8 @@ Program:
 job = pick("job", ["chef", "firefighter"], label="Job", source="list", phase=1, line=1)
 outfit = pick("outfit", about=f"what a {job} wears walking home on a snowy night", seed=[
     "a heavy wool coat over his work clothes"], label="Outfit", phase=2, line=1)
-expression = pick("expression", about="his expression on the walk home", seed=[
-    "a tired, contented half-smile", "a distant, thoughtful look"], label="Expression", phase=2, line=2)
+expression = pick("expression", cls="person.expression", about="his expression on the walk home", seed=[
+    "a tired, contented half-smile"], label="Expression", phase=2, line=2)
 light = pick("light", about="the light on a snowy street at night", seed=[
     "Warm light spills from shop windows onto the fresh snow"], label="Light", phase=1, added=True)
 emit("A candid street photograph of a", job, "in his fifties walking home down a snowy street at night, wearing",
@@ -186,7 +216,8 @@ emit("A candid street photograph of a", job, "in his fifties walking home down a
      ", and his breath fogs in the cold air. Shot on 35mm film, natural color.")
 ```
 "in his fifties", "a snowy street" and "at night" are the user's: they stay fixed. The outfit
-names `{job}`, so a chef and a firefighter each get outfits written for them.
+names `{job}`, so a chef and a firefighter each get outfits written for them. His expression
+has a list, so it binds to it.
 
 Example. User's prompt:
 ```
@@ -213,13 +244,16 @@ Example. User's prompt:
 ```
 Program:
 ```python
-hair = pick("hair", about="the girl's hair in the sea wind", seed=[
-    "long red hair blowing across her face"], label="Hair", phase=1, added=True)
+hair_color = pick("hair_color", cls="person.hair_color", about="the girl's hair colour", seed=["auburn"],
+    label="Hair colour", phase=1, added=True)
+hairstyle = pick("hairstyle", cls="person.hairstyle", about="the girl's hairstyle", seed=["a loose side braid"],
+    label="Hairstyle", phase=1, added=True)
 sky = pick("sky", about="the sky over the beach", seed=[
     "a stormy violet sky with a break of sunlight"], label="Sky", phase=1, added=True)
-emit("Digital art of a girl with", hair, ", holding an umbrella on a beach under", sky,
+emit("Digital art of a girl with", hair_color, "hair in", hairstyle, ", holding an umbrella on a beach under", sky,
      ". Soft painterly shading, crisp linework.")
 ```
 "a girl", "holding an umbrella", "on a beach" and "digital art" are the user's, so every image
 says them. There is no pick for the girl, what she holds or the place: the picks add her hair
-and the sky, which the user left open.
+and the sky, which the user left open. Her hair is two picks bound to their lists, with the
+words around them ("hair in") written in `emit()`.

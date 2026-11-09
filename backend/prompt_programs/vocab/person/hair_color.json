@@ -1,0 +1,258 @@
+{
+  "id": "person.hair_color",
+  "label": "Hair color",
+  "description": "The color of scalp hair, including natural shades, dye and fantastical effects.",
+  "pos": "adjective",
+  "frame": "her ___ hair",
+  "notes": "Color only; person.hair_length_texture owns length, density and texture, and person.hairstyle owns cuts and arrangements. Dyed colors remain eligible in realistic scenes; luminous or physically impossible effects require a genre tag. Shades do not imply descent or age.",
+  "facets": [
+    "era",
+    "genre"
+  ],
+  "closed": true,
+  "values": [
+    {
+      "text": "black",
+      "tier": "typical"
+    },
+    {
+      "text": "dark brown",
+      "tier": "typical"
+    },
+    {
+      "text": "medium brown",
+      "tier": "typical"
+    },
+    {
+      "text": "light brown",
+      "tier": "typical"
+    },
+    {
+      "text": "dark blonde",
+      "tier": "typical"
+    },
+    {
+      "text": "golden blonde",
+      "tier": "typical"
+    },
+    {
+      "text": "auburn",
+      "tier": "typical"
+    },
+    {
+      "text": "gray",
+      "tier": "typical"
+    },
+    {
+      "text": "white",
+      "tier": "typical"
+    },
+    {
+      "text": "salt-and-pepper",
+      "tier": "typical"
+    },
+    {
+      "text": "ash brown",
+      "tier": "plausible"
+    },
+    {
+      "text": "warm copper",
+      "tier": "plausible"
+    },
+    {
+      "text": "strawberry blonde",
+      "tier": "plausible"
+    },
+    {
+      "text": "ash blonde",
+      "tier": "plausible"
+    },
+    {
+      "text": "platinum blonde",
+      "tier": "plausible"
+    },
+    {
+      "text": "sandy blonde",
+      "tier": "plausible"
+    },
+    {
+      "text": "dark red",
+      "tier": "plausible"
+    },
+    {
+      "text": "gray-templed dark brown",
+      "tier": "plausible"
+    },
+    {
+      "text": "white-streaked black",
+      "tier": "plausible"
+    },
+    {
+      "text": "blonde-highlighted brown",
+      "tier": "plausible"
+    },
+    {
+      "text": "burgundy",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "rose pink",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "lavender",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "cobalt blue",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "teal",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "emerald green",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "cherry red",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "pink-tipped black",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "dark-rooted blonde",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "neon orange",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "acid yellow",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "rainbow-striped",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "black-and-white split-dyed",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "glowing silver",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "luminous violet",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ]
+      }
+    }
+  ]
+}

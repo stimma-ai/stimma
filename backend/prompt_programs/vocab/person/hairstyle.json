@@ -1,0 +1,458 @@
+{
+  "id": "person.hairstyle",
+  "label": "Hairstyle",
+  "description": "How scalp hair is cut, parted, braided or arranged.",
+  "pos": "noun phrase",
+  "frame": "with her hair in ___",
+  "notes": "Cuts and arrangements only, phrased as a noun phrase after “in”; person.hair_color owns color and person.hair_length_texture owns loose length and texture. Shape words needed to identify a cut or arrangement may occur here. Culturally rooted styles remain available across regions and presentations; a hairstyle does not imply descent. Era tags mark styles strongly associated with a period, while revivals also allow contemporary use. Length/texture and arrangement picks still need writer compatibility checks: short hair cannot form every braid or bun.",
+  "facets": [
+    "era",
+    "genre"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "a low ponytail",
+      "tier": "typical"
+    },
+    {
+      "text": "a high ponytail",
+      "tier": "typical"
+    },
+    {
+      "text": "a loose side braid",
+      "tier": "typical"
+    },
+    {
+      "text": "a single back braid",
+      "tier": "typical"
+    },
+    {
+      "text": "two braids",
+      "tier": "typical"
+    },
+    {
+      "text": "a messy bun",
+      "tier": "typical"
+    },
+    {
+      "text": "a low bun",
+      "tier": "typical"
+    },
+    {
+      "text": "a topknot",
+      "tier": "typical"
+    },
+    {
+      "text": "a half-up ponytail",
+      "tier": "typical"
+    },
+    {
+      "text": "a half-up bun",
+      "tier": "typical"
+    },
+    {
+      "text": "a side part",
+      "tier": "typical"
+    },
+    {
+      "text": "a center part",
+      "tier": "typical"
+    },
+    {
+      "text": "a blunt bob",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a layered cut",
+      "tier": "typical"
+    },
+    {
+      "text": "a pixie cut",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a buzz cut",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a rounded Afro",
+      "tier": "typical"
+    },
+    {
+      "text": "a tapered Afro",
+      "tier": "typical"
+    },
+    {
+      "text": "box braids",
+      "tier": "typical"
+    },
+    {
+      "text": "cornrows",
+      "tier": "typical"
+    },
+    {
+      "text": "two-strand twists",
+      "tier": "typical"
+    },
+    {
+      "text": "locs",
+      "tier": "typical"
+    },
+    {
+      "text": "a French braid",
+      "tier": "typical"
+    },
+    {
+      "text": "a Dutch braid",
+      "tier": "typical"
+    },
+    {
+      "text": "a braided bun",
+      "tier": "typical"
+    },
+    {
+      "text": "a low puff",
+      "tier": "typical"
+    },
+    {
+      "text": "a high puff",
+      "tier": "typical"
+    },
+    {
+      "text": "a side ponytail",
+      "tier": "plausible"
+    },
+    {
+      "text": "two low ponytails",
+      "tier": "plausible"
+    },
+    {
+      "text": "two high ponytails",
+      "tier": "plausible"
+    },
+    {
+      "text": "a bubble ponytail",
+      "tier": "plausible"
+    },
+    {
+      "text": "a braided ponytail",
+      "tier": "plausible"
+    },
+    {
+      "text": "a twisted ponytail",
+      "tier": "plausible"
+    },
+    {
+      "text": "a fishtail braid",
+      "tier": "plausible"
+    },
+    {
+      "text": "a rope braid",
+      "tier": "plausible"
+    },
+    {
+      "text": "a crown braid",
+      "tier": "plausible"
+    },
+    {
+      "text": "a halo of flat twists",
+      "tier": "plausible"
+    },
+    {
+      "text": "a waterfall braid",
+      "tier": "plausible"
+    },
+    {
+      "text": "two Dutch braids",
+      "tier": "plausible"
+    },
+    {
+      "text": "a French twist",
+      "tier": "plausible"
+    },
+    {
+      "text": "two space buns",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a rolled updo",
+      "tier": "plausible"
+    },
+    {
+      "text": "a pinned half-up style",
+      "tier": "plausible"
+    },
+    {
+      "text": "a pompadour",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a quiff",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a slicked-back style",
+      "tier": "plausible"
+    },
+    {
+      "text": "a comb-over",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a faux hawk",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a mohawk",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "an undercut",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a bowl cut",
+      "tier": "plausible"
+    },
+    {
+      "text": "a shag cut",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a mullet",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a flat top",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a twist-out",
+      "tier": "plausible"
+    },
+    {
+      "text": "Bantu knots",
+      "tier": "plausible"
+    },
+    {
+      "text": "flat twists",
+      "tier": "plausible"
+    },
+    {
+      "text": "microbraids",
+      "tier": "plausible"
+    },
+    {
+      "text": "a braided bob",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a crown of locs",
+      "tier": "plausible"
+    },
+    {
+      "text": "a loc bun",
+      "tier": "plausible"
+    },
+    {
+      "text": "two loc ponytails",
+      "tier": "plausible"
+    },
+    {
+      "text": "a loc mohawk",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "finger coils",
+      "tier": "plausible"
+    },
+    {
+      "text": "a frohawk",
+      "tier": "plausible"
+    },
+    {
+      "text": "a curly pineapple updo",
+      "tier": "plausible"
+    },
+    {
+      "text": "a beehive",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a bouffant",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "finger waves",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "victory rolls",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "contemporary",
+          "future"
+        ]
+      }
+    }
+  ]
+}

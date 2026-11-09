@@ -1,0 +1,76 @@
+{
+  "id": "camera.angle",
+  "label": "Camera angle",
+  "description": "The camera viewpoint relative to the subject.",
+  "pos": "prepositional/noun phrase",
+  "frame": "shot from ___",
+  "notes": "Camera height, azimuth, tilt and relative position belong here. camera.shot_size owns framing extent and camera.lens owns focal length; lighting leaves own the direction of illumination.",
+  "facets": [],
+  "closed": true,
+  "values": [
+    {
+      "text": "eye level",
+      "tier": "typical"
+    },
+    {
+      "text": "a low angle",
+      "tier": "typical"
+    },
+    {
+      "text": "a high angle",
+      "tier": "typical"
+    },
+    {
+      "text": "directly overhead",
+      "tier": "plausible"
+    },
+    {
+      "text": "ground level",
+      "tier": "plausible"
+    },
+    {
+      "text": "a three-quarter front angle",
+      "tier": "typical"
+    },
+    {
+      "text": "a side-on viewpoint",
+      "tier": "typical"
+    },
+    {
+      "text": "directly behind",
+      "tier": "plausible"
+    },
+    {
+      "text": "over the subject’s shoulder",
+      "tier": "typical"
+    },
+    {
+      "text": "a three-quarter rear angle",
+      "tier": "plausible"
+    },
+    {
+      "text": "waist height",
+      "tier": "plausible"
+    },
+    {
+      "text": "knee height",
+      "tier": "plausible"
+    },
+    {
+      "text": "just above the subject’s head",
+      "tier": "plausible"
+    },
+    {
+      "text": "the viewpoint of someone lying down",
+      "tier": "plausible"
+    },
+    {
+      "text": "a low angle with the camera tilted sideways",
+      "tier": "plausible"
+    },
+    {
+      "text": "an overhead angle with the frame rotated diagonally",
+      "tier": "plausible"
+    }
+  ]
+}

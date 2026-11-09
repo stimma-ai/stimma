@@ -1,0 +1,378 @@
+{
+  "id": "scene.weather",
+  "label": "Weather",
+  "description": "Weather, atmospheric visibility and outdoor temperature conditions.",
+  "pos": "noun phrase",
+  "frame": "in ___",
+  "notes": "Precipitation, wind, cloud, fog and heat belong here. scene.season owns the annual phase; scene.time_of_day owns the hour; lighting.natural owns the resulting illumination. Outdoor tags mark conditions surrounding an exposed subject rather than a view through a window.",
+  "facets": [
+    "space",
+    "climate",
+    "time_of_day"
+  ],
+  "closed": true,
+  "values": [
+    {
+      "text": "light drizzle",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "steady rain",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "a heavy downpour",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "thick fog",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "thin mist",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "time_of_day": [
+          "dawn",
+          "day"
+        ]
+      }
+    },
+    {
+      "text": "bright clear weather",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "overcast weather",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "a gentle breeze",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "strong gusty wind",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "humid weather",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "a light snowfall",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a heavy snowfall",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "crisp frosty weather",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "dry heat",
+      "tier": "typical",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "wind-driven rain",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "a passing shower",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "sea spray blown inland",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "a gathering thunderstorm",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "a break between rain showers",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "fine rain beneath a bright sky",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "cool damp weather",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "temperate",
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "rain mixed with hail",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "gusts carrying fallen leaves",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "blowing powder snow",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "sleet",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "freezing rain",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "icy wind",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a thaw with dripping snow",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "freezing fog",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "shimmering desert heat",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a hot dusty wind",
+      "tier": "plausible",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a whiteout blizzard",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "outdoor"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a violent hailstorm",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "a dense dust storm",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    },
+    {
+      "text": "windblown volcanic ash",
+      "tier": "unusual",
+      "tags": {
+        "space": [
+          "outdoor"
+        ]
+      }
+    }
+  ]
+}

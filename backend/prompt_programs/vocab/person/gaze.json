@@ -1,0 +1,64 @@
+{
+  "id": "person.gaze",
+  "label": "Gaze",
+  "description": "Eye direction and eye contact independently of expression and body posture.",
+  "pos": "participle phrase",
+  "frame": "a woman ___",
+  "notes": "Direction of attention visible in the eyes, plus minimal head orientation needed to establish it. Expression owns eyelid tension and emotion; pose owns body and limb arrangements. Excludes named targets, props, places, and other people.",
+  "facets": [],
+  "closed": true,
+  "values": [
+    {
+      "text": "looking straight into the camera",
+      "tier": "typical"
+    },
+    {
+      "text": "looking just to the left of the camera",
+      "tier": "typical"
+    },
+    {
+      "text": "gazing off to the left",
+      "tier": "typical"
+    },
+    {
+      "text": "looking downward",
+      "tier": "typical"
+    },
+    {
+      "text": "looking upward",
+      "tier": "typical"
+    },
+    {
+      "text": "gazing straight ahead past the camera",
+      "tier": "typical"
+    },
+    {
+      "text": "looking down and to the subject’s left",
+      "tier": "typical"
+    },
+    {
+      "text": "looking up and to the subject’s left",
+      "tier": "typical"
+    },
+    {
+      "text": "glancing over the subject’s left shoulder",
+      "tier": "plausible"
+    },
+    {
+      "text": "looking sideways while keeping the subject’s head forward",
+      "tier": "plausible"
+    },
+    {
+      "text": "looking toward the camera with the subject’s head turned left",
+      "tier": "plausible"
+    },
+    {
+      "text": "gazing into the distance with the subject’s face in profile",
+      "tier": "plausible"
+    },
+    {
+      "text": "gazing downward with the subject’s face in profile",
+      "tier": "plausible"
+    }
+  ]
+}

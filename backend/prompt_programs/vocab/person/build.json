@@ -1,0 +1,108 @@
+{
+  "id": "person.build",
+  "label": "Build",
+  "description": "Body proportions, stature and visible muscularity described respectfully.",
+  "pos": "adjective phrase",
+  "frame": "the ___ person",
+  "notes": "Neutral physique and stature only, independent of descent, gender, age and health. Writer must choose a/an from the first spoken sound of the composed phrase when using an indefinite article.",
+  "facets": [],
+  "closed": true,
+  "values": [
+    {
+      "text": "slender",
+      "tier": "typical"
+    },
+    {
+      "text": "stocky",
+      "tier": "typical"
+    },
+    {
+      "text": "athletic",
+      "tier": "typical"
+    },
+    {
+      "text": "plus-size",
+      "tier": "typical"
+    },
+    {
+      "text": "petite",
+      "tier": "typical"
+    },
+    {
+      "text": "broad-shouldered",
+      "tier": "typical"
+    },
+    {
+      "text": "narrow-shouldered",
+      "tier": "typical"
+    },
+    {
+      "text": "tall",
+      "tier": "typical"
+    },
+    {
+      "text": "short",
+      "tier": "typical"
+    },
+    {
+      "text": "medium-height",
+      "tier": "typical"
+    },
+    {
+      "text": "muscular",
+      "tier": "typical"
+    },
+    {
+      "text": "round-bellied",
+      "tier": "typical"
+    },
+    {
+      "text": "broad-hipped",
+      "tier": "typical"
+    },
+    {
+      "text": "narrow-hipped",
+      "tier": "typical"
+    },
+    {
+      "text": "long-limbed",
+      "tier": "typical"
+    },
+    {
+      "text": "broad-chested",
+      "tier": "typical"
+    },
+    {
+      "text": "powerfully built",
+      "tier": "plausible"
+    },
+    {
+      "text": "long-waisted",
+      "tier": "plausible"
+    },
+    {
+      "text": "short-waisted",
+      "tier": "plausible"
+    },
+    {
+      "text": "lanky",
+      "tier": "plausible"
+    },
+    {
+      "text": "barrel-chested",
+      "tier": "plausible"
+    },
+    {
+      "text": "straight-waisted",
+      "tier": "plausible"
+    },
+    {
+      "text": "small-framed",
+      "tier": "plausible"
+    },
+    {
+      "text": "large-framed",
+      "tier": "plausible"
+    }
+  ]
+}

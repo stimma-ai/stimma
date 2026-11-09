@@ -1,0 +1,239 @@
+{
+  "id": "person.age_band",
+  "label": "Age band",
+  "description": "A life stage expressed as a numbered age range.",
+  "pos": "number phrase",
+  "frame": "aged ___",
+  "notes": "An age range, in years, inclusive, for the frame “aged ___”. Covers children, teens and adults; adult ranges are typical and younger ones plausible, since most images of a person show an adult when nothing says otherwise. Each value carries its age facet (child, teen, adult, elderly) so a context can narrow it.",
+  "facets": [
+    "age"
+  ],
+  "closed": true,
+  "values": [
+    {
+      "text": "3–4",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "child"
+        ]
+      }
+    },
+    {
+      "text": "5–7",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "child"
+        ]
+      }
+    },
+    {
+      "text": "8–10",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "child"
+        ]
+      }
+    },
+    {
+      "text": "11–12",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "child"
+        ]
+      }
+    },
+    {
+      "text": "13–14",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "teen"
+        ]
+      }
+    },
+    {
+      "text": "15–17",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "teen"
+        ]
+      }
+    },
+    {
+      "text": "18–19",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ]
+      }
+    },
+    {
+      "text": "20–24",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ]
+      }
+    },
+    {
+      "text": "25–29",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ]
+      }
+    },
+    {
+      "text": "30–34",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ]
+      }
+    },
+    {
+      "text": "35–39",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ]
+      }
+    },
+    {
+      "text": "40–44",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ]
+      }
+    },
+    {
+      "text": "45–49",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ]
+      }
+    },
+    {
+      "text": "50–54",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ]
+      }
+    },
+    {
+      "text": "55–59",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ]
+      }
+    },
+    {
+      "text": "60–64",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "65–69",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "70–74",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "75–79",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "80–84",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "85–89",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "90–94",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "95–99",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "100–109",
+      "tier": "unusual",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    }
+  ]
+}

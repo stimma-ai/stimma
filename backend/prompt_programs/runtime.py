@@ -109,6 +109,7 @@ class Draw:
     follows: Optional[str] = None  # id of the pick whose value keyed these options (by=)
     phase: Optional[int] = None    # pick specs (see draws.py); unset for older programs
     about: str = ""
+    cls: str = ""                  # the vocabulary list the pick is bound to (see vocab.py)
 
     def to_dict(self) -> Dict[str, Any]:
         d = {"id": self.id, "value": self.value, "kind": self.kind, "label": self.label, "source": self.source}
@@ -124,6 +125,8 @@ class Draw:
             d["phase"] = self.phase
         if self.about:
             d["about"] = self.about
+        if self.cls:
+            d["cls"] = self.cls
         return d
 
 
@@ -259,10 +262,11 @@ class _Runner:
     # -- API
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
-             about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None) -> Optional[str]:
+             about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None,
+             cls: Optional[str] = None) -> Optional[str]:
         cid = str(id)
-        if about is not None or phase is not None or seed is not None:
-            return self._spec_pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed)
+        if about is not None or phase is not None or seed is not None or cls is not None:
+            return self._spec_pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed, cls)
         if added:
             source = "added"
         if source not in SOURCES:
@@ -298,12 +302,17 @@ class _Runner:
         return value
 
     def _spec_pick(self, cid: str, options: Any, label: str, by: Any, source: str, line: Optional[int], exclude: Any,
-                   hidden: bool, added: bool, about: Optional[str], phase: Optional[int], seed: Any) -> Optional[str]:
+                   hidden: bool, added: bool, about: Optional[str], phase: Optional[int], seed: Any,
+                   cls: Optional[str] = None) -> Optional[str]:
         """A pick with a spec (draws.py), run the plain way for discovery and validation:
-        seeds stand in for options it doesn't list, and it is recorded even with none."""
+        seeds stand in for options it doesn't list, and it is recorded even with none. A
+        pick bound to a vocabulary list (cls=) runs on the list's values instead."""
         seeds = _as_list(seed if seed is not None else [], f'pick("{cid}") seed')
+        leaf = bound_leaf(cid, cls, source, options)
         written = list(options) if isinstance(options, (list, tuple)) else options
-        if isinstance(written, dict) or written:
+        if leaf is not None:
+            written = [v.text for v in leaf.eligible()]
+        elif isinstance(written, dict) or written:
             if isinstance(written, dict):
                 written = {k: [*seeds, *(v or [])] for k, v in written.items()}
             else:
@@ -319,6 +328,7 @@ class _Runner:
                               line, bool(hidden), False, []))
         d = self.draws[-1]
         d.phase, d.about = int(phase) if isinstance(phase, int) else None, str(about or "")
+        d.cls = leaf.id if leaf is not None else ""
         return value
 
     def pick_lora(self, id: str, names: Any = None, label: str = "", source: str = "text", line: Optional[int] = None,
@@ -393,6 +403,25 @@ class _Runner:
                 self.parts.append(s)
 
 
+def bound_leaf(cid: str, cls: Optional[str], source: str = "text", options: Any = None) -> Any:
+    """The vocabulary leaf a pick binds to with cls=, or None without one. A cls that
+    names no list, or one on a user list, is the writer's mistake: said so it can fix it."""
+    if cls is None or not str(cls).strip():
+        return None
+    from prompt_programs.vocab import vocabulary
+    if source == "list" or options:
+        raise ProgramError(f'pick("{cid}"): cls= binds a pick to a vocabulary list, so it takes no options of its '
+                           'own and is never a user list. Drop cls=, or drop the options.')
+    vocab = vocabulary()
+    leaf = vocab.get(cls)
+    if leaf is None:
+        import difflib
+        near = difflib.get_close_matches(str(cls), list(vocab.leaves), n=1, cutoff=0.6)
+        hint = f' Did you mean cls="{near[0]}"?' if near else " Use one of the listed ids exactly, or leave cls out."
+        raise ProgramError(f'pick("{cid}"): cls="{cls}" isn\'t a vocabulary list.{hint}')
+    return leaf
+
+
 def _lora_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(name).lower())
 
@@ -406,11 +435,34 @@ def _label_from_id(cid: str) -> str:
 _ARTICLE = re.compile(r"\b(a|an|the)\s+(?=(?:a|an|the)\s)", re.I)
 
 
+_A_AN = re.compile(r"\b(a|an|A|An)\s+([A-Za-z][\w'-]*)")
+# Words whose sound doesn't follow their first letter.
+_AN_WORDS = {"hour", "hours", "hourly", "honest", "honor", "honour", "heir", "herb", "herbs"}
+# Vowel-initial words said with a consonant sound ("a unicorn", "a European", "a one-off").
+_A_WORDS = ("uni", "use", "usu", "uti", "uto", "uga", "ukr", "uru", "uro", "ure", "ura", "eu", "one", "once", "ubiq")
+
+
+def _wants_an(word: str) -> bool:
+    if len(word) > 1 and word.isupper():  # an initialism, said letter by letter: "an LED", "a USB"
+        return word[0] in "AEFHILMNORSX"
+    w = word.lower()
+    if w in _AN_WORDS:
+        return True
+    return w[0] in "aeiou" and not w.startswith(_A_WORDS)
+
+
+def _fix_article(m: "re.Match[str]") -> str:
+    art, word = m.group(1), m.group(2)
+    new = "an" if _wants_an(word) else "a"
+    return f"{new.capitalize() if art[0].isupper() else new} {word}"
+
+
 def tidy_text(parts: List[str]) -> str:
     s = " ".join(parts)
     s = re.sub(r"\s+", " ", s)
     # "a" written before a value that brings its own ("A a candid snapshot"): keep the value's
     s = _ARTICLE.sub("", s)
+    s = _A_AN.sub(_fix_article, s)
     s = re.sub(r"\s+([,.;:!?])", r"\1", s)
     s = re.sub(r"([,;])\1+", r"\1", s)
     s = re.sub(r",\s*\.", ".", s)
@@ -485,6 +537,7 @@ class Choice:
     phase: Optional[int] = None                 # pick specs (see draws.py)
     about: Optional[str] = None
     deps: List[str] = field(default_factory=list)   # picks this one's structure depends on
+    cls: Optional[str] = None                   # the vocabulary list it is bound to
     seen: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
@@ -552,7 +605,7 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
                 m = _GROUP_ID.match(d.id)
                 c = Choice(d.id, d.kind, d.label, d.source, d.line, [], d.hidden, d.follows,
                            group=m.group(1) if m else None, index=int(m.group(2)) if m else None, attr=m.group(3) if m else None,
-                           phase=d.phase, about=d.about or None)
+                           phase=d.phase, about=d.about or None, cls=d.cls or None)
                 choices[d.id] = c
                 order.append(d.id)
             c.seen += 1
