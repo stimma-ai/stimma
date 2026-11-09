@@ -457,6 +457,12 @@ class FluentConfig(BaseModel):
     # also kept at the rarity rate. "cut" until the judge's lower tiers are calibrated.
     keep: str = "cut"
     generate_options: bool = True
+    # The fix judge: a small ONNX model directory that checks each finished draw and
+    # rerolls the picks it flags (prompt_programs.fix). Empty: off.
+    fix_model: str = ""
+    fix_cut: float = 0.0     # 0: the cut the model directory names
+    fix_rounds: int = 4
+    fix_threads: int = 0
 
 
 class TelemetryConfig(BaseModel):

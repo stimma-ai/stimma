@@ -573,7 +573,8 @@ async def _run_prompt_program(
     lora_notes: bool = True,
 ) -> tuple[Dict[str, Any], str]:
     from llm_resolver import LLMUnavailableError
-    from prompt_programs.prepare import ProgramError, draw_seed, ensure_program, realize
+    from prompt_programs.fix import realize_and_fix
+    from prompt_programs.prepare import ProgramError, draw_seed, ensure_program
 
     try:
         entry = await ensure_program(
@@ -586,8 +587,9 @@ async def _run_prompt_program(
         from prompt_programs.fluent import attach_filler
         attach_filler(entry, profile_id)
         # In a thread: a judge on CPU must not hold up the event loop.
-        result = await asyncio.to_thread(
-            realize, entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"),
+        # The fix pass (a local judge rerolling flagged picks) runs here when it's set up.
+        result, fix = await asyncio.to_thread(
+            realize_and_fix, entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"),
             fixed=program_opts.get("fixed"), edits=program_opts.get("edits"), triggers=lora_triggers,
             profile_id=profile_id, project_id=project_id, revision=program_opts.get("revision"))
     except ProgramError as e:
@@ -599,6 +601,8 @@ async def _run_prompt_program(
     record = {"key": entry["key"], "mode": entry.get("mode"), "elaborate": entry.get("elaborate", True), **result.to_dict(), "pins": program_opts.get("pins") or {},
               "lora_controlled": controlled,
               "choices": [c for c in entry.get("choices") or [] if not c.get("hidden")]}
+    if fix is not None:
+        record["fix"] = fix
     return record, result.prompt
 
 

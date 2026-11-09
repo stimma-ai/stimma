@@ -128,7 +128,8 @@ async def pools(req: PreviewRequest) -> Dict[str, Any]:
 @router.post("/preview")
 async def preview(req: PreviewRequest) -> Dict[str, Any]:
     import asyncio
-    from prompt_programs.prepare import DrawAborted, ProgramError, draw_seed, realize
+    from prompt_programs.fix import realize_and_fix
+    from prompt_programs.prepare import DrawAborted, ProgramError, draw_seed
     entry = await _prepare(req)
     if entry is None or entry.get("unsupported"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
@@ -136,10 +137,51 @@ async def preview(req: PreviewRequest) -> Dict[str, Any]:
         from prompt_programs.fluent import attach_filler
         attach_filler(entry, get_current_profile())
         # In a thread: a judge on CPU must not hold up the event loop.
-        result = await asyncio.to_thread(realize, entry, seed=draw_seed(req.seed), pins=req.pins, edits=req.edits,
-                                         profile_id=get_current_profile(), project_id=req.project_id)
+        result, fix = await asyncio.to_thread(realize_and_fix, entry, seed=draw_seed(req.seed), pins=req.pins,
+                                              edits=req.edits, profile_id=get_current_profile(),
+                                              project_id=req.project_id)
     except DrawAborted as e:  # e.g. "Nothing left to draw for Hairstyle": shown at the choice
         raise HTTPException(status_code=422, detail=e.to_dict()) from None
     except ProgramError as e:
         raise HTTPException(status_code=422, detail={"code": "program_failed", "message": str(e)}) from None
-    return {"key": entry["key"], **result.to_dict()}
+    return {"key": entry["key"], **result.to_dict(), **({"fix": fix} if fix is not None else {})}
+
+
+# --------------------------------------------------------------------------- the fix judge
+
+class FixJudgeRequest(BaseModel):
+    model: str = ""   # a model directory on this machine; empty turns the fix pass off
+
+
+def _fix_judge_status(model: str, threads: int) -> Dict[str, Any]:
+    """Loads the model (once) to say whether it works."""
+    from prompt_programs.fix import FixJudgeUnavailable, fix_judge
+    if not model:
+        return {"model": "", "status": "off"}
+    try:
+        j = fix_judge(model, threads)
+    except FixJudgeUnavailable as e:
+        return {"model": model, "status": "error", "error": str(e)}
+    return {"model": model, "status": "ready", "version": j.version, "cut": j.cut}
+
+
+@router.get("/fix-judge")
+async def get_fix_judge() -> Dict[str, Any]:
+    import asyncio
+    from prompt_programs.judge import settings
+    s = settings()
+    return await asyncio.to_thread(_fix_judge_status, s.fix_model, s.fix_threads)
+
+
+@router.put("/fix-judge")
+async def put_fix_judge(req: FixJudgeRequest) -> Dict[str, Any]:
+    import asyncio
+    import config_writer
+    from config import get_settings
+    model = req.model.strip()
+    cfg = get_settings()
+    section = cfg.fluent.model_dump()
+    section["fix_model"] = model
+    config_writer.patch_global_section("fluent", section)
+    cfg.fluent.fix_model = model
+    return await asyncio.to_thread(_fix_judge_status, model, cfg.fluent.fix_threads)

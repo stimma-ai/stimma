@@ -27,6 +27,11 @@ Configuration (config.yaml `fluent:`, or environment for evaluations):
     keep: cut | tiers                  STIMMA_FLUENT_KEEP        (cut: only the wrong cut acts; the default
                                                                   until the lower tiers are calibrated)
     generate_options: true             STIMMA_FLUENT_GENERATE    (background option generation)
+    fix_model: <model dir>             STIMMA_FLUENT_FIX_MODEL   (a small ONNX judge that checks each finished
+                                                                  draw and rerolls flagged picks; empty: off)
+    fix_cut: 0 (the model's own)       STIMMA_FLUENT_FIX_CUT     (P(wrong) above this rerolls a pick)
+    fix_rounds: 4                      STIMMA_FLUENT_FIX_ROUNDS  (rerolls per draw at most)
+    fix_threads: 0 (up to 4)           STIMMA_FLUENT_FIX_THREADS
 """
 
 from __future__ import annotations
@@ -306,6 +311,10 @@ class FluentSettings:
     wrong_cut: float = WRONG_CUT
     generate_options: bool = True
     keep: str = "cut"
+    fix_model: str = ""      # model directory of the fix judge (prompt_programs.fix); empty: off
+    fix_cut: float = 0.0     # 0: the cut the model directory names
+    fix_rounds: int = 4
+    fix_threads: int = 0
 
 
 def settings() -> FluentSettings:
@@ -321,7 +330,8 @@ def settings() -> FluentSettings:
     fields = {f: base[f] for f in FluentSettings.__dataclass_fields__ if f in base}
     env = {"judge": "STIMMA_FLUENT_JUDGE", "judge_model": "STIMMA_FLUENT_JUDGE_MODEL", "judge_url": "STIMMA_FLUENT_JUDGE_URL",
            "judge_threads": "STIMMA_FLUENT_JUDGE_THREADS", "rarity": "STIMMA_FLUENT_RARITY", "wrong_cut": "STIMMA_FLUENT_WRONG_CUT",
-           "keep": "STIMMA_FLUENT_KEEP"}
+           "keep": "STIMMA_FLUENT_KEEP", "fix_model": "STIMMA_FLUENT_FIX_MODEL", "fix_cut": "STIMMA_FLUENT_FIX_CUT",
+           "fix_rounds": "STIMMA_FLUENT_FIX_ROUNDS", "fix_threads": "STIMMA_FLUENT_FIX_THREADS"}
     for f, var in env.items():
         if os.environ.get(var):
             fields[f] = os.environ[var]
@@ -331,7 +341,9 @@ def settings() -> FluentSettings:
     keep = str(out.keep or "cut").lower()
     return FluentSettings(str(out.judge or "none").lower(), str(out.judge_model), str(out.judge_url or ""),
                           int(out.judge_threads or 0), float(out.rarity), float(out.wrong_cut), bool(out.generate_options),
-                          keep if keep in ("cut", "tiers") else "cut")
+                          keep if keep in ("cut", "tiers") else "cut", str(out.fix_model or "").strip(),
+                          float(out.fix_cut or 0.0), max(0, int(out.fix_rounds if out.fix_rounds is not None else 4)),
+                          int(out.fix_threads or 0))
 
 
 def _model_cache_dir() -> Path:

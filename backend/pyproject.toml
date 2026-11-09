@@ -32,6 +32,7 @@ dependencies = [
     "numpy>=1.26.2",
     "scipy>=1.10.0",  # explicit: darkroom/ depends on it directly
     "onnxruntime",
+    "tokenizers>=0.21,<1",  # fast tokenizer for small ONNX text models (Fluent judge)
     "scikit-image>=0.23.2,<0.24",
     "onnx-clip",
     "osam>=0.2.5",

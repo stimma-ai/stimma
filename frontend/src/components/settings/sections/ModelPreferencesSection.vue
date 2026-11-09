@@ -71,6 +71,21 @@
           </template>
           <Toggle :model-value="flowsEnabled" :disabled="savingFlowsPreference" label="Enable Flows" @update:model-value="updateFlows" />
         </SettingRow>
+        <SettingRow v-if="fluentEnabled" :label="`${PROMPT_BRAND} judge`" :divider="true">
+          <div class="flex items-center gap-2" data-fluent-judge>
+            <StatusDot v-if="judge.status !== 'off'" :bucket="judge.status === 'ready' ? 'done' : 'failed'" :title="judge.error || judge.version" />
+            <input
+              v-model="judgeModel"
+              type="text"
+              aria-label="Judge model folder"
+              placeholder="Model folder"
+              spellcheck="false"
+              class="w-[280px] max-w-full rounded-md border border-edge bg-surface-raised px-3 py-1.5 text-xs text-content focus:border-accent focus:outline-none"
+              @keydown.enter="saveJudge"
+              @blur="saveJudge"
+            />
+          </div>
+        </SettingRow>
       </div>
     </section>
   </div>
@@ -83,7 +98,33 @@ import { useSettingsApi } from '../../../composables/useSettingsApi'
 import { flowsEnabled, setFlowsEnabled, savingFlowsPreference } from '../../../composables/useExperimentalFlows'
 import Toggle from '../../ui/Toggle.vue'
 import SettingRow from '../SettingRow.vue'
+import StatusDot from '../../ui/StatusDot.vue'
+import axios from 'axios'
+import { onMounted, ref } from 'vue'
+import { getApiBase } from '../../../apiConfig'
+import { PROMPT_BRAND, fluentEnabled } from '../../generation/promptBrand'
 import { setGenerationPreviews, imagePreviewsRef as imagePreviews, videoPreviewsRef as videoPreviews } from '../../../appConfig'
+
+// Fluent judge (dev/canary): a local model folder that checks each draw.
+const judge = ref({ status: 'off', model: '' })
+const judgeModel = ref('')
+async function loadJudge() {
+  if (!fluentEnabled.value) return
+  try {
+    const { data } = await axios.get(`${getApiBase()}/prompt-programs/fix-judge`)
+    judge.value = data
+    judgeModel.value = data.model || ''
+  } catch { /* older backend: no row state */ }
+}
+async function saveJudge() {
+  const model = judgeModel.value.trim()
+  if (model === (judge.value.model || '')) return
+  try {
+    const { data } = await axios.put(`${getApiBase()}/prompt-programs/fix-judge`, { model })
+    judge.value = data
+  } catch (err) { reportActionError("Couldn't save the judge model folder.", err) }
+}
+onMounted(loadJudge)
 
 async function updateFlows(value) {
   try { await setFlowsEnabled(value) }
