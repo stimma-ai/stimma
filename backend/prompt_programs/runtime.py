@@ -663,8 +663,8 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
     # A choice that only appears in some runs: find the earlier pick whose value explains it.
     for i, cid in enumerate(order):
         c = choices[cid]
-        if all(presence[cid]):
-            continue
+        if all(presence[cid]) or cid.endswith(".colours"):
+            continue  # a look's Colours shows with its outfit: present whenever the look has colour slots
         for pid in order[:i]:
             if choices[pid].kind != "pick":
                 continue

@@ -101,6 +101,9 @@ class ProgramContext:
     # a bound pick's list narrowed by where= (narrow.py), by pick id; an empty subset means
     # nothing in the list fits and the pick draws unbound
     filters: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()
+    # a pick's facet filter (where={...}), as text, by pick id: part of its pools' identity, never
+    # shown to the generator
+    facets: Tuple[Tuple[str, str], ...] = ()
 
     @classmethod
     def of(cls, entry: Dict[str, Any]) -> "ProgramContext":
@@ -116,9 +119,11 @@ class ProgramContext:
         intents = tuple((str(c.get("id")), words(c)) for c in entry.get("choices") or [] if words(c))
         filters = tuple((str(k), tuple(str(x) for x in v)) for k, v in (entry.get("filters") or {}).items()
                         if isinstance(v, list))
+        facets = tuple((str(c.get("id")), str(c["where"])) for c in entry.get("choices") or []
+                       if isinstance(c.get("where"), dict) and c["where"])
         return cls(str(entry.get("key") or ""), signature, template, str(entry.get("mode") or "prose"),
                    entry.get("elaborate") is not False, lists, str(entry.get("tool_id") or ""),
-                   str(entry.get("lineage") or ""), intents, filters)
+                   str(entry.get("lineage") or ""), intents, filters, facets)
 
 
 # --------------------------------------------------------------------------- the on-disk cache
@@ -568,10 +573,13 @@ class GeneratedOptions:
             key += f" | {spec.cls}"
             if spec.restrict:
                 key += " restrict " + ";".join(f"{f}={','.join(v)}" for f, v in spec.restrict)
-            if spec.id in self.filters:  # narrowed by where= (an empty subset: drawn without the list)
-                key += f" where {dict(self.program.intents).get(spec.id, '')}"
+        # A pool's identity names the user's words and any facet filter (the same text pools were
+        # keyed by before the words and the filter were told apart, so recorded revisions still match).
+        intent = " ".join(x for x in (dict(self.program.intents).get(spec.id, ""),
+                                      dict(self.program.facets).get(spec.id, "")) if x)
+        if spec.cls and spec.id in self.filters:  # narrowed by where= (an empty subset: drawn without the list)
+            key += f" where {intent}"
         lineage = "" if specific else self.program.lineage
-        intent = dict(self.program.intents).get(spec.id, "")
         return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate,
                             self.program.lists, self.version, lineage, intent, spec.cls), signature
 

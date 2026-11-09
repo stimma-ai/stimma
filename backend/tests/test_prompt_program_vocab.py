@@ -570,6 +570,24 @@ class TestTemplates:
             assert "{" not in r.prompt and not any(d.id == "outfit.colours" for d in r.draws)
             assert not any(c in r.prompt for c in ("navy", "red ", "black,"))
 
+    def test_colours_show_whenever_the_outfit_does(self, dressed):
+        by = {c["id"]: c for c in discover(DRESSED)["choices"]}
+        assert "parent" not in by["outfit.colours"] and "when" not in by["outfit.colours"]
+
+    def test_facet_filters_keep_their_own_pools_and_old_keys(self, dressed):
+        def entry_with(where):
+            src = DRESSED.replace('label="Outfit"', f'label="Outfit", where={where!r}')
+            e = {"key": "f", "program": src, "loras": [], "params": {}, "mode": "prose",
+                 "choices": discover(src)["choices"], "prompt": "a woman"}
+            e["filters"] = {"outfit": [OUTFITS["values"][0]["text"]]}
+            return e
+        from prompt_programs.fluent import program_context
+        spec = PickSpec("outfit", "Outfit", "what she wears", 1, "text", "pick", [], [], "person.outfit.test")
+        a = GeneratedOptions(None, program_context(entry_with({"sport": "running"})))._where(spec, {})
+        b = GeneratedOptions(None, program_context(entry_with({"sport": "formal"})))._where(spec, {})
+        assert a[0] != b[0] and a[1] != b[1]  # revision keys and generated pools stay apart
+        assert a[0].endswith("where {'sport': 'running'}")  # the key revisions recorded before
+
     def test_the_catalogue_shows_parts_and_hides_the_palette(self, dressed):
         cat = dressed.catalogue()
         line = next(ln for ln in cat.splitlines() if ln.startswith("- person.outfit.test"))
