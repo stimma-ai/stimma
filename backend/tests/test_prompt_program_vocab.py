@@ -252,3 +252,140 @@ class TestArticles:
     ])
     def test_a_and_an_follow_the_next_word(self, text, want):
         assert tidy_text([text]) == want
+
+
+# --------------------------------------------------------------------------- where=: narrowing a list
+
+from prompt_programs.narrow import NarrowCache, narrow_entry, parse_subset  # noqa: E402
+
+YOUNG = '''
+age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24"], label="Age", phase=1, line=1)
+eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["hazel"], label="Eyes", phase=1, line=1)
+emit("A young woman, aged", age, ", with", eyes, "eyes.")
+'''
+
+
+def young_entry(prompt="a young woman with pretty eyes"):
+    info = discover(YOUNG)
+    return {"key": "y", "program": YOUNG, "loras": [], "params": {}, "mode": "prose", "choices": info["choices"],
+            "prompt": prompt}
+
+
+class FakeAsk:
+    """Answers a narrowing question with the values for which `keep` is true, and the
+    prompt-reading question with `read` ({choice id: words})."""
+
+    def __init__(self, keep=None, reply=None, read=None):
+        self.keep, self.reply, self.read, self.calls, self.reads = keep, reply, read or {}, [], []
+
+    async def __call__(self, messages, project_id, max_tokens):
+        import json
+        if "find the words in it" in messages[0]["content"]:
+            self.reads.append(messages)
+            return json.dumps(self.read)
+        self.calls.append(messages)
+        if self.reply is not None:
+            return self.reply
+        import json, re
+        values = json.loads(re.search(r"\n(\[.*\])\n", messages[1]["content"], re.S).group(1))
+        return json.dumps([v for v in values if self.keep(v)])
+
+
+def young(v):
+    return v.split("–")[0].isdigit() and 18 <= int(v.split("–")[0]) < 35
+
+
+class TestWhere:
+    def test_where_is_recorded_on_the_choice(self):
+        by = {c["id"]: c for c in discover(YOUNG)["choices"]}
+        assert by["age"]["where"] == "young" and "where" not in by["eyes"]
+
+    def test_parse_subset_keeps_the_lists_order_and_ignores_strangers(self):
+        assert parse_subset('Sure: ["25–29", "18–19", "a teenager"]', ["18–19", "20–24", "25–29"]) == ["18–19", "25–29"]
+        assert parse_subset("no list here", ["a"]) is None
+        assert parse_subset("[]", ["a"]) == []
+
+    async def test_an_entry_is_narrowed_and_the_answer_cached(self, tmp_path):
+        entry, ask = young_entry(), FakeAsk(young)
+        await narrow_entry(entry, NarrowCache(tmp_path), ask)
+        assert entry["filters"]["age"] == [v for v in [x.text for x in vocabulary().get("person.age_band").eligible()] if young(v)]
+        assert "eyes" not in entry["filters"]  # no where=, no narrowing
+        by = {c["id"]: c for c in entry["choices"]}
+        assert by["age"]["options"] == entry["filters"]["age"]
+        again = young_entry()
+        await narrow_entry(again, NarrowCache(tmp_path), ask)
+        assert len(ask.calls) == 1 and again["filters"] == entry["filters"]  # "young" on ages: asked once
+
+    async def test_nothing_fitting_or_an_unreadable_answer_leaves_the_pick_unbound(self, tmp_path):
+        for ask in (FakeAsk(lambda v: False), FakeAsk(reply="I can't tell.")):
+            entry = young_entry()
+            notes = await narrow_entry(entry, NarrowCache(tmp_path / str(id(ask))), ask)
+            by = {c["id"]: c for c in entry["choices"]}
+            assert entry["filters"]["age"] == [] and "cls" not in by["age"] and notes
+
+    async def test_the_prompts_own_words_narrow_a_pick_the_writer_left_open(self, tmp_path):
+        src = YOUNG.replace(', where="young"', "")  # the writer forgot where=
+        entry = {"key": "b", "program": src, "loras": [], "params": {}, "mode": "prose",
+                 "choices": discover(src)["choices"], "prompt": "a young woman with brown eyes"}
+        ask = FakeAsk(lambda v: "brown" in v or young(v), read={"age": "young woman", "eyes": "brown eyes"})
+        await narrow_entry(entry, NarrowCache(tmp_path), ask)
+        assert entry["filters"]["eyes"] and all("brown" in v for v in entry["filters"]["eyes"])
+        assert entry["filters"]["age"] and all(young(v) for v in entry["filters"]["age"])
+        by = {c["id"]: c for c in entry["choices"]}
+        assert by["age"]["where"] == "young woman" and by["eyes"]["where"] == "brown eyes"
+        assert len(ask.reads) == 1  # one reading per prompt
+
+    async def test_words_the_prompt_doesnt_contain_are_ignored(self, tmp_path):
+        entry = young_entry("a woman reading")
+        ask = FakeAsk(young, read={"eyes": "green eyes"})  # invented: not in the prompt
+        await narrow_entry(entry, NarrowCache(tmp_path), ask)
+        assert "eyes" not in entry["filters"] and entry["filters"]["age"]  # age still narrowed by where=
+
+    async def test_a_bound_wildcard_narrows_by_its_own_words(self, tmp_path):
+        entry = young_entry()
+        for c in entry["choices"]:
+            if c["id"] == "eyes":
+                c["wildcard"] = "dark eyes"
+        await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(lambda v: "brown" in v))
+        assert entry["filters"]["eyes"] and all("brown" in v for v in entry["filters"]["eyes"])
+
+    async def test_draws_and_pools_keep_to_the_subset(self, tmp_path):
+        from prompt_programs.fluent import runtime_for
+        entry = young_entry()
+        await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(young))
+        rt = runtime_for(entry, store=OptionStore(tmp_path / "o"), judge=NullJudge(), cfg=OFF)
+        for seed in range(8):
+            r = draw(YOUNG, seed, None, [], None, None, None, options=rt.options, judge=NullJudge())
+            assert young(next(d for d in r.draws if d.id == "age").value)
+            rt.options.reset()
+        out = pool_options(entry, store=OptionStore(tmp_path / "o"), cfg=OFF)
+        assert out["options"]["age"] and all(young(v) for v in out["options"]["age"])
+
+    async def test_an_unbound_fallback_generates_within_the_words(self, tmp_path):
+        from prompt_programs.fluent import program_context
+        entry = young_entry()
+        await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(lambda v: False))
+        store = OptionStore(tmp_path / "o")
+        filler = OptionFiller(store, FakeGen())
+        opts = GeneratedOptions(store, program_context(entry), filler=filler)
+        spec = PickSpec("age", "Age", "her age", 1, "text", "pick", ["20–24"], [], "person.age_band")
+        pool = opts.get(spec, {})
+        assert pool.items == ["20–24"]  # its seed, while generated options are written
+        job = filler._jobs[opts.queued[0]][1]
+        assert 'own words: "young"' in generation_messages(job)[1]["content"]
+
+    async def test_an_open_list_generates_from_the_subset_with_the_words_as_a_rule(self, tmp_path):
+        from prompt_programs.fluent import program_context
+        src = YOUNG.replace('cls="person.age_band", where="young"', 'cls="person.expression", where="happy"')
+        info = discover(src)
+        entry = {"key": "h", "program": src, "loras": [], "params": {}, "mode": "prose", "choices": info["choices"]}
+        await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(lambda v: "smile" in v or "grin" in v))
+        store = OptionStore(tmp_path / "o")
+        filler = OptionFiller(store, FakeGen())
+        opts = GeneratedOptions(store, program_context(entry), filler=filler)
+        spec = PickSpec("age", "Age", "her age", 1, "text", "pick", [], [], "person.expression")
+        pool = opts.get(spec, {})
+        assert pool.items and all(("smile" in v or "grin" in v) for v in pool.items)
+        job = filler._jobs[opts.queued[0]][1]
+        assert job.examples and all(("smile" in v or "grin" in v) for v in job.examples)
+        assert 'own words: "happy"' in generation_messages(job)[1]["content"]

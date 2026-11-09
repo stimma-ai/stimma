@@ -110,6 +110,7 @@ class Draw:
     phase: Optional[int] = None    # pick specs (see draws.py); unset for older programs
     about: str = ""
     cls: str = ""                  # the vocabulary list the pick is bound to (see vocab.py)
+    where: str = ""                # the user's words narrowing that list (see narrow.py)
 
     def to_dict(self) -> Dict[str, Any]:
         d = {"id": self.id, "value": self.value, "kind": self.kind, "label": self.label, "source": self.source}
@@ -127,6 +128,8 @@ class Draw:
             d["about"] = self.about
         if self.cls:
             d["cls"] = self.cls
+        if self.where:
+            d["where"] = self.where
         return d
 
 
@@ -263,10 +266,11 @@ class _Runner:
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
              about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None,
-             cls: Optional[str] = None) -> Optional[str]:
+             cls: Optional[str] = None, where: Optional[str] = None) -> Optional[str]:
         cid = str(id)
         if about is not None or phase is not None or seed is not None or cls is not None:
-            return self._spec_pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed, cls)
+            return self._spec_pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed, cls,
+                                   where)
         if added:
             source = "added"
         if source not in SOURCES:
@@ -303,7 +307,7 @@ class _Runner:
 
     def _spec_pick(self, cid: str, options: Any, label: str, by: Any, source: str, line: Optional[int], exclude: Any,
                    hidden: bool, added: bool, about: Optional[str], phase: Optional[int], seed: Any,
-                   cls: Optional[str] = None) -> Optional[str]:
+                   cls: Optional[str] = None, where: Optional[str] = None) -> Optional[str]:
         """A pick with a spec (draws.py), run the plain way for discovery and validation:
         seeds stand in for options it doesn't list, and it is recorded even with none. A
         pick bound to a vocabulary list (cls=) runs on the list's values instead."""
@@ -329,6 +333,7 @@ class _Runner:
         d = self.draws[-1]
         d.phase, d.about = int(phase) if isinstance(phase, int) else None, str(about or "")
         d.cls = leaf.id if leaf is not None else ""
+        d.where = str(where).strip() if isinstance(where, str) else ""
         return value
 
     def pick_lora(self, id: str, names: Any = None, label: str = "", source: str = "text", line: Optional[int] = None,
@@ -544,6 +549,7 @@ class Choice:
     about: Optional[str] = None
     deps: List[str] = field(default_factory=list)   # picks this one's structure depends on
     cls: Optional[str] = None                   # the vocabulary list it is bound to
+    where: Optional[str] = None                 # the user's words narrowing that list
     seen: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
@@ -611,7 +617,7 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
                 m = _GROUP_ID.match(d.id)
                 c = Choice(d.id, d.kind, d.label, d.source, d.line, [], d.hidden, d.follows,
                            group=m.group(1) if m else None, index=int(m.group(2)) if m else None, attr=m.group(3) if m else None,
-                           phase=d.phase, about=d.about or None, cls=d.cls or None)
+                           phase=d.phase, about=d.about or None, cls=d.cls or None, where=d.where or None)
                 choices[d.id] = c
                 order.append(d.id)
             c.seen += 1

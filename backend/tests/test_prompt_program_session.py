@@ -221,6 +221,27 @@ class TestNewPrompt:
         assert "Valid" in log[-1]["content"] and "1: w = pick(" in log[-1]["content"]
         assert model.store.get(entry["key"])["session"] == entry["session"]
 
+    async def test_a_bound_pick_is_narrowed_by_its_words_after_the_write(self, model, monkeypatch):
+        import json as _json
+        src = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather", phase=1, line=1)\n'
+               'age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24"], '
+               'label="Age", phase=1, added=True)\n'
+               'emit("A young woman, aged", age, ", waiting for a train on a", w, "morning.")\n')
+        asked = []
+
+        async def narrow_ask(messages, project_id, max_tokens=4096):
+            asked.append(messages)
+            if "find the words in it" in messages[0]["content"]:  # reading the prompt: it says nothing of age
+                return _json.dumps({"age": None})
+            return _json.dumps(["20–24", "25–29"])
+        monkeypatch.setattr(prep, "_ask_model", narrow_ask)
+        model.replies = [reply(write(src))]
+        entry = await ensure()
+        assert entry["filters"] == {"age": ["20–24", "25–29"]} and len(asked) == 2  # the reading, then "young"
+        assert 'fit "young"' in asked[1][1]["content"]  # the writer's where= when the reading finds nothing
+        assert next(c for c in entry["choices"] if c["id"] == "age")["options"] == ["20–24", "25–29"]
+        assert model.store.get(entry["key"])["filters"] == entry["filters"]  # stored narrowed
+
     @pytest.mark.parametrize("prefix", ["python\n", "write_program source:\n"])
     async def test_a_stray_first_line_before_the_program_is_dropped(self, model, prefix):
         model.replies = [reply(write(prefix + GOOD))]

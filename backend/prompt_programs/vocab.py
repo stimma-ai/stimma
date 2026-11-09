@@ -76,10 +76,15 @@ class Leaf:
         ctx = {**vocabulary().defaults, **(context or {})}
         return [v for v in self.values if self.fits(v, ctx)]
 
-    def examples(self, key: str, context: Optional[Dict[str, str]] = None, n: int = EXAMPLES) -> List[str]:
+    def examples(self, key: str, context: Optional[Dict[str, str]] = None, n: int = EXAMPLES,
+                 only: Optional[Sequence[str]] = None) -> List[str]:
         """A spread of eligible values for the options generator: one per tier and tag
-        combination first, then at random, seeded by `key` so a pool's examples are stable."""
+        combination first, then at random, seeded by `key` so a pool's examples are stable.
+        `only` keeps to a narrowed subset (where=)."""
         vals = list(self.eligible(context))
+        if only is not None:
+            keep = set(only)
+            vals = [v for v in vals if v.text in keep]
         random.Random(key).shuffle(vals)
         out: List[str] = []
         kinds = set()

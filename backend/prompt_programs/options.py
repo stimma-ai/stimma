@@ -95,8 +95,12 @@ class ProgramContext:
     # The program's edit lineage: a prompt edit patched into a program keeps its lineage,
     # so every pick the edit didn't touch keeps its options.
     lineage: str = ""
-    # {{wildcards}} in the user's words, by pick id: what that pick's options must stay within
+    # {{wildcards}} in the user's words, and where= on picks, by pick id: what that pick's
+    # options must stay within
     intents: Tuple[Tuple[str, str], ...] = ()
+    # a bound pick's list narrowed by where= (narrow.py), by pick id; an empty subset means
+    # nothing in the list fits and the pick draws unbound
+    filters: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()
 
     @classmethod
     def of(cls, entry: Dict[str, Any]) -> "ProgramContext":
@@ -106,10 +110,13 @@ class ProgramContext:
         lists = tuple((str(c.get("id")), str(c.get("label") or c.get("id")), tuple(str(o) for o in c.get("options") or []))
                       for c in entry.get("choices") or []
                       if c.get("source") == "list" and c.get("kind", "pick") == "pick" and c.get("options"))
-        intents = tuple((str(c.get("id")), str(c["wildcard"])) for c in entry.get("choices") or [] if c.get("wildcard"))
+        intents = tuple((str(c.get("id")), str(c.get("wildcard") or c.get("where")))
+                        for c in entry.get("choices") or [] if c.get("wildcard") or c.get("where"))
+        filters = tuple((str(k), tuple(str(x) for x in v)) for k, v in (entry.get("filters") or {}).items()
+                        if isinstance(v, list))
         return cls(str(entry.get("key") or ""), signature, template, str(entry.get("mode") or "prose"),
                    entry.get("elaborate") is not False, lists, str(entry.get("tool_id") or ""),
-                   str(entry.get("lineage") or ""), intents)
+                   str(entry.get("lineage") or ""), intents, filters)
 
 
 # --------------------------------------------------------------------------- the on-disk cache
@@ -506,6 +513,7 @@ class GeneratedOptions:
         self.project_id = project_id
         self.generate = generate and store is not None
         self.specific = set(store.specific(program.key)) if store is not None else set()
+        self.filters = {k: v for k, v in program.filters}
         self.checker = checker
         self._pools: Dict[str, Pool] = {}
         self.requests: List[Tuple[str, str]] = []
@@ -527,6 +535,28 @@ class GeneratedOptions:
         self._pools.clear()
 
     # -- identity
+    # -- the vocabulary, as narrowed for this program (where=)
+    def _leaf(self, spec: PickSpec) -> Optional[Leaf]:
+        """The list a pick draws from: its bound leaf, unless where= left nothing of it."""
+        leaf = bound(spec)
+        if leaf is not None and self.filters.get(spec.id) == ():
+            return None
+        return leaf
+
+    def _allowed(self, spec: PickSpec) -> Optional[Tuple[str, ...]]:
+        """The narrowed subset of a bound pick's list, or None when it isn't narrowed."""
+        return self.filters.get(spec.id) or None
+
+    def _grows(self, spec: PickSpec) -> bool:
+        """generated_pick, with where= taken into account: a closed list left empty by its
+        words draws unbound, so it grows like any generated pick."""
+        if spec.kind != "pick" or spec.source == "list":
+            return False
+        leaf = self._leaf(spec)
+        if leaf is not None:
+            return not leaf.closed
+        return bool(spec.about.strip())
+
     def _where(self, spec: PickSpec, context: Dict[str, Any]) -> Tuple[str, str, str]:
         """(revision pool key, storage key, signature) for a generated pick."""
         specific = spec.id in self.specific and self.program.template != self.program.signature
@@ -534,20 +564,22 @@ class GeneratedOptions:
         key = pool_key(spec, context) + (" | written for this prompt" if specific else "")
         if spec.cls:  # a revision records the bound pool itself, so the key needn't name a version
             key += f" | {spec.cls}"
+            if spec.id in self.filters:  # narrowed by where= (an empty subset: drawn without the list)
+                key += f" where {dict(self.program.intents).get(spec.id, '')}"
         lineage = "" if specific else self.program.lineage
         intent = dict(self.program.intents).get(spec.id, "")
         return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate,
                             self.program.lists, self.version, lineage, intent, spec.cls), signature
 
     def get(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
-        if not generated_pick(spec) and bound(spec) is None and not isinstance(self.limits.get(self._where(spec, context)[0]), list):
+        if not self._grows(spec) and self._leaf(spec) is None and not isinstance(self.limits.get(self._where(spec, context)[0]), list):
             return self.literal.get(spec, context)
         key, skey, signature = self._where(spec, context)
         if key in self._pools:
             return self._pools[key]
         self._seen.setdefault(key, (spec, dict(context)))
         pool, items, rounds = self._read(spec, context, key, skey)
-        if self.generate and key not in self.limits and rounds < MAX_ROUNDS and generated_pick(spec):
+        if self.generate and key not in self.limits and rounds < MAX_ROUNDS and self._grows(spec):
             if rounds == 0:
                 self._submit(spec, context, skey, signature, "low", items)
             elif len(pool.items) < THIN:
@@ -566,7 +598,7 @@ class GeneratedOptions:
         priority. A pool keyed by a shared signature switches this pick to a pool keyed
         by the prompt itself; a pool already keyed by the prompt gets a new round told
         which options didn't fit. A closed vocabulary list is never rewritten."""
-        if not generated_pick(spec):
+        if not self._grows(spec):
             return
         if self.program.template != self.program.signature and spec.id not in self.specific:
             if self.store is not None:
@@ -582,7 +614,7 @@ class GeneratedOptions:
         recorded = self.limits.get(key)
         if isinstance(recorded, list):  # a revision's whole bound pool, even for a list since removed
             return Pool(key, [str(o) for o, _ in recorded], [float(w) for _, w in recorded], False, True), [], 0
-        leaf = bound(spec)
+        leaf = self._leaf(spec)
         if leaf is not None:
             return self._read_bound(spec, leaf, key, skey)
         written = list(dict.fromkeys([*spec.seeds, *spec.literal]))
@@ -620,7 +652,9 @@ class GeneratedOptions:
                     seen.add(_norm(o))
                     out.append((o, w))
             return out
-        listed = unique([(v.text, v.weight) for v in leaf.eligible()] +
+        allowed = self._allowed(spec)
+        values = [v for v in leaf.eligible() if allowed is None or v.text in allowed]
+        listed = unique([(v.text, v.weight) for v in values] +
                         [(str(x), 1.0) for x in edit.get("add") or [] if str(x).strip()])
         generated = self.store.options(skey) if self.store is not None and not leaf.closed else []
         gen = unique([(o, GEN_DECAY ** i) for i, o in enumerate(generated)])
@@ -637,7 +671,7 @@ class GeneratedOptions:
         return pool, generated, rounds
 
     def request_more(self, spec: PickSpec, context: Dict[str, Any], priority: str) -> None:
-        if not generated_pick(spec):
+        if not self._grows(spec):
             return  # a user list is never expanded
         key, skey, signature = self._where(spec, context)
         self.requests.append((key, priority))
@@ -652,13 +686,13 @@ class GeneratedOptions:
         if self.filler is None or self.store is None:
             return
         round_ = self.store.rounds(skey)
-        leaf = bound(spec)
+        leaf = self._leaf(spec)
         if leaf is not None:  # the list is deduplicated at read: the generator is shown what it wrote
             existing = self.store.options(skey)
         job = OptionJob(skey, spec, dict(context), self.program, signature, round_,
                         list(existing), list(avoid), self.project_id,
                         removed=[str(x) for x in (self.edits.get(spec.id) or {}).get("remove") or []],
-                        examples=leaf.examples(f"{skey}:{round_}") if leaf is not None else [])
+                        examples=leaf.examples(f"{skey}:{round_}", only=self._allowed(spec)) if leaf is not None else [])
         if self.checker is not None and round_ == 0:
             checker = self.checker
             job.check = lambda j, _self=self: checker(j, _self)

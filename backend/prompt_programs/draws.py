@@ -58,7 +58,7 @@ def legacy_program(entry: Dict[str, Any]) -> bool:
 MAX_BATCHES = 3        # batches before a pick falls back and counts as unresolved
 
 _PICK_PARAMS = ("id", "options", "label", "by", "source", "line", "exclude", "hidden", "added", "about", "phase", "seed",
-                "cls")
+                "cls", "where")
 _LORA_PARAMS = ("id", "names", "label", "source", "line", "phase")
 
 
@@ -802,7 +802,7 @@ class _Exec(_Runner):
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
              about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None, cls: Optional[str] = None,
-             _site: int = -1) -> Optional[str]:
+             where: Optional[str] = None, _site: int = -1) -> Optional[str]:
         cid = str(id)
         if added:
             source = "added"
@@ -835,6 +835,7 @@ class _Exec(_Runner):
         value, pinned = self._settle(cid, site, spec, self._eligible(cid, spec, context, exclude), context)
         d = Draw(cid, value, "pick", lbl, source, line, bool(hidden), pinned, [o for o, _ in self.seen[cid].items], follows)
         d.phase, d.about, d.cls = site.phase, spec.about, spec.cls
+        d.where = str(where).strip() if isinstance(where, str) else ""
         self._record(d)
         return value
 

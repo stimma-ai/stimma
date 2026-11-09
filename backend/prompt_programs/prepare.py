@@ -27,7 +27,7 @@ from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-35"
+PREPARE_VERSION = "pp-36"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -1612,6 +1612,17 @@ async def _prepare(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
                              "The chat model may be busy or too slow for this prompt.") from None
 
 
+async def _narrow(entry: Dict[str, Any], store: ProgramStore, project_id: Optional[int]) -> None:
+    """Bound picks narrowed by the user's words (where=, or a wildcard's own name): one
+    cached model call per (list, words), see narrow.py. Never fails the prepare."""
+    from prompt_programs.narrow import NarrowCache, narrow_entry
+    t0 = time.monotonic()
+    notes = await narrow_entry(entry, NarrowCache(store.root / "narrow"), _ask_model, project_id)
+    if entry.get("filters"):
+        entry.setdefault("timing", {})["narrow"] = round(time.monotonic() - t0, 2)
+        entry["warnings"] = list(entry.get("warnings") or []) + notes
+
+
 async def _prepare_once(*, context: str, force: bool, base_key: Optional[str] = None, **args: Any) -> Dict[str, Any]:
     """A small edit of a prompt prepared in this context continues that program's writer
     session; anything else (or "Try different choices") starts a new one. Endpoints whose
@@ -1629,6 +1640,7 @@ async def _prepare_once(*, context: str, force: bool, base_key: Optional[str] = 
             log.warning(f"[prompt-program] {_endpoint_id(cfg)[1]} makes no tool calls ({e}): using the text protocol")
         else:
             entry["context"] = context
+            await _narrow(entry, store, args["project_id"])
             store.put(entry["key"], entry)
             store.remember(context, entry["key"])
             _notify_prepared(entry, args["project_id"], args["profile_id"])
@@ -1654,6 +1666,7 @@ async def _prepare_text(*, context: str, base: Optional[Dict[str, Any]], **args:
         # writer sees the old program and keeps what didn't change, and its options stay.
         entry = await _prepare_new(prev=base, **args)
     entry["context"] = context
+    await _narrow(entry, store, args["project_id"])
     store.put(entry["key"], entry)
     store.remember(context, entry["key"])
     _notify_prepared(entry, args["project_id"], args["profile_id"])

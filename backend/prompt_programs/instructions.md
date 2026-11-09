@@ -26,6 +26,7 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
     sentence. One seed is fine.
   - `phase`: when it is drawn (see Phases).
   - `cls`: optional, the id of a vocabulary list the pick draws from (see Vocabulary).
+  - `where`: optional, with `cls`: the user's words that narrow the list (see Vocabulary).
   - Every pick you write has `about=` and `seed=`. Only a user list gives its options as a
     list (below).
 - A user list: `pick(id, ["a", "b", "c"], source="list", phase=1, line=N)`, with exactly the
@@ -168,6 +169,14 @@ Still write `about=` and a seed in the list's form.
   or not. "A woman with emerald eyes and long red hair in a braid" keeps "emerald eyes",
   "long red hair" and "in a braid" in every image; only what they left open (her expression,
   her outfit) can be a pick.
+- When the user's words narrow a listed detail without fixing it, bind it and put their
+  words in `where=`: only the list's values that fit them are drawn. "A young woman" →
+  `pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24"], ...)`;
+  "an older man with dark hair" → `where="older"` on his age and `where="dark"` on his hair
+  colour; "a happy boy" → `where="happy"` on his expression. Their words stay in the text too
+  ("a young woman"). Before you bind a pick, check the user's prompt for any word about that
+  detail: if there is one, it goes in `where=`. A `{{wildcard}}` bound to a list is narrowed by
+  its own words; no `where=` needed.
 - Each person's details bind to the same lists: `girl[1].eyes` and `girl[2].eyes` both use
   `person.eye_color`.
 - Like any pick written with `about=`, a bound pick's value is never a lookup key.
