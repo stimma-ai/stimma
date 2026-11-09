@@ -246,16 +246,17 @@ function pageStrip(direction) {
 }
 
 // Keyboard: arrows move the active image, Space picks, Enter opens.
-// Keys someone else already handled, chorded keys (they belong to the browser
-// and app), and keys aimed at a control (the view toggle's arrows, a button's
-// Space) are left alone; the tiles and the card itself own the rest.
-const KEY_CONTROLS = 'input,textarea,select,summary,[contenteditable]:not([contenteditable="false"]),button,a,[role="radio"],[role="radiogroup"],[role="tab"],[role="tablist"],[role="slider"],[role="menu"],[role="menuitem"],[role="listbox"],[role="option"]'
+// Keys someone else already handled and chorded keys (they belong to the
+// browser and app) are left alone. Widgets that use the arrows themselves (the
+// view toggle, menus, sliders) keep them; any control keeps its Enter and Space.
+const ARROW_WIDGETS = '[role="radio"],[role="radiogroup"],[role="tab"],[role="tablist"],[role="slider"],[role="menu"],[role="menuitem"],[role="listbox"],[role="option"]'
 function onKeydown(event) {
   if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
   if (event.target.matches?.('input,textarea,select,summary,[contenteditable]:not([contenteditable="false"])')) return
-  const onControl = !!event.target.closest?.(KEY_CONTROLS)
+  const onWidget = !!event.target.closest?.(ARROW_WIDGETS)
+  const onControl = onWidget || !!event.target.closest?.('button,a,summary')
   const inGrid = view.value === 'grid'
-  const step = onControl ? 0 : { ArrowLeft: -1, ArrowRight: 1, ArrowUp: inGrid ? -columns.value : 0, ArrowDown: inGrid ? columns.value : 0 }[event.key]
+  const step = onWidget ? 0 : { ArrowLeft: -1, ArrowRight: 1, ArrowUp: inGrid ? -columns.value : 0, ArrowDown: inGrid ? columns.value : 0 }[event.key]
   if (step) {
     event.preventDefault()
     const last = (inGrid ? visible.value : count.value) - 1

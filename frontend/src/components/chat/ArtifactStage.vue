@@ -399,7 +399,8 @@ function onHeroClick() {
 }
 
 const rootRef = ref<HTMLElement | null>(null)
-const KEY_CONTROLS = 'button,a,summary,[role="radio"],[role="tab"],[role="slider"],[role="menu"],[role="menuitem"],[role="listbox"],[role="option"]'
+// Widgets that use the arrows themselves keep them; any control keeps Space.
+const ARROW_WIDGETS = '[role="radio"],[role="radiogroup"],[role="tab"],[role="tablist"],[role="slider"],[role="menu"],[role="menuitem"],[role="listbox"],[role="option"]'
 function stepRevision(delta: number) {
   const index = props.revisions.findIndex(rev => rev.id === props.viewedRevisionId)
   const next = props.revisions[index + delta]
@@ -418,14 +419,14 @@ function onKeydown(event: KeyboardEvent) {
     else emit('close')
     return
   }
-  if (target !== rootRef.value && target?.closest?.(KEY_CONTROLS)) return
+  if (target !== rootRef.value && target?.closest?.(ARROW_WIDGETS)) return
   if (props.workspaceFile || !props.viewedRevision) return
   // Inside the file viewer, arrows and Space scroll and play what it shows.
   if (heroUsesFileViewer.value && target !== rootRef.value) return
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
     event.preventDefault()
     stepRevision(event.key === 'ArrowLeft' ? -1 : 1)
-  } else if (event.key === ' ' && heroKind.value === 'video') {
+  } else if (event.key === ' ' && heroKind.value === 'video' && !target?.closest?.('button,a,summary')) {
     event.preventDefault()
     videoTransport.togglePlayback()
   }

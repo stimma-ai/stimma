@@ -257,8 +257,10 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
       if (!isUserClosed(id)) stageOpen.value = true
       return
     }
-    syncAsset(id).then((current) => {
-      if (current && !isUserClosed(id)) stageOpen.value = true
+    // A newer load of this same asset (a new revision arriving) still opens
+    // it; another chat or asset since then does not.
+    syncAsset(id).then(() => {
+      if (assetId.value === id && !isUserClosed(id)) stageOpen.value = true
     }).catch((err) => {
       console.error('[artifact-stage] failed to load revisions for asset', id, err)
     })

@@ -133,3 +133,17 @@ test('an older asset load cannot overwrite a newer one', async t => {
   assert.equal(stage.viewedRevision.value.media_id, 400)
   assert.equal(stage.loading.value, false)
 })
+
+test('a new artifact still opens when a second load of it overtakes the first', async t => {
+  const api = deferredRevisions()
+  t.after(api.restore)
+  const items = ref([])
+  const stage = useArtifactStage(ref(15), items)
+  items.value = [{ id: 1, item_type: 'media_display', item_metadata: { display_data: { artifact: { asset_id: 6, revision_id: 60, revision_number: 1 } } } }]
+  await nextTick()
+  assert.ok(api.pending.length >= 1)
+  while (api.pending.length) api.answer(6)
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(stage.stageOpen.value, true)
+  assert.equal(stage.viewedRevision.value.media_id, 600)
+})
