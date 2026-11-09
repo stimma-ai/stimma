@@ -3,8 +3,8 @@
   "label": "Descent",
   "description": "National or ethnic descent adjectives, sampled with a uniform prior.",
   "pos": "adjective",
-  "frame": "a ___ woman",
-  "notes": "National or ethnic descent adjectives at a named people or country level, never continental categories. All values are typical and untagged: descent does not constrain appearance, region, genre or presentation. person.skin_tone owns skin color; hair and eye leaves own their respective traits. Membership categories can overlap and are neither exhaustive nor a claim about citizenship. The fixed article “a” needs writer-side a/an agreement before vowel-initial adjectives. Mixed descent is left to explicit composition rather than enumerating pairs.",
+  "frame": "the ___ person",
+  "notes": "National or ethnic descent adjectives at a named people or country level, never continental categories. All values are typical and untagged: descent does not constrain appearance, region, genre or presentation. person.skin_tone owns skin color; hair and eye leaves own their respective traits. Membership categories can overlap and are neither exhaustive nor a claim about citizenship. Bengali and Bangladeshi, Punjabi and Indian, Tamil and Indian or Sri Lankan, and Pashtun and Pakistani or Afghan are retained as distinct ethnic and national descent labels with overlapping membership. Values also read before woman or man. Mixed descent is left to explicit composition rather than enumerating pairs.",
   "facets": [],
   "closed": true,
   "values": [
@@ -30,6 +30,26 @@
     },
     {
       "text": "Tibetan",
+      "tier": "typical"
+    },
+    {
+      "text": "Kazakh",
+      "tier": "typical"
+    },
+    {
+      "text": "Uzbek",
+      "tier": "typical"
+    },
+    {
+      "text": "Tajik",
+      "tier": "typical"
+    },
+    {
+      "text": "Kyrgyz",
+      "tier": "typical"
+    },
+    {
+      "text": "Turkmen",
       "tier": "typical"
     },
     {
@@ -101,6 +121,10 @@
       "tier": "typical"
     },
     {
+      "text": "Afghan",
+      "tier": "typical"
+    },
+    {
       "text": "Iranian",
       "tier": "typical"
     },
@@ -122,6 +146,14 @@
     },
     {
       "text": "Lebanese",
+      "tier": "typical"
+    },
+    {
+      "text": "Iraqi",
+      "tier": "typical"
+    },
+    {
+      "text": "Syrian",
       "tier": "typical"
     },
     {
@@ -161,7 +193,15 @@
       "tier": "typical"
     },
     {
+      "text": "Sudanese",
+      "tier": "typical"
+    },
+    {
       "text": "Kenyan",
+      "tier": "typical"
+    },
+    {
+      "text": "Ugandan",
       "tier": "typical"
     },
     {
@@ -193,6 +233,14 @@
       "tier": "typical"
     },
     {
+      "text": "Tunisian",
+      "tier": "typical"
+    },
+    {
+      "text": "Libyan",
+      "tier": "typical"
+    },
+    {
       "text": "Egyptian",
       "tier": "typical"
     },
@@ -221,7 +269,15 @@
       "tier": "typical"
     },
     {
+      "text": "Dutch",
+      "tier": "typical"
+    },
+    {
       "text": "Polish",
+      "tier": "typical"
+    },
+    {
+      "text": "Romanian",
       "tier": "typical"
     },
     {
@@ -253,7 +309,19 @@
       "tier": "typical"
     },
     {
+      "text": "Norwegian",
+      "tier": "typical"
+    },
+    {
+      "text": "Danish",
+      "tier": "typical"
+    },
+    {
       "text": "Finnish",
+      "tier": "typical"
+    },
+    {
+      "text": "African American",
       "tier": "typical"
     },
     {
@@ -262,6 +330,10 @@
     },
     {
       "text": "Guatemalan",
+      "tier": "typical"
+    },
+    {
+      "text": "Salvadoran",
       "tier": "typical"
     },
     {
@@ -277,6 +349,14 @@
       "tier": "typical"
     },
     {
+      "text": "Dominican",
+      "tier": "typical"
+    },
+    {
+      "text": "Puerto Rican",
+      "tier": "typical"
+    },
+    {
       "text": "Brazilian",
       "tier": "typical"
     },
@@ -285,7 +365,19 @@
       "tier": "typical"
     },
     {
+      "text": "Venezuelan",
+      "tier": "typical"
+    },
+    {
+      "text": "Ecuadorian",
+      "tier": "typical"
+    },
+    {
       "text": "Peruvian",
+      "tier": "typical"
+    },
+    {
+      "text": "Bolivian",
       "tier": "typical"
     },
     {
@@ -301,6 +393,10 @@
       "tier": "typical"
     },
     {
+      "text": "Native Hawaiian",
+      "tier": "typical"
+    },
+    {
       "text": "Samoan",
       "tier": "typical"
     },
@@ -310,6 +406,10 @@
     },
     {
       "text": "Fijian",
+      "tier": "typical"
+    },
+    {
+      "text": "Papua New Guinean",
       "tier": "typical"
     },
     {

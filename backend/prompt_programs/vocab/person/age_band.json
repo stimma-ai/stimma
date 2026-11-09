@@ -4,12 +4,24 @@
   "description": "A life stage expressed as a numbered age range.",
   "pos": "number phrase",
   "frame": "aged ___",
-  "notes": "An age range, in years, inclusive, for the frame “aged ___”. Covers children, teens and adults; adult ranges are typical and younger ones plausible, since most images of a person show an adult when nothing says otherwise. Each value carries its age facet (child, teen, adult, elderly) so a context can narrow it.",
+  "notes": "An age range, in years, inclusive, for the frame “aged ___”. Covers babies, children, teens and adults; adult ranges are typical and younger ones plausible, since most images of a person show an adult when nothing says otherwise. Each value carries its age facet (child, teen, adult, elderly) so a context can narrow it.",
   "facets": [
     "age"
   ],
   "closed": true,
   "values": [
+    {
+      "text": "0–2",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "child"
+        ],
+        "life_stage": [
+          "baby"
+        ]
+      }
+    },
     {
       "text": "3–4",
       "tier": "plausible",
@@ -311,6 +323,7 @@
   ],
   "local_facets": {
     "life_stage": [
+      "baby",
       "child",
       "teen",
       "young adult",
