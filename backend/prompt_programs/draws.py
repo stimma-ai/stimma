@@ -826,7 +826,7 @@ class _Exec(_Runner):
         lbl = label or _label_from_id(cid)
         # A list the vocabulary no longer has: the pick draws as an unbound one (seeds and
         # generated options), never fails a stored program.
-        leaf = vocabulary().get(cls) if cls and source != "list" else None
+        leaf = vocabulary().resolve(cls) if cls and source != "list" else None
         spec = PickSpec(cid, lbl, str(about or ""), site.phase, source, "pick",
                         _as_list(seed if seed is not None else [], f'pick("{cid}") seed'), opts,
                         leaf.id if leaf is not None else "")

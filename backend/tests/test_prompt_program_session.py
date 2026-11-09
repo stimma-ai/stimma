@@ -221,6 +221,12 @@ class TestNewPrompt:
         assert "Valid" in log[-1]["content"] and "1: w = pick(" in log[-1]["content"]
         assert model.store.get(entry["key"])["session"] == entry["session"]
 
+    @pytest.mark.parametrize("prefix", ["python\n", "write_program source:\n"])
+    async def test_a_stray_first_line_before_the_program_is_dropped(self, model, prefix):
+        model.replies = [reply(write(prefix + GOOD))]
+        entry = await ensure()
+        assert entry["attempts"] == 1 and entry["program"] == GOOD
+
     async def test_problems_go_back_as_a_tool_result_and_an_edit_fixes_them(self, model):
         model.replies = [reply(write(BAD)), reply(edit([{"line": 1, "text": GOOD.replace("\n", "\n", 1).rstrip()}]))]
         entry = await ensure()

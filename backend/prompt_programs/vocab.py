@@ -36,7 +36,8 @@ ROOT = Path(__file__).parent / "vocab"
 TIER_WEIGHTS = {"typical": 1.0, "plausible": 0.3, "unusual": 0.03}
 OPEN_SHARE = 0.5      # an open leaf's list values' share of its pool's weight once generated options exist
 EXAMPLES = 10         # list values shown to the options generator for an open leaf
-CATALOGUE_ROOTS = ("person",)   # what the writer is shown; the rest waits for an open() tool
+CATALOGUE_ROOTS = ("person",)
+TYPO_CUTOFF = 0.85    # difflib ratio above which an unknown id is read as a typo of a known one   # what the writer is shown; the rest waits for an open() tool
 
 
 @dataclass(frozen=True)
@@ -113,6 +114,16 @@ class Vocabulary:
 
     def get(self, cls: Optional[str]) -> Optional[Leaf]:
         return self.leaves.get(str(cls or "").strip())
+
+    def resolve(self, cls: Optional[str]) -> Optional[Leaf]:
+        """The leaf an id names, allowing a near-certain typo ("person.eye_eye_color"):
+        writers garble ids now and then, and a repair round costs more than the guess."""
+        leaf = self.get(cls)
+        if leaf is None and cls:
+            import difflib
+            near = difflib.get_close_matches(str(cls).strip(), list(self.leaves), n=1, cutoff=TYPO_CUTOFF)
+            leaf = self.leaves[near[0]] if near else None
+        return leaf
 
     def catalogue(self, roots: Sequence[str] = CATALOGUE_ROOTS) -> str:
         """The lists the writer may bind to, one line each: id, part of speech, where a

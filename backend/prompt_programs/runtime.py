@@ -413,7 +413,7 @@ def bound_leaf(cid: str, cls: Optional[str], source: str = "text", options: Any 
         raise ProgramError(f'pick("{cid}"): cls= binds a pick to a vocabulary list, so it takes no options of its '
                            'own and is never a user list. Drop cls=, or drop the options.')
     vocab = vocabulary()
-    leaf = vocab.get(cls)
+    leaf = vocab.resolve(cls)
     if leaf is None:
         import difflib
         near = difflib.get_close_matches(str(cls), list(vocab.leaves), n=1, cutoff=0.6)

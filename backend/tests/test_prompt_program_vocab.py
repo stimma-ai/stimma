@@ -97,6 +97,19 @@ class TestBinding:
         with pytest.raises(ProgramError, match="isn't a vocabulary list"):
             run(PORTRAIT.replace("person.eye_color", "person.eyes"), 1)
 
+    def test_a_near_certain_typo_resolves_and_a_far_one_does_not(self):
+        v = vocabulary()
+        assert v.resolve("person.eye_eye_color").id == "person.eye_color"
+        assert v.resolve("person.eye_colour").id == "person.eye_color"
+        assert v.resolve("person.face") is None and v.resolve("interior.bedroom") is None
+        src = PORTRAIT.replace("person.eye_color", "person.eye_colour")
+        eyes = next(d for d in run(src, 1).draws if d.id == "eyes")
+        assert eyes.cls == "person.eye_color"
+
+    def test_an_unknown_list_suggests_the_nearest(self):
+        with pytest.raises(ProgramError, match='Did you mean cls="person.ethnicity"'):
+            run(PORTRAIT.replace("person.ethnicity", "person.ethnday"), 1)
+
     def test_a_user_list_cannot_bind(self):
         src = 'x = pick("x", ["a", "b"], source="list", cls="person.eye_color", phase=1)\nemit(x)'
         with pytest.raises(ProgramError, match="never a user list"):
