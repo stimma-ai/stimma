@@ -351,6 +351,8 @@
               :lora-triggers="globalPrefs.promptOptions?.loraTriggers !== false"
               :lora-notes="globalPrefs.promptOptions?.loraNotes !== false"
               :previous-running="uiState.generateForeverMode && promptProgram.needsPrepare() && promptProgram.readyPrompt() != null"
+              :translate="globalPrefs.promptOptions?.translate"
+              @translate="(code) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, translate: { enabled: !!code, language: code ?? globalPrefs.promptOptions?.translate?.language ?? 'zh-Hans' } }"
               @lora="(key, on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, [key]: on ? undefined : false }"
               @way="(w) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined }"
               @mode="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, autoImprove: { ...globalPrefs.promptOptions?.autoImprove, enabled: on } }"

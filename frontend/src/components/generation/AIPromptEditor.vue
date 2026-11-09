@@ -60,7 +60,8 @@
           <!-- Translate Prompt chip: the whole chip opens the menu (one big hit target).
                On/off lives in the menu as the "Off" choice — same place you pick
                a language — so there's one obvious control surface. -->
-          <div v-if="!(hasMode && rawMode)" class="relative flex items-center" ref="translateMenuContainer">
+          <!-- A host prompt control (Tool View's Fluent) carries Translate in its own menu. -->
+          <div v-if="!hasMode" class="relative flex items-center" ref="translateMenuContainer">
             <button
               ref="translateButton"
               :disabled="llmUnconfigured"

@@ -20,6 +20,7 @@
       <Bars3BottomLeftIcon v-else-if="way === 'direct'" class="w-3.5 h-3.5" />
       <WandSparklesIcon v-else :class="['w-3.5 h-3.5', llmUnconfigured ? 'opacity-60' : '']" />
       <span>{{ chipText }}</span>
+      <LanguageIcon v-if="translating" class="w-3.5 h-3.5 opacity-70" :aria-label="`Translating to ${languageLabel}`" />
       <span v-if="failed" class="w-[6px] h-[6px] rounded-full bg-red-400" aria-label="Couldn’t read this prompt" />
       <Caret :open="menuOpen" class="opacity-70" />
     </button>
@@ -31,7 +32,7 @@
           :style="menuStyle"
           data-fluent-menu
           role="menu"
-          @click.stop
+          @click.stop="languagesOpen = false"
         >
           <!-- What this menu is, and its two tools. -->
           <div class="pl-3 pr-2 pt-2 pb-2 flex items-center gap-1">
@@ -91,24 +92,65 @@
                 <Toggle :model-value="!!loraNotes" label="LoRA notes" @update:model-value="(v) => emit('lora', 'loraNotes', v)" />
               </label>
             </template>
-            <button
-              v-if="retake"
-              type="button"
-              role="menuitem"
-              class="w-full text-left flex items-center gap-2 px-3 py-2 coarse:py-3 text-[12px] coarse:text-[13px] text-content hover:bg-overlay-subtle"
-              @click="menuOpen = false; program.rethink()"
-            >
-              <ArrowPathIcon class="w-3.5 h-3.5 text-content-tertiary" />{{ retake.label }}
-            </button>
           </template>
           <!-- Direct has no model, so only the trigger words apply. -->
-          <template v-else-if="way === 'direct' && hasLoras">
+          <template v-else-if="way === 'direct'">
             <div class="border-t border-edge-subtle" />
-            <label class="flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer">
+            <label v-if="hasLoras" class="flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer">
               <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA trigger words</span>
               <Toggle :model-value="!!loraTriggers" label="LoRA trigger words" @update:model-value="(v) => emit('lora', 'loraTriggers', v)" />
             </label>
           </template>
+          <!-- Translate: Raw sends the prompt as typed, so it applies to the other two.
+               The row shows the language; the list opens in place. -->
+          <template v-if="way !== 'raw'">
+            <button
+              ref="translateRow"
+              type="button"
+              data-fluent-translate
+              aria-haspopup="menu"
+              :aria-expanded="languagesOpen"
+              :class="['w-full text-left flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle', languagesOpen ? 'bg-overlay-subtle' : '', llmUnconfigured ? 'opacity-40 pointer-events-none' : '']"
+              @click.stop="toggleLanguages()"
+            >
+              <span class="flex-1 text-[12px] coarse:text-[13px] text-content">Translate prompt</span>
+              <span :class="['text-[12px] coarse:text-[13px]', translating ? 'text-content' : 'text-content-tertiary']">{{ translating ? languageLabel : 'Off' }}</span>
+              <Caret :open="languagesOpen" class="opacity-70" />
+            </button>
+          </template>
+          <button
+            v-if="way === 'fluent' && retake"
+            type="button"
+            role="menuitem"
+            class="w-full text-left flex items-center gap-2 px-3 py-2 coarse:py-3 text-[12px] coarse:text-[13px] text-content hover:bg-overlay-subtle"
+            @click="menuOpen = false; program.rethink()"
+          >
+            <ArrowPathIcon class="w-3.5 h-3.5 text-content-tertiary" />{{ retake.label }}
+          </button>
+        </div>
+        <!-- Translate's languages: a dropdown under the row, over the menu. -->
+        <div
+          v-if="languagesOpen"
+          class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu w-56 overflow-y-auto"
+          :style="languagesStyle"
+          data-fluent-languages
+          role="menu"
+          aria-label="Translate prompt to"
+          @click.stop
+        >
+          <button
+            v-for="opt in languageOptions"
+            :key="opt.code ?? 'off'"
+            type="button"
+            role="menuitemradio"
+            :aria-checked="opt.picked"
+            class="w-full text-left flex items-center gap-2 px-3 py-1.5 coarse:py-2.5 hover:bg-overlay-subtle"
+            @click="emit('translate', opt.code); languagesOpen = false"
+          >
+            <span :class="['flex-1 text-[12px] coarse:text-[13px]', opt.picked ? 'text-content' : 'text-content-secondary']">{{ opt.label }}</span>
+            <span v-if="opt.english" class="text-[10.5px] text-content-tertiary">{{ opt.english }}</span>
+            <CheckIcon :class="['w-3.5 h-3.5 shrink-0', opt.picked ? 'text-content' : 'invisible']" />
+          </button>
         </div>
       </div>
       <!-- Dev: the prepared program, how preparing went, and live sample runs. -->
@@ -176,7 +218,7 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { CheckIcon } from '@heroicons/vue/24/solid'
+import { CheckIcon, LanguageIcon } from '@heroicons/vue/24/solid'
 import { ArrowPathIcon, Bars3BottomLeftIcon, BookOpenIcon, CodeBracketIcon, CodeBracketSquareIcon, QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
 import SegmentedControl from '../ui/SegmentedControl.vue'
 import Toggle from '../ui/Toggle.vue'
@@ -188,6 +230,7 @@ import Spinner from '../ui/Spinner.vue'
 import Caret from '../ui/Caret.vue'
 import FluentVocabularyBrowser from './FluentVocabularyBrowser.vue'
 import { PROMPT_BRAND as BRAND } from './promptBrand'
+import { PROMPT_LANGUAGES, promptLanguageByCode, DEFAULT_TRANSLATE_LANGUAGE } from './promptLanguages'
 
 const props = defineProps<{
   program: PromptProgram
@@ -207,12 +250,16 @@ const props = defineProps<{
   loraNotes?: boolean
   /** Generate forever is running the last prepared version while this one prepares. */
   previousRunning?: boolean
+  /** Translate the prompt before generating (not in Raw). */
+  translate?: { enabled: boolean; language: string }
 }>()
 const emit = defineEmits<{
   (e: 'mode', elaborate: boolean): void
   (e: 'way', way: Way): void
   (e: 'help', anchor: DOMRect | null): void
   (e: 'lora', key: 'loraTriggers' | 'loraNotes', on: boolean): void
+  /** A language code to translate into, or null for off. */
+  (e: 'translate', code: string | null): void
 }>()
 
 const chip = ref<HTMLElement | null>(null)
@@ -221,6 +268,26 @@ const BRACES = '{' + '{ }' + '}'
 const menuOpen = ref(false)
 const programText = ref<string | null>(null)
 const vocabOpen = ref(false)
+const languagesOpen = ref(false)
+watch(menuOpen, (open) => { if (!open) languagesOpen.value = false })
+const translateRow = ref<HTMLElement | null>(null)
+const languagesStyle = ref<Record<string, string>>({})
+const LANG_W = 224
+function toggleLanguages() {
+  if (languagesOpen.value) { languagesOpen.value = false; return }
+  const row = translateRow.value?.getBoundingClientRect()
+  if (!row) return
+  // Under the row, right-aligned with its value; above it when the row is low.
+  const vw = window.innerWidth, vh = window.innerHeight
+  const below = vh - row.bottom - 8, above = row.top - 8
+  const down = below >= 260 || below >= above
+  languagesStyle.value = {
+    left: `${Math.max(8, Math.min(vw - LANG_W - 8, row.right - LANG_W - 4))}px`,
+    maxHeight: `${down ? below : above}px`,
+    ...(down ? { top: `${row.bottom + 2}px` } : { bottom: `${vh - row.top + 2}px` }),
+  }
+  languagesOpen.value = true
+}
 
 type Way = 'fluent' | 'direct' | 'raw'
 const way = computed<Way>(() => (props.raw ? 'raw' : props.direct ? 'direct' : 'fluent'))
@@ -235,6 +302,13 @@ const tagline = computed(() => {
     ? `AI fills in your wildcards, follows your comments, and expands your prompt into the detailed style ${model} works best with.`
     : 'AI fills in your wildcards and follows your comments, keeping your wording.'
 })
+const translating = computed(() => !props.raw && !props.llmUnconfigured && !!props.translate?.enabled)
+const languageCode = computed(() => props.translate?.language ?? DEFAULT_TRANSLATE_LANGUAGE)
+const languageLabel = computed(() => promptLanguageByCode(languageCode.value)?.label ?? languageCode.value)
+const languageOptions = computed(() => [
+  { code: null as string | null, label: 'Off', english: '', picked: !translating.value },
+  ...PROMPT_LANGUAGES.map(l => ({ code: l.code as string | null, label: l.label, english: l.english === l.label ? '' : l.english, picked: translating.value && languageCode.value === l.code })),
+])
 const detail = computed(() => props.elaborate || props.program.unsupported.value)
 const on = computed(() => way.value === 'fluent' && !props.llmUnconfigured)
 const busy = computed(() => on.value && props.program.status.value === 'busy')
@@ -248,6 +322,10 @@ const chipText = computed(() => {
   return detail.value ? BRAND : `${BRAND} · your words`
 })
 const chipTitle = computed(() => {
+  const t = chipTitleBase.value
+  return translating.value ? `${t} · translated to ${promptLanguageByCode(languageCode.value)?.english ?? languageLabel.value}` : t
+})
+const chipTitleBase = computed(() => {
   if (props.raw) return 'Raw: sent exactly as typed'
   if (props.direct) return 'Direct: lists and saved wildcards filled in'
   if (props.llmUnconfigured) return `${BRAND} needs a chat model`
@@ -327,6 +405,7 @@ function toggle() {
 function onKey(e: KeyboardEvent) {
   if (e.key !== 'Escape') return
   if (programText.value !== null) programText.value = null
+  else if (languagesOpen.value) languagesOpen.value = false
   else if (menuOpen.value) menuOpen.value = false
   else return
   e.preventDefault()
