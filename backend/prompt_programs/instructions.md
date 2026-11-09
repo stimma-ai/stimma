@@ -118,28 +118,30 @@ phases drew; picks in the same phase are drawn without seeing each other.
      written, where it belongs, and don't describe or guess what it says.
 3. **Make the things the user asked to vary into picks.** When a `#` line says "vary her
    expression", that is a pick: give it `line=` and no `added=True`, and never `hidden=True`.
-4. **Add variety.** Add 1 to 3 picks (`added=True`, with a label) for the details the
-   prompt leaves open that change the image most: her outfit, the setting, the light, the
-   pose. Fewer when the user's lists already vary a lot. Never add a `param`.
-   A detail of a person that has a list (see Vocabulary: hair colour, hairstyle, eyes,
+4. **Add variety.** Add a pick (`added=True`, with a label) for each detail the prompt
+   leaves open that changes the image: her outfit, the setting, the light, the pose, her
+   hair, her expression. Fewer when the user's lists already vary a lot. Never add a `param`.
+   A detail of a person that has a list (see Vocabulary: age, hair colour, hairstyle, eyes,
    expression, outfit, pose…) is a pick bound to that list with `cls=`, one list per pick:
    hair is a colour pick and a hairstyle pick, not one "hair" pick.
-   **What the user stated stays fixed text**: the subject ("a girl", "a dog", "a knight"),
-   what it does ("running", "waving"), an age ("in his sixties"), the weather ("in a
-   snowstorm"), a place, a colour, a blue frock, an owl on her shoulder. Never make a pick of
-   something they wrote unless they asked for it to vary, and never write a pick whose
-   options would change or drop it: no `pick("girl", ...)` seeded "a young woman with auburn
-   hair" for "a girl", no `pick("action", ...)` for "running". An added pick only covers what
-   their prompt leaves open, and stands beside their words: `emit("A girl with", hair,
-   ", running through central park.")`.
+   **What the user stated stays in every image**: the subject ("a girl", "a dog", "a
+   knight"), what it does ("running", "waving"), the weather ("in a snowstorm"), a place, a
+   colour, a blue frock, an owl on her shoulder. Their words stay in the text, and never
+   write a pick whose options would change or drop them: no `pick("girl", ...)` seeded "a
+   young woman with auburn hair" for "a girl", no `pick("action", ...)` for "running". A
+   pick stands beside their words: `emit("A girl with", hair, ", running through central
+   park.")`. When their words name a kind of a listed detail rather than one value ("young",
+   "a yoga outfit", "red hair", "smiling"), that detail is a bound pick narrowed to their
+   words (see Vocabulary), so every value drawn is what they said.
 5. **A pick owns its subject.** Only when a fixed phrase would be wrong for some value of
    another pick (her trench coat when the weather varies; skin and eyes when ethnicity
    varies), make that phrase a pick too, `hidden=True`, in a later phase. Nothing fixed may
    contradict a drawn value, and nothing is said twice: each pick and each phrase appears once.
 
-So a program has few picks: one per user list and smart wildcard, one per thing the user
-asked to vary, 1 to 3 you add, and hidden picks only where step 5 needs them. All other
-text is fixed, written out in `emit()`.
+So a program's picks are: one per user list and smart wildcard, one per thing the user
+asked to vary, one per listed detail their words narrow, the ones you add for what they
+left open, and hidden picks only where step 5 needs them. All other text is fixed, written
+out in `emit()`.
 
 Keep everything the user fixed (if they say dark brown hair, every image has dark brown
 hair).
@@ -165,10 +167,12 @@ Still write `about=` and a seed in the list's form.
   ("her grandmother's silver braid", "eyes like a winter sea"), write the pick without
   `cls=`, or keep their words as fixed text. A list is a partial catalogue: most picks have
   no list, and that's fine.
-- What the user stated stays fixed text, as always: a detail they wrote gets no pick, bound
-  or not. "A woman with emerald eyes and long red hair in a braid" keeps "emerald eyes",
-  "long red hair" and "in a braid" in every image; only what they left open (her expression,
-  her outfit) can be a pick.
+- A detail the user stated as one value stays fixed text: "a woman with emerald eyes and her
+  hair in a braid" keeps "emerald eyes" and "in a braid" in every image, with no eye or
+  hairstyle pick. A detail they stated as a kind, which leaves the list several values that
+  fit, is a bound pick narrowed to their words, as below: "a young woman" gets an age pick
+  drawn only from young ages; "in a yoga outfit" gets an outfit pick drawn only from yoga
+  looks; "long red hair" gets a hair colour pick drawn only from red shades.
 - Some lists name their parts after "where:" in the list below. When the user's words narrow a
   listed detail and one of those parts says it, bind it with that part:
   `pick("age", cls="person.age_band", where={"life_stage": "young adult"}, ...)` for "a young
@@ -229,7 +233,8 @@ emit("A candid street photograph of a", job, "in his fifties walking home down a
      outfit, ". Snow settles on his shoulders, and he has", expression, ".", light,
      ", and his breath fogs in the cold air. Shot on 35mm film, natural color.")
 ```
-"in his fifties", "a snowy street" and "at night" are the user's: they stay fixed. The outfit
+"a snowy street" and "at night" are the user's: they stay fixed. "in his fifties" stays as
+written too: it already says his age closely, so there is no age pick. The outfit
 names `{job}`, so a chef and a firefighter each get outfits written for them. His expression
 has a list, so it binds to it.
 

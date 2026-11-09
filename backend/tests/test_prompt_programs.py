@@ -214,9 +214,9 @@ class TestPrepare:
         assert entry["attempts"] == 2
         assert 'pick("clothing")' in calls[1][-1]["content"]
 
-    async def test_marks_asked_for_choices_as_from_text(self, stub):
+    async def test_a_pick_from_a_hash_line_is_from_text_even_marked_added(self, stub):
         _, replies = stub
-        replies.append("```python\n" + TRAIN_M.replace('label="Clothing", line=2', 'label="Clothing", added=True') + "```")
+        replies.append("```python\n" + TRAIN_M.replace('label="Clothing", line=2', 'label="Clothing", line=2, added=True') + "```")
         entry = await self._ensure()
         clothing = next(c for c in entry["choices"] if c["id"] == "clothing")
         assert clothing["source"] == "text" and clothing["line"] == 2
@@ -468,61 +468,6 @@ class TestFixInCode:
         from prompt_programs.runtime import extract_code
         assert extract_code('```python\na = 1\nemit("x")\n') == 'a = 1\nemit("x")\n'
 
-    def test_unmarked_details_count_toward_the_cap_and_dependent_ones_stay(self):
-        src = ('job = pick("job", ["nun", "nurse"], source="list", phase=1, line=1)\n'
-               'look = pick("look", about=f"how the {job} looks", seed=["tired eyes"], phase=2, line=1)\n'
-               'g1 = pick("girl[1].hair", about="x", seed=["red hair"], phase=1, line=1)\n'
-               'g2 = pick("girl[2].hair", about="x", seed=["grey hair"], phase=1, line=1)\n'
-               'mood = pick("mood", about="x", seed=["calm"], phase=1, line=1)\n'
-               'light = pick("light", about="x", seed=["soft light"], phase=1, added=True)\n'
-               'sky = pick("sky", about="x", seed=["a clear sky"], phase=1, added=True)\n'
-               'season = pick("season", about="the season", seed=["autumn"], phase=1, line=1)\n'
-               'emit(job, look, g1, g2, mood, light, sky, season)\n')
-        out, notes = prep.trim_added(src, "A {nun|nurse} and two girls, {{season}}")
-        # details: look, hair (one per girl), mood, light, sky; {{season}} and the list aren't added
-        assert 'sky = "a clear sky"' in out and 'light = "soft light"' in out and len(notes) == 2
-        assert 'look = pick(' in out and 'season = pick(' in out and 'g2 = pick(' in out
-
-    STATED = "A {nun|nurse} in her thirties waiting on a rainy platform, {{outfit}}, candid photo"
-    STATED_EX = "A candid photo of a [{nun|nurse}] in her thirties waiting on a rainy platform, wearing a grey coat."
-
-    def test_a_pick_holding_what_the_user_stated_becomes_fixed_text(self):
-        src = ('job = pick("job", ["nun", "nurse"], label="Job", source="list", phase=1, line=1)\n'
-               'age = pick("age", about="her age", seed=["in her thirties"], phase=1, added=True)\n'
-               'place = pick("place", about="the setting", seed=["a rainy platform"], phase=1, added=True)\n'
-               'outfit = pick("outfit", about=f"what a {job} wears", seed=["a grey coat"], phase=2, line=1)\n'
-               'emit("A candid photo of a", job, age, "waiting on", place, ", wearing", outfit, ".")\n')
-        assert set(prep.lost_stated(src, self.STATED, self.STATED_EX).values()) == {"thirties", "rainy", "platform"}
-        notes = prep.validate(src, self.STATED, [], set(), self.STATED_EX)["notes"]
-        assert any('"thirties"' in p and "stays fixed text" in p for p in notes)  # a note; fix_stated repairs it in code
-        out, notes = prep.fix_stated(src, self.STATED, self.STATED_EX)
-        assert 'age = "in her thirties"' in out and 'place = "a rainy platform"' in out and len(notes) == 2
-        assert 'outfit = pick(' in out  # the user's wildcard stays a pick
-        assert not prep.validate(out, self.STATED, [], set(), self.STATED_EX)["problems"]
-
-    def test_grammar_is_not_stated_and_unclassifiable_words_are_never_frozen(self):
-        src = ('outfit = pick("outfit", about="what she wears", seed=["eine rote Jacke"], phase=1, added=True)\n'
-               'emit("Ein Porträt einer Frau, sie trägt", outfit)\n')
-        enhanced = "Ein Porträt einer Frau, sie trägt eine rote Jacke."
-        assert prep.lost_stated(src, "Eine Frau", enhanced) == {}
-        assert prep.fix_stated(src, "Eine Frau", enhanced) == (src, [])
-        # One word that is English too ("her") is not enough to call a prompt English.
-        assert prep.lost_stated(src, "Eine Frau kommt von rechts her", enhanced) == {}
-        assert prep.fix_stated(src, "Eine Frau kommt von rechts her", enhanced) == (src, [])
-        # In English, "a"/"her" are grammar: only stated content words count as lost.
-        en = ('outfit = pick("outfit", about="what she wears", seed=["a red jacket on her"], phase=1, added=True)\n'
-              'emit("A portrait of a woman", outfit)\n')
-        assert prep.lost_stated(en, "A portrait of a woman, the light on her", "A portrait of a woman, a red jacket on her, the light") \
-            == {"light": "light"}
-
-    def test_a_fixed_copy_of_the_users_words_is_never_cut(self):
-        src = ('w = pick("w", about="the weather", seed=["a rainy platform"], phase=1, added=True)\n'
-               'emit("A nun waiting, a rainy platform, candid photo", w)\n')
-        out, _ = prep.fix_duplicates(src, self.STATED)
-        assert "waiting, a rainy platform, candid" in out
-        out, notes = prep.fix_stated(src, self.STATED, self.STATED_EX)
-        assert out.splitlines()[1] == 'emit("A nun waiting, a rainy platform, candid photo")' and notes
-
     def test_what_a_hash_line_asks_to_vary_is_shown_and_an_unused_group_goes(self):
         src = ('people = group("people", 3, label="People", line=1)\n'
                'o1 = pick("o1", about="x", seed=["a coat"], phase=2, line=2, hidden=True)\n'
@@ -560,11 +505,37 @@ class TestFixInCode:
         assert 'seed=["Acme"]' in prep.drop_name_options(src, "a {{brand}} laptop")
         assert prep.is_name_of("The Brands.", "brand") and not prep.is_name_of("a brand new laptop", "brand")
 
-    def test_more_than_three_added_picks_become_fixed_text(self):
-        src = "".join(f'p{i} = pick("{n}", about="x", seed=["s{i}"], phase=1, added=True)\n'
-                      for i, n in enumerate(["light", "sky", "mood", "pose", "lens"]))
-        out, notes = prep.trim_added(src + "emit(p0, p1, p2, p3, p4)\n")
-        assert 'p3 = "s3"' in out and 'p4 = "s4"' in out and 'p2 = pick(' in out and len(notes) == 2
+    # What the writer wrote for "young woman in a yoga outfit" (canary, pp-37): an age narrowed to
+    # young adults, an outfit narrowed to yoga looks, and the details the prompt leaves open.
+    YOGA = (
+        'ethnicity = pick("ethnicity", cls="person.ethnicity", about="the woman\'s ethnicity", seed=["Japanese"], label="Ethnicity", phase=1, line=1)\n'
+        'age = pick("age", cls="person.age_band", where={"life_stage": "young adult"}, about="the woman\'s age", seed=["a young adult"], label="Age", phase=1, line=1)\n'
+        'hair_color = pick("hair_color", cls="person.hair_color", about="the woman\'s hair colour", seed=["black"], label="Hair colour", phase=1, added=True)\n'
+        'hair_style = pick("hair_style", cls="person.hairstyle", about="the woman\'s hairstyle", seed=["a sleek high ponytail"], label="Hairstyle", phase=1, added=True)\n'
+        'expression = pick("expression", cls="person.expression", about="the woman\'s expression", seed=["a calm, focused expression"], label="Expression", phase=1, added=True)\n'
+        'outfit = pick("outfit", cls="person.outfit.athletic", about="what she wears for yoga", seed=["a sage green ribbed yoga set"], label="Outfit", phase=2, line=1, where={"sport": "yoga"})\n'
+        'pose = pick("pose", cls="person.pose", about="the woman\'s pose", seed=["sitting in a meditative lotus position"], label="Pose", phase=2, added=True)\n'
+        'setting = pick("setting", about="the yoga setting", seed=["a sun-drenched, minimalist studio"], label="Setting", phase=1, added=True)\n'
+        'emit("A photograph of a young", ethnicity, "woman, aged", age, ", with", hair_color, "hair in", hair_style, ", with",\n'
+        '     expression, ",", pose, "in", setting, ". She is wearing", outfit, ".")\n')
+
+    def test_every_pick_the_writer_wrote_stays_a_pick(self):
+        prompt = "young woman in a yoga outfit"
+        out, notes = prep.fix_written(self.YOGA, prompt, [])
+        assert out == self.YOGA and notes == []
+        checked = prep.validate(out, prompt, [], set(), "")
+        assert checked["problems"] == []  # the outfit's Colours fill its template: never "missing" by name
+        info = checked["info"]
+        assert {c["id"] for c in info["choices"]} == {"ethnicity", "age", "hair_color", "hair_style", "expression",
+                                                    "outfit", "outfit.colours", "pose", "setting"}
+
+    def test_a_pick_the_writer_added_stays_added_whatever_the_prompt_says(self):
+        prompt = "young woman in a yoga outfit"
+        info = prep.validate(self.YOGA, prompt, [], set(), "")["info"]
+        prep.normalize_sources(info, prompt)
+        source = {c["id"]: c["source"] for c in info["choices"]}
+        assert source["pose"] == "added" and source["hair_style"] == "added"
+        assert source["outfit"] == "text" and source["age"] == "text"  # the writer gave them the user's line
 
 
 class TestFastPrepare:
@@ -646,18 +617,6 @@ class TestFastPrepare:
         assert "START OVER" in calls[n][-1]["content"]          # it was offered the way out
         assert entry["lineage"] == entry["key"] != first["key"]  # its own options, not the old prompt's
         assert "previous version" not in calls[n + 1][1]["content"]
-
-    async def test_a_patch_that_still_says_what_was_removed_is_prepared_anew(self, stub):
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_S}```")
-        await self._ensure()
-        edited = PROMPT.replace("A woman waiting", "A man waiting")
-        # the patch only touches the seed, so "woman" is still written; the repair changes nothing
-        replies += ['2: clothing = pick("clothing", about="his coat", seed=["a grey coat"], label="Clothing", phase=2, line=2)',
-                    "No change needed.", f"```python\n{TRAIN_S.replace('A woman', 'A man')}```"]
-        entry = await self._ensure(edited)
-        assert "patch" not in entry and "A man waiting" in entry["program"]
-        assert 'no longer says "woman"' in calls[2][-1]["content"]  # write, patch, repair, then anew
 
     async def test_try_different_choices_never_patches(self, stub):
         _, replies = stub

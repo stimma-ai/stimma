@@ -27,7 +27,7 @@ from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-37"
+PREPARE_VERSION = "pp-38"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -612,144 +612,7 @@ def fix_unplaced(source: str) -> Tuple[str, List[str]]:
     return source, notes
 
 
-MAX_ADDED = 3
-
-
-def _detail(pid: str) -> str:
-    """One detail per person: girl[1].hair, girl[2].hair and hair_2 are all "hair"."""
-    return re.sub(r"\[[^\]]*\]|\{[^}]*\}|\d+", "", pid).strip("_.") or pid
-
-
-def _wildcard_ids(tree: ast.AST, prompt: str) -> Set[str]:
-    """Ids of the picks validation takes for the prompt's {{name}} wildcards."""
-    names = smart_wildcards(prompt)
-    if not names:
-        return set()
-    choices = []
-    for _, call in _pick_assigns(tree):
-        pid = _const(call.args[0]) if call.args else _const(_kw(call, "id"))
-        if isinstance(pid, str):
-            about = _kw(call, "about")
-            choices.append({"kind": "pick", "id": pid, "label": str(_const(_kw(call, "label")) or pid),
-                            "source": _const(_kw(call, "source")) or "text",
-                            "about": ast.unparse(about) if about is not None else ""})
-    info = {"choices": choices}
-    return {c["id"] for c in (_smart_choice(info, n) for n in names) if c}
-
-
-def trim_added(source: str, prompt: str = "") -> Tuple[str, List[str]]:
-    """More than MAX_ADDED details the user didn't ask for: the extras become fixed text (their
-    first seed), so the prompt reads the same and the choices stay few. A detail the user didn't
-    ask for is any pick that isn't a user list, a {{wildcard}}, something a # line asks to vary,
-    or hidden, marked added=True or not; one per person counts once (girl[1].hair, girl[2].hair).
-    Picks the writer marked added go first, the latest first. A pick whose about= names another
-    pick, or that keys on one (by=), stays: one fixed seed would be wrong for the other's values."""
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return source, []
-    comments = _comment_lines(prompt)
-    wild = _wildcard_ids(tree, prompt)
-    extra: List[Tuple[ast.Call, str, bool, bool]] = []  # (call, detail, marked added, can freeze)
-    for node in ast.walk(tree):
-        if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick"):
-            continue
-        pid = _const(node.args[0]) if node.args else _const(_kw(node, "id"))
-        if not isinstance(pid, str):
-            pid = ast.unparse(node.args[0]) if node.args else "?"
-        if (_const(_kw(node, "source")) == "list" or _const(_kw(node, "hidden")) is True or pid in wild
-                or _const(_kw(node, "line")) in comments):
-            continue
-        seed = _kw(node, "seed")
-        about = _kw(node, "about")
-        frozen_ok = (isinstance(seed, ast.List) and bool(seed.elts) and isinstance(seed.elts[0], ast.Constant)
-                     and isinstance(seed.elts[0].value, str) and _kw(node, "by") is None
-                     and not (isinstance(about, ast.JoinedStr)
-                              and any(isinstance(v, ast.FormattedValue) for v in about.values)))
-        extra.append((node, _detail(pid), _const(_kw(node, "added")) is True, frozen_ok))
-    details = list(dict.fromkeys(d for _, d, _, _ in extra))
-    if len(details) <= MAX_ADDED:
-        return source, []
-    # the details to make fixed: marked-added ones first, then unmarked, each the latest first
-    order = sorted(details, key=lambda d: (not any(m for _, x, m, _ in extra if x == d),
-                                           -min(n.lineno for n, x, _, _ in extra if x == d)))
-    drop: Set[str] = set()
-    for d in order:
-        if len(details) - len(drop) <= MAX_ADDED:
-            break
-        if all(ok for _, x, _, ok in extra if x == d):
-            drop.add(d)
-    pos = _offsets(source)
-    edits, notes = [], []
-    for node, d, _, _ in extra:
-        if d not in drop:
-            continue
-        value = _kw(node, "seed").elts[0].value  # type: ignore[union-attr]
-        edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset),
-                      json.dumps(value, ensure_ascii=False)))
-        name = node.args[0].value if node.args and isinstance(node.args[0], ast.Constant) else d
-        notes.append(f'pick("{name}") made fixed text: more than {MAX_ADDED} added details')
-    for start, end, text in sorted(edits, reverse=True):
-        source = source[:start] + text + source[end:]
-    return source, notes
-
-
-# --------------------------------------------------------------------------- what the user stated
-
-# English function words: grammar, not something the user stated about the image.
-_STATED_STOP = {"a", "an", "the", "and", "or", "but", "nor", "so", "of", "in", "on", "at", "to", "for", "with", "by",
-                "from", "into", "onto", "over", "under", "about", "through", "near", "off", "up", "down", "out",
-                "is", "are", "was", "were", "be", "been", "being", "has", "have", "had", "do", "does", "did",
-                "her", "his", "its", "their", "our", "my", "your", "she", "he", "they", "it", "we", "you", "him", "them",
-                "this", "that", "these", "those", "there", "here", "as", "than", "then", "very", "some", "each",
-                "while", "who", "which", "whose", "where", "when", "not", "no", "all", "any", "both", "such"}
-# Words only English uses this way. A prompt with none of them (or with letters English
-# doesn't use) can't be told apart into stated words and grammar, so nothing is frozen.
-_ENGLISH_MARKERS = {"a", "an", "the", "and", "with", "in", "on", "of", "at", "to", "by", "for", "her", "his",
-                    "she", "he", "their", "this", "that", "is", "are", "wearing", "who", "which", "from", "into"}
-# Grammar words of other languages that English prompts don't use: one of these means the
-# prompt's function words are unknown, so nothing is treated as stated.
-_FOREIGN_MARKERS = {"der", "das", "und", "ein", "eine", "einer", "einem", "einen", "mit", "von", "ist", "sie",
-                    "le", "la", "les", "et", "une", "des", "du", "avec", "el", "los", "las", "y", "con", "una",
-                    "il", "di", "che", "och", "het", "een"}
-
-
-def _stem(word: str) -> str:
-    """A crude stem, enough to match "thirties"/"thirty" and "rainy"/"rain"."""
-    w = word.lower()
-    if w.endswith("ies") and len(w) > 4:
-        w = w[:-3] + "y"
-    elif w.endswith("s") and not w.endswith("ss") and len(w) > 3:
-        w = w[:-1]
-    for suffix in ("ing", "ed", "y"):
-        if w.endswith(suffix) and len(w) - len(suffix) >= 4:
-            return w[: -len(suffix)]
-    return w
-
-
-def _stems(text: str) -> Set[str]:
-    return {_stem(w) for w in re.findall(r"[a-z0-9]+", text.lower())}
-
-
-def _english(text: str) -> bool:
-    """Whether a prompt reads as English, so its function words are known."""
-    words = re.findall(r"[^\W\d_]+", text.lower())
-    if sum(1 for w in words if not w.isascii()) * 10 > len(words):  # letters English doesn't use
-        return False
-    found = set(words)
-    return len(found & _ENGLISH_MARKERS) >= 2 and not found & _FOREIGN_MARKERS
-
-
-def stated_words(prompt: str) -> Dict[str, str]:
-    """stem → word for what the user stated: their words outside {a|b} lists, {{name}}
-    wildcards, [protected text] and # lines. These stay fixed in every image."""
-    text = "\n".join(ln for ln in prompt.splitlines() if not ln.lstrip().startswith("#"))
-    text = re.sub(r"\{\{[^{}]*\}\}|\{[^{}]*\}|\[[^\[\]]*\]", " ", text)
-    out: Dict[str, str] = {}
-    for w in re.findall(r"[a-z0-9]+", text.lower()):
-        if w not in _STATED_STOP and len(w) > 1:
-            out.setdefault(_stem(w), w)
-    return out
+# --------------------------------------------------------------------------- program helpers
 
 
 def _comment_lines(prompt: str) -> Set[int]:
@@ -771,109 +634,6 @@ def _pick_assigns(tree: ast.AST) -> List[Tuple[Optional[str], ast.Call]]:
             var = node.targets[0].id if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) else None
             out.append((var, node.value))
     return out
-
-
-def _requested(call: ast.Call, prompt: str) -> bool:
-    """A pick the user asked for: a {{name}} wildcard, a list, or variety a # line asks for."""
-    if _const(_kw(call, "source")) == "list":
-        return True
-    if _const(_kw(call, "line")) in _comment_lines(prompt):
-        return True
-    pid = _const(call.args[0]) if call.args else _const(_kw(call, "id"))
-    label = _const(_kw(call, "label"))
-    names = {smart_id(n) for n in smart_wildcards(prompt)}
-    return (isinstance(pid, str) and smart_id(pid) in names) or (isinstance(label, str) and smart_id(label) in names)
-
-
-def _seeds(call: ast.Call) -> List[str]:
-    seed = _kw(call, "seed")
-    if not isinstance(seed, ast.List):
-        return []
-    return [str(e.value) for e in seed.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)]
-
-
-def lost_stated(source: str, prompt: str, enhanced: str) -> Dict[str, str]:
-    """stem → word for words the user stated (and the example kept) that the program's
-    fixed text never says: a pick swallowed them, or they were dropped. Words a user
-    list or a pick the user asked for covers don't count."""
-    if not uses_draws(source) or not _english(prompt):  # unclassifiable words: report nothing
-        return {}
-    stated = stated_words(prompt)
-    if not stated:
-        return {}
-    from prompt_programs.draws import fixed_text
-    try:
-        fixed = fixed_text(source)
-        tree = ast.parse(source)
-    except (ProgramError, SyntaxError, RecursionError):
-        return {}
-    have = _stems(re.sub(r"\[[^\[\]]*\]", " ", fixed))
-    comments = _comment_lines(prompt)
-    for _, call in _pick_assigns(tree):
-        # A user list's options, and what a # line asked to vary, may carry the user's
-        # words. A {{name}} wildcard covers only its own spot: words around it stay fixed.
-        if _const(_kw(call, "source")) == "list" or _const(_kw(call, "line")) in comments:
-            opts = call.args[1] if len(call.args) > 1 else _kw(call, "options")
-            texts = _seeds(call) + ([str(e.value) for e in opts.elts if isinstance(e, ast.Constant)]
-                                    if isinstance(opts, ast.List) else [])
-            for t in texts:
-                have |= _stems(t)
-    example = _stems(re.sub(r"\[\{.*?\}\]", " ", enhanced)) if enhanced else set(stated)
-    return {k: w for k, w in stated.items() if k in example and k not in have}
-
-
-def fix_stated(source: str, prompt: str, enhanced: str) -> Tuple[str, List[str]]:
-    """A pick the writer added (or hid) whose example holds something the user stated
-    ("in her thirties" made an age pick) turns back into fixed text, its first seed:
-    what the user wrote is never drawn away."""
-    stated = stated_words(prompt)
-    if not stated or not uses_draws(source) or not _english(prompt):  # never freeze words it can't classify
-        return source, []
-    lost = lost_stated(source, prompt, enhanced)
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return source, []
-    # Fixed text each variable is emitted next to: a seed of the user's words standing
-    # there too means the pick repeats them, and its other values would contradict them.
-    beside: Dict[str, str] = {}
-    for call in ast.walk(tree):
-        if isinstance(call, ast.Call) and getattr(call.func, "id", None) == "emit":
-            text = " ".join(a.value for a in call.args if isinstance(a, ast.Constant) and isinstance(a.value, str)).lower()
-            for a in call.args:
-                if isinstance(a, ast.Name):
-                    beside[a.id] = beside.get(a.id, "") + " " + text
-    pos = _offsets(source)
-    edits: List[Tuple[int, int, str]] = []
-    notes: List[str] = []
-    fixed_vars: Dict[str, str] = {}
-    for var, call in _pick_assigns(tree):
-        seeds = _seeds(call)
-        if _requested(call, prompt) or not seeds:
-            continue
-        mine = _stems(seeds[0]) & set(stated)
-        repeated = bool(mine) and var is not None and len(seeds[0].split()) >= 2 and seeds[0].lower() in beside.get(var, "")
-        if not (mine & set(lost) or repeated):
-            continue
-        edits.append((pos(call.lineno, call.col_offset), pos(call.end_lineno, call.end_col_offset),
-                      json.dumps(seeds[0], ensure_ascii=False)))
-        name = _const(call.args[0]) if call.args else var
-        words = ", ".join(f'"{stated[k]}"' for k in sorted(mine))
-        notes.append(f'pick("{name}") made fixed text: the user wrote {words}')
-        if var:
-            fixed_vars[var] = seeds[0]
-    # The same words already standing in an emit() next to the variable: drop the variable there.
-    for call in ast.walk(tree):
-        if not (isinstance(call, ast.Call) and getattr(call.func, "id", None) == "emit"):
-            continue
-        text = " ".join(a.value for a in call.args if isinstance(a, ast.Constant) and isinstance(a.value, str)).lower()
-        for i, a in enumerate(call.args):
-            if isinstance(a, ast.Name) and a.id in fixed_vars and fixed_vars[a.id].lower() in text and i > 0:
-                prev = call.args[i - 1]
-                edits.append((pos(prev.end_lineno, prev.end_col_offset), pos(a.end_lineno, a.end_col_offset), ""))
-    for start, end, text in sorted(edits, reverse=True):
-        source = source[:start] + text + source[end:]
-    return source, notes
 
 
 def fix_brackets(source: str) -> Tuple[str, List[str]]:
@@ -1008,9 +768,7 @@ def fix_requested(source: str, prompt: str) -> Tuple[str, List[str]]:
 def fix_duplicates(source: str, prompt: str = "") -> Tuple[str, List[str]]:
     """A pick's seed phrase left in emit()'s fixed text while the same emit() also passes
     the pick says it twice, and contradicts every other value the pick draws: cut the
-    fixed copy, unless it holds words the user wrote (the pick is what's wrong then).
-    Returns the source and what changed."""
-    stated = set(stated_words(prompt)) if prompt else set()
+    fixed copy. Returns the source and what changed."""
     try:
         tree = ast.parse(source)
     except SyntaxError:
@@ -1040,8 +798,6 @@ def fix_duplicates(source: str, prompt: str = "") -> Tuple[str, List[str]]:
                     before, after = text[:at].rstrip(), text[at + len(phrase):].lstrip()
                     # only a phrase that stands alone between punctuation: cutting one mid-clause
                     # ("glints under the dramatic light") would leave the sentence broken
-                    if stated and _stems(phrase) & stated:
-                        continue  # the user's own words stay
                     if at >= 0 and (not before or before[-1] in ",.;:") and (not after or after[0] in ",.;:"):
                         text = text[:at] + text[at + len(phrase):]
                         notes.append(f'"{phrase}" cut from the fixed text: {var} says it')
@@ -1326,13 +1082,6 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
         problems.append("Emit only the prompt text itself, with no quote marks or <<< >>> around it.")
     if any(re.search(r"\{[^{}]*\|[^{}]*\}", r.prompt) or "[{" in r.prompt for r in samples):
         problems.append("Replace every {a|b} list with its pick's value; never emit the braces.")
-    if elaborate:
-        lost = lost_stated(source, prompt, enhanced)
-        if lost:
-            words = ", ".join(f'"{w}"' for w in lost.values())
-            notes.append(f"The user wrote {words}, but the text your program always emits doesn't say it: it is "
-                            "inside a pick, or left out. What the user states stays fixed text in emit(), in their "
-                            "words; make picks only of what the user's prompt leaves open.")
     for seg in _verbatim_segments(prompt):
         bad = [r for r in samples if seg.lower() not in realized_text(r.prompt).lower()]
         if bad:
@@ -1344,9 +1093,13 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
                 problems.append(f'Don\'t emit instruction lines ("{ln[:50]}"). They are for you, not the image model.')
                 break
     missing: Dict[str, str] = {}
+    # a palette pick (a template's Colours) reaches the prompt as the colours it fills in, never by its name
+    palettes = {lf.slots for lf in vocabulary().leaves.values() if lf.slots}
     for r in samples:  # a choice that never reaches the prompt does nothing
         text = r.prompt.lower()
         for d in r.draws:
+            if d.kind == "pick" and getattr(d, "cls", None) in palettes:
+                continue
             if d.kind == "pick" and not d.hidden and d.value and str(d.value).lower() not in text:
                 missing.setdefault(d.id, str(d.value))
     for r in samples:  # LoRAs work by being on; a name in the text is noise to the image model
@@ -1454,24 +1207,14 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
 
 
 def normalize_sources(info: Dict[str, Any], prompt: str) -> None:
-    """Weak models mark things the user asked for as added. If a choice's name appears in
-    the user's text, it came from the text, and gets the line it appears on."""
+    """A {{name}} wildcard is the user's own choice: from their text, on its line, whatever
+    the writer marked it. Every other choice keeps the source the writer gave it."""
     lines = [ln.lower() for ln in prompt.splitlines()]
     for name in smart_wildcards(prompt):  # the user's own {{name}}: from their text, on its line
         c = _smart_choice(info, name)
         if c:
             c["source"], c["wildcard"] = "text", name
             c["line"] = next((i + 1 for i, ln in enumerate(lines) if "{{" + name.lower() in ln.replace("{{ ", "{{")), c.get("line"))
-    for c in info["choices"]:
-        if c.get("source") == "list":
-            continue
-        keys = {c["label"].lower(), (c.get("attr") or c["id"]).replace("_", " ").lower()}
-        keys |= {k[:-1] for k in keys if k.endswith("s")}  # hairstyles → hairstyle
-        for i, ln in enumerate(lines):
-            if any(re.search(rf"\b{re.escape(k)}", ln) for k in keys if len(k) > 2):
-                c["source"] = "text"
-                c.setdefault("line", i + 1)
-                break
 
 
 # --------------------------------------------------------------------------- entry point
@@ -1914,25 +1657,6 @@ def _describe_changes(changes: Sequence[Tuple[str, str]]) -> str:
     return "; ".join(out)
 
 
-_STOP = {"a", "an", "the", "and", "or", "of", "in", "on", "at", "to", "for", "with", "by", "from", "is", "are", "her",
-         "his", "its", "their", "very"}
-
-
-def stale_words(source: str, old: str, new: str, loras: Sequence[LoraInfo], params: Set[str]) -> List[str]:
-    """Words the edit took out of the prompt that the patched program still writes
-    ("an axe" became "a sword", but the seed still says axe)."""
-    gone = set().union(*(_words(removed) for removed, _ in prompt_changes(old, new)), set()) - _words(new) - _STOP
-    gone = {w for w in gone if len(w) > 2 and not w.startswith("exact")}
-    if not gone:
-        return []
-    written = set()
-    for s in (11, 23, 37, 51):
-        written |= _words(run(source, s, None, loras, params).prompt)
-    still = sorted(gone & written)
-    return [f'The prompt no longer says "{w}", but the program still writes it. Change or remove it to match the '
-            "edited prompt." for w in still]
-
-
 async def _ask_patch(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int = 1024) -> str:
     """Edits that carry a prompt edit into its program (its own name for timing)."""
     return await _ask_model(messages, project_id, max_tokens=max_tokens)
@@ -1985,11 +1709,11 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
         kind = "text"
     fixed: List[str] = []
     for round_ in range(2):  # the patch, then at most one repair of it
-        source, more = fix_patched(source, new, enhanced if elaborate else "")
+        source, more = fix_patched(source, new)
         fixed += more
         check(source)
         checked = validate(source, new, loras, set(params), enhanced if elaborate else plain_example(new), elaborate)
-        problems = checked["problems"] + (stale_words(source, old, new, loras, set(params)) if kind == "text" else [])
+        problems = checked["problems"]
         if not problems:
             break
         log.info(f"[prompt-program] patch ({kind}) rejected: {' '.join(problems)[:300]}")
@@ -2107,7 +1831,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                          "again, short: write the text once in emit() and give each pick 1 to 3 seeds.")
                 continue
             source, repaired = drop_name_options(extract_code(reply), source_prompt), False
-        source, fixed = fix_written(source, source_prompt, enhanced, loras)
+        source, fixed = fix_written(source, source_prompt, loras)
         fixes += fixed
         try:
             check(source)
@@ -2159,27 +1883,26 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     return entry
 
 
-def fix_written(source: str, prompt: str, enhanced: str, loras: Sequence[LoraInfo]) -> Tuple[str, List[str]]:
+def fix_written(source: str, prompt: str, loras: Sequence[LoraInfo]) -> Tuple[str, List[str]]:
     """The fixes in code a written (or repaired) program gets before validation, in order.
     Returns the source and what changed."""
     notes: List[str] = []
     for fix in (fix_quotes, fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, fix_unplaced, fix_brackets,
-                lambda x: fix_requested(x, prompt), lambda x: fix_stated(x, prompt, enhanced),
-                lambda x: fix_duplicates(x, prompt), lambda x: trim_added(x, prompt),
+                lambda x: fix_requested(x, prompt), lambda x: fix_duplicates(x, prompt),
                 lambda x: fix_trigger_words(x, loras, prompt)):
         source, more = fix(source)
         notes += more
     return source, notes
 
 
-def fix_patched(source: str, prompt: str, stated_example: str) -> Tuple[str, List[str]]:
+def fix_patched(source: str, prompt: str) -> Tuple[str, List[str]]:
     """The fixes in code a program patched for a prompt edit gets (fewer than a fresh write:
     what the edit didn't touch was already fixed)."""
     source = drop_name_options(source, prompt)
     notes: List[str] = []
     for fix in (fix_generated_refs, lambda x: fix_one_item_lists(x, prompt), lambda x: fix_list_sources(x, prompt),
-                fix_phases, lambda x: fix_requested(x, prompt), lambda x: fix_stated(x, prompt, stated_example)):
+                fix_phases, lambda x: fix_requested(x, prompt)):
         source, more = fix(source)
         notes += more
     return source, notes

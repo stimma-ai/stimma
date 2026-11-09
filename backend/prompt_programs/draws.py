@@ -41,7 +41,7 @@ from prompt_programs.runtime import (
 )
 from prompt_programs.typicality import Conditioner, Known, who_of, prefix_of
 from prompt_programs.typicality import tables as typicality_tables
-from prompt_programs.vocab import fill, template_matches, vocabulary
+from prompt_programs.vocab import fill, tags_match, template_matches, vocabulary
 
 DRAW_VERSION = "draws-2"
 SPEC_ARGS = ("about", "phase", "seed", "cls")
@@ -598,7 +598,9 @@ class OptionsService(Protocol):
 
 class LiteralOptions:
     """Pools from the program itself: seeds first, then its option literals, then the
-    user's edits (removals stay removed: an emptied pool is empty, never restored)."""
+    user's edits (removals stay removed: an emptied pool is empty, never restored). A pick
+    the program writes no values for (a template's Colours, added by the engine) draws from
+    its list, restricted as the template says."""
 
     def __init__(self, edits: Optional[Dict[str, Dict[str, Any]]] = None):
         self.edits = edits or {}
@@ -606,6 +608,11 @@ class LiteralOptions:
 
     def get(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
         items = list(dict.fromkeys([*spec.seeds, *spec.literal]))
+        leaf = vocabulary().resolve(spec.cls) if not items and spec.cls else None
+        if leaf is not None:
+            want = {f: list(vals) for f, vals in spec.restrict}
+            values = leaf.eligible()
+            items = [v.text for v in values if tags_match(v.tags, want)] or [v.text for v in values]
         edit = self.edits.get(spec.id) or {}
         if edit.get("remove"):
             gone = {str(x) for x in edit["remove"]}

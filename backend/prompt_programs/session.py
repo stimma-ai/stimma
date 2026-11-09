@@ -280,10 +280,10 @@ class Turn:
         source, fixed = strip_wrapping(source)
         if how in ("edit", "code") and self.editing:  # a prompt edit carried into the program: the patch fixes
             source, _ = prep.fix_quotes(source)
-            source, more = prep.fix_patched(source, self.prompt, "")
+            source, more = prep.fix_patched(source, self.prompt)
         else:
             source = prep.drop_name_options(source, self.prompt)
-            source, more = prep.fix_written(source, self.prompt, self._example(), self.loras)
+            source, more = prep.fix_written(source, self.prompt, self.loras)
         fixed += more
         self.fixes += fixed
         self.program = source
@@ -292,8 +292,6 @@ class Turn:
             check(source)
             checked = prep.validate(source, self.prompt, self.loras, set(self.params), self._example(), self.elaborate)
             problems = list(checked["problems"])
-            if self.editing and how != "code":
-                problems += prep.stale_words(source, self.old or "", self.prompt, self.loras, set(self.params))
         except ProgramError as e:
             problems = [str(e)]
         except (RecursionError, ValueError, TypeError, KeyError, IndexError) as e:  # a program the checks trip on

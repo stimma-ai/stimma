@@ -400,14 +400,6 @@ class TestEdits:
         assert "It now reads" in sent[4]["content"] and "2: emit(" in sent[4]["content"]
         assert_replayable(chain_of(model.store, entry))
 
-    async def test_stale_words_still_block(self, model):
-        await self._base(model)
-        model.replies = [reply(edit([{"line": 1, "text": GOOD.splitlines()[0].replace("Weather", "Sky")}])),
-                         reply(edit([{"line": 2, "text": 'emit("A woman waiting for a train on a", w, "evening.")'}]))]
-        entry = await ensure(EDITED)
-        assert "no longer says \"morning\"" in model.seen[-1][-1]["content"]
-        assert entry["attempts"] == 2 and "evening" in entry["program"]
-
     async def test_a_list_change_is_carried_in_code(self, model):
         base = await self._base(model)
         entry = await ensure("A woman waiting for a train on a {rainy|foggy|snowy} morning.")
