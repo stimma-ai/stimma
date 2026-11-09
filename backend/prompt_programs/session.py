@@ -122,12 +122,13 @@ EDIT_SCHEMA = _tool(
         "required": ["line", "text"]}}},
     ["edits"])
 
+# No argument: a "reason" field invited the model to argue an added detail into a new subject
+# (an edit decision probe: 41/45 edits kept with it, 45/45 without, restarts 30/30 either way).
 START_OVER_SCHEMA = _tool(
     "start_over",
-    "Only after the user edits their prompt: the new prompt is a different prompt, not an edit (what the "
-    "image is of has changed). The program is then written fresh for it.",
-    {"reason": {"type": "string", "description": "In a few words, what changed."}},
-    ["reason"])
+    "The user's edited prompt is a different prompt, not an edit: what the image is of has changed, and little of "
+    "the program would survive. The program is then written fresh. Use it only then.",
+    {}, [])
 
 
 # --------------------------------------------------------------------------- line edits
