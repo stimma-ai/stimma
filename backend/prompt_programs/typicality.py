@@ -340,6 +340,10 @@ def _mentions(text: str, extra: Tuple[str, ...], version: str) -> Tuple[Mention,
         after = " ".join((after[: b.start()] if b else after).split()[:12])
         noun = _singular(m.group(1), nouns)
         info = nouns.get(noun) or {}
+        if noun != m.group(1):
+            # "two women, one aged 70 and one aged 20": only what describes them all, before
+            # the noun ("two elderly Japanese women"), is about each of them.
+            after = ""
         gender = str(info.get("gender") or "")
         for w in before.split():
             if w in ("female", "feminine", "woman"):

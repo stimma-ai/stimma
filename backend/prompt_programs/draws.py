@@ -1009,9 +1009,11 @@ class _Engine:
         return self.cond.reweight(cid, key, items, keep), key
 
     def known_text(self, exe: "_Exec", k: float) -> str:
-        """The text so far with everything settled in the clear (earlier phases, pins and
-        this phase's decided picks): what typicality reads people from."""
-        return self.state(exe, k, clear=set(self.decided))
+        """The text so far with settled details in the clear (earlier phases, pins, this
+        phase's decided picks): what typicality reads people from. Bound people picks stay
+        masked: they reach other picks only matched to their own person (`_known`), so one
+        person's drawn age is never read off the text as another's."""
+        return self.state(exe, k, clear=set(self.decided) - set(self.bound), mask=set(self.bound))
 
     def _typical_order(self, exe: "_Exec", order: List[str]) -> List[str]:
         """Within a phase, conditioners decide before the picks they condition: unbound
@@ -1086,18 +1088,20 @@ class _Engine:
             for k, p in zip(keys, self.judge.judge(state, qs)):
                 self.judged[k] = dict(p)
 
-    def state(self, exe: _Exec, k: float, clear: Optional[Set[str]] = None) -> str:
+    def state(self, exe: _Exec, k: float, clear: Optional[Set[str]] = None, mask: Optional[Set[str]] = None) -> str:
         """The text so far for the judge: pins and earlier phases in the clear, this
-        phase and later ones masked as [Label] (except picks in `clear`)."""
+        phase and later ones masked as [Label] (except picks in `clear`; picks in `mask`
+        are masked whatever their phase)."""
         out: List[str] = []
-        clear = clear or set()
+        clear, mask = clear or set(), mask or set()
         for text, taint in exe.spans:
             hidden: List[Tuple[str, bool]] = []
             for s, derived in sorted(taint):
-                if self.an.sites[s].phase < k:
-                    continue
                 for cid in exe.site_ids.get(s, []):
-                    if cid in exe.by_id and cid not in self.single_pins and cid not in clear:
+                    if cid in mask and cid in exe.by_id:
+                        hidden.append((cid, derived))
+                    elif (self.an.sites[s].phase >= k and cid in exe.by_id and cid not in self.single_pins
+                          and cid not in clear):
                         hidden.append((cid, derived))
             if not hidden:
                 out.append(text)

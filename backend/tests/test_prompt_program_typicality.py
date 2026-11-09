@@ -239,6 +239,41 @@ emit("A grandmother with", g, "hair and her little granddaughter with", k, "hair
         assert sum(v["grandmother.hair"] in GREY for _, v in rows) / len(rows) > 0.4
         assert not any(v["granddaughter.hair"] in {"gray", "white", "salt-and-pepper"} for _, v in rows)
 
+    def test_each_person_in_a_group_loop_follows_their_own_age(self):
+        src = '''
+n = group("people", 3, label="Friends", line=1)
+parts = []
+for i in range(n):
+    age = pick(f"people[{i+1}].age", cls="person.age_band", about="this person's age", seed=["25–29"], label="Age", phase=1, line=1)
+    hair = pick(f"people[{i+1}].hair", cls="person.hair_color", about="this person's hair color", seed=["black"], label="Hair", phase=2, line=1)
+    parts.append(["a person aged", age, "with", hair, "hair"])
+emit("Three friends at a picnic:", parts)
+'''
+        young = old = young_grey = old_grey = 0
+        for _, v in many(src, 400):
+            for i in (1, 2, 3):
+                lo = int(v[f"people[{i}].age"].split("–")[0])
+                grey = v[f"people[{i}].hair"] in GREY
+                if lo < 35:
+                    young, young_grey = young + 1, young_grey + grey
+                elif lo >= 65:
+                    old, old_grey = old + 1, old_grey + grey
+        assert young_grey / young < 0.02 and old_grey / old > 0.5
+
+    def test_one_persons_drawn_age_never_narrows_anothers(self):
+        src = '''
+a1 = pick("girl[1].age", cls="person.age_band", about="the first woman's age", seed=["20–24"], label="Age", phase=1, line=1)
+h1 = pick("girl[1].hair", cls="person.hair_color", about="her hair color", seed=["black"], label="Hair", phase=1, line=1)
+a2 = pick("girl[2].age", cls="person.age_band", about="the second woman's age", seed=["20–24"], label="Age", phase=1, line=1)
+h2 = pick("girl[2].hair", cls="person.hair_color", about="her hair color", seed=["black"], label="Hair", phase=1, line=1)
+emit("Two women: one aged", a1, "with", h1, "hair, and one aged", a2, "with", h2, "hair")
+'''
+        rows = [v for _, v in many(src, 600)]
+        old_young = [v for v in rows if int(v["girl[1].age"].split("–")[0]) >= 65 and int(v["girl[2].age"].split("–")[0]) < 35]
+        assert len(old_young) > 15   # the second woman's age is drawn on its own
+        assert not any(v["girl[2].hair"] in {"gray", "white", "salt-and-pepper"} for v in old_young)
+        assert sum(v["girl[1].hair"] in GREY for v in old_young) / len(old_young) > 0.5
+
     def test_a_pending_beard_keeps_a_person_out_of_childhood(self):
         src = '''
 age = pick("age", cls="person.age_band", about="the person's age", seed=["30–34"], label="Age", phase=1, line=1)
