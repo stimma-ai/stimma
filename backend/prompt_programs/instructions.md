@@ -142,7 +142,10 @@ phases drew; picks in the same phase are drawn without seeing each other.
    "friends of [Ethnicity] descent". A number of people ("four friends", "a couple", "three
    nurses") is a `group()` with a loop that gives each person their own picks; people the
    prompt describes one by one are written out by hand (`girl[1].hair`, `girl[2].hair`).
-   What the user said of all of them stays fixed text ("sharing a pizza", "in scrubs").
+   Every detail of a person, their age, descent, hair and expression included, is drawn for
+   each person, with an id that names them: a couple is two people, so `couple[1].ethnicity`
+   and `couple[2].ethnicity`, never one `ethnicity` for both. What the user said of all of them
+   stays fixed text ("sharing a pizza", "in scrubs").
 
 So a program's picks are: one per user list and smart wildcard, one per thing the user
 asked to vary, one per listed detail their words narrow, the ones you add for what they

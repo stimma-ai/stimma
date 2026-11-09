@@ -28,7 +28,7 @@ from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-39"
+PREPARE_VERSION = "pp-40"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -1206,7 +1206,47 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
         opts = [o.strip() for o in m.group(1).split("|")]
         if not any(c["options"][: len(opts)] == opts and c.get("source") == "list" for c in info["choices"]):
             problems.append(f'The user list {{{m.group(1)}}} must be a pick with exactly these options in order and source="list".')
+    problems += _shared_person_details(info, source)
     return {"info": info, "problems": list(dict.fromkeys(problems)), "notes": list(dict.fromkeys(notes))}
+
+
+_PERSON_INDEX = re.compile(r"^([A-Za-z_]\w*)\[(\d+)\]\.")
+
+
+def _shared_person_details(info: Dict[str, Any], source: str = "") -> List[str]:
+    """With more than one person (a group(), or picks like girl[1].hair and girl[2].hair), a
+    detail of a person (a pick bound to a person list) whose id names no person is shared by
+    all of them: "a couple" drawing one ethnicity for both."""
+    indexed = {(m.group(1), m.group(2)) for c in info["choices"] if (m := _PERSON_INDEX.match(str(c.get("id"))))}
+    people = any(int(g.get("count") or 0) >= 2 for g in info.get("groups") or []) or len(indexed) >= 2
+    if not people:
+        return []
+    vocab = vocabulary()
+    palettes = {lf.slots for lf in vocab.leaves.values() if lf.slots}
+    loops = []  # (variable, group id) for each group() the program itself declares
+    try:
+        loops = [(n.targets[0].id, _const(n.value.args[0])) for n in ast.walk(ast.parse(source))
+                 if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name)
+                 and isinstance(n.value, ast.Call) and getattr(n.value.func, "id", None) == "group"
+                 and n.value.args and isinstance(_const(n.value.args[0]), str)]
+    except SyntaxError:
+        pass
+    shared = [str(c["id"]) for c in info["choices"]
+              if c.get("kind") == "pick" and str(c.get("cls") or "").startswith("person.")
+              and str(c.get("cls")) not in palettes and "." not in str(c.get("id") or "")]
+    if not shared:
+        return []
+    names = ", ".join(f'pick("{cid}")' for cid in shared)
+    if loops:
+        var, g = loops[0]
+        how = (f"Draw them inside the loop, one per person: under `for i in range({var}):` write "
+               f'`{shared[0]} = pick(f"{g}[{{i+1}}].{shared[0]}", ...)` and emit `{shared[0]}` in that same loop, '
+               "where that person is described.")
+    else:
+        who = (sorted(indexed) or [("person", "")])[0][0]
+        how = f"Write one pick per person: {who}[1].{shared[0]}, {who}[2].{shared[0]}, and so on, each emitted where that person is."
+    return [f"{names} {'is' if len(shared) == 1 else 'are'} drawn once and shared by everyone, but each person needs "
+            f"their own. {how} This changes the program's shape: rewrite it whole with write_program."]
 
 
 def normalize_sources(info: Dict[str, Any], prompt: str) -> None:
