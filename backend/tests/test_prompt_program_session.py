@@ -185,6 +185,31 @@ class TestFixQuotes:
         assert out == src and not notes
 
 
+class TestWrapping:
+    @pytest.mark.parametrize("wrapped", [
+        "python\n" + GOOD, "```python\n" + GOOD + "```", "```\n" + GOOD + "```\n", "write_program source:\n" + GOOD,
+        "Python\n\n" + GOOD, "```py\n" + GOOD,
+    ])
+    def test_fence_and_label_lines_are_dropped(self, wrapped):
+        out, notes = ses.strip_wrapping(wrapped)
+        assert out == GOOD and notes
+
+    def test_a_plain_program_is_untouched(self):
+        assert ses.strip_wrapping(GOOD) == (GOOD, [])
+
+    async def test_a_tagged_write_validates_first_time(self, model):
+        model.replies = [reply(write("python\n" + GOOD))]
+        entry = await ensure()
+        assert entry["attempts"] == 1 and entry["program"] == GOOD
+        assert "'python' around the program dropped" in chain_of(model.store, entry)[-1]["content"]
+
+    async def test_an_edit_that_puts_the_tag_back_on_line_1_is_cleaned(self, model):
+        model.replies = [reply(write(BAD)),
+                         reply(edit([{"line": 1, "text": "python\n" + GOOD.rstrip()}]))]
+        entry = await ensure()
+        assert entry["program"] == GOOD and entry["attempts"] == 2
+
+
 class TestNewPrompt:
     async def test_a_valid_first_write_ends_the_turn(self, model):
         model.replies = [reply(write(GOOD))]

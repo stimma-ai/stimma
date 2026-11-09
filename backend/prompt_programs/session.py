@@ -277,12 +277,14 @@ class Turn:
         """Fix in code, validate, and say what happened. The fixed source is the program now.
         how: "write", "edit" (the model's), or "code" (a list or [exact text] change carried
         over in code)."""
+        source, fixed = strip_wrapping(source)
         if how in ("edit", "code") and self.editing:  # a prompt edit carried into the program: the patch fixes
             source, _ = prep.fix_quotes(source)
-            source, fixed = prep.fix_patched(source, self.prompt, "")
+            source, more = prep.fix_patched(source, self.prompt, "")
         else:
             source = prep.drop_name_options(source, self.prompt)
-            source, fixed = prep.fix_written(source, self.prompt, self._example(), self.loras)
+            source, more = prep.fix_written(source, self.prompt, self._example(), self.loras)
+        fixed += more
         self.fixes += fixed
         self.program = source
         checked: Optional[Dict[str, Any]] = None
@@ -320,12 +322,33 @@ class Turn:
         return f"Not applied: {why}\n{self.numbered()}"
 
 
+# A line that is never program text: a code fence, a fence's language tag on its own ("python"),
+# or the label the instructions' examples put above a program. Models wrap the source with them.
+_WRAPPING = re.compile(r"^\s*(?:```\s*(?:python|py)?|python3?|py|(?:write_program\s+)?source:|program:)\s*$", re.I)
+
+
+def strip_wrapping(source: str) -> Tuple[str, List[str]]:
+    """Fence and label lines around the program (leading or trailing) dropped. Returns the
+    source and what was cut, for the tool result."""
+    lines = source.split("\n")
+    cut = []
+    while lines and (_WRAPPING.match(lines[0]) or not lines[0].strip()):
+        if lines[0].strip():
+            cut.append(lines[0].strip())
+        lines.pop(0)
+    while lines and (_WRAPPING.match(lines[-1]) or not lines[-1].strip()):
+        if lines[-1].strip():
+            cut.append(lines[-1].strip())
+        lines.pop()
+    if not cut:
+        return source, []
+    return "\n".join(lines) + "\n", [f"{', '.join(repr(c) for c in dict.fromkeys(cut))} around the program dropped"]
+
+
 def _write(turn: Turn, args: Dict[str, Any]) -> str:
     source = args.get("source")
     if not isinstance(source, str) or not source.strip():
         return turn.refuse("write_program needs source: the whole program as one string.")
-    if source.lstrip().startswith("```"):
-        source = prep.extract_code(source)
     return turn.settle(source, "write")
 
 
