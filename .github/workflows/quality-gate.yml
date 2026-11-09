@@ -158,7 +158,7 @@ jobs:
         working-directory: frontend
         run: npm ci
       - name: Install FFmpeg
-        timeout-minutes: 3
+        timeout-minutes: 6
         run: bash scripts/ci-install-ffmpeg.sh
       - name: Install Playwright Chromium
         timeout-minutes: 3
@@ -212,7 +212,7 @@ jobs:
         run: npm ci
 
       - name: Install FFmpeg
-        timeout-minutes: 3
+        timeout-minutes: 6
         run: bash scripts/ci-install-ffmpeg.sh
 
       - name: Install Playwright Chromium
