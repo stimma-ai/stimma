@@ -128,6 +128,16 @@ test('a picked image\'s menu acts on every pick, and the selection bar reaches i
   assert.equal((await page.evaluate(() => window.chatMenus.printed[0])).match(/<img /g).length, 2)
 })
 
+test('a pick without an asset keeps the menu on every pick, not the clicked one\'s asset', async t => {
+  const page = await fixture(t, '?surface=collection&mixed')
+  const collection = page.getByTestId('media-collection')
+  await collection.getByRole('checkbox', { name: 'Select image 1' }).click({ force: true })
+  await collection.getByRole('checkbox', { name: 'Select image 2' }).click({ force: true })
+  await collection.locator('[data-tile="0"]').first().click({ button: 'right' })
+  assert.deepEqual(await menuState(page), { visible: true, mediaId: 101, assetId: 201, mediaIds: [101, 102], assetIds: [], selected: 2, projectId: 7 })
+  await expect(menu(page).getByRole('button', { name: 'Move 2 to trash' })).toBeVisible()
+})
+
 test('a picked hero opens the picks\' menu', async t => {
   const page = await fixture(t, '?surface=collection&view=preview')
   const hero = page.getByTestId('media-collection-hero')

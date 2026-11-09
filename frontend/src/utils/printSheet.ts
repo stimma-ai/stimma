@@ -1,7 +1,8 @@
 // The printable pages of a contact sheet: every item, each whole (fit, never
-// cropped), four across and five down per page.
+// cropped), four across and four down per page. Five rows overflow a Letter
+// page at the print margins, which spills every sheet onto a second page.
 
-export const PRINT_SHEET_PER_PAGE = 20
+export const PRINT_SHEET_PER_PAGE = 16
 
 export interface PrintSheetItem {
   id?: number | null

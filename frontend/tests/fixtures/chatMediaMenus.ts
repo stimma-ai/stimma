@@ -26,7 +26,9 @@ createApp({
       panelAvailable: false, panelItemId: ref(null), openPanel: () => {}, closePanel: () => {}, projectId: () => 7 })
     collections.viewState(1, () => (params.get('view') === 'preview' ? 'preview' : 'grid'))
     provide(CHAT_MEDIA_COLLECTIONS, collections)
-    const rows = Array.from({ length: count }, (_, i) => ({ id: i + 1, output: { status: 'complete', media_id: 101 + i, asset_id: 201 + i, file_format: 'png' } }))
+    // ?mixed: the second image is a chat-only working result with no asset.
+    const mixed = params.has('mixed')
+    const rows = Array.from({ length: count }, (_, i) => ({ id: i + 1, output: { status: 'complete', media_id: 101 + i, asset_id: mixed && i === 1 ? null : 201 + i, file_format: 'png' } }))
     const showStage = ref(params.get('surface') !== 'collection')
     const viewedRevision = computed(() => revisions.find(rev => rev.id === viewed.value) || null)
     Object.assign(window, { chatMenus: { menu: useMediaContextMenu(), events, collections, viewed, printed: [] as string[] } })

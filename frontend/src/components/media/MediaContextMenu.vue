@@ -1270,14 +1270,18 @@ function emit(name: 'refresh' | 'permanent-delete', ...args: unknown[]) {
 }
 
 // Multi-selection computed properties
+const targetMediaIds = computed<number[]>(() => (
+  contextMenu.state.value.mediaIds || [contextMenu.state.value.mediaId].filter((id): id is number => id != null)
+))
+// A batch without every pick's asset stays a media batch: falling back to the
+// clicked item's asset would aim asset actions at that one pick alone.
 const targetAssetIds = computed<number[]>(() => (
   contextMenu.state.value.assetIds?.length
     ? contextMenu.state.value.assetIds
-    : [contextMenu.state.value.assetId ?? mediaItem.value?.asset_id]
-        .filter((id): id is number => id != null)
-))
-const targetMediaIds = computed<number[]>(() => (
-  contextMenu.state.value.mediaIds || [contextMenu.state.value.mediaId].filter((id): id is number => id != null)
+    : targetMediaIds.value.length > 1
+      ? []
+      : [contextMenu.state.value.assetId ?? mediaItem.value?.asset_id]
+          .filter((id): id is number => id != null)
 ))
 const targetIds = computed(() => targetAssetIds.value.length > 0 ? targetAssetIds.value : targetMediaIds.value)
 const selectedItems = computed(() => contextMenu.state.value.selectedItems || [])
