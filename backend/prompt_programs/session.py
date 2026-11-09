@@ -319,7 +319,8 @@ class Turn:
         return "" if self.elaborate else prep.plain_example(self.prompt)
 
     def refuse(self, why: str) -> str:
-        return f"Not applied: {why}\n{self.numbered()}"
+        still = f"\nStill to fix:\n" + "\n".join(f"- {p}" for p in self.last_error.split("\n")) if self.last_error else ""
+        return f"Not applied: {why}{still}\n{self.numbered()}"
 
 
 # A line that is never program text: a code fence, a fence's language tag on its own ("python"),
@@ -352,16 +353,24 @@ def _write(turn: Turn, args: Dict[str, Any]) -> str:
     return turn.settle(source, "write")
 
 
+# The text protocol's escalation: a repair that doesn't settle it is followed by a rewrite. In the
+# session, an edit that leaves the turn with no program that runs asks for one.
+_REWRITE = ("Edits haven't made a program that runs. Write the whole program again with write_program, "
+            "fixing what is listed above.")
+
+
 def _edit(turn: Turn, args: Dict[str, Any]) -> str:
     if turn.program is None:
         return turn.refuse("there is no program yet: write it with write_program.")
     try:
         edited = apply_edits(turn.program, args.get("edits"))
     except EditError as e:
-        return turn.refuse(f"{e}.")
-    if edited == turn.program:
-        return turn.refuse("those edits change nothing.")
-    return turn.settle(edited, "edit")
+        result = turn.refuse(f"{e}.")
+    else:
+        result = turn.refuse("those edits change nothing.") if edited == turn.program else turn.settle(edited, "edit")
+    if turn.accepted is None and turn.best is None:
+        result += "\n" + _REWRITE
+    return result
 
 
 def _start_over(turn: Turn, args: Dict[str, Any]) -> str:

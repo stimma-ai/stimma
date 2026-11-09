@@ -291,6 +291,23 @@ class TestNewPrompt:
         assert not list(tmp_path.rglob("*.json"))  # no entry, no node, no recent pointer
 
 
+class TestStuckEdits:
+    BROKEN = GOOD.replace("emit(", "emit(missing, ")  # NameError: no program that runs
+
+    async def test_a_failed_edit_with_nothing_runnable_asks_for_a_rewrite(self, model):
+        model.replies = [reply(write(self.BROKEN)), reply(edit([{"line": 1, "text": GOOD.splitlines()[0]}])),
+                         reply(write(GOOD))]
+        entry = await ensure()
+        result = model.seen[2][-1]["content"]
+        assert "change nothing" in result and "Still to fix" in result and "missing" in result
+        assert "write_program" in result.splitlines()[-1] and entry["program"] == GOOD
+
+    async def test_no_rewrite_request_while_a_runnable_program_is_in_hand(self, model):
+        model.replies = [reply(write(BAD)), reply(edit([{"line": 1, "text": BAD.strip()}])), reply(write(GOOD))]
+        await ensure()
+        assert "Write the whole program again" not in model.seen[2][-1]["content"]
+
+
 class TestDeadline:
     async def test_a_stalled_call_with_nothing_in_hand_times_out(self, model, monkeypatch):
         monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", 0.3)
