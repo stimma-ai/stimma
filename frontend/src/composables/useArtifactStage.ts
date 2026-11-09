@@ -63,7 +63,12 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
   // whatever the panel showed comes back when the collection leaves.
   const collectionItemId = ref<number | null>(null)
   let openBeforeCollection = false
+  // Bumped by anything that changes what the panel should show: a revision
+  // load or an open still in flight when it lands drops its result.
+  let generation = 0
+  let openIntent = 0
   function openCollection(itemId: number) {
+    openIntent++
     if (collectionItemId.value == null) openBeforeCollection = stageOpen.value
     collectionItemId.value = itemId
     stageOpen.value = true
@@ -74,6 +79,7 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
     stageOpen.value = openBeforeCollection
   }
   function openFile(file: WorkspaceFile) {
+    openIntent++
     collectionItemId.value = null
     workspaceFile.value = file
     stageOpen.value = true
@@ -148,12 +154,15 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
 
   // Loads/refreshes the revision chain for `id`. Does not touch stageOpen —
   // callers decide whether the panel should be visible.
-  async function syncAsset(id: number, { keepViewed = false } = {}) {
+  // Resolves false when a newer load, another asset or another chat took over.
+  async function syncAsset(id: number, { keepViewed = false } = {}): Promise<boolean> {
     const switchingAsset = assetId.value !== id
+    const token = ++generation
     assetId.value = id
     loading.value = true
     try {
       const data = await assetApi.getRevisions(id)
+      if (token !== generation || assetId.value !== id) return false
       asset.value = data.asset
       revisions.value = data.revisions || []
       const latest = revisions.value[revisions.value.length - 1] || null
@@ -162,15 +171,20 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
       }
       // else: was pinned to an older revision and still is — leave it, the
       // "Jump to newest" pill covers the gap (onNewest recomputes to false).
+      return true
     } finally {
-      loading.value = false
+      if (token === generation) loading.value = false
     }
   }
 
   async function openOnAsset(id: number, revisionId?: number | null) {
+    const intent = ++openIntent
     collectionItemId.value = null
     workspaceFile.value = null
     await syncAsset(id, { keepViewed: assetId.value === id })
+    // A newer load of this same asset still opens it; a close, another file,
+    // another asset or another chat since the click does not.
+    if (intent !== openIntent || assetId.value !== id) return
     if (revisionId != null && revisions.value.some(r => r.id === revisionId)) {
       viewedRevisionId.value = revisionId
     }
@@ -187,6 +201,7 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
       closeCollection()
       return
     }
+    openIntent++
     stageOpen.value = false
     lastClosedFile.value = workspaceFile.value
     workspaceFile.value = null
@@ -242,8 +257,8 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
       if (!isUserClosed(id)) stageOpen.value = true
       return
     }
-    syncAsset(id).then(() => {
-      if (!isUserClosed(id)) stageOpen.value = true
+    syncAsset(id).then((current) => {
+      if (current && !isUserClosed(id)) stageOpen.value = true
     }).catch((err) => {
       console.error('[artifact-stage] failed to load revisions for asset', id, err)
     })
@@ -269,7 +284,10 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
   let restoring = false
   watch(chatId, (id) => {
     restoring = true
+    generation++
+    openIntent++
     try {
+      loading.value = false
       collectionItemId.value = null
       stageOpen.value = false
       workspaceFile.value = null
