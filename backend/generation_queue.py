@@ -639,8 +639,13 @@ class GenerationQueue:
             'lora_context_signature': lora_context_signature(lora_context),
         }
         existing = self._prompt_warm_intent.get(generator_instance_id)
+        if existing and existing.get('kind') == 'fluent' and concurrency <= 0:
+            # The client clears enhance warming while a Fluent prompt runs (and keeps
+            # clearing on its heartbeat): that's not this pool's to clear.
+            return
         existing_snapshot = (
-            {k: existing[k] for k in self._PROMPT_WARM_INTENT_FIELDS} if existing else None
+            {k: existing[k] for k in self._PROMPT_WARM_INTENT_FIELDS}
+            if existing and existing.get('kind', 'enhance') == 'enhance' else None
         )
         if existing_snapshot != new_snapshot:
             self._cancel_prompt_warm_tasks(generator_instance_id)
@@ -672,9 +677,16 @@ class GenerationQueue:
             return
         ready = self._prompt_warm_ready.setdefault(generator_instance_id, [])
         tasks = self._prompt_warm_tasks.setdefault(generator_instance_id, set())
-        needed = intent['concurrency'] - len(ready) - len(tasks)
+        if intent.get('kind') == 'fluent':
+            # One refill at a time, drawing everything missing in one batch: the draws
+            # share each judge pass. It loops until the pool is full.
+            needed = 1 if not tasks and intent['concurrency'] > len(ready) else 0
+            refill = self._refill_fluent_draws
+        else:
+            needed = intent['concurrency'] - len(ready) - len(tasks)
+            refill = self._refill_prompt_warm_pool
         for _ in range(max(0, needed)):
-            task = asyncio.create_task(self._refill_prompt_warm_pool(generator_instance_id, intent))
+            task = asyncio.create_task(refill(generator_instance_id, intent))
             tasks.add(task)
 
             def _on_refill_done(t, gid=generator_instance_id):
@@ -747,6 +759,9 @@ class GenerationQueue:
         must fall back to synchronous enhancement, same as when no client
         preload exists at all (no regression versus today's behavior).
         """
+        intent = self._prompt_warm_intent.get(generator_instance_id)
+        if intent and intent.get('kind') == 'fluent':
+            return None  # a Fluent pool holds draws, never enhanced prompts
         if self._prompt_warm_pool_stale(generator_instance_id):
             self.teardown_prompt_warm_pool(generator_instance_id)
             return None
@@ -761,6 +776,82 @@ class GenerationQueue:
         entry = ready.pop(0)
         self._top_up_prompt_warm_pool(generator_instance_id)
         return entry
+
+    # --- Fluent hot draws ------------------------------------------------------
+    #
+    # The same pool, holding finished Fluent draws (drawn and judged) instead of
+    # enhanced prompts, so a forever-mode submit never waits on the fix judge. Its
+    # intent is set by the forever submits themselves: each one names exactly what
+    # it draws (the prepared program, pins, fixed values, edits, settings) as a
+    # signature. A draw is served only to a submit with the same signature; any
+    # other signature tosses the pool and refills it for the new one. It lives and
+    # dies with the forever-mode registration like the enhance pool (no TTL: a long
+    # video job between submits must not cost the pool).
+
+    def _forever_slots(self, generator_instance_id: str) -> int:
+        """This instance's forever-mode slots across backends (0: not registered)."""
+        slots = [clients[generator_instance_id] for clients in self._forever_mode_clients.values()
+                 if generator_instance_id in clients]
+        if not slots:
+            return 0
+        if any(not n for n in slots):  # 0 is unlimited
+            return PROMPT_WARM_POOL_MAX_CONCURRENCY
+        return max(1, min(max(slots), PROMPT_WARM_POOL_MAX_CONCURRENCY))
+
+    def take_fluent_draw(self, generator_instance_id: str, signature: str,
+                         spec: Callable[[], Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """A ready draw for this forever submit if one was made for exactly this
+        signature, else None (the caller draws inline). Either way the pool is kept
+        filled for this signature. `spec()` gives what realize_and_fix_many needs (entry,
+        pins, fixed, edits, triggers, profile_id, project_id); it's called only when the
+        signature is new. Never blocks."""
+        slots = self._forever_slots(generator_instance_id)
+        if slots <= 0:
+            return None
+        intent = self._prompt_warm_intent.get(generator_instance_id)
+        if not intent or intent.get('kind') != 'fluent' or intent['signature'] != signature:
+            self._cancel_prompt_warm_tasks(generator_instance_id)
+            intent = {'kind': 'fluent', 'signature': signature, 'spec': spec()}
+            self._prompt_warm_intent[generator_instance_id] = intent
+            self._prompt_warm_ready[generator_instance_id] = []
+        intent['concurrency'] = slots
+        intent['updated_at'] = time.monotonic()
+        ready = self._prompt_warm_ready.setdefault(generator_instance_id, [])
+        hot = ready.pop(0) if ready else None
+        self._top_up_prompt_warm_pool(generator_instance_id)
+        return hot
+
+    async def _refill_fluent_draws(self, generator_instance_id: str, intent: Dict[str, Any]) -> None:
+        """Background task body: draw and judge what the pool is missing, all in one
+        batch, until it's full or its intent has moved on (then the work is dropped)."""
+        from prompt_programs.fix import realize_and_fix_many
+        from prompt_programs.fluent import attach_filler
+        from prompt_programs.prepare import draw_seed
+
+        spec = intent['spec']
+        while self._prompt_warm_intent.get(generator_instance_id) is intent:
+            missing = intent['concurrency'] - len(self._prompt_warm_ready.get(generator_instance_id, []))
+            if missing <= 0:
+                return
+            # Fresh seeds, exactly as a submit without a draw seed gets.
+            seeds = [draw_seed() for _ in range(missing)]
+            try:
+                attach_filler(spec['entry'], spec.get('profile_id'))
+                made = await asyncio.to_thread(
+                    realize_and_fix_many, spec['entry'], seeds=seeds, pins=spec.get('pins'),
+                    fixed=spec.get('fixed'), edits=spec.get('edits'), triggers=spec.get('triggers', True),
+                    profile_id=spec.get('profile_id'), project_id=spec.get('project_id'))
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.warning(f"Fluent hot draws: refill failed for {generator_instance_id}: {e}")
+                return
+            if self._prompt_warm_intent.get(generator_instance_id) is not intent:
+                return  # the program, pins or settings changed meanwhile: drop it
+            good = [{'result': m[0], 'fix': m[1], 'seed': s} for s, m in zip(seeds, made) if not isinstance(m, Exception)]
+            self._prompt_warm_ready.setdefault(generator_instance_id, []).extend(good)
+            if not good:
+                return  # nothing draws (a pin nothing satisfies): submits say why inline
 
     def teardown_prompt_warm_pool(self, generator_instance_id: str) -> None:
         self._cancel_prompt_warm_tasks(generator_instance_id)

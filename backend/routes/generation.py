@@ -470,6 +470,7 @@ async def _apply_generation_prompt_pipeline(
     prompt_preload: Optional[Dict[str, Any]],
     generator_instance_id: Optional[str] = None,
     project_id: Optional[int] = None,
+    forever: bool = False,
 ) -> Dict[str, Any]:
     prompt = parameters.get("prompt")
     if not isinstance(prompt, str):
@@ -517,6 +518,7 @@ async def _apply_generation_prompt_pipeline(
             prompt, parameters, program_opts, ctx=ctx, tool_id=tool_id, prompt_options=prompt_options,
             project_id=project_id, profile_id=profile_id, elaborate=enhance_on,
             lora_triggers=lora_triggers, lora_notes=lora_notes,
+            hot_draws_for=generator_instance_id if forever else None,
         )
         auto_improve = dict((prompt_options or {}).get("autoImprove") or {})
         auto_improve["enabled"] = False
@@ -571,9 +573,12 @@ async def _run_prompt_program(
     elaborate: bool = True,
     lora_triggers: bool = True,
     lora_notes: bool = True,
+    hot_draws_for: Optional[str] = None,
 ) -> tuple[Dict[str, Any], str]:
+    """One generation's run of its prompt program. `hot_draws_for`: a forever-mode
+    submit's generator instance, served a draw its pool made ahead when one is current."""
     from llm_resolver import LLMUnavailableError
-    from prompt_programs.fix import realize_and_fix
+    from prompt_programs.fix import prompt_view, realize_and_fix
     from prompt_programs.prepare import ProgramError, draw_seed, ensure_program
 
     try:
@@ -586,12 +591,19 @@ async def _run_prompt_program(
         # Independent of the image seed; an explicit draw_seed repeats the same draws.
         from prompt_programs.fluent import attach_filler
         attach_filler(entry, profile_id)
-        # In a thread: a judge on CPU must not hold up the event loop.
-        # The fix pass (a local judge rerolling flagged picks) runs here when it's set up.
-        result, fix = await asyncio.to_thread(
-            realize_and_fix, entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"),
-            fixed=program_opts.get("fixed"), edits=program_opts.get("edits"), triggers=lora_triggers,
-            profile_id=profile_id, project_id=project_id, revision=program_opts.get("revision"))
+        hot = None
+        if hot_draws_for and program_opts.get("draw_seed") is None and not program_opts.get("revision"):
+            hot = _take_hot_draw(hot_draws_for, entry, program_opts, triggers=lora_triggers,
+                                 profile_id=profile_id, project_id=project_id)
+        if hot is not None:
+            result, fix = hot["result"], hot["fix"]
+        else:
+            # In a thread: a judge on CPU must not hold up the event loop.
+            # The fix pass (a local judge rerolling flagged picks) runs here when it's set up.
+            result, fix = await asyncio.to_thread(
+                realize_and_fix, entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"),
+                fixed=program_opts.get("fixed"), edits=program_opts.get("edits"), triggers=lora_triggers,
+                profile_id=profile_id, project_id=project_id, revision=program_opts.get("revision"))
     except ProgramError as e:
         raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
     except LLMUnavailableError as e:
@@ -603,7 +615,48 @@ async def _run_prompt_program(
               "choices": [c for c in entry.get("choices") or [] if not c.get("hidden")]}
     if fix is not None:
         record["fix"] = fix
+    if not (fix or {}).get("rounds"):  # the fix record's rounds carry each roll's prompt
+        record["view"] = prompt_view(result)
     return record, result.prompt
+
+
+def hot_draw_signature(entry: Dict[str, Any], program_opts: Dict[str, Any], *, triggers: bool,
+                       profile_id: Optional[str], project_id: Optional[int]) -> str:
+    """Everything a Fluent draw is made from: the prepared program as committed, the
+    pins, fixed values and edits, the LoRA trigger choice, the profile and project, and
+    the Fluent settings (judges, cut, rounds, knobs). A hot draw is served only to a
+    submit with the same signature."""
+    import dataclasses
+    import hashlib
+    from prompt_programs.judge import settings
+
+    payload = {
+        "entry": entry, "pins": program_opts.get("pins") or {}, "fixed": program_opts.get("fixed") or {},
+        "edits": program_opts.get("edits") or {}, "triggers": bool(triggers), "profile_id": profile_id,
+        "project_id": project_id, "settings": dataclasses.asdict(settings()),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def _take_hot_draw(generator_instance_id: str, entry: Dict[str, Any], program_opts: Dict[str, Any], *,
+                   triggers: bool, profile_id: Optional[str], project_id: Optional[int]) -> Optional[Dict[str, Any]]:
+    """A current hot draw for this forever submit, or None to draw inline. A broken pool
+    never costs the submit."""
+    import copy
+    from generation_queue import get_generation_queue
+    try:
+        signature = hot_draw_signature(entry, program_opts, triggers=triggers, profile_id=profile_id,
+                                       project_id=project_id)
+
+
+        def spec() -> Dict[str, Any]:  # a copy the pool keeps while this signature is current
+            return copy.deepcopy({"entry": entry, "pins": program_opts.get("pins"), "fixed": program_opts.get("fixed"),
+                                  "edits": program_opts.get("edits"), "triggers": triggers,
+                                  "profile_id": profile_id, "project_id": project_id})
+        return get_generation_queue().take_fluent_draw(generator_instance_id, signature, spec)
+    except Exception as e:
+        log.warning(f"Fluent hot draws: take failed for {generator_instance_id}: {e}")
+        return None
 
 
 def _apply_program_run(updated: Dict[str, Any], record: Dict[str, Any], schema_props: Dict[str, Any]) -> None:
@@ -1862,6 +1915,7 @@ async def submit_generation_job(
             prompt_preload=request.prompt_preload,
             generator_instance_id=request.generator_instance_id,
             project_id=request.project_id,
+            forever=_should_consume_forever_reservation(request),
         )
         if request.prompt_metadata:
             parameters["prompt_metadata"] = request.prompt_metadata.model_dump()

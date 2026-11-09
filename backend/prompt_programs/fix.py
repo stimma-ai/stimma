@@ -50,9 +50,9 @@ import re
 import threading
 import time
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Generator, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
 
@@ -73,6 +73,7 @@ DEFAULTS: Dict[str, Any] = {
 }
 REROLL_STRIDE = 10007   # reroll r draws on seed + stride * r (the eval's seeds)
 DEFAULT_ROUNDS = 4
+MAX_BATCH = 64          # pairs per model call; a bigger pass runs as several
 
 
 class FixJudgeUnavailable(RuntimeError):
@@ -94,19 +95,53 @@ def head(label: str, about: str) -> str:
     return label + (f" ({about})" if about and about.lower() != label.lower() else "")
 
 
+def locate(prompt: str, value: str, first: bool = False) -> Optional[int]:
+    """Where a pick's value stands in the finished prompt: its one occurrence, else its one
+    whole-word occurrence (short values like "10"), else (`first`) the first whole-word
+    one. None when it isn't found that way. The judge masks this span, and the
+    generation details highlight it."""
+    hits = [m.start() for m in re.finditer(re.escape(value), prompt, re.I)]
+    if len(hits) != 1:
+        hits = [m.start() for m in re.finditer(r"(?<![\w-])" + re.escape(value) + r"(?![\w-])", prompt, re.I)]
+        if not hits or (len(hits) > 1 and not first):
+            return None
+    return hits[0]
+
+
 def mask(prompt: str, value: str, label: str, first: bool = False) -> Optional[str]:
     """The finished prompt with this pick's value shown as [label], every other pick
     filled. None when the value's text isn't found exactly once. `first`: a user-list
     value that generated text repeats masks its first occurrence, where the user's
     template put it."""
-    hits = [m.start() for m in re.finditer(re.escape(value), prompt, re.I)]
-    if len(hits) != 1:
-        # a whole-word match may disambiguate short values like "10"
-        hits = [m.start() for m in re.finditer(r"(?<![\w-])" + re.escape(value) + r"(?![\w-])", prompt, re.I)]
-        if not hits or (len(hits) > 1 and not first):
-            return None
-    i = hits[0]
+    i = locate(prompt, value, first)
+    if i is None:
+        return None
     return prompt[:i] + f"[{label}]" + prompt[i + len(value):]
+
+
+def shown_picks(result: Any) -> List[Any]:
+    """The picks a reader sees in the prompt: visible, drawn, with text."""
+    return [d for d in result.draws
+            if d.kind == "pick" and not d.hidden and d.value is not None and str(d.value).strip()]
+
+
+def prompt_view(result: Any) -> Dict[str, Any]:
+    """A draw as the generation details show it: the prompt the image model read, where
+    each visible pick's value stands in it ([start, end, id], in order, never
+    overlapping), and each visible pick's value."""
+    from prompt_programs.prepare import realized_text
+    text = realized_text(result.prompt)
+    found: List[Tuple[int, int, str]] = []
+    picks = shown_picks(result)
+    # longer values first, so one that contains another keeps its whole span
+    for d in sorted(picks, key=lambda d: -len(str(d.value))):
+        v = str(d.value)
+        i = locate(text, v, first=d.source == "list")
+        if i is None or any(i < e and s < i + len(v) for s, e, _ in found):
+            continue
+        found.append((i, i + len(v), d.id))
+    return {"text": text, "spans": [list(x) for x in sorted(found)],
+            "values": {d.id: str(d.value) for d in picks}}
 
 
 # --------------------------------------------------------------------------- the ONNX judge
@@ -132,6 +167,21 @@ def _file_digest(path: Path) -> str:
             f.seek(-(4 << 20), os.SEEK_END)
             h.update(f.read())
     return h.hexdigest()[:12]
+
+
+def default_threads() -> int:
+    """onnxruntime threads for the judge when fix_threads is unset: one batch of a draw's
+    picks ran fastest at 8 on a 20-core CPU (more threads cost more than they gave)."""
+    return max(1, min(8, os.cpu_count() or 1))
+
+
+@dataclass
+class _Ask:
+    todo: List[Tuple[str, str]]
+    got: Dict[Tuple[str, str], float] = field(default_factory=dict)
+    error: Optional[BaseException] = None
+    done: bool = False
+    lead: bool = False
 
 
 class OnnxJudge:
@@ -177,7 +227,7 @@ class OnnxJudge:
             pad = next((self.tok.token_to_id(t) for t in (tc, "[PAD]", "<pad>") if t and self.tok.token_to_id(t) is not None), 0)
         self.pad_id = int(pad)
         so = ort.SessionOptions()
-        so.intra_op_num_threads = int(threads) if threads else min(4, os.cpu_count() or 1)
+        so.intra_op_num_threads = int(threads) if threads else default_threads()
         so.inter_op_num_threads = 1
         so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         self.session = ort.InferenceSession(str(model), so, providers=["CPUExecutionProvider"])
@@ -197,7 +247,11 @@ class OnnxJudge:
         self._cache: "OrderedDict[Tuple[str, str], float]" = OrderedDict()
         self._cache_items = cache_items
         self._lock = threading.Lock()       # the cache
-        self._run_lock = threading.Lock()   # one pass at a time: onnxruntime already uses the threads
+        # Passes asked for while one runs wait for it, then run together as the next one:
+        # one pass uses every thread, and a batch costs far less than its parts run apart.
+        self._turn = threading.Condition()
+        self._waiting: List["_Ask"] = []
+        self._busy = False
         self.passes = 0
         self.questions = 0
         self.hits = 0
@@ -266,7 +320,8 @@ class OnnxJudge:
         return [float(x) for x in p[:, self.wrong_index]]
 
     def p_wrong(self, items: Sequence[Item]) -> List[float]:
-        """P(wrong) per item, in one model pass for everything not cached."""
+        """P(wrong) per item. Everything not cached is asked in one model pass, shared
+        with any other thread's items asked meanwhile."""
         pairs = [self.texts(it) for it in items]
         out: List[Optional[float]] = []
         with self._lock:
@@ -278,19 +333,52 @@ class OnnxJudge:
         todo = list(dict.fromkeys(k for k, v in zip(pairs, out) if v is None))
         self.hits += len(pairs) - sum(1 for v in out if v is None)
         if todo:
-            started = time.monotonic()
-            with self._run_lock:
-                got = dict(zip(todo, self._run(todo)))
-            self.seconds += time.monotonic() - started
-            self.passes += 1
-            self.questions += len(todo)
-            with self._lock:
-                for k, v in got.items():
-                    self._cache[k] = v
-                    while len(self._cache) > self._cache_items:
-                        self._cache.popitem(last=False)
+            got = self._ask(todo)
             out = [got[k] if v is None else v for k, v in zip(pairs, out)]
         return [float(v) for v in out]  # type: ignore[arg-type]
+
+    def _ask(self, todo: List[Tuple[str, str]]) -> Dict[Tuple[str, str], float]:
+        """Score pairs in the next pass. A caller arriving while a pass runs waits; when it
+        ends, the first waiting caller runs one pass for everyone who waited."""
+        ask = _Ask(todo)
+        with self._turn:
+            self._waiting.append(ask)
+            while self._busy and not ask.done and not ask.lead:
+                self._turn.wait()
+            if not ask.done:
+                self._busy = True
+                batch, self._waiting = self._waiting, []
+        if not ask.done:
+            pairs = list(dict.fromkeys(k for a in batch for k in a.todo))
+            started = time.monotonic()
+            got: Dict[Tuple[str, str], float] = {}
+            error: Optional[BaseException] = None
+            try:
+                for i in range(0, len(pairs), MAX_BATCH):
+                    chunk = pairs[i:i + MAX_BATCH]
+                    got.update(zip(chunk, self._run(chunk)))
+            except BaseException as e:  # every caller in the pass hears it
+                error = e
+            self.seconds += time.monotonic() - started
+            self.passes += 1
+            self.questions += len(pairs)
+            if error is None:
+                with self._lock:
+                    for k, v in got.items():
+                        self._cache[k] = v
+                        while len(self._cache) > self._cache_items:
+                            self._cache.popitem(last=False)
+            with self._turn:
+                for a in batch:
+                    a.got, a.error, a.done = got, error, True
+                if self._waiting:
+                    self._waiting[0].lead = True
+                else:
+                    self._busy = False
+                self._turn.notify_all()
+        if ask.error is not None:
+            raise ask.error
+        return ask.got
 
     def stats(self) -> Dict[str, Any]:
         return {"version": self.version, "passes": self.passes, "questions": self.questions, "hits": self.hits,
@@ -342,22 +430,29 @@ def judged_picks(result: Any, skip: Sequence[str] = (), rerolled: Sequence[str] 
             and (len(d.options) >= 2 or d.id in rerolled_set) and d.id not in skip_set and counts[d.id] == 1]
 
 
-def score_draw(judge: Any, result: Any, user_prompt: str, skip: Sequence[str] = (),
-               rerolled: Sequence[str] = ()) -> Dict[str, Optional[float]]:
-    """P(wrong) per judged pick of a finished draw (None when it can't be masked)."""
+def _questions(result: Any, user_prompt: str, skip: Sequence[str] = (),
+               rerolled: Sequence[str] = ()) -> Tuple[List[Item], List[str], Dict[str, Optional[float]]]:
+    """What scoring a finished draw asks the judge: one item per judged pick that can be
+    masked, their ids, and None for the ones that can't."""
     from prompt_programs.prepare import realized_text
     text = realized_text(result.prompt)
-    picks = judged_picks(result, skip, rerolled)
     items: List[Item] = []
     ids: List[str] = []
     out: Dict[str, Optional[float]] = {}
-    for d in picks:
+    for d in judged_picks(result, skip, rerolled):
         st = mask(text, str(d.value), d.label, first=d.source == "list")
         if st is None:
             out[d.id] = None
             continue
         items.append(Item(st, d.label, d.about or "", str(d.value), user_prompt))
         ids.append(d.id)
+    return items, ids, out
+
+
+def score_draw(judge: Any, result: Any, user_prompt: str, skip: Sequence[str] = (),
+               rerolled: Sequence[str] = ()) -> Dict[str, Optional[float]]:
+    """P(wrong) per judged pick of a finished draw (None when it can't be masked)."""
+    items, ids, out = _questions(result, user_prompt, skip, rerolled)
     for cid, p in zip(ids, judge.p_wrong(items) if items else []):
         out[cid] = p
     return out
@@ -371,11 +466,15 @@ def _merge_edits(user: Dict[str, Any], removed: Dict[str, List[str]]) -> Dict[st
     return out
 
 
-def fix_draw(result: Any, *, judge: Any, redraw: Callable[[int, Dict[str, Any], Dict[str, Any]], Any],
-             seed: int, user_prompt: str, cut: float, rounds: int = DEFAULT_ROUNDS,
-             fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None) -> Tuple[Any, Dict[str, Any]]:
-    """Score a finished draw and reroll flagged picks. `redraw(seed, fixed, edits)` draws
-    the program again. Returns the draw to ship and what the fix did, for the run record."""
+Redraw = Callable[[int, Dict[str, Any], Dict[str, Any]], Any]
+# One draw's fix loop, as steps: it yields the items it needs scored and is sent their
+# scores, so several draws can share each judge pass. It returns (draw, record).
+Fixer = Generator[List[Item], List[float], Tuple[Any, Dict[str, Any]]]
+
+
+def _fixer(result: Any, *, judge: Any, redraw: Redraw, seed: int, user_prompt: str, cut: float,
+           rounds: int = DEFAULT_ROUNDS, fixed: Optional[Dict[str, Any]] = None,
+           edits: Optional[Dict[str, Any]] = None) -> Fixer:
     from prompt_programs.runtime import ProgramError
     started = time.monotonic()
     user_fixed = {str(k): v for k, v in (fixed or {}).items()}
@@ -387,9 +486,14 @@ def fix_draw(result: Any, *, judge: Any, redraw: Callable[[int, Dict[str, Any], 
     best: Optional[Tuple[Tuple[int, float], int, Any]] = None
     stop = ""
     for rnd in range(rounds + 1):
-        scores = score_draw(judge, cur, user_prompt, skip, list(removed))
+        items, ids, scores = _questions(cur, user_prompt, skip, list(removed))
+        got = (yield items) if items else []
+        for cid, p in zip(ids, got):
+            scores[cid] = p
         flagged = sorted(((p, cid) for cid, p in scores.items() if p is not None and p > cut), reverse=True)
-        step: Dict[str, Any] = {"scores": {cid: (None if p is None else round(p, 4)) for cid, p in scores.items()}}
+        # Each roll's prompt and values: what the generation details show, row by row.
+        step: Dict[str, Any] = {"scores": {cid: (None if p is None else round(p, 4)) for cid, p in scores.items()},
+                                **prompt_view(cur)}
         history.append(step)
         key = (len(flagged), flagged[0][0] if flagged else 0.0)
         if best is None or key < best[0]:
@@ -423,6 +527,55 @@ def fix_draw(result: Any, *, judge: Any, redraw: Callable[[int, Dict[str, Any], 
     return out, record
 
 
+def _drive(judge: Any, fixers: Sequence[Fixer]) -> List[Any]:
+    """Run fix loops in lockstep: each round, every loop still going asks its items in
+    one shared judge pass. A loop's outcome is (draw, record), or the exception it (or
+    its judge pass) raised. Each loop sees exactly the scores it would alone."""
+    outcome: List[Any] = [None] * len(fixers)
+    asks: Dict[int, List[Item]] = {}
+
+    def advance(i: int, scores: Optional[List[float]]) -> None:
+        try:
+            asks[i] = fixers[i].send(scores)  # type: ignore[arg-type]
+        except StopIteration as done:
+            outcome[i] = done.value
+            asks.pop(i, None)
+        except Exception as e:
+            outcome[i] = e
+            asks.pop(i, None)
+
+    for i in range(len(fixers)):
+        advance(i, None)
+    while asks:
+        order = list(asks)
+        flat = [it for i in order for it in asks[i]]
+        try:
+            ps = judge.p_wrong(flat)
+        except Exception as e:
+            for i in order:
+                outcome[i] = e
+                asks.pop(i, None)
+            break
+        at = 0
+        for i in order:
+            n = len(asks[i])
+            got, at = ps[at:at + n], at + n
+            advance(i, got)
+    return outcome
+
+
+def fix_draw(result: Any, *, judge: Any, redraw: Redraw, seed: int, user_prompt: str, cut: float,
+             rounds: int = DEFAULT_ROUNDS, fixed: Optional[Dict[str, Any]] = None,
+             edits: Optional[Dict[str, Any]] = None) -> Tuple[Any, Dict[str, Any]]:
+    """Score a finished draw and reroll flagged picks. `redraw(seed, fixed, edits)` draws
+    the program again. Returns the draw to ship and what the fix did, for the run record."""
+    (out,) = _drive(judge, [_fixer(result, judge=judge, redraw=redraw, seed=seed, user_prompt=user_prompt, cut=cut,
+                                   rounds=rounds, fixed=fixed, edits=edits)])
+    if isinstance(out, Exception):
+        raise out
+    return out
+
+
 def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] = None,
                     fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
                     triggers: bool = True, profile_id: Optional[str] = None, project_id: Optional[int] = None,
@@ -431,33 +584,61 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
     """realize(), then the fix pass when a fix judge is set (fix_model) and the program
     has pick specs. An exact replay (`revision`) is never fixed. Returns the result and
     the fix record (None when no fix ran). Blocking: run it in a worker thread."""
+    if revision:
+        from prompt_programs.prepare import realize
+        return realize(entry, seed=seed, pins=pins, fixed=fixed, edits=edits, triggers=triggers,
+                       profile_id=profile_id, project_id=project_id, revision=revision), None
+    out = realize_and_fix_many(entry, seeds=[seed], pins=pins, fixed=fixed, edits=edits, triggers=triggers,
+                               profile_id=profile_id, project_id=project_id, cfg=cfg, judge=judge)[0]
+    if isinstance(out, Exception):
+        raise out
+    return out
+
+
+def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: Optional[Dict[str, Any]] = None,
+                         fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
+                         triggers: bool = True, profile_id: Optional[str] = None, project_id: Optional[int] = None,
+                         cfg: Any = None, judge: Any = None) -> List[Any]:
+    """realize_and_fix() for several seeds of one program, their fix loops sharing each
+    judge pass. Per seed: (result, fix record or None), exactly what realize_and_fix
+    gives for that seed alone, or the exception its draw raised. Blocking."""
     from prompt_programs.draws import uses_draws
     from prompt_programs.judge import settings
     from prompt_programs.prepare import realize
 
     def draw_once(s: int, fx: Optional[Dict[str, Any]], ed: Optional[Dict[str, Any]]) -> Any:
         return realize(entry, seed=s, pins=pins, fixed=fx, edits=ed, triggers=triggers, profile_id=profile_id,
-                       project_id=project_id, revision=revision)
+                       project_id=project_id)
 
-    result = draw_once(seed, fixed, edits)
-    if revision or not uses_draws(entry.get("program") or ""):
-        return result, None
+    out: List[Any] = []
+    for s in seeds:
+        try:
+            out.append(draw_once(s, fixed, edits))
+        except Exception as e:
+            out.append(e)
+    drawn = [i for i, r in enumerate(out) if not isinstance(r, Exception)]
+    if not uses_draws(entry.get("program") or ""):
+        return [r if isinstance(r, Exception) else (r, None) for r in out]
     cfg = cfg or settings()
     if judge is None:
         if not cfg.fix_model:
-            return result, None
+            return [r if isinstance(r, Exception) else (r, None) for r in out]
         try:
             judge = fix_judge(cfg.fix_model, cfg.fix_threads)
         except FixJudgeUnavailable as e:
-            return result, {"error": str(e)}
+            return [r if isinstance(r, Exception) else (r, {"error": str(e)}) for r in out]
     cut = float(cfg.fix_cut) if cfg.fix_cut else float(getattr(judge, "cut", DEFAULTS["cut"]))
-    try:
-        return fix_draw(result, judge=judge, redraw=draw_once, seed=seed, user_prompt=str(entry.get("prompt") or ""),
-                        cut=cut, rounds=cfg.fix_rounds, fixed=fixed, edits=edits)
-    except Exception as e:  # the judge failing must never cost the image: ship the draw as made
-        log.warning(f"[fluent-fix] fix pass failed, keeping the draw as made: {e}")
-        return result, {"judge": getattr(judge, "version", ""), "error": f"the fix pass failed ({e})"}
+    user_prompt = str(entry.get("prompt") or "")
+    fixers = [_fixer(out[i], judge=judge, redraw=draw_once, seed=seeds[i], user_prompt=user_prompt, cut=cut,
+                     rounds=cfg.fix_rounds, fixed=fixed, edits=edits) for i in drawn]
+    for i, res in zip(drawn, _drive(judge, fixers)):
+        if isinstance(res, Exception):  # the judge failing must never cost the image: ship the draw as made
+            log.warning(f"[fluent-fix] fix pass failed, keeping the draw as made: {res}")
+            out[i] = (out[i], {"judge": getattr(judge, "version", ""), "error": f"the fix pass failed ({res})"})
+        else:
+            out[i] = res
+    return out
 
 
-__all__ = ["FixJudgeUnavailable", "Item", "OnnxJudge", "fix_draw", "fix_judge", "judged_picks", "mask",
-           "realize_and_fix", "score_draw"]
+__all__ = ["FixJudgeUnavailable", "Item", "OnnxJudge", "default_threads", "fix_draw", "fix_judge", "judged_picks",
+           "locate", "mask", "prompt_view", "realize_and_fix", "realize_and_fix_many", "score_draw", "shown_picks"]
