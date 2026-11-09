@@ -43,7 +43,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 from prompt_programs.vocab import ROOT, vocabulary
 
 # How much a level scales a value's weight. Tunable; the tables only name levels.
-LEVEL_WEIGHTS = {"common": 1.0, "uncommon": 0.3, "rare": 0.05, "implausible": 0.0}
+LEVEL_WEIGHTS = {"common": 1.0, "uncommon": 0.3, "rare": 0.01, "implausible": 0.0}
 # A given value whose pending target is this hard to fill (its average level weight) or
 # harder is scaled down toward 0: a child when a beard is still to draw.
 PENDING_FLOOR = 0.05
