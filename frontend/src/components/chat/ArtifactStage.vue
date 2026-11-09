@@ -137,10 +137,10 @@
           @click="onHeroClick"
           @contextmenu="onHeroContextMenu"
         >
-          <LayoutViewer v-if="heroKind === 'layout'" :media-id="viewedRevision.media_id" class="w-full h-full" />
+          <LayoutViewer v-if="heroKind === 'layout'" :media-id="viewedRevision.media_id" class="w-full h-full" @document-keydown="onKeydown" @document-contextmenu="onHeroContextMenu" />
           <SvgViewer v-else-if="heroKind === 'vector'" :media-id="viewedRevision.media_id" class="w-full h-full" />
           <SpritePlayer v-else-if="heroKind === 'sprite'" :key="viewedRevision.media_id" :media-id="viewedRevision.media_id" class="w-full h-full" />
-          <PackageViewer v-else-if="heroKind === 'package'" :key="viewedRevision.media_id" :media-id="viewedRevision.media_id" class="w-full h-full" />
+          <PackageViewer v-else-if="heroKind === 'package'" :key="viewedRevision.media_id" :media-id="viewedRevision.media_id" class="w-full h-full" @escape="onKeydown" @key="onKeydown" @frame-contextmenu="onHeroContextMenu" />
           <!-- Video hero: the slideshow's player. MseLoopPlayback presents
                repeated A/V fragments on one forward-moving timeline, so loops
                never seek; the controller owns src, so none is bound here. -->
@@ -409,15 +409,16 @@ function onKeydown(event: KeyboardEvent) {
   if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
   // A menu or dialog over the page owns the keys.
   if (hasEscapeLayer()) return
-  const target = event.target as HTMLElement
-  if (target.closest?.('input,textarea,select,[contenteditable]:not([contenteditable="false"])')) return
+  // Keys forwarded from a layout or package frame carry the frame's target, or none.
+  const target = event.target as HTMLElement | null
+  if (target?.closest?.('input,textarea,select,[contenteditable]:not([contenteditable="false"])')) return
   if (event.key === 'Escape') {
     consumeEscape(event)
     if (showVersionMenu.value) showVersionMenu.value = false
     else emit('close')
     return
   }
-  if (target !== rootRef.value && target.closest?.(KEY_CONTROLS)) return
+  if (target !== rootRef.value && target?.closest?.(KEY_CONTROLS)) return
   if (props.workspaceFile || !props.viewedRevision) return
   // Inside the file viewer, arrows and Space scroll and play what it shows.
   if (heroUsesFileViewer.value && target !== rootRef.value) return

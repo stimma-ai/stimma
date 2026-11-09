@@ -3,11 +3,15 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import SlideshowMode from '../../src/components/SlideshowMode.vue'
 import Modal from '../../src/components/ui/Modal.vue'
 import { useGlobalKeyboardShortcuts } from '../../src/composables/useGlobalKeyboardShortcuts'
+import { useMediaContextMenu } from '../../src/composables/useMediaContextMenu'
 import '../../src/style.css'
 
 const show = ref(false), index = ref(0)
 const grid: string[] = []
-const items = [1, 2, 3].map(id => ({ id, file_format: 'png', file_hash: `image-${id}`, width: 32, height: 32 }))
+const kinds: string[] | undefined = (window as any).slideshowKinds
+const items = kinds
+  ? kinds.map((file_format, i) => ({ id: i + 1, file_format, file_hash: `kind-${i + 1}`, width: 32, height: 32 }))
+  : [1, 2, 3].map(id => ({ id, file_format: 'png', file_hash: `image-${id}`, width: 32, height: 32 }))
 const chatMode = Boolean((window as any).slideshowChatTest)
 // Two chat images whose page can be held, to step while the next is loading.
 const navMode = Boolean((window as any).slideshowNavTest)
@@ -22,7 +26,7 @@ const pageProvider = async () => {
   return [{ ...video, _slideshowItemKey: liveIds.value[0] }]
 }
 Object.assign(window, { slideshowKeys: {
-  grid, modal: () => { show.value = true },
+  grid, menu: useMediaContextMenu(), modal: () => { show.value = true },
   refreshChat: () => {
     pendingPage = new Promise(resolve => { releasePage = resolve })
     liveIds.value = navMode ? ['output:31', 'output:32'] : ['output:22']

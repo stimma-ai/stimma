@@ -404,6 +404,7 @@
       @touchend.capture="handleTouchEnd"
       @touchcancel.capture="cancelSlideshowTouch"
       @click.capture="suppressSlideshowSwipeClick"
+      @contextmenu="handleStageContextMenu"
       :style="{ marginBottom: slideshowCompact ? '0px' : `${(visibleImageStrip ? STRIP_HEIGHT : 0) + (barDocked ? DOCK_BAR_HEIGHT : 0)}px`, marginTop: (!slideshowCompact && !focusMode) ? `${TOP_BAND_HEIGHT}px` : '0px', paddingTop: '0px' }"
     >
       <div v-if="!displayItem" class="text-content">Loading...</div>
@@ -507,6 +508,7 @@
           @document-touchcancel="cancelSlideshowTouch"
           @document-click="suppressSlideshowSwipeClick"
           @document-keydown="handleKeydown"
+          @document-contextmenu="handleContextMenu($event, displayItem)"
           :key="`layout-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
           class="absolute inset-0"
@@ -550,6 +552,8 @@
           :key="`package-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
           @escape="handleKeydown"
+          @key="handleKeydown"
+          @frame-contextmenu="handleContextMenu($event, displayItem)"
           class="absolute inset-0"
         />
 
@@ -6211,6 +6215,18 @@ function handleMediaLoad(event) {
 }
 
 // Handle context menu on main image or thumbnails
+// Every media kind answers a right-click with the item's menu: overviews,
+// documents, players and pages, not just pictures. Controls and fields keep
+// the browser's menu (viewer control rows stop it themselves), and so does
+// selected text, so it can still be copied.
+const STAGE_MENU_EXEMPT = 'button,a,input,textarea,select,summary,[contenteditable]:not([contenteditable="false"]),[role="slider"],[role="menu"],[role="menuitem"],[role="dialog"]'
+function handleStageContextMenu(event) {
+  if (event.defaultPrevented || !displayItem.value || displayItem.value._placeholder) return
+  if (event.target?.closest?.(STAGE_MENU_EXEMPT)) return
+  if (String(window.getSelection?.() || '').trim()) return
+  handleContextMenu(event, displayItem.value)
+}
+
 function handleContextMenu(event, item) {
   const mediaId = itemPayloadId(item)
   const assetId = hasAssetIdentity(item || {}) ? itemIdentity(item) : null

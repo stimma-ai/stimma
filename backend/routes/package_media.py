@@ -40,15 +40,33 @@ router = APIRouter(prefix="/api", tags=["packages"])
 
 ID_KEYED_CACHE_HEADERS = {"Cache-Control": "no-cache"}
 
-# Installed only in the in-app response. Let cover layers handle Escape first;
-# unhandled keyboard events inside a frame cannot bubble to its host viewer.
+# Installed only in the in-app response. Let cover layers handle keys first;
+# unhandled keyboard events inside a frame cannot bubble to its host viewer, so
+# Escape and the viewer's ←/→ go to it by message, as does a right-click on the
+# page itself (not on a link, a control or selected text) for the media menu.
 PACKAGE_ESCAPE_BRIDGE = """<script>
-document.addEventListener('keydown', function(event) {
-  if (event.defaultPrevented || event.key !== 'Escape' || window.parent === window) return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  window.parent.postMessage({type: 'stimma-package-escape'}, '*');
-});
+(function() {
+  if (window.parent === window) return;
+  var CONTROLS = 'a,button,input,textarea,select,summary,[contenteditable]:not([contenteditable="false"]),[role="slider"],[role="tab"],[role="radio"],[role="menuitem"],[role="option"],[role="listbox"]';
+  function onControl(target) { return !!(target && target.closest && target.closest(CONTROLS)); }
+  document.addEventListener('keydown', function(event) {
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.parent.postMessage({type: 'stimma-package-escape'}, '*');
+    } else if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !onControl(event.target)) {
+      event.preventDefault();
+      window.parent.postMessage({type: 'stimma-package-key', key: event.key}, '*');
+    }
+  });
+  document.addEventListener('contextmenu', function(event) {
+    if (event.defaultPrevented || onControl(event.target)) return;
+    if (String(window.getSelection && window.getSelection() || '').trim()) return;
+    event.preventDefault();
+    window.parent.postMessage({type: 'stimma-package-contextmenu', x: event.clientX, y: event.clientY}, '*');
+  });
+})();
 </script>"""
 
 

@@ -13,7 +13,7 @@ const built = await build({ ...base, configFile: false, logLevel: 'error',
 })
 const output = (Array.isArray(built) ? built : [built]).flatMap(result => result.output)
 
-async function fixture(t, { chat = false, nav = false } = {}) {
+async function fixture(t, { chat = false, nav = false, kinds = null, routes = null } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage()
@@ -30,6 +30,8 @@ async function fixture(t, { chat = false, nav = false } = {}) {
   await page.goto('http://slideshow-keyboard.test/')
   if (chat) await page.evaluate(() => { window.slideshowChatTest = true })
   if (nav) await page.evaluate(() => { window.slideshowNavTest = true })
+  if (kinds) await page.evaluate(list => { window.slideshowKinds = list }, kinds)
+  if (routes) await routes(page)
   for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
   return page
@@ -100,6 +102,49 @@ test('chorded keys go to the browser, and Backspace trashes like Delete', async 
   await page.keyboard.press('Backspace')
   await expect.poll(() => deletes.length).toBe(1)
   assert.match(deletes[0], /32/)
+})
+
+test('every media kind answers a right-click with its menu', async t => {
+  const page = await fixture(t, { kinds: ['md', 'mp3', 'svg'] })
+  const stage = page.locator('[data-escape-layer][data-drop-zone]')
+  const menuFor = () => page.evaluate(() => {
+    const { visible, mediaId } = window.slideshowKeys.menu.state.value
+    return visible ? mediaId : null
+  })
+  const centre = async () => {
+    const box = await stage.boundingBox()
+    await page.mouse.click(box.x + box.width / 2 - 120, box.y + box.height / 2, { button: 'right' })
+  }
+  for (const [index, id] of [[0, 1], [1, 2], [2, 3]]) {
+    await expect(page.locator('[data-current-index]')).toHaveText(String(index))
+    await page.waitForTimeout(200)
+    await centre()
+    await expect.poll(menuFor).toBe(id)
+    await page.keyboard.press('Escape')
+    await expect.poll(menuFor).toBe(null)
+    await expect(page.locator('[data-context-menu]')).toHaveCount(0)
+    await stage.focus()
+    if (index < 2) await page.keyboard.press('ArrowRight')
+  }
+})
+
+test('a click into a layout keeps ←/→ and the menu with the slideshow, but not from its controls', async t => {
+  const layout = '<html data-stimma-width="400" data-stimma-height="300"><body style="margin:0;height:300px"><p>Layout copy</p><input aria-label="Field"><button>Inside</button></body></html>'
+  const page = await fixture(t, { kinds: ['stimmalayout', 'png'], routes: page => page.route('**/layout-html', route => route.fulfill({ contentType: 'text/html', body: layout })) })
+  const frame = page.frameLocator('iframe')
+  await frame.getByText('Layout copy').click()
+  await frame.getByRole('textbox', { name: 'Field' }).focus()
+  await page.keyboard.press('ArrowRight')
+  await frame.getByRole('button', { name: 'Inside' }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(page.locator('[data-current-index]')).toHaveText('0')
+  await frame.locator('body').click({ button: 'right', position: { x: 300, y: 250 } })
+  await expect.poll(() => page.evaluate(() => window.slideshowKeys.menu.state.value.visible && window.slideshowKeys.menu.state.value.mediaId)).toBe(1)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('[data-context-menu]')).toHaveCount(0)
+  await frame.locator('body').click({ position: { x: 300, y: 250 } })
+  await page.keyboard.press('ArrowRight')
+  await expect(page.locator('[data-current-index]')).toHaveText('1')
 })
 
 test('Slideshow owns navigation, playback and viewer keys while a Modal blocks both viewer and grid', async t => {

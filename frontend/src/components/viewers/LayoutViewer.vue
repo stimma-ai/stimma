@@ -38,7 +38,12 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['document-touchstart', 'document-touchmove', 'document-touchend', 'document-touchcancel', 'document-click', 'document-keydown'])
+const emit = defineEmits(['document-touchstart', 'document-touchmove', 'document-touchend', 'document-touchcancel', 'document-click', 'document-keydown', 'document-contextmenu'])
+// Keys and right-clicks the layout does not use go to the host viewer: Escape
+// and ←/→ (never from a link, control or field), and a right-click on the page
+// itself (not on a link, a control or selected text).
+const FRAME_CONTROLS = 'a,button,input,textarea,select,summary,[contenteditable]:not([contenteditable="false"]),[role="slider"],[role="tab"],[role="radio"],[role="menuitem"],[role="option"],[role="listbox"]'
+const onFrameControl = target => !!target?.closest?.(FRAME_CONTROLS)
 let removeDocumentTouches = () => {}
 
 const loading = ref(true)
@@ -101,12 +106,34 @@ function onIframeLoad() {
       })
       const suppressClick = event => emit('document-click', event)
       doc.addEventListener('click', suppressClick, true)
-      const dismiss = event => { if (!event.defaultPrevented && event.key === 'Escape') emit('document-keydown', event) }
+      const dismiss = event => {
+        if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+        if (event.key === 'Escape') emit('document-keydown', event)
+        else if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !onFrameControl(event.target)) emit('document-keydown', event)
+      }
       doc.addEventListener('keydown', dismiss)
+      const menu = event => {
+        if (event.defaultPrevented || onFrameControl(event.target)) return
+        if (String(doc.getSelection?.() || '').trim()) return
+        const frame = iframeRef.value
+        if (!frame) return
+        const rect = frame.getBoundingClientRect()
+        event.preventDefault()
+        // The menu opens in this page; its keys (Escape) must reach it here.
+        frame.blur()
+        emit('document-contextmenu', {
+          clientX: rect.left + event.clientX * rect.width / (frame.clientWidth || 1),
+          clientY: rect.top + event.clientY * rect.height / (frame.clientHeight || 1),
+          preventDefault() {},
+          stopPropagation() {},
+        })
+      }
+      doc.addEventListener('contextmenu', menu)
       removeDocumentTouches = () => {
         for (const [type, handler] of handlers) doc.removeEventListener(type, handler, true)
         doc.removeEventListener('click', suppressClick, true)
         doc.removeEventListener('keydown', dismiss)
+        doc.removeEventListener('contextmenu', menu)
       }
     }
   } catch { /* Cross-origin layouts retain their own interaction handling. */ }
