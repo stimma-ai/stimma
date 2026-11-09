@@ -1612,12 +1612,22 @@ async def _prepare(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
                              "The chat model may be busy or too slow for this prompt.") from None
 
 
-async def _narrow(entry: Dict[str, Any], store: ProgramStore, project_id: Optional[int]) -> None:
+NARROW_RESERVE = 3.0   # seconds of the prepare deadline left for storing the entry after narrowing
+
+
+async def _narrow(entry: Dict[str, Any], store: ProgramStore, project_id: Optional[int], started: float) -> None:
     """Bound picks narrowed by the user's words (where=, or a wildcard's own name): one
-    cached model call per (list, words), see narrow.py. Never fails the prepare."""
-    from prompt_programs.narrow import NarrowCache, narrow_entry
+    cached model call per (list, words), see narrow.py. Never fails the prepare: it gets only
+    what's left of the prepare's deadline, and with too little left the picks stay unnarrowed
+    rather than the prepared program being lost to the timeout."""
+    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, narrow_entry
+    left = PREPARE_LIMIT_SECONDS - (time.monotonic() - started) - NARROW_RESERVE
+    if left < 2.0:
+        log.info("[prompt-program] no time left to narrow the bound picks; they draw from their whole lists")
+        return
     t0 = time.monotonic()
-    notes = await narrow_entry(entry, NarrowCache(store.root / "narrow"), _ask_model, project_id)
+    notes = await narrow_entry(entry, NarrowCache(store.root / "narrow"), _ask_model, project_id,
+                               seconds=min(NARROW_SECONDS, left))
     if entry.get("filters"):
         entry.setdefault("timing", {})["narrow"] = round(time.monotonic() - t0, 2)
         entry["warnings"] = list(entry.get("warnings") or []) + notes
@@ -1640,15 +1650,16 @@ async def _prepare_once(*, context: str, force: bool, base_key: Optional[str] = 
             log.warning(f"[prompt-program] {_endpoint_id(cfg)[1]} makes no tool calls ({e}): using the text protocol")
         else:
             entry["context"] = context
-            await _narrow(entry, store, args["project_id"])
+            await _narrow(entry, store, args["project_id"], started)
             store.put(entry["key"], entry)
             store.remember(context, entry["key"])
             _notify_prepared(entry, args["project_id"], args["profile_id"])
             return entry
-    return await _prepare_text(context=context, base=base, **args)
+    return await _prepare_text(context=context, base=base, started=started, **args)
 
 
-async def _prepare_text(*, context: str, base: Optional[Dict[str, Any]], **args: Any) -> Dict[str, Any]:
+async def _prepare_text(*, context: str, base: Optional[Dict[str, Any]], started: Optional[float] = None,
+                        **args: Any) -> Dict[str, Any]:
     """The text protocol: the program comes back in a ```python block, edits as numbered
     lines in plain text, and nothing persists between calls but the program."""
     store: ProgramStore = args["store"]
@@ -1666,7 +1677,7 @@ async def _prepare_text(*, context: str, base: Optional[Dict[str, Any]], **args:
         # writer sees the old program and keeps what didn't change, and its options stay.
         entry = await _prepare_new(prev=base, **args)
     entry["context"] = context
-    await _narrow(entry, store, args["project_id"])
+    await _narrow(entry, store, args["project_id"], started if started is not None else time.monotonic())
     store.put(entry["key"], entry)
     store.remember(context, entry["key"])
     _notify_prepared(entry, args["project_id"], args["profile_id"])

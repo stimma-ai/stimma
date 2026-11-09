@@ -242,6 +242,24 @@ class TestNewPrompt:
         assert next(c for c in entry["choices"] if c["id"] == "age")["options"] == ["20–24", "25–29"]
         assert model.store.get(entry["key"])["filters"] == entry["filters"]  # stored narrowed
 
+    @pytest.mark.parametrize("limit", [2.5, 6.0])  # no time left to narrow; time for a narrowing that stalls
+    async def test_slow_narrowing_never_loses_the_prepared_program(self, model, monkeypatch, limit):
+        import asyncio as _asyncio
+        src = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather", phase=1, line=1)\n'
+               'age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24"], '
+               'label="Age", phase=1, added=True)\n'
+               'emit("A young woman, aged", age, ", waiting for a train on a", w, "morning.")\n')
+
+        async def stalls(messages, project_id, max_tokens=4096):
+            await _asyncio.sleep(60)
+            return "[]"
+        monkeypatch.setattr(prep, "_ask_model", stalls)
+        monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", limit)
+        model.replies = [reply(write(src))]
+        entry = await ensure()
+        assert entry["program"] == src and model.store.get(entry["key"]) is not None
+        assert not any(entry.get("filters", {}).values())  # unnarrowed or unbound, never a lost prepare
+
     @pytest.mark.parametrize("prefix", ["python\n", "write_program source:\n"])
     async def test_a_stray_first_line_before_the_program_is_dropped(self, model, prefix):
         model.replies = [reply(write(prefix + GOOD))]
