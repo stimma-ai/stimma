@@ -26,15 +26,23 @@ if [ "$(uname -s)" != "Darwin" ]; then
 fi
 
 mkdir -p "$PYTHON_STANDALONE"
-PYTHON_TARBALL=$(find "$PYTHON_STANDALONE" -maxdepth 1 -name "cpython-3.11.*-${TARGET}-install_only.tar.gz" -print -quit)
+FILENAME="cpython-${PYTHON_STANDALONE_VERSION}-${TARGET}-install_only.tar.gz"
+PYTHON_TARBALL="$PYTHON_STANDALONE/$FILENAME"
 
-if [ -z "$PYTHON_TARBALL" ]; then
+if [ ! -f "$PYTHON_TARBALL" ] || ! tar -tzf "$PYTHON_TARBALL" >/dev/null 2>&1; then
     echo "Downloading python-build-standalone..."
-    FILENAME="cpython-${PYTHON_STANDALONE_VERSION}-${TARGET}-install_only.tar.gz"
     ENCODED_FILENAME="${FILENAME/+/%2B}"
     DOWNLOAD_URL="https://github.com/astral-sh/python-build-standalone/releases/download/${PYTHON_STANDALONE_RELEASE}/${ENCODED_FILENAME}"
-    curl -fL --retry 5 --retry-delay 2 -o "$PYTHON_STANDALONE/$FILENAME" "$DOWNLOAD_URL"
-    PYTHON_TARBALL="$PYTHON_STANDALONE/$FILENAME"
+    # Apple curl can report HTTP 5xx as error 56, outside --retry's default set.
+    # Publish to the cache only after a complete, readable archive arrives.
+    PARTIAL_TARBALL=$(mktemp "$PYTHON_TARBALL.partial.XXXXXX")
+    trap 'rm -f "$PARTIAL_TARBALL"' EXIT
+    curl -fL --retry 5 --retry-delay 2 --retry-all-errors \
+        --connect-timeout 30 --max-time 180 --retry-max-time 300 \
+        -o "$PARTIAL_TARBALL" "$DOWNLOAD_URL"
+    tar -tzf "$PARTIAL_TARBALL" >/dev/null
+    mv "$PARTIAL_TARBALL" "$PYTHON_TARBALL"
+    trap - EXIT
 fi
 echo "Using Python: $PYTHON_TARBALL"
 

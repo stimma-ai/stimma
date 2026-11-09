@@ -1115,7 +1115,10 @@ async function ensureDrawThingsSidecar(target: string): Promise<string | null> {
   const tarball = join(work, `${folder}.tar.gz`);
   console.log(`Downloading Draw Things sidecar v${DRAWTHINGS_SIDECAR_VERSION}`);
   for (const suffix of ["", ".sha256"]) {
-    await run("/usr/bin/curl", ["-fL", "--retry", "5", "--retry-delay", "2", "-o", `${tarball}${suffix}`, `${base}/${folder}.tar.gz${suffix}`]);
+    // Apple curl can return error 56 for HTTP 5xx; --retry alone misses it.
+    await run("/usr/bin/curl", ["-fL", "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
+      "--connect-timeout", "30", "--max-time", "180", "--retry-max-time", "300",
+      "-o", `${tarball}${suffix}`, `${base}/${folder}.tar.gz${suffix}`]);
   }
   // The published checksum file is "<sha>  <name>"; verify before unpacking.
   const expected = (await Deno.readTextFile(`${tarball}.sha256`)).trim().split(/\s+/)[0];
@@ -1154,7 +1157,15 @@ async function downloadWindowsStandalonePython(target: string, pythonStandaloneD
     encodeURIComponent(filename)
   }`;
   const curl = Deno.build.os === "windows" ? "curl.exe" : "/usr/bin/curl";
-  await run(curl, ["-fL", "--retry", "5", "--retry-delay", "2", "-o", tarball, downloadUrl]);
+  const partial = `${tarball}.partial`;
+  try {
+    await run(curl, ["-fL", "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
+      "--connect-timeout", "30", "--max-time", "180", "--retry-max-time", "300",
+      "-o", partial, downloadUrl]);
+    await Deno.rename(partial, tarball);
+  } finally {
+    if (await pathExists(partial)) await Deno.remove(partial);
+  }
   return tarball;
 }
 
