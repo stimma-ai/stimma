@@ -1826,6 +1826,9 @@ const markerUpdateTrigger = ref(0) // Force re-render when markers change
 const loadingPages = ref(new Map()) // Maps page number to loading promise
 let pageProviderCacheRevision = 0
 const displayItem = ref(null) // Item to display (stays visible while loading next)
+// The index displayItem was shown for. A new entry on screen records the index
+// it arrived at; an insert ahead of it shifts both together.
+const displayIndex = ref(null)
 const mediaLoaded = ref(false) // Track whether current media has finished loading
 
 // Keep a few neighboring full-resolution images decoded in memory. Chromium's
@@ -2207,8 +2210,12 @@ const currentItem = computed(() => {
     return displayItem.value
   }
   // The media stays visible while a provider reloads or remaps its cache. Keep
-  // its info and actions available for that same interval, too.
-  return baseCurrentItem.value || displayItem.value
+  // its info and actions available for that same interval, too. Only while the
+  // screen still shows the entry at this index: after ←/→ it keeps showing the
+  // one just left until the next loads, and delete, markers and the menu must
+  // never act on that one.
+  if (baseCurrentItem.value) return baseCurrentItem.value
+  return displayItem.value && displayIndex.value === currentIndex.value ? displayItem.value : null
 })
 const currentAssetId = computed(() => (
   currentItem.value && hasAssetIdentity(currentItem.value)
@@ -2492,6 +2499,13 @@ function applyDisplayItem(newItem) {
   displayItem.value = newItem
   if (newItem.file_hash) preloadDragPreview(getThumbnailUrl(newItem.file_hash, 128))
 }
+
+watch(displayItem, (next, previous) => {
+  if (!next) displayIndex.value = null
+  else if (!previous || itemIdentity(next) !== itemIdentity(previous) || getLiveItemKey(next) !== getLiveItemKey(previous)) {
+    displayIndex.value = currentIndex.value
+  }
+}, { flush: 'sync', immediate: true })
 
 function applyMediaPatchToLocalState(mediaId, updates) {
   if (!mediaId || !updates || Object.keys(updates).length === 0) return
@@ -4223,9 +4237,20 @@ function handleKeydown(event) {
   }
   // Don't handle keyboard shortcuts if user is typing in an input/textarea
   const activeElement = document.activeElement
-  if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+  if (isEditableElement(activeElement) || isEditableElement(event.target)) {
     return
   }
+
+  // Delete and Backspace (with or without Cmd, the Mac convention) trash the
+  // current item, as in the browser grid.
+  if ((event.key === 'Delete' || event.key === 'Backspace') && !event.ctrlKey && !event.altKey) {
+    event.preventDefault()
+    handleDeleteCurrentItem()
+    return
+  }
+
+  // Chorded keys (Cmd+A, Cmd+F, Ctrl+…) belong to the browser and the app.
+  if (event.metaKey || event.ctrlKey || event.altKey) return
 
   // Grid view mode: 4-directional navigation within grid
   if (isViewingGrid.value && currentGridView.value) {
@@ -4412,11 +4437,14 @@ function handleKeydown(event) {
         revealInFinder()
       }
       break
-    case 'Delete':
-      event.preventDefault()
-      handleDeleteCurrentItem()
-      break
   }
+}
+
+function isEditableElement(element) {
+  if (!element || element.nodeType !== 1) return false
+  if (element.isContentEditable) return true
+  if (element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') return true
+  return element.tagName === 'INPUT'
 }
 
 function close() {
@@ -5344,6 +5372,7 @@ function pinForArrival(insertIndex = 0) {
   if (currentIndex.value >= insertIndex) {
     currentIndex.value++
   }
+  if (displayIndex.value != null && displayIndex.value >= insertIndex) displayIndex.value++
 }
 
 function getLiveItemKey(item) {
