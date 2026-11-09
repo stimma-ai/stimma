@@ -41,7 +41,7 @@ from prompt_programs.runtime import (
 )
 from prompt_programs.typicality import Conditioner, Known, who_of, prefix_of
 from prompt_programs.typicality import tables as typicality_tables
-from prompt_programs.vocab import vocabulary
+from prompt_programs.vocab import fill, template_matches, vocabulary
 
 DRAW_VERSION = "draws-2"
 SPEC_ARGS = ("about", "phase", "seed", "cls")
@@ -570,6 +570,7 @@ class PickSpec:
     seeds: List[str] = field(default_factory=list)
     literal: List[str] = field(default_factory=list)   # the program's own options on this branch
     cls: str = ""                # the vocabulary list it is bound to (vocab.py); "" for none
+    restrict: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()   # a palette pick: its template's allowed facets
 
 
 @dataclass
@@ -805,7 +806,7 @@ class _Exec(_Runner):
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
              about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None, cls: Optional[str] = None,
-             where: Optional[str] = None, _site: int = -1) -> Optional[str]:
+             where: Any = None, _site: int = -1) -> Optional[str]:
         cid = str(id)
         if added:
             source = "added"
@@ -835,6 +836,8 @@ class _Exec(_Runner):
                         _as_list(seed if seed is not None else [], f'pick("{cid}") seed'), opts,
                         leaf.id if leaf is not None else (str(cls).strip() if cls and source != "list" else ""))
         context = self._context(site)
+        if leaf is not None and leaf.slots:
+            self._unfill_kept(cid, leaf)
         eligible = self._eligible(cid, spec, context, exclude)
         items, cond = self.eng.typical(cid, spec, eligible)
         prior = self.proposals.get(cid)
@@ -843,12 +846,55 @@ class _Exec(_Runner):
             if prior is None or self.proposals.get(cid) != prior:
                 self.eng.proposed_under[cid] = cond
             self.seen[cid].cond = self.eng.proposed_under.get(cid, cond)
+        colours = None
+        if leaf is not None and leaf.slots and vocabulary().get(leaf.slots) is not None:
+            colours = self._palette(cid, site, spec, leaf, value, source, line, hidden)
+            value = fill(str(value), self.eng.roles.get(cid))  # the image model reads the filled look
         # The picker still lists every eligible value: typicality weights the draw, not the choice.
         d = Draw(cid, value, "pick", lbl, source, line, bool(hidden), pinned, [o for o, _ in eligible], follows)
         d.phase, d.about, d.cls = site.phase, spec.about, spec.cls
-        d.where = str(where).strip() if isinstance(where, str) else ""
+        d.where = where if isinstance(where, dict) else (str(where).strip() if isinstance(where, str) else "")
         self._record(d)
+        if colours is not None:
+            self._record(colours)
         return value
+
+    def _unfill_kept(self, cid: str, leaf: Any) -> None:
+        """A kept value of a template pick names the filled look ("a navy T-shirt and white
+        shorts", from an earlier draw or a fix pass); the engine keeps the template it came
+        from, read with the kept palette, or any template it fits."""
+        names = {v.text for v in leaf.values}
+        palette = vocabulary().get(leaf.slots)
+        for fixed in (self.eng.fixed, self.fixed):
+            kept = fixed.get(cid)
+            if kept is None or str(kept) in names:
+                continue
+            pv = palette.value(str(fixed.get(f"{cid}.colours") or "")) if palette is not None else None
+            hit = next((v.text for v in leaf.values if pv is not None and fill(v.text, pv.roles) == str(kept)), None)
+            hit = hit or next((v.text for v in leaf.values if template_matches(v.text, str(kept))), None)
+            if hit is not None:
+                fixed[cid] = hit
+
+    def _palette(self, cid: str, site: Site, spec: PickSpec, leaf: Any, template: Any, source: str,
+                 line: Optional[int], hidden: bool) -> Draw:
+        """A template pick's colours: an ordinary pick of the palette list, drawn right after
+        the template (same site and phase), restricted to the palettes the template allows.
+        Records the palette's roles for the template's fill and returns its Draw."""
+        palette = vocabulary().get(leaf.slots)
+        ccid = f"{cid}.colours"
+        tv = leaf.value(str(template))
+        restrict = tuple(sorted((str(f), tuple(str(x) for x in (w if isinstance(w, (list, tuple)) else [w])))
+                                for f, w in (tv.palette if tv is not None else {}).items()))
+        cspec = PickSpec(ccid, "Colours", f"the colours of {spec.about or spec.label}", site.phase, source, "pick",
+                         [], [], palette.id, restrict)
+        eligible = self._eligible(ccid, cspec, {}, None)
+        items, _ = self.eng.typical(ccid, cspec, eligible)
+        value, pinned = self._settle(ccid, site, cspec, items, {})
+        pv = palette.value(str(value))
+        self.eng.roles[cid] = dict(pv.roles) if pv is not None else {}
+        d = Draw(ccid, value, "pick", "Colours", source, line, bool(hidden), pinned, [o for o, _ in eligible], cid)
+        d.phase, d.about, d.cls = site.phase, cspec.about, palette.id
+        return d
 
     def pick_lora(self, id: str, names: Any = None, label: str = "", source: str = "text", line: Optional[int] = None,
                   phase: Optional[int] = None, _site: int = -1) -> Optional[str]:
@@ -966,6 +1012,7 @@ class _Engine:
         self.proposals = 0
         self.rejected = 0
         self.decided: Dict[str, str] = {}
+        self.roles: Dict[str, Dict[str, str]] = {}   # a template pick's palette roles in the current run
         self.param_values: Dict[str, Any] = {}
         self.kept: Set[str] = set()            # replayed (fixed) values: kept, not judged
         self.pools: Dict[str, Any] = {}   # pool key → its length, or for a vocabulary list the whole pool
@@ -1057,7 +1104,7 @@ class _Engine:
     def probs(self, state: str, seen: _Seen, values: Sequence[str]) -> List[Dict[str, float]]:
         if getattr(self.judge, "null", False):
             return [{"typical": 1.0} for _ in values]
-        keys = [(seen.id, seen.spec.about, str(v), state) for v in values]
+        keys = [(seen.id, seen.spec.about, self.shown(seen.id, v), state) for v in values]
         todo = list(dict.fromkeys(k for k in keys if k not in self.judged))
         if todo:
             self.judge_passes += 1
@@ -1065,6 +1112,11 @@ class _Engine:
             for k, p in zip(todo, got):
                 self.judged[k] = dict(p)
         return [self.judged[k] for k in keys]
+
+    def shown(self, cid: str, value: Any) -> str:
+        """A value as the image model reads it: a template filled with its palette."""
+        roles = self.roles.get(cid)
+        return fill(str(value), roles) if roles is not None else str(value)
 
     def prejudge(self, state: str, exe: _Exec, ids: Sequence[str]) -> None:
         """One pass for a phase's first proposals: one question per pick."""
@@ -1078,7 +1130,7 @@ class _Engine:
             # Prefetch: the rest of the pool rides along, judged in the state this pick
             # is judged in, so later draws find it cached. It changes no draw.
             values = [str(s.value)] + [o for o, _ in s.items[: self.prefetch]]
-            for v in dict.fromkeys(values):
+            for v in dict.fromkeys(self.shown(cid, x) for x in values):
                 k = (cid, s.spec.about, v, state)
                 if k not in self.judged:
                     qs.append(Question(cid, s.spec.label, s.spec.about, v))

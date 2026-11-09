@@ -27,6 +27,7 @@ from __future__ import annotations
 import hashlib
 import json
 import random
+import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -40,11 +41,52 @@ CATALOGUE_ROOTS = ("person",)
 TYPO_CUTOFF = 0.85    # difflib ratio above which an unknown id is read as a typo of a known one   # what the writer is shown; the rest waits for an open() tool
 
 
+ROLES = ("main", "accent", "neutral")
+_SLOT = re.compile(r"\{(main|accent|neutral)\}")
+
+
+def fill(template: str, roles: Optional[Dict[str, str]]) -> str:
+    """A template value with its palette roles filled in. Without roles (a palette not
+    drawn yet, or a probe), slots are left out and the text still reads: "a technical
+    T-shirt and running shorts"."""
+    out = _SLOT.sub(lambda m: (roles or {}).get(m.group(1), ""), template)
+    return re.sub(r"\s{2,}", " ", out).strip()
+
+
+def is_template(text: str) -> bool:
+    return bool(_SLOT.search(text))
+
+
+def template_matches(template: str, text: str) -> bool:
+    """Whether `text` is `template` filled with some colours (a removal or a kept value
+    that came from a draw names the filled text, not the template)."""
+    if not is_template(template):
+        return template == text
+    pattern = "".join(".+?" if m.group(1) else re.escape(m.group(0))
+                      for m in re.finditer(r"\{(?:(main|accent|neutral))\}|[^{]+|\{", template))
+    return re.fullmatch(pattern, text, re.I | re.S) is not None
+
+
+def tags_match(tags: Dict[str, Any], want: Dict[str, Any]) -> bool:
+    """Whether a value's tags satisfy a facet filter ({facet: value or [values]}, any-of
+    per facet). A value with no tag for a filtered facet doesn't match."""
+    for f, w in want.items():
+        wants = {str(x) for x in (w if isinstance(w, (list, tuple)) else [w])}
+        have = tags.get(f)
+        if have is None:
+            return False
+        if have != "any" and not wants & {str(x) for x in have}:
+            return False
+    return True
+
+
 @dataclass(frozen=True)
 class Value:
     text: str
     tier: str
     tags: Dict[str, Any] = field(default_factory=dict)
+    roles: Dict[str, str] = field(default_factory=dict)       # a palette's colours by role
+    palette: Dict[str, Any] = field(default_factory=dict)     # a template's restriction on its palette
 
     @property
     def weight(self) -> float:
@@ -63,6 +105,15 @@ class Leaf:
     closed: bool
     untagged: Dict[str, Tuple[str, ...]]
     values: Tuple[Value, ...]
+    local_facets: Dict[str, Tuple[str, ...]] = field(default_factory=dict)   # named parts the writer can ask for
+    slots: str = ""            # templates: the palette list whose roles fill {main}/{accent}/{neutral}
+
+    def value(self, text: str) -> Optional[Value]:
+        return next((v for v in self.values if v.text == text), None)
+
+    def matching(self, want: Dict[str, Any], context: Optional[Dict[str, str]] = None) -> List[Value]:
+        """Eligible values whose tags satisfy a local-facet filter (where={...})."""
+        return [v for v in self.eligible(context) if tags_match(v.tags, want)]
 
     def fits(self, value: Value, context: Dict[str, str]) -> bool:
         for f, want in context.items():
@@ -139,7 +190,17 @@ class Vocabulary:
             if not any(lid == r or lid.startswith(r + ".") for r in roots):
                 continue
             leaf = self.leaves[lid]
-            lines.append(f'- {lid}: {leaf.pos}, fits "{leaf.frame}". {leaf.description[:1].upper()}{leaf.description[1:].rstrip(".")}.')
+            if any(other.slots == lid for other in self.leaves.values()):
+                continue  # a palette: drawn with the templates that use it, never bound by itself
+            line = f'- {lid}: {leaf.pos}, fits "{leaf.frame}". {leaf.description[:1].upper()}{leaf.description[1:].rstrip(".")}.'
+            parts = [f'{f} = {" | ".join(vals)}' for f, vals in leaf.local_facets.items()]
+            palette = self.leaves.get(leaf.slots) if leaf.slots else None
+            if palette is not None:
+                parts += [f'{f} = {" | ".join(vals)}' for f, vals in palette.local_facets.items()]
+                line += " Colours vary separately."
+            if parts:
+                line += " where: " + "; ".join(parts) + "."
+            lines.append(line)
         return "\n".join(lines)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -151,17 +212,23 @@ class Vocabulary:
                 "id": lf.id, "label": lf.label, "description": lf.description, "pos": lf.pos, "frame": lf.frame,
                 "notes": lf.notes, "facets": list(lf.facets), "closed": lf.closed,
                 "untagged": {k: list(v) for k, v in lf.untagged.items()},
-                "values": [{"text": v.text, "tier": v.tier, **({"tags": v.tags} if v.tags else {})} for v in lf.values],
+                **({"local_facets": {k: list(v) for k, v in lf.local_facets.items()}} if lf.local_facets else {}),
+                **({"slots": lf.slots} if lf.slots else {}),
+                "values": [{"text": v.text, "tier": v.tier, **({"tags": v.tags} if v.tags else {}),
+                            **({"roles": v.roles} if v.roles else {}), **({"palette": v.palette} if v.palette else {})}
+                           for v in lf.values],
             } for lf in sorted(self.leaves.values(), key=lambda lf: lf.id)],
         }
 
 
 def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
-    vals = tuple(Value(str(v["text"]), str(v.get("tier") or "plausible"), dict(v.get("tags") or {}))
+    vals = tuple(Value(str(v["text"]), str(v.get("tier") or "plausible"), dict(v.get("tags") or {}),
+                       {str(k): str(x) for k, x in (v.get("roles") or {}).items()}, dict(v.get("palette") or {}))
                  for v in d.get("values") or [] if str(v.get("text") or "").strip())
     return Leaf(lid, str(d.get("label") or lid), str(d.get("description") or ""), str(d.get("pos") or ""),
                 str(d.get("frame") or ""), str(d.get("notes") or ""), tuple(d.get("facets") or ()),
-                bool(d.get("closed")), {k: tuple(v) for k, v in (d.get("untagged") or {}).items()}, vals)
+                bool(d.get("closed")), {k: tuple(v) for k, v in (d.get("untagged") or {}).items()}, vals,
+                {k: tuple(v) for k, v in (d.get("local_facets") or {}).items()}, str(d.get("slots") or ""))
 
 
 def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:

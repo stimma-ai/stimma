@@ -110,7 +110,7 @@ class Draw:
     phase: Optional[int] = None    # pick specs (see draws.py); unset for older programs
     about: str = ""
     cls: str = ""                  # the vocabulary list the pick is bound to (see vocab.py)
-    where: str = ""                # the user's words narrowing that list (see narrow.py)
+    where: Any = ""                # the user's words, or {local facet: value}, narrowing that list (narrow.py)
 
     def to_dict(self) -> Dict[str, Any]:
         d = {"id": self.id, "value": self.value, "kind": self.kind, "label": self.label, "source": self.source}
@@ -266,7 +266,7 @@ class _Runner:
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
              about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None,
-             cls: Optional[str] = None, where: Optional[str] = None) -> Optional[str]:
+             cls: Optional[str] = None, where: Any = None) -> Optional[str]:
         cid = str(id)
         if about is not None or phase is not None or seed is not None or cls is not None:
             return self._spec_pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed, cls,
@@ -307,7 +307,7 @@ class _Runner:
 
     def _spec_pick(self, cid: str, options: Any, label: str, by: Any, source: str, line: Optional[int], exclude: Any,
                    hidden: bool, added: bool, about: Optional[str], phase: Optional[int], seed: Any,
-                   cls: Optional[str] = None, where: Optional[str] = None) -> Optional[str]:
+                   cls: Optional[str] = None, where: Any = None) -> Optional[str]:
         """A pick with a spec (draws.py), run the plain way for discovery and validation:
         seeds stand in for options it doesn't list, and it is recorded even with none. A
         pick bound to a vocabulary list (cls=) runs on the list's values instead."""
@@ -333,8 +333,33 @@ class _Runner:
         d = self.draws[-1]
         d.phase, d.about = int(phase) if isinstance(phase, int) else None, str(about or "")
         d.cls = leaf.id if leaf is not None else ""
-        d.where = str(where).strip() if isinstance(where, str) else ""
+        d.where = where if isinstance(where, dict) else (str(where).strip() if isinstance(where, str) else "")
+        if leaf is not None and leaf.slots and value is not None:
+            value = self._palette(cid, d, leaf, value, source, line, hidden)
         return value
+
+    def _palette(self, cid: str, d: "Draw", leaf: Any, template: str, source: str, line: Optional[int],
+                 hidden: bool) -> str:
+        """A template pick's colours (see draws._Exec._palette), the plain way: a palette
+        pick recorded right after the template, and the template filled with it."""
+        from prompt_programs.vocab import fill, tags_match, vocabulary
+        palette = vocabulary().get(leaf.slots)
+        if palette is None:
+            return template
+        tv = leaf.value(str(template))
+        values = palette.eligible()
+        if tv is not None and tv.palette:
+            values = [v for v in values if tags_match(v.tags, tv.palette)] or values
+        ccid = f"{cid}.colours"
+        n = len(self.draws)
+        chosen = self.pick(ccid, [v.text for v in values], "Colours", None, source, line, None, hidden)
+        if len(self.draws) > n:
+            c = self.draws[-1]
+            c.phase, c.about, c.cls, c.follows = d.phase, f"the colours of {d.about or d.label}", palette.id, cid
+        pv = palette.value(str(chosen)) if chosen is not None else None
+        filled = fill(str(template), pv.roles if pv is not None else None)
+        d.value = filled
+        return filled
 
     def pick_lora(self, id: str, names: Any = None, label: str = "", source: str = "text", line: Optional[int] = None,
                   phase: Optional[int] = None) -> Optional[str]:
@@ -549,7 +574,7 @@ class Choice:
     about: Optional[str] = None
     deps: List[str] = field(default_factory=list)   # picks this one's structure depends on
     cls: Optional[str] = None                   # the vocabulary list it is bound to
-    where: Optional[str] = None                 # the user's words narrowing that list
+    where: Any = None                           # the user's words, or {local facet: value}, narrowing that list
     seen: int = 0
 
     def to_dict(self) -> Dict[str, Any]:

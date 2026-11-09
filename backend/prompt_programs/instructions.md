@@ -169,14 +169,18 @@ Still write `about=` and a seed in the list's form.
   or not. "A woman with emerald eyes and long red hair in a braid" keeps "emerald eyes",
   "long red hair" and "in a braid" in every image; only what they left open (her expression,
   her outfit) can be a pick.
-- When the user's words narrow a listed detail without fixing it, bind it and put their
-  words in `where=`: only the list's values that fit them are drawn. "A young woman" →
-  `pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24"], ...)`;
-  "an older man with dark hair" → `where="older"` on his age and `where="dark"` on his hair
-  colour; "a happy boy" → `where="happy"` on his expression. Their words stay in the text too
-  ("a young woman"). Before you bind a pick, check the user's prompt for any word about that
-  detail: if there is one, it goes in `where=`. A `{{wildcard}}` bound to a list is narrowed by
-  its own words; no `where=` needed.
+- Some lists name their parts after "where:" in the list below. When the user's words narrow a
+  listed detail and one of those parts says it, bind it with that part:
+  `pick("age", cls="person.age_band", where={"life_stage": "young adult"}, ...)` for "a young
+  woman"; `where={"sport": "tennis", "colour_family": "red"}` on an outfit for "in red tennis
+  kit". An outfit's colours vary on their own; a colour the user names goes in its `where=`.
+- When no named part says it, put the user's own words in `where=` instead, and only the
+  list's values that fit them are drawn: "a woman in her late thirties" → `where="late
+  thirties"` on her age; "a wistful girl" → `where="wistful"` on her expression. Their words stay in
+  the text too ("a young woman").
+  Before you bind a pick, check the user's prompt for any word about that detail: if there is
+  one, it goes in `where=`. A `{{wildcard}}` bound to a list is narrowed by its own words; no
+  `where=` needed.
 - Each person's details bind to the same lists: `girl[1].eyes` and `girl[2].eyes` both use
   `person.eye_color`.
 - Like any pick written with `about=`, a bound pick's value is never a lookup key.

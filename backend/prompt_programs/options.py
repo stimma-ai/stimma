@@ -38,7 +38,7 @@ from core.logging import get_logger
 from prompt_programs.draws import LiteralOptions, PickSpec, Pool, pool_key
 from prompt_programs.resolver import ClassResolver, NoVocabulary
 from prompt_programs.runtime import RANK_DECAY
-from prompt_programs.vocab import OPEN_SHARE, Leaf, vocabulary
+from prompt_programs.vocab import OPEN_SHARE, Leaf, fill, tags_match, template_matches, vocabulary
 
 log = get_logger(__name__)
 
@@ -564,6 +564,8 @@ class GeneratedOptions:
         key = pool_key(spec, context) + (" | written for this prompt" if specific else "")
         if spec.cls:  # a revision records the bound pool itself, so the key needn't name a version
             key += f" | {spec.cls}"
+            if spec.restrict:
+                key += " restrict " + ";".join(f"{f}={','.join(v)}" for f, v in spec.restrict)
             if spec.id in self.filters:  # narrowed by where= (an empty subset: drawn without the list)
                 key += f" where {dict(self.program.intents).get(spec.id, '')}"
         lineage = "" if specific else self.program.lineage
@@ -654,6 +656,12 @@ class GeneratedOptions:
             return out
         allowed = self._allowed(spec)
         values = [v for v in leaf.eligible() if allowed is None or v.text in allowed]
+        if leaf.slots:  # a removal names the filled look a draw showed: it removes its template
+            gone = [str(x) for x in edit.get("remove") or []]
+            values = [v for v in values if not any(template_matches(v.text, g) for g in gone)]
+        if spec.restrict:  # a palette pick: only the palettes its template allows (all, if none would be left)
+            want = {f: list(vals) for f, vals in spec.restrict}
+            values = [v for v in values if tags_match(v.tags, want)] or values
         listed = unique([(v.text, v.weight) for v in values] +
                         [(str(x), 1.0) for x in edit.get("add") or [] if str(x).strip()])
         generated = self.store.options(skey) if self.store is not None and not leaf.closed else []
@@ -669,6 +677,17 @@ class GeneratedOptions:
         pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, True)
         rounds = self.store.rounds(skey) if self.store is not None and not leaf.closed else 0
         return pool, generated, rounds
+
+    def _examples(self, leaf: Leaf, spec: PickSpec, key: str) -> List[str]:
+        """The generator's examples from a bound pick's list; templates are shown filled
+        with a palette, so it writes whole looks, never slots."""
+        got = leaf.examples(key, only=self._allowed(spec))
+        palette = vocabulary().get(leaf.slots) if leaf.slots else None
+        if palette is None or not palette.values:
+            return got
+        import random as _random
+        rng = _random.Random(key)
+        return [fill(t, rng.choice(palette.values).roles) for t in got]
 
     def request_more(self, spec: PickSpec, context: Dict[str, Any], priority: str) -> None:
         if not self._grows(spec):
@@ -692,7 +711,7 @@ class GeneratedOptions:
         job = OptionJob(skey, spec, dict(context), self.program, signature, round_,
                         list(existing), list(avoid), self.project_id,
                         removed=[str(x) for x in (self.edits.get(spec.id) or {}).get("remove") or []],
-                        examples=leaf.examples(f"{skey}:{round_}", only=self._allowed(spec)) if leaf is not None else [])
+                        examples=self._examples(leaf, spec, f"{skey}:{round_}") if leaf is not None else [])
         if self.checker is not None and round_ == 0:
             checker = self.checker
             job.check = lambda j, _self=self: checker(j, _self)

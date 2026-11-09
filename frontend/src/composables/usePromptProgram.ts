@@ -2,6 +2,7 @@ import { computed, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'v
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import type { ChoiceVocab } from '../utils/programVocab'
+import { shownOption } from '../utils/programVocab'
 
 export type { ChoiceVocab } from '../utils/programVocab'
 
@@ -407,7 +408,7 @@ export function usePromptProgram(o: Options) {
     const all = optionsOf(c)
     const p = (pins.value[c.id] || []).filter(v => all.includes(v))
     if (!p.length) return `${all.length} options`
-    if (p.length === 1) return p[0]
+    if (p.length === 1) return shownOption(p[0])
     return `${p.length} of ${all.length}`
   }
   function isPinned(c: ProgramChoice) {

@@ -60,8 +60,15 @@ Reply with only a JSON object mapping each detail's id to those words or null.""
 
 def phrase_of(choice: Dict[str, Any], read: Optional[Dict[str, str]] = None) -> str:
     """The words a bound choice is narrowed by: its wildcard's own name, else the words read
-    from the prompt for it, else the writer's where=."""
-    return str(choice.get("wildcard") or (read or {}).get(choice.get("id"), "") or choice.get("where") or "").strip()
+    from the prompt for it, else the writer's where= (when it's words, not a facet filter)."""
+    where = choice.get("where")
+    return str(choice.get("wildcard") or (read or {}).get(choice.get("id"), "")
+               or (where if isinstance(where, str) else "") or "").strip()
+
+
+def _shown(text: str) -> str:
+    """A template as the narrowing model reads it: its colour slots say "(colour)"."""
+    return re.sub(r"\{(?:main|accent|neutral)\}", "(colour)", text)
 
 
 def _in_prompt(words: str, prompt: str) -> bool:
@@ -163,17 +170,19 @@ async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask
     "young" said of "the woman's age" rules out children), from the cache or one model call.
     An answer that can't be read is never cached and comes back empty (the pick goes unbound)."""
     values = [v.text for v in leaf.eligible()]
+    shown = [_shown(v) for v in values]
     key = NarrowCache.key(leaf, phrase, values, about)
     if cache is not None:
         hit = cache.get(key)
         if hit is not None:
             return hit
     try:
-        reply = await ask(messages_for(leaf, phrase, values, about), project_id, 2000)
+        reply = await ask(messages_for(leaf, phrase, shown, about), project_id, 2000)
     except Exception as e:  # the writer's endpoint failing here must not fail the prepare
         log.warning(f"[prompt-program] narrowing {leaf.id} by {phrase!r} failed: {e}")
         return []
-    got = parse_subset(reply, values)
+    named = parse_subset(reply, shown)
+    got = None if named is None else [v for v, sh in zip(values, shown) if sh in set(named)]
     if got is None:
         log.info(f"[prompt-program] narrowing {leaf.id} by {phrase!r}: no list in the reply")
         return []
@@ -218,6 +227,40 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     bound = [c for c in entry.get("choices") or [] if vocab.get(c.get("cls")) is not None]
     if not bound:
         return []
+    by_id = {c["id"]: c for c in entry.get("choices") or []}
+    filters: Dict[str, List[str]] = dict(entry.get("filters") or {})
+    notes: List[str] = []
+    done = set()
+    # where={...}: a filter on the list's local facets, applied in code (no model call). Facets
+    # of a template's palette ("colour_family") narrow its Colours pick.
+    for c in bound:
+        w = c.get("where")
+        if not isinstance(w, dict) or not w:
+            continue
+        leaf = vocab.leaves[c["cls"]]
+        palette = vocab.get(leaf.slots) if leaf.slots else None
+        own = {f: v for f, v in w.items() if f in leaf.local_facets}
+        theirs = {f: v for f, v in w.items() if palette is not None and f in palette.local_facets}
+        targets = [(c, leaf, own)]
+        comp = by_id.get(f'{c["id"]}.colours')
+        if theirs and comp is not None:
+            comp["where"] = theirs
+            targets.append((comp, palette, theirs))
+        for ch, lf, want in targets:
+            if not want:
+                continue
+            got = [v.text for v in lf.matching(want)]
+            if got:
+                filters[ch["id"]] = got
+                ch["options"] = got
+                done.add(ch["id"])
+            else:
+                notes.append(f'{ch["id"]}: nothing in {lf.id} has {want}; drawing from the whole list')
+        done.add(c["id"])  # its own words, if any, were the facet filter
+    entry["filters"] = filters
+    bound = [c for c in bound if c["id"] not in done]
+    if not bound:
+        return notes
     t0 = asyncio.get_running_loop().time()
     try:
         read = await asyncio.wait_for(read_words(str(entry.get("prompt") or ""), [c for c in bound if not c.get("wildcard")],
@@ -232,7 +275,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             c["where"] = phrase
             wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
     if not wanted:
-        return []
+        return notes
     keys = list(wanted)
     jobs = [subset(vocab.leaves[k[0]], phrase_of(wanted[k][0]), cache, ask, project_id, wanted[k][0].get("about") or "")
             for k in keys]
@@ -241,8 +284,6 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     except asyncio.TimeoutError:
         log.warning(f"[prompt-program] narrowing took longer than {seconds:.0f}s: those picks draw unbound")
         results = [[] for _ in keys]
-    filters: Dict[str, List[str]] = dict(entry.get("filters") or {})
-    notes = []
     for k, got in zip(keys, results):
         lid = k[0]
         for c in wanted[k]:

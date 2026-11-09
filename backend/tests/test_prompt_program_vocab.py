@@ -389,3 +389,133 @@ class TestWhere:
         job = filler._jobs[opts.queued[0]][1]
         assert job.examples and all(("smile" in v or "grin" in v) for v in job.examples)
         assert 'own words: "happy"' in generation_messages(job)[1]["content"]
+
+
+# --------------------------------------------------------------------------- templates, palettes, local facets
+
+from prompt_programs.vocab import _leaf, fill, tags_match, template_matches  # noqa: E402
+
+PALETTE = {"label": "Colours", "description": "a colour scheme", "pos": "colour scheme", "frame": "in ___",
+           "facets": [], "closed": True,
+           "local_facets": {"colour_family": ["red", "blue", "black"], "tone": ["dark", "bright"]},
+           "values": [
+               {"text": "red, white and grey", "tier": "typical", "roles": {"main": "red", "accent": "white", "neutral": "grey"},
+                "tags": {"colour_family": ["red"], "tone": ["bright"]}},
+               {"text": "navy, white and grey", "tier": "typical", "roles": {"main": "navy", "accent": "white", "neutral": "grey"},
+                "tags": {"colour_family": ["blue"], "tone": ["dark"]}},
+               {"text": "black, grey and white", "tier": "typical", "roles": {"main": "black", "accent": "grey", "neutral": "white"},
+                "tags": {"colour_family": ["black"], "tone": ["dark"]}}]}
+OUTFITS = {"label": "Test outfit", "description": "whole looks", "pos": "noun phrase", "frame": "wearing ___",
+           "facets": [], "closed": True, "slots": "person.palette",
+           "local_facets": {"sport": ["running", "formal"]},
+           "values": [
+               {"text": "a {main} technical T-shirt and {accent} running shorts", "tier": "typical", "tags": {"sport": ["running"]}},
+               {"text": "a {main} tuxedo with a {accent} shirt", "tier": "typical", "tags": {"sport": ["formal"]},
+                "palette": {"tone": ["dark"]}},
+               {"text": "a white karate gi", "tier": "typical", "tags": {"sport": ["running"]}}]}
+
+DRESSED = '''
+outfit = pick("outfit", cls="person.outfit.test", about="what she wears", seed=["a red T-shirt"], label="Outfit", phase=1, line=1)
+emit("A woman wearing", outfit, ".")
+'''
+
+
+@pytest.fixture
+def dressed(monkeypatch):
+    v = vocabulary()
+    monkeypatch.setitem(v.leaves, "person.palette", _leaf("person.palette", PALETTE))
+    monkeypatch.setitem(v.leaves, "person.outfit.test", _leaf("person.outfit.test", OUTFITS))
+    return v
+
+
+def draw_dressed(seed, **kw):
+    return draw(DRESSED, seed, kw.pop("pins", None), [], None, kw.pop("fixed", None), kw.pop("edits", None),
+                options=kw.pop("options", None) or GeneratedOptions(None, program()), judge=kw.pop("judge", NullJudge()), **kw)
+
+
+class TestTemplates:
+    def test_fill_match_and_tags(self):
+        t = "a {main} technical T-shirt and {accent} running shorts"
+        assert fill(t, {"main": "navy", "accent": "white"}) == "a navy technical T-shirt and white running shorts"
+        assert fill(t, None) == "a technical T-shirt and running shorts"
+        assert template_matches(t, "a navy technical T-shirt and white running shorts")
+        assert not template_matches(t, "a navy hoodie")
+        assert tags_match({"tone": ["dark"]}, {"tone": ["dark", "bright"]}) and not tags_match({}, {"tone": "dark"})
+
+    def test_a_template_draws_its_palette_and_reads_filled(self, dressed):
+        for seed in range(12):
+            r = draw_dressed(seed)
+            got = {d.id: d for d in r.draws}
+            assert "{" not in r.prompt and "outfit.colours" in got
+            colours = dressed.leaves["person.palette"].value(got["outfit.colours"].value)
+            outfit = got["outfit"]
+            assert outfit.value in r.prompt and "{" not in outfit.value
+            assert any(template_matches(t, outfit.value) for t in outfit.options)
+            if "tuxedo" in outfit.value:  # its palette restriction: dark schemes only
+                assert "dark" in colours.tags["tone"]
+            assert got["outfit.colours"].cls == "person.palette"
+
+    def test_discovery_lists_the_colours_and_the_example_reads_filled(self, dressed):
+        info = discover(DRESSED)
+        by = {c["id"]: c for c in info["choices"]}
+        assert by["outfit"]["options"][0].startswith("a {main}") and by["outfit.colours"]["cls"] == "person.palette"
+        assert "{" not in info["example"]
+
+    def test_a_kept_filled_look_keeps_its_template_and_palette(self, dressed):
+        first = draw_dressed(3)
+        keep = {d.id: d.value for d in first.draws}
+        again = draw_dressed(99, fixed=keep)
+        assert again.prompt == first.prompt
+
+    def test_removing_a_filled_look_removes_its_template(self, dressed):
+        for seed in range(10):
+            edits = {"outfit": {"remove": ["a navy technical T-shirt and white running shorts"]}}
+            r = draw_dressed(seed, edits=edits, options=GeneratedOptions(None, program(), edits=edits))
+            assert "running shorts" not in r.prompt
+
+    def test_the_judge_reads_filled_looks(self, dressed):
+        class Spy:
+            version, null = "spy", False
+
+            def __init__(self):
+                self.values = []
+
+            def judge(self, state, questions):
+                self.values += [q.value for q in questions]
+                return [{"typical": 1.0} for _ in questions]
+        spy = Spy()
+        draw_dressed(1, judge=spy)
+        assert spy.values and not any("{" in v for v in spy.values)
+
+    def test_a_revision_replays_a_template_draw(self, dressed, tmp_path):
+        from prompt_programs.fluent import runtime_for
+        entry = {"key": "d", "program": DRESSED, "loras": [], "params": {}, "mode": "prose",
+                 "choices": discover(DRESSED)["choices"]}
+        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
+        first = draw(DRESSED, 5, None, [], None, None, None, options=rt.options, judge=NullJudge())
+        rt2 = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=first.revision)
+        assert draw(DRESSED, 5, None, [], None, None, None, options=rt2.options, judge=NullJudge()).prompt == first.prompt
+
+    def test_the_catalogue_shows_parts_and_hides_the_palette(self, dressed):
+        cat = dressed.catalogue()
+        line = next(ln for ln in cat.splitlines() if ln.startswith("- person.outfit.test"))
+        assert "Colours vary separately" in line and "sport = running | formal" in line and "colour_family = red" in line
+        assert "- person.palette" not in cat
+
+
+class TestLocalFacetWhere:
+    async def test_a_facet_filter_narrows_in_code_and_routes_colours(self, dressed, tmp_path):
+        src = DRESSED.replace('label="Outfit"', 'label="Outfit", where={"sport": "running", "colour_family": "blue"}')
+        entry = {"key": "w", "program": src, "loras": [], "params": {}, "mode": "prose",
+                 "choices": discover(src)["choices"], "prompt": "a woman in blue running kit"}
+        ask = FakeAsk(lambda v: True)
+        await narrow_entry(entry, NarrowCache(tmp_path), ask)
+        assert not ask.calls  # no narrowing call: the tags decide
+        assert entry["filters"]["outfit"] == [v["text"] for v in OUTFITS["values"] if "running" in v["tags"]["sport"]]
+        assert entry["filters"]["outfit.colours"] == ["navy, white and grey"]
+        from prompt_programs.fluent import program_context
+        opts = GeneratedOptions(None, program_context(entry))
+        for seed in range(6):
+            r = draw(src, seed, None, [], None, None, None, options=opts, judge=NullJudge())
+            assert "tuxedo" not in r.prompt and ("navy" in r.prompt or "karate gi" in r.prompt)
+            opts.reset()

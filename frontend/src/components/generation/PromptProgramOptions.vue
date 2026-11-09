@@ -63,7 +63,7 @@
             <CheckIcon v-if="pinned.has(e.value)" class="w-2.5 h-2.5" stroke-width="3" />
           </span>
           <span :class="['flex-1 min-w-0 text-xs coarse:text-[13px] leading-snug break-words', pinned.has(e.value) ? 'text-content' : 'text-content-secondary group-hover/opt:text-content']">
-            {{ e.value }}<span v-if="trigger(e.value)" class="ml-1.5 font-mono text-[10px] text-content-muted">{{ trigger(e.value) }}</span>
+            {{ shownOption(e.value) }}<span v-if="trigger(e.value)" class="ml-1.5 font-mono text-[10px] text-content-muted">{{ trigger(e.value) }}</span>
           </span>
           <button
             v-if="deletable"
@@ -102,7 +102,7 @@ import { CheckIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import SearchField from '../ui/SearchField.vue'
 import Caret from '../ui/Caret.vue'
 import { useViewport } from '../../composables/useViewport'
-import { MANY_OPTIONS, groupOpen, layoutOptions, type OptionGroup } from '../../utils/programVocab'
+import { MANY_OPTIONS, groupOpen, layoutOptions, type OptionGroup, shownOption } from '../../utils/programVocab'
 import type { PromptProgram, ProgramChoice } from '../../composables/usePromptProgram'
 
 const props = defineProps<{
