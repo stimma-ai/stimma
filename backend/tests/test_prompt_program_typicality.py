@@ -280,7 +280,9 @@ age = pick("age", cls="person.age_band", about="the person's age", seed=["30–3
 beard = pick("beard", cls="person.facial_hair", about="the person's facial hair", seed=["light stubble"], label="Beard", phase=1, line=1)
 emit("A person aged", age, "with", beard)
 '''
-        assert not any(v["age"] in CHILD for _, v in many(src, 400))
+        drawn = many(src, 400)
+        # a child draws a clean-shaven face; a beard keeps the person out of childhood
+        assert not any(v["age"] in CHILD and v["beard"] != "a clean-shaven face" for _, v in drawn)
 
     def test_the_picker_still_lists_every_value(self):
         (r, _), = many(LITTLE_GIRL, 1)

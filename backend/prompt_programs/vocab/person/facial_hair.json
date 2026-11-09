@@ -4,7 +4,7 @@
   "description": "The shape and grooming of a beard, moustache or stubble.",
   "pos": "noun phrase",
   "frame": "a person with ___",
-  "notes": "Facial hair only; scalp hair belongs to person.hair_color, person.hair_length_texture and person.hairstyle. Shapes may include density and grooming needed to distinguish them. Values do not imply descent. Age tags exclude children; lighter growth and some grooming styles also allow teens, while developed beards are limited to adults and elders. The masculine presentation default is a visual styling filter, not a restriction on gender identity; the writer may override the subject wording.",
+  "notes": "Facial hair only; scalp hair belongs to person.hair_color, person.hair_length_texture and person.hairstyle. Shapes may include density and grooming needed to distinguish them. Values do not imply descent. Age tags exclude children; lighter growth and some grooming styles also allow teens, while developed beards are limited to adults and elders. The masculine presentation default is a visual styling filter, not a restriction on gender identity; the writer may override the subject wording. Includes a clean-shaven face, so a bound facial-hair pick can draw no facial hair (children, teens, most adults).",
   "facets": [
     "age",
     "era",
@@ -12,6 +12,16 @@
   ],
   "closed": true,
   "values": [
+    {
+      "text": "a clean-shaven face",
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "masculine",
+          "feminine"
+        ]
+      }
+    },
     {
       "text": "light stubble",
       "tier": "typical",

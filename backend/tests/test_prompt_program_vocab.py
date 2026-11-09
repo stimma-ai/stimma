@@ -61,6 +61,16 @@ class TestTheVocabulary:
         fantasy = {x.text for x in leaf.eligible({"genre": "fantasy"})}
         assert plain and fantasy - plain  # fantasy-only colours appear only in fantasy
 
+    def test_a_list_the_defaults_would_empty_keeps_its_own_world(self):
+        v = vocabulary()
+        for lid in ("person.outfit.period", "person.outfit.fantasy", "person.outfit.scifi"):
+            assert v.get(lid).eligible()  # bound means the image is in that world
+        fantasy = {x.text for x in v.get("person.eye_color").eligible()}
+        assert {x.text for x in v.get("person.eye_color").eligible({"genre": "fantasy"})} - fantasy  # gates still hold
+
+    def test_facial_hair_can_be_none(self):
+        assert vocabulary().get("person.facial_hair").value("a clean-shaven face") is not None
+
     def test_examples_are_a_stable_spread(self):
         leaf = vocabulary().get("person.expression")
         a, b = leaf.examples("k"), leaf.examples("k")

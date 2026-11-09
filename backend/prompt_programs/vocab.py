@@ -123,9 +123,15 @@ class Leaf:
         return True
 
     def eligible(self, context: Optional[Dict[str, str]] = None) -> List[Value]:
-        """The values that fit a context (unset facets take their defaults)."""
+        """The values that fit a context (unset facets take their defaults). A list the
+        defaults would empty (period, fantasy or sci-fi outfits in a realistic, contemporary
+        default) was bound because the image is in its world: it keeps to what the context
+        does set instead of drawing nothing."""
         ctx = {**vocabulary().defaults, **(context or {})}
-        return [v for v in self.values if self.fits(v, ctx)]
+        out = [v for v in self.values if self.fits(v, ctx)]
+        if out:
+            return out
+        return [v for v in self.values if self.fits(v, dict(context or {}))]
 
     def examples(self, key: str, context: Optional[Dict[str, str]] = None, n: int = EXAMPLES,
                  only: Optional[Sequence[str]] = None) -> List[str]:
