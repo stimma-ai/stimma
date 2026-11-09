@@ -110,6 +110,7 @@
               data-fluent-translate
               aria-haspopup="menu"
               :aria-expanded="languagesOpen"
+              :disabled="llmUnconfigured"
               :class="['w-full text-left flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle', languagesOpen ? 'bg-overlay-subtle' : '', llmUnconfigured ? 'opacity-40 pointer-events-none' : '']"
               @click.stop="toggleLanguages()"
             >
