@@ -331,6 +331,7 @@
             ref="aiPromptEditorRef"
             v-model="globalPrefs.prompt"
             @focusout="handlePromptFocusOut"
+            @save="preparePromptNow"
             :rows="drawerMode ? 2 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
             external-chat
             :promptOptions="globalPrefs.promptOptions"
@@ -4153,9 +4154,17 @@ function handlePromptFocusOut(event: FocusEvent) {
   if (promptProgram.status.value === 'stale') void promptProgram.prepare()
 }
 
-// Done typing also means a pause with the cursor still in the field: read the prompt
-// then too. Long enough to ride over a breath mid-sentence; a prepare in flight for
-// older text queues this one behind it (busy), and a prompt that failed waits for an edit.
+// The prompt is done (Vim :w, Cmd/Ctrl+Enter, a pause): read it now. A prepare in
+// flight for older text queues this one behind it (busy); a prompt that failed waits
+// for an edit.
+function preparePromptNow() {
+  clearPromptPause()
+  const s = promptProgram.status.value
+  if (s === 'stale' || s === 'busy') void promptProgram.prepare()
+}
+
+// Done typing also means a pause with the cursor still in the field. Long enough to
+// ride over a breath mid-sentence.
 const PROMPT_PAUSE_MS = 1500
 let promptPauseTimer: ReturnType<typeof setTimeout> | null = null
 function clearPromptPause() {
@@ -4167,9 +4176,7 @@ watch(() => globalPrefs.value.prompt, () => {
   if (!aiPromptEditorRef.value?.$el?.contains?.(document.activeElement)) return
   promptPauseTimer = setTimeout(() => {
     promptPauseTimer = null
-    if (!aiPromptEditorRef.value?.$el?.contains?.(document.activeElement)) return
-    const s = promptProgram.status.value
-    if (s === 'stale' || s === 'busy') void promptProgram.prepare()
+    if (aiPromptEditorRef.value?.$el?.contains?.(document.activeElement)) preparePromptNow()
   }, PROMPT_PAUSE_MS)
 })
 onBeforeUnmount(clearPromptPause)
@@ -7625,6 +7632,8 @@ function handleKeyDown(event: KeyboardEvent) {
   if (modifierKey && event.key === 'Enter') {
     event.preventDefault()
     event.stopPropagation()
+    // Even when nothing can run yet, the prompt is done.
+    preparePromptNow()
     if (event.shiftKey) {
       // Cmd/Ctrl+Shift+Enter: toggle forever mode
       if (uiState.value.generateForeverMode) {

@@ -14,7 +14,7 @@ import { EditorState, StateEffect, StateField, Compartment, RangeSetBuilder } fr
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { bracketMatching } from '@codemirror/language'
-import { useVimToggle, vimPanelKeydownHandler } from './codeMirrorVim'
+import { registerVimSaveHandler, useVimToggle, vimPanelKeydownHandler } from './codeMirrorVim'
 import { webkitSelectionLayer } from './webkitSelectionLayer'
 
 // --- Diff decoration effects ---
@@ -354,13 +354,16 @@ interface UseCodeMirrorPromptOptions {
   placeholder?: string
   onChange: (value: string) => void
   onBlur: () => void
+  /** Vim :w / :wq / :x. */
+  onSave?: () => void
 }
 
 export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
-  const { mountRef, modelValue, placeholder, onChange, onBlur } = options
+  const { mountRef, modelValue, placeholder, onChange, onBlur, onSave } = options
 
   let view: EditorView | null = null
   let ignoreNextChange = false
+  let unregisterSave: (() => void) | null = null
 
   const { vimEnabled, vimCompartment, getVimExtension, toggleVim: baseToggleVim, bindView } = useVimToggle()
   const fontCompartment = new Compartment()
@@ -458,6 +461,7 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
 
     // Wire up vim persistence: replay mappings + capture ex commands typed in the : panel
     bindView(view)
+    if (onSave) unregisterSave = registerVimSaveHandler(view, onSave)
     mountRef.value.addEventListener('keydown', vimPanelKeydownHandler, true)
   }
 
@@ -532,6 +536,8 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
 
   function destroy() {
     mountRef.value?.removeEventListener('keydown', vimPanelKeydownHandler, true)
+    unregisterSave?.()
+    unregisterSave = null
     view?.destroy()
     view = null
   }

@@ -410,6 +410,8 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'update:expanded', value: boolean): void
   (e: 'update:promptOptions', value: PromptOptions): void
+  /** Vim :w / :wq / :x: the prompt is done. */
+  (e: 'save'): void
 }>()
 
 // Box height. Desktop rests at ~5 lines and grows to 408px; phones give the
@@ -535,6 +537,7 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
     },
     // Blur intentionally does nothing — suggestion refresh is debounce-driven.
     onBlur: () => {},
+    onSave: () => emit('save'),
   })
 
 // --- How the prompt will be read: Raw, by a model (a program, or Enhance), or plain (no model) ---

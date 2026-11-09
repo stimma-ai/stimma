@@ -98,25 +98,34 @@ export function replayVimCommands(view: EditorView) {
   }
 }
 
+// Keyed by the EditorView, not vim's per-extension adapter, so a handler registered
+// before vim is turned on still answers :w once it is.
 export function registerVimSaveHandler(view: EditorView, handler: () => void | Promise<void>): () => void {
-  const cm = getCM(view)
-  if (!cm) return () => {}
-  vimSaveHandlers.set(cm as object, handler)
+  vimSaveHandlers.set(view, handler)
   return () => {
-    vimSaveHandlers.delete(cm as object)
+    vimSaveHandlers.delete(view)
   }
 }
 
 // Register custom ex commands once at module load.
-Vim.defineEx('write', 'w', (cm: any) => {
-  const handler = vimSaveHandlers.get(cm as object)
+function vimSave(cm: any): boolean {
+  const handler = cm?.cm6 && vimSaveHandlers.get(cm.cm6)
   if (!handler) {
     ;(cm as any).openNotification?.('No save handler for this editor') ||
       console.log('No save handler for this editor')
-    return
+    return false
   }
   void handler()
-})
+  return true
+}
+Vim.defineEx('write', 'w', (cm: any) => { vimSave(cm) })
+// :wq and :x save, then leave the editor (after vim has closed its : panel, which
+// hands focus back to the editor).
+const vimSaveAndLeave = (cm: any) => {
+  if (vimSave(cm)) setTimeout(() => cm.cm6?.contentDOM?.blur(), 0)
+}
+Vim.defineEx('wq', 'wq', vimSaveAndLeave)
+Vim.defineEx('xit', 'x', vimSaveAndLeave)
 
 Vim.defineEx('vimrc', 'vimrc', (cm: any) => {
   const cmds = getStoredVimCommands()
