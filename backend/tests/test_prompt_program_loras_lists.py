@@ -388,6 +388,7 @@ class TestLorasShownToTheModels:
         monkeypatch.setattr(prep, "writer_style", style)
         monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
         monkeypatch.setattr(prep, "_ask_model", ask)
+        monkeypatch.setattr(prep, "_writer_endpoint", text_endpoint)  # fakes the text protocol's _ask_model
         monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
         monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
         await prep.ensure_program(prompt="A woman in a kitchen. # pick a lora", tool_id="t",
