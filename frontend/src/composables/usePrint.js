@@ -1,7 +1,4 @@
-function getFileName(filePath) {
-  if (!filePath) return 'Unknown'
-  return filePath.split('/').pop()
-}
+import { escapeHtml, printSheetHtml } from '../utils/printSheet'
 
 /**
  * Create a print-only overlay that covers the entire page with just the printable content,
@@ -84,6 +81,7 @@ export function usePrint() {
 
   function printAssetDetail(mediaItem, imageUrl) {
     const isLandscape = mediaItem.width && mediaItem.height && mediaItem.width > mediaItem.height
+    const src = escapeHtml(imageUrl)
 
     let html
     if (isLandscape) {
@@ -92,37 +90,18 @@ export function usePrint() {
       // dimensions (7.5in × 10in) so nothing clips.
       html = `
         <div style="width:7.5in;height:10in;margin:0 auto;display:flex;align-items:center;justify-content:center;overflow:hidden;">
-          <img src="${imageUrl}" style="max-width:10in;max-height:7.5in;object-fit:contain;transform:rotate(-90deg);" />
+          <img src="${src}" style="max-width:10in;max-height:7.5in;object-fit:contain;transform:rotate(-90deg);" />
         </div>
       `
     } else {
-      html = `<img src="${imageUrl}" style="max-width:7.5in;max-height:10in;object-fit:contain;display:block;margin:0 auto;" />`
+      html = `<img src="${src}" style="max-width:7.5in;max-height:10in;object-fit:contain;display:block;margin:0 auto;" />`
     }
     printWithOverlay(html)
   }
 
+  // Every item prints, whole and labelled, a page at a time.
   function printContactSheet(mediaItems, getThumbnailUrlFn) {
-    const items = mediaItems.slice(0, 100)
-
-    const cells = items.map(item => {
-      const thumbUrl = getThumbnailUrlFn(item.file_hash || item.id, 512)
-      const name = getFileName(item.file_path)
-      const truncName = name.length > 30 ? name.substring(0, 27) + '...' : name
-
-      return `<div style="break-inside:avoid;text-align:center;">
-        <div style="width:100%;aspect-ratio:1;overflow:hidden;background:#f0f0f0;border-radius:4px;margin-bottom:4px;">
-          <img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover;" />
-        </div>
-        <div style="font-size:10px;font-weight:500;color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${truncName}</div>
-      </div>`
-    }).join('')
-
-    const html = `
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:100%;">
-        ${cells}
-      </div>
-    `
-    printWithOverlay(html)
+    printWithOverlay(printSheetHtml(mediaItems, getThumbnailUrlFn))
   }
 
   return { printAssetDetail, printContactSheet }
