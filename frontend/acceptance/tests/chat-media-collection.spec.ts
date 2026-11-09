@@ -61,6 +61,20 @@ test('a chat collection browses in place and sends picks to the composer', async
   await expect(slideshowPicture).toHaveCount(0);
   await expect(hero).toBeVisible();
 
+  // Where the slideshow ends is where the collection picks up, with focus.
+  await hero.locator('.group.cursor-pointer').click();
+  await expect(slideshowPicture).toBeVisible();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Escape');
+  await expect(slideshowPicture).toHaveCount(0);
+  await expect(hero.getByRole('button', { name: '14 / 16' })).toBeVisible();
+  await expect(collection.locator('[data-tile="13"]')).toBeFocused();
+  await hero.getByRole('button', { name: '14 / 16' }).click();
+  await hero.getByLabel('Go to image number').fill('12');
+  await page.keyboard.press('Enter');
+  await expect(hero.getByRole('button', { name: '12 / 16' })).toBeVisible();
+
   // Picks carry between views and dock on the composer.
   await hero.hover();
   await hero.getByRole('checkbox', { name: 'Select this image' }).click();

@@ -1289,15 +1289,6 @@
           :visible="settingsPanelVisible"
         />
       </div>
-
-      <!-- Image strip (horizontal at bottom, spans chat + settings panel) -->
-      <!-- TODO: Hidden for evaluation - remove 'false &&' to re-enable -->
-      <ChatImageStrip
-        v-if="false && liveChatMediaIds.length > 0"
-        :media-ids="liveChatMediaIds"
-        @open-slideshow="openStripSlideshow"
-        @drag-media="handleStripDragStart"
-      />
     </div>
       <!-- Artifact stage (standalone only): sits to the right of the chat column.
            It slides in/out along the right edge at its final width while the chat
@@ -1336,7 +1327,7 @@
             @select-revision="artifactStage.viewRevision"
             @jump-newest="artifactStage.jumpToNewest"
             @set-latest="artifactStage.setAsLatest"
-            @open-slideshow="(mediaId) => openSlideshow(mediaId)"
+            @open-slideshow="openArtifactSlideshow"
           />
         </Transition>
       </template>
@@ -1346,9 +1337,9 @@
          covers the artifact stage as well, like every other view's inline slideshow -->
     <SlideshowMode
       v-if="slideshowState.active"
-      :total-count="sheetSlideshow ? sheetSlideshow.list.length : liveChatMediaIds.length"
-      :live-item-ids="sheetSlideshow ? sheetSlideshowKeys : liveChatMediaEntries.map(entry => entry.key)"
-      :item-labels="sheetSlideshow ? sheetSlideshowLabels : chatMediaLabels"
+      :total-count="sheetSlideshow ? sheetSlideshow.list.length : artifactSlideshow ? artifactSlideshow.length : liveChatMediaIds.length"
+      :live-item-ids="sheetSlideshow ? sheetSlideshowKeys : artifactSlideshow ? artifactSlideshow.map(entry => entry.key) : liveChatMediaEntries.map(entry => entry.key)"
+      :item-labels="sheetSlideshow ? sheetSlideshowLabels : artifactSlideshow ? artifactSlideshowLabels : chatMediaLabels"
       :start-index="slideshowState.startIndex"
       :page-provider="slideshowState.pageProvider"
       :inline="true"
@@ -1392,7 +1383,6 @@ import ChatMarkdown from '../components/chat/ChatMarkdown.vue'
 import ChatControlStrip from '../components/chat/ChatControlStrip.vue'
 import ChatSettingsPanel from '../components/chat/ChatSettingsPanel.vue'
 import { MediaImage, AppImage, MediaContextMenu } from '../components/media'
-import ChatImageStrip from '../components/chat/ChatImageStrip.vue'
 import ChatInputAttachments from '../components/chat/ChatInputAttachments.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import SendButton from '../components/ui/SendButton.vue'
@@ -1473,7 +1463,7 @@ import ChatErrorDisclosure from '../components/chat/ChatErrorDisclosure.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useStimpacksApi } from '../composables/useStimpacksApi'
 import { useSlideshow } from '../composables/useSlideshow'
-import { collectChatMedia } from '../utils/chatMedia'
+import { artifactRevisionEntries, collectChatMedia, collectionRowOf } from '../utils/chatMedia'
 import { getMediaType } from '../utils/mediaTypes'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { makeProfileKey } from '../utils/storageKeys'
@@ -2866,7 +2856,13 @@ function getPlanControlState(item) {
 // Every chat entry opens this same live sequence. A clicked reference that is
 // not represented in the transcript collector remains reachable for this chat.
 const slideshowReferenceIds = ref([])
-watch(chatId, () => { slideshowReferenceIds.value = []; sheetSlideshow.value = null; exitSlideshow() })
+watch(chatId, () => {
+  slideshowReferenceIds.value = []
+  sheetSlideshow.value = null
+  artifactSlideshow.value = null
+  slideshowReturn = null
+  exitSlideshow()
+})
 
 // The server, profile and chat a multi-request read belongs to.
 const transcriptScope = () => `${getApiBase()}|${getCurrentProfileId()}|${chatId.value}`
@@ -2937,6 +2933,8 @@ onDeactivated(cancelOlderChatMedia)
 onUnmounted(cancelOlderChatMedia)
 
 function onSlideshowIndex(index) {
+  slideshowIndex = index
+  if (artifactSlideshow.value) return
   if (sheetSlideshow.value) {
     const entry = sheetSlideshow.value.list[index]
     if (entry) sheetSlideshow.value.sheet.markSeen([entry.mediaId])
@@ -2953,6 +2951,8 @@ const sheetSlideshowLabels = computed(() => Object.fromEntries((sheetSlideshow.v
   .map(entry => [`sheet:${entry.mediaId}`, entry.caption || entry.section || ''])))
 function openSheetSlideshow({ list, index, sheet }) {
   if (!list.length) return
+  artifactSlideshow.value = null
+  slideshowReturn = null
   sheetSlideshow.value = { list, sheet }
   sheet.markSeen([list[index]?.mediaId].filter(id => id != null))
   enterSlideshow({
@@ -2971,9 +2971,72 @@ function openSheetSlideshow({ list, index, sheet }) {
   })
 }
 provide(SHEET_SLIDESHOW, openSheetSlideshow)
+// Where the open slideshow should hand back to: the collection it was opened
+// from (chat item id), or the artifact panel. Updated as the slideshow moves.
+let slideshowIndex = 0
+let slideshowReturn = null
+
 function closeSlideshow() {
+  const ended = slideshowReturn
+  const index = slideshowIndex
+  const artifactEntry = artifactSlideshow.value?.[index] ?? null
+  const chatEntry = !sheetSlideshow.value && !artifactSlideshow.value ? liveChatMediaEntries.value[index] ?? null : null
   sheetSlideshow.value = null
+  artifactSlideshow.value = null
+  slideshowReturn = null
+  // A reference opened for one slideshow is not part of the chat's sequence.
+  slideshowReferenceIds.value = []
   exitSlideshow()
+  if (artifactEntry && artifactStage.findRevision(artifactEntry.revisionId)) {
+    artifactStage.viewRevision(artifactEntry.revisionId)
+  } else if (ended?.collectionItemId != null) {
+    returnToCollection(ended.collectionItemId, collectionRowOf(chatEntry, ended.collectionItemId))
+  }
+}
+
+// Back from a slideshow opened on a collection: the collection shows the image
+// the slideshow ended on (if it is one of the collection's), and has focus.
+function returnToCollection(itemId, row) {
+  const find = () => document.querySelector(`[data-testid="media-collection"][data-collection-item="${itemId}"]`)
+  if (!find()) return
+  if (row != null) mediaCollections.viewState(itemId, () => 'preview').active = row
+  nextTick(() => {
+    const root = find()
+    if (!root) return
+    ;(root.querySelector('[data-tile][tabindex="0"]') || root).focus()
+  })
+}
+
+// The artifact panel's slideshow walks that asset's versions; ← from v3 is v2.
+const artifactSlideshow = shallowRef(null)
+const artifactSlideshowLabels = computed(() => Object.fromEntries((artifactSlideshow.value || []).map(entry => [entry.key, entry.label])))
+function openArtifactSlideshow(mediaId) {
+  const entries = artifactRevisionEntries(artifactStage.revisions.value)
+  const viewed = artifactStage.viewedRevisionId.value
+  let index = entries.findIndex(entry => entry.revisionId === viewed && entry.id === mediaId)
+  if (index === -1) index = entries.findIndex(entry => entry.id === mediaId)
+  if (index === -1) {
+    openSlideshow(mediaId)
+    return
+  }
+  sheetSlideshow.value = null
+  artifactSlideshow.value = entries
+  slideshowReturn = null
+  slideshowIndex = index
+  enterSlideshow({
+    totalCount: entries.length,
+    startIndex: index,
+    pageProvider: async (pageNumber, pageSize) => Promise.all(
+      entries.slice(pageNumber * pageSize, (pageNumber + 1) * pageSize).map(async entry => {
+        try {
+          return { ...await getMediaItem(entry.id, { includeTrashed: true }), _slideshowItemKey: entry.key }
+        } catch {
+          return { id: entry.id, file_hash: null, _placeholder: true, _slideshowItemKey: entry.key }
+        }
+      })),
+    randomized: false,
+    randomSeed: null,
+  })
 }
 const liveChatMediaEntries = computed(() => [
   ...chatMediaEntries.value,
@@ -4194,17 +4257,6 @@ function addAttachmentFromMediaId(mediaId) {
   inputAttachments.value.push({ media_id: mediaId })
 }
 
-// ===== Image Strip =====
-
-function openStripSlideshow(mediaId) {
-  // Open slideshow at this media ID using all chat media
-  openSlideshow(mediaId)
-}
-
-function handleStripDragStart(mediaId) {
-  // No-op for now, the strip component handles the drag
-}
-
 // View media in browse view
 function viewMedia(mediaId) {
   // TODO: Open media detail view or navigate to browse with filter
@@ -4621,6 +4673,10 @@ function parseMarkdownSegmentsUncached(text) {
 // Open slideshow at a specific media ID
 function openSlideshow(mediaId, itemId = null, slot = null) {
   if (!mediaId) return
+  sheetSlideshow.value = null
+  artifactSlideshow.value = null
+  // A collection's image hands the slideshow's last image back to it on close.
+  slideshowReturn = itemId != null && /^row:\d+:output$/.test(slot || '') ? { collectionItemId: itemId } : null
   loadOlderChatMedia()
   if (!liveChatMediaIds.value.includes(mediaId)) slideshowReferenceIds.value.push(mediaId)
 
@@ -4629,6 +4685,7 @@ function openSlideshow(mediaId, itemId = null, slot = null) {
   const index = liveChatMediaEntries.value.findIndex(entry =>
     entry.id === mediaId && (itemId == null || entry.itemId === itemId) && (slot == null || entry.slot === slot))
   const startIndex = index !== -1 ? index : Math.max(0, liveChatMediaIds.value.indexOf(mediaId))
+  slideshowIndex = startIndex
 
   // Create a page provider that references the reactive liveChatMediaIds
   // This way new images will be included as they complete

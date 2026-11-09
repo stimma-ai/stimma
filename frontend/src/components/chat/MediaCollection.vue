@@ -402,6 +402,7 @@ onBeforeUnmount(() => {
       :class="rootWidthClass"
       :aria-label="title || 'Images'"
       data-testid="media-collection"
+      :data-collection-item="itemId"
       @keydown="onKeydown"
     >
       <header

@@ -111,3 +111,28 @@ test('collector trims message text like the transcript renderer before parsing i
   assert.deepEqual(entries.map(e => e.id), [3, 4])
   assert.deepEqual(entries.map(e => e.slot), ['message:0', 'message:1'])
 })
+
+test('a slideshow opened from a collection hands back only that collection\'s rows', async () => {
+  const { collectionRowOf } = await import('../src/utils/chatMedia.js')
+  const entries = collectChatMedia([
+    { id: 5, item_type: 'media_display', item_metadata: { display_data: { rows: [{ output: { media_id: 1 } }, { output: { media_id: 2 } }] } } },
+    { id: 6, item_type: 'media_display', item_metadata: { display_data: { rows: [{ input: { input_image: { media_id: 1 } }, output: { media_id: 3 } }] } } },
+  ])
+  assert.deepEqual(entries.map(entry => collectionRowOf(entry, 5)), [0, 1, null, null])
+  assert.deepEqual(entries.map(entry => collectionRowOf(entry, 6)), [null, null, null, 0])
+  assert.equal(collectionRowOf(null, 5), null)
+})
+
+test('an artifact\'s slideshow is its versions, oldest first', async () => {
+  const { artifactRevisionEntries } = await import('../src/utils/chatMedia.js')
+  const entries = artifactRevisionEntries([
+    { id: 11, revision_number: 1, media_id: 101 },
+    { id: 12, revision_number: 2, media_id: 102, note: 'Warmer' },
+    { id: 13, revision_number: 3, media_id: 103 },
+  ])
+  assert.deepEqual(entries.map(entry => entry.id), [101, 102, 103])
+  assert.deepEqual(entries.map(entry => entry.key), ['artifact:11', 'artifact:12', 'artifact:13'])
+  assert.equal(entries[1].label, 'v2 · Warmer')
+  // ← from v3 is v2.
+  assert.equal(entries[entries.findIndex(entry => entry.revisionId === 13) - 1].revisionId, 12)
+})

@@ -63,3 +63,22 @@ export function collectChatMedia(items) {
   }
   return entries
 }
+
+// The row of a chat collection that a slideshow entry shows, when the entry is
+// that collection's output (`itemId`); null for anything else in the chat.
+export function collectionRowOf(entry, itemId) {
+  if (!entry || itemId == null || entry.itemId !== itemId) return null
+  const match = /^row:(\d+):output$/.exec(entry.slot || '')
+  return match ? Number(match[1]) : null
+}
+
+// An artifact's versions as a slideshow sequence, oldest first. Its slideshow
+// is the asset's history, not the chat's media.
+export function artifactRevisionEntries(revisions) {
+  return (revisions || []).filter(rev => rev?.media_id).map(rev => ({
+    id: rev.media_id,
+    revisionId: rev.id,
+    key: `artifact:${rev.id}`,
+    label: `v${rev.revision_number}${rev.note ? ` · ${rev.note}` : ''}`,
+  }))
+}

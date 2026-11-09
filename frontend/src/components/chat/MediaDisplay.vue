@@ -248,7 +248,7 @@ async function pollJobs() {
       }
     })
 
-    // Persist updates to database so ChatImageStrip and slideshow work
+    // Persist updates to database so the slideshow works
     if (hasUpdates && props.chatItemId) {
       await persistRowUpdates()
     }
