@@ -1,0 +1,967 @@
+{
+  "id": "person.palette",
+  "label": "Colours",
+  "description": "a coordinated colour scheme for what a person wears",
+  "pos": "colour scheme",
+  "frame": "in ___",
+  "notes": "One scheme supplies main, accent and neutral colour adjectives to an outfit template. The colour family describes the main colour; tones describe the scheme as a whole.",
+  "facets": [],
+  "closed": true,
+  "local_facets": {
+    "colour_family": [
+      "red",
+      "orange",
+      "yellow",
+      "green",
+      "teal",
+      "blue",
+      "purple",
+      "pink",
+      "brown",
+      "beige",
+      "black",
+      "white",
+      "grey"
+    ],
+    "tone": [
+      "dark",
+      "light",
+      "muted",
+      "bright",
+      "pastel",
+      "earthy",
+      "neon",
+      "monochrome"
+    ]
+  },
+  "values": [
+    {
+      "text": "burgundy, cream and charcoal",
+      "tier": "typical",
+      "roles": {
+        "main": "burgundy",
+        "accent": "cream",
+        "neutral": "charcoal"
+      },
+      "tags": {
+        "colour_family": [
+          "red"
+        ],
+        "tone": [
+          "dark",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "brick red, tan and cream",
+      "tier": "typical",
+      "roles": {
+        "main": "brick red",
+        "accent": "tan",
+        "neutral": "cream"
+      },
+      "tags": {
+        "colour_family": [
+          "red"
+        ],
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "scarlet, navy and white",
+      "tier": "plausible",
+      "roles": {
+        "main": "scarlet",
+        "accent": "navy",
+        "neutral": "white"
+      },
+      "tags": {
+        "colour_family": [
+          "red"
+        ],
+        "tone": [
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "neon red, electric blue and black",
+      "tier": "unusual",
+      "roles": {
+        "main": "neon red",
+        "accent": "electric blue",
+        "neutral": "black"
+      },
+      "tags": {
+        "colour_family": [
+          "red"
+        ],
+        "tone": [
+          "neon",
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "rust, olive and cream",
+      "tier": "typical",
+      "roles": {
+        "main": "rust",
+        "accent": "olive",
+        "neutral": "cream"
+      },
+      "tags": {
+        "colour_family": [
+          "orange"
+        ],
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "terracotta, sage and off-white",
+      "tier": "typical",
+      "roles": {
+        "main": "terracotta",
+        "accent": "sage",
+        "neutral": "off-white"
+      },
+      "tags": {
+        "colour_family": [
+          "orange"
+        ],
+        "tone": [
+          "earthy",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "tangerine, turquoise and white",
+      "tier": "plausible",
+      "roles": {
+        "main": "tangerine",
+        "accent": "turquoise",
+        "neutral": "white"
+      },
+      "tags": {
+        "colour_family": [
+          "orange"
+        ],
+        "tone": [
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "neon orange, hot pink and charcoal",
+      "tier": "unusual",
+      "roles": {
+        "main": "neon orange",
+        "accent": "hot pink",
+        "neutral": "charcoal"
+      },
+      "tags": {
+        "colour_family": [
+          "orange"
+        ],
+        "tone": [
+          "neon",
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "mustard, navy and beige",
+      "tier": "typical",
+      "roles": {
+        "main": "mustard",
+        "accent": "navy",
+        "neutral": "beige"
+      },
+      "tags": {
+        "colour_family": [
+          "yellow"
+        ],
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "butter yellow, pale blue and cream",
+      "tier": "plausible",
+      "roles": {
+        "main": "butter yellow",
+        "accent": "pale blue",
+        "neutral": "cream"
+      },
+      "tags": {
+        "colour_family": [
+          "yellow"
+        ],
+        "tone": [
+          "pastel",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "golden yellow, cobalt blue and white",
+      "tier": "plausible",
+      "roles": {
+        "main": "golden yellow",
+        "accent": "cobalt blue",
+        "neutral": "white"
+      },
+      "tags": {
+        "colour_family": [
+          "yellow"
+        ],
+        "tone": [
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "neon yellow, electric purple and black",
+      "tier": "unusual",
+      "roles": {
+        "main": "neon yellow",
+        "accent": "electric purple",
+        "neutral": "black"
+      },
+      "tags": {
+        "colour_family": [
+          "yellow"
+        ],
+        "tone": [
+          "neon",
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "olive, tan and cream",
+      "tier": "typical",
+      "roles": {
+        "main": "olive",
+        "accent": "tan",
+        "neutral": "cream"
+      },
+      "tags": {
+        "colour_family": [
+          "green"
+        ],
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "forest green, burgundy and charcoal",
+      "tier": "typical",
+      "roles": {
+        "main": "forest green",
+        "accent": "burgundy",
+        "neutral": "charcoal"
+      },
+      "tags": {
+        "colour_family": [
+          "green"
+        ],
+        "tone": [
+          "dark",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "sage, dusty rose and off-white",
+      "tier": "typical",
+      "roles": {
+        "main": "sage",
+        "accent": "dusty rose",
+        "neutral": "off-white"
+      },
+      "tags": {
+        "colour_family": [
+          "green"
+        ],
+        "tone": [
+          "muted",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "neon green, neon orange and black",
+      "tier": "unusual",
+      "roles": {
+        "main": "neon green",
+        "accent": "neon orange",
+        "neutral": "black"
+      },
+      "tags": {
+        "colour_family": [
+          "green"
+        ],
+        "tone": [
+          "neon",
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "deep teal, rust and cream",
+      "tier": "typical",
+      "roles": {
+        "main": "deep teal",
+        "accent": "rust",
+        "neutral": "cream"
+      },
+      "tags": {
+        "colour_family": [
+          "teal"
+        ],
+        "tone": [
+          "dark",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "seafoam, pale peach and off-white",
+      "tier": "plausible",
+      "roles": {
+        "main": "seafoam",
+        "accent": "pale peach",
+        "neutral": "off-white"
+      },
+      "tags": {
+        "colour_family": [
+          "teal"
+        ],
+        "tone": [
+          "pastel",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "turquoise, coral and white",
+      "tier": "plausible",
+      "roles": {
+        "main": "turquoise",
+        "accent": "coral",
+        "neutral": "white"
+      },
+      "tags": {
+        "colour_family": [
+          "teal"
+        ],
+        "tone": [
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "petrol teal, slate blue and charcoal",
+      "tier": "typical",
+      "roles": {
+        "main": "petrol teal",
+        "accent": "slate blue",
+        "neutral": "charcoal"
+      },
+      "tags": {
+        "colour_family": [
+          "teal"
+        ],
+        "tone": [
+          "dark",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "navy, white and heather grey",
+      "tier": "typical",
+      "roles": {
+        "main": "navy",
+        "accent": "white",
+        "neutral": "heather grey"
+      },
+      "tags": {
+        "colour_family": [
+          "blue"
+        ],
+        "tone": [
+          "dark",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "pale blue, blush pink and cream",
+      "tier": "typical",
+      "roles": {
+        "main": "pale blue",
+        "accent": "blush pink",
+        "neutral": "cream"
+      },
+      "tags": {
+        "colour_family": [
+          "blue"
+        ],
+        "tone": [
+          "pastel",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "cobalt blue, golden yellow and white",
+      "tier": "plausible",
+      "roles": {
+        "main": "cobalt blue",
+        "accent": "golden yellow",
+        "neutral": "white"
+      },
+      "tags": {
+        "colour_family": [
+          "blue"
+        ],
+        "tone": [
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "slate blue, powder blue and blue-grey",
+      "tier": "plausible",
+      "roles": {
+        "main": "slate blue",
+        "accent": "powder blue",
+        "neutral": "blue-grey"
+      },
+      "tags": {
+        "colour_family": [
+          "blue"
+        ],
+        "tone": [
+          "muted",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "plum, dusty rose and charcoal",
+      "tier": "typical",
+      "roles": {
+        "main": "plum",
+        "accent": "dusty rose",
+        "neutral": "charcoal"
+      },
+      "tags": {
+        "colour_family": [
+          "purple"
+        ],
+        "tone": [
+          "dark",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "lavender, pale mint and off-white",
+      "tier": "plausible",
+      "roles": {
+        "main": "lavender",
+        "accent": "pale mint",
+        "neutral": "off-white"
+      },
+      "tags": {
+        "colour_family": [
+          "purple"
+        ],
+        "tone": [
+          "pastel",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "violet, tangerine and white",
+      "tier": "plausible",
+      "roles": {
+        "main": "violet",
+        "accent": "tangerine",
+        "neutral": "white"
+      },
+      "tags": {
+        "colour_family": [
+          "purple"
+        ],
+        "tone": [
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "aubergine, mauve and grey",
+      "tier": "plausible",
+      "roles": {
+        "main": "aubergine",
+        "accent": "mauve",
+        "neutral": "grey"
+      },
+      "tags": {
+        "colour_family": [
+          "purple"
+        ],
+        "tone": [
+          "dark",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "dusty rose, sage and cream",
+      "tier": "typical",
+      "roles": {
+        "main": "dusty rose",
+        "accent": "sage",
+        "neutral": "cream"
+      },
+      "tags": {
+        "colour_family": [
+          "pink"
+        ],
+        "tone": [
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "blush pink, pale lavender and off-white",
+      "tier": "typical",
+      "roles": {
+        "main": "blush pink",
+        "accent": "pale lavender",
+        "neutral": "off-white"
+      },
+      "tags": {
+        "colour_family": [
+          "pink"
+        ],
+        "tone": [
+          "pastel",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "hot pink, cobalt blue and black",
+      "tier": "plausible",
+      "roles": {
+        "main": "hot pink",
+        "accent": "cobalt blue",
+        "neutral": "black"
+      },
+      "tags": {
+        "colour_family": [
+          "pink"
+        ],
+        "tone": [
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "neon pink, neon yellow and charcoal",
+      "tier": "unusual",
+      "roles": {
+        "main": "neon pink",
+        "accent": "neon yellow",
+        "neutral": "charcoal"
+      },
+      "tags": {
+        "colour_family": [
+          "pink"
+        ],
+        "tone": [
+          "neon",
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "chocolate brown, camel and cream",
+      "tier": "typical",
+      "roles": {
+        "main": "chocolate brown",
+        "accent": "camel",
+        "neutral": "cream"
+      },
+      "tags": {
+        "colour_family": [
+          "brown"
+        ],
+        "tone": [
+          "dark",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "chestnut, olive and beige",
+      "tier": "typical",
+      "roles": {
+        "main": "chestnut",
+        "accent": "olive",
+        "neutral": "beige"
+      },
+      "tags": {
+        "colour_family": [
+          "brown"
+        ],
+        "tone": [
+          "earthy",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "taupe, dusty blue and off-white",
+      "tier": "typical",
+      "roles": {
+        "main": "taupe",
+        "accent": "dusty blue",
+        "neutral": "off-white"
+      },
+      "tags": {
+        "colour_family": [
+          "brown"
+        ],
+        "tone": [
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "espresso, cocoa and tan",
+      "tier": "typical",
+      "roles": {
+        "main": "espresso",
+        "accent": "cocoa",
+        "neutral": "tan"
+      },
+      "tags": {
+        "colour_family": [
+          "brown"
+        ],
+        "tone": [
+          "dark",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "sand, navy and white",
+      "tier": "typical",
+      "roles": {
+        "main": "sand",
+        "accent": "navy",
+        "neutral": "white"
+      },
+      "tags": {
+        "colour_family": [
+          "beige"
+        ],
+        "tone": [
+          "light",
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "oatmeal, sage and cream",
+      "tier": "typical",
+      "roles": {
+        "main": "oatmeal",
+        "accent": "sage",
+        "neutral": "cream"
+      },
+      "tags": {
+        "colour_family": [
+          "beige"
+        ],
+        "tone": [
+          "light",
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "ecru, ivory and cream",
+      "tier": "typical",
+      "roles": {
+        "main": "ecru",
+        "accent": "ivory",
+        "neutral": "cream"
+      },
+      "tags": {
+        "colour_family": [
+          "beige"
+        ],
+        "tone": [
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "camel, rust and off-white",
+      "tier": "typical",
+      "roles": {
+        "main": "camel",
+        "accent": "rust",
+        "neutral": "off-white"
+      },
+      "tags": {
+        "colour_family": [
+          "beige"
+        ],
+        "tone": [
+          "earthy",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "black, white and heather grey",
+      "tier": "typical",
+      "roles": {
+        "main": "black",
+        "accent": "white",
+        "neutral": "heather grey"
+      },
+      "tags": {
+        "colour_family": [
+          "black"
+        ],
+        "tone": [
+          "dark"
+        ]
+      }
+    },
+    {
+      "text": "black, burgundy and charcoal",
+      "tier": "typical",
+      "roles": {
+        "main": "black",
+        "accent": "burgundy",
+        "neutral": "charcoal"
+      },
+      "tags": {
+        "colour_family": [
+          "black"
+        ],
+        "tone": [
+          "dark",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "jet black, charcoal and slate grey",
+      "tier": "typical",
+      "roles": {
+        "main": "jet black",
+        "accent": "charcoal",
+        "neutral": "slate grey"
+      },
+      "tags": {
+        "colour_family": [
+          "black"
+        ],
+        "tone": [
+          "dark",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "black, neon green and grey",
+      "tier": "unusual",
+      "roles": {
+        "main": "black",
+        "accent": "neon green",
+        "neutral": "grey"
+      },
+      "tags": {
+        "colour_family": [
+          "black"
+        ],
+        "tone": [
+          "dark",
+          "neon"
+        ]
+      }
+    },
+    {
+      "text": "white, navy and grey",
+      "tier": "typical",
+      "roles": {
+        "main": "white",
+        "accent": "navy",
+        "neutral": "grey"
+      },
+      "tags": {
+        "colour_family": [
+          "white"
+        ],
+        "tone": [
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "ivory, cream and off-white",
+      "tier": "typical",
+      "roles": {
+        "main": "ivory",
+        "accent": "cream",
+        "neutral": "off-white"
+      },
+      "tags": {
+        "colour_family": [
+          "white"
+        ],
+        "tone": [
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "off-white, pale peach and beige",
+      "tier": "typical",
+      "roles": {
+        "main": "off-white",
+        "accent": "pale peach",
+        "neutral": "beige"
+      },
+      "tags": {
+        "colour_family": [
+          "white"
+        ],
+        "tone": [
+          "light",
+          "pastel"
+        ]
+      }
+    },
+    {
+      "text": "white, scarlet and charcoal",
+      "tier": "plausible",
+      "roles": {
+        "main": "white",
+        "accent": "scarlet",
+        "neutral": "charcoal"
+      },
+      "tags": {
+        "colour_family": [
+          "white"
+        ],
+        "tone": [
+          "bright"
+        ]
+      }
+    },
+    {
+      "text": "charcoal, white and heather grey",
+      "tier": "typical",
+      "roles": {
+        "main": "charcoal",
+        "accent": "white",
+        "neutral": "heather grey"
+      },
+      "tags": {
+        "colour_family": [
+          "grey"
+        ],
+        "tone": [
+          "dark",
+          "muted",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "pearl grey, pale blue and off-white",
+      "tier": "typical",
+      "roles": {
+        "main": "pearl grey",
+        "accent": "pale blue",
+        "neutral": "off-white"
+      },
+      "tags": {
+        "colour_family": [
+          "grey"
+        ],
+        "tone": [
+          "light",
+          "pastel"
+        ]
+      }
+    },
+    {
+      "text": "slate grey, rust and cream",
+      "tier": "typical",
+      "roles": {
+        "main": "slate grey",
+        "accent": "rust",
+        "neutral": "cream"
+      },
+      "tags": {
+        "colour_family": [
+          "grey"
+        ],
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "heather grey, silver grey and charcoal",
+      "tier": "typical",
+      "roles": {
+        "main": "heather grey",
+        "accent": "silver grey",
+        "neutral": "charcoal"
+      },
+      "tags": {
+        "colour_family": [
+          "grey"
+        ],
+        "tone": [
+          "muted",
+          "monochrome"
+        ]
+      }
+    }
+  ]
+}

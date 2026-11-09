@@ -4,7 +4,7 @@
   "description": "Everyday outfits built from relaxed garments and practical separates.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete everyday looks, including simple dresses and culturally specific daily garments. Smart owns tailored workwear; athletic owns exercise kit; summer owns beachwear; cold_weather owns outerwear-led looks. Excludes accessories, props, body descriptors, and grooming. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity.",
+  "notes": "Complete everyday looks, including simple dresses and culturally specific daily garments. Smart owns tailored workwear; athletic owns exercise kit; summer owns beachwear; cold_weather owns outerwear-led looks. Excludes accessories, props, body descriptors, and grooming. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply garment colours; blue denim and undyed fabric may retain intrinsic colours. Coverage describes garment extent. Historical dyed looks use muted, earthy or monochrome schemes.",
   "facets": [
     "presentation",
     "age",
@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a white cotton T-shirt and straight blue jeans",
+      "text": "a {main} cotton T-shirt and straight blue jeans",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -45,11 +45,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a charcoal jersey T-shirt and olive cargo trousers",
+      "text": "a {main} jersey T-shirt and {neutral} cargo trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -68,11 +74,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "style": [
+          "workwear"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a striped cotton shirt and faded denim shorts",
+      "text": "a cotton shirt with {main} and {accent} stripes and faded denim shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -90,11 +102,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a navy sweatshirt and grey cotton joggers",
+      "text": "a {main} sweatshirt and {neutral} cotton joggers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -112,11 +130,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "style": [
+          "sporty"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a cream cable-knit sweater and brown corduroy trousers",
+      "text": "a {main} cable-knit sweater and {neutral} corduroy trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -135,11 +159,246 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a burgundy cardigan and dark straight-leg jeans",
+      "text": "a {main} cardigan and dark straight-leg jeans",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} flannel shirt and {neutral} denim jeans",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "style": [
+          "workwear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} polo shirt and {neutral} chinos",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "style": [
+          "preppy"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a {main} linen blouse and wide {neutral} trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "style": [
+          "bohemian"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a {main} ribbed top and loose {neutral} jeans",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "style": [
+          "minimal"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a {main} short-sleeved cotton tunic and {neutral} leggings",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a cotton shirt with {main} and {accent} checks and stonewashed denim dungarees",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "style": [
+          "workwear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sweatshirt and {neutral} jersey leggings",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "style": [
+          "sporty"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} henley shirt and {neutral} canvas trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -159,194 +418,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "style": [
+          "workwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a green flannel shirt and black denim jeans",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ]
-      }
-    },
-    {
-      "text": "a pale blue polo shirt and beige chinos",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ]
-      }
-    },
-    {
-      "text": "a rust linen blouse and wide cream trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a black ribbed top and loose grey jeans",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ]
-      }
-    },
-    {
-      "text": "a yellow cotton tunic and navy leggings",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a red checked shirt and stonewashed denim dungarees",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ]
-      }
-    },
-    {
-      "text": "a lavender sweatshirt and black jersey leggings",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ]
-      }
-    },
-    {
-      "text": "a brown henley shirt and tan canvas trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ]
-      }
-    },
-    {
-      "text": "a cream cotton blouse and a blue denim skirt",
+      "text": "a {main} cotton blouse and a blue denim skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -367,11 +449,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a navy jersey dress with short sleeves",
+      "text": "a {main} knee-length jersey dress with short sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -392,11 +480,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "minimal"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a green cotton shirt dress with a fabric belt",
+      "text": "a {main} cotton midi shirt dress with a fabric belt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -418,11 +512,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a black T-shirt and a rust pleated midi skirt",
+      "text": "a {main} T-shirt and a {accent} pleated midi skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -444,11 +544,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a pink cardigan and a grey jersey maxi skirt",
+      "text": "a {main} cardigan and a {neutral} jersey maxi skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -469,11 +575,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "romantic"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a white linen top and terracotta drawstring trousers",
+      "text": "a {main} short-sleeved linen top and {neutral} drawstring trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -497,11 +609,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "style": [
+          "minimal"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a teal fleece pullover and charcoal hiking trousers",
+      "text": "a {main} fleece pullover and {neutral} hiking trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -518,11 +643,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "style": [
+          "sporty"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy cotton jumpsuit with wide legs",
+      "text": "a {main} cotton jumpsuit with wide legs",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -541,11 +672,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "style": [
+          "minimal"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a green canvas boiler suit with rolled sleeves",
+      "text": "a {main} canvas boiler suit with rolled sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -564,11 +701,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "style": [
+          "workwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a black hoodie and grey cargo trousers",
+      "text": "a {main} hoodie and {neutral} cargo trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -586,11 +729,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "style": [
+          "streetwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a plum jersey wrap dress with elbow-length sleeves",
+      "text": "a {main} jersey wrap dress with elbow-length sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -611,18 +760,23 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "romantic"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a faded black T-shirt and patchwork denim jeans",
+      "text": "a faded {main} T-shirt and patchwork denim jeans",
       "tier": "plausible",
       "tags": {
         "formality": [
           "casual"
         ],
         "era": [
-          "1900s_1940s",
           "1950s_1970s",
           "1980s_1990s",
           "contemporary",
@@ -634,11 +788,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "style": [
+          "streetwear"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a beige knit vest over a shirt with brown trousers",
+      "text": "a {main} knit vest over a {accent} shirt with {neutral} trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -657,18 +817,23 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "style": [
+          "preppy"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a tan suede vest over a cream shirt and jeans",
+      "text": "a {main} suede vest over a {accent} shirt and blue jeans",
       "tier": "plausible",
       "tags": {
         "formality": [
           "casual"
         ],
         "era": [
-          "19th_century",
           "1900s_1940s",
           "1950s_1970s",
           "1980s_1990s",
@@ -681,11 +846,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "style": [
+          "bohemian"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a cream blouse and a green cotton pinafore dress",
+      "text": "a {neutral} short-sleeved blouse and a {main} cotton pinafore dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -707,11 +878,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "romantic"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a white embroidered kurta and loose cotton pyjama trousers",
+      "text": "an embroidered {main} kurta and loose {neutral} cotton pyjama trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -733,11 +910,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a teal cotton salwar kameez with straight sleeves",
+      "text": "a cotton {main} salwar kameez with straight sleeves and {accent} embroidery",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -762,11 +945,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a blue cotton sari with a plain short-sleeved blouse",
+      "text": "a {main} cotton sari with a {accent} short-sleeved blouse",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -789,11 +978,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a grey thobe with a simple buttoned neckline",
+      "text": "a {main} thobe with a simple buttoned neckline",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -818,11 +1013,17 @@
         ],
         "presentation": [
           "masculine"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy abaya over a grey ankle-length dress",
+      "text": "a {main} abaya over a {neutral} ankle-length dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -847,136 +1048,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a striped cotton djellaba over loose cream trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic",
-          "fantasy",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a green wax-print blouse and matching straight skirt",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a blue boubou over matching cotton trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic",
-          "fantasy",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a rust dashiki and plain black trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a white guayabera and brown linen trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a cream huipil and a plain indigo skirt",
+      "text": "a cotton djellaba with {main} and {accent} stripes over loose {neutral} trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1001,13 +1083,195 @@
           "contemporary",
           "future"
         ],
-        "presentation": [
-          "feminine"
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a patterned cotton kebaya and a dark batik skirt",
+      "text": "a wax-print blouse in {main} and {accent} with a matching straight skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a {main} boubou over matching cotton trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic",
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "an embroidered {main} dashiki with {accent} stitching and {neutral} trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a {main} guayabera and {neutral} linen trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a {main} huipil and a {neutral} skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic",
+          "fantasy",
+          "fairy_tale"
+        ],
+        "era": [
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a cotton kebaya with {main} and {accent} floral motifs and a patterned {neutral} batik skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1032,11 +1296,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a charcoal samue jacket and matching loose trousers",
+      "text": "a {main} samue jacket and matching loose trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1053,11 +1323,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a pale pink cotton yukata with a navy obi",
+      "text": "a {main} cotton yukata with a {accent} obi",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1080,11 +1356,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a loose black tunic and charcoal harem trousers",
+      "text": "a loose {main} long-sleeved tunic and {neutral} harem trousers",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1106,6 +1388,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "style": [
+          "bohemian"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
@@ -1126,11 +1414,17 @@
         ],
         "formality": [
           "casual"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a russet wool overtunic over a belted linen underdress",
+      "text": "a {main} wool overtunic over a belted {neutral} linen underdress",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1149,11 +1443,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a short brown tunic and cross-gartered wool leg wraps",
+      "text": "a short {main} tunic and {neutral} cross-gartered wool leg wraps",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1169,8 +1476,883 @@
         ],
         "formality": [
           "casual"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} crew-neck T-shirt and {neutral} cotton chino shorts",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton turtleneck and {neutral} straight wool trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} boat-neck jersey top and {neutral} cropped cotton trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} chambray shirt with rolled sleeves and {neutral} linen shorts",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "classic"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} jersey tank and {neutral} drawstring sweat shorts",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "sporty"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} velour zip hoodie and matching flared track trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "sporty"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a raglan {main} baseball T-shirt with {accent} sleeves and {neutral} joggers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "sporty"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} zip-neck jersey pullover and {neutral} cropped sweatpants",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "sporty"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "an oversized {main} cotton T-shirt and {neutral} parachute trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "streetwear"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} denim overshirt over a {accent} T-shirt and {neutral} wide-leg jeans",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "streetwear"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cropped jersey top and {neutral} low-rise cargo trousers",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "streetwear"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} mesh long-sleeved top over a {accent} tank with {neutral} baggy jeans",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "streetwear"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a patchwork {main} sweatshirt with {accent} panels and {neutral} carpenter jeans",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "streetwear"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} gathered cotton peasant blouse and a {neutral} tiered maxi skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "bohemian"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} crochet camisole and {neutral} wide-leg linen trousers",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "bohemian"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a gathered {main} cotton midi dress with {accent} block-printed flowers",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "bohemian"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} linen waistcoat over a {accent} long-sleeved blouse and {neutral} palazzo trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "bohemian"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton chore jacket over a {accent} henley and {neutral} canvas trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "workwear"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} ribbed tank and {neutral} denim bib overalls",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "workwear"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton twill shop coat over a {accent} T-shirt and {neutral} straight jeans",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "workwear"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} side-fastening seated-cut overshirt and {neutral} elastic-waist canvas trousers",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "workwear"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a long-sleeved {main} cotton rugby shirt with {accent} horizontal bands and {neutral} chinos",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "preppy"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sleeveless cable-knit vest over a {accent} polo and {neutral} Bermuda shorts",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "preppy"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a button-front {main} cardigan with {accent} tipping over a white Oxford shirt and {neutral} chinos",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "preppy"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} short-sleeved knit polo and a {accent} knee-length pleated skirt",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "preppy"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} fine-knit crew-neck sweater and matching straight jersey trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "minimal"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sleeveless linen shift dress with patch pockets",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "minimal"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} boxy cotton top and {neutral} cropped culottes",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "minimal"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} long-sleeved jersey tunic and matching wide-leg trousers",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "minimal"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} puff-sleeved cotton blouse and a {neutral} A-line midi skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "romantic"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a sleeveless {main} cotton sundress with a shirred bodice and {accent} floral embroidery",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "romantic"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a lace-trimmed {main} long-sleeved blouse under a {accent} knitted vest with a {neutral} gathered maxi skirt",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "romantic"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a white linen thobe with a stand collar and long sleeves",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "style": [
+          "traditional"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
         ]
       }
     }
-  ]
+  ],
+  "slots": "person.palette",
+  "local_facets": {
+    "style": [
+      "classic",
+      "sporty",
+      "streetwear",
+      "bohemian",
+      "workwear",
+      "preppy",
+      "minimal",
+      "romantic",
+      "traditional"
+    ],
+    "coverage": [
+      "light",
+      "moderate",
+      "full"
+    ]
+  }
 }

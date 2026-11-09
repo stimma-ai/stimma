@@ -4,7 +4,7 @@
   "description": "Exercise and sports outfits assembled from functional garments.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete sportswear, including adaptive cuts, varied coverage, and sport-specific clothing. Casual owns everyday leisurewear; summer owns recreational swimwear; cold_weather owns everyday winter outerwear. Excludes equipment, team names, logos, and implied body shape. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity.",
+  "notes": "Complete sportswear, including adaptive cuts, varied coverage, and sport-specific clothing. Casual owns everyday leisurewear; summer owns recreational swimwear; cold_weather owns everyday winter outerwear. Excludes equipment, team names, logos, and implied body shape. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles colour the garments together; coverage describes garment extent rather than suitability. Historical dyed looks use muted, earthy or monochrome schemes.",
   "facets": [
     "presentation",
     "age",
@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a grey technical T-shirt and black running shorts",
+      "text": "a {main} technical T-shirt and {accent} running shorts with {neutral} mesh trainers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -42,11 +42,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "running"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a navy moisture-wicking top and blue track trousers",
+      "text": "a long-sleeved {main} moisture-wicking top and {neutral} track trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -62,11 +68,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "gym"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a green training vest and charcoal stretch leggings",
+      "text": "a {main} training vest and {neutral} stretch leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -82,19 +94,23 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "gym"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a white tennis polo and a navy pleated skort",
+      "text": "a {main} tennis polo and a {accent} pleated skort",
       "tier": "typical",
       "tags": {
         "formality": [
           "casual"
         ],
         "era": [
-          "1900s_1940s",
-          "1950s_1970s",
           "1980s_1990s",
           "contemporary",
           "future"
@@ -107,18 +123,23 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "sport": [
+          "tennis"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a blue long-sleeved jersey and black padded cycling tights",
+      "text": "a {main} long-sleeved jersey and {neutral} padded cycling tights",
       "tier": "typical",
       "tags": {
         "formality": [
           "casual"
         ],
         "era": [
-          "1950s_1970s",
           "1980s_1990s",
           "contemporary",
           "future"
@@ -128,11 +149,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "cycling"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a grey hooded tracksuit with tapered trousers",
+      "text": "a {main} hooded tracksuit with tapered trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -150,11 +177,18 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "sport": [
+          "gym",
+          "running"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a coral exercise tunic and grey full-length leggings",
+      "text": "a long-sleeved {main} exercise tunic and {neutral} full-length leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -170,11 +204,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "sport": [
+          "gym",
+          "yoga"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy long-sleeved swim tunic and matching swim leggings",
+      "text": "a {main} long-sleeved swim tunic and matching swim leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -190,11 +231,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "swimming"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a blue rash guard and black swim jammers",
+      "text": "a {main} rash guard and {neutral} swim jammers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -210,6 +257,12 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "swimming"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
@@ -232,11 +285,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "martial arts"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a black compression shirt and grey training shorts",
+      "text": "a {main} compression shirt and {accent} training shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -252,11 +311,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "gym"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a cream yoga top and olive stretch trousers",
+      "text": "a {main} cotton yoga tank and {neutral} stretch trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -272,11 +337,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "sport": [
+          "yoga"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a plum wrap-front dance top and black leggings",
+      "text": "a {main} wrap-front dance top and {neutral} leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -293,6 +364,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "sport": [
+          "dance"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
@@ -315,11 +392,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "other"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy rugby jersey and white cotton shorts",
+      "text": "a {main} rugby jersey and {accent} cotton shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -338,11 +421,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "team sport"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a yellow football jersey and black shorts",
+      "text": "a {main} football jersey and {accent} shorts with {neutral} knee socks",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -361,6 +450,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "sport": [
+          "team sport"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
@@ -384,11 +479,43 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "team sport"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a grey baseball jersey and white piped trousers",
+      "text": "a button-front {main} baseball jersey and {neutral} trousers with {accent} piping",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "sport": [
+          "team sport"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} basketball vest and loose matching shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -406,33 +533,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "team sport"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a red basketball vest and loose matching shorts",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "a green netball dress with matching stretch shorts",
+      "text": "a {main} netball dress with matching stretch shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -451,11 +562,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "sport": [
+          "team sport"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a red boxing vest and black satin shorts",
+      "text": "a {main} boxing vest and {accent} satin shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -473,11 +590,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "sport": [
+          "martial arts"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a rust hiking shirt and grey stretch cargo trousers",
+      "text": "a {main} hiking shirt and {neutral} stretch cargo trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -494,11 +617,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "sport": [
+          "hiking"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a green climbing top and reinforced brown climbing trousers",
+      "text": "a {main} sleeveless climbing top and reinforced {neutral} climbing trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -516,11 +645,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "sport": [
+          "other"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a black windproof running jacket and reflective grey tights",
+      "text": "a {main} windproof running jacket and {neutral} tights with reflective strips",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -537,11 +672,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "sport": [
+          "running"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a grey seated-cut training jacket and matching stretch trousers",
+      "text": "a {main} seated-cut training jacket and matching stretch trousers",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -558,19 +699,23 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "sport": [
+          "gym"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a lime zip-front jersey and black adaptive side-opening shorts",
+      "text": "a {main} zip-front jersey and {neutral} adaptive side-opening shorts",
       "tier": "plausible",
       "tags": {
         "formality": [
           "casual"
         ],
         "era": [
-          "1900s_1940s",
-          "1950s_1970s",
           "1980s_1990s",
           "contemporary",
           "future"
@@ -580,6 +725,12 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "gym"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
@@ -601,11 +752,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "martial arts"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a blue cross-country ski jacket and black fitted trousers",
+      "text": "a {main} cross-country ski jacket and {neutral} fitted trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -615,8 +772,6 @@
           "cold"
         ],
         "era": [
-          "1900s_1940s",
-          "1950s_1970s",
           "1980s_1990s",
           "contemporary",
           "future"
@@ -627,11 +782,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "sport": [
+          "other"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a red insulated ski suit with articulated knees",
+      "text": "a {main} insulated ski suit with articulated knees",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -641,8 +802,6 @@
           "cold"
         ],
         "era": [
-          "1900s_1940s",
-          "1950s_1970s",
           "1980s_1990s",
           "contemporary",
           "future"
@@ -653,11 +812,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "sport": [
+          "other"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a grey equestrian jacket and beige stretch breeches",
+      "text": "a {main} equestrian jacket and {neutral} stretch breeches",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -673,19 +838,23 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "sport": [
+          "other"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a white sleeveless golf polo and tan tailored shorts",
+      "text": "a {main} sleeveless golf polo and {neutral} tailored shorts",
       "tier": "typical",
       "tags": {
         "formality": [
           "casual"
         ],
         "era": [
-          "1900s_1940s",
-          "1950s_1970s",
           "1980s_1990s",
           "contemporary",
           "future"
@@ -695,11 +864,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "sport": [
+          "other"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a short belted linen training tunic and close-fitting wool hose",
+      "text": "a short belted {main} linen training tunic and close-fitting {neutral} wool hose",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -715,11 +890,24 @@
         ],
         "formality": [
           "casual"
+        ],
+        "sport": [
+          "martial arts"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a quilted fencing jacket over a linen shirt and hose",
+      "text": "a {main} quilted fencing jacket over a {accent} linen shirt and {neutral} hose",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -735,11 +923,24 @@
         ],
         "formality": [
           "casual"
+        ],
+        "sport": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a plain cotton wrestling jacket and loose woven drawstring trousers",
+      "text": "a {main} cotton wrestling jacket and loose {neutral} woven drawstring trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -755,11 +956,24 @@
         ],
         "formality": [
           "casual"
+        ],
+        "sport": [
+          "martial arts"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a cream wool rowing jersey and high-waisted flannel trousers",
+      "text": "a {main} wool rowing jersey and high-waisted {neutral} flannel trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -775,11 +989,24 @@
         ],
         "formality": [
           "casual"
+        ],
+        "sport": [
+          "team sport"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a white cotton croquet blouse and ankle-length wool walking skirt",
+      "text": "a {accent} cotton croquet blouse and an ankle-length {main} wool walking skirt",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -798,8 +1025,654 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "sport": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a lightweight {main} mesh singlet and matching split running shorts with {accent} binding",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "running"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} long-sleeved merino base layer and {neutral} thermal running tights",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "running"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "climate": [
+          "cold",
+          "temperate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} racerback tank and {neutral} capri tights with {accent} running shoes",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "running"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sports bra and {neutral} high-waisted compression shorts",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "gym"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} quarter-zip training top and {neutral} tapered sweatpants",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "gym"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sleeveless training hoodie and {accent} knee-length jersey shorts",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "gym"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} stretch crop top and {neutral} fitted yoga shorts",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "yoga"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} long-sleeved bamboo jersey top and {accent} flared yoga trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "yoga"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} short-sleeved cycling jersey and {neutral} padded bib shorts with {accent} socks",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "cycling"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} waterproof cycling shell and {neutral} thermal bib tights",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "cycling"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "climate": [
+          "cold",
+          "temperate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} stretch tennis dress with {accent} side panels and built-in shorts",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "tennis"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} tennis warm-up jacket and {neutral} straight track trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "tennis"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} volleyball jersey and {neutral} fitted shorts with {accent} knee pads",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "team sport"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a racerback {main} one-piece swimsuit with {accent} side panels",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "swimming"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a pair of {main} racing swim briefs",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "swimming"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a two-piece {main} athletic bikini with a cross-back top and drawstring bottoms",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "swimming"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a long-sleeved {main} swim unitard with {accent} side stripes",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "swimming"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} quick-dry short-sleeved shirt and {neutral} ripstop hiking shorts",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "hiking"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} fleece zip jacket over a {accent} technical shirt and {neutral} hiking trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "hiking"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "climate": [
+          "cold",
+          "temperate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a pair of {main} kickboxing shorts with {accent} satin trim",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "martial arts"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} short-sleeved grappling rash guard and {neutral} compression leggings",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "martial arts"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a {main} camisole leotard and {neutral} footed dance tights",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "dance"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a long-sleeved {main} stretch unitard with {accent} shoulder panels",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "dance"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a stretch-knit {main} wrestling singlet with {accent} side stripes",
+      "tier": "plausible",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "sport": [
+          "other"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
         ]
       }
     }
-  ]
+  ],
+  "slots": "person.palette",
+  "local_facets": {
+    "sport": [
+      "running",
+      "gym",
+      "yoga",
+      "cycling",
+      "tennis",
+      "team sport",
+      "swimming",
+      "hiking",
+      "martial arts",
+      "dance",
+      "other"
+    ],
+    "coverage": [
+      "light",
+      "moderate",
+      "full"
+    ]
+  }
 }

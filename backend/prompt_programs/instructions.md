@@ -173,7 +173,8 @@ Still write `about=` and a seed in the list's form.
   listed detail and one of those parts says it, bind it with that part:
   `pick("age", cls="person.age_band", where={"life_stage": "young adult"}, ...)` for "a young
   woman"; `where={"sport": "tennis", "colour_family": "red"}` on an outfit for "in red tennis
-  kit". An outfit's colours vary on their own; a colour the user names goes in its `where=`.
+  kit". An outfit's colours are drawn with it: never write a separate colour pick for an
+  outfit; a colour the user names goes in the outfit's `where=`.
 - When no named part says it, put the user's own words in `where=` instead, and only the
   list's values that fit them are drawn: "a woman in her late thirties" → `where="late
   thirties"` on her age; "a wistful girl" → `where="wistful"` on her expression. Their words stay in

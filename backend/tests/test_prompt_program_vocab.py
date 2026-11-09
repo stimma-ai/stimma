@@ -69,7 +69,7 @@ class TestTheVocabulary:
     def test_the_catalogue_lists_person_ids_without_sample_values(self):
         cat = vocabulary().catalogue()
         assert "- person.eye_color: adjective" in cat and "interior_space" not in cat
-        assert "hazel" not in cat  # no fixed samples: they'd end up in every program's text
+        assert "medium brown" not in cat  # no fixed samples (a shade name like "hazel" is a facet, not a sample)
 
     def test_the_writer_reads_the_catalogue(self):
         assert "{vocabulary}" not in prep._INSTRUCTIONS and "person.eye_color" in prep._INSTRUCTIONS

@@ -10,211 +10,499 @@
   "values": [
     {
       "text": "a relaxed neutral expression",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "calm",
+          "neutral"
+        ]
+      }
     },
     {
       "text": "a small closed-mouth smile",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "happy"
+        ]
+      }
     },
     {
       "text": "a broad toothy smile",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "happy"
+        ]
+      }
     },
     {
       "text": "a tired half-smile",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "happy",
+          "tired"
+        ]
+      }
     },
     {
       "text": "a faint smile with slightly parted lips",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "happy"
+        ]
+      }
     },
     {
       "text": "a smile that creases the corners of the eyes",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "happy"
+        ]
+      }
     },
     {
       "text": "a lopsided smile with one raised cheek",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "happy",
+          "playful"
+        ]
+      }
     },
     {
       "text": "a look of quiet concentration with lightly knitted brows",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "thoughtful"
+        ]
+      }
     },
     {
       "text": "a thoughtful expression with pursed lips",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "thoughtful"
+        ]
+      }
     },
     {
       "text": "a serious expression with a relaxed brow",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "neutral"
+        ]
+      }
     },
     {
       "text": "a concerned expression with raised inner brows",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "fearful",
+          "thoughtful"
+        ]
+      }
     },
     {
       "text": "a faint frown with downturned mouth corners",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "sad"
+        ]
+      }
     },
     {
       "text": "a weary expression with heavy eyelids",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "tired"
+        ]
+      }
     },
     {
       "text": "a curious expression with one raised eyebrow",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "thoughtful"
+        ]
+      }
     },
     {
       "text": "a surprised expression with parted lips",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "surprised"
+        ]
+      }
     },
     {
       "text": "a hesitant smile with tense mouth corners",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "happy",
+          "fearful"
+        ]
+      }
     },
     {
       "text": "a mildly annoyed expression with tightened lips",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "angry"
+        ]
+      }
     },
     {
       "text": "a puzzled expression with unevenly raised brows",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "thoughtful"
+        ]
+      }
     },
     {
       "text": "a determined expression with a set jaw",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "neutral"
+        ]
+      }
     },
     {
       "text": "a sleepy expression with drooping eyelids",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "tired"
+        ]
+      }
     },
     {
       "text": "a relieved smile with a softened brow",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "happy",
+          "calm"
+        ]
+      }
     },
     {
       "text": "a wide-eyed expression of delight",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "happy",
+          "surprised"
+        ]
+      }
     },
     {
       "text": "a startled expression with a dropped jaw",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "surprised"
+        ]
+      }
     },
     {
       "text": "a skeptical half-smile with narrowed eyes",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "thoughtful"
+        ]
+      }
     },
     {
       "text": "a rueful grin with a creased brow",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "happy",
+          "sad"
+        ]
+      }
     },
     {
       "text": "a nervous smile showing clenched teeth",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "happy",
+          "fearful"
+        ]
+      }
     },
     {
       "text": "a sheepish smile with a wrinkled nose",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "happy"
+        ]
+      }
     },
     {
       "text": "a bittersweet smile with tearful eyes",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "happy",
+          "sad"
+        ]
+      }
     },
     {
       "text": "a sad expression with a trembling lower lip",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "sad"
+        ]
+      }
     },
     {
       "text": "a tearful expression with a tightly closed mouth",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "sad"
+        ]
+      }
     },
     {
       "text": "a pained grimace with bared upper teeth",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "sad"
+        ]
+      }
     },
     {
       "text": "a wince with one eye squeezed shut",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "fearful"
+        ]
+      }
     },
     {
       "text": "a scowl with deeply drawn-together brows",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "angry"
+        ]
+      }
     },
     {
       "text": "a disgusted expression with a curled upper lip",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "disgusted"
+        ]
+      }
     },
     {
       "text": "a disapproving expression with a pinched mouth",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "angry"
+        ]
+      }
     },
     {
       "text": "a sulky pout with lowered eyebrows",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "angry",
+          "sad"
+        ]
+      }
     },
     {
       "text": "a bored expression with half-lidded eyes",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "tired",
+          "neutral"
+        ]
+      }
     },
     {
       "text": "a dazed expression with slack jaw",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "surprised"
+        ]
+      }
     },
     {
       "text": "an apprehensive expression with stretched mouth corners",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "fearful"
+        ]
+      }
     },
     {
       "text": "a fearful expression with widened eyes and tense lips",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "fearful"
+        ]
+      }
     },
     {
       "text": "a panicked expression with an open mouth",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "fearful"
+        ]
+      }
     },
     {
       "text": "a defiant expression with a jutting jaw",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "angry"
+        ]
+      }
     },
     {
       "text": "a playful expression with puckered lips",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "playful"
+        ]
+      }
     },
     {
       "text": "a serene expression with gently closed eyes",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "calm"
+        ]
+      }
     },
     {
       "text": "a look of anticipation with raised brows and a small grin",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "happy"
+        ]
+      }
     },
     {
       "text": "a suspicious expression with narrowed eyes and flared nostrils",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "fearful",
+          "thoughtful"
+        ]
+      }
     },
     {
       "text": "a resigned expression with flattened mouth corners",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "sad"
+        ]
+      }
     },
     {
       "text": "an anguished expression with a fully open mouth",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "sad"
+        ]
+      }
     },
     {
       "text": "a tooth-baring snarl with a deeply wrinkled nose",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "angry"
+        ]
+      }
     },
     {
       "text": "a sobbing expression with tightly squeezed eyes and an open mouth",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "sad"
+        ]
+      }
     },
     {
       "text": "a terrified expression with raised upper eyelids and a rigid jaw",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "fearful"
+        ]
+      }
     },
     {
       "text": "a tongue-out grimace with one eye scrunched closed",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "playful"
+        ]
+      }
     }
-  ]
+  ],
+  "local_facets": {
+    "mood": [
+      "happy",
+      "calm",
+      "sad",
+      "angry",
+      "surprised",
+      "fearful",
+      "thoughtful",
+      "playful",
+      "tired",
+      "disgusted",
+      "neutral"
+    ]
+  }
 }

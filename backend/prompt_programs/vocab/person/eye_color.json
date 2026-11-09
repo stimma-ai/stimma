@@ -12,55 +12,124 @@
   "values": [
     {
       "text": "dark brown",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "brown"
+        ]
+      }
     },
     {
       "text": "medium brown",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "brown"
+        ]
+      }
     },
     {
       "text": "light brown",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "brown"
+        ]
+      }
     },
     {
       "text": "hazel",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "hazel"
+        ]
+      }
     },
     {
       "text": "blue",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "blue"
+        ]
+      }
     },
     {
       "text": "gray",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "grey"
+        ]
+      }
     },
     {
       "text": "green",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "green"
+        ]
+      }
     },
     {
       "text": "amber",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "amber"
+        ]
+      }
     },
     {
       "text": "blue-gray",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "blue",
+          "grey"
+        ]
+      }
     },
     {
       "text": "gray-green",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "grey",
+          "green"
+        ]
+      }
     },
     {
       "text": "dark blue",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "blue"
+        ]
+      }
     },
     {
       "text": "pale blue",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "blue"
+        ]
+      }
     },
     {
       "text": "mismatched blue and brown",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "shade": [
+          "blue",
+          "brown",
+          "unusual"
+        ]
+      }
     },
     {
       "text": "crimson",
@@ -70,6 +139,9 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "shade": [
+          "unusual"
         ]
       }
     },
@@ -81,6 +153,9 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "shade": [
+          "unusual"
         ]
       }
     },
@@ -92,6 +167,9 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "shade": [
+          "unusual"
         ]
       }
     },
@@ -103,6 +181,9 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "shade": [
+          "unusual"
         ]
       }
     },
@@ -114,6 +195,9 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "shade": [
+          "unusual"
         ]
       }
     },
@@ -125,6 +209,9 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "shade": [
+          "unusual"
         ]
       }
     },
@@ -136,6 +223,9 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "shade": [
+          "unusual"
         ]
       }
     },
@@ -146,8 +236,22 @@
         "genre": [
           "scifi",
           "cyberpunk"
+        ],
+        "shade": [
+          "unusual"
         ]
       }
     }
-  ]
+  ],
+  "local_facets": {
+    "shade": [
+      "brown",
+      "hazel",
+      "blue",
+      "green",
+      "grey",
+      "amber",
+      "unusual"
+    ]
+  }
 }

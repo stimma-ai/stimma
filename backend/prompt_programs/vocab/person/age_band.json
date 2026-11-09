@@ -16,6 +16,9 @@
       "tags": {
         "age": [
           "child"
+        ],
+        "life_stage": [
+          "child"
         ]
       }
     },
@@ -24,6 +27,9 @@
       "tier": "plausible",
       "tags": {
         "age": [
+          "child"
+        ],
+        "life_stage": [
           "child"
         ]
       }
@@ -34,6 +40,9 @@
       "tags": {
         "age": [
           "child"
+        ],
+        "life_stage": [
+          "child"
         ]
       }
     },
@@ -42,6 +51,9 @@
       "tier": "plausible",
       "tags": {
         "age": [
+          "child"
+        ],
+        "life_stage": [
           "child"
         ]
       }
@@ -52,6 +64,9 @@
       "tags": {
         "age": [
           "teen"
+        ],
+        "life_stage": [
+          "teen"
         ]
       }
     },
@@ -60,6 +75,9 @@
       "tier": "plausible",
       "tags": {
         "age": [
+          "teen"
+        ],
+        "life_stage": [
           "teen"
         ]
       }
@@ -70,6 +88,9 @@
       "tags": {
         "age": [
           "adult"
+        ],
+        "life_stage": [
+          "young adult"
         ]
       }
     },
@@ -79,6 +100,9 @@
       "tags": {
         "age": [
           "adult"
+        ],
+        "life_stage": [
+          "young adult"
         ]
       }
     },
@@ -88,6 +112,9 @@
       "tags": {
         "age": [
           "adult"
+        ],
+        "life_stage": [
+          "young adult"
         ]
       }
     },
@@ -97,6 +124,9 @@
       "tags": {
         "age": [
           "adult"
+        ],
+        "life_stage": [
+          "young adult"
         ]
       }
     },
@@ -106,6 +136,10 @@
       "tags": {
         "age": [
           "adult"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged"
         ]
       }
     },
@@ -115,6 +149,9 @@
       "tags": {
         "age": [
           "adult"
+        ],
+        "life_stage": [
+          "middle-aged"
         ]
       }
     },
@@ -124,6 +161,9 @@
       "tags": {
         "age": [
           "adult"
+        ],
+        "life_stage": [
+          "middle-aged"
         ]
       }
     },
@@ -133,6 +173,9 @@
       "tags": {
         "age": [
           "adult"
+        ],
+        "life_stage": [
+          "middle-aged"
         ]
       }
     },
@@ -142,6 +185,9 @@
       "tags": {
         "age": [
           "adult"
+        ],
+        "life_stage": [
+          "middle-aged"
         ]
       }
     },
@@ -151,6 +197,10 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "older",
           "elderly"
         ]
       }
@@ -162,6 +212,10 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "older",
+          "elderly"
         ]
       }
     },
@@ -171,6 +225,10 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "older",
           "elderly"
         ]
       }
@@ -182,6 +240,10 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "older",
+          "elderly"
         ]
       }
     },
@@ -191,6 +253,9 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
           "elderly"
         ]
       }
@@ -202,6 +267,9 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "elderly"
         ]
       }
     },
@@ -211,6 +279,9 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
           "elderly"
         ]
       }
@@ -222,6 +293,9 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "elderly"
         ]
       }
     },
@@ -232,8 +306,21 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "elderly"
         ]
       }
     }
-  ]
+  ],
+  "local_facets": {
+    "life_stage": [
+      "child",
+      "teen",
+      "young adult",
+      "middle-aged",
+      "older",
+      "elderly"
+    ]
+  }
 }

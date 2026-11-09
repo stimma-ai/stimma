@@ -13,83 +13,189 @@
   "values": [
     {
       "text": "black",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "black"
+        ]
+      }
     },
     {
       "text": "dark brown",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "brunette"
+        ]
+      }
     },
     {
       "text": "medium brown",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "brunette"
+        ]
+      }
     },
     {
       "text": "light brown",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "brunette"
+        ]
+      }
     },
     {
       "text": "dark blonde",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "blonde"
+        ]
+      }
     },
     {
       "text": "golden blonde",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "blonde"
+        ]
+      }
     },
     {
       "text": "auburn",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "auburn"
+        ]
+      }
     },
     {
       "text": "gray",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "grey"
+        ]
+      }
     },
     {
       "text": "white",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "white"
+        ]
+      }
     },
     {
       "text": "salt-and-pepper",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "shade": [
+          "black",
+          "grey"
+        ]
+      }
     },
     {
       "text": "ash brown",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "brunette"
+        ]
+      }
     },
     {
       "text": "warm copper",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "red"
+        ]
+      }
     },
     {
       "text": "strawberry blonde",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "blonde",
+          "red"
+        ]
+      }
     },
     {
       "text": "ash blonde",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "blonde"
+        ]
+      }
     },
     {
       "text": "platinum blonde",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "blonde"
+        ]
+      }
     },
     {
       "text": "sandy blonde",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "blonde"
+        ]
+      }
     },
     {
       "text": "dark red",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "red"
+        ]
+      }
     },
     {
       "text": "gray-templed dark brown",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "brunette",
+          "grey"
+        ]
+      }
     },
     {
       "text": "white-streaked black",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "black",
+          "white"
+        ]
+      }
     },
     {
       "text": "blonde-highlighted brown",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "shade": [
+          "brunette",
+          "blonde",
+          "dyed"
+        ]
+      }
     },
     {
       "text": "burgundy",
@@ -99,6 +205,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "dyed"
         ]
       }
     },
@@ -110,6 +219,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "dyed"
         ]
       }
     },
@@ -121,6 +233,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "dyed"
         ]
       }
     },
@@ -132,6 +247,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "dyed"
         ]
       }
     },
@@ -143,6 +261,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "dyed"
         ]
       }
     },
@@ -154,6 +275,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "dyed"
         ]
       }
     },
@@ -165,6 +289,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "dyed"
         ]
       }
     },
@@ -176,6 +303,10 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "black",
+          "dyed"
         ]
       }
     },
@@ -187,6 +318,10 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "blonde",
+          "dyed"
         ]
       }
     },
@@ -198,6 +333,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "dyed"
         ]
       }
     },
@@ -209,6 +347,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "dyed"
         ]
       }
     },
@@ -220,6 +361,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "dyed"
         ]
       }
     },
@@ -231,6 +375,11 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "shade": [
+          "black",
+          "white",
+          "dyed"
         ]
       }
     },
@@ -241,6 +390,9 @@
         "genre": [
           "fantasy",
           "fairy_tale"
+        ],
+        "shade": [
+          "grey"
         ]
       }
     },
@@ -251,8 +403,23 @@
         "genre": [
           "fantasy",
           "fairy_tale"
+        ],
+        "shade": [
+          "dyed"
         ]
       }
     }
-  ]
+  ],
+  "local_facets": {
+    "shade": [
+      "black",
+      "brunette",
+      "blonde",
+      "red",
+      "auburn",
+      "grey",
+      "white",
+      "dyed"
+    ]
+  }
 }
