@@ -496,6 +496,53 @@ class TestTemplates:
         rt2 = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=first.revision)
         assert draw(DRESSED, 5, None, [], None, None, None, options=rt2.options, judge=NullJudge()).prompt == first.prompt
 
+    def test_a_kept_look_alone_keeps_its_colours(self, dressed):
+        first = draw_dressed(4)
+        look = next(d.value for d in first.draws if d.id == "outfit")
+        for seed in range(6):
+            assert draw_dressed(50 + seed, fixed={"outfit": look}).prompt == first.prompt
+
+    def test_a_pinned_template_reads_filled_in_the_judges_context(self, dressed):
+        class Spy:
+            version, null = "spy", False
+
+            def __init__(self):
+                self.states = []
+
+            def judge(self, state, questions):
+                self.states.append(state)
+                return [{"typical": 1.0} for _ in questions]
+        spy = Spy()
+        src = DRESSED.replace('emit("A woman wearing", outfit, ".")',
+                              'pose = pick("pose", about="her pose", seed=["standing", "sitting"], label="Pose", phase=1)\n'
+                              'emit("A woman wearing", outfit, ",", pose, ".")')
+        draw(src, 2, {"outfit": ["a {main} technical T-shirt and {accent} running shorts"]}, [], None, None, None,
+             options=GeneratedOptions(None, program()), judge=spy)
+        assert spy.states and not any("{" in st for st in spy.states)
+
+    def test_a_replay_keeps_its_colours_after_the_palette_changes(self, dressed, tmp_path, monkeypatch):
+        import dataclasses
+        from prompt_programs.fluent import runtime_for
+        entry = {"key": "d", "program": DRESSED, "loras": [], "params": {}, "mode": "prose",
+                 "choices": discover(DRESSED)["choices"]}
+        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
+        first = draw(DRESSED, 5, None, [], None, None, None, options=rt.options, judge=NullJudge())
+        pal = dressed.leaves["person.palette"]
+        recoloured = tuple(dataclasses.replace(v, roles={k: "chartreuse" for k in v.roles}) for v in pal.values)
+        monkeypatch.setitem(dressed.leaves, "person.palette", dataclasses.replace(pal, values=recoloured))
+        rt2 = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=first.revision)
+        assert draw(DRESSED, 5, None, [], None, None, None, options=rt2.options, judge=NullJudge()).prompt == first.prompt
+        monkeypatch.delitem(dressed.leaves, "person.outfit.test")  # the outfit list itself removed
+        rt3 = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=first.revision)
+        assert "{" not in draw(DRESSED, 5, None, [], None, None, None, options=rt3.options, judge=NullJudge()).prompt
+
+    def test_colours_turned_off_leave_the_look_without_them(self, dressed):
+        edits = {"outfit.colours": {"off": True}}
+        for seed in range(6):
+            r = draw_dressed(seed, edits=edits, options=GeneratedOptions(None, program(), edits=edits))
+            assert "{" not in r.prompt and not any(d.id == "outfit.colours" for d in r.draws)
+            assert not any(c in r.prompt for c in ("navy", "red ", "black,"))
+
     def test_the_catalogue_shows_parts_and_hides_the_palette(self, dressed):
         cat = dressed.catalogue()
         line = next(ln for ln in cat.splitlines() if ln.startswith("- person.outfit.test"))

@@ -615,7 +615,8 @@ class GeneratedOptions:
     def _read(self, spec: PickSpec, context: Dict[str, Any], key: str, skey: str) -> Tuple[Pool, List[str], int]:
         recorded = self.limits.get(key)
         if isinstance(recorded, list):  # a revision's whole bound pool, even for a list since removed
-            return Pool(key, [str(o) for o, _ in recorded], [float(w) for _, w in recorded], False, True), [], 0
+            roles = {str(e[0]): dict(e[2]) for e in recorded if len(e) > 2 and isinstance(e[2], dict)}
+            return Pool(key, [str(e[0]) for e in recorded], [float(e[1]) for e in recorded], False, True, roles), [], 0
         leaf = self._leaf(spec)
         if leaf is not None:
             return self._read_bound(spec, leaf, key, skey)
@@ -674,7 +675,8 @@ class GeneratedOptions:
             listed = [(o, w * OPEN_SHARE / lw) for o, w in listed]
             gen = [(o, w * (1 - OPEN_SHARE) / gw) for o, w in gen]
         kept = [*listed, *gen]
-        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, True)
+        roles = {v.text: dict(v.roles) for v in values if v.roles}
+        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, True, roles)
         rounds = self.store.rounds(skey) if self.store is not None and not leaf.closed else 0
         return pool, generated, rounds
 

@@ -580,6 +580,7 @@ class Pool:
     weights: List[float]
     more_coming: bool = False
     snapshot: bool = False       # a revision records the whole pool (vocabulary lists change between versions)
+    roles: Dict[str, Dict[str, str]] = field(default_factory=dict)   # a palette pool: each scheme's colours
 
 
 def pool_key(spec: PickSpec, context: Dict[str, Any]) -> str:
@@ -850,6 +851,8 @@ class _Exec(_Runner):
         if leaf is not None and leaf.slots and vocabulary().get(leaf.slots) is not None:
             colours = self._palette(cid, site, spec, leaf, value, source, line, hidden)
             value = fill(str(value), self.eng.roles.get(cid))  # the image model reads the filled look
+        elif isinstance(value, str) and "{" in value:  # a replayed template whose list is gone: never show slots
+            value = fill(value, None)
         # The picker still lists every eligible value: typicality weights the draw, not the choice.
         d = Draw(cid, value, "pick", lbl, source, line, bool(hidden), pinned, [o for o, _ in eligible], follows)
         d.phase, d.about, d.cls = site.phase, spec.about, spec.cls
@@ -865,23 +868,34 @@ class _Exec(_Runner):
         from, read with the kept palette, or any template it fits."""
         names = {v.text for v in leaf.values}
         palette = vocabulary().get(leaf.slots)
+        ccid = f"{cid}.colours"
         for fixed in (self.eng.fixed, self.fixed):
             kept = fixed.get(cid)
             if kept is None or str(kept) in names:
                 continue
-            pv = palette.value(str(fixed.get(f"{cid}.colours") or "")) if palette is not None else None
+            pv = palette.value(str(fixed.get(ccid) or "")) if palette is not None else None
             hit = next((v.text for v in leaf.values if pv is not None and fill(v.text, pv.roles) == str(kept)), None)
+            if hit is None and pv is None and palette is not None:
+                # only the look was kept: find the template and the scheme that wrote it, and keep both
+                pair = next(((v.text, p.text) for v in leaf.values if template_matches(v.text, str(kept))
+                             for p in palette.values if fill(v.text, p.roles) == str(kept)), None)
+                if pair is not None:
+                    hit = pair[0]
+                    fixed.setdefault(ccid, pair[1])
             hit = hit or next((v.text for v in leaf.values if template_matches(v.text, str(kept))), None)
             if hit is not None:
                 fixed[cid] = hit
 
     def _palette(self, cid: str, site: Site, spec: PickSpec, leaf: Any, template: Any, source: str,
-                 line: Optional[int], hidden: bool) -> Draw:
+                 line: Optional[int], hidden: bool) -> Optional[Draw]:
         """A template pick's colours: an ordinary pick of the palette list, drawn right after
         the template (same site and phase), restricted to the palettes the template allows.
         Records the palette's roles for the template's fill and returns its Draw."""
         palette = vocabulary().get(leaf.slots)
         ccid = f"{cid}.colours"
+        if (self.eng.edits.get(ccid) or {}).get("off"):  # colours turned off: the look reads without them
+            self.eng.roles[cid] = {}
+            return None
         tv = leaf.value(str(template))
         restrict = tuple(sorted((str(f), tuple(str(x) for x in (w if isinstance(w, (list, tuple)) else [w])))
                                 for f, w in (tv.palette if tv is not None else {}).items()))
@@ -891,7 +905,8 @@ class _Exec(_Runner):
         items, _ = self.eng.typical(ccid, cspec, eligible)
         value, pinned = self._settle(ccid, site, cspec, items, {})
         pv = palette.value(str(value))
-        self.eng.roles[cid] = dict(pv.roles) if pv is not None else {}
+        recorded = self.eng.pool_roles.get(ccid, {}).get(str(value))  # a replay's colours, as they were drawn
+        self.eng.roles[cid] = dict(recorded or (pv.roles if pv is not None else {}))
         d = Draw(ccid, value, "pick", "Colours", source, line, bool(hidden), pinned, [o for o, _ in eligible], cid)
         d.phase, d.about, d.cls = site.phase, cspec.about, palette.id
         return d
@@ -919,10 +934,13 @@ class _Exec(_Runner):
     def _eligible(self, cid: str, spec: PickSpec, context: Dict[str, Any], exclude: Any) -> List[Tuple[str, float]]:
         pool = self.eng.options.get(spec, context)
         if self.record:  # the revision records the pools the final prompt drew from
-            self.eng.pools[pool.key] = ([[o, w] for o, w in zip(pool.items, pool.weights)] if pool.snapshot
+            self.eng.pools[pool.key] = ([[o, w, *([pool.roles[o]] if o in pool.roles else [])]
+                                         for o, w in zip(pool.items, pool.weights)] if pool.snapshot
                                         else len(pool.items))
             if pool.more_coming:
                 self.eng.more_coming.append(cid)
+        if pool.roles:
+            self.eng.pool_roles[cid] = pool.roles
         excl = {str(x) for x in (exclude or []) if x is not None}
         items = [(o, w) for o, w in zip(pool.items, pool.weights) if o not in excl]
         pins = self.eng.pins.get(cid)
@@ -1013,6 +1031,7 @@ class _Engine:
         self.rejected = 0
         self.decided: Dict[str, str] = {}
         self.roles: Dict[str, Dict[str, str]] = {}   # a template pick's palette roles in the current run
+        self.pool_roles: Dict[str, Dict[str, Dict[str, str]]] = {}   # a palette pick's schemes, as its pool had them
         self.param_values: Dict[str, Any] = {}
         self.kept: Set[str] = set()            # replayed (fixed) values: kept, not judged
         self.pools: Dict[str, Any] = {}   # pool key → its length, or for a vocabulary list the whole pool
@@ -1180,7 +1199,7 @@ class _Engine:
         text = tidy_text(out)
         # Single-value pins are authoritative context for every phase, even when their
         # pick sits in a branch that isn't active yet or inside a masked span: always listed.
-        extra = [f"{exe.by_id[cid].label if cid in exe.by_id else self.labels.get(cid, _label_from_id(cid))}: {v}"
+        extra = [f"{exe.by_id[cid].label if cid in exe.by_id else self.labels.get(cid, _label_from_id(cid))}: {self.shown(cid, v)}"
                  for cid, v in sorted(self.single_pins.items()) if self.an.sites_for_id(cid)]
         return text if not extra else f"{text}\n(Fixed: {'; '.join(extra)})"
 

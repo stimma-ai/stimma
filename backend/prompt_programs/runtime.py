@@ -336,6 +336,9 @@ class _Runner:
         d.where = where if isinstance(where, dict) else (str(where).strip() if isinstance(where, str) else "")
         if leaf is not None and leaf.slots and value is not None:
             value = self._palette(cid, d, leaf, value, source, line, hidden)
+        elif isinstance(value, str) and "{" in value:
+            from prompt_programs.vocab import fill
+            value = d.value = fill(value, None)
         return value
 
     def _palette(self, cid: str, d: "Draw", leaf: Any, template: str, source: str, line: Optional[int],
