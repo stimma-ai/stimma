@@ -103,3 +103,30 @@ test('a closed list asks no model for options, and still takes your own', async 
   await expect.poll(() => page.evaluate(() => window.state().edits.ethnicity)).toEqual({ add: ['my own heritage'] })
   await expect(card.locator('[data-option="my own heritage"]')).toBeVisible()
 })
+
+test('shift-click ticks a range, and unticks one from a ticked option', async t => {
+  const { page, option } = await open(t, 'mood')
+  const pins = () => page.evaluate(() => window.state().pins.mood)
+  await option('tense').click()
+  await option('wistful').click({ modifiers: ['Shift'] })
+  await expect.poll(pins).toEqual(['tense', 'joyful', 'wistful'])
+  await option('calm').click({ modifiers: ['Control'] })
+  await expect.poll(pins).toEqual(['calm', 'tense', 'joyful', 'wistful'])
+  await option('joyful').click({ modifiers: ['Shift'] })
+  await expect.poll(pins).toEqual(['wistful'])
+})
+
+test('shift-click ranges follow the list as it reads before anything floats up', async t => {
+  const { page, option } = await open(t, 'color')
+  await option('shade 3').click()
+  await option('shade 6').click({ modifiers: ['Shift'] })
+  await expect.poll(() => page.evaluate(() => window.state().pins.color)).toEqual(['shade 3', 'shade 4', 'shade 5', 'shade 6'])
+})
+
+test('a shift-click range starts from a ticked option the search would hide', async t => {
+  const { page, card, option } = await open(t, 'color')
+  await option('shade 3').click()
+  await card.getByPlaceholder('Search options').fill('shade 1')
+  await option('shade 15').click({ modifiers: ['Shift'] })
+  await expect.poll(() => page.evaluate(() => window.state().pins.color)).toEqual(['shade 3', 'shade 10', 'shade 11', 'shade 12', 'shade 13', 'shade 14', 'shade 15'])
+})

@@ -1,5 +1,6 @@
 <template>
-  <!-- A pick's options: tick to limit the draw, trash to delete, a field to add your own.
+  <!-- A pick's options: tick to limit the draw (shift-click ticks a range), trash to
+       delete, a field to add your own.
        Long lists (and any pick drawn from a list) get a search field and a scrolling
        list; list-drawn picks group their values from usual to rare. Ticked values always
        come first, whatever the search. -->
@@ -52,7 +53,8 @@
           tabindex="0"
           :class="['group/opt flex items-start gap-2.5 px-2 py-1.5 coarse:py-2.5 rounded-md cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
             pinned.has(e.value) ? 'bg-selection/10' : 'hover:bg-overlay-subtle']"
-          @click="toggle(e.value)"
+          @mousedown="onOptionMouseDown"
+          @click="onOptionClick(e.value, $event)"
           @keydown.space.self.prevent="toggle(e.value)"
           @keydown.enter.self.prevent="toggle(e.value)"
         >
@@ -175,6 +177,7 @@ watch(() => props.choice.id, () => {
   query.value = ''
   draft.value = ''
   opened.value = {}
+  anchor.value = null
   focusSearch()
 })
 onMounted(focusSearch)
@@ -192,6 +195,36 @@ function toggle(o: string) {
   const next = new Set(pinned.value)
   next.has(o) ? next.delete(o) : next.add(o)
   props.program.setPins(props.choice.id, opts.value.filter(x => next.has(x)))
+  anchor.value = o
+}
+
+// Shift-click ticks (or unticks) every shown option between the last one clicked and
+// this one. Ticked options float to the top of long lists, so the range is measured in
+// the list's untouched order, the one you see before anything is ticked.
+const anchor = ref<string | null>(null)
+const naturalOrder = computed(() => {
+  if (!many.value) return opts.value
+  const l = layoutOptions(opts.value, [], '', vocab.value?.tiers)
+  return l.groups.length ? l.groups.flatMap(g => g.items) : l.flat
+})
+
+function onOptionMouseDown(e: MouseEvent) {
+  // Keep shift-click from selecting the text in between.
+  if (e.shiftKey) e.preventDefault()
+}
+
+function onOptionClick(o: string, e: MouseEvent) {
+  const order = naturalOrder.value
+  const from = anchor.value ? order.indexOf(anchor.value) : -1
+  const to = order.indexOf(o)
+  if (!e.shiftKey || from < 0 || to < 0) { toggle(o); return }
+  const shown = new Set(entries.value.flatMap(x => x.type === 'option' ? [x.value] : []))
+  const range = order.slice(Math.min(from, to), Math.max(from, to) + 1).filter(x => shown.has(x))
+  const on = !pinned.value.has(o)
+  const next = new Set(pinned.value)
+  for (const x of range) on ? next.add(x) : next.delete(x)
+  props.program.setPins(props.choice.id, opts.value.filter(x => next.has(x)))
+  anchor.value = o
 }
 
 function del(o: string) {
