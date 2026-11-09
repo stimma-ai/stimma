@@ -54,6 +54,9 @@
         ],
         "region": [
           "african"
+        ],
+        "period": [
+          "ancient"
         ]
       },
       "palette": {
@@ -89,6 +92,9 @@
         ],
         "region": [
           "european"
+        ],
+        "period": [
+          "ancient"
         ]
       },
       "palette": {
@@ -121,6 +127,9 @@
         ],
         "region": [
           "european"
+        ],
+        "period": [
+          "ancient"
         ]
       },
       "palette": {
@@ -152,6 +161,12 @@
         ],
         "region": [
           "european"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "period": [
+          "ancient"
         ]
       }
     },
@@ -174,6 +189,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "ancient"
         ]
       },
       "palette": {
@@ -206,6 +224,9 @@
         ],
         "region": [
           "middle_eastern"
+        ],
+        "period": [
+          "ancient"
         ]
       },
       "palette": {
@@ -240,6 +261,9 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "period": [
+          "ancient"
         ]
       },
       "palette": {
@@ -273,6 +297,9 @@
         ],
         "region": [
           "south_asian"
+        ],
+        "period": [
+          "ancient"
         ]
       }
     },
@@ -298,6 +325,12 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -330,6 +363,12 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -359,6 +398,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -387,6 +429,12 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "medieval"
+        ],
+        "region": [
+          "european"
         ]
       },
       "palette": {
@@ -416,6 +464,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -450,6 +501,9 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -481,6 +535,12 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -509,6 +569,12 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "middle_eastern"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -539,6 +605,15 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "period": [
+          "renaissance"
+        ],
+        "region": [
+          "european"
         ]
       },
       "palette": {
@@ -571,6 +646,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "renaissance"
         ]
       },
       "palette": {
@@ -604,6 +682,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "renaissance"
         ]
       },
       "palette": {
@@ -636,6 +717,12 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "18th century"
+        ],
+        "region": [
+          "european"
         ]
       },
       "palette": {
@@ -671,6 +758,12 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "european"
+        ],
+        "period": [
+          "18th century"
         ]
       },
       "palette": {
@@ -701,6 +794,15 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "period": [
+          "18th century"
+        ],
+        "region": [
+          "european"
         ]
       },
       "palette": {
@@ -733,6 +835,9 @@
         ],
         "region": [
           "middle_eastern"
+        ],
+        "period": [
+          "18th century"
         ]
       },
       "palette": {
@@ -766,6 +871,12 @@
         ],
         "region": [
           "south_asian"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "period": [
+          "18th century"
         ]
       }
     },
@@ -792,6 +903,9 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "period": [
+          "18th century"
         ]
       },
       "palette": {
@@ -825,6 +939,9 @@
         ],
         "region": [
           "latin_american"
+        ],
+        "period": [
+          "18th century"
         ]
       },
       "palette": {
@@ -858,6 +975,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "period": [
+          "regency"
         ]
       }
     },
@@ -881,6 +1001,12 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "victorian"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -913,6 +1039,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -945,6 +1074,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -977,6 +1109,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -1010,6 +1145,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -1043,6 +1181,9 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -1079,6 +1220,9 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -1112,6 +1256,12 @@
         ],
         "region": [
           "south_asian"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "period": [
+          "victorian"
         ]
       }
     },
@@ -1140,6 +1290,9 @@
         ],
         "region": [
           "southeast_asian"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -1175,6 +1328,9 @@
         ],
         "region": [
           "african"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -1207,6 +1363,9 @@
         ],
         "coverage": [
           "light"
+        ],
+        "period": [
+          "1920s"
         ]
       },
       "palette": {
@@ -1236,6 +1395,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "1920s"
         ]
       },
       "palette": {
@@ -1270,6 +1432,9 @@
         ],
         "coverage": [
           "light"
+        ],
+        "period": [
+          "1930s–40s"
         ]
       }
     },
@@ -1291,6 +1456,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "1930s–40s"
         ]
       },
       "palette": {
@@ -1322,6 +1490,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "period": [
+          "1950s"
         ]
       },
       "palette": {
@@ -1354,6 +1525,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "1960s–70s"
         ]
       },
       "palette": {
@@ -1385,6 +1559,9 @@
         ],
         "coverage": [
           "light"
+        ],
+        "period": [
+          "1960s–70s"
         ]
       },
       "palette": {
@@ -1414,6 +1591,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "1960s–70s"
         ]
       },
       "palette": {
@@ -1442,6 +1622,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "1960s–70s"
         ]
       },
       "palette": {
@@ -1471,6 +1654,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "1980s–90s"
         ]
       },
       "palette": {
@@ -1501,6 +1687,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "1980s–90s"
         ]
       },
       "palette": {
@@ -1534,6 +1723,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "period": [
+          "1980s–90s"
         ]
       },
       "palette": {
@@ -1563,11 +1755,11 @@
         "coverage": [
           "light"
         ],
-        "region": [
-          "european"
-        ],
         "formality": [
           "casual"
+        ],
+        "period": [
+          "ancient"
         ]
       },
       "palette": {
@@ -1597,11 +1789,14 @@
         "coverage": [
           "light"
         ],
-        "region": [
-          "african"
-        ],
         "formality": [
           "casual"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "period": [
+          "ancient"
         ]
       }
     },
@@ -1630,6 +1825,9 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "period": [
+          "ancient"
         ]
       },
       "palette": {
@@ -1661,6 +1859,9 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "period": [
+          "ancient"
         ]
       },
       "palette": {
@@ -1692,6 +1893,12 @@
         ],
         "region": [
           "european"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "period": [
+          "ancient"
         ]
       },
       "palette": {
@@ -1726,6 +1933,9 @@
         ],
         "formality": [
           "casual"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -1760,6 +1970,9 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -1794,6 +2007,9 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -1829,6 +2045,9 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -1863,6 +2082,9 @@
         ],
         "formality": [
           "casual"
+        ],
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -1892,8 +2114,8 @@
         "coverage": [
           "full"
         ],
-        "region": [
-          "east_asian"
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -1923,8 +2145,8 @@
         "coverage": [
           "full"
         ],
-        "region": [
-          "middle_eastern"
+        "period": [
+          "medieval"
         ]
       },
       "palette": {
@@ -1963,6 +2185,9 @@
         ],
         "formality": [
           "casual"
+        ],
+        "period": [
+          "renaissance"
         ]
       },
       "palette": {
@@ -1998,6 +2223,9 @@
         ],
         "formality": [
           "casual"
+        ],
+        "period": [
+          "renaissance"
         ]
       },
       "palette": {
@@ -2030,6 +2258,12 @@
         ],
         "region": [
           "european"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "period": [
+          "renaissance"
         ]
       },
       "palette": {
@@ -2065,6 +2299,9 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "period": [
+          "18th century"
         ]
       },
       "palette": {
@@ -2100,6 +2337,9 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "period": [
+          "18th century"
         ]
       },
       "palette": {
@@ -2138,6 +2378,9 @@
         ],
         "formality": [
           "casual"
+        ],
+        "period": [
+          "18th century"
         ]
       },
       "palette": {
@@ -2170,6 +2413,9 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "period": [
+          "18th century"
         ]
       },
       "palette": {
@@ -2200,11 +2446,11 @@
         "coverage": [
           "full"
         ],
-        "region": [
-          "east_asian"
-        ],
         "formality": [
           "casual"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -2237,6 +2483,12 @@
         ],
         "region": [
           "european"
+        ],
+        "period": [
+          "victorian"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2272,6 +2524,9 @@
         ],
         "formality": [
           "casual"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -2304,6 +2559,12 @@
         ],
         "region": [
           "european"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -2340,6 +2601,9 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -2375,6 +2639,9 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -2390,7 +2657,7 @@
       "tier": "typical",
       "tags": {
         "era": [
-          "1900s_1940s"
+          "19th_century"
         ],
         "genre": [
           "realistic",
@@ -2409,6 +2676,9 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "period": [
+          "victorian"
         ]
       },
       "palette": {
@@ -2437,6 +2707,12 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "period": [
+          "edwardian"
         ]
       },
       "palette": {
@@ -2469,6 +2745,9 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "period": [
+          "1930s–40s"
         ]
       },
       "palette": {
@@ -2497,6 +2776,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "1920s"
         ]
       },
       "palette": {
@@ -2526,6 +2808,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "1950s"
         ]
       },
       "palette": {
@@ -2555,6 +2840,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "period": [
+          "1980s–90s"
         ]
       },
       "palette": {
@@ -2562,6 +2850,480 @@
           "muted",
           "earthy",
           "light"
+        ]
+      }
+    },
+    {
+      "text": "a loose {main} linen work smock over a {neutral} wool tunic and drawstring trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "period": [
+          "renaissance"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a hooded {main} wool travel cloak over a {accent} linen smock and loose {neutral} trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "period": [
+          "renaissance"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool cutaway tailcoat over a {accent} waistcoat, white linen shirt, and {neutral} pantaloons",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "period": [
+          "regency"
+        ],
+        "presentation": [
+          "masculine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sleeveless linen work apron with a full gathered front over a {accent} collarless shirt and {neutral} knee breeches",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "period": [
+          "regency"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool greatcoat with stacked shoulder capes over a {accent} linen work shirt and {neutral} fall-front trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "period": [
+          "regency"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton motoring duster over a {accent} high-collared shirt and {neutral} straight trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "period": [
+          "edwardian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} knitted bathing tunic and matching knee-length bathing drawers with {accent} horizontal stripes",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "period": [
+          "edwardian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {accent} high-neck lawn blouse with a wide lace yoke tucked into a {main} ankle-length gored skirt with a sweeping back train",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "period": [
+          "edwardian"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton mechanic’s coverall with a buttoned front and {accent} patch pockets",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "period": [
+          "1920s"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton bib-and-brace work overall over a {accent} rolled-sleeve collarless shirt",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "period": [
+          "1930s–40s"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton bowling shirt with {accent} vertical panels and {neutral} cuffed trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "period": [
+          "1950s"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} gabardine windbreaker over a {accent} knitted polo and {neutral} straight cotton trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "period": [
+          "1950s"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a loose unbleached linen shift with gathered wrist cuffs",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "period": [
+          "medieval",
+          "renaissance"
+        ],
+        "region": [
+          "european"
+        ]
+      }
+    },
+    {
+      "text": "a loose cream linen shirt and soft drawstring braies",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "period": [
+          "medieval",
+          "renaissance"
+        ],
+        "region": [
+          "european"
         ]
       }
     }
@@ -2577,6 +3339,20 @@
       "light",
       "moderate",
       "full"
+    ],
+    "period": [
+      "ancient",
+      "medieval",
+      "renaissance",
+      "18th century",
+      "regency",
+      "victorian",
+      "edwardian",
+      "1920s",
+      "1930s–40s",
+      "1950s",
+      "1960s–70s",
+      "1980s–90s"
     ]
   }
 }

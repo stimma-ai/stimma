@@ -1,0 +1,412 @@
+{
+  "id": "object.material",
+  "label": "Object material",
+  "description": "the substance or covering an object is made from",
+  "pos": "adjective or noun-adjunct",
+  "frame": "a ___ table",
+  "notes": "Materials and construction finishes, with coverings made explicit where needed for the frame. object.colour owns colour and object.pattern owns decorative motifs; material names may have an inherent hue.",
+  "facets": [],
+  "closed": false,
+  "local_facets": {
+    "kind": [
+      "wood",
+      "metal",
+      "stone",
+      "ceramic",
+      "glass",
+      "fabric",
+      "plastic",
+      "natural fibre",
+      "other"
+    ]
+  },
+  "values": [
+    {
+      "text": "oak",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "wood"
+        ]
+      }
+    },
+    {
+      "text": "pine",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "wood"
+        ]
+      }
+    },
+    {
+      "text": "dark walnut",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "wood"
+        ]
+      }
+    },
+    {
+      "text": "birch plywood",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "wood"
+        ]
+      }
+    },
+    {
+      "text": "maple",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wood"
+        ]
+      }
+    },
+    {
+      "text": "teak",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wood"
+        ]
+      }
+    },
+    {
+      "text": "mahogany",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wood"
+        ]
+      }
+    },
+    {
+      "text": "charred cedar",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "wood"
+        ]
+      }
+    },
+    {
+      "text": "brushed steel",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "metal"
+        ]
+      }
+    },
+    {
+      "text": "cast iron",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "metal"
+        ]
+      }
+    },
+    {
+      "text": "polished aluminium",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "metal"
+        ]
+      }
+    },
+    {
+      "text": "brass",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "metal"
+        ]
+      }
+    },
+    {
+      "text": "hammered copper",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "metal"
+        ]
+      }
+    },
+    {
+      "text": "titanium",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "metal"
+        ]
+      }
+    },
+    {
+      "text": "marble",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "stone"
+        ]
+      }
+    },
+    {
+      "text": "granite",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "stone"
+        ]
+      }
+    },
+    {
+      "text": "slate",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "stone"
+        ]
+      }
+    },
+    {
+      "text": "travertine",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "stone"
+        ]
+      }
+    },
+    {
+      "text": "soapstone",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "stone"
+        ]
+      }
+    },
+    {
+      "text": "terracotta",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "ceramic"
+        ]
+      }
+    },
+    {
+      "text": "glazed ceramic",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "ceramic"
+        ]
+      }
+    },
+    {
+      "text": "porcelain",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "ceramic"
+        ]
+      }
+    },
+    {
+      "text": "mosaic tile",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "ceramic"
+        ]
+      }
+    },
+    {
+      "text": "clear glass",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "glass"
+        ]
+      }
+    },
+    {
+      "text": "frosted glass",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "glass"
+        ]
+      }
+    },
+    {
+      "text": "smoked glass",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "glass"
+        ]
+      }
+    },
+    {
+      "text": "cast glass",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "glass"
+        ]
+      }
+    },
+    {
+      "text": "felt-covered",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "fabric"
+        ]
+      }
+    },
+    {
+      "text": "linen-covered",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "fabric"
+        ]
+      }
+    },
+    {
+      "text": "velvet-upholstered",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "fabric"
+        ]
+      }
+    },
+    {
+      "text": "canvas-covered",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "fabric"
+        ]
+      }
+    },
+    {
+      "text": "moulded plastic",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "plastic"
+        ]
+      }
+    },
+    {
+      "text": "clear acrylic",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "plastic"
+        ]
+      }
+    },
+    {
+      "text": "fibreglass",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "plastic"
+        ]
+      }
+    },
+    {
+      "text": "recycled polyethylene",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "plastic"
+        ]
+      }
+    },
+    {
+      "text": "woven rattan",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "natural fibre"
+        ]
+      }
+    },
+    {
+      "text": "woven bamboo",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "natural fibre"
+        ]
+      }
+    },
+    {
+      "text": "woven seagrass",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "natural fibre"
+        ]
+      }
+    },
+    {
+      "text": "paper-cord",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "natural fibre"
+        ]
+      }
+    },
+    {
+      "text": "concrete",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "other"
+        ]
+      }
+    },
+    {
+      "text": "cork",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "other"
+        ]
+      }
+    },
+    {
+      "text": "resin",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "other"
+        ]
+      }
+    },
+    {
+      "text": "leather-covered",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "other"
+        ]
+      }
+    }
+  ]
+}

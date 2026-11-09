@@ -299,6 +299,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -669,7 +672,7 @@
       }
     },
     {
-      "text": "a {accent} muslin top and {main} wide-leg trousers",
+      "text": "an oversized {main} muslin poncho top with fringed edges over {neutral} fitted cycling shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -686,9 +689,6 @@
           "post_apocalyptic"
         ],
         "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
           "contemporary",
           "future"
         ],
@@ -697,7 +697,7 @@
           "resort"
         ],
         "coverage": [
-          "full"
+          "moderate"
         ]
       }
     },
@@ -1066,7 +1066,7 @@
       }
     },
     {
-      "text": "a {main} one-piece swimsuit with a skirted hem",
+      "text": "a {main} strapless one-piece swimsuit with a sculpted bandeau top and high-cut legs",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1129,11 +1129,14 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
-      "text": "a {main} halter-neck swimsuit with a high back",
+      "text": "a {main} asymmetric one-shoulder swimsuit with a broad waist cutout",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1236,7 +1239,7 @@
       }
     },
     {
-      "text": "a {main} bikini with broad straps and full-coverage bottoms",
+      "text": "a {main} string bikini with a triangle top and tie-side bottoms",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1326,6 +1329,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1392,11 +1398,14 @@
         ],
         "coverage": [
           "light"
+        ],
+        "presentation": [
+          "masculine"
         ]
       }
     },
     {
-      "text": "a pair of {main} board shorts with {accent} piping",
+      "text": "a pair of {main} low-rise swim briefs with {accent} side panels",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1423,6 +1432,9 @@
         ],
         "coverage": [
           "light"
+        ],
+        "presentation": [
+          "masculine"
         ]
       }
     },
@@ -1638,7 +1650,7 @@
       }
     },
     {
-      "text": "a {main} chambray playsuit with short cuffed legs",
+      "text": "a {main} chambray halter top and matching wrap-front skort with {accent} topstitching",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1973,8 +1985,7 @@
       "pool",
       "city",
       "resort",
-      "countryside",
-      "other"
+      "countryside"
     ],
     "coverage": [
       "light",

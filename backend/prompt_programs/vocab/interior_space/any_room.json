@@ -1,10 +1,10 @@
 {
   "id": "interior_space.any_room",
   "label": "Any Room",
-  "description": "Indoor settings beyond the specialist domestic, commercial, and creative room leaves.",
+  "description": "Hallways, public facilities, transport cabins, hotel rooms and other interiors outside the named room lists; choose a specific room list for homes, dining, work or retail.",
   "pos": "noun phrase",
   "frame": "in ___",
-  "notes": "Circulation spaces, public facilities, transport interiors, worship spaces, and hotel rooms belong here; bedroom, living_room, kitchen, bathroom, cafe_restaurant, bar, office, shop, library_study, and workshop_studio own their named uses.",
+  "notes": "Circulation spaces, public facilities, transport interiors, worship spaces, and hotel rooms belong here; bedroom, living_room, kitchen, bathroom, cafe_restaurant, bar, office, shop, library_study, and workshop_studio own their named uses. Size describes usable room scale; tidiness describes arrangement: tidy is orderly, lived-in is a space in regular use, and messy requires visible clutter. Wear and low budget alone do not imply mess.",
   "facets": [
     "era",
     "genre",
@@ -17,7 +17,7 @@
   "closed": false,
   "values": [
     {
-      "text": "a hallway with coat hooks and a shoe bench",
+      "text": "a cramped hallway with coat hooks and a shoe bench",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -35,6 +35,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -52,11 +58,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an entrance vestibule with mailboxes and a tiled floor",
+      "text": "a cramped entrance vestibule with mailboxes and a tiled floor",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -68,6 +80,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -86,11 +104,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a landing with a linen cupboard and banister",
+      "text": "a cramped landing with a linen cupboard and banister",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -108,11 +132,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a waiting room with molded chairs and magazine racks",
+      "text": "a waiting room with molded chairs and magazine racks, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -123,11 +153,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a clinic examination room with a couch and instrument trolley",
+      "text": "a clinic examination room with a couch and instrument trolley, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -139,11 +175,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a hospital ward with curtained bays and equipment cabinets",
+      "text": "a spacious hospital ward with curtained bays and equipment cabinets, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -155,11 +197,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a dental surgery with a reclining chair and instrument trays",
+      "text": "a dental surgery with a reclining chair and instrument trays, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -172,11 +220,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a rehabilitation room with parallel bars and exercise mats",
+      "text": "a rehabilitation room with parallel bars and exercise mats, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -187,11 +241,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "an airport terminal with check-in kiosks and queue barriers",
+      "text": "a spacious airport terminal with check-in kiosks and queue barriers, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -201,6 +261,12 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -219,6 +285,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -235,6 +307,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -250,6 +328,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -268,11 +352,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a sleeper compartment with stacked berths and a folding basin",
+      "text": "a cramped sleeper compartment with stacked berths and a folding basin",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -286,6 +376,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -302,11 +398,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a cable-car cabin with wraparound benches and glazed walls",
+      "text": "a cramped cable-car cabin with wraparound benches and glazed walls",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -318,11 +420,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a station concourse with ticket machines and departure boards",
+      "text": "a spacious station concourse with ticket machines and departure boards, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -333,11 +441,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "an ordinary hotel room with twin beds and a luggage stand",
+      "text": "an ordinary hotel room with twin beds and a luggage stand, with clothes strewn over the beds",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -348,11 +462,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a motel room with a bedspread and roadside-facing door",
+      "text": "a cramped motel room with a bedspread and roadside-facing door",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -363,11 +483,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a hostel dormitory with bunk beds and lockable cubbies",
+      "text": "a hostel dormitory with bunk beds and lockable cubbies, with tangled bedding and scattered bags",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -378,11 +504,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a capsule hotel room with stacked sleeping compartments",
+      "text": "a cramped capsule hotel room with stacked sleeping compartments, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -393,6 +525,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -408,11 +546,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a lecture hall with tiered benches and fold-down desks",
+      "text": "a spacious lecture hall with tiered benches and fold-down desks, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -426,11 +570,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "an indoor gym with squat racks and rubber flooring",
+      "text": "a spacious indoor gym with squat racks and rubber flooring",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -441,11 +591,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a basketball gymnasium with court markings and retractable bleachers",
+      "text": "a spacious basketball gymnasium with court markings and retractable bleachers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -456,11 +612,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a dance studio with a mirrored wall and ballet barres",
+      "text": "a spacious dance studio with a mirrored wall and ballet barres, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -474,11 +636,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "an indoor climbing gym with colored holds and padded flooring",
+      "text": "a spacious indoor climbing gym with colored holds and padded flooring",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -488,11 +656,17 @@
         "era": [
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a swimming hall with tiled lanes and spectator benches",
+      "text": "a spacious swimming hall with tiled lanes and spectator benches, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -504,6 +678,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -521,6 +701,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -543,6 +729,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -558,11 +750,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a laundromat with coin-operated machines and folding counters",
+      "text": "a laundromat with coin-operated machines and folding counters, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -573,6 +771,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -593,6 +797,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -611,11 +821,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a museum gallery with display cases and freestanding partitions",
+      "text": "a spacious museum gallery with display cases and freestanding partitions, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -629,11 +845,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a cinema auditorium with tiered seats and a projection screen",
+      "text": "a spacious cinema auditorium with tiered seats and a projection screen, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -645,11 +867,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a theater auditorium with balconies and velvet seats",
+      "text": "a spacious theater auditorium with balconies and velvet seats, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -663,6 +891,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -681,11 +915,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a concert hall with a raised stage and acoustic panels",
+      "text": "a spacious concert hall with a raised stage and acoustic panels, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -697,11 +937,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a community hall with stackable chairs and folding tables",
+      "text": "a spacious community hall with stackable chairs and folding tables",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -713,11 +959,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an industrial warehouse with pallet racks and concrete aisles",
+      "text": "a spacious industrial warehouse with pallet racks and concrete aisles, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -731,11 +983,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a cold-storage room with insulated doors and steel shelving",
+      "text": "a cold-storage room with insulated doors and steel shelving, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -747,11 +1005,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a server room with equipment racks and raised floor panels",
+      "text": "a server room with equipment racks and raised floor panels, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -762,11 +1026,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a utility room with boilers and exposed pipework",
+      "text": "a cramped utility room with boilers and exposed pipework",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -780,11 +1050,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a maintenance tunnel with cable trays and inspection hatches",
+      "text": "a cramped maintenance tunnel with cable trays and inspection hatches",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -797,11 +1073,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an elevator cabin with a handrail and mirrored panels",
+      "text": "a cramped elevator cabin with a handrail and mirrored panels",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -813,11 +1095,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a parking garage with painted bays and concrete columns",
+      "text": "a spacious parking garage with painted bays and concrete columns",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -829,6 +1117,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -845,11 +1139,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a prison cell with a steel bunk and fixed desk",
+      "text": "a cramped prison cell with a steel bunk and fixed desk",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -863,11 +1163,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a courtroom with a raised bench and wooden railings",
+      "text": "a spacious courtroom with a raised bench and wooden railings, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -881,11 +1187,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "an indoor sports arena with tiered seating and a scoreboard",
+      "text": "a spacious indoor sports arena with tiered seating and a scoreboard, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -896,11 +1208,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a fire station bay with equipment lockers and hose racks",
+      "text": "a spacious fire station bay with equipment lockers and hose racks",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -912,11 +1230,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a postal sorting hall with wheeled cages and pigeonholes",
+      "text": "a spacious postal sorting hall with wheeled cages and pigeonholes, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -930,11 +1254,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a commercial bakery kitchen with dough mixers and oven racks",
+      "text": "a spacious commercial bakery kitchen with dough mixers and oven racks",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -946,11 +1276,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a factory floor with conveyor belts and safety railings",
+      "text": "a spacious factory floor with conveyor belts and safety railings",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -963,11 +1299,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a grain mill interior with hoppers and flour sacks",
+      "text": "a spacious grain mill interior with hoppers and flour sacks",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -987,11 +1329,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a water-treatment hall with pipe manifolds and inspection walkways",
+      "text": "a spacious water-treatment hall with pipe manifolds and inspection walkways, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1003,11 +1351,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a planetarium with reclining seats and a domed screen",
+      "text": "a spacious planetarium with reclining seats and a domed screen, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1018,11 +1372,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a laboratory with fume cupboards and chemical storage cabinets",
+      "text": "a spacious laboratory with fume cupboards and chemical storage cabinets, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1035,11 +1395,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a Buddhist temple hall with timber pillars and an incense altar",
+      "text": "a spacious Buddhist temple hall with timber pillars and an incense altar, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -1060,11 +1426,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a Shinto worship hall with rope ornaments and wooden railings",
+      "text": "a spacious Shinto worship hall with rope ornaments and wooden railings, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -1085,6 +1457,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -1102,11 +1480,17 @@
         "era": [
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a Hindu temple hall with carved columns and a shrine alcove",
+      "text": "a spacious Hindu temple hall with carved columns and a shrine alcove, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -1127,11 +1511,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a gurdwara hall with carpeted aisles and a raised canopy",
+      "text": "a spacious gurdwara hall with carpeted aisles and a raised canopy, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -1148,11 +1538,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a mosque prayer hall with patterned carpets and a mihrab",
+      "text": "a spacious mosque prayer hall with patterned carpets and a mihrab, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -1173,11 +1569,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a hammam with marble platforms and domed washing chambers",
+      "text": "a spacious hammam with marble platforms and domed washing chambers",
       "tier": "typical",
       "tags": {
         "region": [
@@ -1198,11 +1600,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a church nave with wooden pews and a stone font",
+      "text": "a spacious church nave with wooden pews and a stone font, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -1222,11 +1630,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a chapel with carved choir stalls and a tiled aisle",
+      "text": "a chapel with carved choir stalls and a tiled aisle, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -1247,11 +1661,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a synagogue sanctuary with an ark and a raised reading platform",
+      "text": "a spacious synagogue sanctuary with an ark and a raised reading platform, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1269,11 +1689,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a meditation hall with cushion rows and a wooden dais",
+      "text": "a spacious meditation hall with cushion rows and a wooden dais, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1291,6 +1717,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -1308,11 +1740,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a Roman atrium with a central basin and painted columns",
+      "text": "a spacious Roman atrium with a central basin and painted columns",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1324,11 +1762,17 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a castle great hall with trestle tables and a raised dais",
+      "text": "a spacious castle great hall with trestle tables and a raised dais",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1346,6 +1790,12 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -1368,6 +1818,12 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -1386,11 +1842,17 @@
           "realistic",
           "steampunk",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a spacecraft airlock with pressure doors and suit racks",
+      "text": "a cramped spacecraft airlock with pressure doors and suit racks, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1399,11 +1861,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "an orbital greenhouse with rotating crop racks and nutrient pipes",
+      "text": "a spacious orbital greenhouse with rotating crop racks and nutrient pipes, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1412,6 +1880,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -1426,11 +1900,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a throne hall with antler arches and a root-grown dais",
+      "text": "a spacious throne hall with antler arches and a root-grown dais",
       "tier": "unusual",
       "tags": {
         "genre": [
@@ -1447,11 +1927,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a cavern shrine with crystal pillars and a carved stone altar",
+      "text": "a spacious cavern shrine with crystal pillars and a carved stone altar",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1468,6 +1954,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -1483,11 +1975,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a disused operating theater with cracked tiles and rusted instruments",
+      "text": "a disused operating theater with cracked tiles and rusted instruments, with instrument trays scattered across the floor",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1502,6 +2000,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
@@ -1518,11 +2022,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a transit concourse with biometric gates and drone docking cages",
+      "text": "a spacious transit concourse with biometric gates and drone docking cages, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1532,11 +2042,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a clinic ward with diagnostic pods and robotic instrument arms",
+      "text": "a clinic ward with diagnostic pods and robotic instrument arms, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1546,11 +2062,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a capsule hotel corridor with iris doors and numbered berths",
+      "text": "a cramped capsule hotel corridor with iris doors and numbered berths, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1560,11 +2082,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a megatower elevator lobby with retinal scanners and armored turnstiles",
+      "text": "a spacious megatower elevator lobby with retinal scanners and armored turnstiles, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1574,6 +2102,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     }
@@ -1584,6 +2118,18 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "size": [
+      "cramped",
+      "medium",
+      "spacious"
+    ],
+    "tidiness": [
+      "lived-in",
+      "tidy",
+      "messy"
     ]
   }
 }

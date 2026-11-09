@@ -1,0 +1,775 @@
+{
+  "id": "vehicle.aircraft",
+  "label": "Aircraft",
+  "description": "Generic aircraft forms, from balloons and early planes to contemporary and speculative craft.",
+  "pos": "noun phrase",
+  "frame": "a ___ overhead",
+  "notes": "Aircraft kinds only, independent of manufacturer, model, livery, pilot or manoeuvre. Era tags mark use or surviving examples; explicit genre tags distinguish real technologies from speculative flight. Hang gliders and rigid-wing sailplanes are distinct forms of unpowered flight.",
+  "facets": [
+    "era",
+    "genre"
+  ],
+  "closed": false,
+  "untagged": {},
+  "values": [
+    {
+      "text": "passenger jet",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "cargo jet",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "business jet",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "single-engine propeller plane",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "twin-engine propeller plane",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "helicopter",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "turboprop airliner",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "hang glider",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "stunt plane",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "floatplane",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "fighter jet",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "transport helicopter",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "rescue helicopter",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "police helicopter",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "news helicopter",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "heavy-lift helicopter",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "military attack helicopter",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "light sport plane",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "crop-dusting plane",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "water bomber",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "military transport plane",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "jet trainer",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "strategic bomber",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "reconnaissance plane",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "biplane",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "steampunk",
+          "fantasy",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "flying boat",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "steampunk",
+          "fantasy",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "gyroplane",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "steampunk",
+          "fantasy",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "sailplane",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "steampunk",
+          "fantasy",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "hot-air balloon",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "steampunk",
+          "fantasy",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "rigid airship",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "steampunk"
+        ]
+      }
+    },
+    {
+      "text": "tiltrotor aircraft",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "quadrotor drone",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "surveillance drone",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "triplane",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "steampunk"
+        ]
+      }
+    },
+    {
+      "text": "steam-powered dirigible",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror",
+          "steampunk"
+        ]
+      }
+    },
+    {
+      "text": "rocket-powered research plane",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "human-powered aircraft",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "solar-powered plane",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "gravity-defying shuttle",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "future"
+        ],
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ]
+      }
+    },
+    {
+      "text": "fusion-powered sky freighter",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "future"
+        ],
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ]
+      }
+    },
+    {
+      "text": "clockwork ornithopter",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "19th_century",
+          "future"
+        ],
+        "genre": [
+          "steampunk",
+          "fantasy"
+        ]
+      }
+    }
+  ]
+}

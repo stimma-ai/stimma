@@ -1,10 +1,10 @@
 {
   "id": "interior_space.living_room",
   "label": "Living Room",
-  "description": "Domestic sitting rooms and lounges with distinctive layouts and furnishings.",
+  "description": "Domestic lounges, parlours and sitting rooms arranged for relaxing and gathering; choose bedroom for sleeping and bar for public drinking venues.",
   "pos": "noun phrase",
   "frame": "in ___",
-  "notes": "Home gathering spaces belong here; sleeping rooms belong to bedroom, public lounges to any_room, and decorating modifiers to style.",
+  "notes": "Home gathering spaces belong here; sleeping rooms belong to bedroom, public lounges to any_room, and decorating modifiers to style. Size describes usable room scale; tidiness describes arrangement: tidy is orderly, lived-in is a space in regular use, and messy requires visible clutter. Wear and low budget alone do not imply mess.",
   "facets": [
     "era",
     "genre",
@@ -29,6 +29,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -50,6 +56,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -70,6 +82,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
@@ -92,6 +110,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -110,6 +134,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -128,11 +158,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a living room with a sunken conversation pit",
+      "text": "a spacious living room with a sunken conversation pit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -144,6 +180,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -162,11 +204,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an apartment lounge with a futon and modular shelving",
+      "text": "a cramped apartment lounge with a futon and modular shelving",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -178,6 +226,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -199,6 +253,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -219,11 +279,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a living room with a toy chest and foam play mat",
+      "text": "a living room with a toy chest and foam play mat, with toys scattered across the floor",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -233,6 +299,12 @@
         "era": [
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
@@ -249,6 +321,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -271,11 +349,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an airy double-height lounge with a mezzanine gallery",
+      "text": "an airy double-height lounge with a mezzanine gallery, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -288,6 +372,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -309,11 +399,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a living room with a window wall overlooking a courtyard",
+      "text": "a living room with a window wall overlooking a courtyard, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -326,6 +422,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -348,6 +450,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -369,6 +477,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -389,11 +503,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a penthouse lounge with bookmatched stone and sculptural seating",
+      "text": "a spacious penthouse lounge with bookmatched stone and sculptural seating, neatly arranged",
       "tier": "typical",
       "tags": {
         "budget": [
@@ -407,11 +527,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a living room with silk rugs and a carved marble mantel",
+      "text": "a spacious living room with silk rugs and a carved marble mantel, neatly arranged",
       "tier": "typical",
       "tags": {
         "budget": [
@@ -431,11 +557,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a tatami sitting room with zabuton cushions and sliding screens",
+      "text": "a tatami sitting room with zabuton cushions and sliding screens, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -456,11 +588,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a Chinese sitting room with rosewood chairs and porcelain display shelves",
+      "text": "a Chinese sitting room with rosewood chairs and porcelain display shelves, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -480,11 +618,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a Korean sitting room with a low table and floor cushions",
+      "text": "a Korean sitting room with a low table and floor cushions, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -505,6 +649,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -530,6 +680,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -554,11 +710,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a majlis with perimeter seating and geometric woven carpets",
+      "text": "a spacious majlis with perimeter seating and geometric woven carpets, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -579,11 +741,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a Moroccan salon with zellige walls and cedar tables",
+      "text": "a spacious Moroccan salon with zellige walls and cedar tables, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -604,6 +772,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -623,6 +797,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -648,6 +828,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -672,6 +858,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -697,11 +889,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a cottage sitting room with a settle and inglenook fireplace",
+      "text": "a cramped cottage sitting room with a settle and inglenook fireplace",
       "tier": "typical",
       "tags": {
         "region": [
@@ -722,6 +920,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -740,6 +944,12 @@
           "realistic",
           "steampunk",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -760,6 +970,12 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -781,11 +997,17 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an Art Deco lounge with curved walnut cabinets and chrome tables",
+      "text": "an Art Deco lounge with curved walnut cabinets and chrome tables, neatly arranged",
       "tier": "typical",
       "tags": {
         "era": [
@@ -797,11 +1019,17 @@
         "genre": [
           "realistic",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a habitat lounge with magnetic furniture and a panoramic viewport",
+      "text": "a spacious habitat lounge with magnetic furniture and a panoramic viewport, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -811,6 +1039,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -832,6 +1066,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -853,11 +1093,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a lounge with a patched sofa and boarded window frames",
+      "text": "a cramped lounge with a patched sofa and boarded window frames, with blankets and newspapers heaped over the seating",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -868,6 +1114,12 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
@@ -882,6 +1134,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     }
@@ -892,6 +1150,18 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "size": [
+      "medium",
+      "cramped",
+      "spacious"
+    ],
+    "tidiness": [
+      "lived-in",
+      "messy",
+      "tidy"
     ]
   }
 }

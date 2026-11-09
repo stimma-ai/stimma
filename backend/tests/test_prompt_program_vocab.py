@@ -68,6 +68,20 @@ class TestTheVocabulary:
         fantasy = {x.text for x in v.get("person.eye_color").eligible()}
         assert {x.text for x in v.get("person.eye_color").eligible({"genre": "fantasy"})} - fantasy  # gates still hold
 
+    def test_a_mans_formal_outfit_is_rarely_a_gown(self):
+        from prompt_programs.vocab import template_matches
+        formal = vocabulary().get("person.outfit.formal")
+        fem = {x.text for x in formal.values if set(x.tags.get("presentation") or []) == {"feminine"}}
+        assert fem
+        src = ('o = pick("o", cls="person.outfit.formal", about="what he wears", seed=["x"], label="Outfit", phase=1)\n'
+               'emit("A man at a gala wearing", o, ".")')
+        hits = 0
+        for seed in range(60):
+            r = draw(src, seed, None, [], None, None, None, options=GeneratedOptions(None, program()), judge=NullJudge())
+            value = next(d.value for d in r.draws if d.id == "o")
+            hits += any(template_matches(t, value) for t in fem)
+        assert hits <= 4  # presentation tables: feminine-only looks are rare for a man (was ~60%)
+
     def test_facial_hair_can_be_none(self):
         assert vocabulary().get("person.facial_hair").value("a clean-shaven face") is not None
 

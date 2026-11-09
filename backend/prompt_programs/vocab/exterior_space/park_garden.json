@@ -1,7 +1,7 @@
 {
   "id": "exterior_space.park_garden",
   "label": "Park Garden",
-  "description": "Cultivated outdoor green spaces, from small gardens to extensive public parks.",
+  "description": "Designed outdoor green spaces, ornamental gardens and planted public parks; choose countryside for working farms, landscape for wilderness and urban_spot for paved civic sites.",
   "pos": "noun phrase",
   "frame": "the setting is ___",
   "notes": "Designed planting, garden paths, and public green spaces belong here; wild landforms belong to landscape, working fields to countryside, and paved civic plazas to urban_spot. Untagged values fit realistic contemporary gardens. Simple planting, paths and traditional garden structures fit both historical and technological worlds; modern ecological design and exercise equipment have narrower eras. Magical planting is explicitly tagged. The noun-predicate frame accommodates valleys, shores, roads and platforms; choose an appropriate in/on/at preposition when composing a different sentence.",
@@ -34,6 +34,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "public park"
         ]
       }
     },
@@ -55,6 +58,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "public park"
         ]
       }
     },
@@ -78,6 +84,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -101,6 +110,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "food or herb garden"
         ]
       }
     },
@@ -125,6 +137,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "food or herb garden"
         ]
       }
     },
@@ -148,6 +163,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -172,6 +190,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -193,6 +214,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -207,6 +231,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -228,6 +255,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "food or herb garden"
         ]
       }
     },
@@ -252,6 +282,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "courtyard or rooftop"
         ]
       }
     },
@@ -266,6 +299,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "courtyard or rooftop"
         ]
       }
     },
@@ -290,6 +326,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -312,6 +351,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -335,6 +377,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "public park"
         ]
       }
     },
@@ -349,6 +394,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "public park"
         ]
       }
     },
@@ -373,6 +421,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "public park"
         ]
       }
     },
@@ -387,6 +438,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -413,6 +467,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -440,6 +497,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -466,6 +526,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -492,6 +555,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -518,6 +584,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -544,6 +613,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -569,6 +641,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -595,6 +670,10 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "food or herb garden",
+          "courtyard or rooftop"
         ]
       }
     },
@@ -621,6 +700,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -648,6 +730,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -674,6 +759,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "courtyard or rooftop"
         ]
       }
     },
@@ -698,6 +786,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -723,6 +814,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -747,6 +841,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "courtyard or rooftop"
         ]
       }
     },
@@ -764,6 +861,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -787,6 +887,9 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "setting_type": [
+          "food or herb garden"
         ]
       }
     },
@@ -808,6 +911,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -829,6 +935,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "ornamental garden"
         ]
       }
     },
@@ -842,6 +951,10 @@
         ],
         "era": [
           "future"
+        ],
+        "setting_type": [
+          "food or herb garden",
+          "courtyard or rooftop"
         ]
       }
     }
@@ -852,6 +965,14 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "setting_type": [
+      "public park",
+      "ornamental garden",
+      "food or herb garden",
+      "courtyard or rooftop"
     ]
   }
 }

@@ -1,0 +1,553 @@
+{
+  "id": "vehicle.road_vehicle",
+  "label": "Road vehicle",
+  "description": "Generic wheeled road transport across eras, from carts to modern cars and trucks.",
+  "pos": "noun phrase",
+  "frame": "a ___ parked on the street",
+  "notes": "Vehicle kinds and body forms only; makes, models, paint, pose and occupants are separate. Era tags cover ordinary use or recognisable surviving examples; antique vehicles tagged contemporary are heritage or collector sights. Genre is unrestricted, while era supplies the technology boundary.",
+  "facets": [
+    "era"
+  ],
+  "closed": false,
+  "untagged": {},
+  "values": [
+    {
+      "text": "hatchback",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "sedan",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "station wagon",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "pickup truck",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "motorcycle",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "bicycle",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "delivery van",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "city bus",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "taxi",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "minivan",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "compact crossover",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "convertible",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "coupe",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "panel van",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "school bus",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "fire engine",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "tractor",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "dump truck",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "flatbed truck",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "motor scooter",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "tandem bicycle",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "cargo bicycle",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "pedal tricycle",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "sidecar motorcycle",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "double-decker bus",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "refuse truck",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "tow truck",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "tanker truck",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "refrigerated truck",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "stretch limousine",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "camper van",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "motorhome",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "sports car",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "paramedic ambulance",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "motor rickshaw",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "cycle rickshaw",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "horseless carriage",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ]
+      }
+    },
+    {
+      "text": "brass-era touring car",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ]
+      }
+    },
+    {
+      "text": "steam road carriage",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s"
+        ]
+      }
+    },
+    {
+      "text": "horse-drawn cab",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "horse-drawn coach",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "horse-drawn cart",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "ancient",
+          "medieval",
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "steam traction engine",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "velocipede",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "19th_century",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "penny-farthing bicycle",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "19th_century",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "bubble car",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "half-track truck",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "contemporary"
+        ]
+      }
+    }
+  ]
+}

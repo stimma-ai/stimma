@@ -1,7 +1,7 @@
 {
   "id": "camera.angle",
   "label": "Camera angle",
-  "description": "The camera viewpoint relative to the subject.",
+  "description": "The camera viewpoint relative to the person being photographed.",
   "pos": "prepositional/noun phrase",
   "frame": "shot from ___",
   "notes": "Camera height, azimuth, tilt and relative position belong here. camera.shot_size owns framing extent and camera.lens owns focal length; lighting leaves own the direction of illumination.",
@@ -41,7 +41,7 @@
       "tier": "plausible"
     },
     {
-      "text": "over the subject’s shoulder",
+      "text": "over the shoulder",
       "tier": "typical"
     },
     {
@@ -57,7 +57,7 @@
       "tier": "plausible"
     },
     {
-      "text": "just above the subject’s head",
+      "text": "just above the head",
       "tier": "plausible"
     },
     {

@@ -1,7 +1,7 @@
 {
   "id": "exterior_space.landscape",
   "label": "Landscape",
-  "description": "Natural inland settings across biomes, terrain types, and continents.",
+  "description": "Wild inland terrain and vegetation, from forests and wetlands to mountains and deserts; choose coastal for sea edges, countryside for farmland and park_garden for designed planting.",
   "pos": "noun phrase",
   "frame": "the setting is ___",
   "notes": "Wild inland landforms and vegetation belong here; shorelines belong to coastal, cultivated land and villages to countryside, designed green spaces to park_garden. Genre and era are unrestricted for untagged natural landforms: the same terrain can occur in any world or period. Only magical and alien terrain carries world restrictions. The noun-predicate frame accommodates valleys, shores, roads and platforms; choose an appropriate in/on/at preposition when composing a different sentence.",
@@ -18,59 +18,130 @@
   "values": [
     {
       "text": "a broad valley with a braided river and gravel bars",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "inland water"
+        ]
+      }
     },
     {
       "text": "a limestone gorge with sheer walls and scrubby ledges",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "mountain"
+        ]
+      }
     },
     {
       "text": "a sandstone canyon with layered cliffs and a dry wash",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "desert"
+        ]
+      }
     },
     {
       "text": "a basalt plateau with columnar cliffs and sparse grass",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "mountain"
+        ]
+      }
     },
     {
       "text": "a volcanic caldera with a crater lake and broken ridges",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "mountain"
+        ]
+      }
     },
     {
       "text": "a lava field with rope-textured rock and fissures",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "unusual geology"
+        ]
+      }
     },
     {
       "text": "a karst basin with limestone towers and sinkholes",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "unusual geology"
+        ]
+      }
     },
     {
       "text": "a cave entrance with hanging vines and a rocky streambed",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "unusual geology"
+        ]
+      }
     },
     {
       "text": "an alpine valley with scree slopes and dwarf shrubs",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "mountain"
+        ]
+      }
     },
     {
       "text": "a mountain pass with jagged peaks and loose stone",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "mountain"
+        ]
+      }
     },
     {
       "text": "a glacial valley with moraine ridges and a turquoise lake",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "mountain",
+          "inland water"
+        ]
+      }
     },
     {
       "text": "a mountain meadow with wildflowers and exposed boulders",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "mountain"
+        ]
+      }
     },
     {
       "text": "a badlands basin with eroded pinnacles and clay gullies",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "desert"
+        ]
+      }
     },
     {
       "text": "a slot canyon with sculpted walls and a sandy floor",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "desert"
+        ]
+      }
     },
     {
       "text": "a desert basin with crescent dunes and gravel flats",
@@ -78,6 +149,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "desert"
         ]
       }
     },
@@ -87,6 +161,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "desert"
         ]
       }
     },
@@ -96,6 +173,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "inland water"
         ]
       }
     },
@@ -105,6 +185,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "grassland or scrub"
         ]
       }
     },
@@ -114,6 +197,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "grassland or scrub"
         ]
       }
     },
@@ -123,6 +209,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "woodland"
         ]
       }
     },
@@ -132,6 +221,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "woodland"
         ]
       }
     },
@@ -141,6 +233,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "inland water"
         ]
       }
     },
@@ -150,6 +245,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "inland water"
         ]
       }
     },
@@ -159,6 +257,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "woodland"
         ]
       }
     },
@@ -168,6 +269,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "woodland"
         ]
       }
     },
@@ -177,6 +281,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "woodland"
         ]
       }
     },
@@ -186,6 +293,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "woodland"
         ]
       }
     },
@@ -195,6 +305,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "woodland"
         ]
       }
     },
@@ -204,6 +317,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "woodland"
         ]
       }
     },
@@ -213,6 +329,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "grassland or scrub"
         ]
       }
     },
@@ -222,6 +341,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "grassland or scrub"
         ]
       }
     },
@@ -231,6 +353,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "inland water"
         ]
       }
     },
@@ -240,6 +365,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "inland water"
         ]
       }
     },
@@ -249,6 +377,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "inland water"
         ]
       }
     },
@@ -258,6 +389,9 @@
       "tags": {
         "climate": [
           "cold"
+        ],
+        "setting_type": [
+          "ice or tundra"
         ]
       }
     },
@@ -267,6 +401,9 @@
       "tags": {
         "climate": [
           "cold"
+        ],
+        "setting_type": [
+          "woodland"
         ]
       }
     },
@@ -276,6 +413,9 @@
       "tags": {
         "climate": [
           "cold"
+        ],
+        "setting_type": [
+          "ice or tundra"
         ]
       }
     },
@@ -285,6 +425,9 @@
       "tags": {
         "climate": [
           "cold"
+        ],
+        "setting_type": [
+          "ice or tundra"
         ]
       }
     },
@@ -294,6 +437,10 @@
       "tags": {
         "climate": [
           "cold"
+        ],
+        "setting_type": [
+          "desert",
+          "ice or tundra"
         ]
       }
     },
@@ -303,6 +450,9 @@
       "tags": {
         "locale": [
           "wilderness"
+        ],
+        "setting_type": [
+          "inland water"
         ]
       }
     },
@@ -312,6 +462,9 @@
       "tags": {
         "locale": [
           "wilderness"
+        ],
+        "setting_type": [
+          "inland water"
         ]
       }
     },
@@ -321,6 +474,9 @@
       "tags": {
         "locale": [
           "wilderness"
+        ],
+        "setting_type": [
+          "unusual geology"
         ]
       }
     },
@@ -333,6 +489,9 @@
         ],
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "woodland"
         ]
       }
     },
@@ -342,6 +501,9 @@
       "tags": {
         "region": [
           "east_asian"
+        ],
+        "setting_type": [
+          "unusual geology"
         ]
       }
     },
@@ -354,6 +516,9 @@
         ],
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "desert"
         ]
       }
     },
@@ -363,6 +528,9 @@
       "tags": {
         "region": [
           "european"
+        ],
+        "setting_type": [
+          "grassland or scrub"
         ]
       }
     },
@@ -372,6 +540,10 @@
       "tags": {
         "region": [
           "latin_american"
+        ],
+        "setting_type": [
+          "mountain",
+          "inland water"
         ]
       }
     },
@@ -381,6 +553,9 @@
       "tags": {
         "region": [
           "latin_american"
+        ],
+        "setting_type": [
+          "grassland or scrub"
         ]
       }
     },
@@ -390,6 +565,9 @@
       "tags": {
         "region": [
           "latin_american"
+        ],
+        "setting_type": [
+          "grassland or scrub"
         ]
       }
     },
@@ -399,20 +577,40 @@
       "tags": {
         "region": [
           "north_american"
+        ],
+        "setting_type": [
+          "grassland or scrub"
         ]
       }
     },
     {
       "text": "a meteor crater with a raised rim and shattered rock",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "setting_type": [
+          "desert",
+          "unusual geology"
+        ]
+      }
     },
     {
       "text": "a geothermal basin with mineral terraces and bubbling pools",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "setting_type": [
+          "unusual geology"
+        ]
+      }
     },
     {
       "text": "a petrified forest with mineralized trunks and eroded clay beds",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "setting_type": [
+          "woodland",
+          "unusual geology"
+        ]
+      }
     },
     {
       "text": "a forest of giant mushrooms with gnarled roots and mossy paths",
@@ -421,6 +619,9 @@
         "genre": [
           "fantasy",
           "fairy_tale"
+        ],
+        "setting_type": [
+          "woodland"
         ]
       }
     },
@@ -431,6 +632,9 @@
         "genre": [
           "fantasy",
           "fairy_tale"
+        ],
+        "setting_type": [
+          "unusual geology"
         ]
       }
     },
@@ -441,6 +645,10 @@
         "genre": [
           "fantasy",
           "fairy_tale"
+        ],
+        "setting_type": [
+          "desert",
+          "unusual geology"
         ]
       }
     },
@@ -453,9 +661,23 @@
         ],
         "era": [
           "future"
+        ],
+        "setting_type": [
+          "unusual geology"
         ]
       }
     }
   ],
-  "untagged": {}
+  "untagged": {},
+  "local_facets": {
+    "setting_type": [
+      "inland water",
+      "mountain",
+      "desert",
+      "unusual geology",
+      "grassland or scrub",
+      "woodland",
+      "ice or tundra"
+    ]
+  }
 }

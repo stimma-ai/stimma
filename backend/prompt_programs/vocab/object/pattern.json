@@ -1,0 +1,197 @@
+{
+  "id": "object.pattern",
+  "label": "Object pattern",
+  "description": "repeating motifs, prints and decorative surface arrangements on an object",
+  "pos": "adjective or noun-adjunct",
+  "frame": "a ___ scarf",
+  "notes": "Surface designs only, with no fixed colours or fibre requirements. Named culturally specific designs carry region tags; generic motifs remain untagged. object.material owns the physical substance.",
+  "facets": [
+    "region"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "striped",
+      "tier": "typical"
+    },
+    {
+      "text": "polka-dot",
+      "tier": "typical"
+    },
+    {
+      "text": "checked",
+      "tier": "typical"
+    },
+    {
+      "text": "floral",
+      "tier": "typical"
+    },
+    {
+      "text": "plaid",
+      "tier": "typical"
+    },
+    {
+      "text": "herringbone",
+      "tier": "typical"
+    },
+    {
+      "text": "houndstooth",
+      "tier": "typical"
+    },
+    {
+      "text": "geometric",
+      "tier": "typical"
+    },
+    {
+      "text": "pinstriped",
+      "tier": "plausible"
+    },
+    {
+      "text": "gingham",
+      "tier": "plausible"
+    },
+    {
+      "text": "chevron",
+      "tier": "plausible"
+    },
+    {
+      "text": "diamond argyle",
+      "tier": "plausible"
+    },
+    {
+      "text": "windowpane-check",
+      "tier": "plausible"
+    },
+    {
+      "text": "harlequin",
+      "tier": "plausible"
+    },
+    {
+      "text": "leopard-print",
+      "tier": "plausible"
+    },
+    {
+      "text": "zebra-print",
+      "tier": "plausible"
+    },
+    {
+      "text": "tiger-stripe",
+      "tier": "plausible"
+    },
+    {
+      "text": "snakeskin-print",
+      "tier": "plausible"
+    },
+    {
+      "text": "botanical",
+      "tier": "plausible"
+    },
+    {
+      "text": "star-print",
+      "tier": "plausible"
+    },
+    {
+      "text": "heart-print",
+      "tier": "plausible"
+    },
+    {
+      "text": "swirling abstract",
+      "tier": "plausible"
+    },
+    {
+      "text": "camouflage",
+      "tier": "plausible"
+    },
+    {
+      "text": "tie-dye",
+      "tier": "plausible"
+    },
+    {
+      "text": "gradient",
+      "tier": "plausible"
+    },
+    {
+      "text": "patchwork",
+      "tier": "plausible"
+    },
+    {
+      "text": "lace-patterned",
+      "tier": "plausible"
+    },
+    {
+      "text": "cable-knit",
+      "tier": "plausible"
+    },
+    {
+      "text": "marbled",
+      "tier": "unusual"
+    },
+    {
+      "text": "woodgrain-print",
+      "tier": "unusual"
+    },
+    {
+      "text": "trompe-l’oeil chain-print",
+      "tier": "unusual"
+    },
+    {
+      "text": "circuit-patterned",
+      "tier": "unusual"
+    },
+    {
+      "text": "paisley",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian",
+          "middle_eastern"
+        ]
+      }
+    },
+    {
+      "text": "Scottish tartan",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ]
+      }
+    },
+    {
+      "text": "Japanese shibori",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ]
+      }
+    },
+    {
+      "text": "Japanese seigaiha wave-patterned",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ]
+      }
+    },
+    {
+      "text": "Javanese batik",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ]
+      }
+    },
+    {
+      "text": "Ghanaian kente-patterned",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "african"
+        ]
+      }
+    }
+  ]
+}

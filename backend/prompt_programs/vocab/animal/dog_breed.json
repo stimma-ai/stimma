@@ -1,0 +1,407 @@
+{
+  "id": "animal.dog_breed",
+  "label": "Dog breed",
+  "description": "Dog breeds and mixed-breed kinds, with approximate adult size.",
+  "pos": "noun phrase",
+  "frame": "a ___ on a lead",
+  "notes": "Breed identity and mixed-breed size only; coats, personality, pose and expression are independent. Size is a coarse typical adult grouping; popularity tiers are broad editorial estimates rather than a regional registration ranking.",
+  "facets": [],
+  "closed": false,
+  "untagged": {},
+  "values": [
+    {
+      "text": "Chihuahua",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "French bulldog",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "dachshund",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "pug",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Pomeranian",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "small mixed-breed dog",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Shih Tzu",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Maltese",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Yorkshire terrier",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "miniature schnauzer",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "bichon frise",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Papillon",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Chinese crested dog",
+      "tier": "unusual",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Japanese chin",
+      "tier": "unusual",
+      "tags": {
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "beagle",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "cocker spaniel",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "border collie",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "bulldog",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "medium mixed-breed dog",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Staffordshire bull terrier",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "whippet",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Shetland sheepdog",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "miniature poodle",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Shiba Inu",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "basset hound",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Basenji",
+      "tier": "unusual",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Finnish spitz",
+      "tier": "unusual",
+      "tags": {
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Labrador retriever",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "golden retriever",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "German shepherd",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "standard poodle",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "large mixed-breed dog",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "boxer",
+      "tier": "typical",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Rottweiler",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Siberian husky",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Dobermann",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Dalmatian",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Bernese mountain dog",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Great Dane",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Newfoundland",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "greyhound",
+      "tier": "plausible",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Borzoi",
+      "tier": "unusual",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Komondor",
+      "tier": "unusual",
+      "tags": {
+        "size": [
+          "large"
+        ]
+      }
+    }
+  ],
+  "local_facets": {
+    "size": [
+      "small",
+      "medium",
+      "large"
+    ]
+  }
+}

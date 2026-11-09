@@ -1,10 +1,10 @@
 {
   "id": "interior_space.office",
   "label": "Office",
-  "description": "Workplaces for administrative, professional, and organizational work.",
+  "description": "Administrative workplaces, home offices, reception offices and meeting rooms defined by desks and records; choose library_study for book-led spaces or workshop_studio for making.",
   "pos": "noun phrase",
   "frame": "in ___",
-  "notes": "Office workspaces and meeting rooms belong here; private reading rooms belong to library_study, production spaces to workshop_studio, and public waiting rooms to any_room.",
+  "notes": "Office workspaces and meeting rooms belong here; private reading rooms belong to library_study, production spaces to workshop_studio, and public waiting rooms to any_room. Size describes usable room scale; tidiness describes arrangement: tidy is orderly, lived-in is a space in regular use, and messy requires visible clutter. Wear and low budget alone do not imply mess.",
   "facets": [
     "era",
     "genre",
@@ -17,7 +17,7 @@
   "closed": false,
   "values": [
     {
-      "text": "an open-plan office with desk clusters and cable trays",
+      "text": "a spacious open-plan office with desk clusters and cable trays",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -29,6 +29,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -47,6 +53,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -64,11 +76,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a home office with a corner desk and storage shelves",
+      "text": "a cramped home office with a corner desk and storage shelves",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -85,11 +103,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a meeting room with a long table and whiteboard",
+      "text": "a meeting room with a long table and whiteboard, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -102,6 +126,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -121,11 +151,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "an office with standing desks and acoustic screens",
+      "text": "an office with standing desks and acoustic screens, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -135,11 +171,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a reception office with a counter and pigeonhole shelves",
+      "text": "a reception office with a counter and pigeonhole shelves, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -156,11 +198,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a warehouse office with wire-glass windows and dispatch boards",
+      "text": "a cramped warehouse office with wire-glass windows and dispatch boards",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -175,11 +223,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an office with drafting tables and flat-file drawers",
+      "text": "an office with drafting tables and flat-file drawers, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -193,11 +247,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "an office with glass partitions and phone booths",
+      "text": "a spacious office with glass partitions and phone booths, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -207,11 +267,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "an office with mismatched desks and tangled power strips",
+      "text": "a cramped office with mismatched desks and tangled power strips",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -223,6 +289,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
@@ -243,6 +315,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -264,11 +342,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an office with a server rack and antistatic floor tiles",
+      "text": "an office with a server rack and antistatic floor tiles, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -279,11 +363,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a portable office with plywood walls and metal storage lockers",
+      "text": "a cramped portable office with plywood walls and metal storage lockers",
       "tier": "typical",
       "tags": {
         "budget": [
@@ -300,11 +390,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a corner office with a stone desk and leather seating",
+      "text": "a spacious corner office with a stone desk and leather seating, neatly arranged",
       "tier": "typical",
       "tags": {
         "budget": [
@@ -320,11 +416,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a Japanese office with island desks and partitioned manager seating",
+      "text": "a spacious Japanese office with island desks and partitioned manager seating, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -339,6 +441,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -364,6 +472,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -383,6 +497,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -404,6 +524,12 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -422,6 +548,12 @@
           "realistic",
           "steampunk",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -438,11 +570,17 @@
         "genre": [
           "realistic",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an Art Deco office with a curved desk and chrome chairs",
+      "text": "an Art Deco office with a curved desk and chrome chairs, neatly arranged",
       "tier": "typical",
       "tags": {
         "era": [
@@ -454,6 +592,12 @@
         "genre": [
           "realistic",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -469,6 +613,12 @@
         "genre": [
           "realistic",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -485,6 +635,12 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -507,11 +663,17 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a station office with curved consoles and modular storage walls",
+      "text": "a station office with curved consoles and modular storage walls, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -521,11 +683,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "an office with volumetric planning displays and retractable workstations",
+      "text": "a spacious office with volumetric planning displays and retractable workstations, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -535,11 +703,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a corporate office with armored glass partitions and biometric terminals",
+      "text": "a corporate office with armored glass partitions and biometric terminals, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -549,6 +723,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -570,11 +750,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a command office with scavenged desks and hand-drawn supply maps",
+      "text": "a command office with scavenged desks and hand-drawn supply maps, with loose maps strewn across the desks",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -585,11 +771,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a corporate boardroom with holographic planning tables and retinal access panels",
+      "text": "a spacious corporate boardroom with holographic planning tables and retinal access panels, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -599,6 +791,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -621,6 +819,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -643,6 +847,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     }
@@ -653,6 +863,18 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "size": [
+      "spacious",
+      "medium",
+      "cramped"
+    ],
+    "tidiness": [
+      "lived-in",
+      "tidy",
+      "messy"
     ]
   }
 }

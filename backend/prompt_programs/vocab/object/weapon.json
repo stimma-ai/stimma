@@ -1,0 +1,442 @@
+{
+  "id": "object.weapon",
+  "label": "Weapon",
+  "description": "hand-held weapons and combat implements, filtered by weapon type",
+  "pos": "noun phrase",
+  "frame": "holding ___",
+  "notes": "Complete props with articles; no brands or real-world model names. The type facet is strict: hammers remain hammers, including fantasy variants. Crossbows group with bows; lances and tridents with spears; maces and flails are other. Untagged genre/era permits enduring designs, replicas and ceremonial use; explicitly historical mechanisms and speculative effects are tagged.",
+  "facets": [
+    "era",
+    "genre"
+  ],
+  "closed": false,
+  "local_facets": {
+    "type": [
+      "sword",
+      "axe",
+      "hammer",
+      "spear",
+      "bow",
+      "dagger",
+      "firearm",
+      "staff",
+      "other"
+    ]
+  },
+  "values": [
+    {
+      "text": "a straight longsword",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "sword"
+        ]
+      }
+    },
+    {
+      "text": "a curved sabre",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "sword"
+        ]
+      }
+    },
+    {
+      "text": "a basket-hilted broadsword",
+      "tier": "plausible",
+      "tags": {
+        "type": [
+          "sword"
+        ]
+      }
+    },
+    {
+      "text": "a bronze short sword",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "ancient"
+        ],
+        "type": [
+          "sword"
+        ]
+      }
+    },
+    {
+      "text": "a sword with a blade of flame",
+      "tier": "unusual",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "type": [
+          "sword"
+        ]
+      }
+    },
+    {
+      "text": "a single-bit battle axe",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "axe"
+        ]
+      }
+    },
+    {
+      "text": "a bearded axe",
+      "tier": "plausible",
+      "tags": {
+        "type": [
+          "axe"
+        ]
+      }
+    },
+    {
+      "text": "a two-handed poleaxe",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "type": [
+          "axe"
+        ]
+      }
+    },
+    {
+      "text": "a double-headed crystal axe",
+      "tier": "unusual",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "type": [
+          "axe"
+        ]
+      }
+    },
+    {
+      "text": "a short-handled war hammer",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "hammer"
+        ]
+      }
+    },
+    {
+      "text": "a long-handled maul",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "hammer"
+        ]
+      }
+    },
+    {
+      "text": "a pick-backed war hammer",
+      "tier": "plausible",
+      "tags": {
+        "type": [
+          "hammer"
+        ]
+      }
+    },
+    {
+      "text": "a rune-carved stone war hammer",
+      "tier": "unusual",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "type": [
+          "hammer"
+        ]
+      }
+    },
+    {
+      "text": "a leaf-bladed spear",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "spear"
+        ]
+      }
+    },
+    {
+      "text": "a barbed fishing spear",
+      "tier": "plausible",
+      "tags": {
+        "type": [
+          "spear"
+        ]
+      }
+    },
+    {
+      "text": "a long cavalry lance",
+      "tier": "plausible",
+      "tags": {
+        "type": [
+          "spear"
+        ]
+      }
+    },
+    {
+      "text": "a trident",
+      "tier": "unusual",
+      "tags": {
+        "type": [
+          "spear"
+        ]
+      }
+    },
+    {
+      "text": "a wooden longbow",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "bow"
+        ]
+      }
+    },
+    {
+      "text": "a recurved bow",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "bow"
+        ]
+      }
+    },
+    {
+      "text": "a crossbow",
+      "tier": "plausible",
+      "tags": {
+        "type": [
+          "bow"
+        ]
+      }
+    },
+    {
+      "text": "a compound bow",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "type": [
+          "bow"
+        ]
+      }
+    },
+    {
+      "text": "a double-edged dagger",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "dagger"
+        ]
+      }
+    },
+    {
+      "text": "a curved dagger",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "dagger"
+        ]
+      }
+    },
+    {
+      "text": "a triangular-bladed stiletto",
+      "tier": "plausible",
+      "tags": {
+        "type": [
+          "dagger"
+        ]
+      }
+    },
+    {
+      "text": "a chipped obsidian dagger",
+      "tier": "unusual",
+      "tags": {
+        "type": [
+          "dagger"
+        ]
+      }
+    },
+    {
+      "text": "a hunting rifle",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "type": [
+          "firearm"
+        ]
+      }
+    },
+    {
+      "text": "a double-barrelled shotgun",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "type": [
+          "firearm"
+        ]
+      }
+    },
+    {
+      "text": "a revolver",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "type": [
+          "firearm"
+        ]
+      }
+    },
+    {
+      "text": "a flintlock pistol",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "early_modern",
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "fantasy"
+        ],
+        "type": [
+          "firearm"
+        ]
+      }
+    },
+    {
+      "text": "a compact plasma pistol",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "future"
+        ],
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "type": [
+          "firearm"
+        ]
+      }
+    },
+    {
+      "text": "a plain quarterstaff",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "staff"
+        ]
+      }
+    },
+    {
+      "text": "a metal-shod fighting staff",
+      "tier": "plausible",
+      "tags": {
+        "type": [
+          "staff"
+        ]
+      }
+    },
+    {
+      "text": "a forked wooden spell staff",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "type": [
+          "staff"
+        ]
+      }
+    },
+    {
+      "text": "a crystal-tipped staff",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "type": [
+          "staff"
+        ]
+      }
+    },
+    {
+      "text": "a spiked mace",
+      "tier": "typical",
+      "tags": {
+        "type": [
+          "other"
+        ]
+      }
+    },
+    {
+      "text": "a leather sling",
+      "tier": "plausible",
+      "tags": {
+        "type": [
+          "other"
+        ]
+      }
+    },
+    {
+      "text": "a chained flail",
+      "tier": "plausible",
+      "tags": {
+        "type": [
+          "other"
+        ]
+      }
+    },
+    {
+      "text": "a weighted throwing net",
+      "tier": "unusual",
+      "tags": {
+        "type": [
+          "other"
+        ]
+      }
+    }
+  ]
+}

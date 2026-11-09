@@ -1,7 +1,7 @@
 {
   "id": "exterior_space.countryside",
   "label": "Countryside",
-  "description": "Inhabited rural settings, cultivated land, farms, villages, and country roads.",
+  "description": "Working rural land, farms, villages and country lanes shaped by habitation or agriculture; choose landscape for wild inland terrain and park_garden for ornamental grounds.",
   "pos": "noun phrase",
   "frame": "the setting is ___",
   "notes": "Working fields and rural settlement belong here; wild landscapes belong to landscape, sea edges to coastal, and urban streets to city_street. Untagged values fit realistic contemporary countryside. Traditional cultivation and settlements span medieval through later eras; machinery and industrial farm infrastructure are dated separately. Future agriculture has dedicated values. The noun-predicate frame accommodates valleys, shores, roads and platforms; choose an appropriate in/on/at preposition when composing a different sentence.",
@@ -31,6 +31,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "farmstead or lane"
         ]
       }
     },
@@ -54,6 +57,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "farmstead or lane"
         ]
       }
     },
@@ -73,6 +79,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "village"
         ]
       }
     },
@@ -92,6 +101,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "field"
         ]
       }
     },
@@ -116,6 +128,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "orchard or plantation"
         ]
       }
     },
@@ -138,6 +153,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "orchard or plantation"
         ]
       }
     },
@@ -162,6 +180,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "orchard or plantation"
         ]
       }
     },
@@ -185,6 +206,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "field"
         ]
       }
     },
@@ -201,6 +225,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "farmstead or lane"
         ]
       }
     },
@@ -225,6 +252,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "farmstead or lane"
         ]
       }
     },
@@ -248,6 +278,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "farmstead or lane"
         ]
       }
     },
@@ -271,6 +304,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "field"
         ]
       }
     },
@@ -287,6 +323,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "field"
         ]
       }
     },
@@ -306,6 +345,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "field"
         ]
       }
     },
@@ -330,6 +372,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "field"
         ]
       }
     },
@@ -354,6 +399,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "village"
         ]
       }
     },
@@ -377,6 +425,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "village"
         ]
       }
     },
@@ -401,6 +452,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "farmstead or lane"
         ]
       }
     },
@@ -427,6 +481,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "field"
         ]
       }
     },
@@ -453,6 +510,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "orchard or plantation"
         ]
       }
     },
@@ -480,6 +540,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "orchard or plantation"
         ]
       }
     },
@@ -502,6 +565,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "orchard or plantation"
         ]
       }
     },
@@ -524,6 +590,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "orchard or plantation"
         ]
       }
     },
@@ -550,6 +619,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "village"
         ]
       }
     },
@@ -576,6 +648,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "orchard or plantation"
         ]
       }
     },
@@ -603,6 +678,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "field"
         ]
       }
     },
@@ -629,6 +707,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "village"
         ]
       }
     },
@@ -651,6 +732,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "orchard or plantation"
         ]
       }
     },
@@ -678,6 +762,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "village"
         ]
       }
     },
@@ -705,6 +792,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "orchard or plantation"
         ]
       }
     },
@@ -732,6 +822,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "village"
         ]
       }
     },
@@ -759,6 +852,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "field"
         ]
       }
     },
@@ -785,6 +881,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "village"
         ]
       }
     },
@@ -811,6 +910,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "farmstead or lane"
         ]
       }
     },
@@ -836,6 +938,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "village"
         ]
       }
     },
@@ -861,6 +966,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "field"
         ]
       }
     },
@@ -881,6 +989,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "field"
         ]
       }
     },
@@ -903,6 +1014,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "farmstead or lane"
         ]
       }
     },
@@ -925,6 +1039,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "farmstead or lane"
         ]
       }
     },
@@ -948,6 +1065,9 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "setting_type": [
+          "village"
         ]
       }
     },
@@ -968,6 +1088,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "village"
         ]
       }
     },
@@ -981,6 +1104,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "high-tech farm"
         ]
       }
     },
@@ -994,6 +1120,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "high-tech farm"
         ]
       }
     },
@@ -1007,6 +1136,10 @@
         ],
         "era": [
           "future"
+        ],
+        "setting_type": [
+          "field",
+          "high-tech farm"
         ]
       }
     }
@@ -1017,6 +1150,15 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "setting_type": [
+      "farmstead or lane",
+      "village",
+      "field",
+      "orchard or plantation",
+      "high-tech farm"
     ]
   }
 }

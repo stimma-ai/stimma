@@ -48,7 +48,7 @@
           "steampunk"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting",
           "interview"
         ],
@@ -89,7 +89,7 @@
           "steampunk"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting",
           "interview"
         ],
@@ -131,7 +131,7 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "full"
@@ -170,7 +170,7 @@
           "feminine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
@@ -208,7 +208,7 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "full"
@@ -246,7 +246,7 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "full"
@@ -284,7 +284,7 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "full"
@@ -324,7 +324,7 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "full"
@@ -363,7 +363,7 @@
           "feminine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
@@ -404,7 +404,7 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "full"
@@ -443,7 +443,7 @@
           "steampunk"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting",
           "interview"
         ],
@@ -484,7 +484,7 @@
           "future"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
@@ -521,7 +521,7 @@
           "horror"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting",
           "interview"
         ],
@@ -562,7 +562,7 @@
           "feminine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
@@ -605,7 +605,7 @@
           "feminine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting",
           "interview"
         ],
@@ -644,7 +644,7 @@
           "future"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting",
           "interview"
         ],
@@ -685,7 +685,7 @@
           "feminine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
@@ -726,7 +726,7 @@
           "feminine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
@@ -767,7 +767,7 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "moderate"
@@ -805,7 +805,7 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "full"
@@ -846,7 +846,7 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "moderate"
@@ -884,7 +884,7 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "full"
@@ -924,7 +924,7 @@
           "feminine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
@@ -965,7 +965,7 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "full"
@@ -1005,7 +1005,7 @@
           "feminine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
@@ -1047,11 +1047,14 @@
           "future"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "south_asian"
         ]
       },
       "palette": {
@@ -1083,7 +1086,7 @@
           "future"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting",
           "interview"
         ],
@@ -1129,11 +1132,14 @@
           "feminine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "south_asian"
         ]
       },
       "palette": {
@@ -1174,11 +1180,14 @@
           "feminine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "south_asian"
         ]
       },
       "palette": {
@@ -1215,11 +1224,14 @@
           "feminine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "middle_eastern"
         ]
       },
       "palette": {
@@ -1258,11 +1270,14 @@
           "masculine"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "middle_eastern"
         ]
       }
     },
@@ -1288,10 +1303,13 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "southeast_asian"
         ]
       },
       "palette": {
@@ -1326,10 +1344,16 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "region": [
+          "southeast_asian"
         ]
       },
       "palette": {
@@ -1371,6 +1395,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "southeast_asian"
         ]
       },
       "palette": {
@@ -1405,10 +1432,13 @@
         ],
         "occasion": [
           "smart casual",
-          "office"
+          "business casual"
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "latin_american"
         ]
       },
       "palette": {
@@ -1442,11 +1472,14 @@
           "future"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "east_asian"
         ]
       },
       "palette": {
@@ -1485,6 +1518,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "african"
         ]
       },
       "palette": {
@@ -1523,6 +1559,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "african"
         ]
       },
       "palette": {
@@ -1536,58 +1575,61 @@
       }
     },
     {
-      "text": "a fitted {main} wool doublet over a {accent} linen shirt and {neutral} hose",
+      "text": "a {main} sleeveless knee-length tailored waistcoat over a {accent} shirt dress and {neutral} opaque tights",
       "tier": "typical",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "smart"
         ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
+        ],
         "occasion": [
-          "other"
+          "business casual",
+          "creative workplace"
         ],
         "coverage": [
           "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy"
-        ]
-      }
-    },
-    {
-      "text": "a {main} wool kirtle beneath a neatly laced {accent} surcoat",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
-        "formality": [
-          "smart"
         ],
         "presentation": [
           "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cape-back blazer over a {accent} shell top and {neutral} split-hem cigarette trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
         ],
         "occasion": [
-          "other"
+          "client meeting",
+          "creative workplace"
         ],
         "coverage": [
           "full"
@@ -1596,159 +1638,106 @@
       "palette": {
         "tone": [
           "muted",
-          "earthy"
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a {main} wool cotehardie with fitted sleeves and cloth buttons",
+      "text": "a {main} structured sleeveless coatdress with a notched collar and a flared knee-length hem",
       "tier": "typical",
       "tags": {
+        "formality": [
+          "smart"
+        ],
         "genre": [
           "realistic",
-          "fantasy",
-          "fairy_tale",
+          "scifi",
+          "cyberpunk",
           "horror"
         ],
         "era": [
-          "medieval",
-          "early_modern"
+          "contemporary"
         ],
-        "formality": [
-          "smart"
+        "occasion": [
+          "smart casual",
+          "creative workplace"
+        ],
+        "coverage": [
+          "moderate"
         ],
         "presentation": [
           "feminine"
-        ],
-        "occasion": [
-          "other"
-        ],
-        "coverage": [
-          "full"
         ]
       },
       "palette": {
         "tone": [
           "muted",
-          "earthy"
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a {main} belted robe over a fine {accent} linen tunic",
+      "text": "a {main} cropped wrap jacket over a {accent} mock-neck top and a {neutral} asymmetrically pleated midi skirt",
       "tier": "typical",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "smart"
         ],
+        "era": [
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
         "occasion": [
-          "other"
+          "business casual",
+          "creative workplace"
         ],
         "coverage": [
           "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy"
-        ]
-      }
-    },
-    {
-      "text": "a {main} wool tunic and matching hose beneath a short {accent} mantle",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
-        "formality": [
-          "smart"
-        ],
-        "occasion": [
-          "other"
-        ],
-        "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy"
-        ]
-      }
-    },
-    {
-      "text": "a {accent} linen gown beneath an embroidered sleeveless {main} wool overdress",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
-        "formality": [
-          "smart"
         ],
         "presentation": [
           "feminine"
-        ],
-        "occasion": [
-          "other"
-        ],
-        "coverage": [
-          "full"
         ]
       },
       "palette": {
         "tone": [
           "muted",
-          "earthy"
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a {main} wool kaftan over a {accent} shirt and {neutral} trousers",
+      "text": "a {main} sleeveless longline blazer over a {accent} fine-knit top and {neutral} flared trousers",
       "tier": "typical",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
+        "formality": [
+          "smart"
         ],
         "era": [
-          "medieval",
-          "early_modern"
+          "contemporary"
         ],
-        "formality": [
-          "smart"
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
         ],
         "occasion": [
-          "other"
+          "smart casual",
+          "creative workplace"
         ],
         "coverage": [
           "full"
@@ -1757,12 +1746,86 @@
       "palette": {
         "tone": [
           "muted",
-          "earthy"
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a {main} single-breasted trouser suit with a {accent} long-sleeved poplin shirt",
+      "text": "a {main} fitted peplum jacket over a {accent} silk shell and a {neutral} calf-length trumpet skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "occasion": [
+          "client meeting",
+          "business formal"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} box-pleated overshirt with a wide belt over a {accent} cotton top and {neutral} tapered trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "occasion": [
+          "smart casual",
+          "creative workplace"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cropped bolero jacket over a {accent} poplin shirt and matching high-waisted wide-leg trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1772,9 +1835,18 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "interview",
           "client meeting"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
         ]
       },
       "palette": {
@@ -1798,7 +1870,7 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ]
       },
@@ -1823,7 +1895,7 @@
           "moderate"
         ],
         "occasion": [
-          "office",
+          "business casual",
           "smart casual"
         ]
       },
@@ -1873,8 +1945,11 @@
           "moderate"
         ],
         "occasion": [
-          "office",
+          "business casual",
           "creative workplace"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1898,8 +1973,11 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1913,7 +1991,7 @@
       }
     },
     {
-      "text": "a {main} belted cotton midi shirt dress with rolled sleeves",
+      "text": "a {main} belted cotton midi dress with a wide sailor collar and a sharply pleated skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1923,11 +2001,20 @@
           "moderate"
         ],
         "occasion": [
-          "office",
+          "business casual",
           "smart casual"
         ],
         "presentation": [
           "feminine"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
         ]
       },
       "palette": {
@@ -1976,7 +2063,7 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "presentation": [
@@ -2004,7 +2091,7 @@
           "moderate"
         ],
         "occasion": [
-          "office",
+          "business casual",
           "smart casual"
         ],
         "presentation": [
@@ -2032,7 +2119,7 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ]
       },
@@ -2057,7 +2144,7 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "interview"
         ]
       },
@@ -2082,7 +2169,7 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business casual",
           "smart casual"
         ]
       },
@@ -2109,6 +2196,9 @@
         "occasion": [
           "creative workplace",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -2132,7 +2222,7 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ]
       },
@@ -2157,7 +2247,7 @@
           "moderate"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ],
         "presentation": [
@@ -2200,7 +2290,7 @@
       }
     },
     {
-      "text": "a {main} shawl-collar cardigan over a {accent} cotton shirt and {neutral} wool trousers",
+      "text": "a {main} ribbed knitted capelet over a {accent} cotton shirt and {neutral} wool trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2210,8 +2300,17 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business casual",
           "smart casual"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
         ]
       },
       "palette": {
@@ -2235,8 +2334,11 @@
           "moderate"
         ],
         "occasion": [
-          "office",
+          "business casual",
           "creative workplace"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -2260,8 +2362,14 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "region": [
+          "south_asian"
         ]
       },
       "palette": {
@@ -2285,7 +2393,7 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business casual",
           "smart casual"
         ]
       },
@@ -2338,7 +2446,7 @@
           "moderate"
         ],
         "occasion": [
-          "office",
+          "business casual",
           "smart casual"
         ],
         "presentation": [
@@ -2366,7 +2474,7 @@
           "full"
         ],
         "occasion": [
-          "office",
+          "business formal",
           "client meeting"
         ]
       },
@@ -2409,12 +2517,12 @@
   "slots": "person.palette",
   "local_facets": {
     "occasion": [
-      "office",
+      "business formal",
+      "business casual",
       "interview",
       "smart casual",
       "client meeting",
-      "creative workplace",
-      "other"
+      "creative workplace"
     ],
     "coverage": [
       "light",

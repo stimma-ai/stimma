@@ -1,0 +1,125 @@
+{
+  "id": "animal.cat_coat",
+  "label": "Cat coat",
+  "description": "Cat coat colours and patterns, ordered by everyday visual frequency.",
+  "pos": "adjective phrase",
+  "frame": "a ___ cat",
+  "notes": "Coat appearance only, including combined colour-and-pattern names; breed, personality, pose and expression belong elsewhere. Broad tabby and colourpoint values coexist with more specific variants as useful prompt terms. The closed pool is a curated set of coat names rather than a genetic taxonomy.",
+  "facets": [],
+  "closed": true,
+  "untagged": {},
+  "values": [
+    {
+      "text": "tabby",
+      "tier": "typical"
+    },
+    {
+      "text": "ginger tabby",
+      "tier": "typical"
+    },
+    {
+      "text": "brown tabby",
+      "tier": "typical"
+    },
+    {
+      "text": "grey tabby",
+      "tier": "typical"
+    },
+    {
+      "text": "calico",
+      "tier": "typical"
+    },
+    {
+      "text": "tuxedo",
+      "tier": "typical"
+    },
+    {
+      "text": "solid black",
+      "tier": "typical"
+    },
+    {
+      "text": "solid white",
+      "tier": "typical"
+    },
+    {
+      "text": "black-and-white",
+      "tier": "typical"
+    },
+    {
+      "text": "tortoiseshell",
+      "tier": "typical"
+    },
+    {
+      "text": "mackerel tabby",
+      "tier": "plausible"
+    },
+    {
+      "text": "classic tabby",
+      "tier": "plausible"
+    },
+    {
+      "text": "spotted tabby",
+      "tier": "plausible"
+    },
+    {
+      "text": "silver tabby",
+      "tier": "plausible"
+    },
+    {
+      "text": "blue-grey",
+      "tier": "plausible"
+    },
+    {
+      "text": "cream",
+      "tier": "plausible"
+    },
+    {
+      "text": "ginger-and-white",
+      "tier": "plausible"
+    },
+    {
+      "text": "grey-and-white",
+      "tier": "plausible"
+    },
+    {
+      "text": "colourpoint",
+      "tier": "plausible"
+    },
+    {
+      "text": "seal-point",
+      "tier": "plausible"
+    },
+    {
+      "text": "blue-point",
+      "tier": "plausible"
+    },
+    {
+      "text": "tortoiseshell-and-white",
+      "tier": "plausible"
+    },
+    {
+      "text": "chocolate",
+      "tier": "unusual"
+    },
+    {
+      "text": "lilac",
+      "tier": "unusual"
+    },
+    {
+      "text": "smoke",
+      "tier": "unusual"
+    },
+    {
+      "text": "silver shaded",
+      "tier": "unusual"
+    },
+    {
+      "text": "chinchilla silver",
+      "tier": "unusual"
+    },
+    {
+      "text": "fawn",
+      "tier": "unusual"
+    }
+  ]
+}

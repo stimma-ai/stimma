@@ -1,7 +1,7 @@
 {
   "id": "exterior_space.coastal",
   "label": "Coastal",
-  "description": "Shoreline settings where land meets the sea, including working waterfronts.",
+  "description": "Sea edges, beaches, tidal shores, harbours and waterfronts; choose landscape for inland wilderness and urban_spot for an industrial urban quay.",
   "pos": "noun phrase",
   "frame": "the setting is ___",
   "notes": "Sea beaches, cliffs, tidal habitats, and coastal harbor edges belong here; inland lakes belong to landscape, urban canal infrastructure to urban_spot, and seaside village centers to countryside. Genre and era are unrestricted for untagged natural shorelines because they fit any world or period. Built harbor edges, bathing huts, concrete defenses, and speculative coasts carry explicit era and genre restrictions; historic infrastructure can survive into later eras. The noun-predicate frame accommodates valleys, shores, roads and platforms; choose an appropriate in/on/at preposition when composing a different sentence.",
@@ -36,24 +36,47 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "beach"
         ]
       }
     },
     {
       "text": "a rocky shore with tide pools and seaweed-covered shelves",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "rocky shore"
+        ]
+      }
     },
     {
       "text": "a cliff-backed cove with a narrow gravel beach",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "beach"
+        ]
+      }
     },
     {
       "text": "a broad tidal flat with winding channels and shell beds",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "tidal wetland"
+        ]
+      }
     },
     {
       "text": "an estuary bank with saltmarsh and exposed mud",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "tidal wetland"
+        ]
+      }
     },
     {
       "text": "an old harbor with stone steps and fishing-boat berths",
@@ -76,6 +99,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "built waterfront"
         ]
       }
     },
@@ -100,6 +126,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "built waterfront"
         ]
       }
     },
@@ -117,6 +146,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "built waterfront"
         ]
       }
     },
@@ -134,6 +166,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "built waterfront"
         ]
       }
     },
@@ -158,12 +193,20 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "built waterfront"
         ]
       }
     },
     {
       "text": "a rocky headland with low scrub and a narrow trail",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "setting_type": [
+          "rocky shore"
+        ]
+      }
     },
     {
       "text": "a coral-sand beach with coconut palms and shell fragments",
@@ -171,6 +214,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "beach"
         ]
       }
     },
@@ -180,6 +226,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "beach"
         ]
       }
     },
@@ -189,6 +238,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "tidal wetland"
         ]
       }
     },
@@ -216,6 +268,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "tidal wetland"
         ]
       }
     },
@@ -225,6 +280,9 @@
       "tags": {
         "climate": [
           "hot"
+        ],
+        "setting_type": [
+          "beach"
         ]
       }
     },
@@ -234,6 +292,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "rocky shore"
         ]
       }
     },
@@ -243,6 +304,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "rocky shore"
         ]
       }
     },
@@ -252,6 +316,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "beach"
         ]
       }
     },
@@ -261,6 +328,9 @@
       "tags": {
         "climate": [
           "temperate"
+        ],
+        "setting_type": [
+          "rocky shore"
         ]
       }
     },
@@ -283,6 +353,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "beach"
         ]
       }
     },
@@ -292,6 +365,9 @@
       "tags": {
         "climate": [
           "cold"
+        ],
+        "setting_type": [
+          "rocky shore"
         ]
       }
     },
@@ -301,6 +377,9 @@
       "tags": {
         "climate": [
           "cold"
+        ],
+        "setting_type": [
+          "rocky shore"
         ]
       }
     },
@@ -310,6 +389,9 @@
       "tags": {
         "climate": [
           "cold"
+        ],
+        "setting_type": [
+          "rocky shore"
         ]
       }
     },
@@ -337,6 +419,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "tidal wetland"
         ]
       }
     },
@@ -363,6 +448,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "built waterfront"
         ]
       }
     },
@@ -389,6 +477,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "built waterfront"
         ]
       }
     },
@@ -415,6 +506,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "built waterfront"
         ]
       }
     },
@@ -441,6 +535,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "beach"
         ]
       }
     },
@@ -457,6 +554,9 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "setting_type": [
+          "built waterfront"
         ]
       }
     },
@@ -478,6 +578,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "rocky shore"
         ]
       }
     },
@@ -491,6 +594,9 @@
         ],
         "era": [
           "future"
+        ],
+        "setting_type": [
+          "built waterfront"
         ]
       }
     },
@@ -510,9 +616,20 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "built waterfront"
         ]
       }
     }
   ],
-  "untagged": {}
+  "untagged": {},
+  "local_facets": {
+    "setting_type": [
+      "beach",
+      "rocky shore",
+      "tidal wetland",
+      "built waterfront"
+    ]
+  }
 }

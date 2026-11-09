@@ -1,10 +1,10 @@
 {
   "id": "interior_space.kitchen",
   "label": "Kitchen",
-  "description": "Domestic cooking spaces ranging from tiny kitchenettes to substantial household kitchens.",
+  "description": "Domestic cooking rooms and galleys defined by preparation counters, cooking appliances and food storage; choose cafe_restaurant for dining venues.",
   "pos": "noun phrase",
   "frame": "in ___",
-  "notes": "Home food preparation belongs here; commercial dining venues belong to cafe_restaurant and institutional rooms to any_room.",
+  "notes": "Home food preparation belongs here; commercial dining venues belong to cafe_restaurant and institutional rooms to any_room. Size describes usable room scale; tidiness describes arrangement: tidy is orderly, lived-in is a space in regular use, and messy requires visible clutter. Wear and low budget alone do not imply mess.",
   "facets": [
     "era",
     "genre",
@@ -30,11 +30,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a kitchen with a central island and hanging pots",
+      "text": "a spacious kitchen with a central island and hanging pots",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -46,11 +52,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a kitchenette with a two-burner stove and mini fridge",
+      "text": "a cramped kitchenette with a two-burner stove and mini fridge",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -62,6 +74,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -80,11 +98,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a kitchen with stainless counters and a tiled backsplash",
+      "text": "a kitchen with stainless counters and a tiled backsplash, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -97,6 +121,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -115,11 +145,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a kitchen with a walk-in pantry and labeled glass jars",
+      "text": "a spacious kitchen with a walk-in pantry and labeled glass jars, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -133,11 +169,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a kitchen with a low accessible counter and knee clearance",
+      "text": "a kitchen with a low accessible counter and knee clearance, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -148,6 +190,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -165,11 +213,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a kitchen with pull-out drawers and an induction hob",
+      "text": "a kitchen with pull-out drawers and an induction hob, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -179,6 +233,12 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -202,6 +262,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -220,11 +286,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an open-plan kitchen with a long communal worktable",
+      "text": "a spacious open-plan kitchen with a long communal worktable",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -236,6 +308,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -258,11 +336,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a kitchen with a refrigerator covered in magnets and notes",
+      "text": "a kitchen with a refrigerator covered in magnets and notes, with dishes piled in the sink",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -274,6 +358,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
@@ -296,11 +386,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a kitchen with a portable hotplate and plastic storage tubs",
+      "text": "a cramped kitchen with a portable hotplate and plastic storage tubs",
       "tier": "typical",
       "tags": {
         "budget": [
@@ -316,11 +412,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a kitchen with a curtain beneath a salvaged sink",
+      "text": "a cramped kitchen with a curtain beneath a salvaged sink",
       "tier": "plausible",
       "tags": {
         "budget": [
@@ -339,11 +441,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a kitchen with a stone waterfall island and integrated appliances",
+      "text": "a spacious kitchen with a stone waterfall island and integrated appliances, neatly arranged",
       "tier": "typical",
       "tags": {
         "budget": [
@@ -356,11 +464,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a Japanese kitchen with a fish grill and sliding pantry doors",
+      "text": "a Japanese kitchen with a fish grill and sliding pantry doors, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -375,6 +489,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -394,11 +514,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a Korean kitchen with a kimchi refrigerator and steel worktop",
+      "text": "a Korean kitchen with a kimchi refrigerator and steel worktop, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -412,6 +538,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -437,6 +569,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -462,6 +600,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -483,6 +627,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -502,6 +652,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -527,6 +683,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -552,6 +714,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -578,6 +746,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -603,6 +777,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -627,6 +807,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -648,6 +834,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -672,6 +864,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -690,6 +888,12 @@
           "realistic",
           "steampunk",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -712,11 +916,17 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a kitchen with a masonry hearth and a turning spit",
+      "text": "a spacious kitchen with a masonry hearth and a turning spit",
       "tier": "typical",
       "tags": {
         "era": [
@@ -734,6 +944,12 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -750,11 +966,17 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a kitchen with mint cabinets and a chrome-edged table",
+      "text": "a kitchen with mint cabinets and a chrome-edged table, neatly arranged",
       "tier": "typical",
       "tags": {
         "era": [
@@ -765,11 +987,17 @@
         "genre": [
           "realistic",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a kitchen with meal synthesizers and sealed ingredient cartridges",
+      "text": "a kitchen with meal synthesizers and sealed ingredient cartridges, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -779,11 +1007,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a spacecraft galley with restraint rails and recessed appliances",
+      "text": "a cramped spacecraft galley with restraint rails and recessed appliances, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -792,11 +1026,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a kitchen with a dragon-shaped oven and enormous copper cauldron",
+      "text": "a spacious kitchen with a dragon-shaped oven and enormous copper cauldron",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -813,6 +1053,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -834,11 +1080,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a kitchen with a salvaged stove and ration tins",
+      "text": "a kitchen with a salvaged stove and ration tins, with opened ration tins scattered across the counter",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -849,11 +1101,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a microapartment kitchen with robotic preparation arms and ration cartridges",
+      "text": "a cramped microapartment kitchen with robotic preparation arms and ration cartridges, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -863,6 +1121,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     }
@@ -873,6 +1137,18 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "size": [
+      "cramped",
+      "spacious",
+      "medium"
+    ],
+    "tidiness": [
+      "lived-in",
+      "messy",
+      "tidy"
     ]
   }
 }

@@ -1,7 +1,7 @@
 {
   "id": "exterior_space.city_street",
   "label": "City Street",
-  "description": "Urban streets and streetscapes shaped by buildings, circulation, and street-level details.",
+  "description": "Urban street corridors defined by roads, sidewalks and continuous building frontages; choose urban_spot for alleys, plazas, rooftops, platforms and courtyards.",
   "pos": "noun phrase",
   "frame": "the setting is ___",
   "notes": "Street corridors belong here; discrete plazas, alleys, rooftops, bridges, and transit platforms belong to urban_spot, rural roads to countryside. Untagged values fit realistic contemporary streets; explicit tags distinguish traditional masonry and timber streets, industrial infrastructure, and modern traffic systems. Era ranges include later surviving streetscapes. The noun-predicate frame accommodates valleys, shores, roads and platforms; choose an appropriate in/on/at preposition when composing a different sentence.",
@@ -32,6 +32,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -49,6 +52,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -65,6 +71,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -84,6 +93,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "major road"
         ]
       }
     },
@@ -107,6 +119,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -126,6 +141,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -143,6 +161,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "industrial"
         ]
       }
     },
@@ -160,6 +181,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "major road"
         ]
       }
     },
@@ -176,6 +200,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -192,6 +219,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "major road"
         ]
       }
     },
@@ -208,6 +238,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -231,6 +264,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -245,6 +281,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "major road"
         ]
       }
     },
@@ -261,6 +300,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -285,6 +327,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -304,6 +349,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "major road"
         ]
       }
     },
@@ -322,6 +370,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -338,6 +389,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -361,6 +415,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -375,6 +432,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "major road"
         ]
       }
     },
@@ -394,6 +454,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -413,6 +476,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "major road"
         ]
       }
     },
@@ -439,6 +505,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -465,6 +534,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -491,6 +563,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -510,6 +585,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -536,6 +614,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -559,6 +640,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -585,6 +669,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -607,6 +694,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -633,6 +723,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -659,6 +752,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -685,6 +781,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -711,6 +810,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -738,6 +840,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -764,6 +869,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -790,6 +898,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -813,6 +924,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -839,6 +953,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -864,6 +981,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -890,6 +1010,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -910,6 +1033,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -932,6 +1058,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -955,6 +1084,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -977,6 +1109,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -999,6 +1134,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -1015,6 +1153,9 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -1038,6 +1179,9 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -1053,6 +1197,9 @@
           "realistic",
           "steampunk",
           "horror"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -1070,6 +1217,9 @@
         "genre": [
           "realistic",
           "horror"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -1083,6 +1233,9 @@
         ],
         "era": [
           "future"
+        ],
+        "setting_type": [
+          "commercial"
         ]
       }
     },
@@ -1096,6 +1249,9 @@
         ],
         "era": [
           "future"
+        ],
+        "setting_type": [
+          "industrial"
         ]
       }
     },
@@ -1117,6 +1273,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "residential"
         ]
       }
     },
@@ -1136,6 +1295,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "industrial"
         ]
       }
     }
@@ -1146,6 +1308,14 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "setting_type": [
+      "residential",
+      "commercial",
+      "major road",
+      "industrial"
     ]
   }
 }

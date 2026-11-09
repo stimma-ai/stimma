@@ -1,0 +1,699 @@
+{
+  "id": "animal.species",
+  "label": "Animal kind",
+  "description": "Animal species and familiar kinds, spanning pets, farm animals and wildlife.",
+  "pos": "noun phrase",
+  "frame": "a ___ in the grass",
+  "notes": "Animal identity only; coat patterns and dog breeds have separate leaves. Kind tags may overlap husbandry and taxonomy. The sample grass frame tests grammar rather than habitat: sea-life picks need a suitable aquatic or coastal setting.",
+  "facets": [],
+  "closed": false,
+  "untagged": {},
+  "values": [
+    {
+      "text": "cat",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "pet"
+        ]
+      }
+    },
+    {
+      "text": "dog",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "pet"
+        ]
+      }
+    },
+    {
+      "text": "rabbit",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "pet"
+        ]
+      }
+    },
+    {
+      "text": "guinea pig",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "pet"
+        ]
+      }
+    },
+    {
+      "text": "hamster",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "pet"
+        ]
+      }
+    },
+    {
+      "text": "gerbil",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "pet"
+        ]
+      }
+    },
+    {
+      "text": "chinchilla",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "pet"
+        ]
+      }
+    },
+    {
+      "text": "ferret",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "pet"
+        ]
+      }
+    },
+    {
+      "text": "sugar glider",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "pet"
+        ]
+      }
+    },
+    {
+      "text": "cow",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "farm"
+        ]
+      }
+    },
+    {
+      "text": "sheep",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "farm"
+        ]
+      }
+    },
+    {
+      "text": "goat",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "farm"
+        ]
+      }
+    },
+    {
+      "text": "pig",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "farm"
+        ]
+      }
+    },
+    {
+      "text": "horse",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "farm"
+        ]
+      }
+    },
+    {
+      "text": "donkey",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "farm"
+        ]
+      }
+    },
+    {
+      "text": "llama",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "farm"
+        ]
+      }
+    },
+    {
+      "text": "water buffalo",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "farm"
+        ]
+      }
+    },
+    {
+      "text": "yak",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "farm"
+        ]
+      }
+    },
+    {
+      "text": "red fox",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "grey wolf",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "brown bear",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "red deer",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "grey squirrel",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "raccoon",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "badger",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "hedgehog",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "lion",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "tiger",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "giraffe",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "kangaroo",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "zebra",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "red panda",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "pangolin",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "tapir",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "wild mammal"
+        ]
+      }
+    },
+    {
+      "text": "sparrow",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "robin",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "pigeon",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "chicken",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "duck",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "goose",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "barn owl",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "red-tailed hawk",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "peacock",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "flamingo",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "penguin",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "parrot",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "cassowary",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "bird"
+        ]
+      }
+    },
+    {
+      "text": "frog",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "reptile or amphibian"
+        ]
+      }
+    },
+    {
+      "text": "toad",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "reptile or amphibian"
+        ]
+      }
+    },
+    {
+      "text": "tortoise",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "reptile or amphibian"
+        ]
+      }
+    },
+    {
+      "text": "lizard",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "reptile or amphibian"
+        ]
+      }
+    },
+    {
+      "text": "salamander",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "reptile or amphibian"
+        ]
+      }
+    },
+    {
+      "text": "newt",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "reptile or amphibian"
+        ]
+      }
+    },
+    {
+      "text": "chameleon",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "reptile or amphibian"
+        ]
+      }
+    },
+    {
+      "text": "crocodile",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "reptile or amphibian"
+        ]
+      }
+    },
+    {
+      "text": "tuatara",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "reptile or amphibian"
+        ]
+      }
+    },
+    {
+      "text": "crab",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "sea life"
+        ]
+      }
+    },
+    {
+      "text": "shrimp",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "sea life"
+        ]
+      }
+    },
+    {
+      "text": "seahorse",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "sea life"
+        ]
+      }
+    },
+    {
+      "text": "clownfish",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "sea life"
+        ]
+      }
+    },
+    {
+      "text": "sea turtle",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "sea life"
+        ]
+      }
+    },
+    {
+      "text": "starfish",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "sea life"
+        ]
+      }
+    },
+    {
+      "text": "ray",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "sea life"
+        ]
+      }
+    },
+    {
+      "text": "dolphin",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "sea life"
+        ]
+      }
+    },
+    {
+      "text": "seal",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "sea life"
+        ]
+      }
+    },
+    {
+      "text": "cuttlefish",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "sea life"
+        ]
+      }
+    },
+    {
+      "text": "horseshoe crab",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "sea life"
+        ]
+      }
+    },
+    {
+      "text": "butterfly",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "insect"
+        ]
+      }
+    },
+    {
+      "text": "ladybird",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "insect"
+        ]
+      }
+    },
+    {
+      "text": "grasshopper",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "insect"
+        ]
+      }
+    },
+    {
+      "text": "bumblebee",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "insect"
+        ]
+      }
+    },
+    {
+      "text": "dragonfly",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "insect"
+        ]
+      }
+    },
+    {
+      "text": "praying mantis",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "insect"
+        ]
+      }
+    },
+    {
+      "text": "stag beetle",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "insect"
+        ]
+      }
+    },
+    {
+      "text": "stick insect",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "insect"
+        ]
+      }
+    }
+  ],
+  "local_facets": {
+    "kind": [
+      "pet",
+      "farm",
+      "wild mammal",
+      "bird",
+      "reptile or amphibian",
+      "sea life",
+      "insect"
+    ]
+  }
+}

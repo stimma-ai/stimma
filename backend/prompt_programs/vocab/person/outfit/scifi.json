@@ -31,14 +31,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -54,14 +52,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -77,14 +73,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -277,7 +271,6 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
@@ -287,7 +280,6 @@
           "cold"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -324,14 +316,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -347,14 +337,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -370,13 +358,11 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -392,14 +378,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -415,14 +399,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -457,43 +439,16 @@
       }
     },
     {
-      "text": "a {main} synthetic-leather jacket and {neutral} pleated midi skirt",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ],
-        "role": [
-          "street"
-        ],
-        "coverage": [
-          "moderate"
-        ]
-      }
-    },
-    {
       "text": "a {main} segmented vest over a {neutral} shirt and trousers",
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -515,14 +470,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -538,7 +491,6 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror"
@@ -547,7 +499,6 @@
           "smart"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -595,14 +546,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -618,14 +567,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -637,54 +584,16 @@
       }
     },
     {
-      "text": "a patched {main} canvas coat and faded {neutral} cargo trousers",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "role": [
-          "scavenger"
-        ],
-        "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy",
-          "monochrome"
-        ]
-      }
-    },
-    {
       "text": "a {main} quilted jacket and mismatched denim patchwork trousers",
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
           "future"
         ],
         "role": [
@@ -707,7 +616,6 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
@@ -720,13 +628,6 @@
           "temperate"
         ],
         "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
           "future"
         ],
         "role": [
@@ -745,21 +646,16 @@
       }
     },
     {
-      "text": "a {main} work coverall with hand-stitched leather knee patches",
+      "text": "a {main} short-sleeved salvage boiler suit with a cutaway overskirt of {accent} tool-pocket panels and {neutral} reinforced boots",
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
           "future"
         ],
         "role": [
@@ -782,7 +678,6 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
@@ -791,13 +686,6 @@
           "fairy_tale"
         ],
         "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
           "future"
         ],
         "role": [
@@ -820,14 +708,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
           "future"
         ],
         "role": [
@@ -850,47 +736,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "contemporary",
-          "future"
-        ],
-        "role": [
-          "scavenger"
-        ],
-        "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy",
-          "monochrome"
-        ]
-      }
-    },
-    {
-      "text": "a {main} hooded coat sewn from mismatched canvas panels and blue jeans",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
           "future"
         ],
         "role": [
@@ -913,18 +764,12 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "scifi",
           "cyberpunk",
           "horror",
           "post_apocalyptic"
         ],
         "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
           "future"
         ],
         "role": [
@@ -947,7 +792,6 @@
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "fantasy",
           "fairy_tale",
           "post_apocalyptic",
@@ -956,13 +800,6 @@
           "cyberpunk"
         ],
         "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
           "future"
         ],
         "formality": [
@@ -984,7 +821,7 @@
       }
     },
     {
-      "text": "a {main} vacuum flight suit with {accent} pressure seals and {neutral} reinforced boots",
+      "text": "a {main} rigid torso flight shell with a broad circular neck ring over {neutral} ribbed pressure leggings and {accent} gauntlets",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1216,7 +1053,7 @@
       }
     },
     {
-      "text": "a {main} sealed laboratory suit with {accent} gasket seams and {neutral} integral gloves",
+      "text": "a {main} transparent bell-shaped isolation smock over a {accent} sealed tunic and {neutral} cropped laboratory trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1357,7 +1194,7 @@
       }
     },
     {
-      "text": "a {main} high-collared tunic with concealed fastenings and {neutral} tailored trousers",
+      "text": "a {main} high-collared tunic with rigid wing-shaped shoulders and a sculpted peplum over {neutral} narrow tailored trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1403,6 +1240,9 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1531,6 +1371,9 @@
         ],
         "budget": [
           "modest"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1593,6 +1436,9 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },

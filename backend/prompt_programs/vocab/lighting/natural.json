@@ -1,7 +1,7 @@
 {
   "id": "lighting.natural",
   "label": "Natural light",
-  "description": "Sunlight, skylight and moonlight shaped by the surroundings.",
+  "description": "Ambient sun, sky and moon light, including daylight entering through windows; choose for natural illumination rather than fixtures or photographic rigs.",
   "pos": "noun phrase",
   "frame": "lit by ___",
   "notes": "Natural sources and their direction, diffusion or reflection belong here. Use scene.time_of_day for the hour itself, indoor_practical for visible lamps, studio for photographic equipment and dramatic for designed cinematic effects. Window light implies an indoor subject.",
@@ -18,6 +18,13 @@
       "tags": {
         "time_of_day": [
           "day"
+        ],
+        "mood": [
+          "soft",
+          "cool"
+        ],
+        "source": [
+          "sky"
         ]
       }
     },
@@ -27,6 +34,12 @@
       "tags": {
         "time_of_day": [
           "day"
+        ],
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -36,6 +49,13 @@
       "tags": {
         "time_of_day": [
           "day"
+        ],
+        "mood": [
+          "soft",
+          "cool"
+        ],
+        "source": [
+          "sky"
         ]
       }
     },
@@ -50,6 +70,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -64,6 +90,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -78,6 +110,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -92,6 +130,13 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -106,6 +151,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -120,6 +171,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -134,6 +191,13 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "window",
+          "sky"
         ]
       }
     },
@@ -148,6 +212,13 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "window",
+          "sun"
         ]
       }
     },
@@ -162,6 +233,13 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "window",
+          "sun"
         ]
       }
     },
@@ -176,6 +254,14 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "window",
+          "sun"
         ]
       }
     },
@@ -190,6 +276,13 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "window",
+          "sky"
         ]
       }
     },
@@ -199,6 +292,13 @@
       "tags": {
         "time_of_day": [
           "golden_hour"
+        ],
+        "mood": [
+          "warm",
+          "dramatic"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -208,6 +308,12 @@
       "tags": {
         "time_of_day": [
           "golden_hour"
+        ],
+        "mood": [
+          "warm"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -220,6 +326,12 @@
         ],
         "time_of_day": [
           "dawn"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "sky"
         ]
       }
     },
@@ -232,6 +344,13 @@
         ],
         "time_of_day": [
           "dawn"
+        ],
+        "mood": [
+          "soft",
+          "warm"
+        ],
+        "source": [
+          "sky"
         ]
       }
     },
@@ -244,6 +363,13 @@
         ],
         "time_of_day": [
           "dawn"
+        ],
+        "mood": [
+          "warm",
+          "dramatic"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -253,6 +379,14 @@
       "tags": {
         "time_of_day": [
           "dusk"
+        ],
+        "mood": [
+          "soft",
+          "cool",
+          "moody"
+        ],
+        "source": [
+          "sky"
         ]
       }
     },
@@ -262,6 +396,14 @@
       "tags": {
         "time_of_day": [
           "night"
+        ],
+        "mood": [
+          "soft",
+          "cool",
+          "moody"
+        ],
+        "source": [
+          "moon"
         ]
       }
     },
@@ -274,6 +416,14 @@
         ],
         "time_of_day": [
           "night"
+        ],
+        "mood": [
+          "soft",
+          "cool",
+          "moody"
+        ],
+        "source": [
+          "moon"
         ]
       }
     },
@@ -286,6 +436,14 @@
         ],
         "time_of_day": [
           "night"
+        ],
+        "mood": [
+          "soft",
+          "cool",
+          "moody"
+        ],
+        "source": [
+          "sky"
         ]
       }
     },
@@ -298,6 +456,14 @@
         ],
         "time_of_day": [
           "night"
+        ],
+        "mood": [
+          "cool",
+          "dramatic",
+          "moody"
+        ],
+        "source": [
+          "moon"
         ]
       }
     },
@@ -312,6 +478,13 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "window",
+          "sun"
         ]
       }
     },
@@ -326,6 +499,13 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "window",
+          "sun"
         ]
       }
     },
@@ -340,6 +520,14 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft",
+          "cool"
+        ],
+        "source": [
+          "window",
+          "sky"
         ]
       }
     },
@@ -354,6 +542,13 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "window",
+          "sky"
         ]
       }
     },
@@ -368,6 +563,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -382,6 +583,13 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "window",
+          "sun"
         ]
       }
     },
@@ -396,6 +604,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -410,6 +624,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -424,6 +644,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -438,6 +664,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -452,6 +684,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -467,6 +705,13 @@
         ],
         "climate": [
           "cold"
+        ],
+        "mood": [
+          "harsh",
+          "cool"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -482,6 +727,14 @@
         ],
         "climate": [
           "cold"
+        ],
+        "mood": [
+          "soft",
+          "cool",
+          "moody"
+        ],
+        "source": [
+          "sky"
         ]
       }
     },
@@ -494,6 +747,14 @@
         ],
         "time_of_day": [
           "night"
+        ],
+        "mood": [
+          "soft",
+          "cool",
+          "moody"
+        ],
+        "source": [
+          "sky"
         ]
       }
     },
@@ -506,6 +767,13 @@
         ],
         "time_of_day": [
           "night"
+        ],
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "sky"
         ]
       }
     },
@@ -518,6 +786,14 @@
         ],
         "time_of_day": [
           "day"
+        ],
+        "mood": [
+          "warm",
+          "dramatic",
+          "moody"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -532,6 +808,12 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -544,6 +826,12 @@
         ],
         "time_of_day": [
           "golden_hour"
+        ],
+        "mood": [
+          "warm"
+        ],
+        "source": [
+          "sun"
         ]
       }
     },
@@ -558,8 +846,30 @@
           "dawn",
           "day",
           "golden_hour"
+        ],
+        "mood": [
+          "warm"
+        ],
+        "source": [
+          "sun"
         ]
       }
     }
-  ]
+  ],
+  "local_facets": {
+    "mood": [
+      "soft",
+      "cool",
+      "harsh",
+      "dramatic",
+      "warm",
+      "moody"
+    ],
+    "source": [
+      "sky",
+      "sun",
+      "window",
+      "moon"
+    ]
+  }
 }

@@ -1,10 +1,10 @@
 {
   "id": "interior_space.bathroom",
   "label": "Bathroom",
-  "description": "Private and shared washing rooms defined by fixtures, surfaces, and layout.",
+  "description": "Bathrooms and washrooms with bathing, showering or toilet fixtures; choose any_room for communal bathhouses, pools and laundries.",
   "pos": "noun phrase",
   "frame": "in ___",
-  "notes": "Bathrooms and washrooms belong here; bathhouses, swimming pools, and laundries belong to any_room.",
+  "notes": "Bathrooms and washrooms belong here; bathhouses, swimming pools, and laundries belong to any_room. Size describes usable room scale; tidiness describes arrangement: tidy is orderly, lived-in is a space in regular use, and messy requires visible clutter. Wear and low budget alone do not imply mess.",
   "facets": [
     "era",
     "genre",
@@ -29,6 +29,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -47,16 +53,28 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a bathroom with a walk-in shower and floating vanity",
+      "text": "a bathroom with a walk-in shower and floating vanity, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
           "realistic",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -73,11 +91,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a bathroom with cracked tiles and exposed plumbing",
+      "text": "a bathroom with cracked tiles and exposed plumbing, with towels strewn across the floor",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -93,11 +117,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a bathroom with a shower curtain and laundry hamper",
+      "text": "a bathroom with a shower curtain and laundry hamper, with laundry spilling from the hamper",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -109,11 +139,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a bathroom with twin sinks and mirrored cabinets",
+      "text": "a bathroom with twin sinks and mirrored cabinets, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -124,11 +160,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a bathroom with grab rails and a roll-in shower",
+      "text": "a bathroom with grab rails and a roll-in shower, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -138,6 +180,12 @@
         "era": [
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -156,6 +204,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -178,11 +232,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a bathroom with a tiled wet-room floor and drainage channel",
+      "text": "a bathroom with a tiled wet-room floor and drainage channel, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -193,11 +253,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a bathroom with a bidet and wall-mounted toilet",
+      "text": "a bathroom with a bidet and wall-mounted toilet, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -207,11 +273,17 @@
         "era": [
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a shared bathroom with cubicle showers and metal lockers",
+      "text": "a shared bathroom with cubicle showers and metal lockers, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -223,6 +295,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -240,6 +318,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -260,6 +344,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -283,6 +373,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -303,11 +399,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a bathroom with an onyx vanity and steam shower",
+      "text": "a spacious bathroom with an onyx vanity and steam shower, neatly arranged",
       "tier": "plausible",
       "tags": {
         "budget": [
@@ -321,11 +423,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a bathroom with a copper bathtub and carved marble basin",
+      "text": "a spacious bathroom with a copper bathtub and carved marble basin, neatly arranged",
       "tier": "plausible",
       "tags": {
         "budget": [
@@ -346,11 +454,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a Japanese bathroom with a hinoki tub and washing stool",
+      "text": "a Japanese bathroom with a hinoki tub and washing stool, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -371,11 +485,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a compact unit bathroom with molded fixtures and integrated shelving",
+      "text": "a compact unit bathroom with molded fixtures and integrated shelving, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -387,11 +507,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a bathroom with tadelakt walls and a hammered brass basin",
+      "text": "a bathroom with tadelakt walls and a hammered brass basin, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -412,11 +538,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a bathroom with Delft tiles and a freestanding roll-top bath",
+      "text": "a bathroom with Delft tiles and a freestanding roll-top bath, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -433,6 +565,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -451,6 +589,12 @@
           "realistic",
           "steampunk",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -467,6 +611,12 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -483,11 +633,17 @@
         "genre": [
           "realistic",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an Art Deco bathroom with black tile borders and chrome fittings",
+      "text": "an Art Deco bathroom with black tile borders and chrome fittings, neatly arranged",
       "tier": "typical",
       "tags": {
         "era": [
@@ -499,11 +655,17 @@
         "genre": [
           "realistic",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a bathroom with a sealed sonic shower and molded surfaces",
+      "text": "a bathroom with a sealed sonic shower and molded surfaces, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -513,6 +675,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -534,6 +702,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -555,11 +729,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a bathroom with a rainwater tank and salvaged washbasin",
+      "text": "a bathroom with a rainwater tank and salvaged washbasin, with toiletries piled around the basin",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -570,11 +750,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a capsule washroom with retractable fixtures and water reclamation tanks",
+      "text": "a cramped capsule washroom with retractable fixtures and water reclamation tanks, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -584,11 +770,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a communal washroom with ration dispensers and stainless hygiene booths",
+      "text": "a spacious communal washroom with ration dispensers and stainless hygiene booths, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -598,11 +790,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a stone bathhouse with wooden soaking tubs and copper water cauldrons",
+      "text": "a spacious stone bathroom with wooden soaking tubs and copper water cauldrons, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -620,6 +818,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -642,11 +846,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a vaulted bath chamber with carved basins and terracotta water jars",
+      "text": "a spacious vaulted bath chamber with carved basins and terracotta water jars, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -664,11 +874,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a timber washhouse with bench seats and a masonry water boiler",
+      "text": "a timber bathroom with bench seats and a masonry water boiler, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -686,6 +902,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     }
@@ -696,6 +918,18 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "size": [
+      "cramped",
+      "medium",
+      "spacious"
+    ],
+    "tidiness": [
+      "lived-in",
+      "tidy",
+      "messy"
     ]
   }
 }

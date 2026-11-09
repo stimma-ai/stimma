@@ -1,0 +1,294 @@
+{
+  "id": "object.book",
+  "label": "Book",
+  "description": "books, journals and bound reading or writing volumes held as props",
+  "pos": "noun phrase",
+  "frame": "holding ___",
+  "notes": "Each value includes its own article and a complete book-like object. Bindings, wear and format belong here; no named authors, titles or fixed cover colours. Modern formats have era tags; historical and imagined exceptions have explicit context tags.",
+  "facets": [
+    "era",
+    "genre"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "a dog-eared paperback",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a leather-bound journal",
+      "tier": "typical"
+    },
+    {
+      "text": "an atlas",
+      "tier": "typical"
+    },
+    {
+      "text": "a hardback novel",
+      "tier": "typical"
+    },
+    {
+      "text": "a spiral-bound notebook",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a clothbound poetry collection",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "an illustrated children’s book",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a cookbook",
+      "tier": "typical"
+    },
+    {
+      "text": "a pocket dictionary",
+      "tier": "typical"
+    },
+    {
+      "text": "a travel guide",
+      "tier": "typical"
+    },
+    {
+      "text": "a school textbook",
+      "tier": "typical"
+    },
+    {
+      "text": "a sketchbook",
+      "tier": "typical"
+    },
+    {
+      "text": "a large art monograph",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a field guide to birds",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a book of sheet music",
+      "tier": "plausible"
+    },
+    {
+      "text": "a comic book",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a graphic novel",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a photo album",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a ring-bound manual",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a pocket diary",
+      "tier": "plausible"
+    },
+    {
+      "text": "a ledger",
+      "tier": "plausible"
+    },
+    {
+      "text": "a paperback anthology",
+      "tier": "plausible"
+    },
+    {
+      "text": "a board book",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a handmade chapbook",
+      "tier": "plausible"
+    },
+    {
+      "text": "a pop-up book",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a book of crossword puzzles",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "an accordion-fold artist’s book",
+      "tier": "unusual"
+    },
+    {
+      "text": "a miniature book in a slipcase",
+      "tier": "unusual"
+    },
+    {
+      "text": "a fore-edge-painted volume",
+      "tier": "unusual"
+    },
+    {
+      "text": "an illuminated manuscript",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a brass-clasped grimoire",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a glowing holographic book",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "future"
+        ],
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ]
+      }
+    }
+  ]
+}

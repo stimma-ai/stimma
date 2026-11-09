@@ -1,0 +1,1067 @@
+{
+  "id": "food.dish",
+  "label": "Prepared dish",
+  "description": "Named prepared foods served on a plate, spanning cuisines and meal types.",
+  "pos": "noun phrase",
+  "frame": "a plate of ___",
+  "notes": "Plate-compatible preparations only; drinks have their own leaf. Region tags mark culinary associations rather than exclusive origins. Meal tags can overlap; tier reflects visual frequency within a cuisine, not its cultural specificity.",
+  "facets": [
+    "region"
+  ],
+  "closed": false,
+  "untagged": {},
+  "values": [
+    {
+      "text": "vegetable fried rice",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "chow mein",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "gyoza",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "main",
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "mapo tofu",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "bibimbap",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "bulgogi",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "tonkatsu",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "lotus-leaf sticky rice",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "chicken biryani",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "vegetable curry",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "dal and rice",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "palak paneer",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "chana masala",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "fish curry",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "dhokla",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "breakfast",
+          "snack"
+        ]
+      }
+    },
+    {
+      "text": "pad thai",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "satay skewers",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "meal": [
+          "main",
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "nasi goreng",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "pad see ew",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "beef rendang",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "Hainanese chicken rice",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "banana-leaf fish parcels",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "falafel",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "meal": [
+          "main",
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "hummus and flatbread",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "chicken shawarma",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "tabbouleh",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "stuffed vine leaves",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "mujaddara",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "kibbeh",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "jollof rice",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "couscous with vegetables",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "injera with lentil stew",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "chicken tagine",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "suya skewers",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "meal": [
+          "main",
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "moi moi",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "meal": [
+          "main",
+          "snack"
+        ]
+      }
+    },
+    {
+      "text": "spaghetti with tomato sauce",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "mushroom risotto",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "fish and chips",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "pierogi",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "paella",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "moussaka",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "buckwheat blini",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "tacos",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "meal": [
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "empanadas",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "meal": [
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "arepas",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "meal": [
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "pupusas",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "meal": [
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "tamales",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "meal": [
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "pão de queijo",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "meal": [
+          "street food",
+          "snack"
+        ]
+      }
+    },
+    {
+      "text": "acarajé",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "meal": [
+          "street food",
+          "snack"
+        ]
+      }
+    },
+    {
+      "text": "macaroni and cheese",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "barbecue ribs",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "fried chicken",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "cornbread and beans",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "poutine",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "salmon cakes",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "succotash",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "meat pie",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "grilled barramundi",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "hāngī vegetables",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "coconut fish",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "sausage rolls",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "meal": [
+          "main",
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "poi",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "pancakes",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "meal": [
+          "breakfast"
+        ]
+      }
+    },
+    {
+      "text": "scrambled eggs",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "meal": [
+          "breakfast"
+        ]
+      }
+    },
+    {
+      "text": "French toast",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "meal": [
+          "breakfast"
+        ]
+      }
+    },
+    {
+      "text": "masala dosa",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "breakfast"
+        ]
+      }
+    },
+    {
+      "text": "idli",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "breakfast"
+        ]
+      }
+    },
+    {
+      "text": "poha",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "breakfast"
+        ]
+      }
+    },
+    {
+      "text": "samosas",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "snack",
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "pakoras",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "snack"
+        ]
+      }
+    },
+    {
+      "text": "roasted chickpeas",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "meal": [
+          "snack"
+        ]
+      }
+    },
+    {
+      "text": "spring rolls",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "snack",
+          "street food"
+        ]
+      }
+    },
+    {
+      "text": "rice crackers",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "snack"
+        ]
+      }
+    },
+    {
+      "text": "sesame prawn toast",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "snack"
+        ]
+      }
+    },
+    {
+      "text": "baklava",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "meal": [
+          "dessert"
+        ]
+      }
+    },
+    {
+      "text": "kunafa",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "meal": [
+          "dessert"
+        ]
+      }
+    },
+    {
+      "text": "maamoul",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "meal": [
+          "dessert"
+        ]
+      }
+    },
+    {
+      "text": "pavlova",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "meal": [
+          "dessert"
+        ]
+      }
+    },
+    {
+      "text": "lamingtons",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "meal": [
+          "dessert"
+        ]
+      }
+    },
+    {
+      "text": "Anzac biscuits",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "meal": [
+          "dessert"
+        ]
+      }
+    },
+    {
+      "text": "crêpes",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "dessert"
+        ]
+      }
+    },
+    {
+      "text": "churros",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "dessert"
+        ]
+      }
+    },
+    {
+      "text": "crêpe cake",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "dessert"
+        ]
+      }
+    },
+    {
+      "text": "squid-ink risotto",
+      "tier": "unusual",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "main"
+        ]
+      }
+    },
+    {
+      "text": "sugar-glass tuiles",
+      "tier": "unusual",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "meal": [
+          "dessert"
+        ]
+      }
+    },
+    {
+      "text": "edible-flower tempura",
+      "tier": "unusual",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "meal": [
+          "snack"
+        ]
+      }
+    }
+  ],
+  "local_facets": {
+    "meal": [
+      "breakfast",
+      "main",
+      "snack",
+      "dessert",
+      "street food"
+    ]
+  }
+}

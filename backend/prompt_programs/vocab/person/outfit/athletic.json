@@ -211,6 +211,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -237,6 +240,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -263,6 +269,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "masculine"
         ]
       }
     },
@@ -291,6 +300,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "east_asian"
         ]
       }
     },
@@ -758,6 +770,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "east_asian"
         ]
       }
     },
@@ -874,35 +889,27 @@
       }
     },
     {
-      "text": "a short belted {main} linen training tunic and close-fitting {neutral} wool hose",
-      "tier": "typical",
+      "text": "a {main} rowing unisuit with a racerback and {accent} thigh panels",
+      "tier": "plausible",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "casual"
         ],
         "sport": [
-          "martial arts"
+          "other"
         ],
         "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy",
-          "monochrome"
+          "light"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary",
+          "future"
         ]
       }
     },
@@ -1142,11 +1149,14 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
-      "text": "a {main} quarter-zip training top and {neutral} tapered sweatpants",
+      "text": "a sleeveless {main} open-sided training tabard over a {accent} compression top and {neutral} three-quarter tights",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1156,7 +1166,7 @@
           "gym"
         ],
         "coverage": [
-          "full"
+          "moderate"
         ],
         "genre": [
           "realistic",
@@ -1217,6 +1227,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1321,6 +1334,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1396,6 +1412,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1421,6 +1440,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "masculine"
         ]
       }
     },
@@ -1446,6 +1468,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1550,6 +1575,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "masculine"
         ]
       }
     },
@@ -1600,6 +1628,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },

@@ -1,0 +1,386 @@
+{
+  "id": "object.colour",
+  "label": "Object colour",
+  "description": "the surface colour of an object, independent of its material or pattern",
+  "pos": "adjective",
+  "frame": "a ___ mug",
+  "notes": "Colour adjectives only; metallic names specify colour, not construction. Modifiers keep every value grammatical after the frame’s fixed article. object.material owns substance and object.pattern owns motifs.",
+  "facets": [],
+  "closed": true,
+  "local_facets": {
+    "family": [
+      "red",
+      "orange",
+      "yellow",
+      "green",
+      "blue",
+      "purple",
+      "pink",
+      "brown",
+      "neutral",
+      "metallic"
+    ]
+  },
+  "values": [
+    {
+      "text": "red",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "red"
+        ]
+      }
+    },
+    {
+      "text": "burgundy",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "red"
+        ]
+      }
+    },
+    {
+      "text": "crimson",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "red"
+        ]
+      }
+    },
+    {
+      "text": "scarlet",
+      "tier": "unusual",
+      "tags": {
+        "family": [
+          "red"
+        ]
+      }
+    },
+    {
+      "text": "orange",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "orange"
+        ]
+      }
+    },
+    {
+      "text": "burnt orange",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "orange"
+        ]
+      }
+    },
+    {
+      "text": "tangerine",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "orange"
+        ]
+      }
+    },
+    {
+      "text": "yellow",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "yellow"
+        ]
+      }
+    },
+    {
+      "text": "mustard yellow",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "yellow"
+        ]
+      }
+    },
+    {
+      "text": "lemon yellow",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "yellow"
+        ]
+      }
+    },
+    {
+      "text": "green",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "green"
+        ]
+      }
+    },
+    {
+      "text": "forest green",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "green"
+        ]
+      }
+    },
+    {
+      "text": "sage green",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "green"
+        ]
+      }
+    },
+    {
+      "text": "lime green",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "green"
+        ]
+      }
+    },
+    {
+      "text": "mint green",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "green"
+        ]
+      }
+    },
+    {
+      "text": "blue",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "blue"
+        ]
+      }
+    },
+    {
+      "text": "navy blue",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "blue"
+        ]
+      }
+    },
+    {
+      "text": "sky blue",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "blue"
+        ]
+      }
+    },
+    {
+      "text": "teal",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "blue"
+        ]
+      }
+    },
+    {
+      "text": "cobalt blue",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "blue"
+        ]
+      }
+    },
+    {
+      "text": "purple",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "purple"
+        ]
+      }
+    },
+    {
+      "text": "lavender",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "purple"
+        ]
+      }
+    },
+    {
+      "text": "violet",
+      "tier": "unusual",
+      "tags": {
+        "family": [
+          "purple"
+        ]
+      }
+    },
+    {
+      "text": "pink",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "pink"
+        ]
+      }
+    },
+    {
+      "text": "blush pink",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "pink"
+        ]
+      }
+    },
+    {
+      "text": "hot pink",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "pink"
+        ]
+      }
+    },
+    {
+      "text": "brown",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "brown"
+        ]
+      }
+    },
+    {
+      "text": "chocolate brown",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "brown"
+        ]
+      }
+    },
+    {
+      "text": "tan",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "brown"
+        ]
+      }
+    },
+    {
+      "text": "rust brown",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "brown"
+        ]
+      }
+    },
+    {
+      "text": "white",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "neutral"
+        ]
+      }
+    },
+    {
+      "text": "black",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "neutral"
+        ]
+      }
+    },
+    {
+      "text": "grey",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "neutral"
+        ]
+      }
+    },
+    {
+      "text": "cream",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "neutral"
+        ]
+      }
+    },
+    {
+      "text": "beige",
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "neutral"
+        ]
+      }
+    },
+    {
+      "text": "charcoal grey",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "neutral"
+        ]
+      }
+    },
+    {
+      "text": "ivory",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "neutral"
+        ]
+      }
+    },
+    {
+      "text": "silver",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "metallic"
+        ]
+      }
+    },
+    {
+      "text": "gold",
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "metallic"
+        ]
+      }
+    },
+    {
+      "text": "copper",
+      "tier": "unusual",
+      "tags": {
+        "family": [
+          "metallic"
+        ]
+      }
+    }
+  ]
+}

@@ -424,7 +424,7 @@
       }
     },
     {
-      "text": "a {main} wool hooded cape over a {neutral} pinafore dress",
+      "text": "a waist-length {main} scalloped wool hooded cape over a {accent} laced bodice and a full {neutral} pinafore skirt",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -686,7 +686,7 @@
       }
     },
     {
-      "text": "a {main} robe with embroidered {accent} fern-shaped sleeve panels",
+      "text": "a {main} tiered capelet of embroidered fern-shaped panels over a fitted {accent} tunic and {neutral} flared trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -776,7 +776,7 @@
       }
     },
     {
-      "text": "a gold-threaded robe over a {main} pleated undergown",
+      "text": "a {main} gold-threaded court gown with a rigid sunray collar and a fan-pleated skirt beneath a short {accent} brocade cape",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -871,7 +871,7 @@
       }
     },
     {
-      "text": "a {main} linen robe over loose {neutral} trousers",
+      "text": "a {main} knee-length linen smock with rolled sleeves over {neutral} cropped trousers and a broad {accent} pocketed apron",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -892,7 +892,7 @@
           "peasant"
         ],
         "coverage": [
-          "full"
+          "moderate"
         ]
       },
       "palette": {
@@ -904,7 +904,7 @@
       }
     },
     {
-      "text": "a gown of overlapping iridescent fabric scales over a {neutral} silk underdress",
+      "text": "a {main} silk cocoon gown with a rigid oval hip frame and translucent {accent} wing-shaped back panels",
       "tier": "unusual",
       "tags": {
         "genre": [
@@ -981,6 +981,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -1279,6 +1282,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -1290,7 +1296,7 @@
       }
     },
     {
-      "text": "a sleeveless {main} leather vest over a {accent} linen shirt and {neutral} knee breeches",
+      "text": "a {main} split-tailed leather bolero over a {accent} close-fitting shirt and {neutral} wrap-front culottes",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1302,6 +1308,10 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
         ]
       },
       "palette": {
@@ -1328,6 +1338,9 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1432,6 +1445,9 @@
         ],
         "budget": [
           "luxury"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -1664,6 +1680,9 @@
         ],
         "budget": [
           "modest"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1800,6 +1819,9 @@
         ],
         "budget": [
           "luxury"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -1827,6 +1849,9 @@
         "era": "any",
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },

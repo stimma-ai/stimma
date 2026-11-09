@@ -13,51 +13,111 @@
   "values": [
     {
       "text": "a low ponytail",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "ponytail"
+        ]
+      }
     },
     {
       "text": "a high ponytail",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "ponytail"
+        ]
+      }
     },
     {
       "text": "a loose side braid",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "braid"
+        ]
+      }
     },
     {
       "text": "a single back braid",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "braid"
+        ]
+      }
     },
     {
       "text": "two braids",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "braid"
+        ]
+      }
     },
     {
       "text": "a messy bun",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "a low bun",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "a topknot",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "a half-up ponytail",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "ponytail"
+        ]
+      }
     },
     {
       "text": "a half-up bun",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "a side part",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "parted"
+        ]
+      }
     },
     {
       "text": "a center part",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "parted"
+        ]
+      }
     },
     {
       "text": "a blunt bob",
@@ -69,12 +129,20 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "short cut"
         ]
       }
     },
     {
       "text": "a layered cut",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "other"
+        ]
+      }
     },
     {
       "text": "a pixie cut",
@@ -86,6 +154,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "short cut"
         ]
       }
     },
@@ -99,104 +170,234 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "short cut"
         ]
       }
     },
     {
       "text": "a rounded Afro",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "loose"
+        ]
+      }
     },
     {
       "text": "a tapered Afro",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "loose"
+        ]
+      }
     },
     {
       "text": "box braids",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "braid",
+          "protective style"
+        ]
+      }
     },
     {
       "text": "cornrows",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "braid",
+          "protective style"
+        ]
+      }
     },
     {
       "text": "two-strand twists",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "protective style"
+        ]
+      }
     },
     {
       "text": "locs",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "protective style"
+        ]
+      }
     },
     {
       "text": "a French braid",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "braid"
+        ]
+      }
     },
     {
       "text": "a Dutch braid",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "braid"
+        ]
+      }
     },
     {
       "text": "a braided bun",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "braid",
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "a low puff",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "a high puff",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "family": [
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "a side ponytail",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "ponytail"
+        ]
+      }
     },
     {
       "text": "two low ponytails",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "ponytail"
+        ]
+      }
     },
     {
       "text": "two high ponytails",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "ponytail"
+        ]
+      }
     },
     {
       "text": "a bubble ponytail",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "ponytail"
+        ]
+      }
     },
     {
       "text": "a braided ponytail",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "ponytail",
+          "braid"
+        ]
+      }
     },
     {
       "text": "a twisted ponytail",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "ponytail"
+        ]
+      }
     },
     {
       "text": "a fishtail braid",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "braid"
+        ]
+      }
     },
     {
       "text": "a rope braid",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "braid"
+        ]
+      }
     },
     {
       "text": "a crown braid",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "braid",
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "a halo of flat twists",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "bun or updo",
+          "protective style"
+        ]
+      }
     },
     {
       "text": "a waterfall braid",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "loose",
+          "braid"
+        ]
+      }
     },
     {
       "text": "two Dutch braids",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "braid"
+        ]
+      }
     },
     {
       "text": "a French twist",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "two space buns",
@@ -208,16 +409,29 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "bun or updo"
         ]
       }
     },
     {
       "text": "a rolled updo",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "a pinned half-up style",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "a pompadour",
@@ -229,6 +443,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "other"
         ]
       }
     },
@@ -242,12 +459,20 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "other"
         ]
       }
     },
     {
       "text": "a slicked-back style",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "loose"
+        ]
+      }
     },
     {
       "text": "a comb-over",
@@ -259,6 +484,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "parted"
         ]
       }
     },
@@ -272,6 +500,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "other"
         ]
       }
     },
@@ -285,6 +516,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "other"
         ]
       }
     },
@@ -298,12 +532,20 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "other"
         ]
       }
     },
     {
       "text": "a bowl cut",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "short cut"
+        ]
+      }
     },
     {
       "text": "a shag cut",
@@ -315,6 +557,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "other"
         ]
       }
     },
@@ -328,6 +573,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "other"
         ]
       }
     },
@@ -341,24 +589,49 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "short cut"
         ]
       }
     },
     {
       "text": "a twist-out",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "loose"
+        ]
+      }
     },
     {
       "text": "Bantu knots",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "bun or updo",
+          "protective style"
+        ]
+      }
     },
     {
       "text": "flat twists",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "protective style"
+        ]
+      }
     },
     {
       "text": "microbraids",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "braid",
+          "protective style"
+        ]
+      }
     },
     {
       "text": "a braided bob",
@@ -370,20 +643,43 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "braid",
+          "short cut",
+          "protective style"
         ]
       }
     },
     {
       "text": "a crown of locs",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "bun or updo",
+          "protective style"
+        ]
+      }
     },
     {
       "text": "a loc bun",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "bun or updo",
+          "protective style"
+        ]
+      }
     },
     {
       "text": "two loc ponytails",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "ponytail",
+          "protective style"
+        ]
+      }
     },
     {
       "text": "a loc mohawk",
@@ -395,20 +691,38 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "protective style"
         ]
       }
     },
     {
       "text": "finger coils",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "loose"
+        ]
+      }
     },
     {
       "text": "a frohawk",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "other"
+        ]
+      }
     },
     {
       "text": "a curly pineapple updo",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "family": [
+          "bun or updo"
+        ]
+      }
     },
     {
       "text": "a beehive",
@@ -418,6 +732,9 @@
           "1950s_1970s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "bun or updo"
         ]
       }
     },
@@ -429,6 +746,9 @@
           "1950s_1970s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "loose"
         ]
       }
     },
@@ -440,6 +760,9 @@
           "1900s_1940s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "loose"
         ]
       }
     },
@@ -451,8 +774,23 @@
           "1900s_1940s",
           "contemporary",
           "future"
+        ],
+        "family": [
+          "bun or updo"
         ]
       }
     }
-  ]
+  ],
+  "local_facets": {
+    "family": [
+      "loose",
+      "ponytail",
+      "braid",
+      "bun or updo",
+      "short cut",
+      "protective style",
+      "parted",
+      "other"
+    ]
+  }
 }

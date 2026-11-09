@@ -1,0 +1,33 @@
+{
+ "given": "presentation",
+ "target": "person.outfit.athletic",
+ "policy": "t1",
+ "scored_by": "mechanical, from the list's presentation tags (presentation is visual styling, not identity)",
+ "levels": [
+  "common",
+  "uncommon",
+  "rare",
+  "implausible"
+ ],
+ "policy_note": "looks tagged only feminine are rare for a masculine person; looks tagged only masculine are uncommon for a feminine one; untagged and both-tagged looks are common (missing cells). Regenerate from the tags when the list changes.",
+ "rows": {
+  "masculine": {
+   "a {main} tennis polo and a {accent} pleated skort": "rare",
+   "a long-sleeved {main} exercise tunic and {neutral} full-length leggings": "rare",
+   "a {main} long-sleeved swim tunic and matching swim leggings": "rare",
+   "a {main} netball dress with matching stretch shorts": "rare",
+   "a {accent} cotton croquet blouse and an ankle-length {main} wool walking skirt": "rare",
+   "a {main} sports bra and {neutral} high-waisted compression shorts": "rare",
+   "a {main} stretch crop top and {neutral} fitted yoga shorts": "rare",
+   "a {main} stretch tennis dress with {accent} side panels and built-in shorts": "rare",
+   "a racerback {main} one-piece swimsuit with {accent} side panels": "rare",
+   "a two-piece {main} athletic bikini with a cross-back top and drawstring bottoms": "rare",
+   "a {main} camisole leotard and {neutral} footed dance tights": "rare"
+  },
+  "feminine": {
+   "a {main} rash guard and {neutral} swim jammers": "uncommon",
+   "a pair of {main} racing swim briefs": "uncommon",
+   "a pair of {main} kickboxing shorts with {accent} satin trim": "uncommon"
+  }
+ }
+}

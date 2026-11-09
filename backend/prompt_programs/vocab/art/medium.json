@@ -1,0 +1,153 @@
+{
+  "id": "art.medium",
+  "label": "Visual art medium",
+  "description": "The material or image-making process used to depict a scene.",
+  "pos": "noun phrase",
+  "frame": "rendered as ___",
+  "notes": "Media and physical making processes only; camera.film_look owns photographic grain and colour treatment, and interior style belongs to place leaves. Sculpture and craft values depict the scene as a made object. A cyanotype here means the actual print process rather than a simulated film look. Media do not constrain the era or genre of the depicted scene; no artist or studio names.",
+  "facets": [],
+  "closed": false,
+  "untagged": {},
+  "values": [
+    {
+      "text": "a watercolour painting",
+      "tier": "typical"
+    },
+    {
+      "text": "an oil painting",
+      "tier": "typical"
+    },
+    {
+      "text": "an acrylic painting",
+      "tier": "typical"
+    },
+    {
+      "text": "a pencil drawing",
+      "tier": "typical"
+    },
+    {
+      "text": "a charcoal sketch",
+      "tier": "typical"
+    },
+    {
+      "text": "a pen-and-ink drawing",
+      "tier": "typical"
+    },
+    {
+      "text": "a pastel drawing",
+      "tier": "typical"
+    },
+    {
+      "text": "a digital painting",
+      "tier": "typical"
+    },
+    {
+      "text": "a 3D render",
+      "tier": "typical"
+    },
+    {
+      "text": "a gouache painting",
+      "tier": "typical"
+    },
+    {
+      "text": "a coloured-pencil drawing",
+      "tier": "typical"
+    },
+    {
+      "text": "a linocut print",
+      "tier": "typical"
+    },
+    {
+      "text": "a woodcut print",
+      "tier": "plausible"
+    },
+    {
+      "text": "an etching",
+      "tier": "plausible"
+    },
+    {
+      "text": "a screen print",
+      "tier": "plausible"
+    },
+    {
+      "text": "a lithograph",
+      "tier": "plausible"
+    },
+    {
+      "text": "a scratchboard drawing",
+      "tier": "plausible"
+    },
+    {
+      "text": "an ink-wash painting",
+      "tier": "plausible"
+    },
+    {
+      "text": "a paper collage",
+      "tier": "plausible"
+    },
+    {
+      "text": "a cut-paper illustration",
+      "tier": "plausible"
+    },
+    {
+      "text": "a mosaic",
+      "tier": "plausible"
+    },
+    {
+      "text": "an embroidered textile",
+      "tier": "plausible"
+    },
+    {
+      "text": "a clay sculpture",
+      "tier": "plausible"
+    },
+    {
+      "text": "a bronze sculpture",
+      "tier": "plausible"
+    },
+    {
+      "text": "a stained-glass panel",
+      "tier": "plausible"
+    },
+    {
+      "text": "a pixel-art illustration",
+      "tier": "plausible"
+    },
+    {
+      "text": "a vector illustration",
+      "tier": "plausible"
+    },
+    {
+      "text": "a fresco",
+      "tier": "plausible"
+    },
+    {
+      "text": "a cyanotype print",
+      "tier": "unusual"
+    },
+    {
+      "text": "a silverpoint drawing",
+      "tier": "unusual"
+    },
+    {
+      "text": "an encaustic painting",
+      "tier": "unusual"
+    },
+    {
+      "text": "a sand painting",
+      "tier": "unusual"
+    },
+    {
+      "text": "a felt appliqué",
+      "tier": "unusual"
+    },
+    {
+      "text": "a needle-felted sculpture",
+      "tier": "unusual"
+    },
+    {
+      "text": "a risograph print",
+      "tier": "unusual"
+    }
+  ]
+}

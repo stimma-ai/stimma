@@ -13,11 +13,11 @@
       "tier": "typical"
     },
     {
-      "text": "looking just to the left of the camera",
+      "text": "looking just beside the camera",
       "tier": "typical"
     },
     {
-      "text": "gazing off to the left",
+      "text": "gazing off to one side",
       "tier": "typical"
     },
     {
@@ -33,31 +33,31 @@
       "tier": "typical"
     },
     {
-      "text": "looking down and to the subject’s left",
+      "text": "looking down and to one side",
       "tier": "typical"
     },
     {
-      "text": "looking up and to the subject’s left",
+      "text": "looking up and to one side",
       "tier": "typical"
     },
     {
-      "text": "glancing over the subject’s left shoulder",
+      "text": "glancing back over one shoulder",
       "tier": "plausible"
     },
     {
-      "text": "looking sideways while keeping the subject’s head forward",
+      "text": "looking sideways while keeping the head facing forward",
       "tier": "plausible"
     },
     {
-      "text": "looking toward the camera with the subject’s head turned left",
+      "text": "looking toward the camera with the head turned to one side",
       "tier": "plausible"
     },
     {
-      "text": "gazing into the distance with the subject’s face in profile",
+      "text": "gazing into the distance with the face in profile",
       "tier": "plausible"
     },
     {
-      "text": "gazing downward with the subject’s face in profile",
+      "text": "gazing downward with the face in profile",
       "tier": "plausible"
     }
   ]

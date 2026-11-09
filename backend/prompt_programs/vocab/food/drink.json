@@ -1,0 +1,450 @@
+{
+  "id": "food.drink",
+  "label": "Drink",
+  "description": "Beverages grouped by temperature and drink kind.",
+  "pos": "noun phrase",
+  "frame": "a glass of ___",
+  "notes": "Glass-compatible drinks, including hot drinks served in heatproof glassware. Kind is deliberately multi-valued: temperature can combine with alcoholic, soft, or juice or smoothie. Soft labels non-alcoholic refreshers other than juice or smoothies; unspecified temperature remains unconstrained.",
+  "facets": [],
+  "closed": false,
+  "untagged": {},
+  "values": [
+    {
+      "text": "water",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "sparkling water",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "milk",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "lemonade",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "cola",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "ginger ale",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "iced tea",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "iced coffee",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "orange juice",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "juice or smoothie"
+        ]
+      }
+    },
+    {
+      "text": "apple juice",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "juice or smoothie"
+        ]
+      }
+    },
+    {
+      "text": "pineapple juice",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "juice or smoothie"
+        ]
+      }
+    },
+    {
+      "text": "mango smoothie",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "juice or smoothie"
+        ]
+      }
+    },
+    {
+      "text": "strawberry smoothie",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "juice or smoothie"
+        ]
+      }
+    },
+    {
+      "text": "black tea",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "green tea",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "coffee",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "hot chocolate",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "beer",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "alcoholic"
+        ]
+      }
+    },
+    {
+      "text": "red wine",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "alcoholic"
+        ]
+      }
+    },
+    {
+      "text": "white wine",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "cold",
+          "alcoholic"
+        ]
+      }
+    },
+    {
+      "text": "hibiscus tea",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "mint tea",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "chai",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "hot lemon water",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "tonic water",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "coconut water",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "cold-brew coffee",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "iced matcha",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "pomegranate juice",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "juice or smoothie"
+        ]
+      }
+    },
+    {
+      "text": "watermelon juice",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "juice or smoothie"
+        ]
+      }
+    },
+    {
+      "text": "banana smoothie",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "juice or smoothie"
+        ]
+      }
+    },
+    {
+      "text": "green smoothie",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "juice or smoothie"
+        ]
+      }
+    },
+    {
+      "text": "rosé wine",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "alcoholic"
+        ]
+      }
+    },
+    {
+      "text": "cider",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "alcoholic"
+        ]
+      }
+    },
+    {
+      "text": "sangria",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "alcoholic"
+        ]
+      }
+    },
+    {
+      "text": "sparkling wine",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "cold",
+          "alcoholic"
+        ]
+      }
+    },
+    {
+      "text": "butterfly pea tea",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "roasted barley tea",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "tamarind cooler",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "salted plum soda",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "cold",
+          "soft"
+        ]
+      }
+    },
+    {
+      "text": "sea buckthorn juice",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "cold",
+          "juice or smoothie"
+        ]
+      }
+    },
+    {
+      "text": "black sesame smoothie",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "cold",
+          "juice or smoothie"
+        ]
+      }
+    },
+    {
+      "text": "mead",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "alcoholic"
+        ]
+      }
+    },
+    {
+      "text": "rice wine",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "alcoholic"
+        ]
+      }
+    }
+  ],
+  "local_facets": {
+    "kind": [
+      "hot",
+      "cold",
+      "alcoholic",
+      "soft",
+      "juice or smoothie"
+    ]
+  }
+}

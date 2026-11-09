@@ -4,7 +4,7 @@
   "description": "Layered outfits led by coats, jackets, and other cold-weather outerwear.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete looks with visible outerwear and lower garments for cold weather. Casual and smart own lighter everyday separates; athletic owns performance sports kits; period owns historical winter clothing. Excludes carried items, weather descriptions, and places. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles colour garments as one coordinated look. Coverage describes garment extent. Historical fabrics use muted or earthy schemes.",
+  "notes": "Complete looks with visible outerwear and lower garments for cold weather. Casual and smart own lighter everyday separates; athletic owns performance sports kits; period owns historical winter clothing. Excludes carried items, weather descriptions, and places. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles colour garments as one coordinated look. Historical fabrics use muted or earthy schemes.",
   "facets": [
     "presentation",
     "age",
@@ -50,9 +50,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -78,9 +75,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -109,9 +103,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -138,9 +129,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -169,9 +157,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -198,9 +183,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -225,9 +207,6 @@
         ],
         "layering": [
           "layered"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -263,9 +242,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       },
       "palette": {
@@ -301,9 +277,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -329,9 +302,6 @@
         ],
         "layering": [
           "layered"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -359,9 +329,6 @@
         "layering": [
           "single layer",
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -388,9 +355,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -417,9 +381,6 @@
         ],
         "layering": [
           "layered"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -448,9 +409,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -483,9 +441,6 @@
         ],
         "layering": [
           "layered"
-        ],
-        "coverage": [
-          "full"
         ]
       },
       "palette": {
@@ -523,8 +478,8 @@
         "layering": [
           "heavy outerwear"
         ],
-        "coverage": [
-          "full"
+        "region": [
+          "east_asian"
         ]
       }
     },
@@ -552,8 +507,8 @@
         "layering": [
           "layered"
         ],
-        "coverage": [
-          "full"
+        "region": [
+          "east_asian"
         ]
       }
     },
@@ -587,8 +542,8 @@
         "layering": [
           "heavy outerwear"
         ],
-        "coverage": [
-          "full"
+        "region": [
+          "south_asian"
         ]
       },
       "palette": {
@@ -628,8 +583,8 @@
         "layering": [
           "layered"
         ],
-        "coverage": [
-          "full"
+        "region": [
+          "african"
         ]
       },
       "palette": {
@@ -666,8 +621,8 @@
         "layering": [
           "heavy outerwear"
         ],
-        "coverage": [
-          "full"
+        "region": [
+          "middle_eastern"
         ]
       }
     },
@@ -700,9 +655,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -727,9 +679,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
@@ -763,14 +712,11 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
     {
-      "text": "a {main} cashmere overcoat and tailored {neutral} wool trousers",
+      "text": "a {main} cropped cocoon coat with balloon sleeves over a {accent} wool sweater and {neutral} tapered trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -786,59 +732,37 @@
           "realistic",
           "scifi",
           "cyberpunk",
-          "horror",
-          "post_apocalyptic",
-          "steampunk"
+          "horror"
         ],
         "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
+          "contemporary"
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       }
     },
     {
-      "text": "a hooded {main} wool cloak over a {accent} quilted tunic and {neutral} hose",
+      "text": "a {main} knee-length insulated cape with arm zips over a {accent} fleece jumpsuit",
       "tier": "typical",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "casual"
-        ],
-        "climate": [
-          "cold",
-          "temperate"
         ],
         "layering": [
           "heavy outerwear"
         ],
-        "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy"
+        "climate": [
+          "cold"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
         ]
       }
     },
@@ -869,9 +793,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       },
       "palette": {
@@ -905,9 +826,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       },
       "palette": {
@@ -941,9 +859,6 @@
         ],
         "layering": [
           "heavy outerwear"
-        ],
-        "coverage": [
-          "full"
         ]
       },
       "palette": {
@@ -960,9 +875,6 @@
         "formality": [
           "casual"
         ],
-        "coverage": [
-          "full"
-        ],
         "layering": [
           "heavy outerwear"
         ],
@@ -977,9 +889,6 @@
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "heavy outerwear"
@@ -996,9 +905,6 @@
         "formality": [
           "casual"
         ],
-        "coverage": [
-          "full"
-        ],
         "layering": [
           "layered"
         ],
@@ -1014,9 +920,6 @@
         "formality": [
           "casual"
         ],
-        "coverage": [
-          "full"
-        ],
         "layering": [
           "heavy outerwear"
         ],
@@ -1031,9 +934,6 @@
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "heavy outerwear"
@@ -1053,9 +953,6 @@
         "formality": [
           "casual"
         ],
-        "coverage": [
-          "full"
-        ],
         "layering": [
           "layered"
         ],
@@ -1065,20 +962,23 @@
       }
     },
     {
-      "text": "a {main} hooded insulated coverall with {accent} shoulder panels and reinforced {neutral} knees",
+      "text": "a {main} insulated bib overall with broad shoulder straps over a {accent} padded jacket with {neutral} knitted cuffs",
       "tier": "typical",
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "heavy outerwear"
         ],
         "climate": [
           "cold"
+        ],
+        "genre": [
+          "realistic"
+        ],
+        "era": [
+          "contemporary"
         ]
       }
     },
@@ -1088,9 +988,6 @@
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "layered"
@@ -1107,9 +1004,6 @@
         "formality": [
           "casual"
         ],
-        "coverage": [
-          "full"
-        ],
         "layering": [
           "heavy outerwear"
         ],
@@ -1124,9 +1018,6 @@
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "heavy outerwear"
@@ -1143,9 +1034,6 @@
         "formality": [
           "casual"
         ],
-        "coverage": [
-          "full"
-        ],
         "layering": [
           "heavy outerwear"
         ],
@@ -1160,9 +1048,6 @@
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "heavy outerwear"
@@ -1179,9 +1064,6 @@
         "formality": [
           "casual"
         ],
-        "coverage": [
-          "full"
-        ],
         "layering": [
           "layered"
         ],
@@ -1196,9 +1078,6 @@
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "heavy outerwear"
@@ -1215,9 +1094,6 @@
         "formality": [
           "casual"
         ],
-        "coverage": [
-          "full"
-        ],
         "layering": [
           "heavy outerwear"
         ],
@@ -1232,9 +1108,6 @@
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "heavy outerwear"
@@ -1271,9 +1144,6 @@
         "formality": [
           "casual"
         ],
-        "coverage": [
-          "full"
-        ],
         "layering": [
           "layered"
         ],
@@ -1288,9 +1158,6 @@
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "heavy outerwear"
@@ -1307,9 +1174,6 @@
         "formality": [
           "casual"
         ],
-        "coverage": [
-          "full"
-        ],
         "layering": [
           "layered"
         ],
@@ -1322,14 +1186,11 @@
       }
     },
     {
-      "text": "a {main} hooded wool cloak over a {accent} long-sleeved wool gown and {neutral} knitted stockings",
+      "text": "a {main} ankle-length sleeveless quilted wrap over a {accent} cable-knit maxi dress and {neutral} wool tights",
       "tier": "typical",
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "heavy outerwear"
@@ -1337,24 +1198,17 @@
         "climate": [
           "cold"
         ],
-        "presentation": [
-          "feminine"
-        ],
         "era": [
-          "medieval",
-          "early_modern"
+          "contemporary"
         ],
         "genre": [
           "realistic",
-          "fantasy",
-          "fairy_tale",
+          "scifi",
+          "cyberpunk",
           "horror"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1364,9 +1218,6 @@
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "single layer"
@@ -1382,9 +1233,6 @@
       "tags": {
         "formality": [
           "casual"
-        ],
-        "coverage": [
-          "full"
         ],
         "layering": [
           "single layer"
@@ -1404,11 +1252,6 @@
       "single layer",
       "layered",
       "heavy outerwear"
-    ],
-    "coverage": [
-      "light",
-      "moderate",
-      "full"
     ]
   }
 }

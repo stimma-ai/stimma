@@ -1,7 +1,7 @@
 {
   "id": "interior_space.style",
   "label": "Style",
-  "description": "Interior design adjectives that modify a room rather than specify a place.",
+  "description": "Decorative and architectural styles applied to an already chosen interior, such as minimalist or Art Deco; supplies an adjective rather than a room or location.",
   "pos": "adjective phrase",
   "frame": "the ___ bedroom",
   "notes": "Use for room-wide architectural or decorating character; concrete room layouts and furnishings belong to bedroom and the other place leaves. Historical revival styles remain usable in contemporary rooms. Untagged styles fit realistic contemporary rooms; historical, traditional, and speculative styles explicitly list their broader contexts. Use a/an agreement for indefinite noun phrases; the example uses “the” to admit vowel-initial styles.",
@@ -28,6 +28,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -44,6 +47,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -60,6 +66,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -70,6 +79,9 @@
         "genre": [
           "realistic",
           "horror"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -85,6 +97,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -99,6 +114,9 @@
         "era": [
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -115,6 +133,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -139,6 +160,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -154,6 +178,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -169,6 +196,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -186,6 +216,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -200,6 +233,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -214,6 +250,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -230,6 +269,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -244,6 +286,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -262,6 +307,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -278,6 +326,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "ornate"
         ]
       }
     },
@@ -296,6 +347,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "ornate"
         ]
       }
     },
@@ -313,6 +367,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -330,6 +387,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -345,6 +405,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -363,6 +426,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -383,6 +449,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "ornate"
         ]
       }
     },
@@ -404,6 +473,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "ornate"
         ]
       }
     },
@@ -425,6 +497,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -447,6 +522,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -469,6 +547,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -491,6 +572,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "ornate"
         ]
       }
     },
@@ -515,6 +599,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -540,6 +627,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -565,6 +655,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -589,6 +682,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "ornate"
         ]
       }
     },
@@ -614,6 +710,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -639,6 +738,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -664,6 +766,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -689,6 +794,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "ornate"
         ]
       }
     },
@@ -712,6 +820,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "ornate"
         ]
       }
     },
@@ -737,6 +848,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "ornate"
         ]
       }
     },
@@ -762,6 +876,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -786,6 +903,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -805,6 +925,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -826,6 +949,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -847,6 +973,9 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "ornament": [
+          "layered"
         ]
       }
     },
@@ -871,6 +1000,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -888,6 +1020,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -911,6 +1046,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     },
@@ -925,6 +1063,9 @@
         ],
         "era": [
           "future"
+        ],
+        "ornament": [
+          "restrained"
         ]
       }
     }
@@ -935,6 +1076,13 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "ornament": [
+      "restrained",
+      "layered",
+      "ornate"
     ]
   }
 }

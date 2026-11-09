@@ -1,10 +1,10 @@
 {
   "id": "interior_space.bar",
   "label": "Bar",
-  "description": "Indoor pubs, bars, and drink-focused social venues.",
+  "description": "Indoor pubs, taverns and bars arranged for drinking and socialising; choose cafe_restaurant for meal-led dining and shop for bottle retail.",
   "pos": "noun phrase",
   "frame": "in ___",
-  "notes": "Drink-led venues belong here; meal-led dining belongs to cafe_restaurant, home lounges to living_room, and bottle retail to shop.",
+  "notes": "Drink-led venues belong here; meal-led dining belongs to cafe_restaurant, home lounges to living_room, and bottle retail to shop. Size describes usable room scale; tidiness describes arrangement: tidy is orderly, lived-in is a space in regular use, and messy requires visible clutter. Wear and low budget alone do not imply mess.",
   "facets": [
     "era",
     "genre",
@@ -17,7 +17,7 @@
   "closed": false,
   "values": [
     {
-      "text": "a neighborhood bar with scuffed stools and a pool table",
+      "text": "a neighborhood bar with scuffed stools and a pool table, with empty glasses crowding the tables",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -31,6 +31,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
@@ -53,11 +59,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a cocktail bar with a brass rail and velvet booths",
+      "text": "a cocktail bar with a brass rail and velvet booths, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -71,11 +83,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a wine bar with bottle racks and a marble counter",
+      "text": "a wine bar with bottle racks and a marble counter, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -90,6 +108,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -106,11 +130,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a brewery taproom with fermentation tanks and communal benches",
+      "text": "a spacious brewery taproom with fermentation tanks and communal benches",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -124,11 +154,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a basement bar with exposed brick and low arches",
+      "text": "a cramped basement bar with exposed brick and low arches",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -146,11 +182,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a hotel bar with leather armchairs and a polished counter",
+      "text": "a hotel bar with leather armchairs and a polished counter, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -164,6 +206,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -179,11 +227,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a jazz bar with a small stage and close-set tables",
+      "text": "a cramped jazz bar with a small stage and close-set tables",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -195,6 +249,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -211,6 +271,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -233,11 +299,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a dive bar with torn vinyl seats and a dartboard",
+      "text": "a cramped dive bar with torn vinyl seats and a dartboard, with crumpled beer mats scattered across the counter",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -251,11 +323,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a listening bar with record shelves and large speakers",
+      "text": "a listening bar with record shelves and large speakers, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -267,11 +345,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a piano bar with a grand piano and curved banquette",
+      "text": "a piano bar with a grand piano and curved banquette, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -285,6 +369,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -302,6 +392,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -320,6 +416,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -339,6 +441,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -359,6 +467,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -378,11 +492,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a cocktail lounge with an onyx counter and silk banquettes",
+      "text": "a spacious cocktail lounge with an onyx counter and silk banquettes, neatly arranged",
       "tier": "typical",
       "tags": {
         "budget": [
@@ -398,11 +518,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a standing sake bar with wooden cup shelves and fabric dividers",
+      "text": "a cramped standing sake bar with wooden cup shelves and fabric dividers, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -423,6 +549,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -448,6 +580,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -473,11 +611,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a German beer hall with long benches and ceramic steins",
+      "text": "a spacious German beer hall with long benches and ceramic steins",
       "tier": "typical",
       "tags": {
         "region": [
@@ -498,11 +642,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a Spanish vermouth bar with casks and tiled walls",
+      "text": "a cramped Spanish vermouth bar with casks and tiled walls",
       "tier": "typical",
       "tags": {
         "region": [
@@ -522,6 +672,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -543,6 +699,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -564,11 +726,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a shebeen with crate seating and a corrugated metal counter",
+      "text": "a cramped shebeen with crate seating and a corrugated metal counter, with empty crates strewn between the seats",
       "tier": "typical",
       "tags": {
         "region": [
@@ -585,11 +753,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a gin palace with etched glass partitions and a tiled bar",
+      "text": "a spacious gin palace with etched glass partitions and a tiled bar, neatly arranged",
       "tier": "typical",
       "tags": {
         "era": [
@@ -603,11 +777,17 @@
           "realistic",
           "steampunk",
           "horror"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a speakeasy with a concealed entrance and curved wooden bar",
+      "text": "a speakeasy with a concealed entrance and curved wooden bar, neatly arranged",
       "tier": "typical",
       "tags": {
         "era": [
@@ -619,6 +799,12 @@
         "genre": [
           "realistic",
           "horror"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -633,6 +819,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -647,6 +839,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -668,11 +866,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a subterranean tavern with stone mugs and mushroom tables",
+      "text": "a cramped subterranean tavern with stone mugs and mushroom tables",
       "tier": "unusual",
       "tags": {
         "genre": [
@@ -689,6 +893,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -704,6 +914,12 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -723,11 +939,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a rooftop bar inside an armored dome with drone hatches",
+      "text": "a spacious rooftop bar inside an armored dome with drone hatches, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -737,11 +959,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a noodle bar with robotic taps and stacked synthetic liquor cartridges",
+      "text": "a noodle bar with robotic taps and stacked synthetic liquor cartridges, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -751,6 +979,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     }
@@ -761,6 +995,18 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "size": [
+      "medium",
+      "spacious",
+      "cramped"
+    ],
+    "tidiness": [
+      "messy",
+      "lived-in",
+      "tidy"
     ]
   }
 }

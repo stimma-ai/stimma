@@ -54,6 +54,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -128,6 +131,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "masculine"
         ]
       }
     },
@@ -198,6 +204,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -571,7 +580,7 @@
       }
     },
     {
-      "text": "a {main} silk gown with a high neckline",
+      "text": "a {main} high-neck silk gown with an accordion-pleated skirt and a sculpted fan-shaped back",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -745,6 +754,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "south_asian"
         ]
       }
     },
@@ -781,6 +793,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "south_asian"
         ]
       }
     },
@@ -817,6 +832,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "south_asian"
         ]
       }
     },
@@ -851,6 +869,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "south_asian"
         ]
       }
     },
@@ -883,6 +904,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "middle_eastern"
         ]
       }
     },
@@ -919,6 +943,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "middle_eastern"
         ]
       },
       "palette": {
@@ -961,6 +988,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "african"
         ]
       }
     },
@@ -997,6 +1027,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "african"
         ]
       }
     },
@@ -1033,6 +1066,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "african"
         ]
       }
     },
@@ -1069,6 +1105,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "african"
         ]
       }
     },
@@ -1105,6 +1144,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "african"
         ]
       }
     },
@@ -1137,6 +1179,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "east_asian"
         ]
       }
     },
@@ -1169,6 +1214,12 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "region": [
+          "east_asian"
         ]
       }
     },
@@ -1205,6 +1256,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "east_asian"
         ]
       }
     },
@@ -1241,6 +1295,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "east_asian"
         ]
       }
     },
@@ -1273,6 +1330,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "southeast_asian"
         ]
       }
     },
@@ -1302,6 +1362,12 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "region": [
+          "southeast_asian"
         ]
       }
     },
@@ -1338,6 +1404,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "southeast_asian"
         ]
       }
     },
@@ -1374,6 +1443,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "southeast_asian"
         ]
       }
     },
@@ -1410,6 +1482,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "southeast_asian"
         ]
       }
     },
@@ -1442,6 +1517,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "southeast_asian"
         ]
       }
     },
@@ -1473,6 +1551,12 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "region": [
+          "european"
         ]
       },
       "palette": {
@@ -1513,6 +1597,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "european"
         ]
       },
       "palette": {
@@ -1550,6 +1637,12 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "region": [
+          "latin_american"
         ]
       },
       "palette": {
@@ -1620,6 +1713,12 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "region": [
+          "oceanian"
         ]
       }
     },
@@ -1649,6 +1748,12 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "region": [
+          "oceanian"
         ]
       }
     },
@@ -1694,163 +1799,140 @@
       }
     },
     {
-      "text": "a {main} silk houppelande with a sweeping fur-lined train",
-      "tier": "typical",
+      "text": "a {main} sculpted opera coat with a high standing collar over a {accent} silk column dress",
+      "tier": "plausible",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "formal"
         ],
+        "budget": [
+          "luxury"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
+        ],
         "occasion": [
+          "gala",
           "ceremonial"
         ],
         "coverage": [
           "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy"
-        ]
-      }
-    },
-    {
-      "text": "a {main} brocade surcoat over a {accent} silk undergown",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
-        "formality": [
-          "formal"
         ],
         "presentation": [
           "feminine"
-        ],
-        "occasion": [
-          "ceremonial"
-        ],
-        "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy"
         ]
       }
     },
     {
-      "text": "a {main} silk tunic and matching hose beneath an embroidered {accent} mantle",
+      "text": "a {main} architectural satin jacket with a flared peplum and a matching narrow ankle-length skirt",
       "tier": "typical",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "formal"
         ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
+        ],
         "occasion": [
+          "wedding guest",
           "ceremonial"
         ],
         "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy"
-        ]
-      }
-    },
-    {
-      "text": "a {main} brocade cotehardie with rows of small brass buttons",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
-        "formality": [
-          "formal"
+          "moderate"
         ],
         "presentation": [
           "feminine"
-        ],
-        "occasion": [
-          "ceremonial"
-        ],
-        "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy"
         ]
       }
     },
     {
-      "text": "a layered {main} court robe over {neutral} silk trousers",
+      "text": "a {main} collarless silk tunic with a broad {accent} sash and matching wide palazzo trousers",
       "tier": "typical",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "formal"
         ],
+        "era": [
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
         "occasion": [
-          "ceremonial"
+          "ceremonial",
+          "gala"
         ],
         "coverage": [
           "full"
         ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy"
+      }
+    },
+    {
+      "text": "a {main} fitted satin fishtail gown with a flared knee-length tier and long {accent} opera sleeves",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "occasion": [
+          "gala",
+          "black tie",
+          "prom"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk cape-sleeved evening tunic over matching tailored knee-length shorts",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "occasion": [
+          "cocktail",
+          "gala"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
@@ -2000,6 +2082,9 @@
         "occasion": [
           "cocktail",
           "wedding guest"
+        ],
+        "presentation": [
+          "masculine"
         ]
       }
     },
@@ -2015,6 +2100,9 @@
         ],
         "occasion": [
           "ceremonial"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2025,7 +2113,7 @@
       }
     },
     {
-      "text": "a {main} shawl-collar dinner jacket with black satin lapels, matching trousers, and a white dress shirt",
+      "text": "a {main} velvet smoking jacket with a quilted {accent} shawl collar over a white dress shirt and black straight trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2037,6 +2125,16 @@
         "occasion": [
           "black tie",
           "gala"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "genre": [
+          "realistic",
+          "horror"
         ]
       },
       "palette": {
@@ -2119,6 +2217,9 @@
         "occasion": [
           "black tie",
           "gala"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2158,6 +2259,12 @@
         ],
         "occasion": [
           "ceremonial"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "region": [
+          "african"
         ]
       }
     },
@@ -2208,8 +2315,7 @@
       "wedding guest",
       "ceremonial",
       "gala",
-      "prom",
-      "other"
+      "prom"
     ],
     "coverage": [
       "light",

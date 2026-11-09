@@ -1,10 +1,10 @@
 {
   "id": "interior_space.workshop_studio",
   "label": "Workshop Studio",
-  "description": "Indoor spaces for making, repairing, rehearsing, and recording.",
+  "description": "Craft workshops, repair garages and creative studios defined by tools and making equipment; choose office for administration and any_room for factories or exercise studios.",
   "pos": "noun phrase",
   "frame": "in ___",
-  "notes": "Hands-on production and creative studios belong here; administrative work belongs to office, retail to shop, and exercise studios to any_room.",
+  "notes": "Hands-on production and creative studios belong here; administrative work belongs to office, retail to shop, and exercise studios to any_room. Size describes usable room scale; tidiness describes arrangement: tidy is orderly, lived-in is a space in regular use, and messy requires visible clutter. Wear and low budget alone do not imply mess.",
   "facets": [
     "era",
     "genre",
@@ -36,11 +36,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a metal workshop with welding benches and steel stock",
+      "text": "a spacious metal workshop with welding benches and steel stock",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -54,6 +60,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -77,11 +89,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a painting studio with easels and paint-splattered flooring",
+      "text": "a painting studio with easels and paint-splattered flooring, with open paint tubes scattered across the floor",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -99,6 +117,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
@@ -122,6 +146,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -143,6 +173,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -161,6 +197,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -181,11 +223,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a jewelry workshop with bench pins and tiny tool drawers",
+      "text": "a cramped jewelry workshop with bench pins and tiny tool drawers, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -204,6 +252,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -222,11 +276,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an auto garage with a hydraulic lift and tool chests",
+      "text": "a spacious auto garage with a hydraulic lift and tool chests",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -240,6 +300,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -259,11 +325,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an electronics workshop with soldering benches and component drawers",
+      "text": "a cramped electronics workshop with soldering benches and component drawers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -275,6 +347,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -298,6 +376,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -320,11 +404,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a boatbuilding shed with timber ribs and steaming equipment",
+      "text": "a spacious boatbuilding shed with timber ribs and steaming equipment",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -342,6 +432,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -365,11 +461,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a photography studio with seamless backdrops and equipment stands",
+      "text": "a spacious photography studio with seamless backdrops and equipment stands, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -384,11 +486,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a recording studio with mixing consoles and acoustic panels",
+      "text": "a recording studio with mixing consoles and acoustic panels, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -400,6 +508,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -416,11 +530,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a film workshop with prop racks and scenery flats",
+      "text": "a spacious film workshop with prop racks and scenery flats",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -433,11 +553,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "an animation studio with drawing desks and character maquettes",
+      "text": "an animation studio with drawing desks and character maquettes, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -450,6 +576,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -471,11 +603,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a clock repair workshop with magnifiers and partitioned parts trays",
+      "text": "a cramped clock repair workshop with magnifiers and partitioned parts trays, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -492,11 +630,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a communal makerspace with laser cutters and shared workbenches",
+      "text": "a spacious communal makerspace with laser cutters and shared workbenches, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -506,11 +650,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a robotics workshop with wheeled prototypes and parts organizers",
+      "text": "a robotics workshop with wheeled prototypes and parts organizers, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -521,11 +671,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a home garage with a pegboard and crowded workbench",
+      "text": "a cramped home garage with a pegboard and crowded workbench",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -541,6 +697,12 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
@@ -564,6 +726,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -586,6 +754,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -608,6 +782,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -625,11 +805,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a lacquer workshop with drying cabinets and wooden bowls",
+      "text": "a lacquer workshop with drying cabinets and wooden bowls, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -651,11 +837,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a calligraphy studio with inkstones and hanging scroll racks",
+      "text": "a calligraphy studio with inkstones and hanging scroll racks, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -677,11 +869,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a block-printing workshop with carved stamps and long fabric tables",
+      "text": "a spacious block-printing workshop with carved stamps and long fabric tables",
       "tier": "typical",
       "tags": {
         "region": [
@@ -702,6 +900,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -727,6 +931,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -749,6 +959,12 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -769,6 +985,12 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -791,11 +1013,17 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a fabrication studio with matter printers and sealed material hoppers",
+      "text": "a spacious fabrication studio with matter printers and sealed material hoppers, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -805,6 +1033,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -819,6 +1053,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -840,11 +1080,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a repair garage with scavenged engines and improvised welding rigs",
+      "text": "a repair garage with scavenged engines and improvised welding rigs, with engine parts strewn between the welding rigs",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -855,11 +1101,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a prosthetics workshop with synthetic muscle spools and calibration harnesses",
+      "text": "a prosthetics workshop with synthetic muscle spools and calibration harnesses, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -869,6 +1121,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     }
@@ -879,6 +1137,18 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "size": [
+      "medium",
+      "spacious",
+      "cramped"
+    ],
+    "tidiness": [
+      "lived-in",
+      "messy",
+      "tidy"
     ]
   }
 }

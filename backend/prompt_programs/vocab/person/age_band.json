@@ -84,12 +84,13 @@
     },
     {
       "text": "18–19",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "age": [
           "adult"
         ],
         "life_stage": [
+          "teen",
           "young adult"
         ]
       }
@@ -187,62 +188,57 @@
           "adult"
         ],
         "life_stage": [
-          "middle-aged"
+          "middle-aged",
+          "older"
         ]
       }
     },
     {
       "text": "60–64",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "age": [
-          "adult",
-          "elderly"
+          "adult"
         ],
         "life_stage": [
-          "older",
-          "elderly"
+          "older"
         ]
       }
     },
     {
       "text": "65–69",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "age": [
-          "adult",
-          "elderly"
+          "adult"
         ],
         "life_stage": [
-          "older",
-          "elderly"
+          "older"
         ]
       }
     },
     {
       "text": "70–74",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "age": [
           "adult",
           "elderly"
         ],
         "life_stage": [
-          "older",
           "elderly"
         ]
       }
     },
     {
       "text": "75–79",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "age": [
           "adult",
           "elderly"
         ],
         "life_stage": [
-          "older",
           "elderly"
         ]
       }
@@ -262,7 +258,7 @@
     },
     {
       "text": "85–89",
-      "tier": "plausible",
+      "tier": "unusual",
       "tags": {
         "age": [
           "adult",
@@ -275,7 +271,7 @@
     },
     {
       "text": "90–94",
-      "tier": "plausible",
+      "tier": "unusual",
       "tags": {
         "age": [
           "adult",
@@ -288,7 +284,7 @@
     },
     {
       "text": "95–99",
-      "tier": "plausible",
+      "tier": "unusual",
       "tags": {
         "age": [
           "adult",

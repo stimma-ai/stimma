@@ -1,10 +1,10 @@
 {
   "id": "interior_space.library_study",
   "label": "Library Study",
-  "description": "Libraries, reading rooms, and dedicated private spaces for reading and scholarship.",
+  "description": "Libraries, archives, reading rooms and private studies defined by books or reference collections; choose office for administrative workspaces.",
   "pos": "noun phrase",
   "frame": "in ___",
-  "notes": "Book collections and scholarly reading spaces belong here; retail books belong to shop, general workplaces to office, and classrooms to any_room.",
+  "notes": "Book collections and scholarly reading spaces belong here; retail books belong to shop, general workplaces to office, and classrooms to any_room. Size describes usable room scale; tidiness describes arrangement: tidy is orderly, lived-in is a space in regular use, and messy requires visible clutter. Wear and low budget alone do not imply mess.",
   "facets": [
     "era",
     "genre",
@@ -17,7 +17,7 @@
   "closed": false,
   "values": [
     {
-      "text": "a public library with book stacks and communal reading tables",
+      "text": "a spacious public library with book stacks and communal reading tables, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -31,11 +31,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a university library with study carrels and reference shelves",
+      "text": "a spacious university library with study carrels and reference shelves, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -49,6 +55,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -70,6 +82,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -88,11 +106,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a law library with bound volumes and rolling ladders",
+      "text": "a spacious law library with bound volumes and rolling ladders, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -109,11 +133,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a music library with score cabinets and listening desks",
+      "text": "a music library with score cabinets and listening desks, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -125,11 +155,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a map library with flat drawers and oversized reading tables",
+      "text": "a spacious map library with flat drawers and oversized reading tables, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -146,11 +182,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "an archive reading room with document cradles and numbered desks",
+      "text": "an archive reading room with document cradles and numbered desks, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -164,11 +206,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a library with compact shelving and rolling handwheels",
+      "text": "a library with compact shelving and rolling handwheels, neatly arranged",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -181,11 +229,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a branch library with computer stations and return carts",
+      "text": "a branch library with computer stations and return carts, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -196,11 +250,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a library with a mezzanine walkway and spiral stairs",
+      "text": "a spacious library with a mezzanine walkway and spiral stairs",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -217,11 +277,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a library with wooden card catalogs and broad worktables",
+      "text": "a spacious library with wooden card catalogs and broad worktables, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -235,11 +301,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a study with books piled around a worn armchair",
+      "text": "a cramped study with books piled around a worn armchair",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -256,6 +328,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
@@ -278,11 +356,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a shipboard library with retaining rails across its shelves",
+      "text": "a cramped shipboard library with retaining rails across its shelves",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -299,6 +383,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
@@ -317,11 +407,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a private library with carved galleries and a marble fireplace",
+      "text": "a spacious private library with carved galleries and a marble fireplace, neatly arranged",
       "tier": "typical",
       "tags": {
         "budget": [
@@ -341,6 +437,12 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -366,11 +468,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a reading room with tatami mats and low bookstands",
+      "text": "a reading room with tatami mats and low bookstands, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -391,11 +499,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a manuscript library with tiled alcoves and carved bookstands",
+      "text": "a manuscript library with tiled alcoves and carved bookstands, neatly arranged",
       "tier": "typical",
       "tags": {
         "region": [
@@ -416,11 +530,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a palm-leaf manuscript library with bundle shelves and low desks",
+      "text": "a palm-leaf manuscript library with bundle shelves and low desks, neatly arranged",
       "tier": "plausible",
       "tags": {
         "region": [
@@ -441,11 +561,17 @@
           "1950s_1970s",
           "1980s_1990s",
           "contemporary"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a library with papyrus scroll niches and stone reading benches",
+      "text": "a library with papyrus scroll niches and stone reading benches, neatly arranged",
       "tier": "typical",
       "tags": {
         "era": [
@@ -457,11 +583,17 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a scriptorium with sloped desks and parchment storage chests",
+      "text": "a scriptorium with sloped desks and parchment storage chests, neatly arranged",
       "tier": "typical",
       "tags": {
         "era": [
@@ -479,11 +611,17 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a chained library with iron book rods and timber stalls",
+      "text": "a chained library with iron book rods and timber stalls, neatly arranged",
       "tier": "typical",
       "tags": {
         "era": [
@@ -501,11 +639,17 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a scholar's study with a globe and folio shelves",
+      "text": "a scholar's study with a globe and folio shelves, with loose folios scattered across the desk",
       "tier": "typical",
       "tags": {
         "era": [
@@ -522,11 +666,17 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a reading room with cast-iron galleries and green leather desks",
+      "text": "a spacious reading room with cast-iron galleries and green leather desks, neatly arranged",
       "tier": "typical",
       "tags": {
         "era": [
@@ -540,11 +690,17 @@
           "realistic",
           "steampunk",
           "horror"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a data library with crystal storage stacks and terminal alcoves",
+      "text": "a data library with crystal storage stacks and terminal alcoves, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -554,6 +710,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
@@ -575,11 +737,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a library carved into a giant tree with spiral shelves",
+      "text": "a spacious library carved into a giant tree with spiral shelves",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -596,11 +764,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "spacious"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     },
     {
-      "text": "a library with dragon-scale bindings and enchanted scroll cabinets",
+      "text": "a library with dragon-scale bindings and enchanted scroll cabinets, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -617,11 +791,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a library with salvaged books in sealed supply crates",
+      "text": "a library with salvaged books in sealed supply crates, with books spilling out of the crates",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -632,11 +812,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "messy"
         ]
       }
     },
     {
-      "text": "a data archive with robotic retrieval arms and encrypted terminal booths",
+      "text": "a data archive with robotic retrieval arms and encrypted terminal booths, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -646,11 +832,17 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "medium"
+        ],
+        "tidiness": [
+          "tidy"
         ]
       }
     },
     {
-      "text": "a street archive with scavenged terminals and armored server cabinets",
+      "text": "a cramped street archive with scavenged terminals and armored server cabinets",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -660,6 +852,12 @@
         ],
         "era": [
           "future"
+        ],
+        "size": [
+          "cramped"
+        ],
+        "tidiness": [
+          "lived-in"
         ]
       }
     }
@@ -670,6 +868,18 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "size": [
+      "spacious",
+      "medium",
+      "cramped"
+    ],
+    "tidiness": [
+      "tidy",
+      "lived-in",
+      "messy"
     ]
   }
 }

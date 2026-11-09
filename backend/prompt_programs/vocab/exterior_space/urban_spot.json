@@ -1,7 +1,7 @@
 {
   "id": "exterior_space.urban_spot",
   "label": "Urban Spot",
-  "description": "Outdoor urban spaces other than ordinary street corridors.",
+  "description": "Discrete outdoor urban sites: alleys, plazas, rooftops, platforms, courts and open-air markets; choose city_street for a continuous street corridor or park_garden for planted grounds.",
   "pos": "noun phrase",
   "frame": "the setting is ___",
   "notes": "Plazas, rooftops, alleys, bridges, transit platforms, and open-air markets belong here; streets belong to city_street, planted parks to park_garden, and roofed retail stalls to interior_space.shop. Untagged values fit realistic contemporary spaces; historic built forms remain available in later eras, while motor transport and modern recreation require their own era ranges. The noun-predicate frame accommodates valleys, shores, roads and platforms; choose an appropriate in/on/at preposition when composing a different sentence.",
@@ -30,6 +30,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "rooftop"
         ]
       }
     },
@@ -46,6 +49,10 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "rooftop",
+          "transit or parking"
         ]
       }
     },
@@ -62,6 +69,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "alley or passage"
         ]
       }
     },
@@ -85,6 +95,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "alley or passage"
         ]
       }
     },
@@ -104,6 +117,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "transit or parking"
         ]
       }
     },
@@ -120,6 +136,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "transit or parking"
         ]
       }
     },
@@ -136,6 +155,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "transit or parking"
         ]
       }
     },
@@ -152,6 +174,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "transit or parking"
         ]
       }
     },
@@ -175,6 +200,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "alley or passage"
         ]
       }
     },
@@ -192,6 +220,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "alley or passage"
         ]
       }
     },
@@ -216,6 +247,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "plaza or courtyard"
         ]
       }
     },
@@ -239,6 +273,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "market"
         ]
       }
     },
@@ -256,6 +293,10 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "plaza or courtyard",
+          "industrial"
         ]
       }
     },
@@ -272,6 +313,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "recreation"
         ]
       }
     },
@@ -287,6 +331,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "recreation"
         ]
       }
     },
@@ -304,6 +351,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "recreation"
         ]
       }
     },
@@ -324,6 +374,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "industrial"
         ]
       }
     },
@@ -344,6 +397,10 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "alley or passage",
+          "industrial"
         ]
       }
     },
@@ -361,6 +418,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "recreation"
         ]
       }
     },
@@ -385,6 +445,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "plaza or courtyard"
         ]
       }
     },
@@ -404,6 +467,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "market"
         ]
       }
     },
@@ -428,6 +494,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "market"
         ]
       }
     },
@@ -442,6 +511,10 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "plaza or courtyard",
+          "market"
         ]
       }
     },
@@ -460,6 +533,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "industrial"
         ]
       }
     },
@@ -486,6 +562,10 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "alley or passage",
+          "plaza or courtyard"
         ]
       }
     },
@@ -513,6 +593,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "plaza or courtyard"
         ]
       }
     },
@@ -539,6 +622,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "market"
         ]
       }
     },
@@ -566,6 +652,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "plaza or courtyard"
         ]
       }
     },
@@ -592,6 +681,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "plaza or courtyard"
         ]
       }
     },
@@ -608,6 +700,9 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "setting_type": [
+          "plaza or courtyard"
         ]
       }
     },
@@ -631,6 +726,9 @@
           "steampunk",
           "horror",
           "fairy_tale"
+        ],
+        "setting_type": [
+          "plaza or courtyard"
         ]
       }
     },
@@ -650,6 +748,10 @@
           "realistic",
           "steampunk",
           "horror"
+        ],
+        "setting_type": [
+          "transit or parking",
+          "industrial"
         ]
       }
     },
@@ -663,6 +765,9 @@
         ],
         "era": [
           "future"
+        ],
+        "setting_type": [
+          "transit or parking"
         ]
       }
     },
@@ -676,6 +781,10 @@
         ],
         "era": [
           "future"
+        ],
+        "setting_type": [
+          "rooftop",
+          "transit or parking"
         ]
       }
     },
@@ -689,6 +798,10 @@
         ],
         "era": [
           "future"
+        ],
+        "setting_type": [
+          "alley or passage",
+          "industrial"
         ]
       }
     },
@@ -709,6 +822,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "plaza or courtyard"
         ]
       }
     },
@@ -727,6 +843,9 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting_type": [
+          "transit or parking"
         ]
       }
     }
@@ -737,6 +856,17 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "setting_type": [
+      "rooftop",
+      "transit or parking",
+      "alley or passage",
+      "plaza or courtyard",
+      "market",
+      "industrial",
+      "recreation"
     ]
   }
 }

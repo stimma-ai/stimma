@@ -1,0 +1,392 @@
+{
+  "id": "object.chair",
+  "label": "Chair and seat",
+  "description": "chairs, stools, benches and other single-person seating choices",
+  "pos": "noun phrase",
+  "frame": "sitting on ___",
+  "notes": "Complete seats with articles, spanning everyday utility, low-cost improvisation and ornate furniture. Enduring forms can appear as contemporary furniture; period-specific designs and speculative technology carry context tags. No fixed colours or designer names.",
+  "facets": [
+    "era",
+    "genre",
+    "region"
+  ],
+  "closed": false,
+  "values": [
+    {
+      "text": "a wooden dining chair",
+      "tier": "typical"
+    },
+    {
+      "text": "a padded office chair",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a folding metal chair",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a moulded plastic chair",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a fabric armchair",
+      "tier": "typical"
+    },
+    {
+      "text": "a kitchen stool",
+      "tier": "typical"
+    },
+    {
+      "text": "a wooden bench",
+      "tier": "typical"
+    },
+    {
+      "text": "a simple school chair",
+      "tier": "typical"
+    },
+    {
+      "text": "a stackable banquet chair",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a rocking chair",
+      "tier": "typical"
+    },
+    {
+      "text": "a patio chair",
+      "tier": "typical"
+    },
+    {
+      "text": "a swivel bar stool",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a wicker peacock chair",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a leather club chair",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a canvas director’s chair",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a folding camping chair",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a beanbag chair",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a kneeling desk chair",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a bentwood café chair",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a ladder-back rush-seat chair",
+      "tier": "plausible"
+    },
+    {
+      "text": "a slatted garden chair",
+      "tier": "plausible"
+    },
+    {
+      "text": "a leather recliner",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a high-backed wing chair",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "early_modern",
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a carved wooden throne",
+      "tier": "plausible"
+    },
+    {
+      "text": "a low floor cushion",
+      "tier": "plausible"
+    },
+    {
+      "text": "a three-legged milking stool",
+      "tier": "plausible"
+    },
+    {
+      "text": "a salvaged cable-reel stool",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a hanging woven chair",
+      "tier": "unusual"
+    },
+    {
+      "text": "a transparent acrylic chair",
+      "tier": "unusual",
+      "tags": {
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a chair sculpted from driftwood",
+      "tier": "unusual"
+    },
+    {
+      "text": "a Japanese legless floor chair",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ]
+      }
+    },
+    {
+      "text": "a Chinese horseshoe-back chair",
+      "tier": "plausible",
+      "tags": {
+        "region": [
+          "east_asian"
+        ]
+      }
+    },
+    {
+      "text": "an Indian woven rope stool",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ]
+      }
+    },
+    {
+      "text": "a Ghanaian carved wooden stool",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ]
+      }
+    },
+    {
+      "text": "a Moroccan leather pouffe",
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ]
+      }
+    },
+    {
+      "text": "a Roman curule chair",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "ancient"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy"
+        ]
+      }
+    },
+    {
+      "text": "a Gothic carved choir chair",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "horror",
+          "fairy_tale"
+        ]
+      }
+    },
+    {
+      "text": "a gilded rococo armchair",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "early_modern",
+          "19th_century",
+          "contemporary"
+        ]
+      }
+    },
+    {
+      "text": "a tubular-steel cantilever chair",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ]
+      }
+    },
+    {
+      "text": "a floating antigravity seat",
+      "tier": "plausible",
+      "tags": {
+        "era": [
+          "future"
+        ],
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ]
+      }
+    }
+  ]
+}

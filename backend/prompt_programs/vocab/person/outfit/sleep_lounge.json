@@ -807,7 +807,7 @@
       }
     },
     {
-      "text": "a jersey top with {main} and {accent} stripes and {neutral} elastic-waist sleep trousers",
+      "text": "a {main} sleeveless quilted lounge vest over a {accent} ribbed top and {neutral} wide cropped trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -820,17 +820,13 @@
           "horror"
         ],
         "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
+          "contemporary"
         ],
         "kind": [
-          "pyjamas"
+          "loungewear"
         ],
         "coverage": [
-          "moderate"
+          "full"
         ]
       }
     },
@@ -885,6 +881,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -998,9 +997,6 @@
           "contemporary",
           "future"
         ],
-        "presentation": [
-          "feminine"
-        ],
         "genre": [
           "realistic",
           "scifi",
@@ -1042,7 +1038,7 @@
       }
     },
     {
-      "text": "a {main} pointelle-knit top and matching sleep trousers",
+      "text": "a {main} pointelle-knit long-sleeved sleep top and matching flared trousers with broad {accent} lace ankle ruffles",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1066,6 +1062,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1125,30 +1124,29 @@
       }
     },
     {
-      "text": "a loose unbleached linen shift with gathered wrist cuffs",
+      "text": "a {main} ankle-length jersey sleep dress with a racerback and deep side slits",
       "tier": "typical",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "casual"
         ],
-        "presentation": [
-          "feminine"
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
         ],
         "kind": [
           "nightdress"
         ],
         "coverage": [
-          "full"
+          "moderate"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1188,122 +1186,107 @@
       }
     },
     {
-      "text": "a calf-length undyed linen night tunic with a split neckline",
+      "text": "a pair of {main} loose cotton boxer sleep shorts with a {accent} drawstring",
       "tier": "typical",
       "tags": {
+        "formality": [
+          "casual"
+        ],
         "genre": [
           "realistic",
-          "fantasy",
-          "fairy_tale",
+          "scifi",
+          "cyberpunk",
           "horror"
         ],
         "era": [
-          "medieval",
-          "early_modern"
-        ],
-        "formality": [
-          "casual"
+          "contemporary"
         ],
         "kind": [
           "other"
         ],
         "coverage": [
-          "moderate"
-        ]
-      }
-    },
-    {
-      "text": "a loose cream linen shirt and soft drawstring braies",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
-        "formality": [
-          "casual"
-        ],
-        "kind": [
-          "other"
-        ],
-        "coverage": [
-          "moderate"
-        ]
-      }
-    },
-    {
-      "text": "a {main} linen sleeping gown with a tied neckline",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
-        "formality": [
-          "casual"
+          "light"
         ],
         "presentation": [
-          "feminine"
+          "masculine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} short-sleeved jersey sleep top and matching cropped harem trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a {main} bias-cut silk nightgown with a plunging lace-inset neckline and an open back",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
         ],
         "kind": [
           "nightdress"
         ],
         "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy",
           "light"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
-      "text": "a {main} wool wrap robe over an undyed linen shift",
+      "text": "a {main} sheer chiffon floor-length robe over a {accent} lace camisole and matching briefs",
       "tier": "typical",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "casual"
         ],
-        "presentation": [
-          "feminine"
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
         ],
         "kind": [
           "robe"
         ],
         "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy",
           "light"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },

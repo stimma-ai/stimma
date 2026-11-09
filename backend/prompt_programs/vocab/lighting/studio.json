@@ -1,7 +1,7 @@
 {
   "id": "lighting.studio",
   "label": "Studio lighting",
-  "description": "Photographic lighting equipment and deliberate portrait-lighting arrangements.",
+  "description": "Photographic lighting rigs, modifiers and portrait setups such as softboxes, strobes and reflectors; choose for how the image is lit for capture.",
   "pos": "noun phrase",
   "frame": "lit by ___",
   "notes": "Photographic sources, modifiers and placement belong here, indoors or outdoors. Natural owns ambient sun and sky; indoor_practical owns fixtures within the scene; dramatic owns cinematic effects described independently of equipment. These are capture setups, so the depicted era does not restrict them.",
@@ -10,123 +10,392 @@
   "values": [
     {
       "text": "a large softbox from camera left",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a white shoot-through umbrella",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a ring light around the lens",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "hard on-camera flash",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "flash"
+        ]
+      }
     },
     {
       "text": "a beauty dish above the camera",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a bounced flash aimed at the ceiling",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "flash"
+        ]
+      }
     },
     {
       "text": "a soft key light and a white fill card",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "two large softboxes flanking the camera",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a single bare studio strobe",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "flash"
+        ]
+      }
     },
     {
-      "text": "a rectangular LED panel beside the camera",
-      "tier": "typical"
+      "text": "a warm rectangular LED panel beside the camera",
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "harsh",
+          "warm"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a three-light portrait setup",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "soft",
+          "dramatic"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a silver reflective umbrella",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "reflector"
+        ]
+      }
     },
     {
-      "text": "a gridded strip softbox behind the subject",
-      "tier": "plausible"
+      "text": "a gridded strip softbox placed as a rear rim light",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft",
+          "dramatic",
+          "moody"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a snooted strobe aimed at the face",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "harsh",
+          "dramatic",
+          "moody"
+        ],
+        "source": [
+          "flash"
+        ]
+      }
     },
     {
       "text": "a clamshell arrangement of two softboxes",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a split-lighting setup with a hard side key",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "harsh",
+          "dramatic",
+          "moody"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a loop-lighting setup with a small softbox",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a broad-lighting setup illuminating the near cheek",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a large overhead diffusion silk",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a strobe reflected from a silver card",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "reflector"
+        ]
+      }
     },
     {
       "text": "a warm gold reflector beneath the face",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "dramatic",
+          "warm"
+        ],
+        "source": [
+          "reflector"
+        ]
+      }
     },
     {
-      "text": "a softbox feathered across the subject",
-      "tier": "plausible"
+      "text": "a feathered softbox key light",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a pair of strobes aimed at a white backdrop",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a soft key light with black flags absorbing fill",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft",
+          "dramatic",
+          "moody"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a strobe bounced into a large white V-flat",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "flash"
+        ]
+      }
     },
     {
-      "text": "a broad fluorescent photography bank",
-      "tier": "plausible"
+      "text": "a warm-balanced fluorescent photography bank",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft",
+          "warm"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a softbox placed close to the floor",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft",
+          "dramatic"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a focused optical spot projecting a window pattern",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "studio light"
+        ]
+      }
     },
     {
       "text": "a circular array of synchronized strobes",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "flash"
+        ]
+      }
     },
     {
       "text": "a strobe fired through a water-filled glass tray",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "flash"
+        ]
+      }
     }
-  ]
+  ],
+  "local_facets": {
+    "mood": [
+      "soft",
+      "harsh",
+      "warm",
+      "dramatic",
+      "moody"
+    ],
+    "source": [
+      "studio light",
+      "flash",
+      "reflector"
+    ]
+  }
 }

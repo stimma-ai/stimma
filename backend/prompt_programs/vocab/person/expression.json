@@ -4,7 +4,7 @@
   "description": "Visible facial expressions, from subtle reactions to strong emotion.",
   "pos": "noun phrase",
   "frame": "with ___",
-  "notes": "Facial muscle configurations and visible emotion only. Gaze owns viewing direction and eye contact; pose owns head placement and body posture. Excludes enduring facial features, makeup, actions, and inferred personality.",
+  "notes": "Facial muscle configurations and visible emotion only. Gaze owns viewing direction and eye contact; pose owns head placement and body posture. Excludes enduring facial features, makeup, actions, and inferred personality. Mood describes the affect a viewer reads, rather than mouth shape. Confident includes resolve, pride and smug self-satisfaction; thoughtful includes suspicion; flirtatious includes sultry expressions.",
   "facets": [],
   "closed": false,
   "values": [
@@ -152,7 +152,6 @@
       "tier": "typical",
       "tags": {
         "mood": [
-          "happy",
           "fearful"
         ]
       }
@@ -180,7 +179,7 @@
       "tier": "typical",
       "tags": {
         "mood": [
-          "neutral"
+          "confident"
         ]
       }
     },
@@ -236,7 +235,6 @@
       "tier": "plausible",
       "tags": {
         "mood": [
-          "happy",
           "sad"
         ]
       }
@@ -246,7 +244,6 @@
       "tier": "plausible",
       "tags": {
         "mood": [
-          "happy",
           "fearful"
         ]
       }
@@ -256,7 +253,7 @@
       "tier": "plausible",
       "tags": {
         "mood": [
-          "happy"
+          "shy"
         ]
       }
     },
@@ -265,7 +262,6 @@
       "tier": "plausible",
       "tags": {
         "mood": [
-          "happy",
           "sad"
         ]
       }
@@ -430,7 +426,6 @@
       "tier": "plausible",
       "tags": {
         "mood": [
-          "fearful",
           "thoughtful"
         ]
       }
@@ -488,6 +483,159 @@
           "playful"
         ]
       }
+    },
+    {
+      "text": "a composed expression with smooth brows and loosely resting lips",
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "calm"
+        ]
+      }
+    },
+    {
+      "text": "an impassive expression with even brows and a straight mouth",
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "neutral"
+        ]
+      }
+    },
+    {
+      "text": "a mischievous grin with a crinkled nose",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "playful"
+        ]
+      }
+    },
+    {
+      "text": "a look of revulsion with a wrinkled nose and raised upper lip",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "disgusted"
+        ]
+      }
+    },
+    {
+      "text": "a queasy grimace with a puckered mouth and pinched nostrils",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "disgusted"
+        ]
+      }
+    },
+    {
+      "text": "an expression of distaste with a protruding lower lip and deeply furrowed nose",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "disgusted"
+        ]
+      }
+    },
+    {
+      "text": "a proud smile with lifted cheeks and a firm lower lip",
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "confident"
+        ]
+      }
+    },
+    {
+      "text": "a quietly assured expression with steady eyelids and a relaxed smile",
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "confident"
+        ]
+      }
+    },
+    {
+      "text": "a smug smirk with one lifted mouth corner and an arched brow",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "confident"
+        ]
+      }
+    },
+    {
+      "text": "a self-satisfied grin with narrowed eyelids and raised cheeks",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "confident"
+        ]
+      }
+    },
+    {
+      "text": "a flirtatious smile with a gently caught lower lip",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "flirtatious"
+        ]
+      }
+    },
+    {
+      "text": "a sultry expression with heavy eyelids and softly parted lips",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "flirtatious"
+        ]
+      }
+    },
+    {
+      "text": "a teasing kiss-shaped pout with lifted eyebrows",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "flirtatious"
+        ]
+      }
+    },
+    {
+      "text": "a coy half-smile with one slightly lowered eyelid",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "flirtatious"
+        ]
+      }
+    },
+    {
+      "text": "a shy smile with lips pressed together and raised inner brows",
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "shy"
+        ]
+      }
+    },
+    {
+      "text": "a bashful expression with lightly bitten lips and flushed cheeks",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "shy"
+        ]
+      }
+    },
+    {
+      "text": "an embarrassed smile with tightly drawn lips and dimpled cheeks",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "shy"
+        ]
+      }
     }
   ],
   "local_facets": {
@@ -502,7 +650,10 @@
       "playful",
       "tired",
       "disgusted",
-      "neutral"
+      "neutral",
+      "confident",
+      "flirtatious",
+      "shy"
     ]
   }
 }

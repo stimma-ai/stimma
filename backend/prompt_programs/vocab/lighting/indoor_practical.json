@@ -1,7 +1,7 @@
 {
   "id": "lighting.indoor_practical",
   "label": "Practical light",
-  "description": "Light from lamps, fires, screens and other sources within the scene.",
+  "description": "Light emitted by fixtures inside the depicted scene: lamps, flames, screens and signs, indoors or outdoors; choose for a visible practical source.",
   "pos": "noun phrase",
   "frame": "lit by ___",
   "notes": "Real fixtures, flames and screens belong here, including outdoor practicals such as street lamps. Natural owns sunlight and moonlight; studio owns photographic rigs; dramatic owns stylised colour and contrast effects rather than ordinary fixtures. Era tags describe source availability. Untagged values fit realistic contemporary sources. Flame sources span genres and eras; electric fixtures require electrical worlds, and gas and kerosene begin in the nineteenth century. Magical and speculative emitters are tagged by world.",
@@ -33,6 +33,13 @@
           "cyberpunk",
           "steampunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "warm"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -56,6 +63,13 @@
           "cyberpunk",
           "steampunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "warm"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -80,6 +94,13 @@
           "cyberpunk",
           "steampunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "warm"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -101,6 +122,12 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -123,6 +150,13 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "harsh",
+          "cool"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -144,6 +178,13 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "cool"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -165,6 +206,12 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -188,6 +235,13 @@
           "cyberpunk",
           "steampunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "warm"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -213,6 +267,12 @@
           "steampunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -237,6 +297,12 @@
           "cyberpunk",
           "steampunk",
           "horror"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -267,6 +333,14 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "mood": [
+          "soft",
+          "warm",
+          "moody"
+        ],
+        "source": [
+          "flame"
         ]
       }
     },
@@ -297,6 +371,14 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "mood": [
+          "warm",
+          "moody",
+          "dramatic"
+        ],
+        "source": [
+          "flame"
         ]
       }
     },
@@ -319,6 +401,14 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "cool",
+          "moody"
+        ],
+        "source": [
+          "screen"
         ]
       }
     },
@@ -341,6 +431,12 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -365,6 +461,12 @@
           "cyberpunk",
           "steampunk",
           "horror"
+        ],
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "sign"
         ]
       }
     },
@@ -388,6 +490,13 @@
           "cyberpunk",
           "steampunk",
           "horror"
+        ],
+        "mood": [
+          "moody",
+          "dramatic"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -413,6 +522,12 @@
           "steampunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -436,11 +551,17 @@
           "cyberpunk",
           "steampunk",
           "horror"
+        ],
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
     {
-      "text": "a luminous aquarium beside the subject",
+      "text": "the glow of a luminous aquarium",
       "tier": "unusual",
       "tags": {
         "space": [
@@ -457,6 +578,14 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "cool",
+          "moody"
+        ],
+        "source": [
+          "luminous object"
         ]
       }
     },
@@ -478,6 +607,13 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "cool",
+          "moody"
+        ],
+        "source": [
+          "sign"
         ]
       }
     },
@@ -499,6 +635,12 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "screen"
         ]
       }
     },
@@ -523,6 +665,13 @@
           "cyberpunk",
           "steampunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "warm"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -546,6 +695,13 @@
           "cyberpunk",
           "steampunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "warm"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -567,6 +723,12 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -587,6 +749,14 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "mood": [
+          "soft",
+          "cool",
+          "moody"
+        ],
+        "source": [
+          "screen"
         ]
       }
     },
@@ -607,6 +777,13 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "mood": [
+          "soft",
+          "warm"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -624,6 +801,14 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "mood": [
+          "soft",
+          "cool",
+          "moody"
+        ],
+        "source": [
+          "screen"
         ]
       }
     },
@@ -641,6 +826,13 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -667,6 +859,14 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "warm",
+          "moody"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -693,6 +893,13 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "harsh",
+          "cool"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -721,6 +928,13 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "warm"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -748,6 +962,12 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "soft"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -774,11 +994,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "cool"
+        ],
+        "source": [
+          "screen"
         ]
       }
     },
     {
-      "text": "a gas station canopy",
+      "text": "overhead lights in a gas station canopy",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -800,6 +1026,12 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "harsh"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -827,6 +1059,13 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -854,6 +1093,13 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "moody"
+        ],
+        "source": [
+          "sign"
         ]
       }
     },
@@ -884,6 +1130,14 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "mood": [
+          "soft",
+          "warm",
+          "moody"
+        ],
+        "source": [
+          "flame"
         ]
       }
     },
@@ -914,6 +1168,14 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "mood": [
+          "warm",
+          "moody",
+          "dramatic"
+        ],
+        "source": [
+          "flame"
         ]
       }
     },
@@ -938,6 +1200,14 @@
           "post_apocalyptic",
           "horror",
           "fairy_tale"
+        ],
+        "mood": [
+          "soft",
+          "warm",
+          "moody"
+        ],
+        "source": [
+          "flame"
         ]
       }
     },
@@ -965,6 +1235,14 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "mood": [
+          "soft",
+          "warm",
+          "moody"
+        ],
+        "source": [
+          "flame"
         ]
       }
     },
@@ -992,6 +1270,14 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "mood": [
+          "soft",
+          "warm",
+          "moody"
+        ],
+        "source": [
+          "flame"
         ]
       }
     },
@@ -1019,6 +1305,14 @@
           "post_apocalyptic",
           "horror",
           "fairy_tale"
+        ],
+        "mood": [
+          "soft",
+          "warm",
+          "moody"
+        ],
+        "source": [
+          "flame"
         ]
       }
     },
@@ -1051,6 +1345,14 @@
           "post_apocalyptic",
           "horror",
           "fairy_tale"
+        ],
+        "mood": [
+          "soft",
+          "warm",
+          "moody"
+        ],
+        "source": [
+          "flame"
         ]
       }
     },
@@ -1079,6 +1381,14 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "mood": [
+          "soft",
+          "warm",
+          "moody"
+        ],
+        "source": [
+          "flame"
         ]
       }
     },
@@ -1109,6 +1419,14 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "mood": [
+          "soft",
+          "warm",
+          "moody"
+        ],
+        "source": [
+          "flame"
         ]
       }
     },
@@ -1130,6 +1448,13 @@
           "steampunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -1151,6 +1476,13 @@
           "steampunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "mood": [
+          "moody",
+          "dramatic"
+        ],
+        "source": [
+          "sign"
         ]
       }
     },
@@ -1172,6 +1504,14 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "mood": [
+          "soft",
+          "warm",
+          "moody"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -1192,6 +1532,14 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "mood": [
+          "cool",
+          "moody",
+          "dramatic"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -1214,6 +1562,13 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "lamp"
         ]
       }
     },
@@ -1227,6 +1582,14 @@
         ],
         "era": [
           "future"
+        ],
+        "mood": [
+          "soft",
+          "cool",
+          "dramatic"
+        ],
+        "source": [
+          "screen"
         ]
       }
     },
@@ -1240,6 +1603,14 @@
         ],
         "era": [
           "future"
+        ],
+        "mood": [
+          "harsh",
+          "cool",
+          "dramatic"
+        ],
+        "source": [
+          "luminous object"
         ]
       }
     },
@@ -1265,6 +1636,14 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "mood": [
+          "soft",
+          "moody",
+          "dramatic"
+        ],
+        "source": [
+          "luminous object"
         ]
       }
     }
@@ -1275,6 +1654,23 @@
     ],
     "era": [
       "contemporary"
+    ]
+  },
+  "local_facets": {
+    "mood": [
+      "soft",
+      "warm",
+      "harsh",
+      "cool",
+      "moody",
+      "dramatic"
+    ],
+    "source": [
+      "lamp",
+      "flame",
+      "screen",
+      "sign",
+      "luminous object"
     ]
   }
 }

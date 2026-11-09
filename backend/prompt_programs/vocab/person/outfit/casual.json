@@ -338,6 +338,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -916,6 +919,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "south_asian"
         ]
       }
     },
@@ -951,6 +957,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "south_asian"
         ]
       }
     },
@@ -984,6 +993,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "south_asian"
         ]
       }
     },
@@ -1019,6 +1031,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "middle_eastern"
         ]
       }
     },
@@ -1054,6 +1069,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "middle_eastern"
         ]
       }
     },
@@ -1088,6 +1106,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "african"
         ]
       },
       "palette": {
@@ -1126,6 +1147,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "african"
         ]
       }
     },
@@ -1160,6 +1184,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "african"
         ]
       },
       "palette": {
@@ -1195,6 +1222,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "african"
         ]
       }
     },
@@ -1223,6 +1253,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "latin_american"
         ]
       }
     },
@@ -1260,6 +1293,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "latin_american"
         ]
       },
       "palette": {
@@ -1302,6 +1338,9 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "region": [
+          "southeast_asian"
         ]
       }
     },
@@ -1329,6 +1368,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "east_asian"
         ]
       }
     },
@@ -1362,6 +1404,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "region": [
+          "east_asian"
         ]
       }
     },
@@ -1398,97 +1443,80 @@
       }
     },
     {
-      "text": "a coarse linen shirt and undyed wool drawstring trousers",
+      "text": "a {main} cropped canvas chore vest over a {accent} T-shirt and {neutral} barrel-leg trousers",
       "tier": "typical",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "casual"
         ],
         "style": [
-          "traditional"
+          "workwear"
         ],
         "coverage": [
           "full"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
         ]
       }
     },
     {
-      "text": "a {main} wool overtunic over a belted {neutral} linen underdress",
+      "text": "a {main} quilted pinafore with a square bib over a {accent} jersey turtleneck and {neutral} tights",
       "tier": "typical",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "casual"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "style": [
+          "romantic"
+        ],
+        "coverage": [
+          "full"
         ],
         "presentation": [
           "feminine"
-        ],
-        "style": [
-          "traditional"
-        ],
-        "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy",
-          "monochrome"
         ]
       }
     },
     {
-      "text": "a short {main} tunic and {neutral} cross-gartered wool leg wraps",
+      "text": "a {main} sleeveless hooded jersey dress with a stepped hem over {neutral} cycling shorts",
       "tier": "typical",
       "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
         "formality": [
           "casual"
         ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
+        ],
         "style": [
-          "traditional"
+          "sporty"
         ],
         "coverage": [
-          "full"
-        ]
-      },
-      "palette": {
-        "tone": [
-          "muted",
-          "earthy",
-          "monochrome"
+          "moderate"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1764,6 +1792,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1839,6 +1870,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1864,6 +1898,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1917,6 +1954,9 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -2311,7 +2351,7 @@
       }
     },
     {
-      "text": "a white linen thobe with a stand collar and long sleeves",
+      "text": "a {main} thobe beneath a cropped {accent} sleeveless brocade waistcoat",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2325,6 +2365,34 @@
         ],
         "genre": [
           "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "contemporary"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "region": [
+          "middle_eastern"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} synthetic-leather jacket and {neutral} pleated midi skirt",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
           "scifi",
           "cyberpunk",
           "horror"
@@ -2332,6 +2400,90 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "style": [
+          "streetwear"
+        ],
+        "formality": [
+          "casual"
+        ]
+      }
+    },
+    {
+      "text": "a patched {main} canvas coat and faded {neutral} cargo trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "style": [
+          "workwear"
+        ],
+        "formality": [
+          "casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} hooded coat sewn from mismatched canvas panels and blue jeans",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "style": [
+          "workwear"
+        ],
+        "formality": [
+          "casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     }

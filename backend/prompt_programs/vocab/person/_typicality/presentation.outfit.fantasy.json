@@ -1,0 +1,44 @@
+{
+ "given": "presentation",
+ "target": "person.outfit.fantasy",
+ "policy": "t1",
+ "scored_by": "mechanical, from the list's presentation tags (presentation is visual styling, not identity)",
+ "levels": [
+  "common",
+  "uncommon",
+  "rare",
+  "implausible"
+ ],
+ "policy_note": "looks tagged only feminine are rare for a masculine person; looks tagged only masculine are uncommon for a feminine one; untagged and both-tagged looks are common (missing cells). Regenerate from the tags when the list changes.",
+ "rows": {
+  "masculine": {
+   "a {main} hooded cloak over a {neutral} wool dress": "rare",
+   "a {main} velvet robe over a {accent} brocade undergown": "rare",
+   "a {main} leaf-panelled gown with a fitted {accent} linen bodice": "rare",
+   "a {main} silk gown with gold vine embroidery": "rare",
+   "a {main} layered gown with petal-shaped {accent} overskirts": "rare",
+   "a waist-length {main} scalloped wool hooded cape over a {accent} laced bodice and a full {neutral} pinafore skirt": "rare",
+   "a {main} brocade gown with structured crescent-shaped sleeves": "rare",
+   "a bark-textured bodice and a full woven-grass skirt": "rare",
+   "a {main} gold-threaded court gown with a rigid sunray collar and a fan-pleated skirt beneath a short {accent} brocade cape": "rare",
+   "a {main} silk gown with overlapping scale-shaped panels": "rare",
+   "a {main} silk cocoon gown with a rigid oval hip frame and translucent {accent} wing-shaped back panels": "rare",
+   "a {main} silk bustle gown with embroidered {accent} thorn-patterned trim": "rare",
+   "a {main} wool riding habit with a fitted double-breasted jacket": "rare",
+   "a {main} silk halter top and split {accent} gauze skirt with metallic rune embroidery": "rare",
+   "a cropped {main} leather bodice and {neutral} linen shorts with {accent} laced side panels": "rare",
+   "a sleeveless {main} silk court gown with a stiff {accent} brocade overskirt and pearl edging": "rare",
+   "a {main} silk bandeau and draped {accent} gauze skirt with gold chain edging": "rare",
+   "a short-sleeved {main} linen shift under a {accent} laced wool bodice and {neutral} gathered skirt": "rare",
+   "a {main} linen wrap top and {neutral} knee-length woven skirt with a {accent} patched apron": "rare",
+   "a woven reed halter and a layered skirt of fresh fern fronds": "rare",
+   "a {main} layered tulle dress with sculpted {accent} butterfly-shaped sleeves and a {neutral} silk underskirt": "rare"
+  },
+  "feminine": {
+   "a {main} velvet frock coat and {accent} brocade waistcoat with {neutral} trousers": "uncommon",
+   "a fitted {main} suede hooded doublet with {neutral} split-knee trousers and {accent} cloth wrist wraps": "uncommon",
+   "a {main} velvet doublet with pearl buttons and {accent} slashed sleeves over {neutral} silk hose": "uncommon",
+   "a {main} fur-collared wool coat over a {accent} fitted doublet and {neutral} velvet breeches": "uncommon"
+  }
+ }
+}

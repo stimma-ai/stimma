@@ -1,7 +1,7 @@
 {
   "id": "lighting.dramatic",
   "label": "Dramatic lighting",
-  "description": "Stylised colour, contrast and shadow effects for cinematic images.",
+  "description": "Expressive light effects defined by contrast, colour, silhouette or projected patterns; choose for a cinematic effect rather than a named natural source or rig.",
   "pos": "noun phrase",
   "frame": "lit by ___",
   "notes": "Designed colour relationships, silhouettes and expressive light patterns belong here. Studio owns named photographic rigs and modifiers; indoor_practical owns ordinary in-scene fixtures; natural owns literal sun, sky and moon sources. Colour treatments can be used across depicted eras.",
@@ -10,131 +10,450 @@
   "values": [
     {
       "text": "a single hard spotlight from above",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "spotlight"
+        ]
+      }
     },
     {
       "text": "strong rim light against a dark background",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "moody",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "warm key light against cool blue fill",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "warm",
+          "cool",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "hard side light dividing the face into light and shadow",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "moody",
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "soft amber light against deep shadows",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "soft",
+          "moody",
+          "warm",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "pink and teal light",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "red light from one side and blue light from the other",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "harsh",
+          "cool",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "cool cyan light across a dark scene",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "moody",
+          "cool",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "a bright shaft of light through smoky air",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "deep red light with sharp black shadows",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "moody",
+          "harsh",
+          "warm",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "violet light edged with pale blue highlights",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "cool",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "an emerald glow rising from below",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "moody",
+          "cool",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
-      "text": "a thin slash of white light across the face",
-      "tier": "plausible"
+      "text": "projected bands of light and shadow",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "moody",
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "projector"
+        ]
+      }
     },
     {
       "text": "alternating bands of light and shadow",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "moody",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "an oval pool of light surrounded by darkness",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "spotlight"
+        ]
+      }
     },
     {
-      "text": "crossing beams of white light",
-      "tier": "plausible"
+      "text": "crossing beams of white laser light",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "laser"
+        ]
+      }
     },
     {
       "text": "pale blue underlighting beneath the chin",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "moody",
+          "harsh",
+          "cool",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "warm light reflected from below",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "warm",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "orange backlight through drifting smoke",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "moody",
+          "warm",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "magenta highlights against green shadows",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "moody",
+          "cool",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "a moving searchlight sweeping across the scene",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "spotlight"
+        ]
+      }
     },
     {
       "text": "soft pink light fading into lavender shadow",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft",
+          "moody",
+          "cool",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
-      "text": "fragmented light through a patterned screen",
-      "tier": "plausible"
+      "text": "fragmented projected light through a patterned screen",
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft",
+          "dramatic"
+        ],
+        "source": [
+          "projector"
+        ]
+      }
     },
     {
       "text": "rippling reflected light across the walls",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "a luminous halo directly behind the head",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "soft",
+          "moody",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "pulsing red emergency light",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "moody",
+          "harsh",
+          "warm",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "a bright triangle of light on one cheek",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "a spiralling pattern of projected light",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "projector"
+        ]
+      }
     },
     {
       "text": "rainbow caustics scattered across the skin",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "soft",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
-      "text": "concentric rings of projected light",
-      "tier": "unusual"
+      "text": "concentric rings of projected laser light",
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "dramatic"
+        ],
+        "source": [
+          "laser"
+        ]
+      }
     },
     {
       "text": "saturated yellow light against cobalt shadows",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "warm",
+          "dramatic"
+        ],
+        "source": [
+          "unspecified"
+        ]
+      }
     },
     {
       "text": "a web of fine laser beams in haze",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "mood": [
+          "harsh",
+          "dramatic"
+        ],
+        "source": [
+          "laser"
+        ]
+      }
     }
-  ]
+  ],
+  "local_facets": {
+    "mood": [
+      "harsh",
+      "dramatic",
+      "moody",
+      "warm",
+      "cool",
+      "soft"
+    ],
+    "source": [
+      "spotlight",
+      "unspecified",
+      "projector",
+      "laser"
+    ]
+  }
 }
