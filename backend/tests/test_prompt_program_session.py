@@ -145,12 +145,18 @@ class TestApplyEdits:
     def test_multiline_text_inserts_several_lines(self):
         assert apply_edits("a\nb\n", [{"line": 1, "text": "x\ny"}]) == "x\ny\nb\n"
 
+    def test_one_past_the_end_adds_at_the_end(self):
+        # a tail rewritten with one line inserted runs one past the end
+        out = apply_edits("a\nb\nc\n", [{"line": 2, "text": "new"}, {"line": 3, "text": "b"}, {"line": 4, "text": "c"}])
+        assert out == "a\nnew\nb\nc\n"
+
     def test_the_numbered_prefix_is_dropped(self):
         assert apply_edits("a\nb\n", [{"line": 2, "text": "2: c"}]) == "a\nc\n"
 
     @pytest.mark.parametrize("edits, why", [
         ([], "non-empty"),
         ([{"line": 9, "text": "x"}], "doesn't exist"),
+        ([{"line": 6, "text": "x"}, {"line": 5.5, "text": "y"}], "two edits add lines"),
         ([{"line": 1, "text": "x"}, {"line": 1, "text": "y"}], "twice"),
         ([{"line": 1.5, "text": "x"}, {"line": 1.5, "text": "y"}], "two edits add lines"),
         ([{"line": 2, "text": 'emit("x", a, "z")'}, {"line": 3, "text": "  q,"}], "can't be edited separately"),

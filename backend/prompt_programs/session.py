@@ -113,7 +113,8 @@ EDIT_SCHEMA = _tool(
     "lines, already changed. Each edit is {line, text}:\n"
     "- line N (a whole number): line N becomes text. Empty text deletes line N. If line N starts a statement "
     "that continues over the next lines and text is the whole new statement, it replaces all of those lines.\n"
-    "- line N.5: text is added after line N (0.5 adds it before line 1).\n"
+    "- line N.5: text is added after line N (0.5 adds it before line 1; the last line's number plus one adds it at "
+    "the end).\n"
     "text may hold several lines. All numbers refer to the program before this change, and each line is "
     "edited at most once.",
     {"edits": {"type": "array", "items": {"type": "object", "properties": {
@@ -187,7 +188,11 @@ def apply_edits(source: str, edits: Any) -> str:
         # the numbered view leaks into the text sometimes: "7: emit(...)" for line 7
         text = re.sub(rf"^\s*{k}(?:\.\d+)?:[ \t]", "", text)
         new = [ln.rstrip() for ln in text.split("\n")] if text.strip() else []
-        if at == k:
+        if at == k and k == n + 1:  # one past the last line: added at the end (a rewritten tail runs one longer)
+            if n in insert:
+                raise EditError(f"two edits add lines after line {n}: put them in one text")
+            insert[n] = new
+        elif at == k:
             if not 1 <= k <= n:
                 raise EditError(f"line {k} doesn't exist: the program has {n} lines (add a line after line N with N.5)")
             if k in replace:
