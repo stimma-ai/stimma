@@ -26,14 +26,10 @@
         <ProvenanceAppHost @navigate="openMedia">
           <ProvenanceSteps :steps="provenance.steps" />
         </ProvenanceAppHost>
-        <!-- Prompt programs: every choice this image drew. -->
+        <!-- Prompt programs: the prompt as drawn, one row per roll. -->
         <div v-if="programRun" class="mt-4" data-program-draws>
-          <div class="text-xs font-semibold text-content-secondary mb-1">Choices drawn</div>
-          <KeyValueList :rows="drawRows" />
-          <template v-if="judgeRows.length">
-            <div class="text-xs font-semibold text-content-secondary mt-3 mb-1">Judge</div>
-            <KeyValueList :rows="judgeRows" data-program-judge />
-          </template>
+          <div class="text-xs font-semibold text-content-secondary mb-2">Choices drawn</div>
+          <PromptProgramRolls :run="programRun" />
           <div class="mt-3 flex flex-wrap gap-2">
             <Button size="sm" @click="$emit('program-replay', programRun); $emit('close')">Same draws, new seed</Button>
             <Button size="sm" variant="secondary" @click="$emit('program-use', programRun); $emit('close')">Use these choices</Button>
@@ -67,7 +63,7 @@ import {
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
 import { mapJobStatus, textClass, dotClass, bgClass } from '../../utils/statusColors'
 import GenerationDetailsModal, { type InputEntry } from './GenerationDetailsModal.vue'
-import KeyValueList from '../ui/KeyValueList.vue'
+import PromptProgramRolls from './PromptProgramRolls.vue'
 import Button from '../ui/Button.vue'
 
 interface Job {
@@ -133,55 +129,6 @@ const programRun = computed<any | null>(() => {
   const run = meta?.prompt_program
   return run && Array.isArray(run.draws) && run.draws.length ? run : null
 })
-const drawRows = computed(() => {
-  const run = programRun.value
-  if (!run) return []
-  const loraWeight = (name: string) => (run.loras || []).find((l: any) => l.name === name)?.weight
-  return run.draws.map((d: any, i: number) => {
-    let value = String(d.value)
-    if (d.kind === 'lora' && loraWeight(d.value) != null) value += ` · LoRA ${Number(loraWeight(d.value)).toFixed(2)}`
-    if (d.pinned) value += ' (pinned)'
-    const score = judgeScores.value[d.id]
-    if (typeof score === 'number') value += ` · ${score.toFixed(2)}`
-    return {
-      key: `${d.id}-${i}`,
-      label: d.hidden ? `  ${d.label}` : d.label,
-      value,
-      mono: d.kind === 'param',
-      valueClass: d.hidden ? 'text-content-tertiary' : 'text-selection',
-    }
-  })
-})
-
-// The fix pass: each judged pick's P(wrong) in the draw that shipped, and what it rerolled.
-const judgeScores = computed<Record<string, number | null>>(() => {
-  const fix = programRun.value?.fix
-  const round = fix?.rounds?.[fix?.chosen ?? 0]
-  return round?.scores || {}
-})
-const judgeRows = computed(() => {
-  const fix = programRun.value?.fix
-  if (!fix) return []
-  const rows: any[] = [{ key: 'judge', label: 'Model', value: fix.judge || '—', truncate: true }]
-  if (fix.error) rows.push({ key: 'error', label: 'Error', value: fix.error, mono: false, valueClass: 'text-content-secondary' })
-  if (fix.cut != null) rows.push({ key: 'cut', label: 'Cut', value: Number(fix.cut).toFixed(3) })
-  if (fix.rerolls != null) {
-    rows.push({ key: 'rerolls', label: 'Rerolls', value: `${fix.rerolls}${fix.unresolved ? ' · unresolved' : ''}` })
-  }
-  ;(fix.rounds || []).forEach((r: any, i: number) => {
-    if (!r.rerolled) return
-    const was = r.scores?.[r.rerolled.id]
-    rows.push({
-      key: `reroll-${i}`,
-      label: r.rerolled.label,
-      value: `${r.rerolled.value}${typeof was === 'number' ? ` · ${was.toFixed(2)}` : ''}${r.rerolled.failed ? ' · nothing left' : ''}`,
-      valueClass: 'text-content-tertiary line-through',
-    })
-  })
-  if (fix.ms != null) rows.push({ key: 'ms', label: 'Time', value: `${Math.round(fix.ms)} ms` })
-  return rows
-})
-
 function openMedia(mediaId: number) {
   mediaDetails.open(mediaId)
 }
