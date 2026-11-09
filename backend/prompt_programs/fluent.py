@@ -98,7 +98,9 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
         raise ProgramError(f"This prompt was drawn from options version {version}, which this version of Stimma "
                            "can't read, so it can't be replayed exactly.")
     pools = rev.get("pools")
-    limits = ({str(k): int(v) for k, v in pools.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
+    # A pool's recorded length, or a vocabulary list's whole pool ([[value, weight], ...]).
+    limits = ({str(k): (int(v) if not isinstance(v, list) else v) for k, v in pools.items()
+               if (isinstance(v, (int, float)) and not isinstance(v, bool)) or isinstance(v, list)}
               if isinstance(pools, dict) else None)
     options = GeneratedOptions(store, program_context(entry), edits=edits, filler=filler,
                                limits=limits, project_id=project_id,

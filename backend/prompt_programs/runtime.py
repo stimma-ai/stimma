@@ -435,11 +435,14 @@ def _label_from_id(cid: str) -> str:
 _ARTICLE = re.compile(r"\b(a|an|the)\s+(?=(?:a|an|the)\s)", re.I)
 
 
-_A_AN = re.compile(r"\b(a|an|A|An)\s+([A-Za-z][\w'-]*)")
+# An article and the word after it. A capital "A" mid-sentence is a letter, not an article
+# ("Plan A", "vitamin A"): only a lowercase one, or one starting a sentence, is corrected.
+_A_AN = re.compile(r"(?:(?<=^)|(?<=[.!?]\s)|(?<=[\"'(\[]))(A|An)\s+([A-Za-z][\w'-]*)|\b(a|an)\s+([A-Za-z][\w'-]*)")
 # Words whose sound doesn't follow their first letter.
-_AN_WORDS = {"hour", "hours", "hourly", "honest", "honor", "honour", "heir", "herb", "herbs"}
+_AN_WORDS = {"hour", "hours", "hourly", "honest", "honestly", "honor", "honour", "honorable", "honourable", "heir", "heiress"}
 # Vowel-initial words said with a consonant sound ("a unicorn", "a European", "a one-off").
-_A_WORDS = ("uni", "use", "usu", "uti", "uto", "uga", "ukr", "uru", "uro", "ure", "ura", "eu", "one", "once", "ubiq")
+_A_WORDS = ("unic", "unif", "unio", "uniq", "unis", "unit", "univ", "use", "usu", "uti", "uto", "uga", "ukr", "uru",
+            "uro", "ura", "eu", "one", "once", "ubiq")
 
 
 def _wants_an(word: str) -> bool:
@@ -452,7 +455,9 @@ def _wants_an(word: str) -> bool:
 
 
 def _fix_article(m: "re.Match[str]") -> str:
-    art, word = m.group(1), m.group(2)
+    art, word = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
+    if len(word) == 1:  # "a B-movie" reads by letter; "a A" is too rare to guess
+        return m.group(0)
     new = "an" if _wants_an(word) else "a"
     return f"{new.capitalize() if art[0].isupper() else new} {word}"
 

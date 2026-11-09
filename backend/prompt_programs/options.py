@@ -490,7 +490,7 @@ class GeneratedOptions:
 
     def __init__(self, store: Optional[OptionStore], program: ProgramContext,
                  edits: Optional[Dict[str, Dict[str, Any]]] = None, filler: Optional[OptionFiller] = None,
-                 resolver: Optional[ClassResolver] = None, limits: Optional[Dict[str, int]] = None,
+                 resolver: Optional[ClassResolver] = None, limits: Optional[Dict[str, Any]] = None,
                  project_id: Optional[int] = None, generate: bool = True,
                  checker: Optional[Callable[[OptionJob, "GeneratedOptions"], Awaitable[Any]]] = None,
                  version: Optional[str] = None):
@@ -532,8 +532,8 @@ class GeneratedOptions:
         specific = spec.id in self.specific and self.program.template != self.program.signature
         signature = self.program.template if specific else self.program.signature
         key = pool_key(spec, context) + (" | written for this prompt" if specific else "")
-        if spec.cls:  # a replay reads the list as this vocabulary version had it
-            key += f" | {spec.cls} {vocabulary().version}"
+        if spec.cls:  # a revision records the bound pool itself, so the key needn't name a version
+            key += f" | {spec.cls}"
         lineage = "" if specific else self.program.lineage
         intent = dict(self.program.intents).get(spec.id, "")
         return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate,
@@ -595,7 +595,7 @@ class GeneratedOptions:
         weights = [_weight(i, len(written) + len(adds)) for i in range(len(items))]
         gone = {_norm(x) for x in edit.get("remove") or []}
         kept = [(o, w) for o, w in zip(items, weights) if _norm(o) not in gone]
-        if key in self.limits:  # replaying a recorded revision
+        if isinstance(self.limits.get(key), (int, float)):  # replaying a recorded revision
             kept = kept[: int(self.limits[key])]
         pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False)
         rounds = self.store.rounds(skey) if self.store is not None else 0
@@ -606,6 +606,10 @@ class GeneratedOptions:
         additions, and for an open list the options generated to extend it, which share
         the pool's weight with the list. The writer's seeds aren't used: the list replaces
         them. Returns (pool, the generated options, generation rounds)."""
+        recorded = self.limits.get(key)
+        if isinstance(recorded, list):  # replaying a revision: the pool exactly as it drew, whatever the list is now
+            pool = Pool(key, [str(o) for o, _ in recorded], [float(w) for _, w in recorded], False, True)
+            return pool, [], 0
         edit = self.edits.get(spec.id) or {}
         seen = {_norm(x) for x in edit.get("remove") or []}   # removed, then each option once
 
@@ -620,15 +624,15 @@ class GeneratedOptions:
                         [(str(x), 1.0) for x in edit.get("add") or [] if str(x).strip()])
         generated = self.store.options(skey) if self.store is not None and not leaf.closed else []
         gen = unique([(o, GEN_DECAY ** i) for i, o in enumerate(generated)])
-        if key in self.limits:  # replaying a recorded revision: the pool as it was, before weighting
-            n = int(self.limits[key])
+        if isinstance(recorded, (int, float)):  # a length recorded for this pool: truncate before weighting
+            n = int(recorded)
             listed, gen = listed[:n], gen[: max(0, n - len(listed))]
         if gen and listed:
             lw, gw = sum(w for _, w in listed), sum(w for _, w in gen)
             listed = [(o, w * OPEN_SHARE / lw) for o, w in listed]
             gen = [(o, w * (1 - OPEN_SHARE) / gw) for o, w in gen]
         kept = [*listed, *gen]
-        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False)
+        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, True)
         rounds = self.store.rounds(skey) if self.store is not None and not leaf.closed else 0
         return pool, generated, rounds
 

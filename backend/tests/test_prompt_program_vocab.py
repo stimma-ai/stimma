@@ -184,6 +184,23 @@ class TestBoundPools:
         again = GeneratedOptions(store, program(), limits={first.key: len(first.items)}).get(s, {})
         assert again.items == first.items and again.weights == pytest.approx(first.weights)
 
+    def test_a_revision_replays_after_the_vocabulary_changes(self, tmp_path, monkeypatch):
+        import dataclasses
+        from prompt_programs.fluent import runtime_for
+        info = discover(PORTRAIT)
+        entry = {"key": "p", "program": PORTRAIT, "loras": [], "params": {}, "mode": "prose", "choices": info["choices"]}
+        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
+        first = draw(PORTRAIT, 12, None, [], None, None, None, options=rt.options, judge=NullJudge())
+        rev = first.revision
+        assert any(isinstance(v, list) for v in rev["pools"].values())  # bound pools are recorded whole
+        v = vocabulary()
+        for lid in ("person.expression", "person.eye_color", "person.ethnicity"):  # a new vocabulary release
+            leaf = v.leaves[lid]
+            monkeypatch.setitem(v.leaves, lid, dataclasses.replace(leaf, values=tuple(reversed(leaf.values[1:]))))
+        rt2 = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=rev)
+        again = draw(PORTRAIT, 12, None, [], None, None, None, options=rt2.options, judge=NullJudge())
+        assert again.prompt == first.prompt
+
     def test_bound_and_unbound_pools_never_share_generated_options(self):
         a = PickSpec("x", "X", "her expression", 2, "text", "pick", [], [])
         b = PickSpec("x", "X", "her expression", 2, "text", "pick", [], [], "person.expression")
@@ -216,6 +233,9 @@ class TestArticles:
         ("an unicorn", "A unicorn"), ("an European", "A European"), ("a umbrella", "An umbrella"),
         ("a Ukrainian woman", "A Ukrainian woman"), ("a LED lamp", "An LED lamp"), ("an USB cable", "A USB cable"),
         ("She has a oval face.", "She has an oval face."), ("A portrait of a athletic man", "A portrait of an athletic man"),
+        ("Plan A in action", "Plan A in action"), ("a bottle of vitamin A oil", "A bottle of vitamin A oil"),
+        ("an unimpressed woman", "An unimpressed woman"), ("a uniform", "A uniform"), ("an university", "A university"),
+        ("grade A eggs", "Grade A eggs"), ('He said "a apple"', 'He said "an apple"'),
     ])
     def test_a_and_an_follow_the_next_word(self, text, want):
         assert tidy_text([text]) == want

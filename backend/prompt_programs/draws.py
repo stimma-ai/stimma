@@ -576,6 +576,7 @@ class Pool:
     items: List[str]
     weights: List[float]
     more_coming: bool = False
+    snapshot: bool = False       # a revision records the whole pool (vocabulary lists change between versions)
 
 
 def pool_key(spec: PickSpec, context: Dict[str, Any]) -> str:
@@ -860,7 +861,8 @@ class _Exec(_Runner):
     def _eligible(self, cid: str, spec: PickSpec, context: Dict[str, Any], exclude: Any) -> List[Tuple[str, float]]:
         pool = self.eng.options.get(spec, context)
         if self.record:  # the revision records the pools the final prompt drew from
-            self.eng.pools[pool.key] = len(pool.items)
+            self.eng.pools[pool.key] = ([[o, w] for o, w in zip(pool.items, pool.weights)] if pool.snapshot
+                                        else len(pool.items))
             if pool.more_coming:
                 self.eng.more_coming.append(cid)
         excl = {str(x) for x in (exclude or []) if x is not None}
@@ -954,7 +956,7 @@ class _Engine:
         self.decided: Dict[str, str] = {}
         self.param_values: Dict[str, Any] = {}
         self.kept: Set[str] = set()            # replayed (fixed) values: kept, not judged
-        self.pools: Dict[str, int] = {}
+        self.pools: Dict[str, Any] = {}   # pool key → its length, or for a vocabulary list the whole pool
         self.judged: Dict[Tuple[str, str, str, str], Dict[str, float]] = {}
         self.unresolved: List[Dict[str, Any]] = []
         self.labels: Dict[str, str] = {}
