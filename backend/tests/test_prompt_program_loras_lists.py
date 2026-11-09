@@ -124,6 +124,12 @@ class TestOneListSeveralPlaces:
         assert "exclude=[a]" in fixed and "exclude=[a, b]" not in fixed
 
 
+
+async def text_endpoint(project_id):
+    """A writer endpoint without tool calls: the text protocol."""
+    return None, "text"
+
+
 @pytest.fixture
 def slow_model(monkeypatch, tmp_path):
     async def fake_candidates(tool_id, items, profile_id):
@@ -136,6 +142,7 @@ def slow_model(monkeypatch, tmp_path):
     monkeypatch.setattr(prep, "writer_style", fake_style)
     monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
     monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
+    monkeypatch.setattr(prep, "_writer_endpoint", text_endpoint)  # these fake the text protocol's _ask_model
     monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
 
 

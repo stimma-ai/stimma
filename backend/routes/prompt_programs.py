@@ -36,6 +36,8 @@ class PrepareRequest(BaseModel):
     elaborate: bool = True
     # The prompt menu's "LoRA notes": whether the model is told the user's LoRA notes.
     lora_notes: bool = True
+    # The program the editor showed before this prompt: an edit of it continues its writer session.
+    base_key: Optional[str] = None
 
 
 class PreviewRequest(PrepareRequest):
@@ -57,6 +59,7 @@ async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
             prompt=req.prompt, tool_id=req.tool_id, ctx=ctx, instructions=req.instructions.strip(),
             lora_items=req.loras, project_id=req.project_id, profile_id=get_current_profile(),
             cache_only=req.cache_only, force=req.force, elaborate=req.elaborate, lora_notes=req.lora_notes,
+            base_key=req.base_key,
         )
     except PrepareTimeout as e:
         raise HTTPException(status_code=422, detail={"code": "prepare_timeout", "message": str(e)}) from None

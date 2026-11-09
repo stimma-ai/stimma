@@ -121,6 +121,12 @@ class TestDiscover:
 PROMPT = "A woman waiting for a train on a {rainy|foggy|bright} morning. [Shot on Portra 400]\n# Vary her clothing.\n# Hairstyle: use the curtain bangs or wolf cut LoRA.\n# Vary guidance between 3.5 and 5.5."
 
 
+
+async def text_endpoint(project_id):
+    """A writer endpoint without tool calls: the text protocol."""
+    return None, "text"
+
+
 @pytest.fixture
 def stub(monkeypatch, tmp_path):
     calls = []
@@ -144,6 +150,7 @@ def stub(monkeypatch, tmp_path):
     monkeypatch.setattr(prep, "_ask_model", fake_ask)
     monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
     monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
+    monkeypatch.setattr(prep, "_writer_endpoint", text_endpoint)  # these fake the text protocol's _ask_model
     monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
     stub_state["enhanced"] = enhanced
     return calls, replies

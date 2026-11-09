@@ -207,7 +207,9 @@ export function usePromptProgram(o: Options) {
   async function prepareNow(sig: string, force: boolean): Promise<boolean> {
     busy.value = true
     try {
-      const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ force }))
+      // The program shown now is what this prompt edits: its writer session continues from it.
+      const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`,
+        request({ force, base_key: force ? null : program.value?.key ?? null }))
       if (data?.unsupported) {
         unsupportedSig.value = sig
         return true

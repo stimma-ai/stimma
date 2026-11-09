@@ -26,7 +26,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-33"
+PREPARE_VERSION = "pp-34"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -1507,10 +1507,12 @@ async def lora_candidates(tool_id: str, items: Sequence[Dict[str, Any]], profile
 async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], instructions: str,
                          lora_items: Sequence[Dict[str, Any]], project_id: Optional[int],
                          profile_id: Optional[str], cache_only: bool = False, force: bool = False,
-                         elaborate: bool = True, lora_notes: bool = True) -> Optional[Dict[str, Any]]:
+                         elaborate: bool = True, lora_notes: bool = True,
+                         base_key: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """The prepared program for these inputs, from cache or by asking the model.
     elaborate (Enhance on): the per-model enhancer writes a rich example first and the
-    program keeps it. Off: the program keeps the user's own words."""
+    program keeps it. Off: the program keeps the user's own words. base_key: the program
+    the editor showed before this prompt (an edit continues from it when it fits)."""
     from prompt_pipeline import _profile_wildcards_and_segments
 
     wildcards, segments = _profile_wildcards_and_segments(profile_id)
@@ -1539,6 +1541,7 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         "notes": lora_context,
         "lora_notes": {lo.name: notes[lo.name] for lo in loras if notes.get(lo.name)},  # what the writer reads
         "elaborate": bool(elaborate),
+        "writer": await _writer_fingerprint(project_id),  # another writer model writes another program
     }
     key = program_key({**parts, "prompt": source_prompt})
     context = program_key(parts)  # the same editing context, whatever the prompt says
@@ -1550,50 +1553,102 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         return cached
     # One prepare per key: concurrent runs and the editor share it instead of each
     # asking the model.
-    running = _in_flight.get(key)
+    # The key covers the writer context; the store root is the profile. A forced prepare
+    # never joins an ordinary one (it must not hand back the program it is replacing).
+    flight = (str(store.root), key, bool(force))
+    running = _in_flight.get(flight)
     if running is None:
         args = dict(key=key, store=store, tool_id=tool_id, ctx=ctx, instructions=instructions, source_prompt=masked_prompt,
                     params=params, loras=loras, notes=notes, lora_context=lora_context, project_id=project_id,
                     profile_id=profile_id, elaborate=bool(elaborate), exact=exact)
-        running = asyncio.ensure_future(_prepare(context=context, force=force, **args))
-        _in_flight[key] = running
-        running.add_done_callback(lambda _t, k=key: _in_flight.pop(k, None) if _in_flight.get(k) is _t else None)
+        running = asyncio.ensure_future(_prepare(context=context, force=force, base_key=base_key, **args))
+        _in_flight[flight] = running
+        running.add_done_callback(lambda _t, k=flight: _in_flight.pop(k, None) if _in_flight.get(k) is _t else None)
     return await asyncio.shield(running)
 
 
-_in_flight: Dict[str, "asyncio.Future[Dict[str, Any]]"] = {}
+_in_flight: Dict[Tuple[str, str, bool], "asyncio.Future[Dict[str, Any]]"] = {}
+
+
+async def _writer_fingerprint(project_id: Optional[int]) -> Optional[str]:
+    """The writer model (never its credentials): part of the program key."""
+    try:
+        cfg, _ = await _writer_endpoint(project_id)
+        return cfg.get_model() if cfg is not None else None
+    except Exception:  # no chat model configured: cached programs can still be looked up
+        return None
+
+
+# Whether an endpoint's model makes tool calls, learned on first contact: (api base, model) →
+# "tools" or "text". Endpoints without usable tool calls get the text protocol.
+_PROTOCOL: Dict[Tuple[str, str], str] = {}
+
+
+def _endpoint_id(cfg: Any) -> Tuple[str, str]:
+    return (str(cfg.get_api_base() or ""), str(cfg.get_model() or ""))
+
+
+async def _writer_endpoint(project_id: Optional[int]) -> Tuple[Any, str]:
+    """The writer's LLM config and the protocol it speaks ("tools", or "text")."""
+    from llm_resolver import get_effective_llm_config
+    cfg = await get_effective_llm_config("tool_assistant", project_id)
+    return cfg, _PROTOCOL.get(_endpoint_id(cfg), "tools")
 
 
 async def _prepare(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
+    # The session keeps its own deadline (PREPARE_LIMIT_SECONDS, keeping the best program
+    # it has); this is only the backstop for a step that ignores it.
     try:
-        return await asyncio.wait_for(_prepare_once(context=context, force=force, **args), PREPARE_LIMIT_SECONDS)
+        return await asyncio.wait_for(_prepare_once(context=context, force=force, **args), PREPARE_LIMIT_SECONDS + 2)
     except asyncio.TimeoutError:
         log.warning(f"[prompt-program] prepare {args.get('key')} gave up after {PREPARE_LIMIT_SECONDS:.0f}s")
         raise PrepareTimeout(f"Preparing took longer than {PREPARE_LIMIT_SECONDS:.0f} seconds, so it stopped. "
                              "The chat model may be busy or too slow for this prompt.") from None
 
 
-async def _prepare_once(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
-    """A small edit of a prompt prepared in this context patches that program; anything
-    else (or a patch that doesn't validate, or "Try different choices") prepares anew."""
+async def _prepare_once(*, context: str, force: bool, base_key: Optional[str] = None, **args: Any) -> Dict[str, Any]:
+    """A small edit of a prompt prepared in this context continues that program's writer
+    session; anything else (or "Try different choices") starts a new one. Endpoints whose
+    model makes no tool calls get the text protocol (_prepare_text)."""
+    started = time.monotonic()
+    store: ProgramStore = args["store"]
+    base = None if force else _patch_base(store, context, args["source_prompt"], base_key)
+    cfg, protocol = await _writer_endpoint(args["project_id"])
+    if protocol == "tools":
+        from prompt_programs.session import ToolsUnsupported, prepare_session
+        try:
+            entry = await prepare_session(cfg=cfg, base=base, context=context, started=started, **args)
+        except ToolsUnsupported as e:
+            _PROTOCOL[_endpoint_id(cfg)] = "text"
+            log.warning(f"[prompt-program] {_endpoint_id(cfg)[1]} makes no tool calls ({e}): using the text protocol")
+        else:
+            entry["context"] = context
+            store.put(entry["key"], entry)
+            store.remember(context, entry["key"])
+            _notify_prepared(entry, args["project_id"], args["profile_id"])
+            return entry
+    return await _prepare_text(context=context, base=base, **args)
+
+
+async def _prepare_text(*, context: str, base: Optional[Dict[str, Any]], **args: Any) -> Dict[str, Any]:
+    """The text protocol: the program comes back in a ```python block, edits as numbered
+    lines in plain text, and nothing persists between calls but the program."""
     store: ProgramStore = args["store"]
     entry = None
-    base = None
-    if not force:
-        base = _patch_base(store, context, args["source_prompt"])
-        if base is not None:
-            try:
-                entry = await _prepare_patch(base=base, **args)
-            except StartOver as e:
-                log.info(f"[prompt-program] starting over: {e}")
-                base = None  # a new prompt: its own program, lineage and options
-            except ProgramError as e:
-                log.info(f"[prompt-program] patch from {base.get('key')} failed: {e}")
+    if base is not None:
+        try:
+            entry = await _prepare_patch(base=base, **args)
+        except StartOver as e:
+            log.info(f"[prompt-program] starting over: {e}")
+            base = None  # a new prompt: its own program, lineage and options
+        except ProgramError as e:
+            log.info(f"[prompt-program] patch from {base.get('key')} failed: {e}")
     if entry is None:
         # A small edit whose patch didn't hold is still the same prompt's next version: the
         # writer sees the old program and keeps what didn't change, and its options stay.
-        prev = base if not force and base is not None else None
-        entry = await _prepare_new(prev=prev, **args)
+        entry = await _prepare_new(prev=base, **args)
+    entry["context"] = context
+    store.put(entry["key"], entry)
     store.remember(context, entry["key"])
     _notify_prepared(entry, args["project_id"], args["profile_id"])
     return entry
@@ -1735,9 +1790,16 @@ def edit_kind(old: str, new: str) -> Optional[str]:
     return None
 
 
-def _patch_base(store: ProgramStore, context: str, prompt: str) -> Optional[Dict[str, Any]]:
-    """The recent program in this context whose prompt is closest to this one, if this
-    prompt is a small edit of it."""
+def _patch_base(store: ProgramStore, context: str, prompt: str, base_key: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """The program this prompt is an edit of. The one the editor says it showed (base_key)
+    when it was prepared in this context and this prompt is an edit of it; otherwise the
+    recent program in this context whose prompt is closest to this one (a guess: it can
+    pick a sibling the user wasn't looking at)."""
+    if base_key:
+        e = store.get(base_key)
+        if (e and e.get("context") == context and e.get("version") == PREPARE_VERSION and e.get("program")
+                and edit_kind(e["prompt"], prompt) is not None):
+            return e
     best: Optional[Tuple[int, Dict[str, Any]]] = None
     for k in store.recent(context):
         e = store.get(k)
@@ -1893,18 +1955,8 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
         kind = "text"
     fixed: List[str] = []
     for round_ in range(2):  # the patch, then at most one repair of it
-        source = drop_name_options(source, new)
-        source, more = fix_generated_refs(source)
+        source, more = fix_patched(source, new, enhanced if elaborate else "")
         fixed += more
-        source, more = fix_one_item_lists(source, new)
-        fixed += more
-        source, more = fix_list_sources(source, new)
-        fixed += more
-        source, more = fix_phases(source)
-        fixed += more
-        for fix in (lambda x: fix_requested(x, new), lambda x: fix_stated(x, new, enhanced if elaborate else "")):
-            source, more = fix(source)
-            fixed += more
         check(source)
         checked = validate(source, new, loras, set(params), enhanced if elaborate else plain_example(new), elaborate)
         problems = checked["problems"] + (stale_words(source, old, new, loras, set(params)) if kind == "text" else [])
@@ -1932,7 +1984,6 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
         "seconds": round(time.monotonic() - started, 2), "upsample_seconds": 0.0,
         "timing": {"enhance": 0.0, "calls": calls},
     })
-    store.put(key, entry)
     log.info(f"[prompt-program] patched {base.get('key')} → {key} ({kind}) in {entry['seconds']}s")
     return entry
 
@@ -2026,29 +2077,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                          "again, short: write the text once in emit() and give each pick 1 to 3 seeds.")
                 continue
             source, repaired = drop_name_options(extract_code(reply), source_prompt), False
-        source, fixed = fix_quotes(source)
-        fixes += fixed
-        source, fixed = fix_generated_refs(source)
-        fixes += fixed
-        source, fixed = fix_one_item_lists(source, source_prompt)
-        fixes += fixed
-        source, fixed = fix_list_sources(source, source_prompt)
-        fixes += fixed
-        source, fixed = fix_phases(source)
-        fixes += fixed
-        source, fixed = fix_unplaced(source)
-        fixes += fixed
-        source, fixed = fix_brackets(source)
-        fixes += fixed
-        source, fixed = fix_requested(source, source_prompt)
-        fixes += fixed
-        source, fixed = fix_stated(source, source_prompt, enhanced)
-        fixes += fixed
-        source, fixed = fix_duplicates(source, source_prompt)
-        fixes += fixed
-        source, fixed = trim_added(source, source_prompt)
-        fixes += fixed
-        source, fixed = fix_trigger_words(source, loras, source_prompt)
+        source, fixed = fix_written(source, source_prompt, enhanced, loras)
         fixes += fixed
         try:
             check(source)
@@ -2094,11 +2123,36 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
         "seconds": round(time.monotonic() - started, 2), "upsample_seconds": round(upsampled_at - started, 2),
         "timing": {"enhance": round(upsampled_at - started, 2), "calls": calls},
     })
-    store.put(key, entry)
     log.info(f"[prompt-program] prepared {key} ({entry['mode']}) in {entry['seconds']}s "
              f"(upsample {entry['upsample_seconds']}s, model calls {[c['kind'] for c in calls]}, "
              f"{len(entry['choices'])} choices, {len(fixes)} fixed in code)")
     return entry
+
+
+def fix_written(source: str, prompt: str, enhanced: str, loras: Sequence[LoraInfo]) -> Tuple[str, List[str]]:
+    """The fixes in code a written (or repaired) program gets before validation, in order.
+    Returns the source and what changed."""
+    notes: List[str] = []
+    for fix in (fix_quotes, fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
+                lambda x: fix_list_sources(x, prompt), fix_phases, fix_unplaced, fix_brackets,
+                lambda x: fix_requested(x, prompt), lambda x: fix_stated(x, prompt, enhanced),
+                lambda x: fix_duplicates(x, prompt), lambda x: trim_added(x, prompt),
+                lambda x: fix_trigger_words(x, loras, prompt)):
+        source, more = fix(source)
+        notes += more
+    return source, notes
+
+
+def fix_patched(source: str, prompt: str, stated_example: str) -> Tuple[str, List[str]]:
+    """The fixes in code a program patched for a prompt edit gets (fewer than a fresh write:
+    what the edit didn't touch was already fixed)."""
+    source = drop_name_options(source, prompt)
+    notes: List[str] = []
+    for fix in (fix_generated_refs, lambda x: fix_one_item_lists(x, prompt), lambda x: fix_list_sources(x, prompt),
+                fix_phases, lambda x: fix_requested(x, prompt), lambda x: fix_stated(x, prompt, stated_example)):
+        source, more = fix(source)
+        notes += more
+    return source, notes
 
 
 def _entry(*, key: str, tool_id: str, ctx: Dict[str, Any], elaborate: bool, prompt: str, enhanced: str,
@@ -2115,6 +2169,7 @@ def _entry(*, key: str, tool_id: str, ctx: Dict[str, Any], elaborate: bool, prom
         "lora_choices": {c["id"]: c["options"] for c in info["choices"] if c["kind"] == "lora"},
         "example": realized_text(info["example"]),
         "warnings": checked["problems"] + checked.get("notes", []), "created_at": time.time(),
+        "protocol": "text",
     }
 
 

@@ -206,8 +206,10 @@ def _acceptance_program(messages: List[Dict[str, Any]]) -> Optional[str]:
     system = next((_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "system"), "")
     if not system.startswith("You turn a user's image prompt into a small program."):
         return None
-    user = next((_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "user"), "")
-    m = re.search(r"User's prompt \(lines numbered\):\n(.*?)(?:\n\n|$)", user, flags=re.S)
+    # the latest prompt: the first user message, or a later edit turn ("It now reads (lines numbered):")
+    users = [_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "user"]
+    user = next((u for u in reversed(users) if "(lines numbered):" in u), users[0] if users else "")
+    m = re.search(r"\(lines numbered\):\n(.*?)(?:\n\n|$)", user, flags=re.S)
     lines = [re.sub(r"^\d+: ", "", ln) for ln in (m.group(1).splitlines() if m else [])]
     picks: List[str] = []
     parts: List[str] = []
@@ -227,8 +229,16 @@ def _acceptance_program(messages: List[Dict[str, Any]]) -> Optional[str]:
     return f"```python\n{code}\n```"
 
 
-def _acceptance_response(config: LLMConfig, messages: List[Dict[str, Any]]) -> LLMResponse:
+def _acceptance_response(config: LLMConfig, messages: List[Dict[str, Any]],
+                         tools: Optional[List[Dict]] = None) -> LLMResponse:
     program = _acceptance_program(messages)
+    if program and any((t.get("function") or {}).get("name") == "write_program" for t in tools or []):
+        source = program.removeprefix("```python\n").removesuffix("\n```") + "\n"
+        return LLMResponse(
+            tool_calls=[ToolCall(id=f"acceptance-{len(messages)}", name="write_program",
+                                 arguments=json.dumps({"source": source}))],
+            finish_reason=FinishReason.TOOL_CALLS, usage=Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+            model=config.get_model() or "acceptance-llm", elapsed_seconds=0.001)
     last_user = ""
     for message in reversed(messages):
         if message.get("role") == "user":
@@ -779,7 +789,7 @@ async def llm_completion(
     messages = _normalize_parallel_tool_history(messages)
 
     if os.environ.get("STIMMA_TEST_PROVIDER") and api_base == _ACCEPTANCE_LLM_URL:
-        return _acceptance_response(config, messages)
+        return _acceptance_response(config, messages, tools)
 
     # Self-hosted endpoints: apply content policy, extra system prompt, fixed
     # extra_body, and reasoning-method translation. Cloud handles its own.
