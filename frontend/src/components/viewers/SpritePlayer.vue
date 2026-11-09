@@ -192,6 +192,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { hasEscapeLayer, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import axios from 'axios'
 import { ArrowPathIcon, BackwardIcon, ForwardIcon, PauseIcon, PlayIcon } from '@heroicons/vue/24/solid'
 import { useMediaApi } from '../../composables/useMediaApi'
@@ -520,10 +521,15 @@ function toggleReadout() {
   try { syncedStorage.setItem(makeProfileKey('frame-mode', FRAME_MODE_KEY), readoutMode.value) } catch { /* ignore */ }
 }
 
+// Space plays and pauses, unless a focused control or field takes it, or a
+// dialog or menu sits above the player (the slideshow's own layer is fine).
+const SPACE_OWNERS = 'input,textarea,select,button,a,summary,[contenteditable]:not([contenteditable="false"]),[role="button"],[role="checkbox"],[role="radio"],[role="slider"],[role="tab"],[role="menuitem"],[role="option"]'
 function onKeydown(event) {
-  if (event.code !== 'Space') return
-  const target = event.target
-  if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
+  if (event.code !== 'Space' || event.defaultPrevented) return
+  if (event.metaKey || event.ctrlKey || event.altKey) return
+  if (event.target?.closest?.(SPACE_OWNERS)) return
+  const layer = containerRef.value?.closest?.('[data-modal-layer], [data-escape-layer]') || null
+  if (hasEscapeLayer() && !isTopmostEscapeLayer(layer)) return
   if (!containerRef.value?.contains(document.activeElement) && !props.overlay) return
   event.preventDefault()
   togglePlay()

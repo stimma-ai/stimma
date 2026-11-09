@@ -76,6 +76,25 @@ test('slideshow selects moves/directions, scrubs merged holds and honors once', 
     await page.getByTitle('Pause (space)', { exact: true }).waitFor()
     await page.getByTitle('Play (space)', { exact: true }).waitFor()
     assert.deepEqual(await pixel(), [0, 0, 255, 255])
+    // Space on a focused control is the control's; behind a dialog it is the dialog's.
+    await page.getByRole('button', { name: 'idle', exact: true }).click()
+    await page.getByText('idle · east', { exact: true }).waitFor()
+    await page.keyboard.press('Space')
+    await page.waitForTimeout(100)
+    assert.equal(await page.getByTitle('Pause (space)', { exact: true }).count(), 0)
+    await page.evaluate(() => {
+      document.activeElement?.blur()
+      const dialog = Object.assign(document.createElement('div'), { id: 'dialog-layer' })
+      dialog.setAttribute('data-modal-layer', '')
+      dialog.style.cssText = 'position:fixed;inset:0;z-index:1000'
+      document.body.appendChild(dialog)
+    })
+    await page.keyboard.press('Space')
+    await page.waitForTimeout(100)
+    assert.equal(await page.getByTitle('Pause (space)', { exact: true }).count(), 0)
+    await page.evaluate(() => document.getElementById('dialog-layer').remove())
+    await page.keyboard.press('Space')
+    await page.getByTitle('Pause (space)', { exact: true }).waitFor()
     assert.deepEqual(errors, [])
   } finally {
     await browser.close()
