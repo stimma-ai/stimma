@@ -4147,10 +4147,32 @@ const {
 function handlePromptFocusOut(event: FocusEvent) {
   if (aiPromptEditorRef.value?.$el?.contains?.(event.relatedTarget as Node | null)) return
   releaseHeldStateKeys()
+  clearPromptPause()
   // Fluent reads a changed prompt as soon as you're done typing, so the first run
   // usually doesn't wait. Same request as a run's, shared if both happen.
   if (promptProgram.status.value === 'stale') void promptProgram.prepare()
 }
+
+// Done typing also means a pause with the cursor still in the field: read the prompt
+// then too. Long enough to ride over a breath mid-sentence; a prepare in flight for
+// older text queues this one behind it (busy), and a prompt that failed waits for an edit.
+const PROMPT_PAUSE_MS = 1500
+let promptPauseTimer: ReturnType<typeof setTimeout> | null = null
+function clearPromptPause() {
+  if (promptPauseTimer) clearTimeout(promptPauseTimer)
+  promptPauseTimer = null
+}
+watch(() => globalPrefs.value.prompt, () => {
+  clearPromptPause()
+  if (!aiPromptEditorRef.value?.$el?.contains?.(document.activeElement)) return
+  promptPauseTimer = setTimeout(() => {
+    promptPauseTimer = null
+    if (!aiPromptEditorRef.value?.$el?.contains?.(document.activeElement)) return
+    const s = promptProgram.status.value
+    if (s === 'stale' || s === 'busy') void promptProgram.prepare()
+  }, PROMPT_PAUSE_MS)
+})
+onBeforeUnmount(clearPromptPause)
 
 // Another client changed this tab's other saved values.
 const stopFollowingToolPrefs = [
