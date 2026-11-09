@@ -1,0 +1,12 @@
+{
+ "given": "presentation",
+ "target": "person.facial_hair",
+ "policy": "t1",
+ "scored_by": "LLM, median of 5 calls per given value, relative to people in general; spot-checked",
+ "levels": ["common", "uncommon", "rare", "implausible"],
+ "policy_note": "implausible kept only for bodily traits by age; other pairs floor at rare; genre-gated values (fantasy, sci-fi) are common for descent and presentation, since facets filter them",
+ "rows": {
+  "feminine": {"light stubble": "rare", "heavy stubble": "rare", "a short full beard": "rare", "a sculpted jawline beard": "rare", "a full moustache": "rare", "a goatee": "rare", "a medium-length beard": "rare", "a long full beard": "rare", "a pointed beard": "rare", "a square-cut beard": "rare", "a forked beard": "rare", "a braided beard": "rare", "a chinstrap beard": "rare", "a circle beard": "rare", "a moustache and soul patch": "rare", "a pencil moustache": "rare", "a chevron moustache": "rare", "a handlebar moustache": "rare", "a horseshoe moustache": "rare", "a walrus moustache": "rare", "a ducktail beard": "rare", "an anchor beard": "rare", "a wispy beard": "rare", "a patchy beard": "rare", "a bushy beard": "rare", "mutton-chop sideburns": "rare", "long narrow sideburns": "rare"},
+  "masculine": {"light stubble": "common", "heavy stubble": "common", "a short full beard": "common", "a sculpted jawline beard": "common", "a full moustache": "common", "a goatee": "common", "a medium-length beard": "common", "a long full beard": "common", "a pointed beard": "common", "a square-cut beard": "common", "a forked beard": "uncommon", "a braided beard": "rare", "a chinstrap beard": "uncommon", "a circle beard": "uncommon", "a moustache and soul patch": "uncommon", "a pencil moustache": "uncommon", "a chevron moustache": "common", "a handlebar moustache": "uncommon", "a horseshoe moustache": "uncommon", "a walrus moustache": "uncommon", "a ducktail beard": "uncommon", "an anchor beard": "uncommon", "a wispy beard": "uncommon", "a patchy beard": "common", "a bushy beard": "common", "mutton-chop sideburns": "uncommon", "long narrow sideburns": "common"}
+ }
+}

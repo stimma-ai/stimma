@@ -180,8 +180,8 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
                 facets.setdefault(k, v)
         for p in sorted(root.rglob("*.json")):
             rel = p.relative_to(root)
-            if rel.name == "facets.json":
-                continue
+            if rel.name == "facets.json" or any(part.startswith("_") for part in rel.parts[:-1]):
+                continue  # `_typicality/` and other underscore dirs are data about leaves (typicality.py)
             raw = p.read_bytes()
             h.update(str(rel).encode() + raw)
             d = json.loads(raw)

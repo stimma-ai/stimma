@@ -48,6 +48,7 @@ class Runtime:
     rarity: float
     wrong_cut: float
     keep: str = "cut"
+    typicality: Any = None   # a replay: the revision's recorded weights, or "off" (see draws.draw)
 
 
 def program_context(entry: Dict[str, Any]) -> ProgramContext:
@@ -107,7 +108,9 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
                                generate=cfg.generate_options,
                                checker=pool_checker(judge, wrong_cut) if not getattr(judge, "null", False) else None,
                                version=version)
-    return Runtime(options, judge, rarity, wrong_cut, keep)
+    # A replay draws people with the weights it recorded; one from before typicality, without.
+    typicality = (rev.get("typicality") if isinstance(rev.get("typicality"), dict) else "off") if rev else None
+    return Runtime(options, judge, rarity, wrong_cut, keep, typicality)
 
 
 def attach_filler(entry: Dict[str, Any], profile_id: Optional[str] = None) -> None:

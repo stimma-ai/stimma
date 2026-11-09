@@ -2239,7 +2239,8 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
         def _draw(rt: Any) -> RunResult:
             return draw(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None,
                         options=rt.options, judge=rt.judge, rarity=rt.rarity, wrong_cut=rt.wrong_cut,
-                        keep=getattr(rt, "keep", "cut"), legacy=legacy_program(entry))
+                        keep=getattr(rt, "keep", "cut"), legacy=legacy_program(entry),
+                        typicality=getattr(rt, "typicality", None))
         try:
             result = _draw(rt)
         except JudgeUnavailable as e:

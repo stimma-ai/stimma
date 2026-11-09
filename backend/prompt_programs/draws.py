@@ -39,6 +39,8 @@ from prompt_programs.runtime import (
     MAX_STEPS, RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _SAFE_BUILTINS, _Runner,
     LoraName, _as_list, _label_from_id, _lora_key, check, lora_names, tidy_text,
 )
+from prompt_programs.typicality import Conditioner, Known, who_of, prefix_of
+from prompt_programs.typicality import tables as typicality_tables
 from prompt_programs.vocab import vocabulary
 
 DRAW_VERSION = "draws-2"
@@ -732,6 +734,7 @@ class _Seen:
     value: Any = None
     pin_ok: bool = True
     context: Dict[str, Any] = field(default_factory=dict)
+    cond: Any = None                     # the typicality key its standing proposal was drawn under (typicality.py)
 
 
 class _Exec(_Runner):
@@ -832,8 +835,16 @@ class _Exec(_Runner):
                         _as_list(seed if seed is not None else [], f'pick("{cid}") seed'), opts,
                         leaf.id if leaf is not None else (str(cls).strip() if cls and source != "list" else ""))
         context = self._context(site)
-        value, pinned = self._settle(cid, site, spec, self._eligible(cid, spec, context, exclude), context)
-        d = Draw(cid, value, "pick", lbl, source, line, bool(hidden), pinned, [o for o, _ in self.seen[cid].items], follows)
+        eligible = self._eligible(cid, spec, context, exclude)
+        items, cond = self.eng.typical(cid, spec, eligible)
+        prior = self.proposals.get(cid)
+        value, pinned = self._settle(cid, site, spec, items, context)
+        if cond is not None:  # what the standing proposal was drawn under, not just what holds now
+            if prior is None or self.proposals.get(cid) != prior:
+                self.eng.proposed_under[cid] = cond
+            self.seen[cid].cond = self.eng.proposed_under.get(cid, cond)
+        # The picker still lists every eligible value: typicality weights the draw, not the choice.
+        d = Draw(cid, value, "pick", lbl, source, line, bool(hidden), pinned, [o for o, _ in eligible], follows)
         d.phase, d.about, d.cls = site.phase, spec.about, spec.cls
         d.where = str(where).strip() if isinstance(where, str) else ""
         self._record(d)
@@ -939,7 +950,7 @@ class _Engine:
     def __init__(self, an: Analysis, seed: int, pins: Dict[str, Sequence[str]], loras: Dict[str, LoraInfo],
                  tool_params: Optional[Set[str]], fixed: Dict[str, Any], edits: Dict[str, Dict[str, Any]],
                  options: OptionsService, judge: Judge, rarity: float, wrong_cut: float = WRONG_CUT,
-                 keep: str = "tiers", prefetch: int = 0, legacy: bool = False):
+                 keep: str = "tiers", prefetch: int = 0, legacy: bool = False, typicality: Any = None):
         self.an, self.rng, self.seed = an, random.Random(seed), seed
         self.legacy = legacy
         self.loras, self.tool_params = loras, tool_params
@@ -962,12 +973,56 @@ class _Engine:
         self.unresolved: List[Dict[str, Any]] = []
         self.labels: Dict[str, str] = {}
         self.judge_passes = 0
+        # Typicality: a bound person attribute follows what's known about that person.
+        self.cond = Conditioner(typicality_tables(), typicality if isinstance(typicality, dict) else None,
+                                off=typicality == "off")
+        self.bound: Dict[str, PickSpec] = {}   # bound picks seen, by choice id
+        self.proposed_under: Dict[str, Any] = {}   # choice id -> the typicality its proposal was drawn under
         # Pins a pick could break: its site feeds the pinned pick's structure or exclude.
         self.pin_watch: Dict[int, List[Tuple[str, Site]]] = {}
         for cid in sorted(self.single_pins):
             for s in an.sites_for_id(cid):
                 for d in sorted(set(s.deps) | s.exclude_deps):
                     self.pin_watch.setdefault(d, []).append((cid, s))
+
+    # -- typicality
+    def _known(self) -> Dict[str, Known]:
+        """Every bound people pick seen, with its value once decided or pinned."""
+        out: Dict[str, Known] = {}
+        for cid, spec in self.bound.items():
+            v = self.single_pins.get(cid, self.decided.get(cid))
+            out[cid] = Known(spec.cls, None if v is None else str(v), prefix_of(cid), who_of(spec.about, spec.label, cid))
+        return out
+
+    def typical_key(self, cid: str, spec: PickSpec) -> str:
+        return self.cond.key(cid, spec.cls, spec.about, spec.label, self._known())
+
+    def typical(self, cid: str, spec: PickSpec, items: List[Tuple[str, float]]) -> Tuple[List[Tuple[str, float]], Any]:
+        """A bound pick's items weighted by typicality. A pinned, decided or replayed value
+        is never dropped; a user list or an unbound pick is never touched."""
+        if not spec.cls or spec.source == "list" or not self.cond.active(spec.cls, cid):
+            return items, None
+        self.bound[cid] = spec
+        key = self.typical_key(cid, spec)
+        keep = {str(x) for x in (self.single_pins.get(cid), self.decided.get(cid), self.fixed.get(cid)) if x is not None}
+        keep |= self.pins.get(cid, set())
+        return self.cond.reweight(cid, key, items, keep), key
+
+    def known_text(self, exe: "_Exec", k: float) -> str:
+        """The text so far with everything settled in the clear (earlier phases, pins and
+        this phase's decided picks): what typicality reads people from."""
+        return self.state(exe, k, clear=set(self.decided))
+
+    def _typical_order(self, exe: "_Exec", order: List[str]) -> List[str]:
+        """Within a phase, conditioners decide before the picks they condition: unbound
+        picks (stated details, user lists) first, then bound givens (age, descent), then
+        the rest. Order within each group is unchanged."""
+        def rank(cid: str) -> int:
+            spec = exe.seen[cid].spec if cid in exe.seen else None
+            if spec is None or cid not in self.bound:
+                return 0
+            return self.cond.rank(cid, spec.cls)
+        return sorted(order, key=rank)
 
     # -- primitives
     def propose(self, cid: str, items: List[Tuple[str, float]]) -> str:
@@ -1031,17 +1086,18 @@ class _Engine:
             for k, p in zip(keys, self.judge.judge(state, qs)):
                 self.judged[k] = dict(p)
 
-    def state(self, exe: _Exec, k: float) -> str:
+    def state(self, exe: _Exec, k: float, clear: Optional[Set[str]] = None) -> str:
         """The text so far for the judge: pins and earlier phases in the clear, this
-        phase and later ones masked as [Label]."""
+        phase and later ones masked as [Label] (except picks in `clear`)."""
         out: List[str] = []
+        clear = clear or set()
         for text, taint in exe.spans:
             hidden: List[Tuple[str, bool]] = []
             for s, derived in sorted(taint):
                 if self.an.sites[s].phase < k:
                     continue
                 for cid in exe.site_ids.get(s, []):
-                    if cid in exe.by_id and cid not in self.single_pins:
+                    if cid in exe.by_id and cid not in self.single_pins and cid not in clear:
                         hidden.append((cid, derived))
             if not hidden:
                 out.append(text)
@@ -1115,9 +1171,19 @@ class _Engine:
     # -- phases
     def run_phase(self, k: int) -> None:
         proposals: Dict[str, str] = {}
+        seen_bound, kept = len(self.bound), set(self.kept)
         exe = self.execute(k, proposals)
+        typical = bool(self.bound)
+        if typical:  # propose bound people picks against what the text already says about them
+            text = self.known_text(exe, k)
+            if text != self.cond.text or len(self.bound) != seen_bound:
+                self.cond.text = text
+                proposals, self.kept = {}, kept   # proposed again, replayed values included
+                exe = self.execute(k, proposals)
         self.check_pins(exe, k)
         order = [cid for cid in exe.order if exe.seen[cid].phase == k and cid not in self.single_pins]
+        if typical:
+            order = self._typical_order(exe, order)
         state = self.state(exe, k)
         self.prejudge(state, exe, order)
         dirty = False
@@ -1128,6 +1194,17 @@ class _Engine:
             seen = exe.seen.get(cid)
             if seen is None:
                 continue
+            if typical and seen.cond is not None:
+                # What this phase decided so far can change what's known about the person
+                # (an age drawn after the hair was proposed): propose again if it did.
+                self.cond.text = self.known_text(exe, k)
+                if self.typical_key(cid, seen.spec) != seen.cond:
+                    proposals.pop(cid, None)
+                    self.kept.discard(cid)
+                    exe = self.execute(k, proposals)
+                    seen = exe.seen.get(cid)
+                    if seen is None:
+                        continue
             chosen = self.decide(cid, seen, str(seen.value), state, k, proposals)
             self.decided[cid] = chosen
             if proposals.get(cid) != chosen:
@@ -1188,6 +1265,8 @@ class _Engine:
             rev["wrong_cut"] = self.wrong_cut
         if self.keep != "tiers":
             rev["keep"] = self.keep
+        if self.cond.applied:  # how bound people picks were weighted, for exact replays
+            rev["typicality"] = self.cond.record()
         rev["id"] = hashlib.sha256(json.dumps(rev, sort_keys=True).encode()).hexdigest()[:16]
         return rev
 
@@ -1197,16 +1276,18 @@ def draw(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None
          fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Dict[str, Any]]] = None, *,
          options: Optional[OptionsService] = None, judge: Optional[Judge] = None,
          rarity: float = DEFAULT_RARITY, wrong_cut: float = WRONG_CUT, keep: str = "tiers",
-         prefetch: int = 0, legacy: bool = False) -> DrawResult:
+         prefetch: int = 0, legacy: bool = False, typicality: Any = None) -> DrawResult:
     """Draw one prompt from a program with pick specs. Deterministic for a given
     revision, seed and pins. Raises DrawAborted when a pick has nothing left to draw
     or a pin can't be satisfied, and ProgramError for a broken program. `legacy` draws
-    a program prepared before generated picks stopped keying pools (see LEGACY_BEFORE)."""
+    a program prepared before generated picks stopped keying pools (see LEGACY_BEFORE).
+    `typicality`: None draws with today's tables; a revision's recorded "typicality" replays
+    its weights; "off" draws without (a revision recorded before typicality, or none applied)."""
     an = analyze(source)
     edits = edits or {}
     eng = _Engine(an, seed, pins or {}, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params,
                   dict(fixed or {}), edits, options or LiteralOptions(edits), judge or NullJudge(), rarity, wrong_cut, keep, prefetch,
-                  legacy)
+                  legacy, typicality)
     for k in an.phases:
         eng.run_phase(k)
     final = eng.execute(math.inf, {}, record=True)
