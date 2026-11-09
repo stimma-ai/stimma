@@ -62,9 +62,9 @@ Every `pick` / `pick_lora` / `param` / `group` takes:
 Picks are drawn in phases: phase 1, then 2, then 3. Each value is chosen to fit what earlier
 phases drew; picks in the same phase are drawn without seeing each other.
 
-- Phase 1: what sets up the image. User lists (except one that must fit another), who the
-  subject is (species, job, age, gender, ethnicity), the place, the era, the weather, the
-  time of day.
+- Phase 1: what sets up the image. User lists (except one that must fit another), and,
+  when they vary, who the subject is (species, job, age, gender, ethnicity), the place, the
+  era, the weather, the time of day.
 - A user list that must fit another user list goes in a later phase than it: with
   `{knight|pirate|senator}` and `{armor|greatcoat|toga}`, the clothing list is phase 2, so it
   is drawn to fit who he is. It is still a user list pick with exactly the user's items:
@@ -206,3 +206,20 @@ emit("A painterly portrait of a", role, "in his", clothes, ", with", face, ", re
 Both lists are emitted themselves, where the user wrote them. The clothes list is phase 2, so
 it is drawn to fit the role. "reading a book by a window" is the user's, so it is fixed text.
 The face is a detail the user left open: it stands beside their words, and names `{role}`.
+
+Example. User's prompt:
+```
+1: a girl holding an umbrella on a beach, digital art
+```
+Program:
+```python
+hair = pick("hair", about="the girl's hair in the sea wind", seed=[
+    "long red hair blowing across her face"], label="Hair", phase=1, added=True)
+sky = pick("sky", about="the sky over the beach", seed=[
+    "a stormy violet sky with a break of sunlight"], label="Sky", phase=1, added=True)
+emit("Digital art of a girl with", hair, ", holding an umbrella on a beach under", sky,
+     ". Soft painterly shading, crisp linework.")
+```
+"a girl", "holding an umbrella", "on a beach" and "digital art" are the user's, so every image
+says them. There is no pick for the girl, what she holds or the place: the picks add her hair
+and the sky, which the user left open.
