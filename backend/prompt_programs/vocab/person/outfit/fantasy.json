@@ -4,7 +4,7 @@
   "description": "Imaginary fantasy and fairy-tale wardrobes with concrete garment construction.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete invented outfits, including robes, dresses, layered travel clothes, and wearable armour. Period owns historical reconstruction; formal owns realistic ceremonial clothes; scifi owns technical speculative garments. Genre tags keep these out of realistic draws. Excludes weapons, carried gear, body traits, and scenery. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity.",
+  "notes": "Complete invented outfits, including robes, dresses, layered travel clothes, and wearable armour. Period owns historical reconstruction; formal owns realistic ceremonial clothes; scifi owns technical speculative garments. Genre tags keep these out of realistic draws. Excludes weapons, carried gear, body traits, and scenery. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply dyed garment colours; metal armour, metallic threads and botanical materials retain intrinsic colours. Historical and rustic dyed looks use muted, earthy or monochrome schemes. Coverage describes garment extent.",
   "facets": [
     "presentation",
     "age",
@@ -28,7 +28,7 @@
   },
   "values": [
     {
-      "text": "a moss-green wool tunic and brown lace-up trousers",
+      "text": "a {main} wool tunic and {neutral} lace-up trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -41,11 +41,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "ranger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a blue linen robe over cream gathered trousers",
+      "text": "a {main} linen robe over {neutral} ankle-gathered trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -58,11 +71,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "mage"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a brown leather jerkin over a green shirt and breeches",
+      "text": "a {main} leather jerkin over a {accent} shirt and {neutral} breeches",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -74,11 +100,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "rogue"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a burgundy hooded cloak over a grey wool dress",
+      "text": "a {main} hooded cloak over a {neutral} wool dress",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -94,11 +133,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "peasant"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a navy velvet robe over a silver brocade undergown",
+      "text": "a {main} velvet robe over a {accent} brocade undergown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -113,11 +165,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "noble"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a green leaf-panelled gown with a fitted linen bodice",
+      "text": "a {main} leaf-panelled gown with a fitted {accent} linen bodice",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -128,11 +193,27 @@
         "era": "any",
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "other"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a cream silk gown with gold vine embroidery",
+      "text": "a {main} silk gown with gold vine embroidery",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -150,11 +231,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "noble"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a plum layered robe with wide silver-trimmed sleeves",
+      "text": "a {main} layered robe with wide silver-trimmed sleeves",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -166,11 +260,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "mage"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a silver mail shirt over a padded tunic and wool trousers",
+      "text": "a silver mail shirt over a padded {main} tunic and {neutral} wool trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -182,11 +289,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "warrior"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a bronze scale cuirass over a rust tunic and leggings",
+      "text": "a bronze scale cuirass over a {main} tunic and {neutral} leggings",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -198,11 +318,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "warrior"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a steel breastplate over a blue gambeson and quilted trousers",
+      "text": "a steel breastplate over a {main} gambeson and {neutral} quilted trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -214,11 +347,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "warrior"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a brown leather brigandine over a cream shirt and breeches",
+      "text": "a {main} leather brigandine over a {accent} shirt and {neutral} breeches",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -230,11 +376,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "warrior"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a white layered gown with petal-shaped overskirts",
+      "text": "a {main} layered gown with petal-shaped {accent} overskirts",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -245,11 +404,27 @@
         "era": "any",
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "other"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a red wool hooded cape over a cream pinafore dress",
+      "text": "a {main} wool hooded cape over a {neutral} pinafore dress",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -264,11 +439,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "peasant"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a patched brown tunic and oversized grey wool trousers",
+      "text": "a patched {main} tunic and oversized {neutral} wool trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -284,11 +472,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "peasant"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a charcoal wizard robe with broad blue velvet cuffs",
+      "text": "a {main} wizard robe with broad {accent} velvet cuffs",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -296,11 +497,27 @@
           "fairy_tale",
           "horror"
         ],
-        "era": "any"
+        "era": "any",
+        "role": [
+          "mage"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
+        ]
       }
     },
     {
-      "text": "a turquoise wrap tunic and indigo gathered trousers",
+      "text": "a {main} wrap tunic and {neutral} gathered trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -313,11 +530,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "merchant"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a black feather-panelled mantle over a grey ankle-length robe",
+      "text": "a black feather-panelled mantle over a {main} ankle-length robe",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -329,11 +559,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "mage"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a blue quilted surcoat over mail and padded trousers",
+      "text": "a {main} quilted surcoat over steel mail and {neutral} padded trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -345,11 +588,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "warrior"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a silver brocade gown with structured crescent-shaped sleeves",
+      "text": "a {main} brocade gown with structured crescent-shaped sleeves",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -360,6 +616,22 @@
         "era": "any",
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "noble"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
         ]
       }
     },
@@ -375,11 +647,17 @@
         "era": "any",
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "other"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a dark blue robe sewn with tiny brass discs",
+      "text": "a {main} robe sewn with tiny brass discs",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -391,11 +669,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "cleric"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a deep green robe with embroidered fern-shaped sleeve panels",
+      "text": "a {main} robe with embroidered {accent} fern-shaped sleeve panels",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -407,11 +698,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "ranger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a brown patchwork cloak over a linen shirt and trousers",
+      "text": "a {main} patchwork cloak over a {accent} linen shirt and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -424,11 +728,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "peasant"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a copper mail vest over a black quilted jumpsuit",
+      "text": "a copper mail vest over a {main} quilted jumpsuit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -439,11 +756,27 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "warrior"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a gold-threaded robe over a crimson pleated undergown",
+      "text": "a gold-threaded robe over a {main} pleated undergown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -461,11 +794,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "noble"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a silver lamellar coat over a blue tunic and trousers",
+      "text": "a silver lamellar coat over a {main} tunic and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -477,11 +823,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "warrior"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a charcoal silk gown with overlapping scale-shaped panels",
+      "text": "a {main} silk gown with overlapping scale-shaped panels",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -492,11 +851,27 @@
         "era": "any",
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "noble"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a sand-coloured linen robe over loose white trousers",
+      "text": "a {main} linen robe over loose {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -512,11 +887,24 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "role": [
+          "peasant"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a gown of overlapping iridescent fabric scales over a silver silk underdress",
+      "text": "a gown of overlapping iridescent fabric scales over a {neutral} silk underdress",
       "tier": "unusual",
       "tags": {
         "genre": [
@@ -527,11 +915,27 @@
         "era": "any",
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "other"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a sculpted gold lamellar robe over black pleated trousers",
+      "text": "a sculpted gold lamellar robe over {neutral} pleated trousers",
       "tier": "unusual",
       "tags": {
         "genre": [
@@ -539,62 +943,968 @@
           "fairy_tale",
           "horror"
         ],
+        "era": "any",
+        "role": [
+          "noble"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} velvet frock coat and {accent} brocade waistcoat with {neutral} trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century"
+        ],
+        "role": [
+          "noble"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk bustle gown with embroidered {accent} thorn-patterned trim",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "role": [
+          "noble"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool riding habit with a fitted double-breasted jacket",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "steampunk",
+          "horror"
+        ],
+        "era": [
+          "19th_century"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "role": [
+          "ranger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a suit of polished steel plate armour with articulated gauntlets and greaves",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "warrior"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "formality": [
+          "formal"
+        ]
+      }
+    },
+    {
+      "text": "a bronze lamellar vest over a {main} sleeveless tunic and {neutral} knee-length breeches",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "warrior"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "climate": [
+          "hot"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a studded {main} leather harness and {neutral} leather shorts with bronze shin guards",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "warrior"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "climate": [
+          "hot"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} quilted arming coat with {accent} laced sleeves and {neutral} padded hose",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "warrior"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk hooded robe with embroidered {accent} constellations and a {neutral} linen underrobe",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "mage"
+        ],
+        "coverage": [
+          "full"
+        ],
         "era": "any"
-      }
-    },
-    {
-      "text": "a midnight velvet frock coat and silver brocade waistcoat with trousers",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "steampunk",
-          "horror"
-        ],
-        "era": [
-          "19th_century"
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a burgundy silk bustle gown with embroidered thorn-patterned trim",
+      "text": "a {main} silk halter top and split {accent} gauze skirt with metallic rune embroidery",
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "fantasy",
-          "fairy_tale",
-          "steampunk",
-          "horror"
+          "fairy_tale"
         ],
-        "era": [
-          "19th_century"
+        "role": [
+          "mage"
         ],
+        "coverage": [
+          "light"
+        ],
+        "era": "any",
         "presentation": [
           "feminine"
+        ],
+        "climate": [
+          "hot"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a green wool riding habit with a fitted double-breasted jacket",
+      "text": "a {main} felted wool coat with spiral-shaped sleeves over a {neutral} knitted robe",
       "tier": "typical",
       "tags": {
         "genre": [
-          "realistic",
           "fantasy",
-          "fairy_tale",
-          "steampunk",
-          "horror"
+          "fairy_tale"
         ],
-        "era": [
-          "19th_century"
+        "role": [
+          "mage"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "era": "any",
+        "climate": [
+          "cold"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a sleeveless {main} brocade tunic over {neutral} cropped silk trousers with {accent} knotted hems",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "mage"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "era": "any"
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a fitted {main} suede hooded doublet with {neutral} split-knee trousers and {accent} cloth wrist wraps",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "rogue"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a sleeveless {main} leather vest over a {accent} linen shirt and {neutral} knee breeches",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "rogue"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a cropped {main} leather bodice and {neutral} linen shorts with {accent} laced side panels",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "rogue"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "climate": [
+          "hot"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a fur-lined {main} wool hooded coat over {neutral} felt trousers and leather boots",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "ranger"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "climate": [
+          "cold"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} linen tabard over a {neutral} short-sleeved tunic and {accent} cropped trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "ranger"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "climate": [
+          "hot"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} waxed-canvas hooded cape over a {accent} wool jerkin and {neutral} riding trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "ranger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} velvet doublet with pearl buttons and {accent} slashed sleeves over {neutral} silk hose",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "noble"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "budget": [
+          "luxury"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a sleeveless {main} silk court gown with a stiff {accent} brocade overskirt and pearl edging",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "noble"
+        ],
+        "coverage": [
+          "moderate"
         ],
         "presentation": [
           "feminine"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "budget": [
+          "luxury"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk bandeau and draped {accent} gauze skirt with gold chain edging",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "noble"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "climate": [
+          "hot"
+        ],
+        "budget": [
+          "luxury"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} linen cassock beneath a {accent} embroidered tabard with a {neutral} woven sash",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "cleric"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "formality": [
+          "formal"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool cowl over an undyed linen habit with rope fastenings",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "cleric"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "budget": [
+          "modest"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a sleeveless {main} linen ritual robe with bronze disc trim and a {accent} woven hem",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "cleric"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "climate": [
+          "hot"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a steel mail hauberk beneath a {main} split ceremonial surcoat and {neutral} padded trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "cleric"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a short-sleeved {main} linen shift under a {accent} laced wool bodice and {neutral} gathered skirt",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "peasant"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "budget": [
+          "modest"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} linen wrap top and {neutral} knee-length woven skirt with a {accent} patched apron",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "peasant"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "climate": [
+          "hot"
+        ],
+        "budget": [
+          "modest"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a sheepskin-lined {main} wool smock over {neutral} patched trousers and felt boots",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "peasant"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "climate": [
+          "cold"
+        ],
+        "budget": [
+          "modest"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} quilted silk kaftan with {accent} braided closures over {neutral} linen trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "merchant"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "formality": [
+          "smart"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sleeveless wool overcoat over a {accent} rolled-sleeve linen shirt and {neutral} knee breeches",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "merchant"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "formality": [
+          "smart"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} brocade waistcoat over a {accent} puff-sleeved shirt and {neutral} striped trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "merchant"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "formality": [
+          "smart"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} fur-collared wool coat over a {accent} fitted doublet and {neutral} velvet breeches",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "merchant"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "climate": [
+          "cold"
+        ],
+        "budget": [
+          "luxury"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a woven reed halter and a layered skirt of fresh fern fronds",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "other"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "era": "any",
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a {main} bell-sleeved jester tunic with {accent} diamond panels over {neutral} cropped hose",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "other"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "era": "any"
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} layered tulle dress with sculpted {accent} butterfly-shaped sleeves and a {neutral} silk underskirt",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "fantasy",
+          "fairy_tale"
+        ],
+        "role": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "era": "any",
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "light",
+          "muted",
+          "pastel",
+          "earthy",
+          "monochrome"
         ]
       }
     }
-  ]
+  ],
+  "slots": "person.palette",
+  "local_facets": {
+    "role": [
+      "warrior",
+      "mage",
+      "rogue",
+      "ranger",
+      "noble",
+      "cleric",
+      "peasant",
+      "merchant",
+      "other"
+    ],
+    "coverage": [
+      "light",
+      "moderate",
+      "full"
+    ]
+  }
 }

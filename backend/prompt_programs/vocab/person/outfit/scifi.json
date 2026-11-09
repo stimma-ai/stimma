@@ -4,7 +4,7 @@
   "description": "Technical future clothing, cyberpunk streetwear, and salvaged post-apocalyptic outfits.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete speculative looks with concrete garments and materials, all genre-tagged. Fantasy owns magical wardrobes; athletic owns ordinary performance clothing; casual owns contemporary streetwear. Excludes weapons, carried technology, body modifications, logos, and environmental effects. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity.",
+  "notes": "Complete speculative looks with concrete garments and materials, all genre-tagged. Fantasy owns magical wardrobes; athletic owns ordinary performance clothing; casual owns contemporary streetwear. Excludes weapons, carried technology, body modifications, logos, and environmental effects. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply coordinated garment colours; metallic materials and white laboratory coats may retain intrinsic colours. Corporate tailoring uses dark or monochrome schemes; salvaged rustic looks use muted, earthy or monochrome schemes. Coverage describes garment extent.",
   "facets": [
     "presentation",
     "age",
@@ -27,7 +27,7 @@
   },
   "values": [
     {
-      "text": "a grey pressure suit with black articulated knee panels",
+      "text": "a {main} pressure suit with {neutral} articulated knee panels",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -40,11 +40,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "pilot"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a white flight jumpsuit with blue reinforced seams",
+      "text": "a {main} flight jumpsuit with {accent} reinforced seams",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -57,11 +63,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "pilot"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy utility coverall with orange quilted shoulder panels",
+      "text": "a {main} utility coverall with {accent} quilted shoulder panels",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -74,11 +86,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "engineer"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a cream high-collared jacket and matching seamless trousers",
+      "text": "a {main} high-collared jacket and matching seamless trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -88,11 +106,23 @@
         ],
         "era": [
           "future"
+        ],
+        "role": [
+          "corporate"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a blue polymer-panelled jacket and black fitted trousers",
+      "text": "a {main} polymer-panelled jacket and {neutral} fitted trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -102,11 +132,17 @@
         ],
         "era": [
           "future"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a black ribbed undersuit beneath white segmented body armour",
+      "text": "a {neutral} ribbed undersuit beneath {main} segmented body armour",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -117,11 +153,23 @@
         ],
         "era": [
           "future"
+        ],
+        "role": [
+          "soldier"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a white woven-fibre robe over silver tailored trousers",
+      "text": "a {main} woven-fibre robe over {neutral} tailored trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -131,11 +179,25 @@
         ],
         "era": [
           "future"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "light",
+          "muted",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a navy formal jacket with metallic piping and matching trousers",
+      "text": "a {main} formal jacket with metallic piping and matching trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -148,11 +210,23 @@
         ],
         "era": [
           "future"
+        ],
+        "role": [
+          "corporate"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a silver pleated gown with a structured polymer collar",
+      "text": "a {main} pleated gown with a structured {accent} polymer collar",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -168,11 +242,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a pale blue modular coat and cream articulated trousers",
+      "text": "a {main} modular coat and {neutral} articulated trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -183,11 +263,17 @@
         ],
         "era": [
           "future"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a black thermal jumpsuit beneath a white insulated parka",
+      "text": "a {neutral} thermal jumpsuit beneath a {main} insulated parka",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -203,11 +289,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a blue sealed coverall with ribbed flexible joint sections",
+      "text": "a {main} sealed coverall with ribbed {neutral} flexible joint sections",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -218,28 +310,17 @@
         ],
         "era": [
           "future"
-        ]
-      }
-    },
-    {
-      "text": "a black vinyl trench coat and red technical trousers",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
         ],
-        "era": [
-          "contemporary",
-          "future"
+        "role": [
+          "engineer"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a purple reflective bomber and black coated denim jeans",
+      "text": "a {main} vinyl trench coat and {accent} technical trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -252,11 +333,40 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a silver mesh top over a black undershirt and trousers",
+      "text": "a {main} reflective bomber and {neutral} coated denim jeans",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "contemporary",
+          "future"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a silver mesh top over a {main} undershirt and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -268,11 +378,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a navy asymmetric coat and grey strapped utility trousers",
+      "text": "a {main} asymmetric coat and {neutral} strapped utility trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -285,11 +401,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a green translucent raincoat over a black technical jumpsuit",
+      "text": "a {main} translucent raincoat over a {neutral} technical jumpsuit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -302,11 +424,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a black neoprene dress with purple polymer side panels",
+      "text": "a {main} neoprene dress with {accent} polymer side panels",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -319,11 +447,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a red synthetic-leather jacket and silver pleated midi skirt",
+      "text": "a {main} synthetic-leather jacket and {neutral} pleated midi skirt",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -338,11 +472,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a blue segmented vest over a charcoal shirt and trousers",
+      "text": "a {main} segmented vest over a {neutral} shirt and trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -355,11 +495,23 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "soldier"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a white oversized technical hoodie and black panelled leggings",
+      "text": "a {main} oversized technical hoodie and {neutral} panelled leggings",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -372,11 +524,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a metallic teal trouser suit with a black mesh underlayer",
+      "text": "a metallic {main} trouser suit with a {neutral} mesh underlayer",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -391,11 +549,23 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "corporate"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a black holographic-fabric gown with angular shoulder panels",
+      "text": "a {main} holographic-fabric gown with angular shoulder panels",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -411,11 +581,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a black quilted kimono-cut jacket and grey technical trousers",
+      "text": "a {main} quilted kimono-cut jacket and {neutral} technical trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -428,11 +604,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a lime ripstop poncho over a grey jumpsuit",
+      "text": "a {main} ripstop poncho over a {neutral} jumpsuit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -445,11 +627,17 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a patched brown canvas coat and faded cargo trousers",
+      "text": "a patched {main} canvas coat and faded {neutral} cargo trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -465,11 +653,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a rust quilted jacket and mismatched denim patchwork trousers",
+      "text": "a {main} quilted jacket and mismatched denim patchwork trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -485,11 +686,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a sand linen wrap coat and loose patched cotton trousers",
+      "text": "a {main} linen wrap coat and loose patched {neutral} cotton trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -514,11 +728,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a blue work coverall with hand-stitched leather knee patches",
+      "text": "a {main} work coverall with hand-stitched leather knee patches",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -534,11 +761,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "role": [
+          "engineer"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a green salvaged-fabric poncho over a wool tunic and trousers",
+      "text": "a {main} salvaged-fabric poncho over a {accent} wool tunic and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -559,11 +799,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a grey quilted robe over a patched blue jumpsuit",
+      "text": "a {main} quilted robe over a patched {neutral} jumpsuit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -576,11 +829,24 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a black rubberised rain cape and reinforced tan trousers",
+      "text": "a {main} rubberised rain cape and reinforced {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -593,11 +859,24 @@
         "era": [
           "contemporary",
           "future"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a beige hooded coat sewn from mismatched canvas panels and jeans",
+      "text": "a {main} hooded coat sewn from mismatched canvas panels and blue jeans",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -613,11 +892,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a black reinforced duster over a quilted tunic and trousers",
+      "text": "a {main} reinforced duster over a {accent} quilted tunic and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -634,11 +926,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a patched wool hooded cloak over a linen tunic and trousers",
+      "text": "a patched {main} wool hooded cloak over a {accent} linen tunic and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -662,8 +967,798 @@
         ],
         "formality": [
           "casual"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} vacuum flight suit with {accent} pressure seals and {neutral} reinforced boots",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "pilot"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} short-sleeved flight coverall with {accent} seam tape and {neutral} knee panels",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "pilot"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a {main} double-breasted flight jacket over a {accent} high-neck shirt and {neutral} uniform trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "pilot"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "formality": [
+          "smart"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} ceramic-plated combat coat over a {neutral} flexible armoured bodysuit",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "soldier"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} ballistic vest over a {neutral} short-sleeved shirt and {accent} reinforced cargo trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "soldier"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "climate": [
+          "hot"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} insulated combat suit with {neutral} reinforced elbows and {accent} identification stripes",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "soldier"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} short-sleeved utility shirt and {neutral} articulated work trousers with {accent} pocket flaps",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "engineer"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a {main} protective welding jacket over {neutral} reinforced coveralls with {accent} heat-resistant cuffs",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "engineer"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} rubberised maintenance suit with {accent} seam welds and {neutral} integrated boots",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "engineer"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a white lab coat over a {main} high-neck tunic and {neutral} polymer-weave trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "scientist"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "light",
+          "muted",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sealed laboratory suit with {accent} gasket seams and {neutral} integral gloves",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "scientist"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} knitted research jacket over a {accent} collarless shirt and {neutral} technical trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "scientist"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "light",
+          "muted",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a short-sleeved white laboratory smock over {main} cropped scrubs and {neutral} polymer clogs",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "scientist"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "climate": [
+          "hot"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "light",
+          "muted",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sharply tailored jacket with {accent} lapel insets over a {neutral} shirt and matching suit trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "corporate"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "budget": [
+          "luxury"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a sleeveless {main} sculpted sheath dress with a {accent} bonded waist panel and {neutral} polymer shoes",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "corporate"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "formality": [
+          "smart"
+        ],
+        "budget": [
+          "luxury"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} high-collared tunic with concealed fastenings and {neutral} tailored trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "corporate"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "formality": [
+          "smart"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} vinyl bandeau and {neutral} technical shorts with {accent} luminous seam piping",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a cropped {main} mesh hoodie over a {accent} stretch bralette and {neutral} micro-pleated miniskirt",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a sleeveless {main} polymer vest and {neutral} knee-length utility shorts with {accent} webbing panels",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a {main} padded cocoon coat over a {accent} ribbed top and {neutral} zip-panel trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "street"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} patched canvas vest over a {neutral} cotton shirt and {accent} cropped cargo trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "climate": [
+          "hot"
+        ],
+        "budget": [
+          "modest"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} knotted salvage-cloth top and {neutral} cut-off cargo shorts with {accent} repair patches",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "climate": [
+          "hot"
+        ],
+        "budget": [
+          "modest"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} blanket-wool coat over a {accent} patched sweater and {neutral} quilted trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "scavenger"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "climate": [
+          "cold"
+        ],
+        "budget": [
+          "modest"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} seamless halter top and {neutral} stretch shorts with {accent} bonded hems",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a sleeveless {main} woven-fibre wrap dress with {accent} laser-cut pleats and {neutral} flat shoes",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "climate": [
+          "hot"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "light",
+          "muted",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} magnetic-fastened cardigan over a {accent} jersey top and {neutral} adaptive side-opening trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "light",
+          "muted",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} insulated modular cape over a {accent} ribbed tunic and {neutral} thermal leggings",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "civilian"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a polished aluminium pressure shell with articulated bellows joints and gold thermal-film panels",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} translucent polymer tunic with {accent} fibre-optic seams over {neutral} stretch briefs",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "other"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "climate": [
+          "hot"
+        ]
+      }
+    },
+    {
+      "text": "a {main} pleated ceremonial mantle over a {accent} bonded tunic and {neutral} seamless trousers",
+      "tier": "plausible",
+      "tags": {
+        "genre": [
+          "scifi",
+          "cyberpunk"
+        ],
+        "era": [
+          "future"
+        ],
+        "role": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "formality": [
+          "formal"
         ]
       }
     }
-  ]
+  ],
+  "slots": "person.palette",
+  "local_facets": {
+    "role": [
+      "pilot",
+      "soldier",
+      "engineer",
+      "scientist",
+      "corporate",
+      "street",
+      "scavenger",
+      "civilian",
+      "other"
+    ],
+    "coverage": [
+      "light",
+      "moderate",
+      "full"
+    ]
+  }
 }

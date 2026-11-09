@@ -4,7 +4,7 @@
   "description": "Layered outfits led by coats, jackets, and other cold-weather outerwear.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete looks with visible outerwear and lower garments for cold weather. Casual and smart own lighter everyday separates; athletic owns performance sports kits; period owns historical winter clothing. Excludes carried items, weather descriptions, and places. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity.",
+  "notes": "Complete looks with visible outerwear and lower garments for cold weather. Casual and smart own lighter everyday separates; athletic owns performance sports kits; period owns historical winter clothing. Excludes carried items, weather descriptions, and places. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles colour garments as one coordinated look. Coverage describes garment extent. Historical fabrics use muted or earthy schemes.",
   "facets": [
     "presentation",
     "age",
@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a navy wool peacoat over a sweater and grey trousers",
+      "text": "a {main} wool peacoat over a {accent} sweater and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -47,11 +47,17 @@
           "horror",
           "post_apocalyptic",
           "steampunk"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a black quilted puffer jacket and dark blue jeans",
+      "text": "a {main} quilted puffer jacket and {neutral} jeans",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -69,11 +75,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a camel wool overcoat and charcoal tailored trousers",
+      "text": "a {main} wool overcoat and {neutral} tailored trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -94,11 +106,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a green parka over a cream sweater and black jeans",
+      "text": "a {main} parka over a {accent} sweater and {neutral} jeans",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -117,11 +135,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a grey duffle coat and navy wool trousers",
+      "text": "a {main} duffle coat and {neutral} wool trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -142,11 +166,17 @@
           "horror",
           "post_apocalyptic",
           "steampunk"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a brown shearling jacket and faded blue jeans",
+      "text": "a {main} shearling jacket and faded {neutral} jeans",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -165,11 +195,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a blue fleece jacket and charcoal insulated trousers",
+      "text": "a {main} fleece jacket and {neutral} insulated trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -186,11 +222,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a charcoal wool cape over a long navy skirt",
+      "text": "a {main} wool cape over a long {neutral} skirt",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -218,11 +260,23 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a black wool coat over a burgundy knitted dress",
+      "text": "a {main} wool coat over a {accent} knitted dress",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -244,11 +298,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a slate puffer vest over a thick sweater and jeans",
+      "text": "a {main} puffer vest over a thick {accent} sweater and {neutral} jeans",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -266,57 +326,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy padded snowsuit with reinforced knees",
-      "tier": "typical",
-      "tags": {
-        "climate": [
-          "cold"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ]
-      }
-    },
-    {
-      "text": "a cream belted wool coat and brown wide-leg trousers",
-      "tier": "typical",
-      "tags": {
-        "climate": [
-          "cold"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "post_apocalyptic"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a black leather jacket over a wool jumper and jeans",
+      "text": "a {main} padded snowsuit with reinforced knees",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -335,11 +355,76 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "layering": [
+          "single layer",
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a brown waxed-cotton jacket and olive wool trousers",
+      "text": "a {main} belted wool coat and {neutral} wide-leg trousers",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "cold"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} leather jacket over a {accent} wool jumper and {neutral} jeans",
+      "tier": "typical",
+      "tags": {
+        "climate": [
+          "cold"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "post_apocalyptic"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} waxed-cotton jacket and {neutral} wool trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -360,11 +445,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a burgundy wool poncho over a knit top and trousers",
+      "text": "a {main} wool poncho over a {accent} knit top and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -389,11 +480,23 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a black padded hanfu jacket and thick cream trousers",
+      "text": "a {main} padded hanfu jacket and thick {neutral} trousers",
       "tier": "plausible",
       "tags": {
         "climate": [
@@ -416,11 +519,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy quilted hanten over a sweater and black trousers",
+      "text": "a {main} quilted hanten over a {accent} sweater and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -439,11 +548,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a maroon wool pheran over loose cream trousers",
+      "text": "a {main} wool pheran over loose {neutral} trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -468,11 +583,23 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a green wool djellaba over a shirt and trousers",
+      "text": "a {main} wool djellaba over a {accent} shirt and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -497,11 +624,23 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a beige padded coat over a navy abaya",
+      "text": "a {main} padded coat over a {accent} abaya",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -523,11 +662,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy double-breasted overcoat over a grey wool suit",
+      "text": "a {main} double-breasted overcoat over a {neutral} wool suit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -552,11 +697,17 @@
           "horror",
           "post_apocalyptic",
           "steampunk"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy waterproof shell over a fleece and insulated trousers",
+      "text": "a {main} waterproof shell over a {accent} fleece and {neutral} insulated trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -573,11 +724,17 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a patched brown wool coat and faded grey trousers",
+      "text": "a patched {main} wool coat and faded {neutral} trousers",
       "tier": "plausible",
       "tags": {
         "climate": [
@@ -603,11 +760,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a cream cashmere overcoat and tailored ivory wool trousers",
+      "text": "a {main} cashmere overcoat and tailored {neutral} wool trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -634,11 +797,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a hooded wool cloak over a quilted tunic and hose",
+      "text": "a hooded {main} wool cloak over a {accent} quilted tunic and {neutral} hose",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -658,11 +827,23 @@
         "climate": [
           "cold",
           "temperate"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a sheepskin mantle over a brown gown and wool stockings",
+      "text": "a sheepskin mantle over a {main} gown and {neutral} wool stockings",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -685,11 +866,23 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a fur-lined wool robe over a linen tunic and trousers",
+      "text": "a fur-lined {main} wool robe over a {accent} linen tunic and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -709,11 +902,23 @@
         "climate": [
           "cold",
           "temperate"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a thick felted coat over a woven tunic and leggings",
+      "text": "a thick {main} felted coat over a {accent} woven tunic and {neutral} leggings",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -733,8 +938,477 @@
         "climate": [
           "cold",
           "temperate"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "a {main} long quilted down coat over a {accent} ribbed turtleneck and {neutral} corduroy trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} shearling-lined aviator jacket over a {accent} cable-knit sweater and {neutral} wool trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} boiled-wool jacket over a {accent} flannel shirt and {neutral} lined jeans",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} hooded fishtail parka over a {accent} knit tunic and {neutral} thermal leggings",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} teddy-fleece coat over a {accent} long-sleeved jersey dress and {neutral} wool tights",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} quilted liner jacket over a {accent} roll-neck and {neutral} brushed-cotton trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} hooded insulated coverall with {accent} shoulder panels and reinforced {neutral} knees",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool shirt jacket over a {accent} thermal henley and {neutral} corduroy trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} belted padded wrap coat over a {accent} merino tunic and {neutral} wide-leg trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} funnel-neck wool coat over a {accent} cable-knit sweater and {neutral} checked trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} insulated seated-cut parka with a shortened back over {neutral} fleece-lined side-opening trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} side-fastening padded cape over a {accent} wool sweater and {neutral} insulated trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} chunky wool cardigan over a {accent} flannel shirt and {neutral} lined canvas trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} double-faced sheepskin coat over a {accent} wool tunic and {neutral} leggings",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} long padded vest over a {accent} wool coat and {neutral} straight trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool greatcoat with a shoulder cape over a {accent} linen shirt and {neutral} high-waisted wool trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "steampunk",
+          "scifi",
+          "horror"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "a {main} quilted cotton jacket over a {accent} long-sleeved tunic and {neutral} padded trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} insulated anorak with a {accent} chest panel and {neutral} fleece-lined trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} felted-wool wrap jacket over a thick {accent} knitted dress and {neutral} thermal tights",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "layered"
+        ],
+        "climate": [
+          "cold"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} hooded wool cloak over a {accent} long-sleeved wool gown and {neutral} knitted stockings",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "heavy outerwear"
+        ],
+        "climate": [
+          "cold"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "a thick {main} wool turtleneck sweater and {neutral} fleece-lined corduroy trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "single layer"
+        ],
+        "climate": [
+          "cold"
+        ]
+      }
+    },
+    {
+      "text": "a {main} long-sleeved heavy knitted maxi dress with {neutral} wool tights",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "layering": [
+          "single layer"
+        ],
+        "climate": [
+          "cold"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     }
-  ]
+  ],
+  "slots": "person.palette",
+  "local_facets": {
+    "layering": [
+      "single layer",
+      "layered",
+      "heavy outerwear"
+    ],
+    "coverage": [
+      "light",
+      "moderate",
+      "full"
+    ]
+  }
 }

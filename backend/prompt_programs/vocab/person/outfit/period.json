@@ -4,7 +4,7 @@
   "description": "Historical garment combinations spanning eras and cultural regions.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete historical looks; every entry carries an era tag, with region tags for specific dress traditions. Casual, smart, and formal own contemporary clothing, including living dress traditions; fantasy owns invented historical-looking costumes. These are visual wardrobe cues, not claims of museum-grade reconstruction. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity.",
+  "notes": "Complete historical looks; every entry carries an era tag, with region tags for specific dress traditions. Casual, smart, and formal own contemporary clothing, including living dress traditions; fantasy owns invented historical-looking costumes. These are visual wardrobe cues, not claims of museum-grade reconstruction. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles colour dyed cloth; white, unbleached and metallic garments retain intrinsic colours. Muted, earthy and light schemes keep all allowed role colours suitable for period cloth. Status describes wardrobe means, with overlapping categories for shared garments; coverage describes garment extent.",
   "facets": [
     "presentation",
     "age",
@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a white linen kalasiris with a narrow woven sash",
+      "text": "a white linen kalasiris with a narrow {accent} woven sash",
       "tier": "typical",
       "tags": {
         "era": [
@@ -43,11 +43,29 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "working",
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "region": [
+          "african"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a cream wool peplos with a folded upper edge",
+      "text": "a {main} wool peplos with a folded upper edge",
       "tier": "typical",
       "tags": {
         "era": [
@@ -61,11 +79,28 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "region": [
+          "european"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a white linen chiton beneath a brown wool himation",
+      "text": "a white linen chiton beneath a {main} wool himation",
       "tier": "typical",
       "tags": {
         "era": [
@@ -76,6 +111,23 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
@@ -91,11 +143,20 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
         ]
       }
     },
     {
-      "text": "a blue wool tunic and checked woven trousers",
+      "text": "a {main} wool tunic and trousers with {accent} and {neutral} woven checks",
       "tier": "typical",
       "tags": {
         "era": [
@@ -106,11 +167,25 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a belted cream Persian tunic and loose red trousers",
+      "text": "a belted {main} Persian tunic and loose {accent} trousers",
       "tier": "typical",
       "tags": {
         "era": [
@@ -121,11 +196,28 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "middle_eastern"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a red cross-collar robe over a cream silk skirt",
+      "text": "a {main} cross-collar robe over a {accent} silk skirt",
       "tier": "typical",
       "tags": {
         "era": [
@@ -139,6 +231,22 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "east_asian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
@@ -154,11 +262,22 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "status": [
+          "working",
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "region": [
+          "south_asian"
         ]
       }
     },
     {
-      "text": "a brown wool kirtle over a cream linen shift",
+      "text": "a {main} wool kirtle over a cream linen shift",
       "tier": "typical",
       "tags": {
         "era": [
@@ -172,11 +291,25 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a blue wool cotehardie over a plain linen underdress",
+      "text": "a {main} wool cotehardie over a white linen underdress",
       "tier": "typical",
       "tags": {
         "era": [
@@ -190,11 +323,25 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a green belted tunic and dark wool hose",
+      "text": "a {main} belted tunic and {neutral} wool hose",
       "tier": "typical",
       "tags": {
         "era": [
@@ -205,11 +352,25 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a burgundy houppelande with broad hanging sleeves",
+      "text": "a {main} houppelande with broad hanging sleeves",
       "tier": "typical",
       "tags": {
         "era": [
@@ -220,11 +381,24 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a quilted linen gambeson over a tunic and wool hose",
+      "text": "a quilted {main} linen gambeson over a {accent} tunic and {neutral} wool hose",
       "tier": "typical",
       "tags": {
         "era": [
@@ -235,11 +409,25 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a cream silk kosode beneath layered red silk robes",
+      "text": "a {accent} silk kosode beneath layered {main} silk robes",
       "tier": "typical",
       "tags": {
         "era": [
@@ -253,11 +441,27 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "east_asian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a dark blue hitatare jacket and matching wide hakama",
+      "text": "a {main} hitatare jacket and matching wide hakama",
       "tier": "typical",
       "tags": {
         "era": [
@@ -268,11 +472,27 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "east_asian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a striped wool kaftan over a linen shirt and trousers",
+      "text": "a wool kaftan with {main} and {accent} stripes over a linen shirt and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "era": [
@@ -283,11 +503,24 @@
           "fantasy",
           "fairy_tale",
           "horror"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a black doublet, cream linen shirt, and brown trunk hose",
+      "text": "a {main} doublet, cream linen shirt, and {neutral} trunk hose",
       "tier": "typical",
       "tags": {
         "era": [
@@ -299,11 +532,25 @@
           "fairy_tale",
           "horror",
           "steampunk"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a green velvet gown over a cream brocade forepart",
+      "text": "a {main} velvet gown over a {accent} brocade forepart",
       "tier": "typical",
       "tags": {
         "era": [
@@ -318,11 +565,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a rust wool bodice and full skirt over a linen shift",
+      "text": "a {main} wool bodice and full skirt over a linen shift",
       "tier": "typical",
       "tags": {
         "era": [
@@ -337,11 +597,25 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a blue silk mantua over a quilted cream petticoat",
+      "text": "a {main} silk mantua over a quilted {accent} petticoat",
       "tier": "typical",
       "tags": {
         "era": [
@@ -356,11 +630,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a pink robe a la francaise over a matching petticoat",
+      "text": "a {main} robe a la francaise over a matching petticoat",
       "tier": "typical",
       "tags": {
         "era": [
@@ -378,11 +665,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a brown wool justaucorps, cream waistcoat, and knee breeches",
+      "text": "a {main} wool justaucorps, {accent} waistcoat, and {neutral} knee breeches",
       "tier": "typical",
       "tags": {
         "era": [
@@ -394,11 +694,25 @@
           "fairy_tale",
           "horror",
           "steampunk"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a gold Ottoman entari over a cream shirt and salwar",
+      "text": "a {main} Ottoman entari over a cream shirt and {neutral} salwar",
       "tier": "typical",
       "tags": {
         "era": [
@@ -410,6 +724,22 @@
           "fairy_tale",
           "horror",
           "steampunk"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "middle_eastern"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
@@ -426,11 +756,21 @@
           "fairy_tale",
           "horror",
           "steampunk"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "south_asian"
         ]
       }
     },
     {
-      "text": "a black haori over a grey kimono and striped hakama",
+      "text": "a {main} haori over a {neutral} kimono and hakama with {main} and {accent} stripes",
       "tier": "typical",
       "tags": {
         "era": [
@@ -442,11 +782,28 @@
           "fairy_tale",
           "horror",
           "steampunk"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "east_asian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a cream cotton unku over a short woven wrap",
+      "text": "a {main} cotton unku over a short {accent} woven wrap",
       "tier": "typical",
       "tags": {
         "era": [
@@ -458,6 +815,23 @@
           "fairy_tale",
           "horror",
           "steampunk"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "region": [
+          "latin_american"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
@@ -477,46 +851,18 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a blue wool frock coat and grey striped trousers",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "19th_century"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror",
-          "steampunk"
-        ]
-      }
-    },
-    {
-      "text": "a green silk crinoline dress with a fitted bodice",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "19th_century"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror",
-          "steampunk"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a burgundy bustle gown with a draped overskirt",
+      "text": "a {main} wool frock coat and trousers with {neutral} and {accent} stripes",
       "tier": "typical",
       "tags": {
         "era": [
@@ -529,13 +875,24 @@
           "horror",
           "steampunk"
         ],
-        "presentation": [
-          "feminine"
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a cream high-neck blouse and brown walking skirt",
+      "text": "a {main} silk crinoline dress with a fitted bodice",
       "tier": "typical",
       "tags": {
         "era": [
@@ -550,11 +907,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a faded cotton prairie dress with a white pinafore",
+      "text": "a {main} bustle gown with a draped overskirt",
       "tier": "typical",
       "tags": {
         "era": [
@@ -569,27 +939,24 @@
         ],
         "presentation": [
           "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a dark blue Qing jacket and matching silk trousers",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "19th_century"
         ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror",
-          "steampunk"
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a green jeogori and a full red silk chima",
+      "text": "a {accent} high-neck blouse and {main} walking skirt",
       "tier": "typical",
       "tags": {
         "era": [
@@ -604,6 +971,121 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a faded {main} cotton prairie dress with a white pinafore",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} Qing jacket and matching silk trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "east_asian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} jeogori and a full {accent} silk chima",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "east_asian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
@@ -620,11 +1102,21 @@
           "fairy_tale",
           "horror",
           "steampunk"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "region": [
+          "south_asian"
         ]
       }
     },
     {
-      "text": "a red baju kurung with a patterned woven sarong",
+      "text": "a {main} baju kurung with a {neutral} woven sarong patterned in {accent}",
       "tier": "typical",
       "tags": {
         "era": [
@@ -639,11 +1131,27 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "southeast_asian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a white cotton tunic and trousers beneath an embroidered agbada",
+      "text": "a white cotton tunic and trousers beneath an embroidered {main} agbada",
       "tier": "typical",
       "tags": {
         "era": [
@@ -658,11 +1166,27 @@
         ],
         "presentation": [
           "masculine"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "african"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a black beaded drop-waist dress with a fringed hem",
+      "text": "a {main} beaded drop-waist dress with a fringed hem",
       "tier": "typical",
       "tags": {
         "era": [
@@ -676,11 +1200,25 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "light"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a cream linen suit with high-waisted wide trousers",
+      "text": "a {main} linen suit with high-waisted wide trousers",
       "tier": "typical",
       "tags": {
         "era": [
@@ -691,6 +1229,20 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
@@ -712,11 +1264,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a navy work jacket and high-waisted denim dungarees",
+      "text": "a {main} work jacket and high-waisted blue denim dungarees",
       "tier": "typical",
       "tags": {
         "era": [
@@ -727,11 +1285,24 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a red swing dress with a fitted cotton bodice",
+      "text": "a {main} swing dress with a fitted cotton bodice",
       "tier": "typical",
       "tags": {
         "era": [
@@ -745,11 +1316,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a pink boucle skirt suit with a collarless jacket",
+      "text": "a {main} boucle skirt suit with a collarless jacket",
       "tier": "typical",
       "tags": {
         "era": [
@@ -763,11 +1347,25 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a lime geometric minidress with a white Peter Pan collar",
+      "text": "a {main} geometric minidress patterned in {accent} with a white Peter Pan collar",
       "tier": "typical",
       "tags": {
         "era": [
@@ -781,11 +1379,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "light"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a brown corduroy jacket and flared denim jeans",
+      "text": "a {main} corduroy jacket and flared blue denim jeans",
       "tier": "typical",
       "tags": {
         "era": [
@@ -796,11 +1407,25 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a cream polyester leisure suit and rust open-collar shirt",
+      "text": "a {main} polyester leisure suit and {accent} open-collar shirt",
       "tier": "typical",
       "tags": {
         "era": [
@@ -811,11 +1436,24 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a teal padded-shoulder blazer and matching pleated trousers",
+      "text": "a {main} padded-shoulder blazer and matching pleated trousers",
       "tier": "typical",
       "tags": {
         "era": [
@@ -827,11 +1465,24 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a purple shell-suit jacket and matching nylon track trousers",
+      "text": "a {main} shell-suit jacket and matching nylon track trousers",
       "tier": "typical",
       "tags": {
         "era": [
@@ -843,11 +1494,25 @@
           "cyberpunk",
           "horror",
           "post_apocalyptic"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a brown slip dress over a white cotton T-shirt",
+      "text": "a {main} slip dress over a {accent} cotton T-shirt",
       "tier": "typical",
       "tags": {
         "era": [
@@ -862,8 +1527,1056 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a short {main} linen work tunic with a cord belt",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "ancient"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "region": [
+          "european"
+        ],
+        "formality": [
+          "casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "an undyed linen loincloth with a pleated front panel",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "ancient"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "region": [
+          "african"
+        ],
+        "formality": [
+          "casual"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool stola over a white linen tunic with a {accent} palla",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "ancient"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk shenyi with a wrapped front and a {accent} woven belt",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "ancient"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "east_asian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool chlamys clasped over a knee-length linen chiton",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "ancient"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "region": [
+          "european"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} linen tunic and {neutral} wool trousers with cross-gartered leg wraps",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "medieval"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "formality": [
+          "casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool apron dress with bronze clasps over a white linen underdress",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "medieval"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk bliaut with fitted sleeves and a {accent} woven girdle",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "medieval"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool surcoat over a {accent} long-sleeved gown",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "medieval"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a white linen shirt beneath a {main} short wool jacket and {neutral} hose",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "medieval"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "formality": [
+          "casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} round-collar silk robe with a {neutral} leather belt",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "medieval"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "east_asian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool riding coat over a {accent} linen tunic and {neutral} trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "medieval"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "middle_eastern"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} linen work smock over a {neutral} wool skirt",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "formality": [
+          "casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool jerkin over a white linen shirt and {neutral} knee breeches",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "formality": [
+          "casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} embroidered silk doublet with slashed sleeves and matching trunk hose",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk robe a la polonaise over a {accent} petticoat",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "region": [
+          "european"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool riding habit with a fitted jacket and a full skirt",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton shortgown and {neutral} petticoat beneath a white linen apron",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "formality": [
+          "casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton kosode with small {accent} resist-dyed motifs and a {neutral} sash",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "early_modern"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "east_asian"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} quilted cotton jacket over a white shirt and {neutral} work trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "east_asian"
+        ],
+        "formality": [
+          "casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool sack coat, {accent} waistcoat, and {neutral} trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton smock-frock with gathered embroidery over {neutral} corduroy trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "working"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "formality": [
+          "casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool morning coat over a white shirt and {neutral} striped trousers",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool paletot over a {accent} high-neck walking dress",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "middle",
+          "elite"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton kebaya with a {neutral} batik sarong patterned in {accent}",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "19th_century"
+        ],
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror",
+          "steampunk"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "region": [
+          "southeast_asian"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} high-neck cotton blouse with leg-of-mutton sleeves and a {neutral} gored skirt",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "region": [
+          "european"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool knickerbocker suit with a {accent} knitted waistcoat and {neutral} stockings",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cotton house dress with {accent} floral print and a white apron",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} tweed jacket over a {accent} knitted pullover and {neutral} Oxford bags",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1900s_1940s"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "status": [
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} leather motorcycle jacket over a white T-shirt and cuffed blue jeans",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1950s_1970s"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "an oversized {main} flannel shirt with {accent} checks over a white T-shirt and distressed blue jeans",
+      "tier": "typical",
+      "tags": {
+        "era": [
+          "1980s_1990s"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "status": [
+          "working",
+          "middle"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     }
-  ]
+  ],
+  "slots": "person.palette",
+  "local_facets": {
+    "status": [
+      "working",
+      "middle",
+      "elite"
+    ],
+    "coverage": [
+      "light",
+      "moderate",
+      "full"
+    ]
+  }
 }

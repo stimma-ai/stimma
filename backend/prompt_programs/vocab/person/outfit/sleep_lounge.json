@@ -4,7 +4,7 @@
   "description": "Sleepwear and soft indoor leisure outfits described as complete garment combinations.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete pyjamas, nightdresses, robes over underlayers, and relaxed home clothes. Casual owns everyday streetwear; athletic owns workout kit; summer owns swimwear. Excludes underwear-only looks, bedclothes, props, locations, and body descriptions.",
+  "notes": "Complete pyjamas, nightdresses, robes over underlayers, and relaxed home clothes. Casual owns everyday streetwear; athletic owns workout kit; summer owns swimwear. Excludes underwear-only looks, bedclothes, props, locations, and body descriptions. Palette roles coordinate garment colours; white and undyed historical shifts retain intrinsic colours. Coverage describes garment extent. Historical dyed looks use muted, earthy or light schemes.",
   "facets": [
     "presentation",
     "age",
@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a blue cotton pyjama shirt and matching loose trousers",
+      "text": "a {main} cotton pyjama shirt and matching loose trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -45,11 +45,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a grey jersey T-shirt and soft navy lounge trousers",
+      "text": "a {main} jersey T-shirt and soft {neutral} lounge trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -67,11 +80,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a cream waffle-knit top and matching drawstring bottoms",
+      "text": "a {main} waffle-knit top and matching drawstring bottoms",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -89,11 +108,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a pink flannel pyjama shirt and checked trousers",
+      "text": "a {main} flannel pyjama shirt and trousers with {main} and {accent} checks",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -112,6 +137,19 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
@@ -142,11 +180,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "nightdress"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy satin pyjama shirt and matching wide-leg trousers",
+      "text": "a {main} satin pyjama shirt and matching wide-leg trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -165,11 +209,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a green cotton tank and grey jersey sleep shorts",
+      "text": "a {main} cotton tank and {neutral} jersey sleep shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -187,11 +244,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a burgundy fleece pullover and black lounge leggings",
+      "text": "a {main} fleece pullover and {neutral} lounge leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -207,11 +270,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a pale blue cotton robe over striped pyjamas",
+      "text": "a {main} cotton robe over pyjamas with {accent} and {neutral} stripes",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -230,11 +299,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "robe"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a cream terrycloth robe over a white cotton nightdress",
+      "text": "a {main} terrycloth robe over a {neutral} cotton nightdress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -255,11 +337,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "robe"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a charcoal fleece onesie with ribbed ankle cuffs",
+      "text": "a {main} fleece onesie with ribbed ankle cuffs",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -275,11 +363,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "other"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a lavender lounge cardigan and matching knitted trousers",
+      "text": "a {main} lounge cardigan and matching knitted trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -298,11 +392,24 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a white thermal top and grey ribbed leggings",
+      "text": "a {main} thermal top and {neutral} ribbed leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -325,11 +432,24 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a red plaid flannel nightshirt with a curved hem",
+      "text": "a {main} flannel nightshirt with {accent} plaid and a curved hem",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -350,11 +470,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "other"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a yellow cotton sleep romper with short sleeves",
+      "text": "a {main} cotton sleep romper with short sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -375,11 +508,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "other"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a blue fleece sleepsuit with covered feet",
+      "text": "a {main} fleece sleepsuit with covered feet",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -402,11 +541,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "other"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a mint cotton pyjama top and matching capri trousers",
+      "text": "a {main} cotton pyjama top and matching capri trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -423,56 +568,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a peach jersey nightdress with short sleeves",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "presentation": [
-          "feminine"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a brown knit hoodie and cream lounge joggers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "casual"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "a black silk camisole and matching loose pyjama trousers",
+      "text": "a {main} jersey nightdress with short sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -492,11 +598,74 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "nightdress"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a lilac satin robe over a matching knee-length nightdress",
+      "text": "a {main} knit hoodie and {neutral} lounge joggers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk camisole and matching loose pyjama trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "casual"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} satin robe over a matching knee-length nightdress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -517,11 +686,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "robe"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a cream cotton kurta and loose white pyjama trousers",
+      "text": "a {main} cotton kurta and loose {neutral} pyjama trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -545,11 +720,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a navy jinbei jacket and matching cotton shorts",
+      "text": "a {main} jinbei jacket and matching cotton shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -570,11 +758,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a grey quilted robe over cream thermal pyjamas",
+      "text": "a {main} quilted robe over {neutral} thermal pyjamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -596,11 +790,24 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "robe"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a striped jersey top and red elastic-waist sleep trousers",
+      "text": "a jersey top with {main} and {accent} stripes and {neutral} elastic-waist sleep trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -618,18 +825,23 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a plum velour zip jacket and matching lounge trousers",
+      "text": "a {main} velour zip jacket and matching lounge trousers",
       "tier": "typical",
       "tags": {
         "formality": [
           "casual"
         ],
         "era": [
-          "1900s_1940s",
           "1950s_1970s",
           "1980s_1990s",
           "contemporary",
@@ -640,11 +852,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a white cotton tunic and pale blue sleep leggings",
+      "text": "a {main} cotton tunic and {neutral} sleep leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -661,11 +879,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a rust waffle-knit henley and cream lounge shorts",
+      "text": "a {main} waffle-knit henley and {neutral} lounge shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -684,11 +908,24 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a teal jersey lounge dress with loose elbow-length sleeves",
+      "text": "a {main} jersey lounge dress with loose elbow-length sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -708,11 +945,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a pink cotton sleep shirt and matching cuffed shorts",
+      "text": "a {main} cotton sleep shirt and matching cuffed shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -730,11 +973,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a green fleece dressing gown over grey jersey pyjamas",
+      "text": "a {main} fleece dressing gown over {neutral} jersey pyjamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -757,11 +1006,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "robe"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy hooded lounge tunic and black stretch trousers",
+      "text": "a {main} hooded lounge tunic and {neutral} stretch trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -777,11 +1032,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a cream pointelle-knit top and matching sleep trousers",
+      "text": "a {main} pointelle-knit top and matching sleep trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -799,11 +1060,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a blue cotton wrap robe over white sleep shorts",
+      "text": "a {main} cotton wrap robe over {neutral} sleep shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -821,18 +1088,23 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "kind": [
+          "robe"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a charcoal oversized sweatshirt and burgundy jersey lounge shorts",
+      "text": "an oversized {main} sweatshirt and {accent} jersey lounge shorts",
       "tier": "typical",
       "tags": {
         "formality": [
           "casual"
         ],
         "era": [
-          "1900s_1940s",
           "1950s_1970s",
           "1980s_1990s",
           "contemporary",
@@ -843,6 +1115,12 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "kind": [
+          "loungewear"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
@@ -865,11 +1143,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "kind": [
+          "nightdress"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a soft wool bedgown over a plain linen underdress",
+      "text": "a soft {main} wool bedgown over a white linen underdress",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -887,11 +1171,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "kind": [
+          "robe"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a calf-length linen night tunic with a split neckline",
+      "text": "a calf-length undyed linen night tunic with a split neckline",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -906,6 +1203,12 @@
         ],
         "formality": [
           "casual"
+        ],
+        "kind": [
+          "other"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
@@ -925,11 +1228,17 @@
         ],
         "formality": [
           "casual"
+        ],
+        "kind": [
+          "other"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a pale blue linen sleeping gown with a tied neckline",
+      "text": "a {main} linen sleeping gown with a tied neckline",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -947,11 +1256,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "kind": [
+          "nightdress"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a russet wool wrap robe over an undyed linen shift",
+      "text": "a {main} wool wrap robe over an undyed linen shift",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -969,11 +1291,24 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "kind": [
+          "robe"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a quilted silk sleeping robe over a plain linen tunic",
+      "text": "a quilted {main} silk sleeping robe over a white linen tunic",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -988,8 +1323,96 @@
         ],
         "formality": [
           "casual"
+        ],
+        "kind": [
+          "robe"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk camisole with {accent} piping and matching sleep shorts",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "pyjamas"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ]
+      }
+    },
+    {
+      "text": "a short {main} cotton nightdress with narrow straps and a gathered neckline",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "nightdress"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "formality": [
+          "casual"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
         ]
       }
     }
-  ]
+  ],
+  "slots": "person.palette",
+  "local_facets": {
+    "kind": [
+      "pyjamas",
+      "nightdress",
+      "robe",
+      "loungewear",
+      "other"
+    ],
+    "coverage": [
+      "light",
+      "moderate",
+      "full"
+    ]
+  }
 }

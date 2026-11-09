@@ -101,8 +101,7 @@
           "red"
         ],
         "tone": [
-          "neon",
-          "bright"
+          "neon"
         ]
       }
     },
@@ -172,8 +171,7 @@
           "orange"
         ],
         "tone": [
-          "neon",
-          "bright"
+          "neon"
         ]
       }
     },
@@ -243,8 +241,7 @@
           "yellow"
         ],
         "tone": [
-          "neon",
-          "bright"
+          "neon"
         ]
       }
     },
@@ -315,8 +312,7 @@
           "green"
         ],
         "tone": [
-          "neon",
-          "bright"
+          "neon"
         ]
       }
     },
@@ -598,8 +594,7 @@
           "pink"
         ],
         "tone": [
-          "neon",
-          "bright"
+          "neon"
         ]
       }
     },
@@ -815,7 +810,6 @@
           "black"
         ],
         "tone": [
-          "dark",
           "neon"
         ]
       }

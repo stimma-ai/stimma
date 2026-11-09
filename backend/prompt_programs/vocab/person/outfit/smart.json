@@ -4,7 +4,7 @@
   "description": "Business and smart casual looks with tailored or polished everyday garments.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete workwear and smart casual outfits. Casual owns relaxed daily clothes; formal owns evening and ceremonial dress. Garments define presentation rather than wearer identity; excludes occupational equipment, accessories, and uniforms with insignia. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity.",
+  "notes": "Complete workwear and smart casual outfits. Casual owns relaxed daily clothes; formal owns evening and ceremonial dress. Garments define presentation rather than wearer identity; excludes occupational equipment, accessories, and uniforms with insignia. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles colour garments as one coordinated look. Coverage describes garment extent. Historical fabrics use muted or earthy schemes.",
   "facets": [
     "presentation",
     "age",
@@ -26,333 +26,7 @@
   },
   "values": [
     {
-      "text": "a navy blazer, white shirt, and grey tailored trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "steampunk"
-        ]
-      }
-    },
-    {
-      "text": "a charcoal wool suit with a pale blue shirt",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "steampunk"
-        ]
-      }
-    },
-    {
-      "text": "a beige linen blazer and matching tapered trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "steampunk"
-        ]
-      }
-    },
-    {
-      "text": "a cream silk blouse and navy cigarette trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a black turtleneck and grey wool dress trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a brown tweed blazer and dark straight-leg jeans",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "a navy knit polo and stone tailored chinos",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "a white Oxford shirt and olive pleated trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "steampunk"
-        ]
-      }
-    },
-    {
-      "text": "a burgundy blouse and a charcoal pencil skirt",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a grey cardigan over a blue shirt and navy trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "steampunk"
-        ]
-      }
-    },
-    {
-      "text": "a blue pinstriped suit with a white cotton shirt",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "steampunk"
-        ]
-      }
-    },
-    {
-      "text": "a charcoal waistcoat over a cream shirt and black trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "steampunk"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a black jersey top and a cream trouser suit",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "a cream sheath dress with a cropped navy jacket",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a brown wool skirt suit with a silk blouse",
+      "text": "a {main} blazer, {accent} shirt, and {neutral} tailored trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -373,161 +47,34 @@
           "horror",
           "steampunk"
         ],
-        "presentation": [
-          "feminine"
+        "occasion": [
+          "office",
+          "client meeting",
+          "interview"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a black collarless jacket and matching straight trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a navy shift dress with three-quarter sleeves",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a bottle-green shirt dress with a structured waist",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a cream knit twinset and a navy pencil skirt",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a navy sweater vest over a shirt and grey trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a charcoal roll-neck and a brown checked midi skirt",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "smart"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a taupe belted jumpsuit with a tailored collar",
+      "text": "a {main} wool suit with a {accent} shirt",
       "tier": "typical",
       "tags": {
         "formality": [
           "smart"
         ],
         "era": [
+          "19th_century",
           "1900s_1940s",
           "1950s_1970s",
           "1980s_1990s",
@@ -538,12 +85,70 @@
           "realistic",
           "scifi",
           "cyberpunk",
-          "horror"
+          "horror",
+          "steampunk"
+        ],
+        "occasion": [
+          "office",
+          "client meeting",
+          "interview"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a white blouse and a grey pinafore midi dress",
+      "text": "a {main} linen blazer and matching tapered trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {accent} silk blouse and {main} cigarette trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -556,7 +161,6 @@
           "horror"
         ],
         "era": [
-          "1900s_1940s",
           "1950s_1970s",
           "1980s_1990s",
           "contemporary",
@@ -564,11 +168,301 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a grey linen waistcoat and matching pleated trousers",
+      "text": "a {main} turtleneck and {neutral} wool dress trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} tweed blazer and {neutral} straight-leg jeans",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} knit polo and {neutral} tailored chinos",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {accent} Oxford shirt and {main} pleated trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} blouse and a {neutral} pencil skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cardigan over a {accent} shirt and {neutral} trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} pinstriped suit with a {accent} cotton shirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "occasion": [
+          "office",
+          "client meeting",
+          "interview"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} waistcoat over a {accent} shirt and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -588,11 +482,228 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a white tunic blouse and charcoal palazzo trousers",
+      "text": "a {accent} jersey top and a {main} trouser suit",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "occasion": [
+          "office",
+          "client meeting",
+          "interview"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sheath dress with a cropped {accent} jacket",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wool skirt suit with a {accent} silk blouse",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting",
+          "interview"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} collarless jacket and matching straight trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "occasion": [
+          "office",
+          "client meeting",
+          "interview"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} shift dress with three-quarter sleeves",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} shirt dress with a structured waist",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -613,11 +724,306 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a deep blue silk kurta and cream straight trousers",
+      "text": "a {accent} knit twinset and a {main} pencil skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sweater vest over a {accent} shirt and {neutral} trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {accent} roll-neck and a {main} checked midi skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} belted jumpsuit with a tailored collar",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {accent} blouse and a {main} pinafore midi dress",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} linen waistcoat and matching pleated trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {accent} tunic blouse and {neutral} palazzo trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk kurta and {neutral} straight trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -639,11 +1045,27 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a charcoal band-collar jacket and matching tailored trousers",
+      "text": "a {main} band-collar jacket and matching tailored trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -659,11 +1081,28 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "office",
+          "client meeting",
+          "interview"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a cream cotton sari with a navy tailored blouse",
+      "text": "a {main} cotton sari with a {accent} tailored blouse",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -688,11 +1127,27 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a plum salwar kameez with fine tonal embroidery",
+      "text": "a {main} salwar kameez with fine tonal embroidery",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -717,11 +1172,27 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a black tailored abaya over an ivory crepe dress",
+      "text": "a {main} tailored abaya over a {accent} crepe dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -742,6 +1213,22 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
@@ -769,11 +1256,18 @@
         ],
         "presentation": [
           "masculine"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a navy batik shirt and pressed black trousers",
+      "text": "a {main} batik shirt and pressed {neutral} trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -791,11 +1285,27 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a short-sleeved cotton barong Tagalog and grey tailored trousers",
+      "text": "a short-sleeved cotton barong Tagalog and {neutral} tailored trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -813,11 +1323,27 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a jade silk blouse and a tailored black batik skirt",
+      "text": "a {accent} silk blouse and a tailored {main} batik skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -838,11 +1364,27 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "creative workplace",
+          "smart casual"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a blue embroidered guayabera and ivory dress trousers",
+      "text": "a {main} embroidered guayabera and {neutral} dress trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -860,11 +1402,27 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "smart casual",
+          "office"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a charcoal tang jacket and black tailored trousers",
+      "text": "a {main} tang jacket and {neutral} tailored trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -882,11 +1440,27 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a burgundy wax-print jacket and navy tailored trousers",
+      "text": "a {main} wax-print jacket and {neutral} tailored trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -904,11 +1478,27 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "creative workplace",
+          "smart casual"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a cream kaftan with structured shoulders and matching trousers",
+      "text": "a {main} kaftan with structured shoulders and matching trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -926,11 +1516,27 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "creative workplace",
+          "smart casual"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     },
     {
-      "text": "a fitted wool doublet over a linen shirt and hose",
+      "text": "a fitted {main} wool doublet over a {accent} linen shirt and {neutral} hose",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -945,11 +1551,23 @@
         ],
         "formality": [
           "smart"
+        ],
+        "occasion": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a blue wool kirtle beneath a neatly laced brown surcoat",
+      "text": "a {main} wool kirtle beneath a neatly laced {accent} surcoat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -967,11 +1585,23 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a green wool cotehardie with fitted sleeves and cloth buttons",
+      "text": "a {main} wool cotehardie with fitted sleeves and cloth buttons",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -989,11 +1619,23 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a burgundy belted robe over a fine cream linen tunic",
+      "text": "a {main} belted robe over a fine {accent} linen tunic",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1008,11 +1650,23 @@
         ],
         "formality": [
           "smart"
+        ],
+        "occasion": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a charcoal wool tunic and hose beneath a short mantle",
+      "text": "a {main} wool tunic and matching hose beneath a short {accent} mantle",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1027,11 +1681,23 @@
         ],
         "formality": [
           "smart"
+        ],
+        "occasion": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a cream linen gown beneath an embroidered sleeveless wool overdress",
+      "text": "a {accent} linen gown beneath an embroidered sleeveless {main} wool overdress",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1049,11 +1715,23 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a dark red wool kaftan over a shirt and trousers",
+      "text": "a {main} wool kaftan over a {accent} shirt and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1068,8 +1746,680 @@
         ],
         "formality": [
           "smart"
+        ],
+        "occasion": [
+          "other"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "a {main} single-breasted trouser suit with a {accent} long-sleeved poplin shirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "interview",
+          "client meeting"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} herringbone jacket over a {accent} merino crew-neck and {neutral} flannel trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} short-sleeved camp-collar linen shirt and {neutral} pressed cotton trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "office",
+          "smart casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sleeveless tailored vest and matching Bermuda shorts",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "occasion": [
+          "smart casual",
+          "creative workplace"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sleeveless mock-neck top and {neutral} high-waisted culottes",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "office",
+          "creative workplace"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} longline crepe blazer over a {accent} silk shell and {neutral} wide-leg trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} belted cotton midi shirt dress with rolled sleeves",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "office",
+          "smart casual"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} cropped box jacket over a {accent} ribbed tank and {neutral} pleated trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "creative workplace",
+          "smart casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} wrap-front long-sleeved blouse and {neutral} straight wool trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} fine-knit short-sleeved sweater and a {accent} pleated midi skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "office",
+          "smart casual"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} long-sleeved crepe tunic with side slits and matching ankle-length trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} seated-cut blazer with front patch pockets and matching elastic-back dress trousers over a {accent} cotton shirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "interview"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} magnetic-button cotton shirt and {neutral} side-opening tailored trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "smart casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sleeveless wrap jumpsuit with wide legs and a tied waist",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "creative workplace",
+          "smart casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} long-sleeved silk shirt with a concealed placket and {neutral} tapered dress trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} short-sleeved peplum blouse and a {neutral} knee-length pencil skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} corduroy blazer over a {accent} jersey turtleneck and {neutral} pleated chinos",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "creative workplace",
+          "smart casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} shawl-collar cardigan over a {accent} cotton shirt and {neutral} wool trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "smart casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} asymmetric crepe tunic with elbow sleeves and {neutral} cropped trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "office",
+          "creative workplace"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} long-sleeved cotton kurta beneath a {accent} woven waistcoat with {neutral} straight trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} long-sleeved belted tunic and matching tapered trousers with pintucked seams",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "smart casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sleeveless linen shift dress with a square neckline and knee-length hem",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "occasion": [
+          "smart casual",
+          "creative workplace"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} knitted polo dress with elbow-length sleeves and a calf-length flared skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "office",
+          "smart casual"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} double-breasted wool blazer over a {accent} silk shirt and {neutral} straight trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "office",
+          "client meeting"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
+        ]
+      }
+    },
+    {
+      "text": "a {main} patch-pocket cotton jacket over a {accent} knitted polo and {neutral} tailored drawstring trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "smart"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "creative workplace",
+          "smart casual"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light",
+          "pastel",
+          "monochrome"
         ]
       }
     }
-  ]
+  ],
+  "slots": "person.palette",
+  "local_facets": {
+    "occasion": [
+      "office",
+      "interview",
+      "smart casual",
+      "client meeting",
+      "creative workplace",
+      "other"
+    ],
+    "coverage": [
+      "light",
+      "moderate",
+      "full"
+    ]
+  }
 }

@@ -4,7 +4,7 @@
   "description": "Evening, wedding, and ceremonial outfits made from concrete formal garments.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete formal looks across presentations and regions. Smart owns business tailoring; period owns deliberately historical dress; fantasy owns imaginary ceremonial clothing. Culturally specific dress is ordinary within its region, and bridal clothing is not restricted to a particular age beyond adulthood. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity.",
+  "notes": "Complete formal looks across presentations and regions. Smart owns business tailoring; period owns deliberately historical dress; fantasy owns imaginary ceremonial clothing. Culturally specific dress is ordinary within its region, and bridal clothing is not restricted to a particular age beyond adulthood. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles colour garments as one coordinated look. Coverage describes garment extent. Historical fabrics use muted or earthy schemes.",
   "facets": [
     "presentation",
     "age",
@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a black tuxedo with a white pleated dress shirt",
+      "text": "a {main} tuxedo with a white pleated dress shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -46,11 +46,24 @@
           "cyberpunk",
           "horror",
           "steampunk"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark"
         ]
       }
     },
     {
-      "text": "a charcoal three-piece suit and a crisp white shirt",
+      "text": "a {main} three-piece suit and a crisp {accent} shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -70,6 +83,21 @@
           "cyberpunk",
           "horror",
           "steampunk"
+        ],
+        "occasion": [
+          "cocktail",
+          "wedding guest",
+          "gala",
+          "prom"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "muted"
         ]
       }
     },
@@ -92,11 +120,19 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a deep burgundy velvet suit and black silk shirt",
+      "text": "a {main} velvet suit and {neutral} silk shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -116,11 +152,26 @@
           "cyberpunk",
           "horror",
           "steampunk"
+        ],
+        "occasion": [
+          "cocktail",
+          "wedding guest",
+          "gala",
+          "prom"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "muted"
         ]
       }
     },
     {
-      "text": "a black tailcoat, white waistcoat, and striped formal trousers",
+      "text": "a {main} tailcoat, white waistcoat, and grey striped formal trousers",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -140,11 +191,23 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark"
         ]
       }
     },
     {
-      "text": "a cream double-breasted suit and pale blue shirt",
+      "text": "a {main} double-breasted suit and {accent} shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -164,69 +227,26 @@
           "cyberpunk",
           "horror",
           "steampunk"
+        ],
+        "occasion": [
+          "cocktail",
+          "wedding guest",
+          "gala",
+          "prom"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "muted"
         ]
       }
     },
     {
-      "text": "a black silk gown with a square neckline",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "formal"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "fantasy",
-          "fairy_tale",
-          "steampunk"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a navy satin gown with a full skirt",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "formal"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "fantasy",
-          "fairy_tale",
-          "steampunk"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a burgundy velvet dress with long fitted sleeves",
+      "text": "a {main} silk gown with a square neckline",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -251,11 +271,96 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a silver sequined gown with a straight silhouette",
+      "text": "a {main} satin gown with a full skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a {main} velvet dress with long fitted sleeves",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sequined gown with a straight silhouette",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -276,11 +381,20 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a dark green chiffon gown with layered sleeves",
+      "text": "a {main} chiffon gown with layered sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -305,11 +419,20 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a cobalt crepe jumpsuit with wide tailored legs",
+      "text": "a {main} crepe jumpsuit with wide tailored legs",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -327,11 +450,20 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "occasion": [
+          "cocktail",
+          "wedding guest",
+          "gala",
+          "prom"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a plum silk blouse and a floor-length black skirt",
+      "text": "a {accent} silk blouse and a floor-length {main} skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -354,65 +486,20 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a blush tulle gown with an embroidered bodice",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "formal"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "fantasy",
-          "fairy_tale",
-          "steampunk"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a navy lace dress with elbow-length sleeves",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "formal"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a red silk gown with a high neckline",
+      "text": "a {main} tulle gown with an embroidered bodice",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -437,11 +524,92 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a black crepe evening suit with a draped blouse",
+      "text": "a {main} lace dress with elbow-length sleeves",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "cocktail",
+          "wedding guest",
+          "gala",
+          "prom"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk gown with a high neckline",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a {main} crepe evening suit with a draped {accent} blouse",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -462,6 +630,15 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "cocktail",
+          "wedding guest",
+          "gala",
+          "prom"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
@@ -495,11 +672,17 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a cream embroidered trouser suit with a satin shell",
+      "text": "a {main} embroidered trouser suit with a {accent} satin shell",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -517,11 +700,20 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "occasion": [
+          "cocktail",
+          "wedding guest",
+          "gala",
+          "prom"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a gold silk sari with a red brocade blouse",
+      "text": "a {main} silk sari with a {accent} brocade blouse",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -546,11 +738,18 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a maroon embroidered lehenga and matching long-sleeved choli",
+      "text": "a {main} embroidered lehenga and matching long-sleeved choli",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -575,11 +774,18 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a cream sherwani and gold silk churidar trousers",
+      "text": "a {main} sherwani and {accent} silk churidar trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -604,11 +810,18 @@
         ],
         "presentation": [
           "masculine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a rose anarkali suit with a flared embroidered tunic",
+      "text": "a {main} anarkali suit with a flared embroidered tunic",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -631,11 +844,18 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a black silk abaya over a gold evening dress",
+      "text": "a {main} silk abaya over a {accent} evening dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -656,11 +876,18 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a white thobe beneath a cream gold-trimmed bisht",
+      "text": "a white thobe beneath a {main} gold-trimmed bisht",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -685,11 +912,24 @@
         ],
         "presentation": [
           "masculine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "muted"
         ]
       }
     },
     {
-      "text": "a plum embroidered takchita with a matching underdress",
+      "text": "a {main} embroidered takchita with a matching underdress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -714,11 +954,18 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a white agbada over a matching tunic and trousers",
+      "text": "a {main} agbada over a matching tunic and trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -743,11 +990,18 @@
         ],
         "presentation": [
           "masculine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a gold lace boubou with a matching long skirt",
+      "text": "a {main} lace boubou with a matching long skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -772,11 +1026,18 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a blue aso-oke blouse and a matching wrapper skirt",
+      "text": "a {main} aso-oke blouse and a matching wrapper skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -801,11 +1062,18 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a white embroidered habesha kemis with woven coloured borders",
+      "text": "a white embroidered habesha kemis with woven {accent} borders",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -830,11 +1098,18 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a red silk qipao with gold floral embroidery",
+      "text": "a {main} silk qipao with gold floral embroidery",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -855,6 +1130,13 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
@@ -881,11 +1163,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "ceremonial"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a pink jeogori and a full blue chima",
+      "text": "a {accent} jeogori and a full {main} chima",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -910,145 +1198,18 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a cream baji and navy jeogori beneath a silk durumagi",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "formal"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "fantasy",
-          "fairy_tale",
-          "steampunk"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "a red embroidered ao dai over white silk trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "formal"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a cream silk barong Tagalog and black dress trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "formal"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a gold brocade kebaya and a dark batik sarong",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "formal"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "fantasy",
-          "fairy_tale",
-          "steampunk"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a blue silk baju kurung with a matching long skirt",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "formal"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "fantasy",
-          "fairy_tale",
-          "steampunk"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a green baju Melayu with trousers and a woven sampin",
+      "text": "{neutral} baji and a {accent} jeogori beneath a {main} silk durumagi",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1073,11 +1234,18 @@
         ],
         "presentation": [
           "masculine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a cream terno gown with structured butterfly sleeves",
+      "text": "a {main} embroidered ao dai over {neutral} silk trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1098,11 +1266,18 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a black formal jacket and a green tartan kilt",
+      "text": "a cream silk barong Tagalog and {neutral} dress trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1112,72 +1287,26 @@
           "realistic",
           "scifi",
           "cyberpunk",
-          "horror",
-          "steampunk"
+          "horror"
         ],
         "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a navy bunad with an embroidered bodice and white blouse",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "formal"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "steampunk"
-        ],
-        "era": [
-          "19th_century",
           "1900s_1940s",
           "1950s_1970s",
           "1980s_1990s",
           "contemporary",
           "future"
         ],
-        "presentation": [
-          "feminine"
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a black charro suit with silver embroidery and matching trousers",
-      "tier": "typical",
-      "tags": {
-        "formality": [
-          "formal"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "horror",
-          "steampunk"
-        ]
-      }
-    },
-    {
-      "text": "a white embroidered blouse and a full ribbon-trimmed skirt",
+      "text": "a {accent} brocade kebaya and a {main} batik sarong",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1202,11 +1331,90 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a black tailcoat and a finely woven tan kiekie",
+      "text": "a {main} silk baju kurung with a matching long skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} baju Melayu with matching trousers and a woven {accent} sampin",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "masculine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a {main} terno gown with structured butterfly sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1224,11 +1432,171 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a white formal shirt and navy tailored sulu",
+      "text": "a black formal jacket and a {main} tartan kilt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "a {main} bunad with an embroidered bodice and white blouse",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "a {main} charro suit with silver embroidery and matching trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "steampunk"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "a {accent} embroidered blouse and a full {main} skirt trimmed with {neutral} ribbons",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror",
+          "fantasy",
+          "fairy_tale",
+          "steampunk"
+        ],
+        "era": [
+          "19th_century",
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a black tailcoat and a finely woven tan kiekie over a black tupenu",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1246,11 +1614,46 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "occasion": [
+          "ceremonial"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a hand-beaded silver couture gown with a sweeping train",
+      "text": "a {accent} formal shirt and {main} tailored sulu",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "genre": [
+          "realistic",
+          "scifi",
+          "cyberpunk",
+          "horror"
+        ],
+        "era": [
+          "1900s_1940s",
+          "1950s_1970s",
+          "1980s_1990s",
+          "contemporary",
+          "future"
+        ],
+        "occasion": [
+          "ceremonial",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      }
+    },
+    {
+      "text": "a hand-beaded {main} couture gown with a sweeping train",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1278,11 +1681,20 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom",
+          "wedding guest"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a crimson silk houppelande with a sweeping fur-lined train",
+      "text": "a {main} silk houppelande with a sweeping fur-lined train",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1297,52 +1709,23 @@
         ],
         "formality": [
           "formal"
+        ],
+        "occasion": [
+          "ceremonial"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a gold brocade surcoat over a blue silk undergown",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
-        "formality": [
-          "formal"
-        ],
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "a purple silk tunic and hose beneath an embroidered mantle",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "fairy_tale",
-          "horror"
-        ],
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
-        "formality": [
-          "formal"
-        ]
-      }
-    },
-    {
-      "text": "a green brocade cotehardie with rows of small brass buttons",
+      "text": "a {main} brocade surcoat over a {accent} silk undergown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1360,11 +1743,23 @@
         ],
         "presentation": [
           "feminine"
+        ],
+        "occasion": [
+          "ceremonial"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
         ]
       }
     },
     {
-      "text": "a layered indigo court robe over cream silk trousers",
+      "text": "a {main} silk tunic and matching hose beneath an embroidered {accent} mantle",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1379,8 +1774,447 @@
         ],
         "formality": [
           "formal"
+        ],
+        "occasion": [
+          "ceremonial"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "a {main} brocade cotehardie with rows of small brass buttons",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "occasion": [
+          "ceremonial"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "a layered {main} court robe over {neutral} silk trousers",
+      "tier": "typical",
+      "tags": {
+        "genre": [
+          "realistic",
+          "fantasy",
+          "fairy_tale",
+          "horror"
+        ],
+        "era": [
+          "medieval",
+          "early_modern"
+        ],
+        "formality": [
+          "formal"
+        ],
+        "occasion": [
+          "ceremonial"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy"
+        ]
+      }
+    },
+    {
+      "text": "a {main} satin mini dress with spaghetti straps and a draped neckline",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "occasion": [
+          "cocktail",
+          "prom"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} backless silk halter gown with a thigh-high side slit",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} strapless velvet column gown with a structured bodice",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} one-shoulder crepe midi dress with a folded neckline",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "cocktail",
+          "wedding guest"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} sequined crop top and a matching high-waisted mini skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "light"
+        ],
+        "occasion": [
+          "cocktail",
+          "prom"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} silk gown with waist cutouts and a gathered floor-length skirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "black tie",
+          "gala"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} long-sleeved velvet evening jumpsuit with a {accent} satin sash",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "wedding guest"
+        ]
+      }
+    },
+    {
+      "text": "a {main} brocade dinner suit over a {accent} long-sleeved silk shirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "cocktail",
+          "wedding guest"
+        ]
+      }
+    },
+    {
+      "text": "a {main} morning coat over a {accent} waistcoat with a white shirt and grey striped trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "ceremonial"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark",
+          "muted"
+        ]
+      }
+    },
+    {
+      "text": "a {main} shawl-collar dinner jacket with black satin lapels, matching trousers, and a white dress shirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "black tie",
+          "gala"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark"
+        ]
+      }
+    },
+    {
+      "text": "a {main} organza ball gown with puff sleeves and {accent} embroidered flowers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "black tie",
+          "gala",
+          "prom"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} pleated chiffon midi dress with cap sleeves and a tied neckline",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "cocktail",
+          "wedding guest"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a white crepe bridal jumpsuit with long lace sleeves and a sweeping overskirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "ceremonial"
+        ],
+        "presentation": [
+          "feminine"
+        ],
+        "age": [
+          "adult",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a {main} seated-cut tuxedo jacket with matching side-opening trousers and a white dress shirt",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "black tie",
+          "gala"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "dark"
+        ]
+      }
+    },
+    {
+      "text": "a {main} draped satin cape gown with a floor-length train",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "gala",
+          "black tie"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} embroidered long-sleeved kaftan over a matching silk underdress",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "ceremonial"
+        ]
+      }
+    },
+    {
+      "text": "a {main} high-collared silk blouse with bishop sleeves and {neutral} flowing satin trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "full"
+        ],
+        "occasion": [
+          "cocktail",
+          "wedding guest"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      }
+    },
+    {
+      "text": "a {main} asymmetric satin top with a single sleeve and {neutral} flared evening trousers",
+      "tier": "typical",
+      "tags": {
+        "formality": [
+          "formal"
+        ],
+        "coverage": [
+          "moderate"
+        ],
+        "occasion": [
+          "cocktail",
+          "prom"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     }
-  ]
+  ],
+  "slots": "person.palette",
+  "local_facets": {
+    "occasion": [
+      "black tie",
+      "cocktail",
+      "wedding guest",
+      "ceremonial",
+      "gala",
+      "prom",
+      "other"
+    ],
+    "coverage": [
+      "light",
+      "moderate",
+      "full"
+    ]
+  }
 }

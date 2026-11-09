@@ -1,10 +1,10 @@
 {
   "id": "person.outfit.summer",
   "label": "Summer outfits",
-  "description": "Lightweight hot-weather outfits, beach separates, and tasteful swimwear.",
+  "description": "Lightweight hot-weather outfits, beach separates, and recreational swimwear.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete looks for heat, including swimwear described by garment construction. Casual owns year-round daily separates; athletic owns competitive swim and exercise clothing; sleep_lounge owns nightwear. Excludes bodies, tanning, props, and named locations.",
+  "notes": "Complete looks for heat, including swimwear described by garment construction. Casual owns year-round daily separates; athletic owns competitive swim and exercise clothing; sleep_lounge owns nightwear. Excludes bodies, tanning, props, and named locations. Palette roles coordinate garment colours; undyed linen and white thobes retain intrinsic colours. Coverage describes garment extent. Historical dyed looks use muted, earthy or light schemes.",
   "facets": [
     "presentation",
     "age",
@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a white linen shirt and tan cotton shorts",
+      "text": "a {main} linen shirt and {neutral} cotton shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -48,11 +48,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a pale blue cotton tank and white drawstring shorts",
+      "text": "a {main} cotton tank and {neutral} drawstring shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -73,11 +80,19 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "beach",
+          "pool",
+          "resort"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a green linen tunic and loose cream trousers",
+      "text": "a {main} linen tunic and loose {neutral} trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -104,11 +119,25 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "countryside"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a yellow cotton sundress with a gathered waist",
+      "text": "a {main} cotton sundress with a gathered waist",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -132,11 +161,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "countryside"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a navy sleeveless jersey dress with a straight hem",
+      "text": "a {main} sleeveless jersey dress with a straight hem",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -159,11 +195,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a coral cotton blouse and beige linen culottes",
+      "text": "a {main} cotton blouse and {neutral} linen culottes",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -186,11 +228,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a striped short-sleeved shirt and navy chino shorts",
+      "text": "a short-sleeved shirt with {main} and {accent} stripes and {neutral} chino shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -211,11 +260,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a rust linen jumpsuit with cropped wide legs",
+      "text": "a {main} linen jumpsuit with cropped wide legs",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -236,11 +292,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a white eyelet blouse and a blue cotton skirt",
+      "text": "a {accent} eyelet blouse and a {main} cotton skirt",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -264,11 +327,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "countryside"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a teal cotton wrap dress with short sleeves",
+      "text": "a {main} cotton wrap dress with short sleeves",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -291,11 +361,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a cream crochet top and loose brown linen trousers",
+      "text": "a {accent} crochet top and loose {neutral} linen trousers",
       "tier": "plausible",
       "tags": {
         "climate": [
@@ -318,11 +395,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "resort"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a pink seersucker shirt and matching cotton shorts",
+      "text": "a {main} seersucker shirt and matching cotton shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -343,11 +426,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "resort"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a black cotton tank and olive drawstring trousers",
+      "text": "a {main} cotton tank and {neutral} drawstring trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -368,11 +457,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "countryside"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a lilac sleeveless blouse and white cropped jeans",
+      "text": "a {main} sleeveless blouse and {neutral} cropped jeans",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -395,11 +491,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "city"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a blue floral cotton romper with an elastic waist",
+      "text": "a {main} cotton romper with {accent} floral print and an elastic waist",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -423,11 +525,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "resort"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a green cotton playsuit with short legs",
+      "text": "a {main} cotton playsuit with short legs",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -451,11 +559,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "countryside"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a red gingham sundress with broad shoulder straps",
+      "text": "a {main} and white gingham sundress with broad shoulder straps",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -477,11 +591,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "countryside",
+          "resort"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a peach linen shirt dress with rolled sleeves",
+      "text": "a {main} linen shirt dress with rolled sleeves",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -505,11 +626,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a navy cotton polo and pale yellow shorts",
+      "text": "a {main} cotton polo and {accent} shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -530,11 +658,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a white muslin top and rust wide-leg trousers",
+      "text": "a {accent} muslin top and {main} wide-leg trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -556,11 +691,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a patterned cotton kurta and white linen trousers",
+      "text": "a {main} cotton kurta with {accent} printed motifs and {neutral} linen trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -588,11 +730,25 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "countryside"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a pale green cotton sari with a cream blouse",
+      "text": "a {main} cotton sari with a {accent} blouse",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -622,6 +778,19 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
@@ -659,11 +828,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "countryside"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a cream cotton caftan with blue woven borders",
+      "text": "a {neutral} cotton caftan with {main} woven borders",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -693,11 +869,25 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a blue aloha shirt and beige linen shorts",
+      "text": "a {main} aloha shirt with {accent} leaf motifs and {neutral} linen shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -721,11 +911,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "resort"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a white sleeveless blouse and a green batik sarong",
+      "text": "a {accent} sleeveless blouse and a {main} batik sarong",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -752,11 +948,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "resort",
+          "countryside"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a pink cotton ao ba ba with loose black trousers",
+      "text": "a {main} cotton ao ba ba with loose {neutral} trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -780,11 +983,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "countryside"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a blue printed pareo over a plain black swimsuit",
+      "text": "a {main} pareo with {accent} printed motifs over a {neutral} swimsuit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -811,11 +1020,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a turquoise one-piece swimsuit with a square neckline",
+      "text": "a {main} one-piece swimsuit with a square neckline",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -839,11 +1055,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a navy one-piece swimsuit with a modest skirted hem",
+      "text": "a {main} one-piece swimsuit with a skirted hem",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -867,11 +1090,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a black long-sleeved swimsuit with full-length legs",
+      "text": "a {main} long-sleeved swimsuit with full-length legs",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -892,11 +1122,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a red halter-neck swimsuit with a high back",
+      "text": "a {main} halter-neck swimsuit with a high back",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -920,11 +1157,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a blue tankini top and matching swim shorts",
+      "text": "a {main} tankini top and matching swim shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -947,11 +1191,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a green bikini with a high-waisted bottom",
+      "text": "a {main} bikini with a high-waisted bottom",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -974,11 +1225,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a plum bikini with broad straps and full-coverage bottoms",
+      "text": "a {main} bikini with broad straps and full-coverage bottoms",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1001,11 +1259,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a striped rash guard and navy knee-length swim shorts",
+      "text": "a rash guard with {main} and {accent} stripes and {neutral} knee-length swim shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1024,11 +1289,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a coral swim tunic and black ankle-length swim trousers",
+      "text": "a {main} swim tunic and {neutral} ankle-length swim trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1047,11 +1319,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "full"
         ]
       }
     },
     {
-      "text": "a yellow swim shirt and blue elastic-waist swim shorts",
+      "text": "a {main} swim shirt and {accent} elastic-waist swim shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1074,11 +1353,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a plain navy pair of knee-length swim trunks",
+      "text": "a pair of {main} knee-length swim trunks",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1099,11 +1385,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a green pair of board shorts with white piping",
+      "text": "a pair of {main} board shorts with {accent} piping",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1123,11 +1416,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a cream linen cover-up over a burgundy one-piece swimsuit",
+      "text": "a {accent} linen cover-up over a {main} one-piece swimsuit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1151,11 +1451,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a white cotton overshirt and blue swim shorts",
+      "text": "a {accent} cotton overshirt and {main} swim shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1176,11 +1483,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a black swim dress with attached fitted shorts",
+      "text": "a {main} swim dress with attached fitted shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1204,11 +1518,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "pool"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a terracotta linen waistcoat and matching loose shorts",
+      "text": "a {main} linen waistcoat and matching loose shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1229,11 +1550,17 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "resort"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a pale green smocked top and cream cotton trousers",
+      "text": "a {main} smocked top and {neutral} cotton trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1256,11 +1583,18 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a white cotton peasant blouse and an orange tiered skirt",
+      "text": "a {accent} cotton peasant blouse and a {main} tiered skirt",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1287,11 +1621,24 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "countryside"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a blue chambray playsuit with short cuffed legs",
+      "text": "a {main} chambray playsuit with short cuffed legs",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1315,11 +1662,17 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "resort"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a beige sleeveless tunic and white ankle-length trousers",
+      "text": "a {main} sleeveless tunic and {neutral} ankle-length trousers",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1345,11 +1698,25 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "light"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a striped cotton T-shirt dress with side slits",
+      "text": "a cotton T-shirt dress with {main} and {accent} stripes and side slits",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1373,11 +1740,18 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "setting": [
+          "beach",
+          "resort"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
     {
-      "text": "a purple cotton crop top and high-waisted linen shorts",
+      "text": "a {main} cotton crop top and high-waisted {neutral} linen shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1400,6 +1774,13 @@
           "1980s_1990s",
           "contemporary",
           "future"
+        ],
+        "setting": [
+          "city",
+          "resort"
+        ],
+        "coverage": [
+          "light"
         ]
       }
     },
@@ -1424,6 +1805,12 @@
         "climate": [
           "hot",
           "temperate"
+        ],
+        "setting": [
+          "countryside"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
@@ -1451,11 +1838,17 @@
         "climate": [
           "hot",
           "temperate"
+        ],
+        "setting": [
+          "countryside"
+        ],
+        "coverage": [
+          "moderate"
         ]
       }
     },
     {
-      "text": "a light cotton wrap tunic and loosely gathered linen trousers",
+      "text": "a lightweight {main} cotton wrap tunic and loosely gathered {neutral} linen trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1475,11 +1868,24 @@
         "climate": [
           "hot",
           "temperate"
+        ],
+        "setting": [
+          "countryside"
+        ],
+        "coverage": [
+          "full"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a thin cream linen shift beneath a blue sleeveless overdress",
+      "text": "a thin cream linen shift beneath a {main} sleeveless overdress",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1502,11 +1908,24 @@
         "climate": [
           "hot",
           "temperate"
+        ],
+        "setting": [
+          "countryside"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     },
     {
-      "text": "a striped cotton seaside dress with a broad sailor collar",
+      "text": "a cotton seaside dress with {main} and {accent} stripes and a broad sailor collar",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1529,8 +1948,38 @@
         ],
         "formality": [
           "casual"
+        ],
+        "setting": [
+          "beach",
+          "resort"
+        ],
+        "coverage": [
+          "moderate"
+        ]
+      },
+      "palette": {
+        "tone": [
+          "muted",
+          "earthy",
+          "light"
         ]
       }
     }
-  ]
+  ],
+  "slots": "person.palette",
+  "local_facets": {
+    "setting": [
+      "beach",
+      "pool",
+      "city",
+      "resort",
+      "countryside",
+      "other"
+    ],
+    "coverage": [
+      "light",
+      "moderate",
+      "full"
+    ]
+  }
 }
