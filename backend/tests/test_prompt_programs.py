@@ -428,15 +428,53 @@ class TestFixInPlace:
 
 
 class TestFixInCode:
-    def test_an_unplaced_pick_goes_where_its_seed_stands_and_an_unused_hidden_one_goes(self):
+    def test_an_unplaced_pick_goes_where_its_seed_stands_and_an_unused_hidden_or_added_one_goes(self):
         src = ('e = pick("expr", about="x", seed=["smiling broadly"], phase=1, line=2)\n'
                'h = pick("h", about="x", seed=["red hair"], phase=1,\n    hidden=True)\n'
                'v = pick("v", about="x", seed=["a scarf"], phase=1, added=True)\n'
+               'u = pick("u", about="x", seed=["a hat"], phase=1, line=1)\n'
                'emit("A man smiling broadly at a dog.")\n')
         out, notes = prep.fix_unplaced(src)
         assert 'emit("A man ", e, " at a dog.")' in out and "red hair" not in out
-        assert 'v = pick("v"' in out  # visible variety the writer forgot goes back to it, not away
-        assert len(notes) == 2
+        assert "a scarf" not in out  # variety nobody asked for: the program is whole without it
+        assert 'u = pick("u"' in out  # a choice that may be the user's goes back to the writer
+        assert len(notes) == 3
+
+    def test_syntax_slips_are_put_right_where_the_parser_points(self):
+        src = ('a = pick("a", about="x", seed=["one"], phase=1, added=True)\n'
+               'emit("A woman with", a, ". The scene is shot with a shallow depth of field, \n'
+               '     emphasizing the fabric. High-resolution,\n'
+               '     8k.")\n')
+        out, notes = prep.fix_quotes(src)
+        compile(out, "<program>", "exec")
+        assert "field, emphasizing the fabric. High-resolution, 8k." in out and notes
+        src = ('# The user wants a portrait. I will add picks for her features,\n'
+               'formed by the "detailed face" request.\n'
+               'a = pick("a", about="x", seed=["one"], phase=1)\nemit(a)\n')
+        out, notes = prep.fix_quotes(src)
+        compile(out, "<program>", "exec")
+        assert 'a = pick("a"' in out and notes
+        broken = 'a = pick("a, about="x", seed=["one"], phase=1)\nemit(a)\n'
+        assert prep.fix_quotes(broken)[0] == broken  # nothing it can tell for sure: left for validation
+
+    def test_an_unclosed_fence_still_gives_the_program(self):
+        from prompt_programs.runtime import extract_code
+        assert extract_code('```python\na = 1\nemit("x")\n') == 'a = 1\nemit("x")\n'
+
+    def test_unmarked_details_count_toward_the_cap_and_dependent_ones_stay(self):
+        src = ('job = pick("job", ["nun", "nurse"], source="list", phase=1, line=1)\n'
+               'look = pick("look", about=f"how the {job} looks", seed=["tired eyes"], phase=2, line=1)\n'
+               'g1 = pick("girl[1].hair", about="x", seed=["red hair"], phase=1, line=1)\n'
+               'g2 = pick("girl[2].hair", about="x", seed=["grey hair"], phase=1, line=1)\n'
+               'mood = pick("mood", about="x", seed=["calm"], phase=1, line=1)\n'
+               'light = pick("light", about="x", seed=["soft light"], phase=1, added=True)\n'
+               'sky = pick("sky", about="x", seed=["a clear sky"], phase=1, added=True)\n'
+               'season = pick("season", about="the season", seed=["autumn"], phase=1, line=1)\n'
+               'emit(job, look, g1, g2, mood, light, sky, season)\n')
+        out, notes = prep.trim_added(src, "A {nun|nurse} and two girls, {{season}}")
+        # details: look, hair (one per girl), mood, light, sky; {{season}} and the list aren't added
+        assert 'sky = "a clear sky"' in out and 'light = "soft light"' in out and len(notes) == 2
+        assert 'look = pick(' in out and 'season = pick(' in out and 'g2 = pick(' in out
 
     STATED = "A {nun|nurse} in her thirties waiting on a rainy platform, {{outfit}}, candid photo"
     STATED_EX = "A candid photo of a [{nun|nurse}] in her thirties waiting on a rainy platform, wearing a grey coat."
@@ -516,7 +554,8 @@ class TestFixInCode:
         assert prep.is_name_of("The Brands.", "brand") and not prep.is_name_of("a brand new laptop", "brand")
 
     def test_more_than_three_added_picks_become_fixed_text(self):
-        src = "".join(f'p{i} = pick("p{i}", about="x", seed=["s{i}"], phase=1, added=True)\n' for i in range(5))
+        src = "".join(f'p{i} = pick("{n}", about="x", seed=["s{i}"], phase=1, added=True)\n'
+                      for i, n in enumerate(["light", "sky", "mood", "pose", "lens"]))
         out, notes = prep.trim_added(src + "emit(p0, p1, p2, p3, p4)\n")
         assert 'p3 = "s3"' in out and 'p4 = "s4"' in out and 'p2 = pick(' in out and len(notes) == 2
 

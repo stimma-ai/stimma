@@ -69,6 +69,8 @@ API_NAMES = {"pick", "pick_lora", "param", "group", "emit"}
 def extract_code(text: str) -> str:
     """Pull the program out of a model reply (fenced block or bare code)."""
     m = re.search(r"```(?:python|py)?\s*\n(.*?)```", text, re.S)
+    if not m:  # a reply cut off (or never closed) after its opening fence
+        m = re.search(r"```(?:python|py)?\s*\n(.*)", text, re.S)
     return (m.group(1) if m else text).strip() + "\n"
 
 

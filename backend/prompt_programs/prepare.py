@@ -26,7 +26,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-24"
+PREPARE_VERSION = "pp-25"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -455,17 +455,51 @@ def fix_phases(source: str) -> Tuple[str, List[str]]:
 _BARE_TEXT = re.compile(r"(?<=,)(\s+)([A-Za-z][^\",()\[\]{}]*?\")")
 
 
+def _parses_past(candidate: str, lineno: int) -> bool:
+    """The candidate parses, or its first syntax error is past `lineno`."""
+    try:
+        ast.parse(candidate)
+        return True
+    except SyntaxError as again:
+        return bool(again.lineno and again.lineno > lineno)
+
+
 def fix_quotes(source: str) -> Tuple[str, List[str]]:
-    """Weak writers drop a quote between emit() parts: `",", resting its hands atop", desk`.
-    Put the opening quote back where a bare run of words ends in one, and keep the fix only
-    if the syntax error goes away (or moves past that line)."""
+    """Syntax slips weak writers make, put right where the parser shows exactly what broke,
+    each kept only if the syntax error goes away (or moves past that line):
+    - a quote dropped between emit() parts: `",", resting its hands atop", desk`;
+    - a string wrapped onto the next line (`"...shallow depth of field,` / `emphasizing..."`):
+      the lines are joined with a space;
+    - a comment wrapped onto a line without its `#`."""
     notes: List[str] = []
-    for _ in range(5):
+    for _ in range(8):
         try:
             ast.parse(source)
             return source, notes
         except SyntaxError as e:
             lines = source.split("\n")
+            if e.lineno and "unterminated string literal" in (e.msg or "") and e.lineno < len(lines):
+                n = e.lineno - 1
+                for k in range(1, min(4, len(lines) - n)):  # wrapped over up to 3 more lines
+                    joined = " ".join([lines[n].rstrip()] + [ln.strip() for ln in lines[n + 1:n + 1 + k]])
+                    candidate = "\n".join(lines[:n] + [joined] + lines[n + 1 + k:])
+                    if _parses_past(candidate, n + 1):
+                        source = candidate
+                        notes.append(f"a string wrapped over lines {n + 1}-{n + 1 + k} joined onto one line")
+                        break
+                else:
+                    k = 0
+                if k:
+                    continue
+            if e.lineno and e.lineno > 1:
+                n = e.lineno - 1
+                prev = next((ln for ln in reversed(lines[:n]) if ln.strip()), "")
+                if prev.lstrip().startswith("#") and not lines[n].lstrip().startswith("#"):
+                    candidate = "\n".join(lines[:n] + ["# " + lines[n].strip()] + lines[n + 1:])
+                    if _parses_past(candidate, n + 1):
+                        source = candidate
+                        notes.append(f"comment text on line {n + 1} marked as a comment")
+                        continue
             if not e.lineno or "emit(" not in source:
                 return source, notes
             n = e.lineno - 1
@@ -492,7 +526,8 @@ def fix_quotes(source: str) -> Tuple[str, List[str]]:
 def fix_unplaced(source: str) -> Tuple[str, List[str]]:
     """A pick the program never uses does nothing. When its first seed still stands in
     emit()'s fixed text (the writer forgot to swap it in), the pick goes there; a hidden
-    one whose seed stands nowhere is dropped and the text stays as written."""
+    one, or variety the writer added (added=True), whose seed stands nowhere is dropped and
+    the text stays as written: nobody asked for it, so the program is whole without it."""
     try:
         tree = ast.parse(source)
     except SyntaxError:
@@ -527,10 +562,10 @@ def fix_unplaced(source: str) -> Tuple[str, List[str]]:
             edits.append((pos(arg.lineno, arg.col_offset), pos(arg.end_lineno, arg.end_col_offset), ", ".join(parts)))
             texts.remove(arg)
             notes.append(f"{var} placed where its seed stood")
-        elif any(k.arg == "hidden" and isinstance(k.value, ast.Constant) and k.value.value is True
+        elif any(k.arg in ("hidden", "added") and isinstance(k.value, ast.Constant) and k.value.value is True
                  for k in st.value.keywords) and not any(
                 isinstance(first, str) and first.lower() in a.value.lower() for a in texts):
-            # only a hidden detail: a choice the user sees (theirs, or variety added) goes back to the writer
+            # only a hidden or added detail: a choice the user asked for goes back to the writer
             start = sum(len(ln) for ln in lines[: st.lineno - 1])
             end = sum(len(ln) for ln in lines[: st.end_lineno])
             if source[start:end].strip() == ast.get_source_segment(source, st):  # the statement has its lines to itself
@@ -544,32 +579,80 @@ def fix_unplaced(source: str) -> Tuple[str, List[str]]:
 MAX_ADDED = 3
 
 
-def trim_added(source: str) -> Tuple[str, List[str]]:
-    """More than MAX_ADDED picks the writer added on its own: the extras become fixed
-    text (their first seed), so the prompt reads the same and the choices stay few."""
+def _detail(pid: str) -> str:
+    """One detail per person: girl[1].hair, girl[2].hair and hair_2 are all "hair"."""
+    return re.sub(r"\[[^\]]*\]|\{[^}]*\}|\d+", "", pid).strip("_.") or pid
+
+
+def _wildcard_ids(tree: ast.AST, prompt: str) -> Set[str]:
+    """Ids of the picks validation takes for the prompt's {{name}} wildcards."""
+    names = smart_wildcards(prompt)
+    if not names:
+        return set()
+    choices = []
+    for _, call in _pick_assigns(tree):
+        pid = _const(call.args[0]) if call.args else _const(_kw(call, "id"))
+        if isinstance(pid, str):
+            about = _kw(call, "about")
+            choices.append({"kind": "pick", "id": pid, "label": str(_const(_kw(call, "label")) or pid),
+                            "source": _const(_kw(call, "source")) or "text",
+                            "about": ast.unparse(about) if about is not None else ""})
+    info = {"choices": choices}
+    return {c["id"] for c in (_smart_choice(info, n) for n in names) if c}
+
+
+def trim_added(source: str, prompt: str = "") -> Tuple[str, List[str]]:
+    """More than MAX_ADDED details the user didn't ask for: the extras become fixed text (their
+    first seed), so the prompt reads the same and the choices stay few. A detail the user didn't
+    ask for is any pick that isn't a user list, a {{wildcard}}, something a # line asks to vary,
+    or hidden, marked added=True or not; one per person counts once (girl[1].hair, girl[2].hair).
+    Picks the writer marked added go first, the latest first. A pick whose about= names another
+    pick, or that keys on one (by=), stays: one fixed seed would be wrong for the other's values."""
     try:
         tree = ast.parse(source)
     except SyntaxError:
         return source, []
-    added = []
+    comments = _comment_lines(prompt)
+    wild = _wildcard_ids(tree, prompt)
+    extra: List[Tuple[ast.Call, str, bool, bool]] = []  # (call, detail, marked added, can freeze)
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick":
-            kw = {k.arg: k.value for k in node.keywords}
-            flag, seed = kw.get("added"), kw.get("seed")
-            if (isinstance(flag, ast.Constant) and flag.value is True and isinstance(seed, ast.List) and seed.elts
-                    and isinstance(seed.elts[0], ast.Constant) and isinstance(seed.elts[0].value, str)):
-                added.append(node)
-    if len(added) <= MAX_ADDED:
+        if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick"):
+            continue
+        pid = _const(node.args[0]) if node.args else _const(_kw(node, "id"))
+        if not isinstance(pid, str):
+            pid = ast.unparse(node.args[0]) if node.args else "?"
+        if (_const(_kw(node, "source")) == "list" or _const(_kw(node, "hidden")) is True or pid in wild
+                or _const(_kw(node, "line")) in comments):
+            continue
+        seed = _kw(node, "seed")
+        about = _kw(node, "about")
+        frozen_ok = (isinstance(seed, ast.List) and bool(seed.elts) and isinstance(seed.elts[0], ast.Constant)
+                     and isinstance(seed.elts[0].value, str) and _kw(node, "by") is None
+                     and not (isinstance(about, ast.JoinedStr)
+                              and any(isinstance(v, ast.FormattedValue) for v in about.values)))
+        extra.append((node, _detail(pid), _const(_kw(node, "added")) is True, frozen_ok))
+    details = list(dict.fromkeys(d for _, d, _, _ in extra))
+    if len(details) <= MAX_ADDED:
         return source, []
-    added.sort(key=lambda n: (n.lineno, n.col_offset))
+    # the details to make fixed: marked-added ones first, then unmarked, each the latest first
+    order = sorted(details, key=lambda d: (not any(m for _, x, m, _ in extra if x == d),
+                                           -min(n.lineno for n, x, _, _ in extra if x == d)))
+    drop: Set[str] = set()
+    for d in order:
+        if len(details) - len(drop) <= MAX_ADDED:
+            break
+        if all(ok for _, x, _, ok in extra if x == d):
+            drop.add(d)
     pos = _offsets(source)
     edits, notes = [], []
-    for node in added[MAX_ADDED:]:
-        value = node.keywords[[k.arg for k in node.keywords].index("seed")].value.elts[0].value  # type: ignore[attr-defined]
+    for node, d, _, _ in extra:
+        if d not in drop:
+            continue
+        value = _kw(node, "seed").elts[0].value  # type: ignore[union-attr]
         edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset),
                       json.dumps(value, ensure_ascii=False)))
-        name = node.args[0].value if node.args and isinstance(node.args[0], ast.Constant) else "?"
-        notes.append(f'pick("{name}") made fixed text: more than {MAX_ADDED} added picks')
+        name = node.args[0].value if node.args and isinstance(node.args[0], ast.Constant) else d
+        notes.append(f'pick("{name}") made fixed text: more than {MAX_ADDED} added details')
     for start, end, text in sorted(edits, reverse=True):
         source = source[:start] + text + source[end:]
     return source, notes
@@ -1182,9 +1265,17 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
                 twice.setdefault(d.id, str(d.value))
     for cid, value in twice.items():
         notes.append(f'pick("{cid}") appears more than once in the prompt ("{value}"). Emit each pick once, where its subject belongs.')
+    lists = {c["id"]: c for c in info["choices"] if c.get("source") == "list"}
     for cid, value in missing.items():
-        problems.append(f'pick("{cid}") drew "{value}" but it never appears in the emitted prompt. Pass its variable to '
-                        "emit(...) where its subject stands, and drop any other pick or fixed text that says the same thing.")
+        if cid in lists:  # the user's own list: its value is the words they wrote, emitted as is
+            items = "|".join(lists[cid].get("options") or [])
+            problems.append(f'pick("{cid}") is the user\'s list {{{items}}}, but its value ("{value}") never appears in the '
+                            "emitted prompt. Pass its variable itself to emit(...) where the list stood in the user's prompt. "
+                            "A pick that describes the list's value doesn't replace it: drop that pick, or emit it beside the "
+                            "list's variable.")
+        else:
+            problems.append(f'pick("{cid}") drew "{value}" but it never appears in the emitted prompt. Pass its variable to '
+                            "emit(...) where its subject stands, and drop any other pick or fixed text that says the same thing.")
     for name in smart_wildcards(prompt):
         if not _smart_choice(info, name):
             problems.append(f'{{{{{name}}}}} is a smart wildcard: make it pick("{smart_id(name)}", about=..., seed=[1 to 3 examples], label=<one or two words>, phase=..., line=...) and emit its value where {{{{{name}}}}} stands.')
@@ -1793,7 +1884,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
         fixes += fixed
         source, fixed = fix_duplicates(source, source_prompt)
         fixes += fixed
-        source, fixed = trim_added(source)
+        source, fixed = trim_added(source, source_prompt)
         fixes += fixed
         try:
             check(source)
