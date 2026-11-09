@@ -230,9 +230,10 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     by_id = {c["id"]: c for c in entry.get("choices") or []}
     filters: Dict[str, List[str]] = dict(entry.get("filters") or {})
     notes: List[str] = []
-    done = set()
     # where={...}: a filter on the list's local facets, applied in code (no model call). Facets
-    # of a template's palette ("colour_family") narrow its Colours pick.
+    # of a template's palette ("colour_family") narrow its Colours pick. The pick's own words
+    # are still read below and narrow within it ("a Victorian lady" with where={"status": ...}).
+    facet: Dict[str, List[str]] = {}
     for c in bound:
         w = c.get("where")
         if not isinstance(w, dict) or not w:
@@ -251,16 +252,9 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
                 continue
             got = [v.text for v in lf.matching(want)]
             if got:
-                filters[ch["id"]] = got
-                ch["options"] = got
-                done.add(ch["id"])
+                facet[ch["id"]] = got
             else:
                 notes.append(f'{ch["id"]}: nothing in {lf.id} has {want}; drawing from the whole list')
-        done.add(c["id"])  # its own words, if any, were the facet filter
-    entry["filters"] = filters
-    bound = [c for c in bound if c["id"] not in done]
-    if not bound:
-        return notes
     t0 = asyncio.get_running_loop().time()
     try:
         read = await asyncio.wait_for(read_words(str(entry.get("prompt") or ""), [c for c in bound if not c.get("wildcard")],
@@ -272,28 +266,55 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     for c in bound:
         phrase = phrase_of(c, read)
         if phrase:
-            c["where"] = phrase
+            if isinstance(c.get("where"), dict):
+                c["where_words"] = phrase   # the facet filter stays; the words narrow within it
+            else:
+                c["where"] = phrase
             wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
-    if not wanted:
-        return notes
+    words: Dict[str, List[str]] = {}
     keys = list(wanted)
-    jobs = [subset(vocab.leaves[k[0]], phrase_of(wanted[k][0]), cache, ask, project_id, wanted[k][0].get("about") or "")
-            for k in keys]
-    try:
-        results = await asyncio.wait_for(asyncio.gather(*jobs), seconds)
-    except asyncio.TimeoutError:
-        log.warning(f"[prompt-program] narrowing took longer than {seconds:.0f}s: those picks draw unbound")
-        results = [[] for _ in keys]
-    for k, got in zip(keys, results):
-        lid = k[0]
-        for c in wanted[k]:
-            filters[c["id"]] = list(got)
-            if got:
-                c["options"] = list(got)
-            else:  # nothing in the list fits the words: generated options within them instead
-                notes.append(f'{c["id"]}: nothing in {lid} fits {phrase_of(c)!r}; drawing it without the list')
-                c.pop("cls", None)
-                c["options"] = []
+    if keys:
+        jobs = [subset(vocab.leaves[k[0]], phrase_of(wanted[k][0], read), cache, ask, project_id,
+                       wanted[k][0].get("about") or "") for k in keys]
+        try:
+            results = await asyncio.wait_for(asyncio.gather(*jobs), seconds)
+        except asyncio.TimeoutError:
+            log.warning(f"[prompt-program] narrowing took longer than {seconds:.0f}s: those picks draw unbound")
+            results = [[] for _ in keys]
+        for k, got in zip(keys, results):
+            for c in wanted[k]:
+                words[c["id"]] = list(got)
+    for c in bound:
+        cid = c["id"]
+        if cid not in facet and cid not in words:
+            continue
+        if cid in facet:  # the facet filter holds; words narrow within it when they leave anything
+            within = [x for x in words.get(cid, []) if x in set(facet[cid])]
+            got = within or facet[cid]
+        else:
+            got = words[cid]
+        filters[cid] = list(got)
+        if got:
+            c["options"] = list(got)
+        else:  # nothing in the list fits the words: generated options within them instead
+            notes.append(f'{cid}: nothing in {c["cls"]} fits {phrase_of(c)!r}; drawing it without the list')
+            c.pop("cls", None)
+            c["options"] = []
+    # A colour asked for a templated look holds only for templates whose main garment takes the
+    # palette: fixed-colour looks ("a white dinner jacket") and looks without {main} drop out.
+    for c in entry.get("choices") or []:
+        cid = c["id"]
+        if not cid.endswith(".colours") or not filters.get(cid):
+            continue
+        parent = by_id.get(cid[: -len(".colours")])
+        leaf = vocab.get(parent.get("cls")) if parent is not None else None
+        if leaf is None or not leaf.slots:
+            continue
+        base = filters.get(parent["id"]) or [v.text for v in leaf.eligible()]
+        coloured = [t for t in base if "{main}" in t]
+        if coloured:
+            filters[parent["id"]] = coloured
+            parent["options"] = coloured
     entry["filters"] = filters
     return notes
 

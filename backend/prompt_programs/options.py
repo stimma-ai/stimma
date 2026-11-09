@@ -110,8 +110,10 @@ class ProgramContext:
         lists = tuple((str(c.get("id")), str(c.get("label") or c.get("id")), tuple(str(o) for o in c.get("options") or []))
                       for c in entry.get("choices") or []
                       if c.get("source") == "list" and c.get("kind", "pick") == "pick" and c.get("options"))
-        intents = tuple((str(c.get("id")), str(c.get("wildcard") or c.get("where")))
-                        for c in entry.get("choices") or [] if c.get("wildcard") or c.get("where"))
+        def words(c: Dict[str, Any]) -> str:  # the user's own words for a choice (never a facet filter)
+            where = c.get("where")
+            return str(c.get("wildcard") or c.get("where_words") or (where if isinstance(where, str) else "") or "")
+        intents = tuple((str(c.get("id")), words(c)) for c in entry.get("choices") or [] if words(c))
         filters = tuple((str(k), tuple(str(x) for x in v)) for k, v in (entry.get("filters") or {}).items()
                         if isinstance(v, list))
         return cls(str(entry.get("key") or ""), signature, template, str(entry.get("mode") or "prose"),
@@ -689,7 +691,12 @@ class GeneratedOptions:
             return got
         import random as _random
         rng = _random.Random(key)
-        return [fill(t, rng.choice(palette.values).roles) for t in got]
+        out = []
+        for t in got:  # each template in a scheme it allows (a tuxedo is never shown in neon)
+            tv = leaf.value(t)
+            allowed = [p for p in palette.values if not (tv and tv.palette) or tags_match(p.tags, tv.palette)]
+            out.append(fill(t, rng.choice(allowed or list(palette.values)).roles))
+        return out
 
     def request_more(self, spec: PickSpec, context: Dict[str, Any], priority: str) -> None:
         if not self._grows(spec):

@@ -456,9 +456,12 @@ class TestTemplates:
         for seed in range(12):
             r = draw_dressed(seed)
             got = {d.id: d for d in r.draws}
-            assert "{" not in r.prompt and "outfit.colours" in got
-            colours = dressed.leaves["person.palette"].value(got["outfit.colours"].value)
             outfit = got["outfit"]
+            assert "{" not in r.prompt
+            if "karate gi" in outfit.value:  # a fixed-colour look draws no Colours
+                assert "outfit.colours" not in got
+                continue
+            colours = dressed.leaves["person.palette"].value(got["outfit.colours"].value)
             assert outfit.value in r.prompt and "{" not in outfit.value
             assert any(template_matches(t, outfit.value) for t in outfit.options)
             if "tuxedo" in outfit.value:  # its palette restriction: dark schemes only
@@ -561,6 +564,27 @@ class TestTemplates:
 
 
 class TestLocalFacetWhere:
+    async def test_words_still_narrow_within_a_facet_filter(self, dressed, tmp_path):
+        src = DRESSED.replace('label="Outfit"', 'label="Outfit", where={"sport": "running"}')
+        entry = {"key": "w2", "program": src, "loras": [], "params": {}, "mode": "prose",
+                 "choices": discover(src)["choices"], "prompt": "a woman in a technical running T-shirt"}
+        ask = FakeAsk(lambda v: "T-shirt" in v, read={"outfit": "technical running T-shirt"})
+        await narrow_entry(entry, NarrowCache(tmp_path), ask)
+        assert ask.reads and entry["filters"]["outfit"] == ["a {main} technical T-shirt and {accent} running shorts"]
+        by = {c["id"]: c for c in entry["choices"]}
+        assert by["outfit"]["where"] == {"sport": "running"} and by["outfit"]["where_words"] == "technical running T-shirt"
+        from prompt_programs.fluent import program_context
+        assert dict(program_context(entry).intents)["outfit"] == "technical running T-shirt"  # never the dict
+
+    def test_generator_examples_respect_a_templates_palette(self, dressed):
+        opts = GeneratedOptions(None, program())
+        leaf = dressed.leaves["person.outfit.test"]
+        spec = PickSpec("outfit", "Outfit", "what she wears", 1, "text", "pick", [], [], leaf.id)
+        for k in range(20):
+            for ex in opts._examples(leaf, spec, f"k{k}"):
+                if "tuxedo" in ex:
+                    assert ex.split()[1] in ("navy", "black")  # dark schemes only
+
     async def test_a_facet_filter_narrows_in_code_and_routes_colours(self, dressed, tmp_path):
         src = DRESSED.replace('label="Outfit"', 'label="Outfit", where={"sport": "running", "colour_family": "blue"}')
         entry = {"key": "w", "program": src, "loras": [], "params": {}, "mode": "prose",
@@ -568,11 +592,13 @@ class TestLocalFacetWhere:
         ask = FakeAsk(lambda v: True)
         await narrow_entry(entry, NarrowCache(tmp_path), ask)
         assert not ask.calls  # no narrowing call: the tags decide
-        assert entry["filters"]["outfit"] == [v["text"] for v in OUTFITS["values"] if "running" in v["tags"]["sport"]]
+        # running looks whose main garment takes the colour asked for: the white karate gi drops out
+        assert entry["filters"]["outfit"] == [v["text"] for v in OUTFITS["values"]
+                                              if "running" in v["tags"]["sport"] and "{main}" in v["text"]]
         assert entry["filters"]["outfit.colours"] == ["navy, white and grey"]
         from prompt_programs.fluent import program_context
         opts = GeneratedOptions(None, program_context(entry))
         for seed in range(6):
             r = draw(src, seed, None, [], None, None, None, options=opts, judge=NullJudge())
-            assert "tuxedo" not in r.prompt and ("navy" in r.prompt or "karate gi" in r.prompt)
+            assert "tuxedo" not in r.prompt and "karate gi" not in r.prompt and "navy" in r.prompt
             opts.reset()

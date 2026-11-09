@@ -334,7 +334,7 @@ class _Runner:
         d.phase, d.about = int(phase) if isinstance(phase, int) else None, str(about or "")
         d.cls = leaf.id if leaf is not None else ""
         d.where = where if isinstance(where, dict) else (str(where).strip() if isinstance(where, str) else "")
-        if leaf is not None and leaf.slots and value is not None:
+        if leaf is not None and leaf.slots and value is not None and "{" in str(value):
             value = self._palette(cid, d, leaf, value, source, line, hidden)
         elif isinstance(value, str) and "{" in value:
             from prompt_programs.vocab import fill

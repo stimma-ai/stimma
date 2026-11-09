@@ -39,7 +39,7 @@ from prompt_programs.runtime import (
     MAX_STEPS, RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _SAFE_BUILTINS, _Runner,
     LoraName, _as_list, _label_from_id, _lora_key, check, lora_names, tidy_text,
 )
-from prompt_programs.vocab import fill, tags_match, template_matches, vocabulary
+from prompt_programs.vocab import fill, is_template, tags_match, template_matches, vocabulary
 
 DRAW_VERSION = "draws-2"
 SPEC_ARGS = ("about", "phase", "seed", "cls")
@@ -846,7 +846,9 @@ class _Exec(_Runner):
         eligible = self._eligible(cid, spec, context, exclude)
         value, pinned = self._settle(cid, site, spec, eligible, context)
         colours = None
-        if leaf is not None and leaf.slots and vocabulary().get(leaf.slots) is not None:
+        # Only a look with colour slots draws Colours: a fixed-colour template ("a white karate gi")
+        # or a generated option (written with its colours) has none to fill.
+        if leaf is not None and leaf.slots and vocabulary().get(leaf.slots) is not None and is_template(str(value)):
             colours = self._palette(cid, site, spec, leaf, value, source, line, hidden)
             value = fill(str(value), self.eng.roles.get(cid))  # the image model reads the filled look
         elif isinstance(value, str) and "{" in value:  # a replayed template whose list is gone: never show slots
