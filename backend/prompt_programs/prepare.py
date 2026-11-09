@@ -26,7 +26,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-30"
+PREPARE_VERSION = "pp-31"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -120,14 +120,28 @@ def build_user_message(prompt: str, model_name: Optional[str], mode: str,
         if mode == "keyword":
             parts.append("This model reads comma-separated tags: emit tags, and write seeds as tags.")
     parts.append("")
+    lines = prompt.splitlines()
+
+    def line_of(text: str) -> int:
+        return next((i + 1 for i, ln in enumerate(lines) if text in ln), 1)
     if smart:
-        names = ", ".join("{{" + n + "}}" for n in smart)
-        parts += [f"Smart wildcards: {names}. Each is a pick with about= and 1 to 3 seeds, emitted where it stands.", ""]
-    lists = list(dict.fromkeys("{" + m.group(1) + "}" for m in _INLINE_LIST.finditer(prompt)))
+        parts.append("Smart wildcards, each a pick with about= in the user's words and 1 to 3 concrete seeds (never a "
+                     "list of options), its variable emitted where the wildcard stands:")
+        for n in smart:
+            parts.append(f'- {{{{{n}}}}}: {smart_id(n)} = pick("{smart_id(n)}", about="{n}", seed=[<1 to 3 examples>], '
+                         f'label=<one or two words>, phase=<N>, line={line_of("{{" + n)})')
+        parts.append("")
+    lists = list(dict.fromkeys(m.group(1) for m in _INLINE_LIST.finditer(prompt)))
     if lists:
-        parts.append(f"User list{'s' if len(lists) > 1 else ''}: {', '.join(lists)}. Each is a list pick with exactly "
-                     "its items, its variable emitted where it stands. A detail that must suit the drawn item (the "
-                     "light for a time of day, the outfit for a job) names that list in its about with an f-string.")
+        parts.append("User lists, each a list pick with exactly its items, its variable itself emitted where the list "
+                     "stands:" if len(lists) > 1 else
+                     "User list: a list pick with exactly its items, its variable itself emitted where the list stands:")
+        for raw in lists:
+            items = ", ".join(json.dumps(o.strip(), ensure_ascii=False) for o in raw.split("|"))
+            parts.append(f'- {{{raw}}}: pick(<id>, [{items}], label=<one or two words>, source="list", phase=<N>, '
+                         f'line={line_of("{" + raw + "}")})')
+        parts.append("A detail that must suit the drawn item (the light for a time of day, the outfit for a job) "
+                     "names that list in its about with an f-string.")
         if len(lists) > 1:
             parts.append("If one of these lists must fit another (clothes that suit the job, a tool for the trade), "
                          "that list goes in a later phase than the one it fits.")
