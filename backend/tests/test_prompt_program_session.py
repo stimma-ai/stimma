@@ -150,6 +150,9 @@ class TestApplyEdits:
         out = apply_edits("a\nb\nc\n", [{"line": 2, "text": "new"}, {"line": 3, "text": "b"}, {"line": 4, "text": "c"}])
         assert out == "a\nnew\nb\nc\n"
 
+    def test_a_trailing_newline_adds_no_blank_line(self):
+        assert apply_edits("a = [\n 1]\nb\n", [{"line": 1, "text": "a = [\n"}]) == "a = [\n 1]\nb\n"
+
     def test_the_numbered_prefix_is_dropped(self):
         assert apply_edits("a\nb\n", [{"line": 2, "text": "2: c"}]) == "a\nc\n"
 
@@ -172,6 +175,15 @@ class TestApplyEdits:
 
 
 # --------------------------------------------------------------------------- the protocol
+
+class TestFixQuotes:
+    def test_an_error_above_every_emit_leaves_the_lines_alone(self):
+        src = ('x = pick("x", ["a", "b"], label="X", source="list", phase=1, line=1)\n'
+               '    "stray continuation"], label="Y")\n'
+               'emit("A", x)\n')
+        out, notes = prep.fix_quotes(src)
+        assert out == src and not notes
+
 
 class TestNewPrompt:
     async def test_a_valid_first_write_ends_the_turn(self, model):

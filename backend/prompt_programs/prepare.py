@@ -535,6 +535,8 @@ def fix_quotes(source: str) -> Tuple[str, List[str]]:
             n = e.lineno - 1
             while n > 0 and "emit(" not in lines[n]:  # the error may surface on a continuation line
                 n -= 1
+            if "emit(" not in lines[n]:  # no emit() above the error: nothing of this kind to put right
+                return source, notes
             line = lines[n]
             tries = [_BARE_TEXT.sub(lambda m: m.group(1) + '"' + m.group(2), line)]
             tries += [line[:m.start(2)] + '"' + line[m.start(2):] for m in _BARE_TEXT.finditer(line)]

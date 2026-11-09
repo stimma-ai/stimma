@@ -187,7 +187,8 @@ def apply_edits(source: str, edits: Any) -> str:
         k = math.floor(at)
         # the numbered view leaks into the text sometimes: "7: emit(...)" for line 7
         text = re.sub(rf"^\s*{k}(?:\.\d+)?:[ \t]", "", text)
-        new = [ln.rstrip() for ln in text.split("\n")] if text.strip() else []
+        # a trailing newline ends the text, it is not an empty line ("seed=[\n")
+        new = [ln.rstrip() for ln in text.rstrip("\n").split("\n")] if text.strip() else []
         if at == k and k == n + 1:  # one past the last line: added at the end (a rewritten tail runs one longer)
             if n in insert:
                 raise EditError(f"two edits add lines after line {n}: put them in one text")
