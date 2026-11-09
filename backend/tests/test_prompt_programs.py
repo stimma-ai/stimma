@@ -894,3 +894,20 @@ def test_a_smart_wildcard_written_as_a_list_is_a_problem():
                for p in prep.validate(listed, "A girl, {{season}}", [], set())["problems"])
     ok = 'season = pick("season", about="the season", seed=["spring"], label="Season", phase=1, line=1)\nemit("A girl,", season)\n'
     assert not prep.validate(ok, "A girl, {{season}}", [], set())["problems"]
+
+
+def test_line_edits_for_most_of_the_program_are_a_new_program():
+    src = "".join(f'p{i} = pick("p{i}", about="x", seed=["s{i}"], phase=1)\n' for i in range(5)) + "emit(p0, p1, p2, p3, p4)\n"
+    assert not prep._rewrites_most(src, 'EDIT\n6: emit(p0, p1, "and", p2, p3, p4)')
+    assert prep._rewrites_most(src, "EDIT\n1: # a knight\n2: a = 1\n3:\n4:\n6: emit(a)")
+
+
+def test_a_one_item_list_is_fixed_text():
+    src = ('flower = pick("flower", ["lilacs"], label="Flower", source="list", phase=1, line=1)\n'
+           'light = pick("light", about="the light", seed=["soft light"], phase=1, added=True)\n'
+           'emit("A vase of", flower, ",", light)\n')
+    out, notes = prep.fix_one_item_lists(src)
+    assert out.startswith('flower = "lilacs"\n') and "light = pick(" in out and len(notes) == 1
+    assert not prep.validate(out, "A vase of lilacs", [], set())["problems"]
+    wild = 'e = pick("ethnicity", ["asian or euro ethnicity"], source="list", phase=1, line=1)\nemit("A woman,", e)\n'
+    assert prep.fix_one_item_lists(wild, "A woman, {{asian or euro ethnicity}}") == (wild, [])

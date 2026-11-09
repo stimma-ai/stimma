@@ -26,7 +26,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-28"
+PREPARE_VERSION = "pp-29"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -1100,6 +1100,39 @@ def fix_list_sources(source: str, prompt: str) -> Tuple[str, List[str]]:
     return source, notes
 
 
+def fix_one_item_lists(source: str, prompt: str = "") -> Tuple[str, List[str]]:
+    """pick(id, ["lilacs"], ...) draws "lilacs" every time: the writer keeping a word the user
+    stated. It is fixed text, so the call becomes that string. (A user's {a|b} list always has
+    two items or more.) A {{wildcard}} written that way is broken, not fixed: validation sends it
+    back."""
+    wild = {smart_id(n): n for n in smart_wildcards(prompt)}
+    if not uses_draws(source):
+        return source, []
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, []
+    pos = _offsets(source)
+    edits: List[Tuple[int, int, str]] = []
+    notes: List[str] = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick" and len(node.args) > 1):
+            continue
+        opts = node.args[1]
+        if not (isinstance(opts, ast.List) and len(opts.elts) == 1 and isinstance(opts.elts[0], ast.Constant)
+                and isinstance(opts.elts[0].value, str)) or _kw(node, "about") is not None or _kw(node, "seed") is not None:
+            continue
+        names = {smart_id(str(_const(node.args[0]) or "")), smart_id(str(_const(_kw(node, "label")) or ""))}
+        if names & set(wild) or any(is_name_of(opts.elts[0].value, n) for n in wild.values()):
+            continue
+        edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset),
+                      json.dumps(opts.elts[0].value, ensure_ascii=False)))
+        notes.append(f'pick("{_const(node.args[0])}") of one item made fixed text')
+    for start, end, text in sorted(edits, reverse=True):
+        source = source[:start] + text + source[end:]
+    return source, notes
+
+
 _EXACT = re.compile(r"\[([^\[\]{}][^\[\]]*)\]")
 
 
@@ -1595,6 +1628,14 @@ def _open_brackets(text: str) -> int:
     return depth
 
 
+def _rewrites_most(source: str, reply: str) -> bool:
+    """Whether numbered-line edits touch (change, delete or add) more lines than half the
+    program has: the writer wrote a different program as line edits."""
+    touched = {m.group(1) for m in (_LINE_EDIT.match(ln) for ln in (reply or "").splitlines()) if m}
+    lines = [ln for ln in source.splitlines() if ln.strip()]
+    return len(lines) >= 4 and len(touched) > len(lines) / 2
+
+
 def apply_line_edits(source: str, reply: str) -> Optional[str]:
     """Apply numbered-line edits ("7: new text", "7:" deletes, "4.5: ..." inserts after 4)
     to a program. A changed line that starts a statement spanning several lines replaces
@@ -1834,6 +1875,8 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
         reply = await _ask_patch(messages, project_id, max_tokens=_repair_cap(program))
         if re.match(r"\s*\**\s*START OVER", reply or "", re.I):
             raise StartOver(f"the writer judged {key} a different prompt from {base.get('key')}")
+        if _rewrites_most(program, reply):  # line edits for most of the program: a new program, not a patch
+            raise StartOver(f"the patch for {key} rewrites most of {base.get('key')}")
         source = apply_line_edits(program, reply)
         if source is not None:
             source, _ = fix_quotes(source)  # a string wrapped onto the next line
@@ -1846,6 +1889,8 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
     for round_ in range(2):  # the patch, then at most one repair of it
         source = drop_name_options(source, new)
         source, more = fix_generated_refs(source)
+        fixed += more
+        source, more = fix_one_item_lists(source, new)
         fixed += more
         source, more = fix_list_sources(source, new)
         fixed += more
@@ -1978,6 +2023,8 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
         source, fixed = fix_quotes(source)
         fixes += fixed
         source, fixed = fix_generated_refs(source)
+        fixes += fixed
+        source, fixed = fix_one_item_lists(source, source_prompt)
         fixes += fixed
         source, fixed = fix_list_sources(source, source_prompt)
         fixes += fixed
