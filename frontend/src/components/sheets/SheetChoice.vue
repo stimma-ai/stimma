@@ -1,36 +1,57 @@
 <template>
-  <fieldset class="m-0 min-w-0 border-0 p-0">
+  <fieldset class="m-0 my-4 min-w-0 max-w-[640px] border-0 p-0">
     <legend class="mb-2 p-0 text-[13px] font-semibold text-content">{{ at.label }}</legend>
-    <div class="grid gap-2" :style="{ gridTemplateColumns: `repeat(auto-fill, minmax(${options.some(o => o.mediaId != null) ? 132 : 96}px, 1fr))` }">
-      <button
+    <div class="flex flex-col gap-1">
+      <div
         v-for="option in options"
         :key="option.value"
-        type="button"
-        class="group relative overflow-hidden rounded-lg border text-left transition-colors disabled:cursor-default"
-        :class="picked.includes(option.value) ? 'border-accent bg-accent/10' : 'border-edge bg-surface hover:border-edge-strong'"
-        :aria-pressed="picked.includes(option.value)"
-        :disabled="sheet.readonly.value || !kid"
-        @click="pick(option.value)"
+        class="flex items-stretch gap-1 rounded-lg border transition-colors"
+        :class="isPicked(option) ? 'border-accent bg-accent/10' : 'border-edge-subtle bg-surface hover:border-edge'"
       >
-        <span v-if="option.mediaId != null" class="block aspect-[4/3] w-full bg-matte">
-          <MediaImage :media-id="option.mediaId" :thumbnail="true" :thumbnail-size="256" container-class="h-full w-full" :draggable="false" :enable-context-menu="false" />
-        </span>
-        <span class="flex items-center gap-2 px-2.5 py-2 text-[12.5px] text-content">
+        <button
+          type="button"
+          class="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-left text-[13px] leading-snug text-content disabled:cursor-default coarse:min-h-11"
+          :aria-pressed="isPicked(option)"
+          :disabled="sheet.readonly.value || !kid"
+          @click="pick(option)"
+        >
           <span
-            class="flex h-4 w-4 flex-none items-center justify-center border"
-            :class="[multiple ? 'rounded' : 'rounded-full', picked.includes(option.value) ? 'border-accent bg-accent text-white' : 'border-edge-strong']"
+            class="flex h-[18px] w-[18px] flex-none items-center justify-center border"
+            :class="[multiple ? 'rounded' : 'rounded-full', isPicked(option) ? 'border-accent bg-accent text-white' : 'border-edge-strong']"
           >
-            <CheckIcon v-if="picked.includes(option.value)" class="h-2.5 w-2.5" stroke-width="3.5" />
+            <CheckIcon v-if="isPicked(option)" class="h-3 w-3" stroke-width="3" />
           </span>
-          <span class="min-w-0 truncate">{{ option.label }}</span>
-        </span>
-      </button>
+          <span class="min-w-0 break-words">{{ option.label }}</span>
+        </button>
+        <!-- A picture that is only here, not up the sheet, shows whole and opens large. -->
+        <button
+          v-if="option.mediaId != null && !sheet.hasTile(option.mediaId)"
+          type="button"
+          class="m-1 flex h-16 w-24 flex-none items-center justify-center overflow-hidden rounded-media bg-matte"
+          :aria-label="`Open ${option.label}`"
+          @click="sheet.openMedia(option.mediaId, option.label)"
+        >
+          <MediaImage
+            :media-id="option.mediaId"
+            :thumbnail="true"
+            :thumbnail-size="256"
+            thumbnail-mode="fit"
+            :contain="true"
+            container-class="h-full w-full"
+            img-class="h-full w-full"
+            :draggable="false"
+            :enable-context-menu="false"
+          />
+        </button>
+      </div>
     </div>
   </fieldset>
 </template>
 
 <script setup lang="ts">
 // <stimma-choice id label multiple><stimma-option value ref>Label</stimma-option>...
+// One row per answer, worded in full. An option whose picture is already a
+// tile on the sheet is picked on that tile too, so the sheet shows it once.
 import { computed } from 'vue'
 import { CheckIcon } from '@heroicons/vue/24/outline'
 import { MediaImage } from '../media'
@@ -45,18 +66,10 @@ const options = computed(() => Array.from(props.node?.querySelectorAll('stimma-o
   label: (el.textContent || '').trim() || el.getAttribute('value') || '',
   mediaId: mediaIdOfRef(el.getAttribute('ref')),
 })))
-const picked = computed<string[]>(() => {
-  const value = props.kid ? sheet.answers.value[props.kid]?.value : null
-  return Array.isArray(value) ? value.map(String) : value ? [String(value)] : []
-})
-function pick(value: string) {
-  if (!props.kid) return
-  if (multiple.value) {
-    const next = new Set(picked.value)
-    next.has(value) ? next.delete(value) : next.add(value)
-    sheet.setAnswer(props.kid, [...next])
-  } else {
-    sheet.setAnswer(props.kid, picked.value[0] === value ? null : value)
-  }
+function isPicked(option: { value: string }) {
+  return !!props.kid && sheet.isPicked(props.kid, option.value)
+}
+function pick(option: { value: string }) {
+  if (props.kid) sheet.togglePick({ choiceId: props.kid, value: option.value, multiple: multiple.value })
 }
 </script>

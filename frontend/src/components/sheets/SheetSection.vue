@@ -12,12 +12,13 @@
         <span role="heading" aria-level="2" class="min-w-0 break-words font-brand text-[16px] font-semibold leading-snug text-content">{{ at.label }}</span>
       </button>
       <span v-else role="heading" aria-level="2" class="min-w-0 break-words font-brand text-[16px] font-semibold leading-snug text-content">{{ at.label }}</span>
-      <span v-if="mediaIds.length" class="flex-none font-mono text-[11px] tabular-nums text-content-muted">{{ mediaIds.length }}</span>
-      <span v-if="newCount" class="flex-none rounded-full bg-accent/15 px-1.5 py-px text-[10px] font-semibold text-accent">{{ newCount }} new</span>
-      <span v-if="!open" class="ml-1 flex min-w-0 gap-0.5 overflow-hidden">
-        <span v-for="id in mediaIds.slice(0, 8)" :key="id" class="h-6 w-6 flex-none overflow-hidden rounded-media bg-matte opacity-70">
+      <span v-if="!open" ref="strip" class="ml-1 flex min-w-0 gap-0.5 overflow-hidden">
+        <span v-for="id in mediaIds.slice(0, 8)" :key="id" class="relative h-6 w-6 flex-none overflow-hidden rounded-media bg-matte opacity-70">
           <MediaImage :media-id="id" :thumbnail="true" :thumbnail-size="128" container-class="h-full w-full" :draggable="false" :enable-context-menu="false" />
         </span>
+        <Transition leave-active-class="transition-opacity duration-700" leave-to-class="opacity-0">
+          <span v-if="folderNew.length" class="ml-1 h-1.5 w-1.5 flex-none self-center rounded-full bg-accent" title="New" />
+        </Transition>
       </span>
       <span class="flex-1" />
       <button
@@ -42,7 +43,7 @@
 <script setup lang="ts">
 // <stimma-section label note collapsible collapsed>. Collapsed sections keep a
 // strip of their pictures in the header, so what is folded away stays visible.
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ChatBubbleLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
 import { MediaImage } from '../media'
 import { mediaIdOfRef } from './sheetHtml'
@@ -55,7 +56,16 @@ const open = ref(!props.at.collapsed)
 
 const tiles = computed(() => Array.from(props.node?.querySelectorAll('stimma-media') || []))
 const mediaIds = computed(() => [...new Set(tiles.value.map(el => mediaIdOfRef(el.getAttribute('ref'))).filter((id): id is number => id != null))])
-const newCount = computed(() => tiles.value.filter(el => sheet.newIds.value.has(el.id)).length)
+// Folded work shows as the strip; seeing the strip is seeing what's new in it.
+const folderNew = computed(() => (open.value ? [] : tiles.value.filter(el => sheet.newIds.value.has(el.id))
+  .map(el => mediaIdOfRef(el.getAttribute('ref'))).filter((id): id is number => id != null)))
+const strip = ref<HTMLElement | null>(null)
+let stopSeen: (() => void) | null = null
+watch([() => folderNew.value.length > 0, strip], ([fresh, el]) => {
+  stopSeen?.()
+  stopSeen = fresh && el ? sheet.watchSeen(el, () => folderNew.value) : null
+}, { immediate: true })
+onBeforeUnmount(() => stopSeen?.())
 const commentCount = computed(() => (props.kid ? sheet.commentsFor(props.kid).length : 0))
 // Jumping to new work unfolds the section that holds it.
 watch(() => sheet.flashIds.value, ids => {

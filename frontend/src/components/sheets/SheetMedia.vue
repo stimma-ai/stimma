@@ -7,6 +7,7 @@
     :data-kid="kid"
   >
     <div
+      ref="pictureEl"
       class="relative block w-full cursor-pointer select-none overflow-hidden rounded-media bg-matte"
       :class="flashing ? 'ring-2 ring-accent ring-offset-2 ring-offset-base' : ''"
       :style="rect ? { height: rect.h + 'px' } : { aspectRatio: aspectStyle }"
@@ -43,6 +44,7 @@
         class="pointer-events-none absolute inset-0 h-full w-full object-contain"
       />
       <span v-if="selected" class="pointer-events-none absolute inset-0 z-chrome rounded-media ring-2 ring-inset ring-selection" />
+      <span v-else-if="picked" class="pointer-events-none absolute inset-0 z-chrome rounded-media ring-2 ring-inset ring-accent" />
 
       <!-- Markers: the profile's own, drawn as OutputImage draws them. Icon and
            colour only; the name is the tooltip. Unset ones wait for hover. -->
@@ -73,14 +75,31 @@
         />
       </div>
 
-      <div class="absolute right-1.5 top-1.5 z-chrome flex items-center gap-1">
-        <span
-          v-if="isNew"
-          class="rounded-full bg-accent px-1.5 py-px font-mono text-[9px] font-semibold uppercase tracking-wide text-white shadow"
-          :class="small ? '!px-1 !text-[8px]' : ''"
-        >new</span>
+      <!-- A picture a choice is asking about is picked here, where it is seen whole. -->
+      <div v-if="picks.length || (isNew && !showCaption)" class="absolute left-1.5 top-1.5 z-chrome flex items-center gap-1">
         <button
-          v-if="!small && !sheet.readonly.value"
+          v-for="pick in picks"
+          :key="`${pick.choiceId}:${pick.value}`"
+          type="button"
+          :class="[
+            'flex items-center justify-center rounded-full border-2 shadow transition-colors disabled:cursor-default',
+            small ? 'h-5 w-5' : 'h-7 w-7 coarse:h-11 coarse:w-11',
+            sheet.isPicked(pick.choiceId, pick.value) ? 'border-accent bg-accent text-white' : 'border-white/80 bg-black/40 text-transparent hover:bg-black/60 hover:text-white/70',
+            pick.multiple ? '!rounded-md' : '',
+          ]"
+          :aria-pressed="sheet.isPicked(pick.choiceId, pick.value)"
+          :title="pick.question ? `${pick.question} ${pick.label}` : pick.label"
+          :disabled="sheet.readonly.value"
+          @click.stop="sheet.togglePick(pick)"
+        >
+          <CheckIcon :class="small ? 'h-3 w-3' : 'h-4 w-4'" stroke-width="3" />
+        </button>
+        <Transition leave-active-class="transition-opacity duration-700" leave-to-class="opacity-0">
+          <span v-if="isNew && !showCaption" class="h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-base" title="New" />
+        </Transition>
+      </div>
+      <div v-if="!small && !sheet.readonly.value" class="absolute right-1.5 top-1.5 z-chrome">
+        <button
           type="button"
           class="flex h-7 items-center justify-center gap-1 rounded-md bg-black/40 px-1.5 text-white/80 transition-opacity hover:bg-black/60 hover:text-white coarse:h-11 coarse:min-w-11"
           :class="commentCount ? 'opacity-100' : 'opacity-0 group-hover/tile:opacity-100 coarse:opacity-100'"
@@ -102,16 +121,20 @@
       </span>
     </div>
     <figcaption
-      v-if="at.caption && !small"
-      class="truncate pt-1 text-[12px] leading-snug text-content-secondary"
-      :title="String(at.caption)"
-    >{{ at.caption }}</figcaption>
+      v-if="showCaption"
+      ref="captionEl"
+      class="break-words pt-1 text-[12px] leading-snug text-content-secondary"
+    >
+      <Transition leave-active-class="transition-opacity duration-700" leave-to-class="opacity-0">
+        <span v-if="isNew" class="mb-px mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent align-middle" title="New" />
+      </Transition>{{ at.caption }}
+    </figcaption>
   </figure>
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onMounted, ref, type Ref } from 'vue'
-import { ChatBubbleLeftIcon, PlayIcon } from '@heroicons/vue/24/outline'
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
+import { ChatBubbleLeftIcon, CheckIcon, PlayIcon } from '@heroicons/vue/24/outline'
 import { MediaImage } from '../media'
 import { useMarkers } from '../../composables/useMarkers'
 import { useViewport } from '../../composables/useViewport'
@@ -126,6 +149,7 @@ const props = defineProps<{ kid?: string; at: Record<string, any>; node: Element
 const sheet = useSheetContext()
 const { isCoarsePointer: coarse } = useViewport()
 const placement = inject<Ref<Placement> | null>('sheetPlacement', null)
+const reportCaption = inject<((id: string, height: number) => void) | null>('sheetCaptionHeight', null)
 const groupSize = inject<Ref<SheetSize> | null>('sheetGroupSize', null)
 const { getMediaFileUrl } = useMediaApi()
 const { availableMarkers, init, loadMarkersForMedia, hasMarker, toggleMarker } = useMarkers()
@@ -161,6 +185,29 @@ const commentCount = computed(() => sheet.commentsFor(kid.value).length)
 const isNew = computed(() => sheet.newIds.value.has(kid.value))
 const selected = computed(() => sheet.selected.value.has(kid.value))
 const flashing = computed(() => sheet.flashIds.value.includes(kid.value))
+const picks = computed(() => sheet.picksFor(mediaId.value))
+const picked = computed(() => picks.value.some(pick => sheet.isPicked(pick.choiceId, pick.value)))
+const showCaption = computed(() => !!props.at.caption && !small.value)
+
+// New until it has actually been on screen.
+const pictureEl = ref<HTMLElement | null>(null)
+let stopSeen: (() => void) | null = null
+watch([isNew, pictureEl], ([fresh, el]) => {
+  stopSeen?.()
+  stopSeen = fresh && el && mediaId.value != null ? sheet.watchSeen(el, () => [mediaId.value!]) : null
+}, { immediate: true })
+
+// A group places its tiles itself, so it needs to know how tall each wrapped caption is.
+const captionEl = ref<HTMLElement | null>(null)
+let captionObserver: ResizeObserver | null = null
+watch(captionEl, el => {
+  captionObserver?.disconnect()
+  captionObserver = null
+  if (!el || !reportCaption || !inGroup.value) return
+  captionObserver = new ResizeObserver(() => reportCaption(kid.value, Math.ceil(el.offsetHeight)))
+  captionObserver.observe(el)
+}, { immediate: true })
+onBeforeUnmount(() => { stopSeen?.(); captionObserver?.disconnect() })
 
 function onClick(event: MouseEvent) {
   if (event.metaKey || event.ctrlKey || event.shiftKey || (sheet.selected.value.size && !coarse.value)) {

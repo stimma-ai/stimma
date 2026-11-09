@@ -40,6 +40,15 @@ export interface CommentTarget {
   mediaId?: number | null
 }
 
+/** A choice option, seen from the picture it refers to. */
+export interface SheetPick {
+  choiceId: string
+  value: string
+  label: string
+  question: string
+  multiple: boolean
+}
+
 export interface SheetSlideshowRequest {
   list: SheetMediaEntry[]
   index: number
@@ -63,6 +72,8 @@ export interface SheetContext {
   newCount: ComputedRef<number>
   markSeen(mediaIds?: number[]): void
   flashIds: Ref<string[]>
+  /** Calls markSeen once el has been on screen for a moment. Returns a stop function. */
+  watchSeen(el: HTMLElement, mediaIds: () => number[]): () => void
   // selection
   selected: Ref<Set<string>>
   toggleSelect(id: string): void
@@ -72,6 +83,12 @@ export interface SheetContext {
   comments: Ref<SheetComment[]>
   commentsFor(anchor: string): SheetComment[]
   setAnswer(anchor: string, value: unknown): void
+  /** Choice options that refer to this picture. */
+  picksFor(mediaId: number | null | undefined): SheetPick[]
+  isPicked(choiceId: string, value: string): boolean
+  togglePick(pick: Pick<SheetPick, 'choiceId' | 'value' | 'multiple'>): void
+  /** Whether a picture is shown as a tile, so a choice needn't show it again. */
+  hasTile(mediaId: number | null | undefined): boolean
   addComment(anchor: string, text: string): Promise<void>
   deleteComment(id: number): Promise<void>
   pendingCount: ComputedRef<number>
@@ -81,6 +98,8 @@ export interface SheetContext {
   sending: Ref<boolean>
   commentFor: Ref<CommentTarget | null>
   openSlideshow(componentId: string): void
+  /** Open one picture large: at its tile if it has one, else on its own. */
+  openMedia(mediaId: number, caption?: string): void
 }
 
 const SHEET_CONTEXT: InjectionKey<SheetContext> = Symbol('contactSheet')
@@ -164,6 +183,36 @@ export function provideContactSheet(options: {
     if (!seen.value) return 0
     return mediaList.value.filter(entry => !seen.value!.has(entry.mediaId)).length
   })
+  // Seen means on screen for a moment while the app is in front, not merely
+  // rendered somewhere down the page.
+  const SEEN_AFTER_MS = 1200
+  function watchSeen(el: HTMLElement, mediaIds: () => number[]) {
+    if (typeof IntersectionObserver === 'undefined') return () => {}
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let onScreen = false
+    const stop = () => { if (timer) { clearTimeout(timer); timer = null } }
+    // The full dwell runs only while the tile is on screen and the app is in front.
+    const arm = () => {
+      stop()
+      if (!onScreen || document.visibilityState !== 'visible') return
+      timer = setTimeout(() => {
+        timer = null
+        const ids = mediaIds().filter(id => seen.value && !seen.value.has(id))
+        if (ids.length) markSeen(ids)
+      }, SEEN_AFTER_MS)
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      onScreen = !!entry?.isIntersecting
+      arm()
+    }, { threshold: 0.5 })
+    observer.observe(el)
+    document.addEventListener('visibilitychange', arm)
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('visibilitychange', arm)
+      stop()
+    }
+  }
   function markSeen(mediaIds?: number[]) {
     if (assetId.value == null || !seen.value) return
     const next = new Set(seen.value)
@@ -288,6 +337,46 @@ export function provideContactSheet(options: {
     }
   }
 
+  // -- choices, from the picture's side ----------------------------------------
+  const picksByMedia = computed(() => {
+    const out = new Map<number, SheetPick[]>()
+    root.value?.querySelectorAll('stimma-choice').forEach(choice => {
+      if (!choice.id) return
+      choice.querySelectorAll('stimma-option').forEach(option => {
+        const mediaId = mediaIdOfRef(option.getAttribute('ref'))
+        if (mediaId == null) return
+        const label = (option.textContent || '').trim()
+        const pick: SheetPick = {
+          choiceId: choice.id,
+          value: option.getAttribute('value') || label,
+          label: label || option.getAttribute('value') || '',
+          question: choice.getAttribute('label') || '',
+          multiple: choice.hasAttribute('multiple'),
+        }
+        out.set(mediaId, [...(out.get(mediaId) || []), pick])
+      })
+    })
+    return out
+  })
+  const tileMedia = computed(() => new Set(Object.values(refsById.value).map(mediaIdOfRef).filter((id): id is number => id != null)))
+  function pickedValues(choiceId: string): string[] {
+    const value = answers.value[choiceId]?.value
+    return Array.isArray(value) ? value.map(String) : value ? [String(value)] : []
+  }
+  function isPicked(choiceId: string, value: string) {
+    return pickedValues(choiceId).includes(value)
+  }
+  function togglePick({ choiceId, value, multiple }: Pick<SheetPick, 'choiceId' | 'value' | 'multiple'>) {
+    const current = pickedValues(choiceId)
+    if (multiple) {
+      const next = new Set(current)
+      next.has(value) ? next.delete(value) : next.add(value)
+      setAnswer(choiceId, [...next])
+    } else {
+      setAnswer(choiceId, current[0] === value ? null : value)
+    }
+  }
+
   const isEmpty = (value: unknown) => value == null || value === false || value === '' || value === 0
     || (Array.isArray(value) && value.length === 0)
   // An unsent answer is news if it says something, or if it takes back one
@@ -323,9 +412,12 @@ export function provideContactSheet(options: {
   const context: SheetContext = {
     content, root, assetId, chatId, readonly, mediaList, member,
     refOf: id => refsById.value[id] ?? null,
-    newIds, newCount, markSeen, flashIds,
+    newIds, newCount, markSeen, flashIds, watchSeen,
     selected, toggleSelect, clearSelection,
     answers, comments, commentsFor, setAnswer, addComment, deleteComment,
+    picksFor: mediaId => (mediaId == null ? [] : picksByMedia.value.get(mediaId) ?? []),
+    isPicked, togglePick,
+    hasTile: mediaId => mediaId != null && tileMedia.value.has(mediaId),
     pendingCount, pendingAnswerCount, pendingCommentCount, send, sending,
     commentFor,
     openSlideshow(componentId: string) {
@@ -335,6 +427,11 @@ export function provideContactSheet(options: {
       const list = root.value ? sheetMediaList(root.value, componentId) : []
       const index = Math.max(0, list.findIndex(entry => entry.mediaId === mediaId))
       openSheetSlideshow({ list, index, sheet: context })
+    },
+    openMedia(mediaId: number, caption = '') {
+      const tile = Object.entries(refsById.value).find(([, ref]) => mediaIdOfRef(ref) === mediaId)?.[0]
+      if (tile) return context.openSlideshow(tile)
+      openSheetSlideshow?.({ list: [{ id: '', ref: String(mediaId), mediaId, caption, section: '' }], index: 0, sheet: context })
     },
   }
   provide(SHEET_CONTEXT, context)

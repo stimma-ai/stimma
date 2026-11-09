@@ -17,8 +17,8 @@ export interface LayoutItem {
   id: string
   /** width / height */
   ratio: number
-  /** Reserve a caption line under the picture. */
-  caption: boolean
+  /** Caption space under the picture: its measured height, or true for one line. */
+  caption: boolean | number
 }
 
 export interface TileRect {
@@ -41,7 +41,10 @@ export const GAP: Record<SheetSize, number> = { s: 4, m: 6, l: 8 }
 export const ROW: Record<SheetSize, number> = { s: 88, m: 190, l: 300 }
 /** Target column width for masonry and uniform. */
 export const COLUMN: Record<SheetSize, number> = { s: 110, m: 220, l: 320 }
+/** One caption line, reserved until the real caption has been measured. */
 export const CAPTION = 22
+
+const captionOf = (item: LayoutItem) => (typeof item.caption === 'number' ? item.caption : item.caption ? CAPTION : 0)
 
 export function parseLayout(value: unknown): SheetLayout {
   return value === 'masonry' || value === 'uniform' ? value : 'rows'
@@ -82,7 +85,7 @@ export function placeTiles(
       let h = available / ratioSum
       // A short last row keeps the target height rather than blowing up.
       if (last && h > target * 1.25) h = target
-      const cap = row.some(item => item.caption) ? CAPTION : 0
+      const cap = Math.max(0, ...row.map(captionOf))
       let x = 0
       for (const item of row) {
         const w = h * item.ratio
@@ -109,21 +112,23 @@ export function placeTiles(
     for (const item of items) {
       const column = tops.indexOf(Math.min(...tops))
       const h = cw / item.ratio
-      const cap = item.caption ? CAPTION : 0
+      const cap = captionOf(item)
       rects[item.id] = { x: column * (cw + gap), y: tops[column], w: cw, h, cap, letterbox: false }
       tops[column] += h + cap + gap
     }
     return { rects, height: Math.max(0, Math.max(...tops) - gap) }
   }
 
+  // Each grid row reserves the tallest caption in it.
   const ch = cw / aspect
-  const cap = items.some(item => item.caption) ? CAPTION : 0
-  items.forEach((item, index) => {
-    rects[item.id] = {
-      x: (index % columns) * (cw + gap),
-      y: Math.floor(index / columns) * (ch + cap + gap),
-      w: cw, h: ch, cap, letterbox: true,
-    }
-  })
-  return { rects, height: Math.ceil(items.length / columns) * (ch + cap + gap) - gap }
+  let y = 0
+  for (let start = 0; start < items.length; start += columns) {
+    const row = items.slice(start, start + columns)
+    const cap = Math.max(0, ...row.map(captionOf))
+    row.forEach((item, index) => {
+      rects[item.id] = { x: index * (cw + gap), y, w: cw, h: ch, cap, letterbox: true }
+    })
+    y += ch + cap + gap
+  }
+  return { rects, height: Math.max(0, y - gap) }
 }

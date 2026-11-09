@@ -36,6 +36,16 @@ test('captions reserve a line under their row', () => {
   assert.ok(height >= rects.t0.h + CAPTION)
 })
 
+test('a wrapped caption reserves its measured height for the whole row', () => {
+  const list = [{ id: 'a', ratio: 1, caption: 40 }, { id: 'b', ratio: 1, caption: true }, { id: 'c', ratio: 1, caption: 0 }]
+  const { rects, height } = placeTiles(list, 600, 'rows', 'm')
+  assert.equal(rects.a.cap, 40)
+  assert.equal(rects.b.cap, 40)
+  assert.ok(height >= rects.a.h + 40)
+  const grid = placeTiles(list, 700, 'uniform', 'm', 1)
+  assert.equal(grid.rects.c.cap, 40)
+})
+
 test('masonry puts each picture into the shortest column', () => {
   const { rects } = placeTiles(items([0.5, 2, 2, 2]), 460, 'masonry', 'm')
   // Two columns: the tall picture fills the left, the wide ones stack right.

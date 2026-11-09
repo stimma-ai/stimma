@@ -2,14 +2,14 @@
   <div>
     <button
       type="button"
-      class="mb-2 flex items-center gap-1.5 text-left text-[12px] font-semibold text-content hover:text-content-secondary"
+      class="mb-2 flex items-start gap-1.5 text-left text-[12px] font-semibold text-content hover:text-content-secondary"
       @click="$emit('open')"
     >
-      <RectangleGroupIcon class="h-3.5 w-3.5 flex-none text-content-secondary" />
-      <span class="truncate">Review of {{ review.title || 'the contact sheet' }}</span>
+      <RectangleGroupIcon class="mt-0.5 h-3.5 w-3.5 flex-none text-content-secondary" />
+      <span class="min-w-0 break-words">Review of {{ review.title || 'the contact sheet' }}</span>
     </button>
     <ul class="m-0 list-none space-y-1.5 p-0">
-      <li v-for="(item, index) in review.items" :key="index" class="flex items-center gap-2 text-[12.5px]">
+      <li v-for="(item, index) in review.items" :key="index" class="flex items-start gap-2 text-[12.5px]">
         <span class="h-8 w-8 flex-none overflow-hidden rounded-media bg-matte">
           <MediaImage
             v-if="item.media_id"
@@ -27,8 +27,8 @@
           </span>
         </span>
         <span class="min-w-0 flex-1">
-          <span class="block truncate text-content">{{ primary(item) }}</span>
-          <span v-if="secondary(item)" class="block truncate text-[11px] text-content-muted">{{ secondary(item) }}</span>
+          <span class="block break-words text-content">{{ primary(item) }}</span>
+          <span v-if="secondary(item)" class="block break-words text-[11px] text-content-muted">{{ secondary(item) }}</span>
         </span>
       </li>
     </ul>

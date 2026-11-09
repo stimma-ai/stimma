@@ -1,32 +1,33 @@
 <template>
   <div class="relative flex h-full min-h-0 w-full flex-col bg-base">
-    <!-- What changed since you looked, and the selection. Only when there is something to say. -->
-    <div v-if="sheet.newCount.value || sheet.selected.value.size" class="flex flex-none items-center gap-2 border-b border-edge-subtle px-4 py-1.5 compact:px-3">
-      <template v-if="sheet.selected.value.size">
-        <span class="flex-1 font-mono text-xs tabular-nums text-selection">{{ sheet.selected.value.size }} selected</span>
-        <Button variant="ghost" size="sm" @click="sheet.clearSelection()">Clear</Button>
-        <Button v-if="collections" variant="primary" size="sm" @click="attachSelection">Add to message</Button>
-      </template>
-      <template v-else>
-        <button
-          type="button"
-          class="flex h-7 items-center gap-1 rounded-full bg-accent px-2.5 text-[11.5px] font-semibold text-white transition-colors hover:bg-accent/90"
-          @click="jumpToNew"
-        >{{ sheet.newCount.value }} new since you looked</button>
-        <button
-          v-if="jumped"
-          type="button"
-          class="h-7 rounded-md px-2 text-[11.5px] text-content-secondary hover:bg-overlay-subtle hover:text-content"
-          @click="markAllSeen"
-        >Mark seen</button>
-        <span class="flex-1" />
-      </template>
+    <!-- The selection, only while there is one. -->
+    <div v-if="sheet.selected.value.size" class="flex flex-none items-center gap-2 border-b border-edge-subtle px-4 py-1.5 compact:px-3">
+      <span class="flex-1 font-mono text-xs tabular-nums text-selection">{{ sheet.selected.value.size }} selected</span>
+      <Button variant="ghost" size="sm" @click="sheet.clearSelection()">Clear</Button>
+      <Button v-if="collections" variant="primary" size="sm" @click="attachSelection">Add to message</Button>
     </div>
 
-    <div ref="scroller" class="relative min-h-0 flex-1 overflow-y-auto custom-scrollbar">
-      <div v-if="error" class="flex h-full items-center justify-center px-8 text-center text-sm text-content-muted">{{ error }}</div>
-      <div v-else-if="!sheet.content.value" class="flex h-full items-center justify-center text-sm text-content-muted">Loading…</div>
-      <SheetDocument v-else :key="mediaId ?? 0" :scope="scope" :css="css" class="mx-auto max-w-[1120px] px-8 pb-28 pt-7 compact:px-4 compact:pt-5" />
+    <div class="relative min-h-0 flex-1">
+      <div ref="scroller" class="absolute inset-0 overflow-y-auto custom-scrollbar" @scroll.passive="placeNewPill">
+        <div v-if="error" class="flex h-full items-center justify-center px-8 text-center text-sm text-content-muted">{{ error }}</div>
+        <div v-else-if="!sheet.content.value" class="flex h-full items-center justify-center text-sm text-content-muted">Loading…</div>
+        <SheetDocument v-else :key="mediaId ?? 0" :scope="scope" :css="css" class="mx-auto max-w-[1120px] px-8 pb-28 pt-7 compact:px-4 compact:pt-5" />
+      </div>
+
+      <!-- New work you haven't had on screen yet, and which way it is. -->
+      <Transition enter-from-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-200" leave-to-class="opacity-0">
+        <button
+          v-if="newDirection"
+          type="button"
+          class="absolute left-1/2 z-chrome flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-full border border-edge-subtle bg-surface px-3 text-[12px] font-medium text-content shadow-lg hover:bg-overlay-hover coarse:h-11"
+          :class="newDirection === 'up' ? 'top-3' : 'bottom-3'"
+          @click="jumpToNew"
+        >
+          <span class="h-1.5 w-1.5 rounded-full bg-accent" />
+          {{ offscreenNew }} new
+          <component :is="newDirection === 'up' ? ArrowUpIcon : ArrowDownIcon" class="h-3.5 w-3.5 text-content-secondary" />
+        </button>
+      </Transition>
     </div>
 
     <!-- The review: it saves as you go; sending it is one step. -->
@@ -49,7 +50,8 @@
 // The native contact sheet viewer. The agent's HTML renders as the app, with
 // live tiles, review fields and comments.
 import axios from 'axios'
-import { computed, inject, onBeforeUnmount, ref, toRef, watch } from 'vue'
+import { computed, inject, nextTick, ref, toRef, watch } from 'vue'
+import { ArrowDownIcon, ArrowUpIcon } from '@heroicons/vue/24/outline'
 import Button from '../ui/Button.vue'
 import { getApiBase } from '../../apiConfig'
 import { CHAT_MEDIA_COLLECTIONS } from '../../composables/useChatMediaCollections'
@@ -72,9 +74,7 @@ const error = ref<string | null>(null)
 const css = ref('')
 
 let loadToken = 0
-watch(() => props.mediaId, async (mediaId, previous) => {
-  // Leaving a version counts as having looked at it.
-  if (previous != null && sheet.content.value) sheet.markSeen()
+watch(() => props.mediaId, async mediaId => {
   error.value = null
   if (mediaId == null) {
     sheet.content.value = null
@@ -96,8 +96,6 @@ watch(() => props.mediaId, async (mediaId, previous) => {
   }
 }, { immediate: true })
 
-onBeforeUnmount(() => { if (sheet.content.value) sheet.markSeen() })
-
 const pendingSummary = computed(() => {
   const answers = sheet.pendingAnswerCount.value
   const comments = sheet.pendingCommentCount.value
@@ -107,20 +105,61 @@ const pendingSummary = computed(() => {
   return parts.join(' · ')
 })
 
-const jumped = ref(false)
-function jumpToNew() {
-  const ids = [...sheet.newIds.value]
-  if (!ids.length) return
-  sheet.flashIds.value = ids
-  jumped.value = true
-  requestAnimationFrame(() => {
-    scroller.value?.querySelector(`[data-kid="${CSS.escape(ids[0])}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  })
-  setTimeout(() => { sheet.flashIds.value = [] }, 2600)
+// New tiles out of view, nearest first in the direction they lie. Tiles in a
+// folded section count where the section's header is.
+function newTargets() {
+  const box = scroller.value?.getBoundingClientRect()
+  const out = { above: [] as HTMLElement[], below: [] as HTMLElement[], count: 0 }
+  if (!box) return out
+  for (const id of sheet.newIds.value) {
+    const el = scroller.value!.querySelector<HTMLElement>(`[data-kid="${CSS.escape(id)}"]`)
+      ?? scroller.value!.querySelector<HTMLElement>(`[data-kid="${CSS.escape(sectionOf(id) || '')}"]`)
+    if (!el) continue
+    const r = el.getBoundingClientRect()
+    if (r.bottom < box.top + 24) out.above.push(el)
+    else if (r.top > box.bottom - 24) out.below.push(el)
+    else continue
+    out.count++
+  }
+  out.above.sort((x, y) => y.getBoundingClientRect().bottom - x.getBoundingClientRect().bottom)
+  out.below.sort((x, y) => x.getBoundingClientRect().top - y.getBoundingClientRect().top)
+  return out
 }
-function markAllSeen() {
-  sheet.markSeen()
-  jumped.value = false
+/** The nearer of the closest new work above and below. */
+function nearestNew() {
+  const box = scroller.value?.getBoundingClientRect()
+  const { above, below, count } = newTargets()
+  if (!box) return { el: null, direction: null, count }
+  const up = above[0] ? box.top - above[0].getBoundingClientRect().bottom : Infinity
+  const down = below[0] ? below[0].getBoundingClientRect().top - box.bottom : Infinity
+  if (up === Infinity && down === Infinity) return { el: null, direction: null, count }
+  return down <= up ? { el: below[0], direction: 'down' as const, count } : { el: above[0], direction: 'up' as const, count }
+}
+function sectionOf(tileId: string) {
+  return sheet.root.value?.querySelector(`[id="${CSS.escape(tileId)}"]`)?.closest('stimma-section')?.id ?? null
+}
+const newDirection = ref<'up' | 'down' | null>(null)
+const offscreenNew = ref(0)
+let placing = 0
+function placeNewPill() {
+  if (placing) return
+  placing = requestAnimationFrame(() => {
+    placing = 0
+    const { direction, count } = nearestNew()
+    newDirection.value = direction
+    offscreenNew.value = count
+  })
+}
+watch(() => sheet.newIds.value, () => nextTick(placeNewPill))
+watch(() => sheet.content.value, () => setTimeout(placeNewPill, 300))
+
+function jumpToNew() {
+  const { el } = nearestNew()
+  if (!el) return
+  const id = el.dataset.kid || ''
+  sheet.flashIds.value = [id]
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  setTimeout(() => { if (sheet.flashIds.value[0] === id) sheet.flashIds.value = [] }, 2000)
 }
 
 function attachSelection() {
