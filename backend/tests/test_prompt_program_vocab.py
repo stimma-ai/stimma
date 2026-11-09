@@ -130,7 +130,7 @@ class TestBinding:
         src = PORTRAIT.replace("person.eye_color", "person.gone")
         r = draw(src, 1, None, [], None, None, None, options=GeneratedOptions(None, program()), judge=NullJudge())
         eyes = next(d for d in r.draws if d.id == "eyes")
-        assert eyes.value == "hazel" and not eyes.cls  # its seed
+        assert eyes.value == "hazel" and eyes.cls == "person.gone"  # its seed; the id is kept for replays
 
 
 class TestBoundPools:
@@ -201,6 +201,17 @@ class TestBoundPools:
         again = draw(PORTRAIT, 12, None, [], None, None, None, options=rt2.options, judge=NullJudge())
         assert again.prompt == first.prompt
 
+    def test_a_revision_replays_after_its_list_is_removed(self, tmp_path, monkeypatch):
+        from prompt_programs.fluent import runtime_for
+        entry = {"key": "p", "program": PORTRAIT, "loras": [], "params": {}, "mode": "prose",
+                 "choices": discover(PORTRAIT)["choices"]}
+        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
+        first = draw(PORTRAIT, 0, None, [], None, None, None, options=rt.options, judge=NullJudge())
+        monkeypatch.delitem(vocabulary().leaves, "person.eye_color")
+        rt2 = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=first.revision)
+        again = draw(PORTRAIT, 0, None, [], None, None, None, options=rt2.options, judge=NullJudge())
+        assert again.prompt == first.prompt
+
     def test_bound_and_unbound_pools_never_share_generated_options(self):
         a = PickSpec("x", "X", "her expression", 2, "text", "pick", [], [])
         b = PickSpec("x", "X", "her expression", 2, "text", "pick", [], [], "person.expression")
@@ -236,6 +247,8 @@ class TestArticles:
         ("Plan A in action", "Plan A in action"), ("a bottle of vitamin A oil", "A bottle of vitamin A oil"),
         ("an unimpressed woman", "An unimpressed woman"), ("a uniform", "A uniform"), ("an university", "A university"),
         ("grade A eggs", "Grade A eggs"), ('He said "a apple"', 'He said "an apple"'),
+        ('a sign reading "A is for apple"', 'A sign reading "A is for apple"'),
+        ("a diagram with labels (A and B)", "A diagram with labels (A and B)"),
     ])
     def test_a_and_an_follow_the_next_word(self, text, want):
         assert tidy_text([text]) == want

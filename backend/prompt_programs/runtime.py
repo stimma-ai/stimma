@@ -436,8 +436,9 @@ _ARTICLE = re.compile(r"\b(a|an|the)\s+(?=(?:a|an|the)\s)", re.I)
 
 
 # An article and the word after it. A capital "A" mid-sentence is a letter, not an article
-# ("Plan A", "vitamin A"): only a lowercase one, or one starting a sentence, is corrected.
-_A_AN = re.compile(r"(?:(?<=^)|(?<=[.!?]\s)|(?<=[\"'(\[]))(A|An)\s+([A-Za-z][\w'-]*)|\b(a|an)\s+([A-Za-z][\w'-]*)")
+# ("Plan A", "vitamin A", '"A is for apple"', "(A and B)"): only a lowercase one, or one
+# starting the text or a sentence, is corrected.
+_A_AN = re.compile(r"(?:(?<=^)|(?<=[.!?]\s))(A|An)\s+([A-Za-z][\w'-]*)|\b(a|an)\s+([A-Za-z][\w'-]*)")
 # Words whose sound doesn't follow their first letter.
 _AN_WORDS = {"hour", "hours", "hourly", "honest", "honestly", "honor", "honour", "honorable", "honourable", "heir", "heiress"}
 # Vowel-initial words said with a consonant sound ("a unicorn", "a European", "a one-off").

@@ -540,7 +540,7 @@ class GeneratedOptions:
                             self.program.lists, self.version, lineage, intent, spec.cls), signature
 
     def get(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
-        if not generated_pick(spec) and bound(spec) is None:
+        if not generated_pick(spec) and bound(spec) is None and not isinstance(self.limits.get(self._where(spec, context)[0]), list):
             return self.literal.get(spec, context)
         key, skey, signature = self._where(spec, context)
         if key in self._pools:
@@ -579,6 +579,9 @@ class GeneratedOptions:
         self._submit(spec, context, skey, signature, "high", existing, avoid)
 
     def _read(self, spec: PickSpec, context: Dict[str, Any], key: str, skey: str) -> Tuple[Pool, List[str], int]:
+        recorded = self.limits.get(key)
+        if isinstance(recorded, list):  # a revision's whole bound pool, even for a list since removed
+            return Pool(key, [str(o) for o, _ in recorded], [float(w) for _, w in recorded], False, True), [], 0
         leaf = bound(spec)
         if leaf is not None:
             return self._read_bound(spec, leaf, key, skey)
@@ -607,9 +610,6 @@ class GeneratedOptions:
         the pool's weight with the list. The writer's seeds aren't used: the list replaces
         them. Returns (pool, the generated options, generation rounds)."""
         recorded = self.limits.get(key)
-        if isinstance(recorded, list):  # replaying a revision: the pool exactly as it drew, whatever the list is now
-            pool = Pool(key, [str(o) for o, _ in recorded], [float(w) for _, w in recorded], False, True)
-            return pool, [], 0
         edit = self.edits.get(spec.id) or {}
         seen = {_norm(x) for x in edit.get("remove") or []}   # removed, then each option once
 

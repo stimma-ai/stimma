@@ -825,12 +825,12 @@ class _Exec(_Runner):
             return None  # removed by the user: the detail is left to the image model
         site = self.eng.an.sites[_site]
         lbl = label or _label_from_id(cid)
-        # A list the vocabulary no longer has: the pick draws as an unbound one (seeds and
-        # generated options), never fails a stored program.
+        # A list the vocabulary no longer has keeps its id (a revision's recorded pool is found
+        # by it) and otherwise draws as an unbound pick: seeds and generated options, never a failure.
         leaf = vocabulary().resolve(cls) if cls and source != "list" else None
         spec = PickSpec(cid, lbl, str(about or ""), site.phase, source, "pick",
                         _as_list(seed if seed is not None else [], f'pick("{cid}") seed'), opts,
-                        leaf.id if leaf is not None else "")
+                        leaf.id if leaf is not None else (str(cls).strip() if cls and source != "list" else ""))
         context = self._context(site)
         value, pinned = self._settle(cid, site, spec, self._eligible(cid, spec, context, exclude), context)
         d = Draw(cid, value, "pick", lbl, source, line, bool(hidden), pinned, [o for o, _ in self.seen[cid].items], follows)
