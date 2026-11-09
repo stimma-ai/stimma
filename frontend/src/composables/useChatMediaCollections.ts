@@ -13,6 +13,16 @@ export interface CollectionViewState {
   expanded: boolean
 }
 
+/** What the media menu needs to act on one image or on the current picks. */
+export interface CollectionMenuTarget {
+  mediaId: number
+  assetId?: number
+  mediaIds: number[]
+  assetIds: number[]
+  selectedItems: any[]
+  projectId?: number | null
+}
+
 export interface ChatMediaCollections {
   viewState(itemId: number, initial: () => CollectionView): CollectionViewState
   selection: {
@@ -31,6 +41,12 @@ export interface ChatMediaCollections {
   detach(mediaId: number): void
   attachSelection(): void
   compareSelection(): void
+  /** A collection tells the menu what its images are; returns the unregister. */
+  registerRows(itemId: number, rows: () => any[]): () => void
+  /** The clicked image, or every pick when the clicked image is one of them. */
+  menuTarget(itemId: number, mediaId: number): CollectionMenuTarget
+  /** Every pick in the selecting collection, or null with nothing picked. */
+  selectionMenuTarget(): CollectionMenuTarget | null
   panel: {
     available: boolean
     itemId: Ref<number | null>
@@ -50,6 +66,8 @@ interface Options {
   panelItemId: Ref<number | null>
   openPanel: (itemId: number) => void
   closePanel: () => void
+  /** The chat's project: the menu's boards, chats and project actions act in it. */
+  projectId?: () => number | null | undefined
 }
 
 export function useChatMediaCollections(options: Options): ChatMediaCollections {
@@ -119,6 +137,45 @@ export function useChatMediaCollections(options: Options): ChatMediaCollections 
   // Selection follows collection order, not the order of the clicks.
   const ordered = () => [...new Set(universe.value)].filter(id => ids.has(id))
 
+  const rowSources = new Map<number, () => any[]>()
+  function registerRows(itemId: number, rows: () => any[]) {
+    rowSources.set(itemId, rows)
+    return () => { if (rowSources.get(itemId) === rows) rowSources.delete(itemId) }
+  }
+  function menuItem(itemId: number, mediaId: number) {
+    const row = rowSources.get(itemId)?.().find(candidate => candidate?.output?.media_id === mediaId)
+    const output = row?.output
+    return {
+      ...(output || {}),
+      ...(row?.input?.label && !output?.title ? { title: row.input.label } : {}),
+      id: mediaId, media_id: mediaId, asset_id: output?.asset_id ?? undefined,
+    }
+  }
+  function targetFor(itemId: number, anchor: number, mediaIds: number[]): CollectionMenuTarget {
+    const selectedItems = mediaIds.map(id => menuItem(itemId, id))
+    const anchorItem = selectedItems.find(item => item.media_id === anchor) || menuItem(itemId, anchor)
+    // Asset actions need every pick's asset; a pick without one (a chat-only
+    // working result) keeps the menu on media ids.
+    const assetIds = selectedItems.map(item => item.asset_id)
+    return {
+      mediaId: anchor,
+      assetId: anchorItem.asset_id,
+      mediaIds,
+      assetIds: assetIds.every(id => id != null) ? assetIds as number[] : [],
+      selectedItems,
+      projectId: options.projectId?.(),
+    }
+  }
+  function menuTarget(itemId: number, mediaId: number) {
+    const picks = owner.value === itemId && ids.has(mediaId) ? ordered() : []
+    return targetFor(itemId, mediaId, picks.length > 1 ? picks : [mediaId])
+  }
+  function selectionMenuTarget() {
+    const picks = ordered()
+    if (owner.value == null || !picks.length) return null
+    return targetFor(owner.value, picks[0], picks)
+  }
+
   return {
     viewState,
     selection: {
@@ -139,6 +196,9 @@ export function useChatMediaCollections(options: Options): ChatMediaCollections 
       attach(ordered())
       clear()
     },
+    registerRows,
+    menuTarget,
+    selectionMenuTarget,
     compareSelection() {
       const [left, right] = ordered()
       if (left != null && right != null) options.compare(left, right)

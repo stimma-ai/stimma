@@ -23,7 +23,7 @@ import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { useMediaState } from '../../composables/useMediaState'
 import { useViewport } from '../../composables/useViewport'
 import { getMediaType } from '../../utils/mediaTypes'
-import { consumeEscape } from '../../utils/escapeLayers'
+import { consumeEscape, hasEscapeLayer } from '../../utils/escapeLayers'
 import { COLLECTION_SIZES, gridColumns, heroHeight, startingView, stripTileSize, visibleTiles } from '../../utils/mediaCollectionLayout'
 
 const props = defineProps({
@@ -84,6 +84,9 @@ const doneCount = computed(() => props.rows.filter(row => row.output?.status ===
 const columns = computed(() => gridColumns({ count: count.value, width: width.value || 600, size: state.size, compact: isCompact.value }))
 const visible = computed(() => visibleTiles({ count: count.value, columns: columns.value, expanded: state.expanded || inPanel.value }))
 const canCollapse = computed(() => state.expanded && !inPanel.value)
+// A collapsed grid can hide the active image (Preview had moved past the
+// first rows); the last tile shown keeps the grid reachable by Tab.
+const gridFocusIndex = computed(() => Math.min(activeIndex.value, visible.value - 1))
 const stripSize = computed(() => stripTileSize(state.size, isCompact.value))
 const canResize = computed(() => !isSingle.value && (count.value > 4 || view.value === 'preview'))
 // A set or grid is drawn on its own backdrop, so its hero shares one surface.
@@ -211,17 +214,16 @@ function jumpCommit() {
   jumping.value = false
 }
 
+// The hero's ⋯ and its right-click open one menu: the picks when the picture
+// is one of them, else the picture, in the chat's project.
 function openHeroMenu(event) {
   event.stopPropagation()
   if (!activeMediaId.value) return
   const rect = event.currentTarget.getBoundingClientRect()
-  contextMenu.showAt({
-    x: rect.right,
-    y: rect.bottom + 4,
-    mediaId: activeMediaId.value,
-    assetId: activeRow.value.output.asset_id || undefined,
-  })
+  contextMenu.showAt({ x: rect.right, y: rect.bottom + 4, ...collections.menuTarget(props.itemId, activeMediaId.value) })
 }
+const unregisterRows = collections.registerRows(props.itemId, () => props.rows)
+onBeforeUnmount(unregisterRows)
 
 function centerActiveInStrip() {
   const strip = stripRef.value
@@ -244,16 +246,22 @@ function pageStrip(direction) {
 }
 
 // Keyboard: arrows move the active image, Space picks, Enter opens.
+// Keys someone else already handled, chorded keys (they belong to the browser
+// and app), and keys aimed at a control (the view toggle's arrows, a button's
+// Space) are left alone; the tiles and the card itself own the rest.
+const KEY_CONTROLS = 'input,textarea,select,summary,[contenteditable]:not([contenteditable="false"]),button,a,[role="radio"],[role="radiogroup"],[role="tab"],[role="tablist"],[role="slider"],[role="menu"],[role="menuitem"],[role="listbox"],[role="option"]'
 function onKeydown(event) {
-  if (event.target.matches?.('input,textarea,select,summary')) return
+  if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+  if (event.target.matches?.('input,textarea,select,summary,[contenteditable]:not([contenteditable="false"])')) return
+  const onControl = !!event.target.closest?.(KEY_CONTROLS)
   const inGrid = view.value === 'grid'
-  const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: inGrid ? -columns.value : 0, ArrowDown: inGrid ? columns.value : 0 }[event.key]
+  const step = onControl ? 0 : { ArrowLeft: -1, ArrowRight: 1, ArrowUp: inGrid ? -columns.value : 0, ArrowDown: inGrid ? columns.value : 0 }[event.key]
   if (step) {
     event.preventDefault()
     const last = (inGrid ? visible.value : count.value) - 1
     show(Math.min(last, Math.max(0, activeIndex.value + step)))
     nextTick(() => rootRef.value?.querySelector(`[data-tile="${activeIndex.value}"]`)?.focus())
-  } else if (['Enter', ' '].includes(event.key) && event.target.closest?.('button,a,summary')) {
+  } else if (['Enter', ' '].includes(event.key) && onControl) {
     // A control inside the card keeps its own keys.
   } else if (event.key === ' ' && activePickable.value) {
     event.preventDefault()
@@ -261,6 +269,8 @@ function onKeydown(event) {
   } else if (event.key === 'Enter' && event.target.closest?.('[data-tile]')) {
     event.preventDefault()
     inGrid ? inspect(activeIndex.value) : openFullView()
+  } else if (event.key === 'Escape' && hasEscapeLayer()) {
+    // A menu or dialog over the page closes first; the picks and panel stay.
   } else if (event.key === 'Escape' && selecting.value) {
     consumeEscape(event)
     selection.clear()
@@ -300,10 +310,17 @@ function onHeroClickCapture(event) {
   event.stopPropagation()
 }
 function onHeroContextCapture(event) {
-  if (!event.stimmaSynthetic || !activePickable.value || activeSelected.value) return
-  event.preventDefault()
+  if (event.stimmaSynthetic && activePickable.value && !activeSelected.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    togglePickActive()
+    return
+  }
+  // The picture's own menu; the hero's controls and inputs keep theirs.
+  if (!activeMediaId.value || activeRow.value?.output?.deleted) return
+  if (event.target.closest?.('button,input,textarea,select,a,[data-testid="media-collection-toolbar"]')) return
   event.stopPropagation()
-  togglePickActive()
+  contextMenu.show({ event, ...collections.menuTarget(props.itemId, activeMediaId.value) })
 }
 function onHeroDragStart(event) {
   if (!activeSelected.value || selection.ids.size < 2) return
@@ -480,7 +497,7 @@ onBeforeUnmount(() => {
               :total="count"
               :universe="universe"
               :show-label="hasLabels"
-              :tabbable="activeIndex === index"
+              :tabbable="gridFocusIndex === index"
               :overflow="index === visible - 1 && visible < count ? count - visible + 1 : 0"
               @view-image="inspect(index)"
               @expand="state.expanded = true"

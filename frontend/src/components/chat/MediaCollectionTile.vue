@@ -7,6 +7,7 @@ import { ExclamationCircleIcon, PaperClipIcon, PlusIcon, TrashIcon } from '@hero
 import { MediaImage, AppImage } from '../media'
 import OutputImage from './OutputImage.vue'
 import { CHAT_MEDIA_COLLECTIONS } from '../../composables/useChatMediaCollections'
+import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { workspaceMediaUrl } from '../../utils/workspaceMediaUrl'
 
 const props = defineProps({
@@ -26,6 +27,7 @@ const emit = defineEmits(['activate', 'expand', 'view-image', 'retry', 'cancel',
 
 const collections = inject(CHAT_MEDIA_COLLECTIONS)
 const { selection } = collections
+const contextMenu = useMediaContextMenu()
 
 const mediaId = computed(() => props.row.output?.media_id ?? null)
 const status = computed(() => props.row.output?.status)
@@ -64,11 +66,34 @@ function onClickCapture(event) {
 // Tap = open, long-press = select (DESIGN.md §1.11). The press arrives as the
 // synthetic contextmenu from utils/longPress. A real right-click, or a press on
 // a tile that is already selected, reaches the media menu.
+// A picked tile's menu acts on every pick, as in the browser grid.
 function onContextMenuCapture(event) {
-  if (!event.stimmaSynthetic || !pickable.value || selected.value) return
+  if (event.stimmaSynthetic && pickable.value && !selected.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    toggle()
+    return
+  }
+  if (event.target.closest?.('button,input,textarea,select,a')) return
+  if (props.overflow) {
+    // "+N" stands for the rest of the collection, not the picture under it.
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+  if (mediaId.value == null || props.row.output?.deleted) return
+  event.stopPropagation()
+  contextMenu.show({ event, ...collections.menuTarget(props.itemId, mediaId.value) })
+}
+
+// "+N" is a button that shows the rest; its keys never reach the hidden image.
+function onKeydown(event) {
+  if (!props.overflow || event.target !== event.currentTarget) return
+  if (event.metaKey || event.ctrlKey || event.altKey) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
   event.preventDefault()
   event.stopPropagation()
-  toggle()
+  emit('expand')
 }
 
 // Dragging a picked tile carries the whole selection to the composer.
@@ -91,6 +116,7 @@ function onDragStart(event) {
     :aria-current="current ? 'true' : undefined"
     @click.capture="onClickCapture"
     @contextmenu.capture="onContextMenuCapture"
+    @keydown="onKeydown"
     @dragstart="onDragStart"
   >
     <!-- Strip -->

@@ -1322,6 +1322,7 @@
             class="compact:absolute compact:inset-0 compact:z-chrome"
             :workspace-file="artifactStage.workspaceFile.value"
             :chat-id="chatId"
+            :project-id="chat ? (chat.project_id ?? null) : undefined"
             @attach-file="attachWorkspaceFile"
             @save-file="saveWorkspaceFile"
             :asset="artifactStage.asset.value"
@@ -1568,6 +1569,7 @@ const mediaCollections = useChatMediaCollections({
   panelItemId: artifactStage.collectionItemId,
   openPanel: artifactStage.openCollection,
   closePanel: artifactStage.closeCollection,
+  projectId: () => (chat.value ? (chat.value.project_id ?? null) : undefined),
 })
 provide(CHAT_MEDIA_COLLECTIONS, mediaCollections)
 watch(chatId, () => mediaCollections.selection.clear())

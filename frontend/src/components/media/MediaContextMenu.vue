@@ -1660,6 +1660,19 @@ function callerItem() {
   return item
 }
 
+function revisionPayloadItem(assetItem: any, payload: any) {
+  return {
+    ...assetItem,
+    ...payload,
+    id: assetItem.id,
+    asset_id: assetIdOf(assetItem),
+    media_id: mediaIdOf(payload),
+    markers: assetItem.markers,
+    tags: assetItem.tags,
+    deleted_at: assetItem.deleted_at,
+  }
+}
+
 // Resolve the clicked item when the menu opens. Only callers that hold just an
 // ID pay a round trip, and only they show the loading state.
 let mediaItemRequest = 0
@@ -1679,10 +1692,19 @@ async function fetchMediaItem() {
     loadingItem.value = true
     try {
       // Include trashed items so we can show appropriate options
-      const item = assetId
+      let item = assetId
         ? await getAssetBrowserItem(assetId, true)
         : await getMediaItem(mediaId!, { includeTrashed: true })
       if (request !== mediaItemRequest) return
+      // The caller is showing an older revision of this asset (the chat's
+      // artifact stage). The asset row is the current revision, so payload
+      // actions (print, export, file type) take the shown revision's media
+      // while markers, tags and trash state stay the asset's.
+      if (assetId && mediaId != null && item && mediaIdOf(item) !== mediaId) {
+        const payload = await getMediaItem(mediaId, { includeTrashed: true })
+        if (request !== mediaItemRequest) return
+        item = revisionPayloadItem(item, payload)
+      }
       mediaItem.value = item
     } catch (err) {
       if (request !== mediaItemRequest) return

@@ -1,5 +1,7 @@
 <template>
-  <div class="flex-1 min-w-0 bg-matte flex flex-col relative overflow-hidden">
+  <!-- Focus anywhere in the panel gives it the keys: ←/→ step versions, Space
+       plays and pauses a video, Escape closes. -->
+  <div ref="rootRef" tabindex="-1" class="flex-1 min-w-0 bg-matte flex flex-col relative overflow-hidden outline-none" data-testid="artifact-stage" @keydown="onKeydown">
     <!-- Header -->
     <div v-if="!isEmpty" class="flex flex-wrap items-center gap-2.5 px-3.5 py-2 border-b border-edge-subtle bg-surface/60 flex-shrink-0">
       <div v-if="!workspaceArchive" class="min-w-0" :draggable="!!workspaceFile" @dragstart="workspaceFile && chatId != null && dragWorkspaceFile($event, chatId, workspaceFile)">
@@ -84,6 +86,7 @@
           >
             {{ loading ? 'Setting…' : 'Set as latest' }}
           </button>
+          <IconButton v-if="canOpenSlideshow" title="Open slideshow" aria-label="Open slideshow" @click="openSlideshow"><ArrowsPointingOutIcon class="w-4 h-4" /></IconButton>
           <IconButton v-if="heroKind !== 'package' && heroKind !== 'sheet'" title="Download" aria-label="Download" @click="downloadRevision"><ArrowDownTrayIcon class="w-4 h-4" /></IconButton>
           <div ref="overflowButtonRef" class="flex">
             <IconButton title="Actions" @click="onOverflowClick">
@@ -130,7 +133,7 @@
         <div
           v-else
           class="relative flex-1 min-h-0 rounded-media overflow-hidden"
-          :class="heroKind === 'package' ? '' : 'cursor-zoom-in'"
+          :class="heroOpensSlideshow ? 'cursor-zoom-in' : ''"
           @click="onHeroClick"
           @contextmenu="onHeroContextMenu"
         >
@@ -149,6 +152,7 @@
               :muted="videoMuted"
               class="w-full h-full object-contain"
               playsinline
+              @click="videoTransport.togglePlayback()"
             />
             <VideoTransportBar
               :transport="videoTransport"
@@ -170,6 +174,7 @@
             :media-id="viewedRevision.media_id"
             :thumbnail="false"
             :contain="false"
+            :enable-context-menu="false"
             container-class="w-full h-full !bg-transparent"
             img-class="!object-contain !bg-none !bg-transparent"
             alt="Artifact"
@@ -203,7 +208,9 @@ import {
   ArchiveBoxIcon,
   DocumentArrowDownIcon,
   ArrowDownTrayIcon,
+  ArrowsPointingOutIcon,
 } from '@heroicons/vue/24/outline'
+import { consumeEscape, hasEscapeLayer } from '../../utils/escapeLayers'
 import axios from 'axios'
 import { getApiBase } from '../../apiConfig'
 import { addToast } from '../../composables/useToasts'
@@ -374,11 +381,53 @@ const showDimensionChip = computed(() =>
   heroKind.value !== 'vector' && heroKind.value !== 'sprite' && heroKind.value !== 'package' && heroKind.value !== 'sheet' && !!props.viewedRevision?.width && !!props.viewedRevision?.height
 )
 
-// A package's cover is a page you read in place; zooming it into the slideshow
-// is the surface a package must never land on.
+// A package's cover and a contact sheet are pages you read in place; the
+// slideshow is the surface they must never land on.
+const canOpenSlideshow = computed(() => !!props.viewedRevision && heroKind.value !== 'package' && heroKind.value !== 'sheet')
+// Documents, audio and text sit in the file viewer, which has controls of its own.
+const heroUsesFileViewer = computed(() => !!props.viewedRevision
+  && !['layout', 'vector', 'sprite', 'package', 'sheet', 'video'].includes(heroKind.value)
+  && fileKind(props.viewedRevision.file_format) !== 'image')
+// A click on the picture zooms it into the slideshow. A video's click plays and
+// pauses it instead; the header's button still opens the slideshow.
+const heroOpensSlideshow = computed(() => canOpenSlideshow.value && heroKind.value !== 'video' && !heroUsesFileViewer.value)
+function openSlideshow() {
+  if (canOpenSlideshow.value && props.viewedRevision) emit('open-slideshow', props.viewedRevision.media_id)
+}
 function onHeroClick() {
-  if (heroKind.value === 'package' || heroKind.value === 'sheet') return
-  if (props.viewedRevision) emit('open-slideshow', props.viewedRevision.media_id)
+  if (heroOpensSlideshow.value) openSlideshow()
+}
+
+const rootRef = ref<HTMLElement | null>(null)
+const KEY_CONTROLS = 'button,a,summary,[role="radio"],[role="tab"],[role="slider"],[role="menu"],[role="menuitem"],[role="listbox"],[role="option"]'
+function stepRevision(delta: number) {
+  const index = props.revisions.findIndex(rev => rev.id === props.viewedRevisionId)
+  const next = props.revisions[index + delta]
+  if (index !== -1 && next) emit('select-revision', next.id)
+}
+function onKeydown(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+  // A menu or dialog over the page owns the keys.
+  if (hasEscapeLayer()) return
+  const target = event.target as HTMLElement
+  if (target.closest?.('input,textarea,select,[contenteditable]:not([contenteditable="false"])')) return
+  if (event.key === 'Escape') {
+    consumeEscape(event)
+    if (showVersionMenu.value) showVersionMenu.value = false
+    else emit('close')
+    return
+  }
+  if (target !== rootRef.value && target.closest?.(KEY_CONTROLS)) return
+  if (props.workspaceFile || !props.viewedRevision) return
+  // Inside the file viewer, arrows and Space scroll and play what it shows.
+  if (heroUsesFileViewer.value && target !== rootRef.value) return
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    event.preventDefault()
+    stepRevision(event.key === 'ArrowLeft' ? -1 : 1)
+  } else if (event.key === ' ' && heroKind.value === 'video') {
+    event.preventDefault()
+    videoTransport.togglePlayback()
+  }
 }
 
 function contextMenuTarget() {
