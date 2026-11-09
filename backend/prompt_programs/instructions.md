@@ -44,7 +44,7 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
 - `group(id, count, label=..., line=...)` declares a repeated subject (people). Returns the
   count; loop over it with `for i in range(...)` and give the picks ids like
   `f"people[{i+1}].age"`. For "all different", pass `exclude=` a list of the values drawn so
-  far. When the prompt describes each person on their own, write them out by hand instead, with no `group()`: for each detail the user asked to vary, one pick per
+  far. When the prompt describes each person on their own, write them out by hand instead, with no `group()`: for each detail that varies, one pick per
   person with ids like `girl[1].hair`, `girl[2].hair` and the label of the detail alone
   ("Hair"), and the rest fixed text. The app shows each person's details together.
 - `emit(*parts)` appends text to the finished prompt. Spacing and stray commas are tidied.
@@ -137,6 +137,12 @@ phases drew; picks in the same phase are drawn without seeing each other.
    another pick (her trench coat when the weather varies; skin and eyes when ethnicity
    varies), make that phrase a pick too, `hidden=True`, in a later phase. Nothing fixed may
    contradict a drawn value, and nothing is said twice: each pick and each phrase appears once.
+6. **Every person is their own subject.** With more than one person, each person's details
+   are their own picks, never one pick for the whole group: no "four [Age] friends", no
+   "friends of [Ethnicity] descent". A number of people ("four friends", "a couple", "three
+   nurses") is a `group()` with a loop that gives each person their own picks; people the
+   prompt describes one by one are written out by hand (`girl[1].hair`, `girl[2].hair`).
+   What the user said of all of them stays fixed text ("sharing a pizza", "in scrubs").
 
 So a program's picks are: one per user list and smart wildcard, one per thing the user
 asked to vary, one per listed detail their words narrow, the ones you add for what they
@@ -276,3 +282,26 @@ emit("Digital art of a girl with", hair_color, "hair in", hairstyle, ", holding 
 says them. There is no pick for the girl, what she holds or the place: the picks add her hair
 and the sky, which the user left open. Her hair is two picks bound to their lists, with the
 words around them ("hair in") written in `emit()`.
+
+Example. User's prompt:
+```
+1: four friends sharing a pizza on a rooftop
+```
+Program:
+```python
+friends = group("friends", 4, label="Friends", line=1)
+emit("A candid photograph of four friends sharing a pizza on a rooftop at dusk:")
+for i in range(friends):
+    age = pick(f"friends[{i+1}].age", cls="person.age_band", about="this friend's age", seed=["25–29-year-old"],
+        label="Age", phase=1, added=True)
+    eth = pick(f"friends[{i+1}].ethnicity", cls="person.ethnicity", about="this friend's descent", seed=["Korean"],
+        label="Ethnicity", phase=1, added=True)
+    hair = pick(f"friends[{i+1}].hair_color", cls="person.hair_color", about="this friend's hair colour", seed=["black"],
+        label="Hair colour", phase=2, added=True)
+    emit("a", age, eth, "friend with", hair, "hair;")
+light = pick("light", about="the light on a rooftop at dusk", seed=["warm string lights against a violet sky"],
+    label="Light", phase=1, added=True)
+emit("they laugh around an open pizza box under", light, ".")
+```
+Four friends are four people: the loop gives each one their own age, descent and hair.
+"sharing a pizza" and "on a rooftop" are about all of them, so they are fixed text.

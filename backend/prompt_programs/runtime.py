@@ -471,7 +471,8 @@ _ARTICLE = re.compile(r"\b(a|an|the)\s+(?=(?:a|an|the)\s)", re.I)
 # An article and the word after it. A capital "A" mid-sentence is a letter, not an article
 # ("Plan A", "vitamin A", '"A is for apple"', "(A and B)"): only a lowercase one, or one
 # starting the text or a sentence, is corrected.
-_A_AN = re.compile(r"(?:(?<=^)|(?<=[.!?]\s))(A|An)\s+([A-Za-z][\w'-]*)|\b(a|an)\s+([A-Za-z][\w'-]*)")
+_WORD = r"(?:[A-Za-z][\w'-]*|\d[\d,]*[\w'-]*)"   # commas only inside a number ("18,000-seat")
+_A_AN = re.compile(rf"(?:(?<=^)|(?<=[.!?]\s))(A|An)\s+({_WORD})|\b(a|an)\s+({_WORD})")
 # Words whose sound doesn't follow their first letter.
 _AN_WORDS = {"hour", "hours", "hourly", "honest", "honestly", "honor", "honour", "honorable", "honourable", "heir", "heiress"}
 # Vowel-initial words said with a consonant sound ("a unicorn", "a European", "a one-off").
@@ -479,7 +480,16 @@ _A_WORDS = ("unic", "unif", "unio", "uniq", "unis", "unit", "univ", "use", "usu"
             "uro", "ura", "eu", "one", "once", "ubiq")
 
 
+def _number_wants_an(digits: str) -> bool:
+    """A number said with a vowel sound: eight…, eleven, eighteen ("an 8–10-year-old",
+    "an 11-year-old", "an 18,000-seat arena", "an 80–84-year-old")."""
+    digits = digits.replace(",", "")
+    return digits.startswith("8") or (len(digits) % 3 == 2 and digits[:2] in ("11", "18"))
+
+
 def _wants_an(word: str) -> bool:
+    if word[0].isdigit():
+        return _number_wants_an(re.match(r"[\d,]+", word).group(0))
     if len(word) > 1 and word.isupper():  # an initialism, said letter by letter: "an LED", "a USB"
         return word[0] in "AEFHILMNORSX"
     w = word.lower()
@@ -490,7 +500,7 @@ def _wants_an(word: str) -> bool:
 
 def _fix_article(m: "re.Match[str]") -> str:
     art, word = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
-    if len(word) == 1:  # "a B-movie" reads by letter; "a A" is too rare to guess
+    if len(word) == 1 and not word.isdigit():  # "a B-movie" reads by letter; "a A" is too rare to guess
         return m.group(0)
     new = "an" if _wants_an(word) else "a"
     return f"{new.capitalize() if art[0].isupper() else new} {word}"

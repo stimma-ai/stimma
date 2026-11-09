@@ -259,6 +259,12 @@ class TestArticles:
         ("grade A eggs", "Grade A eggs"), ('He said "a apple"', 'He said "an apple"'),
         ('a sign reading "A is for apple"', 'A sign reading "A is for apple"'),
         ("a diagram with labels (A and B)", "A diagram with labels (A and B)"),
+        ("a 80–84-year-old man", "An 80–84-year-old man"), ("an 65–69-year-old man", "A 65–69-year-old man"),
+        ("a 8–10-year-old girl", "An 8–10-year-old girl"), ("a 11–12-year-old", "An 11–12-year-old"),
+        ("a 18–19-year-old", "An 18–19-year-old"), ("an 13–14-year-old", "A 13–14-year-old"),
+        ("a 1980s car", "A 1980s car"), ("a 18,000-seat arena", "An 18,000-seat arena"), ("an 110 km road", "A 110 km road"),
+        ("An honest, elderly woman.", "An honest, elderly woman."), ("an hour, then", "An hour, then"),
+        ("a 8, then a 9", "An 8, then a 9"),
     ])
     def test_a_and_an_follow_the_next_word(self, text, want):
         assert tidy_text([text]) == want
@@ -269,9 +275,9 @@ class TestArticles:
 from prompt_programs.narrow import NarrowCache, narrow_entry, parse_subset  # noqa: E402
 
 YOUNG = '''
-age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24"], label="Age", phase=1, line=1)
+age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24-year-old"], label="Age", phase=1, line=1)
 eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["hazel"], label="Eyes", phase=1, line=1)
-emit("A young woman, aged", age, ", with", eyes, "eyes.")
+emit("A young", age, "woman with", eyes, "eyes.")
 '''
 
 
@@ -378,9 +384,9 @@ class TestWhere:
         store = OptionStore(tmp_path / "o")
         filler = OptionFiller(store, FakeGen())
         opts = GeneratedOptions(store, program_context(entry), filler=filler)
-        spec = PickSpec("age", "Age", "her age", 1, "text", "pick", ["20–24"], [], "person.age_band")
+        spec = PickSpec("age", "Age", "her age", 1, "text", "pick", ["20–24-year-old"], [], "person.age_band")
         pool = opts.get(spec, {})
-        assert pool.items == ["20–24"]  # its seed, while generated options are written
+        assert pool.items == ["20–24-year-old"]  # its seed, while generated options are written
         job = filler._jobs[opts.queued[0]][1]
         assert 'own words: "young"' in generation_messages(job)[1]["content"]
 

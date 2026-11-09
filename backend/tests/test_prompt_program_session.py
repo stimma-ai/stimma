@@ -224,31 +224,31 @@ class TestNewPrompt:
     async def test_a_bound_pick_is_narrowed_by_its_words_after_the_write(self, model, monkeypatch):
         import json as _json
         src = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather", phase=1, line=1)\n'
-               'age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24"], '
+               'age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24-year-old"], '
                'label="Age", phase=1, added=True)\n'
-               'emit("A young woman, aged", age, ", waiting for a train on a", w, "morning.")\n')
+               'emit("A young", age, "woman waiting for a train on a", w, "morning.")\n')
         asked = []
 
         async def narrow_ask(messages, project_id, max_tokens=4096):
             asked.append(messages)
             if "find the words in it" in messages[0]["content"]:  # reading the prompt: it says nothing of age
                 return _json.dumps({"age": None})
-            return _json.dumps(["20–24", "25–29"])
+            return _json.dumps(["20–24-year-old", "25–29-year-old"])
         monkeypatch.setattr(prep, "_ask_model", narrow_ask)
         model.replies = [reply(write(src))]
         entry = await ensure()
-        assert entry["filters"] == {"age": ["20–24", "25–29"]} and len(asked) == 2  # the reading, then "young"
+        assert entry["filters"] == {"age": ["20–24-year-old", "25–29-year-old"]} and len(asked) == 2  # the reading, then "young"
         assert 'fit "young"' in asked[1][1]["content"]  # the writer's where= when the reading finds nothing
-        assert next(c for c in entry["choices"] if c["id"] == "age")["options"] == ["20–24", "25–29"]
+        assert next(c for c in entry["choices"] if c["id"] == "age")["options"] == ["20–24-year-old", "25–29-year-old"]
         assert model.store.get(entry["key"])["filters"] == entry["filters"]  # stored narrowed
 
     @pytest.mark.parametrize("limit", [2.5, 6.0])  # no time left to narrow; time for a narrowing that stalls
     async def test_slow_narrowing_never_loses_the_prepared_program(self, model, monkeypatch, limit):
         import asyncio as _asyncio
         src = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather", phase=1, line=1)\n'
-               'age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24"], '
+               'age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24-year-old"], '
                'label="Age", phase=1, added=True)\n'
-               'emit("A young woman, aged", age, ", waiting for a train on a", w, "morning.")\n')
+               'emit("A young", age, "woman waiting for a train on a", w, "morning.")\n')
 
         async def stalls(messages, project_id, max_tokens=4096):
             await _asyncio.sleep(60)

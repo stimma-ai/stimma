@@ -8,6 +8,7 @@ program for one generation) needs no model at all.
 from __future__ import annotations
 
 import ast
+from collections import Counter
 import asyncio
 import difflib
 import json
@@ -27,7 +28,7 @@ from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-38"
+PREPARE_VERSION = "pp-39"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -1146,9 +1147,11 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
     twice: Dict[str, str] = {}
     for r in samples:  # each pick stands in one place ("holding dreadlocks" came from emitting it twice)
         text = realized_text(r.prompt).lower()
+        drawn = Counter(str(d.value or "").lower().strip() for d in r.draws if d.kind == "pick" and not d.hidden)
         for d in r.draws:
             v = str(d.value or "").lower().strip()
-            if d.kind == "pick" and not d.hidden and len(v.split()) >= 2 and text.count(v) > 1:
+            # two people can draw the same value ("a low ponytail" for two friends): once per draw is fine
+            if d.kind == "pick" and not d.hidden and len(v.split()) >= 2 and text.count(v) > drawn[v]:
                 twice.setdefault(d.id, str(d.value))
     for cid, value in twice.items():
         notes.append(f'pick("{cid}") appears more than once in the prompt ("{value}"). Emit each pick once, where its subject belongs.')

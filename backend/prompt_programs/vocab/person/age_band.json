@@ -2,16 +2,16 @@
   "id": "person.age_band",
   "label": "Age band",
   "description": "A life stage expressed as a numbered age range.",
-  "pos": "number phrase",
-  "frame": "aged ___",
-  "notes": "An age range, in years, inclusive, for the frame “aged ___”. Covers babies, children, teens and adults; adult ranges are typical and younger ones plausible, since most images of a person show an adult when nothing says otherwise. Each value carries its age facet (child, teen, adult, elderly) so a context can narrow it.",
+  "pos": "adjective",
+  "frame": "a ___ person",
+  "notes": "An age range, in years, inclusive, as an adjective before the person: “a 20–24-year-old woman”. Covers babies, children, teens and adults; adult ranges are typical and younger ones plausible, since most images of a person show an adult when nothing says otherwise. Each value carries its age facet (child, teen, adult, elderly) so a context can narrow it.",
   "facets": [
     "age"
   ],
   "closed": true,
   "values": [
     {
-      "text": "0–2",
+      "text": "0–2-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -23,7 +23,7 @@
       }
     },
     {
-      "text": "3–4",
+      "text": "3–4-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -35,7 +35,7 @@
       }
     },
     {
-      "text": "5–7",
+      "text": "5–7-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -47,7 +47,7 @@
       }
     },
     {
-      "text": "8–10",
+      "text": "8–10-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -59,7 +59,7 @@
       }
     },
     {
-      "text": "11–12",
+      "text": "11–12-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -71,19 +71,7 @@
       }
     },
     {
-      "text": "13–14",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "teen"
-        ],
-        "life_stage": [
-          "teen"
-        ]
-      }
-    },
-    {
-      "text": "15–17",
+      "text": "13–14-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -95,7 +83,19 @@
       }
     },
     {
-      "text": "18–19",
+      "text": "15–17-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "teen"
+        ],
+        "life_stage": [
+          "teen"
+        ]
+      }
+    },
+    {
+      "text": "18–19-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -108,7 +108,7 @@
       }
     },
     {
-      "text": "20–24",
+      "text": "20–24-year-old",
       "tier": "typical",
       "tags": {
         "age": [
@@ -120,7 +120,7 @@
       }
     },
     {
-      "text": "25–29",
+      "text": "25–29-year-old",
       "tier": "typical",
       "tags": {
         "age": [
@@ -132,7 +132,7 @@
       }
     },
     {
-      "text": "30–34",
+      "text": "30–34-year-old",
       "tier": "typical",
       "tags": {
         "age": [
@@ -144,7 +144,7 @@
       }
     },
     {
-      "text": "35–39",
+      "text": "35–39-year-old",
       "tier": "typical",
       "tags": {
         "age": [
@@ -157,7 +157,7 @@
       }
     },
     {
-      "text": "40–44",
+      "text": "40–44-year-old",
       "tier": "typical",
       "tags": {
         "age": [
@@ -169,7 +169,7 @@
       }
     },
     {
-      "text": "45–49",
+      "text": "45–49-year-old",
       "tier": "typical",
       "tags": {
         "age": [
@@ -181,7 +181,7 @@
       }
     },
     {
-      "text": "50–54",
+      "text": "50–54-year-old",
       "tier": "typical",
       "tags": {
         "age": [
@@ -193,7 +193,7 @@
       }
     },
     {
-      "text": "55–59",
+      "text": "55–59-year-old",
       "tier": "typical",
       "tags": {
         "age": [
@@ -206,7 +206,7 @@
       }
     },
     {
-      "text": "60–64",
+      "text": "60–64-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -218,7 +218,7 @@
       }
     },
     {
-      "text": "65–69",
+      "text": "65–69-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -230,7 +230,7 @@
       }
     },
     {
-      "text": "70–74",
+      "text": "70–74-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -243,7 +243,7 @@
       }
     },
     {
-      "text": "75–79",
+      "text": "75–79-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -256,7 +256,7 @@
       }
     },
     {
-      "text": "80–84",
+      "text": "80–84-year-old",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -269,7 +269,7 @@
       }
     },
     {
-      "text": "85–89",
+      "text": "85–89-year-old",
       "tier": "unusual",
       "tags": {
         "age": [
@@ -282,7 +282,7 @@
       }
     },
     {
-      "text": "90–94",
+      "text": "90–94-year-old",
       "tier": "unusual",
       "tags": {
         "age": [
@@ -295,7 +295,7 @@
       }
     },
     {
-      "text": "95–99",
+      "text": "95–99-year-old",
       "tier": "unusual",
       "tags": {
         "age": [
@@ -308,7 +308,7 @@
       }
     },
     {
-      "text": "100–109",
+      "text": "100–109-year-old",
       "tier": "unusual",
       "tags": {
         "age": [

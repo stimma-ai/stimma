@@ -538,6 +538,18 @@ class TestFixInCode:
         assert source["outfit"] == "text" and source["age"] == "text"  # the writer gave them the user's line
 
 
+    def test_two_people_drawing_the_same_value_is_not_a_repeat(self):
+        src = ('n = group("friends", 2, label="Friends", line=1)\n'
+               'for i in range(n):\n'
+               '    h = pick(f"friends[{i+1}].hairstyle", about="this friend\'s hairstyle", seed=["a low ponytail"], '
+               'label="Hairstyle", phase=1, added=True)\n'
+               '    emit("a friend with her hair in", h, ";")\n')
+        notes = prep.validate(src, "two friends", [], set(), "")["notes"]
+        assert not any("more than once" in n for n in notes)
+        once = 'h = pick("h", about="her hairstyle", seed=["a low ponytail"], phase=1, added=True)\nemit("A woman,", h, ",", h)\n'
+        assert any("more than once" in n for n in prep.validate(once, "a woman", [], set(), "")["notes"])
+
+
 class TestFastPrepare:
     async def _ensure(self, prompt=PROMPT, **kw):
         return await prep.ensure_program(prompt=prompt, tool_id="t", ctx=ctx(SCHEMA), instructions="",
