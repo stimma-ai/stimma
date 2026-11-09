@@ -1,0 +1,18 @@
+name: Setup FFmpeg
+description: Restore pinned static FFmpeg and ffprobe, with apt as a fallback
+runs:
+  using: composite
+  steps:
+    - name: Read FFmpeg cache pin
+      id: pin
+      shell: bash
+      run: bash scripts/ci-install-ffmpeg.sh --cache-metadata >> "$GITHUB_OUTPUT"
+    - name: Cache static FFmpeg
+      if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted'
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pin.outputs.path }}
+        key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.pin.outputs.key }}
+    - name: Install FFmpeg
+      shell: bash
+      run: bash scripts/ci-install-ffmpeg.sh

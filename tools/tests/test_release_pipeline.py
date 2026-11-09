@@ -3,6 +3,7 @@ import io
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 import urllib.error
@@ -23,6 +24,65 @@ def workflow(name):
 
 def job(name='Quality gate / Quality gate passed', status='completed', conclusion='success'):
     return {'name': name, 'status': status, 'conclusion': conclusion}
+
+
+@unittest.skipUnless(sys.platform == 'linux' and os.uname().machine == 'x86_64',
+                     'static FFmpeg installer targets Linux x64')
+class FFmpegSetupTests(unittest.TestCase):
+    def setUp(self):
+        self.scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(self.scratch.cleanup)
+        self.root = Path(self.scratch.name)
+        self.bin = self.root / 'bin'
+        self.bin.mkdir()
+        self.env = {**os.environ, 'HOME': str(self.root),
+                    'PATH': str(self.bin) + os.pathsep + os.environ['PATH'],
+                    'RUNNER_ENVIRONMENT': 'self-hosted', 'GITHUB_PATH': str(self.root / 'github-path')}
+        self.script = str(ROOT / 'scripts/ci-install-ffmpeg.sh')
+        metadata = subprocess.check_output(['bash', self.script, '--cache-metadata'], env=self.env, text=True)
+        self.cache = Path(dict(line.split('=', 1) for line in metadata.splitlines())['path'])
+        self.stub('ffmpeg', 'test -f "$HOME/system-ready"')
+        self.stub('ffprobe', 'test -f "$HOME/system-ready"')
+        self.stub('curl', 'echo download >> "$HOME/calls"; exit 22')
+        self.stub('apt-get', 'echo apt >> "$HOME/calls"; touch "$HOME/system-ready"')
+        self.stub('sudo', 'exec "$@"')
+
+    def stub(self, name, body, directory=None):
+        path = (directory or self.bin) / name
+        path.write_text('#!/bin/sh\n' + body + '\n')
+        path.chmod(0o755)
+
+    def install(self):
+        result = subprocess.run(['bash', self.script], env=self.env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        calls = self.root / 'calls'
+        return calls.read_text().splitlines() if calls.exists() else []
+
+    def test_cache_avoids_download_and_apt_and_exports_both_tools(self):
+        self.env['RUNNER_ENVIRONMENT'] = 'github-hosted'
+        self.cache.mkdir(parents=True)
+        for binary in ['ffmpeg', 'ffprobe']:
+            self.stub(binary, 'exit 0', self.cache)
+        self.assertEqual(self.install(), [])
+        self.assertEqual((self.root / 'github-path').read_text().strip(), str(self.cache))
+
+    def test_preinstalled_tools_avoid_download_and_apt(self):
+        (self.root / 'system-ready').touch()
+        self.assertEqual(self.install(), [])
+        self.assertFalse((self.root / 'github-path').exists())
+
+    def test_missing_ffprobe_and_failed_download_fall_back_without_caching_apt(self):
+        self.cache.mkdir(parents=True)
+        self.stub('ffmpeg', 'exit 0', self.cache)
+        self.assertEqual(self.install(), ['download', 'apt', 'apt'])
+        self.assertFalse(self.cache.exists())
+        self.assertFalse((self.root / 'github-path').exists())
+
+    def test_checksum_failure_never_extracts_or_caches_download(self):
+        self.stub('curl', 'while [ "$1" != --output ]; do shift; done; shift; echo corrupt > "$1"')
+        self.stub('tar', 'echo extracted >> "$HOME/calls"; exit 1')
+        self.assertEqual(self.install(), ['apt', 'apt'])
+        self.assertFalse(self.cache.exists())
 
 
 class PublicationTests(unittest.TestCase):
