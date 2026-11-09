@@ -26,7 +26,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-31"
+PREPARE_VERSION = "pp-32"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -141,7 +141,9 @@ def build_user_message(prompt: str, model_name: Optional[str], mode: str,
             parts.append(f'- {{{raw}}}: pick(<id>, [{items}], label=<one or two words>, source="list", phase=<N>, '
                          f'line={line_of("{" + raw + "}")})')
         parts.append("A detail that must suit the drawn item (the light for a time of day, the outfit for a job) "
-                     "names that list in its about with an f-string.")
+                     "names that list in its about with an f-string. If a list fills several places (two people in "
+                     "different {red|blue} coats), each place is its own pick of it, each later one with exclude=[the "
+                     "earlier ones].")
         if len(lists) > 1:
             parts.append("If one of these lists must fit another (clothes that suit the job, a tool for the trade), "
                          "that list goes in a later phase than the one it fits.")
