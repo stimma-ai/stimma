@@ -896,12 +896,6 @@ def test_a_smart_wildcard_written_as_a_list_is_a_problem():
     assert not prep.validate(ok, "A girl, {{season}}", [], set())["problems"]
 
 
-def test_line_edits_for_most_of_the_program_are_a_new_program():
-    src = "".join(f'p{i} = pick("p{i}", about="x", seed=["s{i}"], phase=1)\n' for i in range(5)) + "emit(p0, p1, p2, p3, p4)\n"
-    assert not prep._rewrites_most(src, 'EDIT\n6: emit(p0, p1, "and", p2, p3, p4)')
-    assert prep._rewrites_most(src, "EDIT\n1: # a knight\n2: a = 1\n3:\n4:\n6: emit(a)")
-
-
 def test_a_one_item_list_is_fixed_text():
     src = ('flower = pick("flower", ["lilacs"], label="Flower", source="list", phase=1, line=1)\n'
            'light = pick("light", about="the light", seed=["soft light"], phase=1, added=True)\n'

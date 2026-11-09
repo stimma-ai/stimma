@@ -26,7 +26,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-32"
+PREPARE_VERSION = "pp-33"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -1644,14 +1644,6 @@ def _open_brackets(text: str) -> int:
     return depth
 
 
-def _rewrites_most(source: str, reply: str) -> bool:
-    """Whether numbered-line edits touch (change, delete or add) more lines than half the
-    program has: the writer wrote a different program as line edits."""
-    touched = {m.group(1) for m in (_LINE_EDIT.match(ln) for ln in (reply or "").splitlines()) if m}
-    lines = [ln for ln in source.splitlines() if ln.strip()]
-    return len(lines) >= 4 and len(touched) > len(lines) / 2
-
-
 def apply_line_edits(source: str, reply: str) -> Optional[str]:
     """Apply numbered-line edits ("7: new text", "7:" deletes, "4.5: ..." inserts after 4)
     to a program. A changed line that starts a statement spanning several lines replaces
@@ -1891,8 +1883,6 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
         reply = await _ask_patch(messages, project_id, max_tokens=_repair_cap(program))
         if re.match(r"\s*\**\s*START OVER", reply or "", re.I):
             raise StartOver(f"the writer judged {key} a different prompt from {base.get('key')}")
-        if _rewrites_most(program, reply):  # line edits for most of the program: a new program, not a patch
-            raise StartOver(f"the patch for {key} rewrites most of {base.get('key')}")
         source = apply_line_edits(program, reply)
         if source is not None:
             source, _ = fix_quotes(source)  # a string wrapped onto the next line
