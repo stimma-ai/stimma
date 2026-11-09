@@ -26,7 +26,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-25"
+PREPARE_VERSION = "pp-28"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -123,6 +123,20 @@ def build_user_message(prompt: str, model_name: Optional[str], mode: str,
     if smart:
         names = ", ".join("{{" + n + "}}" for n in smart)
         parts += [f"Smart wildcards: {names}. Each is a pick with about= and 1 to 3 seeds, emitted where it stands.", ""]
+    lists = list(dict.fromkeys("{" + m.group(1) + "}" for m in _INLINE_LIST.finditer(prompt)))
+    if lists:
+        parts.append(f"User list{'s' if len(lists) > 1 else ''}: {', '.join(lists)}. Each is a list pick with exactly "
+                     "its items, its variable emitted where it stands. A detail that must suit the drawn item (the "
+                     "light for a time of day, the outfit for a job) names that list in its about with an f-string.")
+        if len(lists) > 1:
+            parts.append("If one of these lists must fit another (clothes that suit the job, a tool for the trade), "
+                         "that list goes in a later phase than the one it fits.")
+        parts.append("")
+    for n in sorted(_comment_lines(prompt)):
+        parts.append(f"Line {n} is an instruction to you, not prompt text. A pick it asks for has line={n}. If it says "
+                     "to keep something the same, that thing stays fixed text, with no pick.")
+    if _comment_lines(prompt):
+        parts.append("")
     if params:
         desc = ", ".join(
             f"{n} ({p.get('minimum', '?')}–{p.get('maximum', '?')})" for n, p in sorted(params.items()))
@@ -1152,6 +1166,57 @@ def drop_lora_names(text: str, loras: Sequence[LoraInfo], prompt: str) -> str:
     return re.sub(r"[ \t]{2,}", " ", text).strip()
 
 
+def _tidy_cut(text: str) -> str:
+    """Text with a phrase cut out: no doubled commas or spaces left where it stood."""
+    text = re.sub(r"\s*,(\s*,)+", ",", text)
+    text = re.sub(r"\s+([,.])", r"\1", text)
+    text = re.sub(r",([.;:!?])", r"\1", text)
+    text = re.sub(r"^\s*,\s*|\s*,\s*$", "", text)
+    return re.sub(r"[ \t]{2,}", " ", text).strip()
+
+
+def fix_trigger_words(source: str, loras: Sequence[LoraInfo], prompt: str) -> Tuple[str, List[str]]:
+    """The trigger words of the LoRA a pick_lora draws are added for it. A program that writes
+    them too (a lookup from the LoRA's name to its trigger words, or the words in emit()) would
+    put them in twice: they are cut from the program's text. Only exact trigger words of LoRAs it
+    chooses among, and never ones the user wrote."""
+    triggers = []
+    for lo in loras:
+        for t in (lo.trigger or "").split(","):
+            t = t.strip()
+            if len(t) > 2 and not _mentions(prompt, t):
+                triggers.append(t)
+    if not triggers or "pick_lora" not in source:
+        return source, []
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, []
+    if not any(isinstance(n, ast.Call) and getattr(n.func, "id", None) == "pick_lora" for n in ast.walk(tree)):
+        return source, []
+    texts: List[ast.Constant] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            texts += [v for v in node.values if isinstance(v, ast.Constant) and isinstance(v.value, str)]
+        elif isinstance(node, ast.Call) and getattr(node.func, "id", None) == "emit":
+            texts += [a for a in node.args if isinstance(a, ast.Constant) and isinstance(a.value, str)]
+    pos = _offsets(source)
+    edits: List[Tuple[int, int, str]] = []
+    cut: List[str] = []
+    for node in texts:
+        text = str(node.value)
+        for t in sorted(triggers, key=len, reverse=True):
+            if _mentions(text, t):
+                text = re.sub(rf"(?i)(?<![\w]){re.escape(t)}(?![\w])", "", text)
+                cut.append(t)
+        if text != node.value:
+            edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset),
+                          json.dumps(_tidy_cut(text) if text.strip(" ,.") else "", ensure_ascii=False)))
+    for start, end, text in sorted(edits, reverse=True):
+        source = source[:start] + text + source[end:]
+    return source, [f'trigger words "{t}" cut: they are added with the LoRA' for t in dict.fromkeys(cut)]
+
+
 def _lora_marks(names: Sequence[str]) -> Set[str]:
     """The word that tells each LoRA of a set apart ("acups" in "KREA2 bodyshop acups v1"),
     with the words they all share left out."""
@@ -1163,6 +1228,20 @@ def _lora_marks(names: Sequence[str]) -> Set[str]:
         if len(rest) == 1:
             marks |= rest
     return marks
+
+
+def _listed_picks(source: str) -> Set[str]:
+    """Ids of picks that give their options as a list (pick(id, [...])) rather than about= and seed=."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return set()
+    out: Set[str] = set()
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick" and len(node.args) > 1
+                and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)):
+            out.add(node.args[0].value)
+    return out
 
 
 def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[str],
@@ -1265,7 +1344,9 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
                 twice.setdefault(d.id, str(d.value))
     for cid, value in twice.items():
         notes.append(f'pick("{cid}") appears more than once in the prompt ("{value}"). Emit each pick once, where its subject belongs.')
-    lists = {c["id"]: c for c in info["choices"] if c.get("source") == "list"}
+    written = [[o.strip() for o in m.group(1).split("|")] for m in _INLINE_LIST.finditer(prompt)]
+    lists = {c["id"]: c for c in info["choices"] if c.get("source") == "list"
+             and any((c.get("options") or [])[:len(u)] == u for u in written)}
     for cid, value in missing.items():
         if cid in lists:  # the user's own list: its value is the words they wrote, emitted as is
             items = "|".join(lists[cid].get("options") or [])
@@ -1279,6 +1360,27 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
     for name in smart_wildcards(prompt):
         if not _smart_choice(info, name):
             problems.append(f'{{{{{name}}}}} is a smart wildcard: make it pick("{smart_id(name)}", about=..., seed=[1 to 3 examples], label=<one or two words>, phase=..., line=...) and emit its value where {{{{{name}}}}} stands.')
+    if uses_draws(source):  # older programs write options as lists
+        user_lists = [[o.strip() for o in m.group(1).split("|")] for m in _INLINE_LIST.finditer(prompt)]
+        listed = _listed_picks(source)
+        smart = smart_wildcards(prompt)
+        for c in info["choices"]:  # only the user's own {a|b} lists are lists; a list never gets options of its own
+            opts = c.get("options") or []
+            if c.get("kind") != "pick" or c.get("source") != "list" or any(opts[:len(u)] == u for u in user_lists):
+                continue  # (as the exact-list check below: the user's items first)
+            listed.discard(c["id"])
+            items = "|".join(c.get("options") or [])
+            hint = (f' The prompt\'s {", ".join("{{" + n + "}}" for n in smart)} '
+                    f'{"is a smart wildcard" if len(smart) == 1 else "are smart wildcards"}: pick(id, about=..., '
+                    "seed=[1 to 3 examples], label=..., phase=..., line=...), with no list of options.") if smart else ""
+            problems.append(f'pick("{c["id"]}") has source="list", but the user\'s prompt has no list {{{items}}}: '
+                            'source="list" is only for the user\'s own {a|b|c} lists, with exactly their items.' + hint)
+        for name in smart:
+            c = _smart_choice(info, name)
+            if c and c["id"] in listed:
+                problems.append(f'{{{{{name}}}}} is a smart wildcard, not a list: write pick("{c["id"]}", about=..., '
+                                "seed=[1 to 3 examples], label=..., phase=..., line=...) with no list of options. Its "
+                                "options are written later from about= and the seeds.")
     for name in smart_wildcards(prompt):  # a descriptive name says what to write, it isn't an option
         c = _smart_choice(info, name)
         if c and any(is_name_of(o, name) for o in c["options"]):
@@ -1646,12 +1748,17 @@ What changed: {changes}.
 The program, with line numbers:
 {numbered}
 
-Update the program to match, changing as little as you can: the emitted text and the picks this edit
-affects, by the same rules.
+First decide: is this an edit of the same prompt, or a different prompt?
+- A different prompt: what the image is of has changed (a woman walking a dog became a sports car;
+  a bowl of ramen became a sleeping kitten; a fisherman became a cyberpunk hacker). Little of the
+  program would survive. Reply with only START OVER, and it will be written fresh.
+- An edit: the same subject with something changed, added or removed (a red coat became a blue
+  coat, a guitar became a violin, autumn became spring, "seagulls overhead" was added, a # line
+  was added). Reply EDIT on the first line, then update the program to match, changing as little
+  as you can: the emitted text and the picks this edit affects, by the same rules. Keep every
+  other line as it is.
 
-If this is a different prompt rather than an edit of the same one (what it's about has changed, so
-little of the program would survive), don't patch it: reply with only START OVER and it will be
-written fresh. """ + _LINE_EDIT_HOW
+""" + _LINE_EDIT_HOW
 
 
 def _describe_changes(changes: Sequence[Tuple[str, str]]) -> str:
@@ -1728,6 +1835,8 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
         if re.match(r"\s*\**\s*START OVER", reply or "", re.I):
             raise StartOver(f"the writer judged {key} a different prompt from {base.get('key')}")
         source = apply_line_edits(program, reply)
+        if source is not None:
+            source, _ = fix_quotes(source)  # a string wrapped onto the next line
         calls.append({"kind": "patch", "seconds": round(time.monotonic() - t0, 2), "chars": len(reply or ""),
                       "applied": source is not None})
         if source is None or source == program:
@@ -1885,6 +1994,8 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
         source, fixed = fix_duplicates(source, source_prompt)
         fixes += fixed
         source, fixed = trim_added(source, source_prompt)
+        fixes += fixed
+        source, fixed = fix_trigger_words(source, loras, source_prompt)
         fixes += fixed
         try:
             check(source)

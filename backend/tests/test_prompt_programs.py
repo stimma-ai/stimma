@@ -876,3 +876,21 @@ class TestAcceptanceFakeWritesPrograms:
     def test_other_requests_keep_the_dummy_reply(self):
         from llm import _acceptance_program
         assert _acceptance_program([{"role": "system", "content": "You are helpful."}, {"role": "user", "content": "hi"}]) is None
+
+
+def test_a_smart_wildcard_written_as_a_list_is_a_problem():
+    src = ('season = pick("season", ["spring", "summer"], label="Season", source="list", phase=1, line=1)\n'
+           'emit("A girl on a bicycle in", season)\n')
+    problems = prep.validate(src, "A girl on a bicycle, {{season}}", [], set())["problems"]
+    assert any('has source="list", but the user\'s prompt has no list {spring|summer}' in p
+               and "{{season}} is a smart wildcard" in p for p in problems)
+    src = ('e = pick("ethnicity", ["asian or euro ethnicity"], source="list", phase=1, line=1)\n'
+           'hair = pick("hair", about=f"the hair of a {e} woman", seed=["dark hair"], phase=2, added=True)\n'
+           'emit("A portrait of a young woman,", e, ",", hair)\n')
+    problems = prep.validate(src, "Portrait of a young woman, {{asian or euro ethnicity}}", [], set())["problems"]
+    assert any('pick("ethnicity") has source="list"' in p for p in problems)
+    listed = 'season = pick("season", ["spring", "summer"], label="Season", phase=1, line=1)\nemit("A girl,", season)\n'
+    assert any("{{season}} is a smart wildcard, not a list" in p
+               for p in prep.validate(listed, "A girl, {{season}}", [], set())["problems"])
+    ok = 'season = pick("season", about="the season", seed=["spring"], label="Season", phase=1, line=1)\nemit("A girl,", season)\n'
+    assert not prep.validate(ok, "A girl, {{season}}", [], set())["problems"]

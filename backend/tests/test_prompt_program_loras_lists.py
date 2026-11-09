@@ -443,3 +443,21 @@ class TestOptionContinuity:
         job = OptionJob("k", spec, {}, prog, "a woman", 0)
         user = generation_messages(job)[1]["content"]
         assert '"asian or euro ethnicity"' in user and "rule, not an example" in user
+
+
+def test_trigger_words_the_program_writes_for_a_picked_lora_are_cut():
+    from prompt_programs import prepare as prep
+    from prompt_programs.runtime import LoraInfo
+    loras = [LoraInfo("Kodak Film Grain", "a.safetensors", trigger="kodakgrain"),
+             LoraInfo("Watercolor Wash", "b.safetensors", trigger="wtrclr style, soft wash")]
+    src = ('style = pick_lora("style", ["Kodak Film Grain", "Watercolor Wash"], label="Style", phase=1, line=1)\n'
+           'words = {"Kodak Film Grain": "kodakgrain", "Watercolor Wash": "wtrclr style, painted"}.get(style, "")\n'
+           'emit("A street at night, kodakgrain,", words, ", soft wash.")\n')
+    out, notes = prep.fix_trigger_words(src, loras, "A street at night, choose a style lora, soft wash")
+    assert '"Kodak Film Grain": ""' in out and '"Watercolor Wash": "painted"' in out
+    assert 'emit("A street at night", words, ", soft wash.")' in out  # the user wrote "soft wash": it stays
+    assert len(notes) == 2
+    compile(out, "<program>", "exec")
+    # without a pick_lora the words are the user's or the style guide's: left alone
+    plain = 'emit("A street at night, kodakgrain")\n'
+    assert prep.fix_trigger_words(plain, loras, "A street at night") == (plain, [])
