@@ -918,11 +918,11 @@ def test_a_smart_wildcard_written_as_a_list_is_a_problem():
     problems = prep.validate(src, "A girl on a bicycle, {{season}}", [], set())["problems"]
     assert any('has source="list", but the user\'s prompt has no list {spring|summer}' in p
                and "{{season}} is a smart wildcard" in p for p in problems)
-    src = ('e = pick("ethnicity", ["asian or euro ethnicity"], source="list", phase=1, line=1)\n'
-           'hair = pick("hair", about=f"the hair of a {e} woman", seed=["dark hair"], phase=2, added=True)\n'
-           'emit("A portrait of a young woman,", e, ",", hair)\n')
-    problems = prep.validate(src, "Portrait of a young woman, {{asian or euro ethnicity}}", [], set())["problems"]
-    assert any('pick("ethnicity") has source="list"' in p for p in problems)
+    src = ('e = pick("cars", ["1970s or 1980s cars"], source="list", phase=1, line=1)\n'
+           'street = pick("street", about=f"the street where {e} are parked", seed=["a quiet suburb"], phase=2, added=True)\n'
+           'emit("A photo of a street,", e, ",", street)\n')
+    problems = prep.validate(src, "Photo of a street, {{1970s or 1980s cars}}", [], set())["problems"]
+    assert any('pick("cars") has source="list"' in p for p in problems)
     listed = 'season = pick("season", ["spring", "summer"], label="Season", phase=1, line=1)\nemit("A girl,", season)\n'
     assert any("{{season}} is a smart wildcard, not a list" in p
                for p in prep.validate(listed, "A girl, {{season}}", [], set())["problems"])
@@ -937,5 +937,5 @@ def test_a_one_item_list_is_fixed_text():
     out, notes = prep.fix_one_item_lists(src)
     assert out.startswith('flower = "lilacs"\n') and "light = pick(" in out and len(notes) == 1
     assert not prep.validate(out, "A vase of lilacs", [], set())["problems"]
-    wild = 'e = pick("ethnicity", ["asian or euro ethnicity"], source="list", phase=1, line=1)\nemit("A woman,", e)\n'
-    assert prep.fix_one_item_lists(wild, "A woman, {{asian or euro ethnicity}}") == (wild, [])
+    wild = 'e = pick("cars", ["1970s or 1980s cars"], source="list", phase=1, line=1)\nemit("A street of", e)\n'
+    assert prep.fix_one_item_lists(wild, "A street of {{1970s or 1980s cars}}") == (wild, [])

@@ -489,14 +489,14 @@ class TestOptionContinuity:
     def test_a_wildcard_in_the_users_words_bounds_its_options(self):
         from prompt_programs.draws import PickSpec
         from prompt_programs.options import GeneratedOptions, OptionJob, ProgramContext, generation_messages
-        spec = PickSpec("asian_or_euro_ethnicity", "Ethnicity", "her ethnicity", 1, "text", "pick", ["Korean"], [])
-        prog = ProgramContext(key="p", signature="a woman", template="a [Ethnicity] woman", lineage="p",
-                              intents=(("asian_or_euro_ethnicity", "asian or euro ethnicity"),))
-        plain = ProgramContext(key="p", signature="a woman", template="a [Ethnicity] woman", lineage="p")
+        spec = PickSpec("1970s_or_1980s_cars", "Cars", "the parked cars", 1, "text", "pick", ["a Ford Granada"], [])
+        prog = ProgramContext(key="p", signature="a street", template="a street of [Cars]", lineage="p",
+                              intents=(("1970s_or_1980s_cars", "1970s or 1980s cars"),))
+        plain = ProgramContext(key="p", signature="a street", template="a street of [Cars]", lineage="p")
         assert GeneratedOptions(None, prog)._where(spec, {})[1] != GeneratedOptions(None, plain)._where(spec, {})[1]
-        job = OptionJob("k", spec, {}, prog, "a woman", 0)
+        job = OptionJob("k", spec, {}, prog, "a street", 0)
         user = generation_messages(job)[1]["content"]
-        assert '"asian or euro ethnicity"' in user and "rule, not an example" in user
+        assert '"1970s or 1980s cars"' in user and "rule, not an example" in user
 
 
 def test_trigger_words_the_program_writes_for_a_picked_lora_are_cut():

@@ -8,7 +8,7 @@ young adult ranges. After a program is prepared, two steps find and apply such w
 1. Read: one call per prompt asks which of the user's own words describe each bound
    detail ("young woman" for age, "blonde" for hair colour, nothing for her outfit). Words
    not in the prompt are dropped. A bound smart wildcard uses its own name
-   (`{{asian or euro ethnicity}}`); the writer's `where=` is used when the reading finds
+   (`{{red or auburn hair}}`); the writer's `where=` is used when the reading finds
    nothing. Writers forget `where=` about half the time, so the reading is what counts.
 2. Narrow: each distinct (list, words) pair is resolved once, by asking which of the
    list's values fit the words, cached on disk across prompts: "young woman" on the age

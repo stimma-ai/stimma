@@ -123,8 +123,8 @@ EDIT_SCHEMA = _tool(
         "required": ["line", "text"]}}},
     ["edits"])
 
-# No argument: a "reason" field invited the model to argue an added detail into a new subject
-# (an edit decision probe: 41/45 edits kept with it, 45/45 without, restarts 30/30 either way).
+# No argument: a "reason" field invited the model to argue an added detail into a new subject,
+# and fewer edits were kept as edits.
 START_OVER_SCHEMA = _tool(
     "start_over",
     "The user's edited prompt is a different prompt, not an edit: what the image is of has changed, and little of "
@@ -374,6 +374,7 @@ def _edit(turn: Turn, args: Dict[str, Any]) -> str:
 def _start_over(turn: Turn, args: Dict[str, Any]) -> str:
     if not turn.editing:
         return turn.refuse("this is a new prompt: write its program with write_program.")
+    # a reason isn't asked for, but some models give one anyway: it goes in the log
     turn.start_over = str(args.get("reason") or "").strip()[:200] or "a different prompt"
     return "Starting over: the program will be written fresh for the new prompt."
 

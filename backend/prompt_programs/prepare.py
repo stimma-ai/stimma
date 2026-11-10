@@ -1,4 +1,5 @@
-"""Prepare: turn a prompt into a program with one LLM call, then cache it.
+"""Prepare: turn a prompt into a program with the chat model (a write, and a repair or two
+when the checks find problems), narrow its bound picks, then cache it.
 
 Everything that shapes the program is part of its cache key, so asking again with the
 same prompt, tool, LoRAs and parameters never calls the model. Realizing (running the
@@ -28,7 +29,7 @@ from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-41"
+PREPARE_VERSION = "pp-42"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a

@@ -309,7 +309,7 @@ def generation_messages(job: OptionJob, count: int = BATCH_SIZE) -> List[Dict[st
     intent = dict(job.program.intents).get(job.spec.id)
     if intent:
         lines += ["", f'The user asked for this detail in their own words: "{intent}". That is a rule, not an example: '
-                      "every option must be within it (\"asian or euro ethnicity\" means only Asian and European ones)."]
+                      "every option must be within it (\"1970s or 1980s cars\" means only cars from those two decades)."]
     if job.removed:
         lines += ["", "The user deleted these: never write them or any wording of them:", *[f"- {o}" for o in job.removed]]
     return [{"role": "system", "content": system}, {"role": "user", "content": "\n".join(lines)}]
