@@ -15,6 +15,10 @@ depends_on = None
 
 
 def upgrade():
+    # A database built from the current models already has the column.
+    columns = {c["name"] for c in sa.inspect(op.get_bind()).get_columns("saved_views")}
+    if "pinned" in columns:
+        return
     with op.batch_alter_table("saved_views", table_kwargs={"sqlite_autoincrement": True}) as batch:
         batch.add_column(sa.Column("pinned", sa.Boolean(), nullable=False, server_default=sa.false()))
 
