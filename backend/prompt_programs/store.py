@@ -18,12 +18,18 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import tempfile
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 RECENT = 8
+_KEY = re.compile(r"[0-9a-f]{32}")   # what program_key() makes; keys also arrive from clients
+
+
+def valid_key(key: Any) -> bool:
+    return isinstance(key, str) and _KEY.fullmatch(key) is not None
 
 
 def program_key(parts: Dict[str, Any]) -> str:
@@ -36,9 +42,13 @@ class ProgramStore:
         self.root = Path(root)
 
     def _path(self, key: str) -> Path:
+        if not valid_key(key):  # never a path out of the store
+            raise ValueError(f"not a program key: {key!r}")
         return self.root / key[:2] / f"{key}.json"
 
     def get(self, key: str) -> Optional[Dict[str, Any]]:
+        if not valid_key(key):
+            return None
         p = self._path(key)
         try:
             return json.loads(p.read_text("utf-8"))
@@ -54,15 +64,19 @@ class ProgramStore:
         os.replace(tmp, p)
 
     def _recent_path(self, context: str) -> Path:
+        if not valid_key(context):
+            raise ValueError(f"not a program context: {context!r}")
         return self.root / "recent" / f"{context}.json"
 
     def recent(self, context: str) -> List[str]:
         """Keys of this context's latest programs, newest first."""
+        if not valid_key(context):
+            return []
         try:
             keys = json.loads(self._recent_path(context).read_text("utf-8"))
         except (OSError, ValueError):
             return []
-        return [k for k in keys if isinstance(k, str)] if isinstance(keys, list) else []
+        return [k for k in keys if valid_key(k)] if isinstance(keys, list) else []
 
     def remember(self, context: str, key: str) -> None:
         keys = [key, *(k for k in self.recent(context) if k != key)][:RECENT]
@@ -79,7 +93,7 @@ class ProgramStore:
         return self.root / "sessions" / node_id[:2] / f"{node_id}.json"
 
     def get_node(self, node_id: Optional[str]) -> Optional[Dict[str, Any]]:
-        if not isinstance(node_id, str) or not node_id.isalnum():
+        if not valid_key(node_id):  # uuid4().hex, like a program key
             return None
         try:
             node = json.loads(self._node_path(node_id).read_text("utf-8"))

@@ -1047,3 +1047,26 @@ class TestResourceLimits:
     def test_a_limit_names_the_line(self):
         with pytest.raises(ProgramError, match=r"^Line 3: this makes a value too long"):
             run(_plain('y = 1\nx = "a" * 200000000\nemit(x)'), 1)
+
+
+class TestStoreKeys:
+    def test_only_program_keys_reach_the_disk(self, tmp_path):
+        from prompt_programs.store import program_key
+        store = ProgramStore(tmp_path / "store")
+        (tmp_path / "secret.json").write_text('{"program": "emit(1)"}')
+        (tmp_path / "store").mkdir()
+        for bad in ["../secret", "../../secret", "/etc/passwd", "ab/../../secret", "A" * 32, "0" * 31, "", None, 7,
+                    "0" * 32 + "/../x", "..%2fsecret"]:
+            assert store.get(bad) is None
+            assert store.recent(bad) == []
+            assert store.get_node(bad) is None
+        with pytest.raises(ValueError):
+            store.put("../secret", {"x": 1})
+        with pytest.raises(ValueError):
+            store.remember("../secret", program_key({"a": 1}))
+        key, context = program_key({"prompt": "a cat"}), program_key({})
+        store.put(key, {"key": key})
+        store.remember(context, key)
+        assert store.get(key) == {"key": key} and store.recent(context) == [key]
+        node = store.put_node({"messages": []})
+        assert store.get_node(node)["id"] == node
