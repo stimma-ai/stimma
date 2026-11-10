@@ -529,14 +529,16 @@ def judge_identity(cfg: Any) -> str:
 
 def judged_picks(result: Any, skip: Sequence[str] = (), rerolled: Sequence[str] = ()) -> List[Any]:
     """The picks a fix pass scores: visible picks that had a choice (or were rerolled
-    down to one), not pinned, not kept by the user, with an id that appears once."""
+    down to one), not pinned, not kept by the user, not drawing the user's own words
+    (said=), with an id that appears once."""
     counts: Dict[str, int] = {}
     for d in result.draws:
         counts[d.id] = counts.get(d.id, 0) + 1
     skip_set, rerolled_set = set(skip), set(rerolled)
     return [d for d in result.draws
             if d.kind == "pick" and not d.hidden and not d.pinned and d.value is not None and str(d.value).strip()
-            and (len(d.options) >= 2 or d.id in rerolled_set) and d.id not in skip_set and counts[d.id] == 1]
+            and (len(d.options) >= 2 or d.id in rerolled_set) and d.id not in skip_set and counts[d.id] == 1
+            and not (getattr(d, "said", "") and str(d.value) == d.said)]
 
 
 def _questions(result: Any, user_prompt: str, skip: Sequence[str] = (),

@@ -68,7 +68,7 @@
             {{ shownOption(e.value) }}<span v-if="trigger(e.value)" class="ml-1.5 font-mono text-[10px] text-content-muted">{{ trigger(e.value) }}</span>
           </span>
           <button
-            v-if="deletable"
+            v-if="deletable && canDelete(props.choice, e.value)"
             type="button"
             title="Delete option"
             :aria-label="`Delete ${e.value}`"
@@ -105,6 +105,7 @@ import SearchField from '../ui/SearchField.vue'
 import Caret from '../ui/Caret.vue'
 import { useViewport } from '../../composables/useViewport'
 import { MANY_OPTIONS, groupOpen, layoutOptions, type OptionGroup, shownOption } from '../../utils/programVocab'
+import { deletable as canDelete, pinsFor, ticksOf, toggleTick } from '../../utils/programTicks'
 import type { PromptProgram, ProgramChoice } from '../../composables/usePromptProgram'
 
 const props = defineProps<{
@@ -124,7 +125,9 @@ const listRef = ref<HTMLElement | null>(null)
 const searchRef = ref<InstanceType<typeof SearchField> | null>(null)
 
 const opts = computed(() => props.program.optionsOf(props.choice))
-const pinned = computed(() => new Set(props.program.pins.value[props.choice.id] || []))
+// What the card shows ticked: the pins, or for a choice that stands for the user's own words,
+// those words (each image uses them until other options are ticked).
+const pinned = computed(() => ticksOf(props.choice, props.program.pins.value[props.choice.id], opts.value))
 const edit = computed(() => props.program.edits.value[props.choice.id] || {})
 const vocab = computed(() => props.program.vocabOf(props.choice))
 const many = computed(() => !!vocab.value || !!props.choice.cls || opts.value.length > MANY_OPTIONS)
@@ -192,9 +195,7 @@ function trigger(o: string): string {
 }
 
 function toggle(o: string) {
-  const next = new Set(pinned.value)
-  next.has(o) ? next.delete(o) : next.add(o)
-  props.program.setPins(props.choice.id, opts.value.filter(x => next.has(x)))
+  props.program.setPins(props.choice.id, toggleTick(props.choice, props.program.pins.value[props.choice.id], opts.value, o))
   anchor.value = o
 }
 
@@ -223,7 +224,7 @@ function onOptionClick(o: string, e: MouseEvent) {
   const on = !pinned.value.has(o)
   const next = new Set(pinned.value)
   for (const x of range) on ? next.add(x) : next.delete(x)
-  props.program.setPins(props.choice.id, opts.value.filter(x => next.has(x)))
+  props.program.setPins(props.choice.id, pinsFor(props.choice, next, opts.value))
   anchor.value = o
 }
 
@@ -235,7 +236,7 @@ function del(o: string) {
   const added = (e.add || []).filter(x => x !== o)
   const removed = userAdded ? e.remove : [...new Set([...(e.remove || []), o])]
   props.program.setEdit(props.choice.id, { ...e, add: added, remove: removed })
-  props.program.setPins(props.choice.id, [...pinned.value].filter(x => x !== o))
+  props.program.setPins(props.choice.id, pinsFor(props.choice, [...pinned.value].filter(x => x !== o), opts.value))
 }
 
 function add(text: string) {

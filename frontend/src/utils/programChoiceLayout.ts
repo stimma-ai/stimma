@@ -15,7 +15,8 @@ function subjectLabel(label: string): string {
 
 export interface ProgramSection { id: string; label: string; choices: ProgramChoice[] }
 
-/** Shared controls lead; dependent controls inherit their subject's section. */
+/** Shared controls lead; dependent controls inherit their subject's section. Within a
+    section, choices that hold the user's own words (`said`) follow the ones that vary. */
 export function programSections(choices: ProgramChoice[], groups: ProgramGroup[]): ProgramSection[] {
   const byId = new Map(choices.map(c => [c.id, c]))
   function owner(c: ProgramChoice, seen = new Set<string>()): { group: string; index?: number } | null {
@@ -42,5 +43,7 @@ export function programSections(choices: ProgramChoice[], groups: ProgramGroup[]
   }
   const groupOrder = [...new Set([...groups.map(g => g.id), ...[...subjects.values()].map(s => s.group)])]
   const ordered = [...subjects.values()].sort((a, b) => groupOrder.indexOf(a.group) - groupOrder.indexOf(b.group) || a.index - b.index)
-  return [...(shared.choices.length ? [shared] : []), ...ordered]
+  const sections = [...(shared.choices.length ? [shared] : []), ...ordered]
+  for (const section of sections) section.choices = [...section.choices.filter(c => !c.said), ...section.choices.filter(c => c.said)]
+  return sections
 }

@@ -6,6 +6,7 @@ import { shownOption } from '../utils/programVocab'
 import { programSections } from '../utils/programChoiceLayout'
 import { prepareBody, prepareErrorCode, prepareSettingsSig, type PrepareInputs } from '../utils/fluentSubmit'
 import { createChoiceCard } from '../utils/choiceCard'
+import { isLimited, ticksOf } from '../utils/programTicks'
 
 export type { ChoiceVocab } from '../utils/programVocab'
 
@@ -37,6 +38,9 @@ export interface ProgramChoice {
   wildcard?: string
   /** The vocabulary list this pick draws from; its options are the list's values. */
   cls?: string
+  /** The user's own words this choice stands for ("yellow ferrari"): every image uses them
+      until the user ticks other options. */
+  said?: string
 }
 
 export interface ProgramGroup { id: string; count: number; label: string; source: string; line?: number }
@@ -394,13 +398,18 @@ export function usePromptProgram(o: Options) {
   function valueText(c: ProgramChoice): string {
     if (c.kind === 'param') return `${c.options[0]}–${c.options[1]}`
     const all = optionsOf(c)
-    const p = (pins.value[c.id] || []).filter(v => all.includes(v))
+    const p = [...ticksOf(c, pins.value[c.id], all)]
     if (!p.length) return all.length === 1 ? '1 option' : `${all.length} options`
     if (p.length === 1) return shownOption(p[0])
     return `${p.length} of ${all.length}`
   }
+  /** The user limited what this choice draws (ticks other than its own default). */
   function isPinned(c: ProgramChoice) {
-    return c.kind !== 'param' && (pins.value[c.id] || []).some(v => optionsOf(c).includes(v))
+    return c.kind !== 'param' && isLimited(c, pins.value[c.id], optionsOf(c))
+  }
+  /** The pill shows its value: when limited, or when it draws the user's own words. */
+  function showsValue(c: ProgramChoice) {
+    return isPinned(c) || (c.kind === 'pick' && !!c.said && optionsOf(c).includes(c.said))
   }
 
   /** LoRA rows the prompt controls: path → the choice that picks it. */
@@ -448,7 +457,7 @@ export function usePromptProgram(o: Options) {
   return {
     program, status, error, unsupported, pins, edits, choices, sections, byId, openCard,
     prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns, suggestOptions,
-    setPins, setManyPins, setEdit, optionsOf, vocabOf, valueText, isPinned,
+    setPins, setManyPins, setEdit, optionsOf, vocabOf, valueText, isPinned, showsValue,
     loraControl, paramControl, open, close,
   }
 }

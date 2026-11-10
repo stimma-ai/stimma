@@ -180,7 +180,7 @@ def program_minors(entry: Dict[str, Any]) -> Tuple[Tuple[str, Tuple[str, ...]], 
 
 def gen_key(spec: PickSpec, context: Dict[str, Any], signature: str, mode: str, elaborate: bool,
             lists: Sequence[Tuple[str, str, Sequence[str]]] = (), version: str = OPTIONS_VERSION,
-            lineage: str = "", intent: str = "", cls: str = "", minor: Sequence[str] = ()) -> str:
+            lineage: str = "", intent: str = "", cls: str = "", minor: Sequence[str] = (), said: str = "") -> str:
     """The generated pool's identity across prompts: what the pick is, the values of the
     picks it depends on, the context signature, the user's lists it is shown (those it
     doesn't depend on), and the style options are written in. `version` names an older
@@ -196,6 +196,7 @@ def gen_key(spec: PickSpec, context: Dict[str, Any], signature: str, mode: str, 
         **({"intent": _norm(intent)} if intent else {}),
         **({"cls": cls} if cls else {}),   # a bound pick's generated options extend its list
         **({"minor": sorted(minor)} if minor else {}),   # written for a person under 18
+        **({"said": _norm(said)} if said else {}),   # alternatives to the user's own words
         "mode": mode, "elaborate": bool(elaborate), **({"lists": shown} if shown else {}),
     }, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
@@ -374,6 +375,10 @@ def generation_messages(job: OptionJob, count: int = BATCH_SIZE, tool: bool = Fa
                       "every option must be within it (\"1970s or 1980s cars\" means only cars from those two decades)."]
     if job.removed:
         lines += ["", "The user deleted these: never write them or any wording of them:", *[f"- {o}" for o in job.removed]]
+    if job.spec.said:
+        lines += ["", f'The user wrote "{job.spec.said}" for this detail, and every image shows it unless they choose '
+                      "another option. Write other options they might choose instead: the same kind of thing, each a "
+                      "specific one, in the same form as their words."]
     if job.spec.minor:
         lines += ["", f"This detail is for a person under 18 ({minor_words(job.spec.minor)}), as the prompt asks: "
                       "every option must be what someone that age would ordinarily wear, do or look like."]
@@ -804,12 +809,15 @@ class GeneratedOptions:
             key += f" where {intent}"
         if spec.minor:  # a person under 18: adult-only values out, options written for that age
             key += " | under 18"
+        if spec.said:  # alternatives to the user's own words
+            key += f" | said {spec.said}"
         if spec.context and self._leaf(spec) is not None:   # last: a replay finds its recorded context
             recorded = [k for k in self.limits if k.startswith(key + " | context ")]
             key = recorded[0] if len(recorded) == 1 else key + context_suffix(spec)
         lineage = "" if specific else self.program.lineage
         return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate,
-                            self.program.lists, self.version, lineage, intent, spec.cls, spec.minor), signature
+                            self.program.lists, self.version, lineage, intent, spec.cls, spec.minor,
+                            spec.said), signature
 
     def get(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
         if not self._grows(spec) and self._leaf(spec) is None and not isinstance(self.limits.get(self._where(spec, context)[0]), list):
@@ -908,7 +916,8 @@ class GeneratedOptions:
         if spec.restrict:  # a palette pick: only the palettes its template allows (all, if none would be left)
             want = {f: list(vals) for f, vals in spec.restrict}
             values = [v for v in values if tags_match(v.tags, want)] or values
-        listed = unique([(v.text, v.weight) for v in values] +
+        # The user's own words (said=) lead a bound pick's pool, like an unbound pick's seeds.
+        listed = unique(([(spec.said, 1.0)] if spec.said else []) + [(v.text, v.weight) for v in values] +
                         [(str(x), 1.0) for x in edit.get("add") or [] if str(x).strip()])
         if spec.context:  # weighted by what its scope drew (vocab.py); the user's additions keep theirs
             listed = leaf.weigh(listed, spec.context)

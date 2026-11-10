@@ -4,6 +4,7 @@ import PromptProgramChoices from '../../src/components/generation/PromptProgramC
 import { programSections } from '../../src/utils/programChoiceLayout'
 import PromptProgramCard from '../../src/components/generation/PromptProgramCard.vue'
 import type { ChoiceEdit, ChoiceVocab, ProgramChoice } from '../../src/composables/usePromptProgram'
+import { isLimited, ticksOf } from '../../src/utils/programTicks'
 
 // A stand-in for usePromptProgram: just the state the choice card reads and writes.
 const words = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix} ${i + 1}`)
@@ -19,6 +20,8 @@ const choices: ProgramChoice[] = [
   { id: 'ethnicity', kind: 'pick', label: 'Ethnicity', source: 'text', cls: 'person.ethnicity', options: words('heritage', 20) },
   { id: 'color', kind: 'pick', label: 'Color', source: 'text', options: words('shade', 15) },
   { id: 'mood', kind: 'pick', label: 'Mood', source: 'text', options: ['calm', 'tense', 'joyful', 'wistful'] },
+  // The user's own words ("a yellow ferrari"): every image uses them until others are ticked.
+  { id: 'car', kind: 'pick', label: 'Car', source: 'text', said: 'yellow ferrari', options: ['yellow ferrari', 'red lamborghini', 'silver porsche'] },
 ]
 for (const index of [1, 2]) {
   for (const label of ['Age', 'Ethnicity', 'Hairstyle', 'Expression']) {
@@ -62,8 +65,12 @@ const program = {
   setPins: (id: string, values: string[]) => { pins.value = { ...pins.value, [id]: values } },
   setManyPins: (values: Record<string, string[]>) => { pins.value = { ...pins.value, ...values } },
   setEdit: (id: string, edit: ChoiceEdit) => { edits.value = { ...edits.value, [id]: edit } },
-  isPinned: (c: ProgramChoice) => (pins.value[c.id] || []).length > 0,
-  valueText: (c: ProgramChoice) => `${optionsOf(c).length} options`,
+  isPinned: (c: ProgramChoice) => isLimited(c, pins.value[c.id], optionsOf(c)),
+  showsValue: (c: ProgramChoice) => !!c.said || isLimited(c, pins.value[c.id], optionsOf(c)),
+  valueText: (c: ProgramChoice) => {
+    const t = [...ticksOf(c, pins.value[c.id], optionsOf(c))]
+    return t.length === 1 ? t[0] : t.length ? `${t.length} of ${optionsOf(c).length}` : `${optionsOf(c).length} options`
+  },
   suggestOptions: async (c: ProgramChoice, mode: string) => { calls.push({ suggest: c.id, mode }) },
   close: () => { openCard.value = null },
 }

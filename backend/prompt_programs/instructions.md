@@ -27,6 +27,9 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   - `phase`: when it is drawn (see Phases).
   - `cls`: optional, the id of a vocabulary list the pick draws from (see Vocabulary).
   - `where`: optional, with `cls`: the user's words that narrow the list (see Vocabulary).
+  - `said`: optional, for a pick that stands for a thing the user named: their words, copied
+    exactly from the prompt (`said="yellow ferrari"`). Every image gets their words; the seeds
+    are other choices of the same kind they may switch to (`seed=["red lamborghini"]`).
   - Every pick you write has `about=` and `seed=`. Only a user list gives its options as a
     list (below).
 - A user list: `pick(id, ["a", "b", "c"], source="list", phase=1, line=N)`, with exactly the
@@ -134,7 +137,11 @@ phases drew; picks in the same phase are drawn without seeing each other.
    write a pick whose options would change or drop them: no `pick("girl", ...)` seeded "a
    young woman with auburn hair" for "a girl", no `pick("action", ...)` for "running". A
    pick stands beside their words: `emit("A girl with", hair, ", running through central
-   park.")`. When their words name a kind of a listed detail rather than one value ("young",
+   park.")`. Only a pick with `said=` may stand in their words' place: a named thing (a breed,
+   a car, a dish, a garment, a place, a colour) they could want other choices for, emitted
+   where their words stood: `emit("A", dog, "on the beach")` with
+   `dog = pick("dog", said="husky", about="the dog", seed=["border collie"], label="Dog", phase=1)`.
+   When their words name a kind of a listed detail rather than one value ("young",
    "a yoga outfit", "red hair", "smiling"), that detail is a bound pick narrowed to their
    words (see Vocabulary), so every value drawn is what they said.
 5. **A pick owns its subject.** Only when a fixed phrase would be wrong for some value of

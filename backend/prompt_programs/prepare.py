@@ -29,8 +29,8 @@ from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-46"   # pp-46: context facets: a stated descent, time or season and user list values read as context
-# pp-45: a user list's ages under 18 are read (narrow.list_age_values)
+PREPARE_VERSION = "pp-46"   # pp-46: said= keeps a thing the user named (said.py); context facets: a stated descent, time
+# or season and user list values read as context. pp-45: a user list's ages under 18 are read (narrow.list_age_values)
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -1230,7 +1230,88 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
         if not any(c["options"][: len(opts)] == opts and c.get("source") == "list" for c in info["choices"]):
             problems.append(f'The user list {{{m.group(1)}}} must be a pick with exactly these options in order and source="list".')
     problems += _shared_person_details(info, source)
+    problems += _said_problems(info, prompt, samples)
     return {"info": info, "problems": list(dict.fromkeys(problems)), "notes": list(dict.fromkeys(notes))}
+
+
+def said_text(prompt: str) -> str:
+    """The prompt as said= may quote it: the user's own words, without their {a|b} lists,
+    {{wildcards}} or # lines (those are choices and instructions, never a thing to keep)."""
+    lines = [ln for ln in prompt.splitlines() if not ln.lstrip().startswith("#")]
+    text = re.sub(r"\{\{[^{}]*\}\}", " \u2026 ", "\n".join(lines))
+    return _INLINE_LIST.sub(" \u2026 ", text)
+
+
+def is_said_stretch(words: str, prompt: str) -> bool:
+    """`words` is a stretch of the user's own words as written (case and runs of spaces aside)."""
+    from prompt_programs.narrow import _span
+    return _span(words, said_text(prompt))
+
+
+def users_spelling(words: str, prompt: str) -> str:
+    """The stretch of the user's own words that `words` copies (case and runs of spaces
+    aside), as the user wrote it; "" when it isn't one."""
+    want = [w for w in str(words).split() if w]
+    if not want:
+        return ""
+    m = re.search(r"\s+".join(re.escape(w) for w in want), said_text(prompt), re.I)
+    return re.sub(r"\s+", " ", m.group(0)) if m else ""
+
+
+def fix_said(source: str, prompt: str) -> Tuple[str, List[str]]:
+    """A said= that copies the user's words in another case or spacing ("Yellow  Ferrari") is
+    put back in their spelling, so every image reads their words exactly as they wrote them."""
+    if "said" not in source:
+        return source, []
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, []
+    pos = _offsets(source)
+    edits: List[Tuple[int, int, str]] = []
+    notes: List[str] = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick"):
+            continue
+        kw = _kw(node, "said")
+        if not (isinstance(kw, ast.Constant) and isinstance(kw.value, str)):
+            continue
+        theirs = users_spelling(kw.value, prompt)
+        if theirs and theirs != kw.value:
+            edits.append((pos(kw.lineno, kw.col_offset), pos(kw.end_lineno, kw.end_col_offset),
+                          json.dumps(theirs, ensure_ascii=False)))
+            notes.append(f'said="{kw.value}" written as the user wrote it: "{theirs}"')
+    for start, end, text in sorted(edits, reverse=True):
+        source = source[:start] + text + source[end:]
+    return source, notes
+
+
+def _said_problems(info: Dict[str, Any], prompt: str, samples: Sequence[RunResult]) -> List[str]:
+    """said= is the user's own words for the thing a pick stands for: an exact stretch of their
+    prompt, on a pick that isn't their list, wildcard or # line request, said once in the prompt."""
+    out: List[str] = []
+    comments = _comment_lines(prompt)
+    wild = smart_wildcards(prompt)
+    for c in info["choices"]:
+        said = str(c.get("said") or "")
+        if not said or c.get("kind") != "pick":
+            continue
+        cid = c["id"]
+        if any(is_wildcard_id(cid, n) for n in wild):
+            out.append(f'pick("{cid}") is the user\'s smart wildcard, which they want varied: drop said=.')
+        elif c.get("line") in comments:
+            out.append(f'pick("{cid}") is what line {c["line"]} asks to vary: drop said=, so it varies.')
+        elif not is_said_stretch(said, prompt):
+            out.append(f'pick("{cid}") has said="{said}", but the user\'s prompt doesn\'t say "{said}". said= is the '
+                       "user's own words for the thing this pick stands for, copied exactly from their prompt (for "
+                       '"a cat and a birthday cake": said="birthday cake"). Copy their words exactly, or drop said= if '
+                       "they didn't name this thing.")
+        else:
+            want = _bare(said)
+            if any(realized_text(r.prompt).lower().count(want) > prompt.lower().count(want) for r in samples):
+                out.append(f'pick("{cid}") stands for the user\'s "{said}" and emits it where the pick stands, but the '
+                           f'fixed text says "{said}" too. Take it out of the fixed text, so it is said once.')
+    return out
 
 
 _PERSON_INDEX = re.compile(r"^([A-Za-z_]\w*)\[(\d+)\]\.")
@@ -1280,6 +1361,11 @@ def normalize_sources(info: Dict[str, Any], prompt: str) -> None:
         for c in _smart_choices(info, name):
             c["source"], c["wildcard"] = "text", name
             c["line"] = next((i + 1 for i, ln in enumerate(lines) if "{{" + name.lower() in ln.replace("{{ ", "{{")), c.get("line"))
+    for c in info["choices"]:  # said=: the user's words, on the line they stand on
+        if c.get("said") and c.get("kind") == "pick" and c.get("source") != "list":
+            c["source"] = "text"
+            want = _bare(c["said"])
+            c["line"] = next((i + 1 for i, ln in enumerate(lines) if want in re.sub(r"\s+", " ", ln)), c.get("line"))
 
 
 # --------------------------------------------------------------------------- entry point
@@ -1493,17 +1579,29 @@ async def _narrow(entry: Dict[str, Any], store: ProgramStore, project_id: Option
             log.info("[prompt-program] no time left to narrow the bound picks; they draw from their whole lists "
                      "until a later lookup narrows them")
         return
+    from prompt_programs.said import apply_said, read_said
     t0 = time.monotonic()
-    try:
-        notes = await narrow_entry(entry, NarrowCache(store.root / "narrow"), _ask_model, project_id,
-                                   seconds=min(NARROW_SECONDS, left))
-    except Exception as e:  # never fails the prepare
-        log.warning(f"[prompt-program] narrowing {entry.get('key')} failed: {e}")
+    cache = NarrowCache(store.root / "narrow")
+    seconds = min(NARROW_SECONDS, left)
+    # The picks the writer added that stand for a thing the user named (said.py), read while
+    # the bound picks are narrowed: the two never touch the same pick.
+    said, narrowed = await asyncio.gather(read_said(entry, cache, _ask_model, project_id, seconds),
+                                          narrow_entry(entry, cache, _ask_model, project_id, seconds=seconds),
+                                          return_exceptions=True)
+    if isinstance(said, BaseException):
+        log.warning(f"[prompt-program] reading the user's named things for {entry.get('key')} failed: {said}")
+        said = None
+    if said:
+        entry["warnings"] = list(entry.get("warnings") or []) + apply_said(entry, said)
+    if said is not None:
+        entry.setdefault("timing", {})["said"] = round(time.monotonic() - t0, 2)
+    if isinstance(narrowed, BaseException):  # never fails the prepare
+        log.warning(f"[prompt-program] narrowing {entry.get('key')} failed: {narrowed}")
         mark_pending(entry)
         return
     if entry.get("filters"):
         entry.setdefault("timing", {})["narrow"] = round(time.monotonic() - t0, 2)
-        entry["warnings"] = list(entry.get("warnings") or []) + notes
+        entry["warnings"] = list(entry.get("warnings") or []) + narrowed
 
 
 RENARROW_BACKOFF_SECONDS = 30.0   # between tries for one program
@@ -2099,7 +2197,7 @@ def fix_written(source: str, prompt: str, loras: Sequence[LoraInfo]) -> Tuple[st
     for fix in (fix_quotes, fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, fix_unplaced, fix_brackets,
                 lambda x: fix_requested(x, prompt), lambda x: fix_duplicates(x, prompt),
-                lambda x: fix_trigger_words(x, loras, prompt)):
+                lambda x: fix_trigger_words(x, loras, prompt), lambda x: fix_said(x, prompt)):
         source, more = fix(source)
         notes += more
     return source, notes
@@ -2111,7 +2209,7 @@ def fix_patched(source: str, prompt: str) -> Tuple[str, List[str]]:
     source = drop_name_options(source, prompt)
     notes: List[str] = []
     for fix in (fix_generated_refs, lambda x: fix_one_item_lists(x, prompt), lambda x: fix_list_sources(x, prompt),
-                fix_phases, lambda x: fix_requested(x, prompt)):
+                fix_phases, lambda x: fix_requested(x, prompt), lambda x: fix_said(x, prompt)):
         source, more = fix(source)
         notes += more
     return source, notes
