@@ -2170,6 +2170,9 @@ function classifySubmissionError(err: any): string {
   if (err?.response?.status === 424) void checkAgentModels(null, true)
   const code = typeof detail === 'object' ? detail?.code : null
   submissionErrorCode.value = code || null
+  // A submit that had to read its prompt itself and couldn't: the same plain words as
+  // the editor's prepare (the server's own wording is for the agent and logs).
+  if (isPrepareFailureCode(code)) return prepareFailure(code, PROMPT_BRAND).message
   if (typeof detail === 'string') return detail
   return detail?.message || 'Failed to submit job'
 }
@@ -3419,7 +3422,7 @@ import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptPro
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
-import { foreverSlot, jobContextImages, prepareFailure, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
+import { foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, prepareFailure, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
@@ -3938,7 +3941,8 @@ const promptProgram = usePromptProgram({
   prompt: computed(() => globalPrefs.value.prompt || ''),
   enabled: computed(() => fluentOn.value && !!hasPrompt.value && !rawMode.value && !runsDirect.value),
   enhance: enhanceLevel,
-  loraNotes: computed(() => globalPrefs.value.promptOptions?.loraNotes !== false),
+  loraNotes: computed(() => loraChoices(globalPrefs.value.promptOptions).loraNotes),
+  loraTriggers: computed(() => loraChoices(globalPrefs.value.promptOptions).loraTriggers),
   loraItems: computed(() => hasLoras.value
     ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight, enabled: !!i.enabled }))
     : []),
@@ -5542,7 +5546,9 @@ function unknownSmartNames(prompt: string): string[] {
 function showPrepareFailure(code: string | undefined, retry: ForeverSubmitOptions | 'forever') {
   const failure = prepareFailure(code, PROMPT_BRAND)
   submissionError.value = failure.message
+  submissionErrorCode.value = code || null  // the box's Add credits / Configure Chat Models
   const concurrency = uiState.value.generateForeverConcurrency ?? 1
+  if (failure.action === 'none') { addToast(failure.message, 'error', 8000); return }
   addToast(failure.message, 'error', 8000, failure.action === 'settings'
     ? { label: 'Settings', onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) }
     : { label: 'Try again', onClick: () => {

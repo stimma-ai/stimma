@@ -2,6 +2,7 @@
 // prompt is sent. Pure, so the matrix is testable without mounting Tool View.
 
 import type { ProgramStatus } from '../composables/usePromptProgram'
+import { isInsufficientBalanceCode, isLlmSetupCode } from './llmErrorCodes.ts'
 
 /** How the prompt is read for this run. With no chat model, everything but Raw is Direct:
     lists, saved wildcards and segments fill, brackets unwrap, # lines drop, no model. */
@@ -28,6 +29,56 @@ export interface PromptOptionsContext {
   program: any
 }
 
+/** The prompt menu's LoRA choices as Fluent sends them: on unless switched off. A submit
+    (shapePromptOptions) and the editor's prepare read them the same way, so both prepare
+    under one program key. */
+export function loraChoices(saved: any): { loraTriggers: boolean; loraNotes: boolean } {
+  return { loraTriggers: saved?.loraTriggers !== false, loraNotes: saved?.loraNotes !== false }
+}
+
+/** What the editor asks /prompt-programs/prepare with. */
+export interface PrepareInputs {
+  toolId: string | null
+  prompt: string
+  loras: Array<{ lora: string; weight: number; enabled?: boolean }>
+  parameters: Record<string, any>
+  instructions: string
+  enhance: string
+  loraNotes: boolean
+  loraTriggers: boolean
+  projectId: number | null | undefined
+}
+
+/** The body of a prepare (and options, pools, preview) request. Every field the server's
+    program key depends on is here, so the submit finds what the editor prepared. */
+export function prepareBody(i: PrepareInputs, extra: Record<string, any> = {}): Record<string, any> {
+  return {
+    tool_id: i.toolId,
+    prompt: i.prompt || '',
+    loras: i.loras.map(l => ({ lora: l.lora, weight: l.weight, enabled: !!l.enabled })),
+    parameters: i.parameters,
+    instructions: i.instructions || '',
+    enhance: i.enhance,
+    lora_notes: i.loraNotes,
+    lora_triggers: i.loraTriggers,
+    project_id: i.projectId ?? null,
+    ...extra,
+  }
+}
+
+/** Everything but the prompt text that decides the program: a change means preparing again. */
+export function prepareSettingsSig(i: PrepareInputs): string {
+  return JSON.stringify({
+    tool: i.toolId,
+    loras: i.loras.map(l => [l.lora, l.weight, !!l.enabled]),
+    context: i.parameters,
+    instructions: i.instructions,
+    enhance: i.enhance,
+    loraNotes: i.loraNotes,
+    loraTriggers: i.loraTriggers,
+  })
+}
+
 /** The promptOptions a submit sends, from the ones saved on the tool. */
 export function shapePromptOptions(saved: any, c: PromptOptionsContext): any {
   if (!saved) return saved
@@ -36,7 +87,7 @@ export function shapePromptOptions(saved: any, c: PromptOptionsContext): any {
   const base = !c.fluentOn
     ? (({ raw: _r, direct: _d, loraTriggers: _t, loraNotes: _n, ...rest }) => rest)(saved)
     // The LoRA choices go explicitly; the backend only adds trigger words when asked to.
-    : { ...saved, loraTriggers: saved.loraTriggers !== false, loraNotes: saved.loraNotes !== false }
+    : { ...saved, ...loraChoices(saved) }
   if (base.raw) {
     return { ...base, raw: true, autoImprove: { ...base.autoImprove, enabled: false }, translate: { ...base.translate, enabled: false } }
   }
@@ -81,9 +132,19 @@ export function prepareErrorCode(e: any): string | undefined {
   return e?.response ? undefined : 'llm_unavailable'
 }
 
-/** Plain words by cause, for a run that couldn't read its prompt. */
-export function prepareFailure(code: string | undefined, brand: string): { message: string; action: 'settings' | 'retry' } {
-  if (code === 'llm_not_configured') return { message: `${brand} needs a chat model, so nothing ran.`, action: 'settings' }
+/** The codes a prompt that couldn't be read comes back with, from /prompt-programs/prepare
+    or a submit that prepared itself. */
+const PREPARE_CODES = new Set(['llm_not_configured', 'llm_unavailable', 'prepare_timeout', 'program_failed', 'prompt_too_long'])
+export function isPrepareFailureCode(code: string | null | undefined): boolean {
+  return !!code && (PREPARE_CODES.has(code) || isInsufficientBalanceCode(code) || isLlmSetupCode(code))
+}
+
+/** Plain words by cause, for a run that couldn't read its prompt. `none`: trying again
+    the same way can't help, and the message says what will. */
+export function prepareFailure(code: string | undefined, brand: string): { message: string; action: 'settings' | 'retry' | 'none' } {
+  if (code === 'llm_not_configured' || isLlmSetupCode(code)) return { message: `${brand} needs a chat model, so nothing ran.`, action: 'settings' }
+  if (isInsufficientBalanceCode(code)) return { message: 'Your chat model has no balance left, so nothing ran.', action: 'settings' }
+  if (code === 'prompt_too_long') return { message: 'This prompt is too long to read, so nothing ran. Shorten it, or use Direct.', action: 'none' }
   const message = code === 'llm_unavailable'
     ? 'Can’t reach your chat model, so nothing ran.'
     : code === 'prepare_timeout'

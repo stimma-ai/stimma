@@ -4,7 +4,7 @@ import { getApiBase } from '../apiConfig'
 import type { ChoiceVocab } from '../utils/programVocab'
 import { shownOption } from '../utils/programVocab'
 import { programSections } from '../utils/programChoiceLayout'
-import { prepareErrorCode } from '../utils/fluentSubmit'
+import { prepareBody, prepareErrorCode, prepareSettingsSig, type PrepareInputs } from '../utils/fluentSubmit'
 import { createChoiceCard } from '../utils/choiceCard'
 
 export type { ChoiceVocab } from '../utils/programVocab'
@@ -86,6 +86,8 @@ interface Options {
   enhance: ComputedRef<EnhanceLevel>
   /** Tell the model the user's LoRA notes. */
   loraNotes: ComputedRef<boolean>
+  /** The prompt menu's "Trigger words": tell the writer the on LoRAs' trigger words. */
+  loraTriggers: ComputedRef<boolean>
   loraItems: ComputedRef<Array<{ lora: string; weight: number; enabled?: boolean }>>
   /** What the enhancer's style depends on: input images (count and ids), canvas size. */
   contextParams: ComputedRef<Record<string, any>>
@@ -103,15 +105,19 @@ export function usePromptProgram(o: Options) {
   // Formats that are still enhanced per image (MiniMax H3, Ideogram JSON) have no program.
   const unsupportedSig = ref<string | null>(null)
 
-  /** Everything but the prompt text: a prompt prepared under the same settings can still run. */
-  const settingsSig = computed(() => JSON.stringify({
-    tool: o.toolId.value,
-    loras: o.loraItems.value.map(i => [i.lora, i.weight, !!i.enabled]),
-    context: o.contextParams.value,
-    instructions: o.instructions.value,
+  const inputs = (): PrepareInputs => ({
+    toolId: o.toolId.value,
+    prompt: o.prompt.value || '',
+    loras: o.loraItems.value,
+    parameters: o.contextParams.value,
+    instructions: o.instructions.value || '',
     enhance: o.enhance.value,
     loraNotes: o.loraNotes.value,
-  }))
+    loraTriggers: o.loraTriggers.value,
+    projectId: o.projectId.value,
+  })
+  /** Everything but the prompt text: a prompt prepared under the same settings can still run. */
+  const settingsSig = computed(() => prepareSettingsSig(inputs()))
   const signature = computed(() => JSON.stringify({ prompt: (o.prompt.value || '').trim(), settings: settingsSig.value }))
   // The last prompt that was prepared, with the settings it was prepared under. Generate
   // forever keeps running it while a newer version of the prompt is being written or prepared.
@@ -167,17 +173,7 @@ export function usePromptProgram(o: Options) {
   }
 
   function request(extra: Record<string, any> = {}) {
-    return {
-      tool_id: o.toolId.value,
-      prompt: o.prompt.value || '',
-      loras: o.loraItems.value.map(i => ({ lora: i.lora, weight: i.weight, enabled: !!i.enabled })),
-      parameters: o.contextParams.value,
-      instructions: o.instructions.value || '',
-      enhance: o.enhance.value,
-      lora_notes: o.loraNotes.value,
-      project_id: o.projectId.value ?? null,
-      ...extra,
-    }
+    return prepareBody(inputs(), extra)
   }
 
   let lookupId = 0

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { effectiveWay, foreverSlot, jobContextImages, prepareErrorCode, prepareFailure, programRunActions, shapePromptOptions, type PromptOptionsContext } from './fluentSubmit.ts'
+import { effectiveWay, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, prepareBody, prepareErrorCode, prepareFailure, prepareSettingsSig, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
@@ -124,4 +124,40 @@ test('batch mode reads the prompt for one job: one batched image plus fixed refe
   assert.deepEqual(jobContextImages({ inputImages: ['a', 'b'], refImages: [], batchMode: true, batchField: null }), ['a'])
   assert.deepEqual(jobContextImages({ inputImages: ['a', 'b'], refImages: [], batchMode: true, batchField: 'input_videos' }), ['a', 'b'])
   assert.deepEqual(jobContextImages({ inputImages: ['a', 'b'], refImages: ['r'], batchMode: false }), ['a', 'b', 'r'])
+})
+
+// The backend's rule for a submit: trigger words reach the writer unless loraTriggers is false.
+const backendTriggers = (promptOptions: any) => promptOptions?.loraTriggers !== false
+
+test('the editor prepares with the same Trigger words choice the submit sends', () => {
+  for (const loraTriggers of [undefined, true, false]) {
+    const s = saved({ loraTriggers })
+    const inputs: PrepareInputs = {
+      toolId: 't', prompt: 'a cat', loras: [{ lora: 'rainy-window', weight: 0.8, enabled: true }],
+      parameters: {}, instructions: '', enhance: 'expand', projectId: null, ...loraChoices(s),
+    }
+    const body = prepareBody(inputs)
+    assert.equal(body.lora_triggers, backendTriggers(shapePromptOptions(s, ctx())), `loraTriggers=${loraTriggers}`)
+    assert.equal(body.lora_notes, true)
+  }
+})
+
+test('switching Trigger words is a new program to prepare', () => {
+  const inputs = (loraTriggers: boolean): PrepareInputs => ({
+    toolId: 't', prompt: 'a cat', loras: [{ lora: 'rainy-window', weight: 0.8, enabled: true }],
+    parameters: {}, instructions: '', enhance: 'expand', loraNotes: true, loraTriggers, projectId: null,
+  })
+  assert.notEqual(prepareSettingsSig(inputs(true)), prepareSettingsSig(inputs(false)))
+  assert.equal(prepareSettingsSig(inputs(false)), prepareSettingsSig(inputs(false)))
+  assert.equal(prepareBody(inputs(false), { cache_only: true }).cache_only, true)
+})
+
+test('a prompt too long or no balance says what to do, without mechanics', () => {
+  const long = prepareFailure('prompt_too_long', 'Brand')
+  assert.equal(long.action, 'none')
+  assert.match(long.message, /too long/)
+  assert.doesNotMatch(long.message, /\d|character/)
+  assert.equal(prepareFailure('llm_insufficient_balance', 'Brand').action, 'settings')
+  assert.ok(isPrepareFailureCode('prompt_too_long') && isPrepareFailureCode('llm_unavailable'))
+  assert.ok(!isPrepareFailureCode('job_failed') && !isPrepareFailureCode(null))
 })
