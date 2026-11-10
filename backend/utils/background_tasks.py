@@ -389,6 +389,38 @@ async def _broadcast_processing_stats(ws_manager, settings, registry, phase_stat
     await ws_manager.broadcast_profile_details('processing_stats', data, details)
 
 
+async def _broadcast_grouping_changes(ws_manager, settings, registry, last_versions: dict):
+    """Tell a profile's clients when the grouping pass has placed Assets.
+
+    The pass runs in the ingestion process, which can't push. Each profile's
+    ``max(asset_group_members.assigned_at)`` is its grouping version; when it
+    moves, broadcast ``asset_groups_updated`` scoped to that profile. The
+    first reading after startup is only a baseline.
+    """
+    from asset_grouping import grouping_version
+    from core.profile_context import ProfileScope
+
+    for profile in settings.profiles:
+        if not registry.has_profile(profile.id):
+            continue
+        try:
+            with ProfileScope(profile.id):
+                db = registry.get_database(profile.id)
+                async with db.async_session_maker() as session:
+                    version = await grouping_version(session)
+        except Exception as e:
+            log.debug(f"PROCESSING STATS MONITOR: grouping version unavailable for {profile.id}: {e}")
+            continue
+        known = profile.id in last_versions
+        previous = last_versions.get(profile.id)
+        last_versions[profile.id] = version
+        if known and version != previous:
+            await ws_manager.broadcast(
+                'asset_groups_updated',
+                {'profile_id': profile.id, 'grouping_version': version},
+            )
+
+
 async def monitor_processing_stats(ws_manager):
     """
     Background task to monitor processing stats and broadcast via WebSocket.
@@ -409,6 +441,7 @@ async def monitor_processing_stats(ws_manager):
     from sqlalchemy import case
 
     last_phase_stats = None
+    last_grouping_versions: dict = {}
     sleep_seconds = 1
     while True:
         try:
@@ -474,6 +507,10 @@ async def monitor_processing_stats(ws_manager):
                         include_profile=False,
                     )
                 last_phase_stats = phase_stats
+
+            await _broadcast_grouping_changes(
+                ws_manager, settings, registry, last_grouping_versions
+            )
 
         except asyncio.CancelledError:
             log.info("PROCESSING STATS MONITOR: Shutting down")

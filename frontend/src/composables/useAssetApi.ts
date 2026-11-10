@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
+import type { AssetGroupsResponse } from '../utils/browseGrouping'
 
 export interface AssetBrowserItem {
   asset_id: number
@@ -35,6 +36,11 @@ export function useAssetApi() {
 
   async function fetchAssetIds(params: Record<string, unknown> = {}): Promise<{ ids: number[] }> {
     return (await axios.get(`${api()}/assets/browse/ids`, { params })).data
+  }
+
+  /** Group headers for a grouped browse: the same params as fetchAssets plus `group_by`. */
+  async function fetchAssetGroups(params: Record<string, unknown> = {}): Promise<AssetGroupsResponse> {
+    return (await axios.get(`${api()}/assets/browse/groups`, { params })).data
   }
 
   async function getAsset(assetId: number) {
@@ -242,6 +248,7 @@ export function useAssetApi() {
   return {
     fetchAssets,
     fetchAssetIds,
+    fetchAssetGroups,
     getAsset,
     getAssetBrowserItem,
     getRevisions,

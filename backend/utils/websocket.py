@@ -144,7 +144,7 @@ def _delivery_policy(event: str, data: dict) -> _Delivery:
             return _DURABLE
         # Full snapshot of the operation: latest wins, but never shed.
         return _Delivery((event, profile_id, operation_id), replaceable=True)
-    if event == "processing_stats":
+    if event in ("processing_stats", "asset_groups_updated"):
         # Broadcast only on change, so the newest snapshot must arrive.
         return _Delivery((event, profile_id), replaceable=True)
     return _DURABLE

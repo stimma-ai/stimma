@@ -85,6 +85,9 @@ PRIVATE_FIELDS = {
     "llm_trace",
     "thinking",
     "reasoning",
+    # Browser presentation: section order for the Assets grid, not a query.
+    "group_by",
+    "tz_offset",
 }
 NESTED_KINDS = {
     "asset": "asset",

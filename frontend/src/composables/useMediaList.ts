@@ -405,9 +405,13 @@ export function useMediaList(options: UseMediaListOptions) {
   /**
    * Silent reload - fetches fresh data and updates only if changed.
    * Does not show loading state or cause visible UI flicker if data is unchanged.
+   * @param options.force Replace the first page and drop every other page's
+   *   loaded mark even when the total and first item look unchanged. A
+   *   grouped list reorders when assets join or leave a group, so the same
+   *   total says nothing about whether the pages are still right.
    * @returns true if data was updated, false if unchanged
    */
-  async function silentReload(): Promise<boolean> {
+  async function silentReload(options: { force?: boolean } = {}): Promise<boolean> {
     try {
       const params = filterParams.value || buildFilterParams()
       // Refresh one fixed-size grid page, not the whole library. Updating only
@@ -429,13 +433,20 @@ export function useMediaList(options: UseMediaListOptions) {
           : firstCachedItem !== firstNewItem
       )
 
-      if (newTotal !== oldTotal || firstPageChanged) {
+      if (options.force || newTotal !== oldTotal || firstPageChanged) {
         totalCount.value = newTotal
 
         const newCache = new Map(itemsCache.value)
         response.items.forEach((item, index) => newCache.set(index, item))
         for (let index = response.items.length; index < gridPageSize; index++) {
           newCache.delete(index)
+        }
+        if (options.force) {
+          // Stale items stay on screen until their page reloads, but nothing
+          // may linger past the new end of the list.
+          for (const index of [...newCache.keys()]) {
+            if (index >= newTotal) newCache.delete(index)
+          }
         }
         itemsCache.value = newCache
         // Other pages may have shifted. Retain only the freshly reconciled

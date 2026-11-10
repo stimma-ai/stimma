@@ -290,6 +290,7 @@ class TestEnabledFlagChecks:
         worker._process_clip = AsyncMock(return_value=4)
         worker._process_face_detection = AsyncMock(return_value=2)
         worker._process_vlm_captions = AsyncMock(return_value=3)
+        worker._process_grouping = AsyncMock(return_value=0)
 
         worked = await ingestion.MediaIngestion._process_pending_items(worker)
 
@@ -297,6 +298,7 @@ class TestEnabledFlagChecks:
         worker._process_clip.assert_awaited_once()
         worker._process_face_detection.assert_awaited_once()
         worker._process_vlm_captions.assert_awaited_once()
+        worker._process_grouping.assert_awaited_once()
 
     async def test_init_caption_service_skips_llm_resolution_when_disabled(self):
         """Caption service init should not resolve LLM config when captioning is disabled."""
