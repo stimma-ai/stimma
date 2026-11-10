@@ -297,6 +297,9 @@ class TestShapes:
         loop = hand(("girl", [AGE]), extra_lines=['looks = group("looks", 2)', "for i in range(looks):",
                                                   f"    o = {bound('outfit', OUTFIT)}"])
         assert prep.fix_subjects(loop) == (loop, [])
+        one = hand(extra_lines=['friends = group("friends", 2)', f"a = {bound('friends[1].age', AGE)}",
+                                f"o = {bound('outfit1', OUTFIT)}", f"p = {bound('outfit2', OUTFIT)}"])
+        assert prep.fix_subjects(one) == (one, [])   # the first friend's age isn't the second's
 
     def test_numbered_families_and_lone_indexes(self):
         lines = [f"{v} = {P(v, about='a detail', seed='x')}" for v in ("outfit1", "outfit2", "face1", "face2")]

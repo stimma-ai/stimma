@@ -1006,16 +1006,20 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
 
     def whose(call: ast.Call, after: bool) -> str:
         new = to.get(id(call)) if after else None
-        who = person_of(shape(json.loads(new.lstrip("f")) if new else text_of(id_node(call))))
-        return re.sub(r"\[\d+\]", "[{}]", who)   # friends[2] is one of the loop's friends[{}]
+        return person_of(shape(json.loads(new.lstrip("f")) if new else text_of(id_node(call))))
+
+    def speaks(a: str, p: str) -> bool:
+        # a loop's friends[{}] is each friend, friends[2] among them; friends[1] is not friends[2]
+        loose = lambda x, y: "[{}]" in x and re.sub(r"\[\d+\]", "[{}]", y) == x  # noqa: E731
+        return owns(a, p) or loose(a, p) or loose(p, a)
 
     people = [(c, vocabulary().resolve(_const(_kw(c, "cls"))).id) for c in calls
               if _individual_leaf(_const(_kw(c, "cls"))) and text_of(id_node(c)) is not None]
     ages = [c for c, lid in people if lid == AGE_LIST]
     for c, lid in people:
         if lid != AGE_LIST and lid.split(".")[0] == aged \
-                and any(whose(a, False) and owns(whose(a, False), whose(c, False)) for a in ages) \
-                and not any(owns(whose(a, True), whose(c, True)) for a in ages):
+                and any(whose(a, False) and speaks(whose(a, False), whose(c, False)) for a in ages) \
+                and not any(speaks(whose(a, True), whose(c, True)) for a in ages):
             return source, []
     for start, end, text in sorted(edits, reverse=True):
         source = source[:start] + text + source[end:]
