@@ -1076,6 +1076,9 @@
     ],
     "era": [
       "contemporary"
+    ],
+    "space": [
+      "indoor"
     ]
   },
   "local_facets": {
@@ -1083,6 +1086,11 @@
       "restrained",
       "layered",
       "ornate"
+    ]
+  },
+  "context": {
+    "gives": [
+      "space"
     ]
   }
 }

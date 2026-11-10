@@ -856,6 +856,9 @@
     ],
     "era": [
       "contemporary"
+    ],
+    "space": [
+      "outdoor"
     ]
   },
   "local_facets": {
@@ -867,6 +870,12 @@
       "market",
       "industrial",
       "recreation"
+    ]
+  },
+  "context": {
+    "gives": [
+      "space",
+      "climate"
     ]
   }
 }

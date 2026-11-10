@@ -4,7 +4,7 @@
   "description": "Iris colors, with supernatural colors separated from realistic eyes.",
   "pos": "adjective",
   "frame": "___ eyes",
-  "notes": "Iris color only; expressions and eye shape belong to other person leaves. Common color variations stay realistic; crimson and luminous colors use genre filters. Bare silver means a fantastical metallic iris, while gray is realistic.",
+  "notes": "Iris color only; expressions and eye shape belong to other person leaves. Common color variations stay realistic; crimson and luminous colors use genre filters. Bare silver means a fantastical metallic iris, while gray is realistic. Natural colours carry an eye_family; drawn after a person's descent, families outside that descent's typical ones are rare (weight x0.03), never excluded. Genre colours are untagged and fit everyone.",
   "facets": [
     "genre"
   ],
@@ -16,6 +16,9 @@
       "tags": {
         "shade": [
           "brown"
+        ],
+        "eye_family": [
+          "brown"
         ]
       }
     },
@@ -24,6 +27,9 @@
       "tier": "typical",
       "tags": {
         "shade": [
+          "brown"
+        ],
+        "eye_family": [
           "brown"
         ]
       }
@@ -34,6 +40,9 @@
       "tags": {
         "shade": [
           "brown"
+        ],
+        "eye_family": [
+          "brown"
         ]
       }
     },
@@ -42,6 +51,9 @@
       "tier": "typical",
       "tags": {
         "shade": [
+          "hazel"
+        ],
+        "eye_family": [
           "hazel"
         ]
       }
@@ -52,6 +64,9 @@
       "tags": {
         "shade": [
           "blue"
+        ],
+        "eye_family": [
+          "light"
         ]
       }
     },
@@ -61,6 +76,9 @@
       "tags": {
         "shade": [
           "grey"
+        ],
+        "eye_family": [
+          "light"
         ]
       }
     },
@@ -70,6 +88,9 @@
       "tags": {
         "shade": [
           "green"
+        ],
+        "eye_family": [
+          "light"
         ]
       }
     },
@@ -79,6 +100,9 @@
       "tags": {
         "shade": [
           "amber"
+        ],
+        "eye_family": [
+          "hazel"
         ]
       }
     },
@@ -89,6 +113,9 @@
         "shade": [
           "blue",
           "grey"
+        ],
+        "eye_family": [
+          "light"
         ]
       }
     },
@@ -99,6 +126,9 @@
         "shade": [
           "grey",
           "green"
+        ],
+        "eye_family": [
+          "light"
         ]
       }
     },
@@ -108,6 +138,9 @@
       "tags": {
         "shade": [
           "blue"
+        ],
+        "eye_family": [
+          "light"
         ]
       }
     },
@@ -117,6 +150,9 @@
       "tags": {
         "shade": [
           "blue"
+        ],
+        "eye_family": [
+          "light"
         ]
       }
     },
@@ -128,6 +164,10 @@
           "blue",
           "brown",
           "unusual"
+        ],
+        "eye_family": [
+          "brown",
+          "light"
         ]
       }
     },
@@ -253,5 +293,13 @@
       "amber",
       "unusual"
     ]
+  },
+  "context": {
+    "takes": {
+      "eye_family": {
+        "mismatch": "rare",
+        "factor": 0.03
+      }
+    }
   }
 }

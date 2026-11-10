@@ -4,7 +4,7 @@
   "description": "The length, density and natural or styled texture of scalp hair.",
   "pos": "adjective phrase",
   "frame": "her ___ auburn hair",
-  "notes": "Length, density and texture phrases that stack before person.hair_color; person.hairstyle owns cuts and arrangements. Waves or curls describe the hair rather than a named setting technique. Sparse and thinning describe density and do not imply a particular age.",
+  "notes": "Length, density and texture phrases that stack before person.hair_color; person.hairstyle owns cuts and arrangements. Waves or curls describe the hair rather than a named setting technique. Sparse and thinning describe density and do not imply a particular age. Drawn after a person's descent, textures outside that descent's typical ones are rare (weight x0.05: hair is often styled), never excluded; unspecified textures fit everyone.",
   "facets": [
     "age"
   ],
@@ -463,5 +463,13 @@
       "coily",
       "unspecified"
     ]
+  },
+  "context": {
+    "takes": {
+      "texture": {
+        "mismatch": "rare",
+        "factor": 0.05
+      }
+    }
   }
 }

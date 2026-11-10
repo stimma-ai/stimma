@@ -1,0 +1,401 @@
+"""Context facets: a drawn value gives context to the picks that follow it in the same scope.
+
+A person's descent weights that person's skin, eye and hair families; a scene's time of day,
+season, indoor or outdoor setting and climate weight its light, weather and clothes. All of it
+is vocabulary data (vocab/facets.json "context", each list's "context"); the engine only
+matches tag sets, orders takers after givers, and never touches the user's own lists, pins
+or wildcards."""
+
+import collections
+import json
+import re
+
+import pytest
+
+from prompt_programs.draws import CONTEXT_VERSION, PickSpec, analyze, draw
+from prompt_programs.fluent import runtime_for
+from prompt_programs.judge import FluentSettings
+from prompt_programs.narrow import NarrowCache, narrow_entry
+from prompt_programs.options import GeneratedOptions, OptionStore, ProgramContext
+from prompt_programs.runtime import ProgramError, discover
+from prompt_programs.vocab import given_families, vocabulary
+
+OFF = FluentSettings(generate_options=False)
+
+
+def V():
+    return vocabulary()
+
+
+def entry_of(src, prompt="", **extra):
+    return {"key": "k", "program": src, "loras": [], "params": {}, "mode": "prose", "prompt": prompt,
+            "choices": discover(src)["choices"], **extra}
+
+
+def draws_of(entry, tmp_path, seeds, pins=None, context=True, edits=None):
+    rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, edits=edits)
+    rt.options.context = context
+    for seed in seeds:
+        r = draw(entry["program"], seed, pins, [], None, None, edits, options=rt.options)
+        rt.options.reset()
+        yield r, {d.id: d for d in r.draws}
+
+
+def family(cls, facet, text):
+    return set(V().get(cls).context_tags(text, facet) or ())
+
+
+def mismatched(cls, facet, text, descent):
+    """A drawn value tagged on the facet with no family the descent's tag lists."""
+    tags = family(cls, facet, text)
+    return bool(tags) and not tags & family("person.ethnicity", facet, descent)
+
+
+ONE = '''
+hair = pick("hair", cls="person.hair_color", about="her hair colour", seed=["black"], label="Hair", phase=1, line=1)
+eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=2)
+descent = pick("descent", cls="person.ethnicity", about="her descent", seed=["Korean"], label="Descent", phase=1, line=3)
+skin = pick("skin", cls="person.skin_tone", about="her skin", seed=["fair"], label="Skin", phase=1, line=4)
+emit("A", descent, "woman with", hair, "hair,", eyes, "eyes and", skin, "skin")
+'''
+
+TWO = '''
+wd = pick("woman.descent", cls="person.ethnicity", about="her descent", seed=["Korean"], label="Descent", phase=1, line=1)
+wh = pick("woman.hair", cls="person.hair_color", about="her hair colour", seed=["black"], label="Hair", phase=2, line=2)
+md = pick("man.descent", cls="person.ethnicity", about="his descent", seed=["Irish"], label="Descent", phase=1, line=3)
+mh = pick("man.hair", cls="person.hair_color", about="his hair colour", seed=["red"], label="Hair", phase=2, line=4)
+emit("A", wd, "woman with", wh, "hair and a", md, "man with", mh, "hair")
+'''
+
+SCENE = '''
+t = pick("time", cls="scene.time_of_day", about="the time of day", seed=["dusk"], label="Time", phase=1, line=1)
+light = pick("light", cls="lighting.natural", about="the light", seed=["moonlight"], label="Light", phase=2, line=2)
+room = pick("room", cls="interior_space.kitchen", about="the room", seed=["a kitchen"], label="Room", phase=1, line=3)
+emit("A cook in", room, "at", t, ", lit by", light)
+'''
+
+
+# --------------------------------------------------------------------------- the data
+
+class TestTheData:
+    def test_every_context_facet_has_tags_on_both_sides(self):
+        v = V()
+        assert v.context, "facets.json declares context facets"
+        for facet, spec in v.context.items():
+            assert spec.get("scope") in ("person", "scene"), facet
+            givers = [lf for lf in v.leaves.values() if facet in lf.gives]
+            takers = [lf for lf in v.leaves.values() if facet in lf.takes]
+            assert givers and takers, facet
+            assert any(lf.context_tags(x.text, facet) for lf in givers for x in lf.values), f"no giver tags {facet}"
+            assert any(lf.context_tags(x.text, facet) for lf in takers for x in lf.values), f"no taker tags {facet}"
+
+    def test_lists_only_name_declared_facets_and_values(self):
+        v = V()
+        for lf in v.leaves.values():
+            assert set(lf.gives) <= set(v.context), lf.id
+            assert set(lf.takes) <= set(v.context), lf.id
+            assert not set(lf.gives) & set(lf.takes), f"{lf.id} gives and takes the same facet"
+            for f, (mode, factor) in lf.takes.items():
+                assert mode in ("rare", "never") and (mode == "never" or 0 < factor < 1), (lf.id, f)
+            if lf.stated:
+                assert lf.gives and len({v.scope(f) for f in lf.gives}) == 1, lf.id
+            for f in {*lf.gives, *lf.takes}:
+                spec = v.context[f]
+                allowed = set(spec.get("values") or (v.facets.get(f) or {}).get("values") or [])
+                allowed |= set(spec.get("neutral") or ())
+                assert allowed, f
+                for x in lf.values:
+                    assert set(lf.context_tags(x.text, f) or ()) <= allowed, (lf.id, x.text, f)
+
+    def test_every_descent_has_colouring_families(self):
+        eth = V().get("person.ethnicity")
+        assert set(eth.gives) == {"skin_family", "eye_family", "hair_family", "texture"} and eth.stated
+        for x in eth.values:
+            for f in eth.gives:
+                assert eth.context_tags(x.text, f), f"{x.text} has no {f}"
+            assert x.tags.get("region"), f"{x.text} has no region"
+
+    def test_rare_keeps_every_mismatch_possible(self):
+        """Natural colouring is weighted, never excluded: each descent still draws some of
+        every family, and no descent's mismatch share is above a few percent."""
+        v, eth = V(), V().get("person.ethnicity")
+        for lid, facet, cap in [("person.skin_tone", "skin_family", 0.03), ("person.eye_color", "eye_family", 0.05),
+                                ("person.hair_color", "hair_family", 0.08)]:
+            lf = v.get(lid)
+            assert lf.takes[facet][0] == "rare"
+            items = [(x.text, x.weight) for x in lf.pool_values()[0]]
+            for d in eth.values:
+                got = lf.weigh(items, [(facet, eth.context_tags(d.text, facet))])
+                assert all(w > 0 for _, w in got), (lid, d.text)
+                miss = sum(w for o, w in got if mismatched(lid, facet, o, d.text)) / sum(w for _, w in got)
+                assert miss <= cap, (lid, d.text, miss)
+
+    def test_untagged_values_keep_their_share(self):
+        """Grey, white and dyed hair are untagged: descent moves weight among natural shades only."""
+        lf = V().get("person.hair_color")
+        items = [(x.text, x.weight) for x in lf.pool_values()[0]]
+        got = dict(lf.weigh(items, [("hair_family", ("black", "dark_brown"))]))
+        untagged = [o for o, _ in items if not lf.context_tags(o, "hair_family")]
+        assert {"gray", "white", "rose pink"} <= set(untagged)
+        share = lambda d: sum(d[o] for o in untagged) / sum(d.values())  # noqa: E731
+        assert share(got) == pytest.approx(share(dict(items)))
+        assert got["black"] > dict(items)["black"] and got["golden blonde"] < dict(items)["golden blonde"]
+
+
+# --------------------------------------------------------------------------- the engine rule
+
+class TestOrdering:
+    def test_takers_move_after_their_givers(self):
+        an = analyze(ONE)
+        phase = {s.id_text: s.phase for s in an.sites}
+        # descent is written below hair and eyes: they move after it; skin is written below it
+        assert phase["descent"] == 1 and phase["skin"] == 1 and phase["hair"] == 2 and phase["eyes"] == 2
+        assert {(an.sites[g].id_text, an.sites[t].id_text) for g, t in an.context_links} == {
+            ("descent", "hair"), ("descent", "eyes"), ("descent", "skin")}
+
+    def test_without_context_the_writers_phases_stand(self):
+        an = analyze(ONE, context=False)
+        assert {s.phase for s in an.sites} == {1} and not an.context_links
+
+    def test_a_later_pick_keeps_following_what_it_depends_on(self):
+        src = ONE.replace('emit(', 'style = ""\nif hair == "black":\n    style = pick("style", ["sleek", "loose"], '
+                                   'label="Style", phase=2, line=5)\nemit(style, ')
+        phase = {s.id_text: s.phase for s in analyze(src).sites}
+        assert phase["hair"] == 2 and phase["style"] == 3
+
+    def test_scope_is_the_person_for_descent_and_the_image_for_the_scene(self):
+        links = {(analyze(TWO).sites[g].id_text, analyze(TWO).sites[t].id_text) for g, t in analyze(TWO).context_links}
+        assert links == {("woman.descent", "woman.hair"), ("man.descent", "man.hair")}
+        scene = {(analyze(SCENE).sites[g].id_text, analyze(SCENE).sites[t].id_text)
+                 for g, t in analyze(SCENE).context_links}
+        assert scene == {("time", "light"), ("room", "light")}
+
+
+class TestWeighting:
+    def test_descent_weights_that_persons_colouring(self, tmp_path):
+        e = entry_of(ONE)
+        miss = collections.Counter()
+        n = 300
+        for arm in (False, True):
+            for r, d in draws_of(e, tmp_path / str(arm), range(n), context=arm):
+                desc = d["descent"].value
+                miss[arm] += mismatched("person.eye_color", "eye_family", d["eyes"].value, desc)
+                miss[arm] += mismatched("person.skin_tone", "skin_family", d["skin"].value, desc)
+        assert miss[False] > 0.4 * n and miss[True] < 0.1 * n, miss
+        assert miss[True] > 0   # rare, not never
+
+    def test_scope_per_person(self, tmp_path):
+        e = entry_of(TWO)
+        pins = {"woman.descent": ["Japanese"], "man.descent": ["Irish"]}
+        wh, mh = collections.Counter(), collections.Counter()
+        for r, d in draws_of(e, tmp_path, range(200), pins=pins):
+            wh[bool(family("person.hair_color", "hair_family", d["woman.hair"].value) & {"blonde", "red"})] += 1
+            mh[bool(family("person.hair_color", "hair_family", d["man.hair"].value) & {"blonde", "red"})] += 1
+            pool = next(k for k in r.revision["pools"] if k.startswith("man.hair:"))
+            assert "hair_family=blonde,brown,dark_brown,red" in pool
+        assert wh[True] < 20 and mh[True] > 60, (wh, mh)
+
+    def test_never_filters_and_the_scene_scope_reaches_every_pick(self, tmp_path):
+        e = entry_of(SCENE)
+        for r, d in draws_of(e, tmp_path, range(80), pins={"time": ["midnight"]}):
+            light = V().get("lighting.natural").value(d["light"].value)
+            assert light is not None and "night" in light.tags["time_of_day"], d["light"].value
+            assert light.tags.get("space", ["indoor"]) == ["indoor"]   # a kitchen: no outdoor-only light
+            weights = dict(zip(d["light"].options, [None] * len(d["light"].options)))
+            assert "clear midday sunlight" in weights   # still shown (the picker can pin it), weight 0
+
+    def test_a_pinned_taker_value_still_draws(self, tmp_path):
+        e = entry_of(SCENE)
+        got = {d["light"].value for _, d in draws_of(e, tmp_path, range(5),
+                                                    pins={"time": ["midnight"], "light": ["clear midday sunlight"]})}
+        assert got == {"clear midday sunlight"}
+
+
+class TestTheUsersOwn:
+    def test_a_user_list_is_never_weighted(self, tmp_path):
+        src = ('descent = pick("descent", cls="person.ethnicity", about="her descent", seed=["Korean"], label="Descent", phase=1, line=1)\n'
+               'hair = pick("hair", ["golden blonde", "black"], source="list", label="Hair", phase=2, line=2)\n'
+               'emit("A", descent, "woman with", hair, "hair")')
+        got = collections.Counter(d["hair"].value for _, d in draws_of(entry_of(src), tmp_path, range(200),
+                                                                        pins={"descent": ["Japanese"]}))
+        assert 70 < got["golden blonde"] < 130, got
+
+    def test_ticked_values_are_never_weighted(self, tmp_path):
+        got = collections.Counter(d["hair"].value for _, d in draws_of(
+            entry_of(ONE), tmp_path, range(200), pins={"descent": ["Japanese"], "hair": ["golden blonde", "black"]}))
+        assert 70 < got["golden blonde"] < 130, got
+
+    def test_a_wildcard_is_never_weighted(self, tmp_path):
+        e = entry_of(ONE, "a {{descent}} woman with {{hair}}")
+        for c in e["choices"]:
+            if c["id"] == "hair":
+                c["wildcard"] = "hair"
+        assert ProgramContext.of(e).wildcards == ("hair",)
+        r, d = next(draws_of(e, tmp_path, range(1), pins={"descent": ["Japanese"]}))
+        assert not any(k.startswith("hair:") and "| context" in k for k in r.revision["pools"])
+
+    def test_a_users_added_value_keeps_its_weight(self, tmp_path):
+        mine = "silver-blue ombre"
+        edits = {"hair": {"add": [mine]}}
+        got = collections.Counter(d["hair"].value for _, d in draws_of(
+            entry_of(ONE), tmp_path, range(400), pins={"descent": ["Japanese"]}, edits=edits))
+        assert got[mine] > 0
+
+
+# --------------------------------------------------------------------------- stated and listed givers
+
+class TestStated:
+    def test_a_stated_descent_weights_the_colouring(self, tmp_path):
+        src = ONE.replace('descent = pick("descent", cls="person.ethnicity", about="her descent", seed=["Korean"], '
+                          'label="Descent", phase=1, line=3)\n', '').replace('emit("A", descent,', 'emit("A Japanese",')
+        e = entry_of(src, "a Japanese woman", stated_context=[{"of": "", "cls": "person.ethnicity", "values": ["Japanese"]}])
+        miss = sum(mismatched("person.eye_color", "eye_family", d["eyes"].value, "Japanese")
+                   for _, d in draws_of(e, tmp_path, range(200)))
+        assert miss < 15
+        r, _ = next(draws_of(e, tmp_path / "r", range(1)))
+        assert r.revision.get("context") == CONTEXT_VERSION
+
+    def test_a_drawn_descent_wins_over_the_stated_one(self, tmp_path):
+        e = entry_of(ONE, stated_context=[{"of": "", "cls": "person.ethnicity", "values": ["Japanese"]}])
+        r, d = next(draws_of(e, tmp_path, range(1), pins={"descent": ["Irish"]}))
+        assert any("hair_family=blonde,brown,dark_brown,red" in k for k in r.revision["pools"])
+
+    def test_a_users_list_value_gives_its_scope_context(self, tmp_path):
+        src = ('descent = pick("descent", ["Japanese", "Irish"], source="list", label="Descent", phase=1, line=1)\n'
+               'eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=2)\n'
+               'emit("A", descent, "woman with", eyes, "eyes")')
+        e = entry_of(src, list_context={"descent": {"Japanese": {"person.ethnicity": ["Japanese"]},
+                                                     "Irish": {"person.ethnicity": ["Irish"]}}})
+        seen = collections.Counter()
+        for _, d in draws_of(e, tmp_path, range(200)):
+            seen[(d["descent"].value, bool(family("person.eye_color", "eye_family", d["eyes"].value) & {"light"}))] += 1
+        assert seen[("Japanese", True)] < 10 and seen[("Irish", True)] > 25, seen
+        assert seen[("Japanese", False)] + seen[("Japanese", True)] > 70   # the list itself draws evenly
+
+    def test_given_families_needs_every_value_tagged(self):
+        assert given_families("person.ethnicity", ["Japanese", "Korean"])["eye_family"] == ("brown",)
+        assert given_families("person.ethnicity", []) == {}
+        assert "skin_family" not in given_families("scene.time_of_day", ["midnight"])
+
+
+class Ask:
+    """Narrowing as a model following the instructions would answer it: `read` is the prompt
+    reading; `keep` maps a phrase to the values it keeps (default: the whole list)."""
+
+    def __init__(self, read=None, keep=None):
+        self.read, self.keep, self.calls = read or {}, keep or {}, []
+
+    async def __call__(self, messages, project_id, max_tokens):
+        if "find the words in it" in messages[0]["content"]:
+            self.calls.append(("read", messages[1]["content"]))
+            return json.dumps(self.read)
+        values = json.loads(re.search(r"\n(\[.*?\])\n", messages[1]["content"], re.S).group(1))
+        phrase = re.search(r'Which of these fit "(.*?)"', messages[1]["content"]).group(1)
+        self.calls.append(("subset", phrase))
+        keep = self.keep.get(phrase)
+        return json.dumps([v for v in values if keep is None or v in keep])
+
+
+class TestNarrowing:
+    async def test_the_prompts_descent_is_read_for_a_person_without_a_descent_pick(self, tmp_path):
+        src = ('eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=1)\n'
+               'emit("A Japanese woman with", eyes, "eyes")')
+        e = entry_of(src, "a Japanese woman")
+        ask = Ask(read={"stated_ethnicity": "Japanese woman"}, keep={"Japanese woman": ["Japanese"]})
+        await narrow_entry(e, NarrowCache(tmp_path), ask)
+        assert e["stated_context"] == [{"of": "", "cls": "person.ethnicity", "values": ["Japanese"]}]
+        assert any(kind == "read" and "stated_ethnicity" in text for kind, text in ask.calls)
+
+    async def test_words_that_keep_the_whole_list_say_nothing(self, tmp_path):
+        src = ('eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=1)\n'
+               'emit("A woman with", eyes, "eyes")')
+        e = entry_of(src, "a woman")
+        await narrow_entry(e, NarrowCache(tmp_path), Ask(read={"stated_ethnicity": "woman"}))
+        assert "stated_context" not in e
+
+    async def test_a_person_with_a_descent_pick_is_not_read_again(self, tmp_path):
+        e = entry_of(ONE, "a woman")
+        ask = Ask()
+        await narrow_entry(e, NarrowCache(tmp_path), ask)
+        assert not any("stated_ethnicity" in text for kind, text in ask.calls if kind == "read")
+
+    async def test_a_users_list_values_are_read_on_the_descent_list(self, tmp_path):
+        src = ('who = pick("who", ["Japanese", "in a red coat"], source="list", label="Who", phase=1, line=1)\n'
+               'eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=2)\n'
+               'emit("A", who, "woman with", eyes, "eyes")')
+        e = entry_of(src, "a {Japanese|in a red coat} woman")
+        await narrow_entry(e, NarrowCache(tmp_path), Ask(keep={"Japanese": ["Japanese"]}))
+        assert e["list_context"] == {"who": {"Japanese": {"person.ethnicity": ["Japanese"]}}}
+
+
+# --------------------------------------------------------------------------- replay
+
+class TestReplay:
+    def test_a_revision_with_context_replays_exactly(self, tmp_path):
+        e = entry_of(ONE)
+        for seed in range(20):
+            first = draw(ONE, seed, None, [], None, None, None,
+                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF).options)
+            assert first.revision["context"] == CONTEXT_VERSION
+            again = draw(ONE, seed, None, [], None, None, None,
+                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision).options)
+            assert again.prompt == first.prompt and again.revision == first.revision
+
+    def test_a_replay_reads_the_recorded_context_pool(self, tmp_path):
+        """Tags may change between versions: a replay draws from the pool as it was recorded."""
+        e = entry_of(ONE)
+        first = draw(ONE, 4, None, [], None, None, None,
+                     options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF).options)
+        rev = json.loads(json.dumps(first.revision))
+        key = next(k for k in rev["pools"] if k.startswith("hair:"))
+        drawn = next(d.value for d in first.draws if d.id == "hair")
+        rev["pools"][key] = [[drawn, 1.0]]
+        again = draw(ONE, 4, None, [], None, None, None,
+                     options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=rev).options)
+        assert next(d.options for d in again.draws if d.id == "hair") == [drawn]
+
+    def test_a_revision_drawn_before_context_replays_without_it(self, tmp_path):
+        e = entry_of(ONE)
+        for seed in range(20):
+            rt = runtime_for(e, store=OptionStore(tmp_path), cfg=OFF)
+            rt.options.context = False   # what an older build drew
+            old = draw(ONE, seed, None, [], None, None, None, options=rt.options)
+            assert "context" not in old.revision
+            again = draw(ONE, seed, None, [], None, None, None,
+                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=old.revision).options)
+            assert again.prompt == old.prompt and again.revision == old.revision
+
+    def test_an_unknown_context_version_is_refused(self, tmp_path):
+        with pytest.raises(ProgramError):
+            runtime_for(entry_of(ONE), store=OptionStore(tmp_path), cfg=OFF, revision={"context": "ctx-99", "pools": {}})
+
+    def test_a_program_without_links_draws_as_before(self, tmp_path):
+        src = ('hair = pick("hair", cls="person.hair_color", about="her hair colour", seed=["black"], label="Hair", phase=1, line=1)\n'
+               'emit("A woman with", hair, "hair")')
+        e = entry_of(src)
+        for seed in range(10):
+            on = draw(src, seed, None, [], None, None, None,
+                      options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF).options)
+            rt = runtime_for(e, store=OptionStore(tmp_path), cfg=OFF)
+            rt.options.context = False
+            off = draw(src, seed, None, [], None, None, None, options=rt.options)
+            assert on.prompt == off.prompt and on.revision == off.revision and "context" not in on.revision
+
+    def test_a_literal_options_draw_weights_a_bound_list_too(self):
+        leaf = V().get("person.hair_color")
+        spec = PickSpec("hair", "Hair", "", 1, "text", "pick", [], [], leaf.id,
+                        context=(("hair_family", ("black",)),))
+        from prompt_programs.draws import LiteralOptions
+        pool = LiteralOptions().get(spec, {})
+        w = dict(zip(pool.items, pool.weights))
+        assert pool.key.endswith("| context hair_family=black") and w["golden blonde"] < w["black"]
+
+
+def test_options_service_reads_stated_and_listed_context():
+    e = entry_of(ONE, stated_context=[{"of": "woman", "cls": "person.ethnicity", "values": ["Japanese"]},
+                                      {"of": None, "cls": "scene.time_of_day", "values": ["midnight"]}],
+                 list_context={"d": {"Irish": {"person.ethnicity": ["Irish"]}}})
+    o = GeneratedOptions(None, ProgramContext.of(e))
+    assert o.stated_context["woman"]["eye_family"] == ("brown",)
+    assert o.stated_context[None]["time_of_day"] == ("night",)
+    assert "red" in o.list_context["d"]["Irish"]["hair_family"]

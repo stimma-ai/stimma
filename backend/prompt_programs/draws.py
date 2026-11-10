@@ -13,6 +13,12 @@ above it, a subscript, a loop count, its options) must sit in a strictly earlier
 `exclude=` may stay within a phase. `analyze()` checks that on the AST before anything
 runs.
 
+Context (vocab.py): a bound pick whose list takes a context facet is drawn after the bound
+picks in its scope whose lists give it (a person's descent before their hair colour, the
+time of day before the light). `analyze()` orders them from the vocabulary's declarations,
+moving a taker to a later phase when the writer put it before its giver; the writer never
+has to. Each taker's pool is then weighted by what its givers drew (`_Exec._given`).
+
 Per image, phase by phase: the program runs with concrete values (earlier phases
 final, this phase proposed, later phases placeholders), and each proposal is kept unless
 it would leave a pin unsatisfiable, in which case new proposals are tried. Pins are
@@ -40,6 +46,10 @@ from prompt_programs.runtime import (
 from prompt_programs.vocab import AGE_LIST, fill, is_template, minor_ages, tags_match, template_matches, vocabulary
 
 DRAW_VERSION = "draws-2"
+# Recorded on a revision whose program has context links (a giver and a taker in one scope, or
+# a stated context): its draws ran in context order with weighted pools. A revision without it
+# drew without context and replays that way.
+CONTEXT_VERSION = "ctx-1"
 SPEC_ARGS = ("about", "phase", "seed", "cls")
 BATCH = 16             # proposals per re-proposal batch, when a value breaks a pin
 MAX_BATCHES = 3        # batches before a pick gives up
@@ -113,6 +123,7 @@ class Analysis:
     emits: Dict[int, List[Taint]]   # emit call -> per-argument taint
     code: Any
     phases: List[int]
+    context_links: List[Tuple[int, int]] = field(default_factory=list)   # (giver site, taker site)
 
     def sites_for_id(self, cid: str) -> List[Site]:
         return [s for s in self.sites if s.id_re.fullmatch(cid)]
@@ -459,13 +470,57 @@ def _phase_of(node: ast.Call, site: Site, phased: bool) -> int:
     return ph.value
 
 
+def context_links(sites: Sequence[Site]) -> List[Tuple[int, int]]:
+    """(giver, taker) site pairs: a bound pick whose list gives a context facet another bound
+    pick's list takes, in the same scope (the same person for a person facet, the image for a
+    scene facet). Only the vocabulary's declarations are read."""
+    vocab = vocabulary()
+    leaves = {}
+    for s in sites:
+        if s.kind == "pick" and s.cls and s.generated:   # bound, and not the user's list
+            leaf = vocab.resolve(s.cls)
+            if leaf is not None and (leaf.gives or leaf.takes):
+                leaves[s.index] = leaf
+    out = []
+    for t, tl in leaves.items():
+        for g, gl in leaves.items():
+            if g != t and any(f in gl.gives and (vocab.scope(f) == "scene" or
+                                                 person_of(sites[g].id_text) == person_of(sites[t].id_text))
+                              for f in tl.takes):
+                out.append((g, t))
+    return out
+
+
+def _context_phases(sites: Sequence[Site], links: Sequence[Tuple[int, int]]) -> Optional[Dict[int, int]]:
+    """Phases with each taker after its givers: in a later phase, or in the same one when the
+    giver's pick is written above it (drawn first). Dependencies keep holding. None when the
+    links can't all hold (a taker steers its own giver): the writer's phases stand."""
+    phase = {s.index: s.phase for s in sites}
+    after: Dict[int, List[int]] = {}
+    for g, t in links:
+        after.setdefault(t, []).append(g)
+    for _ in range(len(sites) + 2):
+        moved = False
+        for s in sites:
+            need = max([phase[s.index]] + [phase[d] + 1 for d in s.deps if d != s.index]
+                       + [phase[d] for d in s.exclude_deps if d != s.index]
+                       + [phase[g] + (0 if sites[g].line < s.line else 1) for g in after.get(s.index, [])])
+            if need != phase[s.index]:
+                phase[s.index], moved = need, True
+        if not moved:
+            return phase
+    return None
+
+
 @functools.lru_cache(maxsize=64)
-def analyze(source: str, strict: bool = False) -> Analysis:
+def analyze(source: str, strict: bool = False, context: bool = True) -> Analysis:
     """Check a program's phases and dependencies, and compile it for drawing.
     Raises ProgramError with a message the program writer can act on. `strict` adds
     the rules a newly written program must follow (validation): no pick names a
     generated pick, and a generated pick's pools stay few. Drawing an already prepared
-    program never applies them: programs written before them draw as they always did."""
+    program never applies them: programs written before them draw as they always did.
+    `context` orders context takers after their givers (module docstring); without it (a
+    revision drawn before context) the writer's phases stand as written."""
     tree = check(source)
     an = _Analyzer(tree)
     phased = uses_draws(source)
@@ -552,7 +607,16 @@ def analyze(source: str, strict: bool = False) -> Analysis:
                 node.keywords.append(ast.keyword(arg="_site", value=ast.Constant(an.emit_of[id(node)])))
     ast.fix_missing_locations(tree)
     code = compile_program(tree)
-    return Analysis(phased, an.sites, an.emits, code, sorted({s.phase for s in an.sites}))
+    links: List[Tuple[int, int]] = []
+    if phased and context:
+        links = context_links(an.sites)
+        moved = _context_phases(an.sites, links) if links else None
+        if links and moved is None:
+            links = []
+        for s in an.sites:
+            if moved is not None:
+                s.phase = moved[s.index]
+    return Analysis(phased, an.sites, an.emits, code, sorted({s.phase for s in an.sites}), links)
 
 
 # --------------------------------------------------------------------------- options service
@@ -574,6 +638,16 @@ class PickSpec:
     # out and generated options are written for that age. Empty for an adult, a user list, a
     # wildcard (the user's own words) and the age pick itself.
     minor: Tuple[str, ...] = ()
+    # The context its pool is drawn in (vocab.py): (facet, families) for each facet its list
+    # takes that a giver in its scope drew. Empty for the user's lists, wildcards and pins.
+    context: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()
+
+
+def context_suffix(spec: PickSpec) -> str:
+    """The context's part of a pool's identity (last in the key, so a replay finds it)."""
+    if not spec.context:
+        return ""
+    return " | context " + "; ".join(f"{f}={','.join(v)}" for f, v in spec.context)
 
 
 @dataclass
@@ -629,7 +703,9 @@ class LiteralOptions:
         uniform = spec.source == "list" or spec.kind == "lora"
         weights = [1.0] * len(items) if uniform else [RANK_DECAY ** i for i in range(len(items))]
         weights = [0.0 if o in standby else w for o, w in zip(items, weights)]
-        return Pool(pool_key(spec, context), items, weights, False)
+        if leaf is not None and spec.context:
+            weights = [w for _, w in leaf.weigh(list(zip(items, weights)), spec.context)]
+        return Pool(pool_key(spec, context) + context_suffix(spec), items, weights, False)
 
     def request_more(self, spec: PickSpec, context: Dict[str, Any], priority: str) -> None:
         self.requests.append((pool_key(spec, context), priority))
@@ -734,12 +810,48 @@ class _Exec(_Runner):
                 out += young.get(v, ())
         return tuple(dict.fromkeys(out))
 
+    def _given(self, cid: str, site: Site, leaf: Any) -> Tuple[Tuple[str, Tuple[str, ...]], ...]:
+        """The context this pick is drawn in: for each facet its list takes, the families tagged
+        on the values drawn before it in its scope by picks whose lists give that facet (a
+        later phase's placeholder isn't drawn yet) and by the user's list values read on such a
+        list (narrow.py); failing those, what the prompt states for its person or scene."""
+        vocab, p, eng = vocabulary(), person_of(cid), self.eng
+        drawn: Dict[str, Tuple[_Seen, str]] = {}
+        # Earlier phases' values are final (decided, or pinned) even before their pick() runs again
+        # in this run; this run's own values count once drawn (an earlier pick of this phase).
+        for oid, seen in eng.specs.items():
+            if seen.phase < min(site.phase, self.k):
+                v = eng.single_pins.get(oid, eng.decided.get(oid))
+                if v is not None:
+                    drawn[oid] = (seen, str(v))
+        for oid, d in self.by_id.items():
+            seen = self.seen.get(oid)
+            if seen is not None and seen.phase <= min(site.phase, self.k) and not str(d.value).startswith("\x00"):
+                drawn[oid] = (seen, str(d.value))
+        out = []
+        for facet in sorted(leaf.takes):
+            person = vocab.scope(facet) == "person"
+            fam: Set[str] = set()
+            for oid, (seen, value) in drawn.items():
+                if oid == cid or (person and person_of(oid) != p):
+                    continue
+                gl = vocab.get(seen.spec.cls) if seen.spec.cls and seen.spec.source != "list" else None
+                if gl is not None and facet in gl.gives:
+                    fam |= set(gl.context_tags(value, facet) or ())
+                fam |= set(eng.list_context.get(oid, {}).get(value, {}).get(facet, ()))
+            if not fam:   # nothing drawn gave it: what the prompt states, if anything
+                fam = set(eng.stated.get(p if person else None, {}).get(facet, ()))
+            if fam:
+                out.append((facet, tuple(sorted(fam))))
+        return tuple(out)
+
     def _settle(self, cid: str, site: Site, spec: PickSpec, items: List[Tuple[str, float]],
                 context: Dict[str, Any]) -> Tuple[Any, bool]:
         eng, names = self.eng, [o for o, _ in items]
         pin = eng.single_pins.get(cid)
         seen = _Seen(cid, site.index, site.phase, spec, items, context=context)
         self.seen[cid] = seen
+        eng.specs[cid] = seen
         eng.labels[cid] = spec.label
         self.order.append(cid)
         self.site_ids.setdefault(site.index, []).append(cid)
@@ -806,6 +918,9 @@ class _Exec(_Runner):
                         leaf.id if leaf is not None else (str(cls).strip() if cls and source != "list" else ""))
         if source != "list" and spec.cls != AGE_LIST and cid not in self.eng.theirs:
             spec.minor = self._minor(cid, site)
+        if leaf is not None and leaf.takes and self.eng.context_on and cid not in self.eng.theirs \
+                and cid not in self.eng.pins:
+            spec.context = self._given(cid, site, leaf)
         context = self._context(site)
         if leaf is not None and leaf.slots:
             self._unfill_kept(cid, leaf)
@@ -944,6 +1059,15 @@ class _Engine:
         self.theirs: Set[str] = set(getattr(options, "theirs", ()) or ())   # wildcard picks: the user's words
         self.minors = self._minors()
         self.list_ages: Dict[str, Dict[str, Tuple[str, ...]]] = getattr(options, "list_ages", None) or {}
+        # Context (vocab.py): off only to replay a revision drawn before it. What the prompt states
+        # ({person, or None for the scene: {facet: families}}) and what the user's list values read
+        # as ({list pick: {value: {facet: families}}}) come from the prepared entry (narrow.py).
+        self.context_on = getattr(options, "context", True) is not False
+        self.stated: Dict[Optional[str], Dict[str, Tuple[str, ...]]] = (
+            getattr(options, "stated_context", None) or {}) if self.context_on else {}
+        self.list_context: Dict[str, Dict[str, Dict[str, Tuple[str, ...]]]] = (
+            getattr(options, "list_context", None) or {}) if self.context_on else {}
+        self.specs: Dict[str, "_Seen"] = {}    # each pick's latest spec and phase (context reads earlier ones)
         self.more_coming: List[str] = []
         self.proposals = 0
         self.rejected = 0
@@ -1165,6 +1289,8 @@ class _Engine:
         options_version = getattr(self.options, "revision_version", None)
         if options_version:  # the generated pools' version: replay reads those, not today's
             rev["options"] = options_version
+        if self.context_on and (self.an.context_links or self.stated or self.list_context):
+            rev["context"] = CONTEXT_VERSION
         rev["id"] = hashlib.sha256(json.dumps(rev, sort_keys=True).encode()).hexdigest()[:16]
         return rev
 
@@ -1176,7 +1302,7 @@ def draw(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None
     """Draw one prompt from a program with pick specs. Deterministic for a given
     revision, seed and pins. Raises DrawAborted when a pick has nothing left to draw
     or a pin can't be satisfied, and ProgramError for a broken program."""
-    an = analyze(source)
+    an = analyze(source, context=getattr(options, "context", True) is not False)
     edits = edits or {}
     eng = _Engine(an, seed, pins or {}, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params,
                   dict(fixed or {}), edits, options or LiteralOptions(edits))
@@ -1213,6 +1339,6 @@ def fixed_text(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_par
 
 
 __all__ = [
-    "Analysis", "DrawAborted", "DrawResult", "LiteralOptions", "OptionsService", "PickSpec", "Pool", "analyze", "draw",
-    "fixed_text", "person_of", "pool_key", "uses_draws",
+    "CONTEXT_VERSION", "Analysis", "DrawAborted", "DrawResult", "LiteralOptions", "OptionsService", "PickSpec", "Pool",
+    "analyze", "context_links", "context_suffix", "draw", "fixed_text", "person_of", "pool_key", "uses_draws",
 ]

@@ -319,7 +319,8 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
                 notes.append(f'{ch["id"]}: nothing in {lf.id} has {want}; drawing from the whole list')
     t0 = asyncio.get_running_loop().time()
     stated = stated_ages(entry, bound)
-    readable = [c for c in bound if not c.get("wildcard")] + stated
+    stated_ctx = stated_context(entry, bound)
+    readable = [c for c in bound if not c.get("wildcard")] + stated + stated_ctx
     try:
         read = await asyncio.wait_for(read_words(str(entry.get("prompt") or ""), readable, cache, ask, project_id),
                                       seconds)
@@ -339,18 +340,32 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
                 c["where"] = phrase
             wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
     listed = list_age_values(entry, bound)
-    for c in [*stated, *listed]:  # a stated age, or a user list's value: narrowed on ages, recorded apart
+    listed_ctx = list_context_values(entry, bound)
+    # a stated age or context, or a user list's value: narrowed on its list, recorded apart
+    for c in [*stated, *listed, *stated_ctx, *listed_ctx]:
         phrase = phrase_of(c, read)
         if phrase:
             wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
     words: Dict[str, List[str]] = {}
-    keys = list(wanted)
-    if keys:
+    context_only = {id(c) for c in [*stated_ctx, *listed_ctx]}
+    # Context readings go second, in what time is left: they can't make the picks' own narrowing late.
+    batches = [[k for k in wanted if not all(id(c) in context_only for c in wanted[k])],
+               [k for k in wanted if all(id(c) in context_only for c in wanted[k])]]
+    t1 = asyncio.get_running_loop().time()
+    for i, keys in enumerate(batches):
+        if not keys:
+            continue
+        left = seconds - (asyncio.get_running_loop().time() - t1) if i else seconds
         jobs = [subset(vocab.leaves[k[0]], phrase_of(wanted[k][0], read), cache, ask, project_id,
                        wanted[k][0].get("about") or "") for k in keys]
         try:
-            results = await asyncio.wait_for(asyncio.gather(*jobs), seconds)
+            if left < 1.0:
+                raise asyncio.TimeoutError
+            results = await asyncio.wait_for(asyncio.gather(*jobs), left)
         except asyncio.TimeoutError:
+            for j in jobs:
+                if asyncio.iscoroutine(j):
+                    j.close()
             log.warning(f"[prompt-program] narrowing took longer than {seconds:.0f}s: those picks draw unbound for now")
             results = [None for _ in keys]
         for k, got in zip(keys, results):
@@ -404,6 +419,20 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         entry["list_ages"] = young
     else:
         entry.pop("list_ages", None)
+    said = [{"of": c["context_of"], "cls": c["cls"], "values": list(words[c["id"]])} for c in stated_ctx
+            if _informative(vocab.leaves[c["cls"]], words.get(c["id"]) or [])]
+    if said:
+        entry["stated_context"] = said
+    else:
+        entry.pop("stated_context", None)
+    read_as: Dict[str, Dict[str, Dict[str, List[str]]]] = {}
+    for c in listed_ctx:
+        if _informative(vocab.leaves[c["cls"]], words.get(c["id"]) or []):
+            read_as.setdefault(c["list_of"], {}).setdefault(c["value"], {})[c["cls"]] = list(words[c["id"]])
+    if read_as:
+        entry["list_context"] = read_as
+    else:
+        entry.pop("list_context", None)
     if unfinished:
         entry["narrow_pending"] = {cid: before[cid] for cid in before if cid in unfinished}
         for c in stated:  # the next try reads it again (reopen_pending passes it by: it isn't a choice)
@@ -412,6 +441,9 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         for c in listed:
             if c["id"] in unfinished:
                 entry["narrow_pending"][c["id"]] = {"cls": AGE_LIST, "options": [], "list_of": c["list_of"]}
+        for c in [*stated_ctx, *listed_ctx]:   # read again on the next try, like stated ages
+            if c["id"] in unfinished:
+                entry["narrow_pending"][c["id"]] = {"cls": c["cls"], "options": [], "context": True}
     return notes
 
 
@@ -437,6 +469,65 @@ def stated_ages(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> List[
         out[p] = {"id": sid, "cls": AGE_LIST, "about": f"the age of {p.replace('_', ' ') if p else 'the person'}",
                   "age_of": p}
     return list(out.values())
+
+
+def _context_scopes(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> List[Tuple[Leaf, Optional[str]]]:
+    """(giving list, person or None for the scene) for each scope where a bound pick's list takes
+    a context facet a stated-reading list gives (vocab.py: "stated") and no bound pick of that
+    scope gives it: the scopes whose stated value, or user list values, are worth reading."""
+    vocab = vocabulary()
+    out: List[Tuple[Leaf, Optional[str]]] = []
+    leaves = [(c, vocab.leaves[c["cls"]]) for c in bound]
+    for g in sorted((lf for lf in vocab.leaves.values() if lf.stated and lf.gives), key=lambda lf: lf.id):
+        person = vocab.scope(g.gives[0]) == "person"
+        takers = {person_of(c["id"]) if person else None for c, lf in leaves if set(lf.takes) & set(g.gives)}
+        given = {person_of(c["id"]) if person else None for c, lf in leaves if set(lf.gives) & set(g.gives)}
+        out += [(g, who) for who in sorted(takers - given, key=lambda x: x or "")]
+    return out
+
+
+def stated_context(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """For each such scope, a detail to read what the prompt states for that list ("a Japanese
+    woman" on descent, "at midnight" on the time of day): {"id", "cls", "about", "context_of"}.
+    Its subset is recorded as `entry["stated_context"]`; it weights that scope's takers like a
+    drawn value would (draws.py) when nothing drawn gives the facet."""
+    ids = {str(c.get("id")) for c in entry.get("choices") or []}
+    out = []
+    for g, who in _context_scopes(entry, bound):
+        name = g.id.rsplit(".", 1)[-1]
+        sid = f"{who}.stated_{name}" if who else (f"stated_{name}" if who == "" else f"scene.stated_{name}")
+        while sid in ids:
+            sid += "_"
+        ids.add(sid)
+        of = (who.replace("_", " ") if who else "the person") if who is not None else "the scene"
+        out.append({"id": sid, "cls": g.id, "about": f"the {g.label.lower()} of {of}", "context_of": who})
+    return out
+
+
+def list_context_values(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Each value of a user list in such a scope, as a detail narrowed on the giving list (as
+    list_age_values does for ages): which values read as, say, a descent is the narrowing
+    model's reading of each (cached by its words). Recorded as `entry["list_context"]`; a draw
+    of the value then gives its scope context (draws.py). The list itself is never filtered."""
+    out: List[Dict[str, Any]] = []
+    scopes = _context_scopes(entry, bound)
+    for c in entry.get("choices") or []:
+        if c.get("source") != "list" or c.get("kind", "pick") != "pick" or c.get("cls"):
+            continue
+        for g, who in scopes:
+            if who is not None and person_of(str(c.get("id"))) != who:
+                continue
+            of = (who.replace("_", " ") if who else "the person") if who is not None else "the scene"
+            for v in dict.fromkeys(str(o) for o in c.get("options") or [] if str(o).strip()):
+                out.append({"id": f'{c["id"]}\x00{g.id}\x00{v}', "cls": g.id, "where": v,
+                            "about": f"the {g.label.lower()} of {of}", "list_of": str(c["id"]), "value": v})
+    return out
+
+
+def _informative(leaf: Leaf, got: Sequence[str]) -> bool:
+    """A subset that says something: neither empty nor the whole list (words that don't speak to
+    the list keep every value)."""
+    return bool(got) and set(got) != {v.text for v in leaf.eligible()}
 
 
 def list_age_values(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:

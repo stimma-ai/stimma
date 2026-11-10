@@ -995,6 +995,9 @@
     ],
     "era": [
       "contemporary"
+    ],
+    "space": [
+      "indoor"
     ]
   },
   "local_facets": {
@@ -1007,6 +1010,11 @@
       "messy",
       "lived-in",
       "tidy"
+    ]
+  },
+  "context": {
+    "gives": [
+      "space"
     ]
   }
 }

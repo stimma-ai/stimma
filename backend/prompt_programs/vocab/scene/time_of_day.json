@@ -119,5 +119,11 @@
         ]
       }
     }
-  ]
+  ],
+  "context": {
+    "gives": [
+      "time_of_day"
+    ],
+    "stated": true
+  }
 }

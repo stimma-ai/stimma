@@ -115,6 +115,12 @@
         ],
         "climate": [
           "cold"
+        ],
+        "season": [
+          "late_autumn",
+          "early_winter",
+          "deep_winter",
+          "early_spring"
         ]
       }
     },
@@ -127,6 +133,12 @@
         ],
         "climate": [
           "cold"
+        ],
+        "season": [
+          "late_autumn",
+          "early_winter",
+          "deep_winter",
+          "early_spring"
         ]
       }
     },
@@ -139,6 +151,14 @@
         ],
         "climate": [
           "cold"
+        ],
+        "season": [
+          "late_autumn",
+          "early_winter",
+          "deep_winter",
+          "early_spring",
+          "late_spring",
+          "early_autumn"
         ]
       }
     },
@@ -151,6 +171,13 @@
         ],
         "climate": [
           "hot"
+        ],
+        "season": [
+          "late_spring",
+          "early_summer",
+          "high_summer",
+          "early_autumn",
+          "dry_season"
         ]
       }
     },
@@ -236,6 +263,11 @@
       "tags": {
         "space": [
           "outdoor"
+        ],
+        "season": [
+          "early_autumn",
+          "late_autumn",
+          "early_winter"
         ]
       }
     },
@@ -248,6 +280,12 @@
         ],
         "climate": [
           "cold"
+        ],
+        "season": [
+          "late_autumn",
+          "early_winter",
+          "deep_winter",
+          "early_spring"
         ]
       }
     },
@@ -260,6 +298,12 @@
         ],
         "climate": [
           "cold"
+        ],
+        "season": [
+          "late_autumn",
+          "early_winter",
+          "deep_winter",
+          "early_spring"
         ]
       }
     },
@@ -272,6 +316,12 @@
         ],
         "climate": [
           "cold"
+        ],
+        "season": [
+          "late_autumn",
+          "early_winter",
+          "deep_winter",
+          "early_spring"
         ]
       }
     },
@@ -284,6 +334,12 @@
         ],
         "climate": [
           "cold"
+        ],
+        "season": [
+          "late_autumn",
+          "early_winter",
+          "deep_winter",
+          "early_spring"
         ]
       }
     },
@@ -296,6 +352,11 @@
         ],
         "climate": [
           "cold"
+        ],
+        "season": [
+          "deep_winter",
+          "early_spring",
+          "late_spring"
         ]
       }
     },
@@ -308,6 +369,12 @@
         ],
         "climate": [
           "cold"
+        ],
+        "season": [
+          "late_autumn",
+          "early_winter",
+          "deep_winter",
+          "early_spring"
         ]
       }
     },
@@ -320,6 +387,13 @@
         ],
         "climate": [
           "hot"
+        ],
+        "season": [
+          "late_spring",
+          "early_summer",
+          "high_summer",
+          "early_autumn",
+          "dry_season"
         ]
       }
     },
@@ -332,6 +406,13 @@
         ],
         "climate": [
           "hot"
+        ],
+        "season": [
+          "late_spring",
+          "early_summer",
+          "high_summer",
+          "early_autumn",
+          "dry_season"
         ]
       }
     },
@@ -344,6 +425,12 @@
         ],
         "climate": [
           "cold"
+        ],
+        "season": [
+          "late_autumn",
+          "early_winter",
+          "deep_winter",
+          "early_spring"
         ]
       }
     },
@@ -374,5 +461,25 @@
         ]
       }
     }
-  ]
+  ],
+  "context": {
+    "gives": [
+      "climate"
+    ],
+    "stated": true,
+    "takes": {
+      "time_of_day": {
+        "mismatch": "rare",
+        "factor": 0.2
+      },
+      "space": {
+        "mismatch": "rare",
+        "factor": 0.1
+      },
+      "season": {
+        "mismatch": "rare",
+        "factor": 0.05
+      }
+    }
+  }
 }

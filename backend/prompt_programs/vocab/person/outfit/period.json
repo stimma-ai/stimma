@@ -3354,5 +3354,13 @@
       "1960s–70s",
       "1980s–90s"
     ]
+  },
+  "context": {
+    "takes": {
+      "climate": {
+        "mismatch": "rare",
+        "factor": 0.1
+      }
+    }
   }
 }

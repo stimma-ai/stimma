@@ -1672,5 +1672,17 @@
       "sign",
       "luminous object"
     ]
+  },
+  "context": {
+    "takes": {
+      "time_of_day": {
+        "mismatch": "rare",
+        "factor": 0.1
+      },
+      "space": {
+        "mismatch": "rare",
+        "factor": 0.05
+      }
+    }
   }
 }

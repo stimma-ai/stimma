@@ -28,6 +28,18 @@ Two markers on a value say who it is for:
   It leaves a person's bound pools when that person may be under 18 (see `minor_ages`).
   The user's own lists and wildcards are never filtered.
 
+Context: a drawn value gives context to the picks that follow it in the same scope.
+`facets.json`'s "context" section declares the context facets, each with a scope: "person"
+(a person's descent → their skin, eye and hair families) or "scene" (time of day, season,
+indoor or outdoor, climate → the light, weather and clothes that fit). A leaf says which
+context facets its values give ("gives") and which it takes ("takes", with what a mismatch
+costs: "rare" multiplies the value's weight by a factor, "never" sets it to 0). When a
+pick's leaf takes a facet, the tags on that facet of the values drawn before it in its
+scope (its person's, or the image's) weight its pool: a value whose tag shares a family
+with the context keeps its weight, one that shares none pays the mismatch, an untagged one
+fits every context. All of the knowledge is data; the engine only matches tag sets.
+The user's own lists, wildcards, pins and additions are never weighted (draws.py).
+
 More roots can be added (a stimpack's vocabulary); ids must not collide.
 """
 
@@ -38,7 +50,7 @@ import json
 import random
 import re
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -126,9 +138,60 @@ class Leaf:
     values: Tuple[Value, ...]
     local_facets: Dict[str, Tuple[str, ...]] = field(default_factory=dict)   # named parts the writer can ask for
     slots: str = ""            # templates: the palette list whose roles fill {main}/{accent}/{neutral}
+    gives: Tuple[str, ...] = ()                      # context facets its drawn values give (module docstring)
+    takes: Dict[str, Tuple[str, float]] = field(default_factory=dict)   # facet -> (rare | never, factor)
+    stated: bool = False       # a person's or scene's stated value of this list is read as context (narrow.py)
 
     def value(self, text: str) -> Optional[Value]:
-        return next((v for v in self.values if v.text == text), None)
+        return self._by_text.get(text)
+
+    @cached_property
+    def _by_text(self) -> Dict[str, Value]:
+        out: Dict[str, Value] = {}
+        for v in self.values:
+            out.setdefault(v.text, v)
+        return out
+
+    def context_tags(self, text: str, facet: str) -> Optional[Tuple[str, ...]]:
+        """A value's tags on a context facet (the leaf's `untagged` default when it has none),
+        or None when it has neither or isn't a value of this list."""
+        v = self.value(text)
+        if v is None:
+            return None
+        got = v.tags.get(facet, self.untagged.get(facet))
+        if got is None or got == "any":
+            return None
+        return tuple(str(x) for x in (got if isinstance(got, (list, tuple)) else [got]))
+
+    def weigh(self, items: Sequence[Tuple[str, float]],
+              context: Sequence[Tuple[str, Sequence[str]]]) -> List[Tuple[str, float]]:
+        """A pool's (value, weight) pairs weighted by the context it is drawn in: for each facet
+        this list takes, a value tagged on it that shares no family with the context pays the
+        mismatch (rare: × factor; never: × 0), and the values tagged on the facet are scaled back
+        to the share of the pool they had, so the context only moves weight among the values it
+        speaks to. Values with no tag on the facet (grey or dyed hair for descent), the facet's
+        neutral values and anything not in this list (a user's addition, a generated option) keep
+        their weight. A mismatch that would leave the tagged values no weight is not applied."""
+        out = list(items)
+        neutral = vocabulary().context_neutral
+        for facet, families in context:
+            mode = self.takes.get(facet)
+            if mode is None or not families:
+                continue
+            want, keep = set(families), set(neutral.get(facet, ()))
+            factor = 0.0 if mode[0] == "never" else mode[1]
+            tagged = [self.context_tags(o, facet) for o, _ in out]
+            spoken = [t is not None and not set(t) & keep for t in tagged]
+            nxt = [(o, w * factor) if s and not set(t or ()) & want else (o, w)
+                   for (o, w), t, s in zip(out, tagged, spoken)]
+            before = sum(w for (_, w), s in zip(out, spoken) if s)
+            after = sum(w for (_, w), s in zip(nxt, spoken) if s)
+            if before > 0 and after <= 0:
+                continue
+            if after > 0:
+                nxt = [(o, w * before / after) if s else (o, w) for (o, w), s in zip(nxt, spoken)]
+            out = nxt
+        return out
 
     def matching(self, want: Dict[str, Any], context: Optional[Dict[str, str]] = None) -> List[Value]:
         """Eligible values whose tags satisfy a local-facet filter (where={...})."""
@@ -201,6 +264,18 @@ class Vocabulary:
     leaves: Dict[str, Leaf]
     facets: Dict[str, Dict[str, Any]]
     version: str
+    context: Dict[str, Dict[str, Any]] = field(default_factory=dict)   # context facet -> {scope, values, neutral, about}
+
+    @property
+    def context_neutral(self) -> Dict[str, Tuple[str, ...]]:
+        return {f: tuple(spec.get("neutral") or ()) for f, spec in self.context.items()}
+
+    def scope(self, facet: str) -> str:
+        """A context facet's scope: "person" or "scene"."""
+        return str((self.context.get(facet) or {}).get("scope") or "scene")
+
+    def givers(self, facet: str) -> List["Leaf"]:
+        return [lf for lf in self.leaves.values() if facet in lf.gives]
 
     @property
     def defaults(self) -> Dict[str, str]:
@@ -244,7 +319,7 @@ class Vocabulary:
     def to_dict(self) -> Dict[str, Any]:
         """The whole tree, for the dev browser."""
         return {
-            "version": self.version, "facets": self.facets, "defaults": self.defaults,
+            "version": self.version, "facets": self.facets, "defaults": self.defaults, "context": self.context,
             "nodes": [vars(n) for n in sorted(self.nodes.values(), key=lambda n: n.id)],
             "leaves": [{
                 "id": lf.id, "label": lf.label, "description": lf.description, "pos": lf.pos, "frame": lf.frame,
@@ -252,6 +327,7 @@ class Vocabulary:
                 "untagged": {k: list(v) for k, v in lf.untagged.items()},
                 **({"local_facets": {k: list(v) for k, v in lf.local_facets.items()}} if lf.local_facets else {}),
                 **({"slots": lf.slots} if lf.slots else {}),
+                **({"context": _context_dict(lf)} if lf.gives or lf.takes else {}),
                 "values": [{"text": v.text, "tier": v.tier, **({"tags": v.tags} if v.tags else {}),
                             **({"roles": v.roles} if v.roles else {}), **({"palette": v.palette} if v.palette else {}),
                             **({"opt_in": True} if v.opt_in else {}), **({"adult_only": True} if v.adult_only else {})}
@@ -260,7 +336,23 @@ class Vocabulary:
         }
 
 
+def _context_dict(lf: Leaf) -> Dict[str, Any]:
+    return {**({"gives": list(lf.gives)} if lf.gives else {}), **({"stated": True} if lf.stated else {}),
+            **({"takes": {f: ({"mismatch": m} if m == "never" else {"mismatch": m, "factor": x})
+                          for f, (m, x) in lf.takes.items()}} if lf.takes else {})}
+
+
+def _leaf_context(d: Dict[str, Any]) -> Tuple[Tuple[str, ...], Dict[str, Tuple[str, float]], bool]:
+    ctx = d.get("context") or {}
+    takes = {}
+    for f, spec in (ctx.get("takes") or {}).items():
+        mode = str((spec or {}).get("mismatch") or "rare")
+        takes[str(f)] = ("never", 0.0) if mode == "never" else ("rare", float((spec or {}).get("factor", 0.1)))
+    return tuple(str(f) for f in ctx.get("gives") or ()), takes, ctx.get("stated") is True
+
+
 def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
+    gives, takes, stated = _leaf_context(d)
     vals = tuple(Value(str(v["text"]), str(v.get("tier") or "plausible"), dict(v.get("tags") or {}),
                        {str(k): str(x) for k, x in (v.get("roles") or {}).items()}, dict(v.get("palette") or {}),
                        v.get("opt_in") is True, v.get("adult_only") is True)
@@ -268,13 +360,15 @@ def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
     return Leaf(lid, str(d.get("label") or lid), str(d.get("description") or ""), str(d.get("pos") or ""),
                 str(d.get("frame") or ""), str(d.get("notes") or ""), tuple(d.get("facets") or ()),
                 bool(d.get("closed")), {k: tuple(v) for k, v in (d.get("untagged") or {}).items()}, vals,
-                {k: tuple(v) for k, v in (d.get("local_facets") or {}).items()}, str(d.get("slots") or ""))
+                {k: tuple(v) for k, v in (d.get("local_facets") or {}).items()}, str(d.get("slots") or ""),
+                gives, takes, stated)
 
 
 def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
     nodes: Dict[str, Node] = {}
     leaves: Dict[str, Leaf] = {}
     facets: Dict[str, Dict[str, Any]] = {}
+    context: Dict[str, Dict[str, Any]] = {}
     h = hashlib.sha256()
     for root in roots:
         if not root.is_dir():
@@ -283,8 +377,11 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
         if fpath.exists():
             raw = fpath.read_bytes()
             h.update(raw)
-            for k, v in (json.loads(raw).get("facets") or {}).items():
+            got = json.loads(raw)
+            for k, v in (got.get("facets") or {}).items():
                 facets.setdefault(k, v)
+            for k, v in ((got.get("context") or {}).get("facets") or {}).items():
+                context.setdefault(k, v)
         for p in sorted(root.rglob("*.json")):
             rel = p.relative_to(root)
             if rel.name == "facets.json":
@@ -300,12 +397,27 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
                 if lid in leaves:
                     raise ValueError(f"vocabulary: {lid} is defined twice")
                 leaves[lid] = _leaf(lid, d)
-    return Vocabulary(nodes, leaves, facets, "vocab-" + h.hexdigest()[:12])
+    return Vocabulary(nodes, leaves, facets, "vocab-" + h.hexdigest()[:12], context)
 
 
 @lru_cache(maxsize=1)
 def vocabulary() -> Vocabulary:
     return load()
+
+
+def given_families(cls: str, values: Sequence[str]) -> Dict[str, Tuple[str, ...]]:
+    """The context a subset of a giving list's values gives (a stated "Japanese", a user's list
+    value read on the descent list): per facet the list gives, the union of their tags. A facet
+    some value of the subset has no tag on gives nothing (it could be anything)."""
+    leaf = vocabulary().get(cls)
+    if leaf is None or not values:
+        return {}
+    out: Dict[str, Tuple[str, ...]] = {}
+    for f in leaf.gives:
+        tags = [leaf.context_tags(str(x), f) for x in values]
+        if tags and all(t for t in tags):
+            out[f] = tuple(sorted({x for t in tags for x in t}))   # type: ignore[union-attr]
+    return out
 
 
 def minor_ages(values: Sequence[str]) -> Tuple[str, ...]:
@@ -318,5 +430,5 @@ def minor_ages(values: Sequence[str]) -> Tuple[str, ...]:
     return tuple(v.text for v in leaf.values if v.text in want and v.minor)
 
 
-__all__ = ["AGE_LIST", "Leaf", "Node", "Value", "Vocabulary", "load", "minor_ages", "vocabulary", "TIER_WEIGHTS",
-           "OPEN_SHARE"]
+__all__ = ["AGE_LIST", "Leaf", "Node", "Value", "Vocabulary", "given_families", "load", "minor_ages", "vocabulary",
+           "TIER_WEIGHTS", "OPEN_SHARE"]

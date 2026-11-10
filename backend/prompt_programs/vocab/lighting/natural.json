@@ -871,5 +871,19 @@
       "window",
       "moon"
     ]
+  },
+  "context": {
+    "takes": {
+      "time_of_day": {
+        "mismatch": "never"
+      },
+      "space": {
+        "mismatch": "never"
+      },
+      "climate": {
+        "mismatch": "rare",
+        "factor": 0.2
+      }
+    }
   }
 }
