@@ -27,8 +27,7 @@ const ghost = computed(() => completionFor(text.value, props.kind))
 const rows = computed<{ kind: 'recent' | 'idea'; label: string }[]>(() => {
   const q = text.value.trim()
   if (!q) return history.value ? recentPrompts(props.kind).map(label => ({ kind: 'recent' as const, label })) : []
-  const full = (text.value + ghost.value).trim().toLowerCase()
-  const seen = new Set([full])
+  const seen = new Set([q.toLowerCase()])
   const out: { kind: 'recent' | 'idea'; label: string }[] = []
   const add = (kind: 'recent' | 'idea', label: string) => {
     const k = label.toLowerCase()
@@ -70,7 +69,7 @@ function onKey(e: KeyboardEvent) {
   } else if (e.key === 'Enter') {
     e.preventDefault()
     const pick = highlighted.value >= 0 ? rows.value[highlighted.value]?.label : null
-    send(pick ?? text.value + ghost.value, e.metaKey || e.ctrlKey)
+    send(pick ?? text.value, e.metaKey || e.ctrlKey)
   } else if (e.key === 'Escape') {
     // Clears the prompt first; an empty prompt lets the menu close.
     if (!text.value && !history.value) return

@@ -1404,6 +1404,7 @@ import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import SendButton from '../components/ui/SendButton.vue'
 import ChatMessageQueue, { type QueuedMessage } from '../components/chat/ChatMessageQueue.vue'
 import { useChatLiveState } from '../composables/useChatLiveState'
+import { useAgentActivity } from '../composables/useAgentActivity'
 import { useChatDock, chatOnScreen, setStageIntent, takeStageIntent } from '../composables/useChatDock'
 import { useUnseenActivity } from '../composables/useUnseenActivity'
 import ChatDockHeader from '../components/chat/ChatDockHeader.vue'
@@ -1486,7 +1487,7 @@ import { useStimpacksApi } from '../composables/useStimpacksApi'
 import { useSlideshow } from '../composables/useSlideshow'
 import { artifactRevisionEntries, collectChatMedia, collectionRowOf } from '../utils/chatMedia'
 import { getMediaType } from '../utils/mediaTypes'
-import { getCurrentProfileId } from '../composables/useProfile'
+import { getCurrentProfileId, getCurrentDbGuid } from '../composables/useProfile'
 import { makeProfileKey } from '../utils/storageKeys'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useRealtimeTopic } from '../composables/useRealtimeTopic'
@@ -1605,7 +1606,7 @@ watch(chatId, () => textRenderCache.clear())
 const itemIndex = computed(() => buildChatItemIndex(items.value))
 // The queue and the sending flag belong to the chat, not this view: the same
 // chat can be open full size and small in the dock at once.
-const liveState = useChatLiveState(chatId)
+const liveState = useChatLiveState(chatId, () => `${getApiBase()}|${getCurrentProfileId()}|${getCurrentDbGuid()}`)
 const sending = liveState.sending
 const messageHistory = ref([])  // History of sent messages
 const historyIndex = ref(-1)    // -1 = current input, 0+ = history position
@@ -4277,9 +4278,12 @@ async function sendMessage(queuedMessage = null) {
 
 // Process the next queued message when idle
 function processNextQueuedMessage() {
-  // Only the view that owns this chat's queue drains it.
+  // Only the view that owns this chat's queue drains it, and never while the
+  // chat runs anywhere: this view's own flags may not have caught up yet (a
+  // view that just came into sight), the app-wide running set has.
   if (!liveState.isOwner.value) return
   if (sending.value || agentRunning.value || agentPlanning.value) return
+  if (chatId.value != null && isChatRunningAnywhere(chatId.value)) return
   if (messageQueue.value.length === 0) return
   if (Date.now() < queueBackoffUntil) return
 
@@ -4300,12 +4304,16 @@ watch(
   }
 )
 
-// Ownership moving here (this view came into sight) may find work waiting.
-watch(() => liveState.isOwner.value, (owner) => {
-  if (!owner) return
+// Ownership moving here (this view came into sight) may find work waiting;
+// learn the chat's real state first, so nothing already sent goes again.
+watch(() => liveState.isOwner.value, async (owner) => {
+  if (!owner || !messageQueue.value.length) return
+  await syncAgentStatus()
+  if (!liveState.isOwner.value) return
   processNextQueuedMessage()
   pumpSteers()
 })
+const { isChatGenerating: isChatRunningAnywhere } = useAgentActivity()
 
 // Queue watchdog: while messages are queued, periodically reconcile agent
 // state with the server and try to drain. The idle-watcher above only fires
@@ -4360,6 +4368,8 @@ const dockBusy = computed(() => agentRunning.value || agentPlanning.value || sen
 const dockNeedsYou = computed(() => {
   if (hasActiveHITLRequest.value || chatInterrupted.value) return true
   if (dockBusy.value) return false
+  // The composer's model/account recovery, with something waiting to send.
+  if ((noUsableChatModels.value || isChatModelUnavailable.value) && (messageInput.value.trim() || messageQueue.value.length)) return true
   return items.value[items.value.length - 1]?.item_type === 'error'
 })
 const dockPresence = computed(() => {
@@ -4408,8 +4418,10 @@ watch(dockBusy, (busy, wasBusy) => {
   }
 })
 // Seen in the dock: the sidebar's dot for this chat clears too.
+watch(() => props.docked && chatId.value != null && chatDock.isOpenInDock(chatId.value), (inSight) => {
+  if (inSight && document.hasFocus()) clearUnseenDot(`chat:${chatId.value}`)
+})
 watch(() => props.docked && props.dockWin === 'open', (openNow) => {
-  if (openNow && chatId.value != null) clearUnseenDot(`chat:${chatId.value}`)
   // Coming into sight takes this chat's queue; folding to a row steps back.
   if (!props.docked) return
   if (openNow) liveState.claim()

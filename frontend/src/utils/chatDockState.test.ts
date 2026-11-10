@@ -3,7 +3,7 @@ import test from 'node:test'
 
 import { DOCK_SIZES, fitDock, foldOpenWindows, sanitizeDock, type DockEntry } from './chatDockState.ts'
 
-const entry = (chatId: number, win: 'row' | 'open', at: number): DockEntry => ({ chatId, win, at, initial: null })
+const entry = (chatId: number, win: 'row' | 'open', at: number): DockEntry => ({ chatId, win, at })
 
 test('a stored dock keeps one entry per chat and drops junk', () => {
   const out = sanitizeDock({ entries: [
@@ -13,8 +13,8 @@ test('a stored dock keeps one entry per chat and drops junk', () => {
     { chatId: 4, win: 'weird', at: 7 },
   ] }, 100)
   assert.deepEqual(out, [
-    { chatId: 3, win: 'open', at: 5, initial: { text: 'upscale', mediaIds: [1, 2] } },
-    { chatId: 4, win: 'row', at: 7, initial: null },
+    { chatId: 3, win: 'open', at: 5 },
+    { chatId: 4, win: 'row', at: 7 },
   ])
   assert.deepEqual(sanitizeDock(null), [])
   assert.deepEqual(sanitizeDock({ entries: 'no' }), [])

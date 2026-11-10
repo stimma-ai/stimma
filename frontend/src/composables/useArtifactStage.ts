@@ -378,9 +378,8 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
     watch(
       () => [chatId.value, stageOpen.value, workspaceFile.value, collectionItemId.value, onNewest.value, assetId.value, viewedRevisionId.value] as const,
       ([id, open, file, collection, newest, asset, revision], prev) => {
-        const prevId = prev?.[0]
-        if (prevId != null && prevId !== id) pinnedRevisions.delete(String(prevId))
-        if (id == null) return
+        // Moving to another chat leaves that chat's pin as it was.
+        if (id == null || (prev && prev[0] !== id)) return
         if (open && !file && collection == null && !newest && asset != null && revision != null) {
           pinnedRevisions.set(String(id), { assetId: asset, revisionId: revision, revisionNumber: viewedRevision.value?.revision_number ?? null })
         } else {

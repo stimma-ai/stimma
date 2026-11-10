@@ -7,8 +7,6 @@ export interface DockEntry {
   win: DockWin
   /** When it was docked (or brought to the corner): the newest sits in the corner. */
   at: number
-  /** A first message to send once the chat's view is up (a quick ask). */
-  initial?: { text: string; mediaIds: number[] } | null
 }
 
 export const MAX_OPEN = 2
@@ -26,9 +24,6 @@ export function sanitizeDock(raw: unknown, now = Date.now()): DockEntry[] {
       chatId,
       win: e?.win === 'open' ? 'open' : 'row',
       at: Number.isFinite(e?.at) ? e.at : now,
-      initial: e?.initial && typeof e.initial.text === 'string'
-        ? { text: e.initial.text, mediaIds: Array.isArray(e.initial.mediaIds) ? e.initial.mediaIds.filter((n: unknown) => typeof n === 'number') : [] }
-        : null,
     })
   }
   return out

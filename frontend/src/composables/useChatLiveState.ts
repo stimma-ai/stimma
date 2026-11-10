@@ -28,8 +28,10 @@ interface LiveState {
 
 const states = new Map<string, LiveState>()
 
-function stateFor(chatId: number | string | null): LiveState {
-  const key = chatId == null ? '' : String(chatId)
+// Chat ids are per database: `scope` names the profile and database, so the
+// same id in another profile is another chat's state.
+function stateFor(chatId: number | string | null, scope: string): LiveState {
+  const key = `${scope}/${chatId == null ? '' : String(chatId)}`
   let state = states.get(key)
   if (!state) {
     state = { queue: ref<QueuedMessage[]>([]), sending: ref(false), holders: ref<symbol[]>([]) }
@@ -38,9 +40,9 @@ function stateFor(chatId: number | string | null): LiveState {
   return state
 }
 
-export function useChatLiveState(chatId: Ref<number | string | null>) {
+export function useChatLiveState(chatId: Ref<number | string | null>, scope: () => string = () => '') {
   const token = Symbol('chat-view')
-  const current = computed(() => stateFor(chatId.value))
+  const current = computed(() => stateFor(chatId.value, scope()))
 
   const messageQueue = computed<QueuedMessage[]>({
     get: () => current.value.queue.value,
@@ -69,7 +71,7 @@ export function useChatLiveState(chatId: Ref<number | string | null>) {
   }
   /** Another live view still holds this chat (its queue stays with it). */
   function heldElsewhere(id: number | string | null) {
-    return stateFor(id).holders.value.some(t => t !== token)
+    return stateFor(id, scope()).holders.value.some(t => t !== token)
   }
 
   const isOwner = computed(() => {
@@ -79,7 +81,7 @@ export function useChatLiveState(chatId: Ref<number | string | null>) {
 
   // Switching conversations moves this view's hold with it.
   watch(chatId, (_next, prev) => {
-    const prevState = stateFor(prev ?? null)
+    const prevState = stateFor(prev ?? null, scope())
     const held = prevState.holders.value.includes(token)
     release(prevState)
     if (held) claim()

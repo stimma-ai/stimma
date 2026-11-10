@@ -8,13 +8,13 @@
 // On a phone there's no room for windows: the dock is one floating button
 // with the chat glyph, a spinner on its corner while anything is working and
 // a dot when a chat wants you. Tapping it opens that chat full screen.
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/vue/24/outline'
 import ChatView from '../../views/ChatView.vue'
 import Spinner from '../ui/Spinner.vue'
 import StatusDot from '../ui/StatusDot.vue'
-import { useChatDock, selectionBarUp } from '../../composables/useChatDock'
+import { useChatDock, selectionBarUp, visibleOpen } from '../../composables/useChatDock'
 import { useViewport } from '../../composables/useViewport'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { textClass } from '../../utils/statusColors'
@@ -43,6 +43,13 @@ const visible = computed(() => dock.docked.value.filter(e => e.chatId !== onScre
 const layout = computed(() => fitDock(visible.value, width.value))
 const shownIds = computed(() => new Set(layout.value.shown))
 const hidden = computed(() => visible.value.filter(e => !shownIds.value.has(e.chatId)))
+// Seen means an open window actually on screen; on a phone there are none.
+watchEffect(() => {
+  visibleOpen.value = isCompact.value
+    ? new Set()
+    : new Set(visible.value.filter(e => e.win === 'open' && shownIds.value.has(e.chatId)).map(e => e.chatId))
+})
+onBeforeUnmount(() => { visibleOpen.value = new Set() })
 function widthOf(win: 'row' | 'open') {
   return `${win === 'open' ? DOCK_SIZES.open : layout.value.rowWidth}px`
 }

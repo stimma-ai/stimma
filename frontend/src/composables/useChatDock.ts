@@ -38,6 +38,9 @@ const entries = ref<DockEntry[]>([])
 const presence = reactive(new Map<number, DockPresence>())
 /** Windows that just folded to a row, so the row can flash once. */
 const foldedAt = reactive(new Map<number, number>())
+/** The open windows the dock is showing right now (set by ChatDock from its layout). */
+export const visibleOpen = ref<Set<number>>(new Set())
+const pendingInitial = new Map<number, { text: string; mediaIds: number[] }>()
 /** A selection bar is up at the bottom of the screen: the phone's dock button rises above it. */
 export const selectionBarUp = ref(false)
 let loadedKey: string | null = null
@@ -104,13 +107,14 @@ export function useChatDock() {
   /** Newest first. */
   const docked = computed(() => [...entries.value].sort((a, b) => b.at - a.at))
 
-  function dock(chatId: number, options: { open?: boolean; initial?: DockEntry['initial'] } = {}) {
+  function dock(chatId: number, options: { open?: boolean; initial?: { text: string; mediaIds: number[] } | null } = {}) {
     const existing = find(chatId)
     if (existing) {
       if (options.open) open(chatId)
       return
     }
-    entries.value = [...entries.value, { chatId, win: options.open ? 'open' : 'row', at: Date.now(), initial: options.initial ?? null }]
+    if (options.initial) pendingInitial.set(chatId, options.initial)
+    entries.value = [...entries.value, { chatId, win: options.open ? 'open' : 'row', at: Date.now() }]
     if (options.open) foldExtras(chatId)
     save()
   }
@@ -140,12 +144,11 @@ export function useChatDock() {
     save()
   }
 
+  // The first message is this client's to send: it never goes into the
+  // shared dock document, so another client can't send it too.
   function consumeInitial(chatId: number) {
-    const entry = find(chatId)
-    if (!entry?.initial) return null
-    const initial = entry.initial
-    update(chatId, { initial: null })
-    save()
+    const initial = pendingInitial.get(chatId) ?? null
+    pendingInitial.delete(chatId)
     return initial
   }
 
@@ -153,9 +156,9 @@ export function useChatDock() {
     return chatId != null && !!find(Number(chatId))
   }
 
-  /** Open in the dock and visible (not stepped aside): counts as seen. */
+  /** An open window actually on screen (laid out by the dock, not folded, not stepped aside). */
   function isOpenInDock(chatId: number) {
-    return find(chatId)?.win === 'open' && chatOnScreen() !== chatId
+    return visibleOpen.value.has(chatId)
   }
 
   function reportPresence(chatId: number, p: DockPresence) {
