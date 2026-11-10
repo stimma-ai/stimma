@@ -271,7 +271,7 @@ async def writer_style(prompt: str, ctx: Dict[str, Any], instructions: str, lora
                                    project_id=project_id, lora_context=lora_context or [], **(ctx.get("enhance") or {}))
     db = get_database_registry().get_database(profile_id)
     async with db.async_session_maker() as session:
-        guide, images, _mode = await style_guide(request, session, fill=(level == "fill"))
+        guide, images, _mode = await style_guide(request, session, fill=(level == "fill"), exact_canvas=False)
     return guide, images
 
 
@@ -1304,9 +1304,14 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
                      "trigger_words": [t.strip() for t in lo.trigger.split(",") if t.strip()] if lora_triggers else [],
                      "notes": notes.get(lo.name, "")}
                     for lo in candidates if lo.on and ((lo.trigger and lora_triggers) or notes.get(lo.name))]
-    # The canvas only matters to layout formats (Ideogram), which have no programs;
-    # leaving it out keeps a prepared program valid across sizes.
+    # The canvas's size never reaches the writer, only its shape, and only for models whose
+    # guide composes for it (Qwen-Image, FLUX.3 Klein): there the shape is part of the key, so
+    # turning a landscape portrait won't reuse a program written "a wide landscape…"; for
+    # every other model one program serves every size.
+    from routes.prompt_enhancement import canvas_shape, guide_uses_canvas
     enhance = {k: v for k, v in (ctx.get("enhance") or {}).items() if k not in ("width", "height")}
+    if level != "off" and guide_uses_canvas(str(ctx.get("mode") or ""), fill=(level == "fill")):
+        enhance["canvas"] = canvas_shape((ctx.get("enhance") or {}).get("width"), (ctx.get("enhance") or {}).get("height"))
     parts = {
         "v": PREPARE_VERSION, "vocab": vocabulary().version, "tool": tool_id, "model": ctx.get("model"),
         "mode": ctx.get("mode"), "enhance": enhance, "instructions": instructions,

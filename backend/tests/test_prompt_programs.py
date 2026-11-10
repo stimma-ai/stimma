@@ -186,6 +186,29 @@ class TestPrepare:
         b = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=unsized, instructions="", lora_items=[], project_id=None, profile_id="p")
         assert a["key"] == b["key"] and len(calls) == 1
 
+    async def test_canvas_shape_is_in_the_key_where_the_guide_composes_for_it(self, stub):
+        calls, replies = stub
+        replies += [f"```python\n{TRAIN_M}```"] * 2
+
+        def sized(w, h):
+            return {**ctx(SCHEMA), "mode": "qwen-image-2.1", "enhance": {"is_video": False, "width": w, "height": h}}
+
+        async def at(w, h):
+            return await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=sized(w, h), instructions="",
+                                             lora_items=[], project_id=None, profile_id="p")
+        wide, wider, tall = await at(1344, 768), await at(1600, 900), await at(768, 1344)
+        assert wide["key"] == wider["key"]  # one program per shape, whatever the size
+        assert tall["key"] != wide["key"] and len(calls) == 2
+
+    def test_fluents_guide_names_the_canvas_shape_not_its_size(self):
+        from routes.prompt_enhancement import _flux3_canvas_guidance, _qwen_canvas_guidance, guide_uses_canvas
+        assert "1344x768" in _qwen_canvas_guidance(1344, 768)  # the per-image enhancer: exact
+        assert "1344" not in _qwen_canvas_guidance(1344, 768, exact=False)
+        assert _qwen_canvas_guidance(1344, 768, exact=False) == _qwen_canvas_guidance(1600, 900, exact=False)
+        assert "tall frame" in _flux3_canvas_guidance(768, 1344, exact=False)
+        assert guide_uses_canvas("qwen-image-2.1") and guide_uses_canvas("flux3-klein")
+        assert not guide_uses_canvas("prose") and not guide_uses_canvas("qwen-image-2.1", fill=True)
+
     async def test_retries_with_the_problem(self, stub):
         calls, replies = stub
         replies.append('```python\nemit("A woman on a platform")\n```')  # drops the user list + protected text
