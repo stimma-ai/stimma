@@ -120,7 +120,7 @@ class Analysis:
 
 
 _KEEP_BUILTINS = {"str", "list", "sorted", "min", "max", "enumerate", "zip", "dict", "set"}
-_KEEP_METHODS = {"join", "lower", "upper", "capitalize", "title", "strip", "format", "replace", "split",
+_KEEP_METHODS = {"join", "lower", "upper", "capitalize", "title", "strip", "replace", "split",
                  "items", "keys", "values"}
 
 

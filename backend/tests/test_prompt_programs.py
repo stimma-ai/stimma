@@ -907,3 +907,72 @@ def test_a_one_item_list_is_fixed_text():
     assert not prep.validate(out, "A vase of lilacs", [], set())["problems"]
     wild = 'e = pick("ethnicity", ["asian or euro ethnicity"], source="list", phase=1, line=1)\nemit("A woman,", e)\n'
     assert prep.fix_one_item_lists(wild, "A woman, {{asian or euro ethnicity}}") == (wild, [])
+
+
+# --------------------------------------------------------------------------- the sandbox
+# Every hostile program runs on both paths: plain run(), and the phased draw() a program
+# with pick specs takes (its own analyzer, then the same sandbox).
+
+def _plain(body: str) -> str:
+    return f'era = pick("era", ["1920s", "1970s"], source="list")\n{body}\nemit("A portrait,", era)\n'
+
+
+def _phased(body: str) -> str:
+    return f'era = pick("era", ["1920s", "1970s"], source="list", phase=1)\n{body}\nemit("A portrait,", era)\n'
+
+
+def _both(body: str):
+    from prompt_programs.draws import draw
+    return [lambda: run(_plain(body), 3), lambda: draw(_phased(body), 3)]
+
+
+SECRET = "sandbox-test-secret-value"
+
+ESCAPES = [
+    # the review's exploits: format-string field names traverse attributes and items
+    'x = "{0.__func__.__globals__[sys].modules[os].environ[PP_SANDBOX_SECRET]}".format(pick)',
+    'x = "{0.__self__.__loader__.find_spec.__func__.__globals__[sys].modules[os].environ[PP_SANDBOX_SECRET]}".format(len)',
+    'x = str.format("{0.__self__}", len)',
+    'x = "{0.__self__}".format_map({})',
+    'f = "{}".format\nx = f(len)',
+    'x = format(len, "")',
+    'x = getattr(len, "__self__")',
+    'x = f"{len.__self__}"',
+    'x = f"{era.__class__}"',
+    'x = f"{era:{len.__self__}}"',
+    'x = "%(__class__)s" % era',
+    'x = vars(len)',
+]
+
+
+class TestSandbox:
+    @pytest.mark.parametrize("body", ESCAPES)
+    def test_no_route_out(self, body, monkeypatch):
+        monkeypatch.setenv("PP_SANDBOX_SECRET", SECRET)
+        for go in _both(body + "\nemit(x)"):
+            try:
+                out = go()
+            except ProgramError:
+                continue
+            assert SECRET not in out.prompt.lower() and "module" not in out.prompt.lower()
+
+    def test_format_is_not_a_method(self):
+        for go in _both('x = "{}".format(era)'):
+            with pytest.raises(ProgramError, match=r"\.format is not allowed"):
+                go()
+
+    @pytest.mark.parametrize("body, text", [
+        ('x = f"{7:02d}"', "07"),
+        ('x = f"{era:_>8}"', "___1920s"),
+        ('x = f"{era!r}"', "'1920s'"),
+        ('x = f"{2.5:.2f}"', "2.50"),
+        ('w = 7\nx = f"{era:*<{w}}"', "1920s**"),
+        ('x = "%02d and %s" % (4, era)', "04 and 1920s"),
+        ('x = f"{len(era)} letters, {era.upper()}"', "5 letters, 1920S"),
+    ])
+    def test_formatting_still_works(self, body, text):
+        src_plain = _plain(body + "\nemit(x)").replace('["1920s", "1970s"]', '["1920s"]')
+        src_phased = _phased(body + "\nemit(x)").replace('["1920s", "1970s"]', '["1920s"]')
+        from prompt_programs.draws import draw
+        assert text in run(src_plain, 1).prompt
+        assert text in draw(src_phased, 1).prompt

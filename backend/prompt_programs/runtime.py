@@ -56,7 +56,7 @@ _ALLOWED_NODES: Tuple[type, ...] = (
 )
 _ALLOWED_METHODS = {
     "append", "extend", "get", "items", "keys", "values", "join", "lower", "upper",
-    "capitalize", "title", "strip", "replace", "startswith", "endswith", "split", "format", "count", "index",
+    "capitalize", "title", "strip", "replace", "startswith", "endswith", "split", "count", "index",
 }
 _SAFE_BUILTINS: Dict[str, Any] = {
     "range": range, "len": len, "str": str, "int": int, "float": float, "min": min, "max": max,
