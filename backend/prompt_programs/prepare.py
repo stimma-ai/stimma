@@ -30,7 +30,8 @@ from prompt_programs.vocab import vocabulary
 log = get_logger(__name__)
 
 PREPARE_VERSION = "pp-46"   # pp-46: said= keeps a thing the user named (said.py); context facets: a stated descent, time
-# or season and user list values read as context. pp-45: a user list's ages under 18 are read (narrow.list_age_values)
+# or season and user list values read as context; every subject's details name the subject, shared=True (fix_subjects).
+# pp-45: a user list's ages under 18 are read (narrow.list_age_values)
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -369,7 +370,7 @@ def _smart_choice(info: Dict[str, Any], name: str) -> Optional[Dict[str, Any]]:
 def _smart_missing(name: str, info: Dict[str, Any]) -> str:
     """The repair note for a {{wildcard}} no pick's id names."""
     want = smart_id(name)
-    groups = [g.get("id") for g in info.get("groups") or [] if g.get("id")]
+    groups = [g.get("id") for g in info.get("groups") or [] if g.get("id") and not g.get("from_ids")]  # group() calls
     per_person = (f' Inside a loop over {groups[0]}, one per person: pick(f"{groups[0]}[{{i+1}}].{want}", ...).'
                   if groups else "")
     return (f'{{{{{name}}}}} is a smart wildcard, but no pick has the id "{want}". Write it as pick("{want}", '
@@ -750,6 +751,177 @@ def fix_generated_refs(source: str) -> Tuple[str, List[str]]:
             edits.append((pos(about.lineno, about.col_offset), pos(about.end_lineno, about.end_col_offset), literal))
             notes.append(f"about= of {_const(call.args[0]) if call.args else '?'} describes "
                          + ", ".join(sorted({h.value.id for h in hits})) + " instead of naming it")  # type: ignore[attr-defined]
+    for start, end, text in sorted(edits, reverse=True):
+        source = source[:start] + text + source[end:]
+    return source, notes
+
+
+_FLAT_SUBJECT = re.compile(r"^(?P<p>[A-Za-z][A-Za-z0-9]*?)(?:_?(?P<n>\d+))?_(?P<s>[A-Za-z][A-Za-z0-9_]*)$")
+
+
+_NUMBERED = re.compile(r"^(?P<stem>[A-Za-z][A-Za-z_]*?)_?(?P<n>\d{1,2})$")
+
+
+def _individual_leaf(cls: Any) -> bool:
+    leaf = vocabulary().resolve(cls) if isinstance(cls, str) and cls.strip() else None
+    return leaf is not None and leaf.individual and not any(lf.slots == leaf.id for lf in vocabulary().leaves.values())
+
+
+def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
+    """Give each subject's details ids that name the subject, in code, from the program's
+    own structure (never the user's words), so the card groups them and each person's
+    rules (their age) hold for their own details:
+    - a pick inside the loop over a group() whose id names no one ("age", f"hair_{i}") is
+      that member's: f"friends[{i+1}].age";
+    - a plain id that starts with a subject the program names elsewhere ("mother_outfit"
+      beside "mother.age", "friends_2_hair" beside group("friends", 3)) is that subject's:
+      "mother.outfit", "friends[2].hair";
+    - plain ids bound to the same per-individual list with the same detail but different
+      owners ("mother_age", "daughter_age"), each owner heading at least two details,
+      name those owners: "mother.age", "daughter.age";
+    - plain ids of one detail that differ only by a number ("eth1", "eth2"), when bound to a
+      per-individual list or when two or more details are numbered alike ("outfit1",
+      "outfit2", "face1", "face2"), are numbered subjects: the program's one group()
+      ("couple[1].eth"), else the list's namespace ("person[1].eth") or "subject[1]";
+    - exactly two plain prefixes that each head two or more details and between them head
+      every per-individual pick ("woman_age", "woman_outfit", "dog_breed", "dog_size") are
+      subjects: "woman.age", "dog.breed".
+    A smart wildcard's own id is the user's and stays. Anything else is left for validation."""
+    from prompt_programs.runtime import subject_of
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, []
+    wild = {smart_id(n) for n in smart_wildcards(prompt)}
+    groups: Dict[str, str] = {}  # variable -> group id
+    for n in ast.walk(tree):
+        if (isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name)
+                and isinstance(n.value, ast.Call) and getattr(n.value.func, "id", None) == "group"
+                and n.value.args and isinstance(_const(n.value.args[0]), str)):
+            groups[n.targets[0].id] = _const(n.value.args[0])
+    gids = set(groups.values())
+    loop_of: Dict[int, Tuple[str, str]] = {}  # pick call -> (loop variable, group id) of its innermost group loop
+
+    def visit(node: ast.AST, loop: Optional[Tuple[str, str]]) -> None:
+        if (isinstance(node, ast.For) and isinstance(node.target, ast.Name) and isinstance(node.iter, ast.Call)
+                and getattr(node.iter.func, "id", None) == "range" and len(node.iter.args) == 1):
+            arg = node.iter.args[0]
+            g = groups.get(arg.id) if isinstance(arg, ast.Name) else (
+                _const(arg.args[0]) if isinstance(arg, ast.Call) and getattr(arg.func, "id", None) == "group"
+                and arg.args else None)
+            if isinstance(g, str):
+                gids.add(g)
+                visit(node.iter, loop)
+                for st in [*node.body, *node.orelse]:
+                    visit(st, (node.target.id, g))
+                return
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick" and loop is not None:
+            loop_of[id(node)] = loop
+        for child in ast.iter_child_nodes(node):
+            visit(child, loop)
+
+    visit(tree, None)
+    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "pick"]
+
+    def id_node(call: ast.Call) -> Optional[ast.AST]:
+        return call.args[0] if call.args else _kw(call, "id")
+
+    def text_of(node: Optional[ast.AST]) -> Optional[str]:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.JoinedStr):
+            return "".join(str(v.value) if isinstance(v, ast.Constant) else "{}" for v in node.values)
+        return None
+
+    written = {}  # how the program writes each subject it names ("woman1", "mother", "friends")
+    for call in calls:
+        t = text_of(id_node(call))
+        s = subject_of(t.replace("{}", "1")) if t else None
+        if s:
+            written[t.split(".", 1)[0].split("[", 1)[0].lower()] = True
+    known = set(written) | {g.lower() for g in gids}
+    flat = []  # (call, id, prefix, number, detail) for plain constant ids that may name an owner
+    for call in calls:
+        t = _const(id_node(call))
+        if isinstance(t, str) and "." not in t and t not in wild and id(call) not in loop_of:
+            m = _FLAT_SUBJECT.match(t)
+            if m:
+                flat.append((call, t, m.group("p"), m.group("n"), m.group("s")))
+    by_detail: Dict[Tuple[str, str], Set[str]] = {}
+    count: Counter = Counter()
+    for call, t, p, n, s in flat:
+        cls = _const(_kw(call, "cls"))
+        key = f"{p}{n or ''}".lower()
+        count[key] += 1  # every detail it heads, bound or not (chef_details, chef_expr)
+        if _individual_leaf(cls):  # one kind of list: person.outfit.casual and .scifi are both outfits
+            kind = ".".join(vocabulary().resolve(cls).id.split(".")[:2])
+            by_detail.setdefault((kind, s.lower()), set()).add(key)
+    for owners in by_detail.values():
+        heads = {o for o in owners if count[o] >= 2}
+        if len(heads) >= 2:
+            known |= heads
+    # Owners by prefix alone (woman_age ... woman_outfit beside dog_breed, dog_size): exactly two
+    # prefixes that each head two or more details, between them heading every per-individual pick.
+    bound_flat = [x for x in flat if _individual_leaf(_const(_kw(x[0], "cls")))]
+    heads = {f"{p}{n or ''}".lower() for _, _, p, n, _ in flat if count[f"{p}{n or ''}".lower()] >= 2}
+    individual_plain = [c for c in calls if _individual_leaf(_const(_kw(c, "cls"))) and id(c) not in loop_of
+                        and isinstance(_const(id_node(c)), str) and "." not in _const(id_node(c))]
+    if (len(heads) == 2 and bound_flat and len(bound_flat) == len(individual_plain)
+            and all(f"{p}{n or ''}".lower() in heads for _, _, p, n, _ in bound_flat)):
+        known |= heads
+    numbered: Dict[str, Dict[int, ast.Call]] = {}  # eth1, eth2: one detail, numbered per subject
+    for call in calls:
+        t = _const(id_node(call))
+        m = _NUMBERED.match(t) if isinstance(t, str) and t not in wild and id(call) not in loop_of else None
+        if m:
+            numbered.setdefault(m.group("stem"), {})[int(m.group("n"))] = call
+    numbered = {k: v for k, v in numbered.items() if len(v) >= 2}
+    families = Counter(frozenset(v) for v in numbered.values())  # outfit1, outfit2 beside face1, face2
+    owner = next(iter(groups.values())) if len(set(groups.values())) == 1 else None
+    renamed: Dict[int, str] = {}
+    for stem, calls_by_n in numbered.items():
+        bound_stem = any(_individual_leaf(_const(_kw(c, "cls"))) for c in calls_by_n.values())
+        if not bound_stem and families[frozenset(calls_by_n)] < 2:
+            continue  # shot1, shot2 alone: the scene's
+        for n, call in calls_by_n.items():
+            leaf = vocabulary().resolve(_const(_kw(call, "cls"))) if _individual_leaf(_const(_kw(call, "cls"))) else None
+            root = leaf.id.split(".")[0] if leaf is not None else "subject"
+            renamed[id(call)] = f"{owner or root}[{n}].{stem.rstrip('_')}"
+    pos = _offsets(source)
+    edits: List[Tuple[int, int, str]] = []
+    notes: List[str] = []
+    for call in calls:
+        node = id_node(call)
+        t = text_of(node)
+        if node is None or t is None or t in wild:
+            continue
+        new = json.dumps(renamed[id(call)]) if id(call) in renamed else None
+        if new:
+            pass
+        elif id(call) in loop_of and subject_of(t.replace("{}", "1")) is None:
+            var, g = loop_of[id(call)]
+            detail = re.sub(r"[^a-z0-9]+", "_", re.sub(r"\{\}|\d+", "", t).lower()).strip("_")
+            if detail.startswith(g.lower() + "_"):
+                detail = detail[len(g) + 1:]
+            if detail and not t.startswith(g + "["):
+                new = "f" + json.dumps(f"{g}[{{{var}+1}}].{detail}")
+        elif isinstance(node, ast.Constant) and "." not in t and id(call) not in loop_of:
+            m = _FLAT_SUBJECT.match(t)
+            if m:
+                p, n, s = m.group("p"), m.group("n"), m.group("s")
+                if f"{p}{n or ''}".lower() in known and f"{p}{n or ''}".lower() not in gids:
+                    new = json.dumps(f"{p}{n or ''}.{s}")
+                elif p.lower() in gids and n:
+                    new = json.dumps(f"{p}[{int(n)}].{s}")
+        if new:
+            edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset), new))
+            notes.append(f"pick id {t!r} names its subject: {new.lstrip('f')}")
+    def shape(t: Optional[str]) -> str:
+        return re.sub(r"\{[^{}]*\}", "{}", t or "")
+
+    taken = {shape(text_of(id_node(c))) for c in calls}
+    if any(shape(json.loads(e[2].lstrip("f"))) in taken for e in edits):
+        return source, []  # a new id another pick already has: leave it for validation
     for start, end, text in sorted(edits, reverse=True):
         source = source[:start] + text + source[end:]
     return source, notes
@@ -1318,15 +1490,30 @@ _PERSON_INDEX = re.compile(r"^([A-Za-z_]\w*)\[(\d+)\]\.")
 
 
 def _shared_person_details(info: Dict[str, Any], source: str = "") -> List[str]:
-    """With more than one person (a group(), or picks like girl[1].hair and girl[2].hair), a
-    detail of a person (a pick bound to a person list) whose id names no person is shared by
-    all of them: "a couple" drawing one ethnicity for both."""
-    indexed = {(m.group(1), m.group(2)) for c in info["choices"] if (m := _PERSON_INDEX.match(str(c.get("id"))))}
-    people = any(int(g.get("count") or 0) >= 2 for g in info.get("groups") or []) or len(indexed) >= 2
-    if not people:
-        return []
+    """With more than one subject, a detail of one subject (a pick bound to a per-individual
+    list: a person's, an animal's) whose id names no subject is either shared by all of them
+    ("a couple" drawing one ethnicity for both) or left ungrouped beside the others' details.
+    More than one subject: a group() of two or more, ids naming two or more subjects
+    (girl[1].hair and girl[2].hair, man.outfit and woman.outfit), or one named subject beside
+    such a detail. A pick marked shared=True is one value for all of them, as the user asked."""
+    from prompt_programs.runtime import subject_of
+    choices = info["choices"]
+    subjects: List[str] = []
+    for c in choices:
+        s = subject_of(str(c.get("id"))) if c.get("kind") != "param" else None
+        if s:
+            name = str(c["id"]).split(".", 1)[0]
+            if name not in subjects:
+                subjects.append(name)
     vocab = vocabulary()
     palettes = {lf.slots for lf in vocab.leaves.values() if lf.slots}
+    shared = [str(c["id"]) for c in choices
+              if c.get("kind") == "pick" and getattr(vocab.get(c.get("cls")), "individual", False)
+              and str(c.get("cls")) not in palettes and subject_of(str(c.get("id"))) is None
+              and not str(c.get("id")).endswith(".colours") and not c.get("shared")]
+    many = any(int(g.get("count") or 0) >= 2 for g in info.get("groups") or []) or len(subjects) >= 1
+    if not shared or not many:
+        return []
     loops = []  # (variable, group id) for each group() the program itself declares
     try:
         loops = [(n.targets[0].id, _const(n.value.args[0])) for n in ast.walk(ast.parse(source))
@@ -1335,22 +1522,22 @@ def _shared_person_details(info: Dict[str, Any], source: str = "") -> List[str]:
                  and n.value.args and isinstance(_const(n.value.args[0]), str)]
     except SyntaxError:
         pass
-    shared = [str(c["id"]) for c in info["choices"]
-              if c.get("kind") == "pick" and str(c.get("cls") or "").startswith("person.")
-              and str(c.get("cls")) not in palettes and "." not in str(c.get("id") or "")]
-    if not shared:
-        return []
     names = ", ".join(f'pick("{cid}")' for cid in shared)
+    one = shared[0]
     if loops:
         var, g = loops[0]
         how = (f"Draw them inside the loop, one per person: under `for i in range({var}):` write "
-               f'`{shared[0]} = pick(f"{g}[{{i+1}}].{shared[0]}", ...)` and emit `{shared[0]}` in that same loop, '
-               "where that person is described.")
+               f'`{one} = pick(f"{g}[{{i+1}}].{one}", ...)` and emit `{one}` in that same loop, '
+               "where that person is described. This changes the program's shape: rewrite it whole with write_program.")
     else:
-        who = (sorted(indexed) or [("person", "")])[0][0]
-        how = f"Write one pick per person: {who}[1].{shared[0]}, {who}[2].{shared[0]}, and so on, each emitted where that person is."
-    return [f"{names} {'is' if len(shared) == 1 else 'are'} drawn once and shared by everyone, but each person needs "
-            f"their own. {how} This changes the program's shape: rewrite it whole with write_program."]
+        named = subjects[:3] if len(subjects) >= 2 else [*subjects, "<the other subject>"]
+        how = ("Give each subject their own pick, with an id that names them: "
+               + ", ".join(f"{n}.{one}" for n in named) + ", each emitted where that subject is described.")
+    return [f"{names} {'names' if len(shared) == 1 else 'name'} no one, but this image has more than one subject: "
+            f"{'it is' if len(shared) == 1 else 'they are'} drawn once and shared, or left apart from the subject "
+            f"{'it belongs' if len(shared) == 1 else 'they belong'} to. {how} Only when the user's words ask for "
+            "the same for everyone (identical twins, matching outfits, all in red dresses) keep one pick and add "
+            "shared=True to it."]
 
 
 def normalize_sources(info: Dict[str, Any], prompt: str) -> None:
@@ -2194,7 +2381,7 @@ def fix_written(source: str, prompt: str, loras: Sequence[LoraInfo]) -> Tuple[st
     """The fixes in code a written (or repaired) program gets before validation, in order.
     Returns the source and what changed."""
     notes: List[str] = []
-    for fix in (fix_quotes, fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
+    for fix in (fix_quotes, lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, fix_unplaced, fix_brackets,
                 lambda x: fix_requested(x, prompt), lambda x: fix_duplicates(x, prompt),
                 lambda x: fix_trigger_words(x, loras, prompt), lambda x: fix_said(x, prompt)):
@@ -2208,8 +2395,9 @@ def fix_patched(source: str, prompt: str) -> Tuple[str, List[str]]:
     what the edit didn't touch was already fixed)."""
     source = drop_name_options(source, prompt)
     notes: List[str] = []
-    for fix in (fix_generated_refs, lambda x: fix_one_item_lists(x, prompt), lambda x: fix_list_sources(x, prompt),
-                fix_phases, lambda x: fix_requested(x, prompt), lambda x: fix_said(x, prompt)):
+    for fix in (lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
+                lambda x: fix_list_sources(x, prompt), fix_phases, lambda x: fix_requested(x, prompt),
+                lambda x: fix_said(x, prompt)):
         source, more = fix(source)
         notes += more
     return source, notes

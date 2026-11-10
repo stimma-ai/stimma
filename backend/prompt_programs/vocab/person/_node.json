@@ -1,5 +1,6 @@
 {
  "id": "person",
  "label": "Person",
- "description": "attributes of a person: hair, eyes, skin, age, build, face, expression, pose, outfit"
+ "description": "attributes of a person: hair, eyes, skin, age, build, face, expression, pose, outfit",
+ "individual": true
 }

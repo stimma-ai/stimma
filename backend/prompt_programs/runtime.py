@@ -125,6 +125,7 @@ class Draw:
     cls: str = ""                  # the vocabulary list the pick is bound to (see vocab.py)
     where: Any = ""                # the user's words, or {local facet: value}, narrowing that list (narrow.py)
     said: str = ""                 # the user's own words this pick stands for (said_value): drawn unless they choose others
+    shared: bool = False           # shared=True: one value for every subject, as the user asked
 
     def to_dict(self) -> Dict[str, Any]:
         d = {"id": self.id, "value": self.value, "kind": self.kind, "label": self.label, "source": self.source}
@@ -146,6 +147,8 @@ class Draw:
             d["where"] = self.where
         if self.said:
             d["said"] = self.said
+        if self.shared:
+            d["shared"] = True
         return d
 
 
@@ -239,6 +242,26 @@ def _as_list(options: Any, where: str) -> List[str]:
 
 
 _GROUP_ID = re.compile(r"^([a-z_][a-z0-9_]*)\[(\d+)\]\.([a-z_][a-z0-9_]*)$")
+_SUBJECT_ID = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*?)(?:_?(?P<num>\d+))?(?:\[(?P<index>\d+)\])?\.(?P<attr>[A-Za-z_].*)$")
+
+
+def subject_of(cid: str) -> Optional[Tuple[str, Optional[int], str]]:
+    """Whose detail a pick is, from its id, as (subject, number, detail): `friends[2].age` is
+    ("friends", 2, "age"), `woman1.hair` ("woman", 1, "hair"), `mother.outfit` ("mother",
+    None, "outfit"), `friends[2].outfit.colours` ("friends", 2, "outfit.colours"). A plain id
+    (`weather`, `outfit.colours`) is no subject's: None. Display structure only; whose detail
+    it is for draws is draws.person_of (the id before its last part)."""
+    cid = str(cid)
+    if cid.startswith("param.") or (cid.endswith(".colours") and cid.count(".") == 1):
+        return None
+    m = _SUBJECT_ID.match(cid)
+    if not m:
+        return None
+    name, num, index = m.group("name"), m.group("num"), m.group("index")
+    if num and index:  # team2[1].age: the number is part of the name
+        name, num = f"{name}{num}", None
+    n = index or num
+    return name, int(n) if n else None, m.group("attr")
 
 
 class _Runner:
@@ -299,8 +322,13 @@ class _Runner:
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
              about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None,
-             cls: Optional[str] = None, where: Any = None, said: Any = None) -> Optional[str]:
+             cls: Optional[str] = None, where: Any = None, said: Any = None, shared: bool = False) -> Optional[str]:
         cid = str(id)
+        if shared:
+            value = self.pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed, cls, where, said)
+            if cid in self.by_id:
+                self.by_id[cid].shared = True
+            return value
         if about is not None or phase is not None or seed is not None or cls is not None or said is not None:
             return self._spec_pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed, cls,
                                    where, said)
@@ -1099,6 +1127,7 @@ class Choice:
     cls: Optional[str] = None                   # the vocabulary list it is bound to
     where: Any = None                           # the user's words, or {local facet: value}, narrowing that list
     said: Optional[str] = None                  # the user's own words it stands for, drawn unless they choose others
+    shared: bool = False                        # one value for every subject, marked shared=True
     seen: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
@@ -1151,6 +1180,43 @@ def _group_by_subject(choices: Dict[str, "Choice"], order: List[str], groups: Di
                                "source": c.source, "line": c.line}
 
 
+def _scope_subjects(choices: Dict[str, "Choice"], order: List[str], groups: Dict[str, Dict[str, Any]]) -> None:
+    """Every choice whose id names a subject goes under that subject (`woman1.hair`,
+    `mother.outfit`, `friends[2].age`), whether or not the program called group(), so the
+    card shows one header per subject. Only with more than one subject: with one there are no
+    headers, and its choices stay plain. A shared=True pick with a plain id stays marked
+    shared; a plain id is otherwise a detail of the whole scene."""
+    subjects: List[Tuple[str, Optional[int]]] = []
+    for cid in order:
+        s = subject_of(cid) if choices[cid].kind != "param" else None
+        if s and (s[0], s[1]) not in subjects:
+            subjects.append((s[0], s[1]))
+    declared = any(int(g.get("count") or 0) >= 2 for g in groups.values())
+    # bride[1] with no group() and no bride[2]: one subject, shown as "Bride", not "Bride 1"
+    lone = {k for k, _ in subjects if int((groups.get(k) or {}).get("count") or 1) < 2
+            and {i for n, i in subjects if n == k} == {1}}
+    labelled = {c.group for c in choices.values() if c.group and subject_of(c.id) is None}  # "Girl 1 Hair" labels
+    many = len(subjects) + len({(c.group, c.index) for c in choices.values() if c.group in labelled}) >= 2 or declared
+    for cid in order:
+        c = choices[cid]
+        s = subject_of(cid) if c.kind != "param" else None
+        if not many:
+            c.group = c.index = c.attr = None
+            c.shared = False
+            continue
+        if s is None:
+            continue
+        name, index, attr = s
+        c.group, c.index, c.attr, c.shared = name, None if name in lone else index, attr, False
+        if name not in groups:
+            n = max((i or 1) for k, i in subjects if k == name)
+            groups[name] = {"id": name, "count": n, "label": name.replace("_", " ").strip().capitalize(),
+                            "source": c.source, "line": c.line, "from_ids": True}
+    if not many:
+        for gid in [g for g in groups if g in labelled]:
+            del groups[gid]
+
+
 def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_params: Optional[Set[str]] = None,
              runs: int = 48, seed: int = 7) -> Dict[str, Any]:
     """Run a program over many seeds to learn its choices and their structure."""
@@ -1167,7 +1233,7 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
                 c = Choice(d.id, d.kind, d.label, d.source, d.line, [], d.hidden, d.follows,
                            group=m.group(1) if m else None, index=int(m.group(2)) if m else None, attr=m.group(3) if m else None,
                            phase=d.phase, about=d.about or None, cls=d.cls or None, where=d.where or None,
-                           said=d.said or None)
+                           said=d.said or None, shared=getattr(d, "shared", False))
                 choices[d.id] = c
                 order.append(d.id)
             c.seen += 1
@@ -1209,6 +1275,7 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
         for gid, g in res.groups.items():
             groups.setdefault(gid, dict(g))
     _group_by_subject(choices, order, groups)
+    _scope_subjects(choices, order, groups)
     sample = results[0]
     return {
         "choices": [choices[cid].to_dict() for cid in order],

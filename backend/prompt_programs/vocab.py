@@ -49,7 +49,7 @@ import hashlib
 import json
 import random
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -141,6 +141,7 @@ class Leaf:
     gives: Tuple[str, ...] = ()                      # context facets its drawn values give (module docstring)
     takes: Dict[str, Tuple[str, float]] = field(default_factory=dict)   # facet -> (rare | never, factor)
     stated: bool = False       # a person's or scene's stated value of this list is read as context (narrow.py)
+    individual: bool = False   # a detail of one subject (a node above says "individual": see Node)
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
@@ -253,9 +254,12 @@ class Leaf:
 
 @dataclass(frozen=True)
 class Node:
+    """An inner node. `individual`: every list under it is a detail of one subject (a person's
+    hairstyle, an animal's breed), so with several subjects each draws their own (prepare.py)."""
     id: str
     label: str
     description: str
+    individual: bool = False
 
 
 @dataclass
@@ -391,12 +395,16 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
             d = json.loads(raw)
             if rel.name == "_node.json":
                 nid = ".".join(rel.parts[:-1])
-                nodes[nid] = Node(nid, str(d.get("label") or nid), str(d.get("description") or ""))
+                nodes[nid] = Node(nid, str(d.get("label") or nid), str(d.get("description") or ""), d.get("individual") is True)
             else:
                 lid = ".".join(rel.with_suffix("").parts)
                 if lid in leaves:
                     raise ValueError(f"vocabulary: {lid} is defined twice")
                 leaves[lid] = _leaf(lid, d)
+    for lid, lf in list(leaves.items()):  # a leaf under an individual node is a subject's own detail
+        parts = lid.split(".")
+        if any(getattr(nodes.get(".".join(parts[:i])), "individual", False) for i in range(1, len(parts))):
+            leaves[lid] = replace(lf, individual=True)
     return Vocabulary(nodes, leaves, facets, "vocab-" + h.hexdigest()[:12], context)
 
 

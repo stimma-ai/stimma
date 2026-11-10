@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { programLabel, programSections } from './programChoiceLayout.ts'
+import { programLabel, programSections, subjectOfId } from './programChoiceLayout.ts'
 import type { ProgramChoice } from '../composables/usePromptProgram'
 
 const pick = (id: string, extra: Partial<ProgramChoice> = {}): ProgramChoice => ({ id, label: id, kind: 'pick', source: 'text', options: [], ...extra })
@@ -29,7 +29,55 @@ test('cycles and missing dependencies stay shared; no empty subjects are invente
 test('UI labels use US color spelling without changing ids or option text', () => {
   assert.equal(programLabel('Hair colour'), 'Hair color')
   assert.equal(programLabel('Colours'), 'Colors')
-  assert.equal(programSections([pick('x', { group: 'people', index: 3 })], [{ id: 'people', label: 'People', count: 3, source: 'text' }])[0].label, 'Person 3')
+  const people = [{ id: 'people', label: 'People', count: 3, source: 'text' }]
+  assert.deepEqual(programSections([pick('x', { group: 'people', index: 3 }), pick('y', { group: 'people', index: 1 })], people).map(s => s.label), ['Person 1', 'Person 3'])
+})
+
+const shape = (sections: ReturnType<typeof programSections>) => sections.map(s => [s.kind, s.label, s.choices.map(c => c.id)])
+
+test('the payload decides: scene first, then shared, then each subject in declared order', () => {
+  const sections = programSections([
+    pick('woman.hairstyle', { group: 'woman', attr: 'hairstyle' }),
+    pick('place'),
+    pick('friends[2].age', { group: 'friends', index: 2 }),
+    pick('outfit', { shared: true }),
+    pick('outfit.colours', { follows: 'outfit' }),
+    pick('friends[1].age', { group: 'friends', index: 1 }),
+    pick('woman.outfit', { group: 'woman' }),
+    pick('woman.outfit.colours', { group: 'woman' }),
+  ], [{ id: 'friends', label: 'Friends', count: 2, source: 'text' }, { id: 'woman', label: 'Woman', count: 1, source: 'added' }])
+  assert.deepEqual(shape(sections), [
+    ['scene', '', ['place']],
+    ['shared', 'Shared', ['outfit', 'outfit.colours']],
+    ['subject', 'Friend 1', ['friends[1].age']],
+    ['subject', 'Friend 2', ['friends[2].age']],
+    ['subject', 'Woman', ['woman.hairstyle', 'woman.outfit', 'woman.outfit.colours']],
+  ])
+})
+
+test('one subject has no header, grouped or not', () => {
+  assert.deepEqual(shape(programSections([pick('woman.hair', { group: 'woman' }), pick('place')], [])), [['scene', '', ['woman.hair', 'place']]])
+  assert.deepEqual(shape(programSections([pick('woman.hair'), pick('woman.outfit'), pick('place')], [])), [['scene', '', ['woman.hair', 'woman.outfit', 'place']]])
+})
+
+test('a partly grouped program shows its plain details with the scene, never under a subject', () => {
+  const sections = programSections([
+    pick('woman1.age', { group: 'woman', index: 1 }), pick('hairstyle'), pick('woman2.age', { group: 'woman', index: 2 }),
+  ], [{ id: 'woman', label: 'Woman', count: 2, source: 'added' }])
+  assert.deepEqual(shape(sections), [['scene', '', ['hairstyle']], ['subject', 'Woman 1', ['woman1.age']], ['subject', 'Woman 2', ['woman2.age']]])
+})
+
+test('programs prepared before choices carried subjects are grouped by their ids', () => {
+  const sections = programSections([
+    pick('woman1.age'), pick('woman1.outfit'), pick('woman1.outfit.colours'), pick('woman2.age'), pick('cafe'), pick('outfit.colours'),
+  ], [])
+  assert.deepEqual(shape(sections), [['scene', '', ['cafe', 'outfit.colours']], ['subject', 'Woman 1', ['woman1.age', 'woman1.outfit', 'woman1.outfit.colours']], ['subject', 'Woman 2', ['woman2.age']]])
+  assert.deepEqual(subjectOfId('mother.outfit'), { group: 'mother' })
+  assert.deepEqual(subjectOfId('friends[2].outfit.colours'), { group: 'friends', index: 2 })
+  assert.deepEqual(subjectOfId('woman_2.hair'), { group: 'woman', index: 2 })
+  assert.equal(subjectOfId('outfit.colours'), null)
+  assert.equal(subjectOfId('param.steps'), null)
+  assert.equal(subjectOfId('weather'), null)
 })
 
 test("choices that hold the user's own words follow the ones that vary", () => {

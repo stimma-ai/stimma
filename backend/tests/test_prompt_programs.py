@@ -572,20 +572,20 @@ class TestFixInCode:
                 '    pose = pick(f"couple[{i+1}].pose", about="this partner\'s pose", seed=["spinning"], label="Pose", phase=1, added=True)\n'
                 '    emit("a", eth, "partner", pose, ";")\n')
         problems = prep.validate(loop, "a couple dancing", [], set(), "")["problems"]
-        assert any('pick("eth") is drawn once and shared by everyone' in p and 'pick(f"couple[{i+1}].eth"' in p for p in problems)
+        assert any('pick("eth") names no one' in p and 'pick(f"couple[{i+1}].eth"' in p for p in problems)
         own = loop.replace('eth = pick("eth", cls="person.ethnicity", about="their descent", seed=["Korean"], label="Ethnicity", phase=1, added=True)\n', '') \
                   .replace('    emit("a", eth,', '    eth = pick(f"couple[{i+1}].ethnicity", cls="person.ethnicity", about="this partner\'s descent", '
                            'seed=["Korean"], label="Ethnicity", phase=1, added=True)\n    emit("a", eth,')
-        assert not any("shared by everyone" in p for p in prep.validate(own, "a couple dancing", [], set(), "")["problems"])
+        assert not any("no one, but" in p for p in prep.validate(own, "a couple dancing", [], set(), "")["problems"])
         named = own.replace('couple = group', 'hair = pick("teacher.hair", cls="person.hair_color", about="the teacher\'s hair colour", '
                             'seed=["black"], label="Hair colour", phase=1, added=True)\nemit("A teacher with", hair, "hair;")\ncouple = group')
-        assert not any("shared by everyone" in p for p in prep.validate(named, "a teacher and two students", [], set(), "")["problems"])
-        assert not any("shared by everyone" in p for p in prep.validate(self.YOGA, "young woman in a yoga outfit", [], set(), "")["problems"])
+        assert not any("no one, but" in p for p in prep.validate(named, "a teacher and two students", [], set(), "")["problems"])
+        assert not any("no one, but" in p for p in prep.validate(self.YOGA, "young woman in a yoga outfit", [], set(), "")["problems"])
         hand = ('eth = pick("eth", cls="person.ethnicity", about="their descent", seed=["Korean"], label="Ethnicity", phase=1, added=True)\n'
                 'e1 = pick("girl[1].expression", cls="person.expression", about="her expression", seed=["a smile"], label="Expression", phase=1, added=True)\n'
                 'e2 = pick("girl[2].expression", cls="person.expression", about="her expression", seed=["a frown"], label="Expression", phase=1, added=True)\n'
                 'emit("Two", eth, "girls, one with", e1, "and one with", e2)\n')
-        said = [p for p in prep.validate(hand, "two girls", [], set(), "")["problems"] if "shared by everyone" in p]
+        said = [p for p in prep.validate(hand, "two girls", [], set(), "")["problems"] if "no one, but" in p]
         assert said and "girl[1].eth, girl[2].eth" in said[0] and "range(" not in said[0]  # no loop variable to name
 
 

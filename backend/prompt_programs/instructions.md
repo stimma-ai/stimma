@@ -59,6 +59,8 @@ Every `pick` / `pick_lora` / `param` / `group` takes:
 - `added=True` on every pick you add that the user didn't ask for: anything that isn't a
   user list, a smart wildcard or what a `#` line asks to vary.
 - `hidden=True` (picks only) for a detail the user never sees as a choice.
+- `shared=True` (picks only) for one detail every subject has the same, only when the user's
+  words ask for that ("identical twins", "matching outfits", "all in red dresses").
 
 `label` is a short, plain English name shown to the user: one or two words ("Weather",
 "Hairstyle"), never a phrase. `id` is a short lowercase identifier.
@@ -148,15 +150,25 @@ phases drew; picks in the same phase are drawn without seeing each other.
    another pick (her trench coat when the weather varies; skin and eyes when ethnicity
    varies), make that phrase a pick too, `hidden=True`, in a later phase. Nothing fixed may
    contradict a drawn value, and nothing is said twice: each pick and each phrase appears once.
-6. **Every person is their own subject.** With more than one person, each person's details
-   are their own picks, never one pick for the whole group: no "four [Age] friends", no
-   "friends of [Ethnicity] descent". A number of people ("four friends", "a couple", "three
-   nurses") is a `group()` with a loop that gives each person their own picks; people the
-   prompt describes one by one are written out by hand (`girl[1].hair`, `girl[2].hair`).
-   Every detail of a person, their age, descent, hair and expression included, is drawn for
-   each person, with an id that names them: a couple is two people, so `couple[1].ethnicity`
-   and `couple[2].ethnicity`, never one `ethnicity` for both. What the user said of all of them
-   stays fixed text ("sharing a pizza", "in scrubs").
+6. **Every subject is their own.** With more than one subject (people, animals, a knight and
+   a dragon), each subject's details are their own picks, never one pick for the whole group:
+   no "four [Age] friends", no "friends of [Ethnicity] descent". A number of people ("four
+   friends", "a couple", "three nurses") is a `group()` with a loop that gives each person their
+   own picks; subjects the prompt names one by one are written out by hand. Every pick of a
+   subject has an id that names them, the same way for all their picks: `friends[2].age`,
+   `girl[1].hair` and `girl[2].hair`, `mother.outfit` and `daughter.age`, `knight.armor` and
+   `dragon.scales`, never `mother_outfit` or a plain `hairstyle`. An animal, a creature or a
+   character beside someone is a subject too, even with one detail (`dog.breed`, `cat.coat`,
+   `horse.color`). A plain id (`street`,
+   `weather`, `light`) is a detail of the whole scene. A detail of one person, their age,
+   descent, hair colour, hairstyle, build, expression, outfit, accessories and pose, is always
+   drawn for each person on their own: a couple is two people, so `couple[1].ethnicity` and
+   `couple[2].ethnicity`, never one `ethnicity` for both. Only when the user's words ask for
+   the same for everyone ("identical twins", "matching outfits", "a team in the same uniform")
+   is that detail one pick with a plain id and `shared=True`; they are still several people, so
+   whatever their words leave free (their expressions, their poses) is each one's own. What the user said of all of them
+   stays fixed text ("sharing a pizza", "in scrubs"). With one subject, ids are plain
+   (`hairstyle`) and there is no `group()`.
 
 So a program's picks are: one per user list and smart wildcard, one per thing the user
 asked to vary, one per listed detail their words narrow, the ones you add for what they
@@ -213,8 +225,9 @@ Still write `about=` and a seed in the list's form.
   asked for, narrow their age pick to their words (`where="toddler"`), or to
   `where={"life_stage": "child"}` (or "baby", "teen"); never choose those for anyone else.
 - Each person's details bind to the same lists: `girl[1].eyes` and `girl[2].eyes` both use
-  `person.eye_color`. With more than one person, every pick id names whose detail it is
-  (`man.outfit`, `girl.outfit`, `couple[1].age`), so each person's details stay their own.
+  `person.eye_color`. With more than one subject, every pick bound to a `person.` or `animal.`
+  list has an id that names whose detail it is (`man.outfit`, `girl.outfit`, `couple[1].age`,
+  `dog.breed`), so each subject's details stay their own.
 - Like any pick written with `about=`, a bound pick's value is never a lookup key.
 - Use only these ids, exactly:
 
@@ -324,5 +337,25 @@ emit("they laugh around an open pizza box among", roof, ".")
 ```
 Four friends are four people: the loop gives each one their own age, descent and hair.
 "sharing a pizza" and "on a rooftop" are about all of them, so they are fixed text.
+
+Example. User's prompt:
+```
+1: an old fisherman and his dog on a pier at dawn
+```
+Program:
+```python
+beard = pick("fisherman.facial_hair", cls="person.facial_hair", about="the fisherman's beard", seed=["light stubble"],
+    label="Beard", phase=1, added=True)
+coat = pick("fisherman.outfit", cls="person.outfit.cold_weather", about="what the fisherman wears on the pier",
+    seed=["a yellow oilskin jacket over a grey sweater"], label="Outfit", phase=1, added=True)
+breed = pick("dog.breed", about="the fisherman's dog", seed=["a black-and-white Border Collie"],
+    label="Breed", phase=1, added=True)
+boats = pick("boats", about="what is moored along the pier", seed=["two weathered rowing boats"],
+    label="Boats", phase=1, added=True)
+emit("An old fisherman with", beard, ", in", coat, ", and his dog,", breed, ", on a pier at dawn beside", boats, ".")
+```
+Two subjects: every pick of the fisherman's is `fisherman.…` and the dog's is `dog.…`, so each
+shows under its own name. "old" is the user's, so there is no age pick. The boats belong to the
+scene: a plain id.
 
 Use US English for UI labels (for example, "Hair color", and "Colors" for an outfit's colours).
