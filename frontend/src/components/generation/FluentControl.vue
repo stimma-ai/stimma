@@ -79,11 +79,11 @@
               v-if="!program.unsupported.value"
               :class="['flex items-center gap-3 px-3 py-2 coarse:py-3', llmUnconfigured ? 'opacity-40 pointer-events-none' : '']"
             >
-              <span class="flex-1 text-[12px] coarse:text-[13px] text-content">Enhance prompt</span>
+              <span class="flex-1 text-[12px] coarse:text-[13px] text-content">Detail Level</span>
               <SegmentedControl
                 :model-value="enhance"
-                :options="[{ label: 'Off', value: 'off' }, { label: 'Fill in', value: 'fill' }, { label: 'Expand', value: 'expand' }]"
-                aria-label="Enhance prompt"
+                :options="[{ label: 'Yours', value: 'off' }, { label: 'Medium', value: 'fill' }, { label: 'High', value: 'expand' }]"
+                aria-label="Detail Level"
                 @update:model-value="(v) => emit('mode', v as EnhanceLevel)"
               />
             </div>
@@ -327,7 +327,7 @@ const chipText = computed(() => {
   if (props.raw) return 'Raw'
   if (props.direct) return 'Direct'
   if (props.llmUnconfigured) return `${BRAND} · set up`
-  return detail.value ? BRAND : props.enhance === 'fill' ? `${BRAND} · fill in` : `${BRAND} · your words`
+  return props.enhance === 'off' && !props.program.unsupported.value ? `${BRAND} · your words` : BRAND
 })
 const chipTitle = computed(() => {
   const t = chipTitleBase.value
@@ -339,7 +339,7 @@ const chipTitleBase = computed(() => {
   if (props.llmUnconfigured) return `${BRAND} needs a chat model`
   if (busy.value) return `Preparing ${BRAND} prompt…${props.previousRunning ? ' Images use your previous prompt until it’s ready.' : ''}`
   if (failed.value) return `${BRAND} couldn’t read this prompt`
-  return detail.value ? `${BRAND}, enhancing the prompt` : props.enhance === 'fill' ? `${BRAND}, filling in your words` : `${BRAND}, in your own words`
+  return detail.value ? `${BRAND}, adding detail` : props.enhance === 'fill' ? `${BRAND}, adding a little detail` : `${BRAND}, in your own words`
 })
 
 type Action = { label: string; run: () => void }

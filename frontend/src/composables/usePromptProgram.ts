@@ -41,7 +41,7 @@ export interface ProgramGroup { id: string; count: number; label: string; source
 export interface ProgramLora { name: string; path: string; weight: number; trigger: string }
 
 export interface PreparedProgram {
-  /** false: prepared with Enhance off or Fill in (the user's words kept). */
+  /** false: prepared at Detail Level Yours or Medium (the user's words kept). */
   elaborate?: boolean
   enhance?: EnhanceLevel
   key: string

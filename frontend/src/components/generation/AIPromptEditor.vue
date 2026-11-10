@@ -554,7 +554,7 @@ const brand = PROMPT_BRAND
 // (Copy reviewed for plain, human wording.)
 const fluentIntro = [
   `${PROMPT_BRAND} reads your prompt before each run and writes the prompt sent to the image model. Your text in the editor never changes.`,
-  `With Enhance prompt on, ${PROMPT_BRAND} also expands short prompts into the long, detailed style this model works best with.`,
+  `Detail Level sets how much ${PROMPT_BRAND} adds: Yours keeps your wording, Medium adds what this model needs to read it, High fills in the details you left open.`,
   'A new prompt takes a few extra seconds the first time you run it.',
 ]
 const AMBER = 'text-amber-600 bg-amber-500/10'
