@@ -20,7 +20,7 @@
       data-context-menu
       v-show="!isCoarsePointer || (!activeSubmenu && !activeGroup)"
       class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[180px]"
-      :style="menuPosition"
+      :style="[menuPosition, askWidth ? { width: `${askWidth}px` } : null]"
       @scroll.passive="updateMenuMore"
     >
       <!-- Loading state -->
@@ -1308,6 +1308,10 @@ const askKind = computed(() => {
   return items.some((item: any) => isVideoType(item)) ? 'video' : 'image'
 })
 watch(() => contextMenu.state.value.visible, () => { askActive.value = false })
+// Typing keeps the menu the width it opened at: long prompts truncate rather
+// than stretch it. Read before the menu items give way to the matches.
+const askWidth = ref<number | null>(null)
+watch(askActive, (on) => { askWidth.value = on ? (menuRef.value?.offsetWidth ?? null) : null }, { flush: 'pre' })
 function onAskSent() {
   contextMenu.hide()
   activeSubmenu.value = null

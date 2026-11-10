@@ -3,8 +3,8 @@
 // It has focus when the menu opens, so right-click and type. Untyped, the
 // menu below is the ordinary one. Typed, the menu shows only past prompts
 // and ideas that match; with no match, one quiet line says what Enter does.
-// The rest of a matching past prompt shows greyed inline; Tab takes it. The
-// clock (or ↓ in an empty prompt) lists past prompts.
+// The rest of a matching past prompt shows greyed inline; Tab or → takes it.
+// The clock (or ↓ in an empty prompt) lists past prompts.
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ClockIcon } from '@heroicons/vue/24/outline'
 import AgentIcon from '../icons/AgentIcon.vue'
@@ -88,16 +88,16 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-1 mb-1 flex items-center gap-2 rounded-md border py-1 pl-2 pr-1 transition-colors" :class="text ? 'border-accent/50 bg-base' : 'border-transparent bg-overlay-subtle'" data-menu-ask>
+  <div class="mx-1 mb-1 flex items-center gap-2 rounded-md border py-1 pl-[7px] pr-1 transition-colors" :class="text ? 'border-accent/50 bg-base' : 'border-transparent bg-overlay-subtle'" data-menu-ask>
     <AgentIcon class="h-4 w-4 flex-shrink-0" :class="text ? 'text-accent-hi' : 'text-content-muted'" />
     <div class="relative min-w-0 flex-1">
-      <div v-if="ghost" class="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre text-xs leading-[22px]"><span class="invisible">{{ text }}</span><span class="text-content-muted">{{ ghost }}</span></div>
+      <div v-if="ghost" class="pointer-events-none absolute inset-0 truncate whitespace-pre text-xs leading-[22px]" aria-hidden="true"><span class="invisible">{{ text }}</span><span class="text-content-muted">{{ ghost }}</span></div>
       <input
         ref="input"
         v-model="text"
         v-no-autocorrect
         :placeholder="placeholder"
-        class="relative h-[22px] w-full bg-transparent text-xs text-content placeholder:text-content-muted focus:outline-none"
+        class="relative block h-[22px] w-full bg-transparent text-xs leading-[22px] text-content placeholder:text-content-muted focus:outline-none"
         data-menu-ask-input
         @keydown="onKey"
       >
@@ -114,7 +114,6 @@ onMounted(async () => {
     >
       <ClockIcon class="h-3.5 w-3.5" />
     </button>
-    <span v-else-if="ghost" class="flex-shrink-0 rounded border border-edge-subtle px-1 font-mono text-[10px] leading-4 text-content-muted">tab</span>
   </div>
   <template v-if="active">
     <button
@@ -128,9 +127,9 @@ onMounted(async () => {
     >
       <ClockIcon v-if="row.kind === 'recent'" class="h-4 w-4 flex-shrink-0 text-content-muted" />
       <AgentIcon v-else class="h-4 w-4 flex-shrink-0 text-content-muted" />
-      <span class="flex-1 truncate">{{ row.label }}</span>
+      <span class="min-w-0 flex-1 truncate">{{ row.label }}</span>
     </button>
-    <div v-if="text.trim() && !rows.length" class="flex items-center justify-between px-3 pb-1.5 pt-1 text-[11px] text-content-muted">
+    <div v-if="text.trim() && !rows.length" class="flex items-center justify-between pb-1.5 pl-9 pr-3 pt-1 text-[11px] text-content-muted">
       <span>Ask about {{ mediaIds.length === 1 ? 'this' : `these ${mediaIds.length}` }}</span><span class="font-mono">↵</span>
     </div>
   </template>
