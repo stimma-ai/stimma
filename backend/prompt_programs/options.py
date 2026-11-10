@@ -35,9 +35,11 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
-from prompt_programs.draws import LiteralOptions, PickSpec, Pool, person_of, pool_key
+from prompt_programs.draws import LiteralOptions, PickSpec, Pool, context_suffix, person_of, pool_key
 from prompt_programs.runtime import RANK_DECAY
-from prompt_programs.vocab import AGE_LIST, OPEN_SHARE, Leaf, fill, minor_ages, tags_match, template_matches, vocabulary
+from prompt_programs.vocab import (
+    AGE_LIST, OPEN_SHARE, Leaf, fill, given_families, minor_ages, tags_match, template_matches, vocabulary,
+)
 
 log = get_logger(__name__)
 
@@ -114,6 +116,11 @@ class ProgramContext:
     # (list pick, ((value, ages under 18), ...)) for the user's list values that read as an age
     # under 18 (narrow.py, entry["list_ages"]): a draw of one makes its person a minor
     list_ages: Tuple[Tuple[str, Tuple[Tuple[str, Tuple[str, ...]], ...]], ...] = ()
+    # What the prompt states for a context-giving list (narrow.py, entry["stated_context"]):
+    # (person, or None for the scene, list, subset), and what the user's list values read as on
+    # such a list (entry["list_context"]): (list pick, value, list, subset)
+    stated: Tuple[Tuple[Optional[str], str, Tuple[str, ...]], ...] = ()
+    list_context: Tuple[Tuple[str, str, str, Tuple[str, ...]], ...] = ()
 
     @classmethod
     def of(cls, entry: Dict[str, Any]) -> "ProgramContext":
@@ -137,7 +144,14 @@ class ProgramContext:
                    minors=program_minors(entry),
                    wildcards=tuple(str(c.get("id")) for c in entry.get("choices") or [] if c.get("wildcard")),
                    list_ages=tuple((str(k), tuple((str(v), tuple(a)) for v, a in vals.items()))
-                                   for k, vals in (entry.get("list_ages") or {}).items() if isinstance(vals, dict)))
+                                   for k, vals in (entry.get("list_ages") or {}).items() if isinstance(vals, dict)),
+                   stated=tuple((s.get("of") if isinstance(s.get("of"), str) else None, str(s.get("cls") or ""),
+                                 tuple(str(x) for x in s.get("values") or []))
+                                for s in entry.get("stated_context") or [] if isinstance(s, dict)),
+                   list_context=tuple((str(k), str(v), str(cls), tuple(str(x) for x in sub))
+                                      for k, vals in (entry.get("list_context") or {}).items() if isinstance(vals, dict)
+                                      for v, by in vals.items() if isinstance(by, dict)
+                                      for cls, sub in by.items() if isinstance(sub, list)))
 
 
 def program_minors(entry: Dict[str, Any]) -> Tuple[Tuple[str, Tuple[str, ...]], ...]:
@@ -703,7 +717,7 @@ class GeneratedOptions:
                  edits: Optional[Dict[str, Dict[str, Any]]] = None, filler: Optional[OptionFiller] = None,
                  limits: Optional[Dict[str, Any]] = None,
                  project_id: Optional[int] = None, generate: bool = True,
-                 version: Optional[str] = None):
+                 version: Optional[str] = None, context: bool = True):
         self.store, self.program, self.filler = store, program, filler
         # The pools' options version: a replay reads the version its revision drew from,
         # and never writes to an older one.
@@ -719,6 +733,18 @@ class GeneratedOptions:
         self.minor_ages = dict(program.minors)    # read by the draw engine (draws._Engine._minors)
         self.list_ages = {k: dict(v) for k, v in program.list_ages}   # read by the draw engine too
         self.theirs = program.wildcards
+        # Context (vocab.py), read by the draw engine: off to replay a revision drawn before it.
+        self.context = context
+        self.stated_context: Dict[Optional[str], Dict[str, Tuple[str, ...]]] = {}
+        for who, cls, sub in program.stated:
+            for f, fam in given_families(cls, sub).items():
+                have = self.stated_context.setdefault(who if vocabulary().scope(f) == "person" else None, {})
+                have[f] = tuple(sorted(set(have.get(f, ())) | set(fam)))
+        self.list_context: Dict[str, Dict[str, Dict[str, Tuple[str, ...]]]] = {}
+        for cid, value, cls, sub in program.list_context:
+            for f, fam in given_families(cls, sub).items():
+                have = self.list_context.setdefault(cid, {}).setdefault(value, {})
+                have[f] = tuple(sorted(set(have.get(f, ())) | set(fam)))
         self._pools: Dict[str, Pool] = {}
         self.requests: List[Tuple[str, str]] = []
         self.queued: List[str] = []
@@ -778,6 +804,9 @@ class GeneratedOptions:
             key += f" where {intent}"
         if spec.minor:  # a person under 18: adult-only values out, options written for that age
             key += " | under 18"
+        if spec.context and self._leaf(spec) is not None:   # last: a replay finds its recorded context
+            recorded = [k for k in self.limits if k.startswith(key + " | context ")]
+            key = recorded[0] if len(recorded) == 1 else key + context_suffix(spec)
         lineage = "" if specific else self.program.lineage
         return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate,
                             self.program.lists, self.version, lineage, intent, spec.cls, spec.minor), signature
@@ -881,6 +910,8 @@ class GeneratedOptions:
             values = [v for v in values if tags_match(v.tags, want)] or values
         listed = unique([(v.text, v.weight) for v in values] +
                         [(str(x), 1.0) for x in edit.get("add") or [] if str(x).strip()])
+        if spec.context:  # weighted by what its scope drew (vocab.py); the user's additions keep theirs
+            listed = leaf.weigh(listed, spec.context)
         generated = self.store.options(skey) if self.store is not None and not leaf.closed else []
         gen = unique([(o, GEN_DECAY ** i) for i, o in enumerate(generated)])
         if isinstance(recorded, (int, float)):  # a length recorded for this pool: truncate before weighting
