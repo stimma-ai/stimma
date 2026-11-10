@@ -1,10 +1,10 @@
 import { mkdir } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
-import { apiJSON, createBoard, createChat, promptInput, TEST_T2I_TOOL_ID, waitForGeneratedMedia } from '../helpers/app';
+import { apiJSON, createCollection, createChat, promptInput, TEST_T2I_TOOL_ID, waitForGeneratedMedia } from '../helpers/app';
 import { auditHitTargets, auditHorizontalOverflow, expectNoOverflow, settleAnyViewport } from '../helpers/viewport';
 
 /**
- * Phone lane, detail screens: a tool, a chat, a board, a flow, the settings
+ * Phone lane, detail screens: a tool, a chat, a collection, a flow, the settings
  * sheet. Same two rules as the hub audit (no horizontal overflow, no visible
  * sub-44px control), same ratchet. Entities are created through the API or
  * the app's own "New" actions so the screens carry real content.
@@ -13,7 +13,7 @@ import { auditHitTargets, auditHorizontalOverflow, expectNoOverflow, settleAnyVi
 const KNOWN_BAD: Record<string, { overflow?: boolean; hitTargets?: boolean }> = {
   tool: { hitTargets: true },
   chat: { hitTargets: true },
-  board: { hitTargets: true },
+  collection: { hitTargets: true },
   flow: { hitTargets: true },
   settings: { hitTargets: true },
 };
@@ -137,14 +137,14 @@ test.describe('phone lane: detail screens', () => {
     await audit(page, 'chat');
   });
 
-  test('board detail fits a phone', async ({ page }) => {
-    await page.goto('/boards');
+  test('collection detail fits a phone', async ({ page }) => {
+    await page.goto('/collections');
     await settleAnyViewport(page);
-    const board = await createBoard(page, 'Phone lane board');
-    await page.goto(`/boards/${board.id}`);
+    const collection = await createCollection(page, 'Phone lane collection');
+    await page.goto(`/collections/${collection.id}`);
     await settleAnyViewport(page);
     await expect(page.locator('.compact-header')).toBeVisible();
-    await audit(page, 'board');
+    await audit(page, 'collection');
   });
 
   test('flow fits a phone', async ({ page }) => {

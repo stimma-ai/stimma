@@ -9,7 +9,7 @@ from sqlalchemy import select, update
 
 import routes.flows as flow_routes
 from asset_service import trash_asset
-from database import Asset, AssetRevision, Board, Chat, ChatItem, Flow, MediaItem
+from database import Asset, AssetRevision, Collection, Chat, ChatItem, Flow, MediaItem
 from flow_runtime import create_flow_state_db, get_flow_state_db_path, graph_db
 from flow_runtime.graph import Equation, EquationStatus, EquationType
 from models.api_models import FlowEquationResponse
@@ -31,13 +31,13 @@ async def _touch(db_session, model, entity_id, minutes):
         await session.commit()
 
 
-async def _board(client, db_session, project_id, name, media_ids=(), minutes=0):
-    board = (await client.post("/api/boards", json={"name": name, "project_id": project_id})).json()
+async def _collection(client, db_session, project_id, name, media_ids=(), minutes=0):
+    collection = (await client.post("/api/collections", json={"name": name, "project_id": project_id})).json()
     if media_ids:
-        added = await client.post(f"/api/boards/{board['id']}/items", json={"media_ids": list(media_ids)})
+        added = await client.post(f"/api/collections/{collection['id']}/items", json={"media_ids": list(media_ids)})
         assert added.status_code == 200, added.text
-    await _touch(db_session, Board, board["id"], minutes)
-    return board["id"]
+    await _touch(db_session, Collection, collection["id"], minutes)
+    return collection["id"]
 
 
 async def _chat(client, db_session, project_id, name="", messages=(), minutes=0):
@@ -86,8 +86,8 @@ class TestHomeRecents:
         project_id = await _project(client, "Home order")
         async with db_session() as session:
             media = await create_test_media(session, count=2)
-        board_id = await _board(client, db_session, project_id, "Mood", [m.id for m in media], minutes=1)
-        await _board(client, db_session, project_id, "", minutes=9)  # empty, unnamed: skipped
+        collection_id = await _collection(client, db_session, project_id, "Mood", [m.id for m in media], minutes=1)
+        await _collection(client, db_session, project_id, "", minutes=9)  # empty, unnamed: skipped
         flow_id = await _flow(client, db_session, project_id, "Pipeline", minutes=3)
         await _flow(client, db_session, project_id, "", minutes=8)  # stray "New flow": skipped
         chat_id = await _chat(client, db_session, project_id, messages=["hello there"], minutes=5)
@@ -96,13 +96,13 @@ class TestHomeRecents:
 
         body = (await _recents(client, project_id)).json()
         assert [(item["type"], item[item["type"]]["id"]) for item in body["items"]] == [
-            ("chat", chat_id), ("flow", flow_id), ("board", board_id),
+            ("chat", chat_id), ("flow", flow_id), ("collection", collection_id),
         ]
         assert body["has_entities"] is True
-        board = body["items"][2]["board"]
-        assert board["asset_count"] == 2
-        assert [item["media_id"] for item in board["preview_items"]] == [m.id for m in media]
-        assert all(item["file_hash"] for item in board["preview_items"])
+        collection = body["items"][2]["collection"]
+        assert collection["asset_count"] == 2
+        assert [item["media_id"] for item in collection["preview_items"]] == [m.id for m in media]
+        assert all(item["file_hash"] for item in collection["preview_items"])
         chat = body["items"][0]["chat"]
         assert chat["last_message"] == "hello there"
         assert chat["message_count"] == 1
@@ -113,7 +113,7 @@ class TestHomeRecents:
     async def test_scopes_like_the_list_endpoints(self, client, db_session):
         project_id = await _project(client, "Home scope")
         other_id = await _project(client, "Home other")
-        await _board(client, db_session, other_id, "Elsewhere")
+        await _collection(client, db_session, other_id, "Elsewhere")
         await _chat(client, db_session, None, name="Top-level chat")
 
         body = (await _recents(client, project_id)).json()
@@ -126,12 +126,12 @@ class TestHomeRecents:
         await _chat(client, db_session, project_id)
         assert (await _recents(client, project_id)).json() == {"items": [], "has_entities": True}
 
-    async def test_size_follows_the_cards_not_the_boards_behind_them(self, client, db_session, monkeypatch):
+    async def test_size_follows_the_cards_not_the_collections_behind_them(self, client, db_session, monkeypatch):
         project_id = await _project(client, "Home size")
         async with db_session() as session:
             first = await create_test_media(session, count=8)
             bulk = await create_test_media(session, count=400)
-        board_id = await _board(client, db_session, project_id, "Big board", [m.id for m in first], minutes=2)
+        collection_id = await _collection(client, db_session, project_id, "Big collection", [m.id for m in first], minutes=2)
         flow_id = await _flow(client, db_session, project_id, "Big flow", minutes=1)
         _seed_equations(flow_id, [_tool_eq(f"r/tool${i}", [first[i % 8].id]) for i in range(4)])
         output_keys = {"r/tool$0": "out", "r/tool$1": "out2"}
@@ -141,9 +141,9 @@ class TestHomeRecents:
         small = await _recents(client, project_id)
         legacy_small = await _legacy_home_bytes(client, project_id)
 
-        added = await client.post(f"/api/boards/{board_id}/items", json={"media_ids": [m.id for m in bulk]})
+        added = await client.post(f"/api/collections/{collection_id}/items", json={"media_ids": [m.id for m in bulk]})
         assert added.status_code == 200, added.text
-        await _touch(db_session, Board, board_id, 2)
+        await _touch(db_session, Collection, collection_id, 2)
         _seed_equations(flow_id, [_tool_eq(f"r/more${i}", [bulk[i].id]) for i in range(400)])
 
         large = await _recents(client, project_id)
@@ -158,9 +158,9 @@ class TestHomeRecents:
         assert legacy_large > 50 * len(large.content)
 
         body = large.json()
-        board = next(item["board"] for item in body["items"] if item["type"] == "board")
-        assert board["asset_count"] == 408
-        assert [item["media_id"] for item in board["preview_items"]] == [m.id for m in first[:6]]
+        collection = next(item["collection"] for item in body["items"] if item["type"] == "collection")
+        assert collection["asset_count"] == 408
+        assert [item["media_id"] for item in collection["preview_items"]] == [m.id for m in first[:6]]
         flow = next(item["flow"] for item in body["items"] if item["type"] == "flow")
         assert [ref["media_id"] for ref in flow["preview_media"]] == [first[0].id, first[1].id]
         assert all(ref["file_hash"] for ref in flow["preview_media"])
@@ -173,10 +173,10 @@ async def _legacy_home_bytes(client, project_id):
     """Bytes Home read before the compact model, for the same scope."""
     total = 0
     params = {"project_id": project_id}
-    boards = await client.get("/api/boards", params=params)
-    total += len(boards.content)
-    for board in boards.json()[:6]:
-        total += len((await client.get(f"/api/boards/{board['id']}")).content)
+    collections = await client.get("/api/collections", params=params)
+    total += len(collections.content)
+    for collection in collections.json()[:6]:
+        total += len((await client.get(f"/api/collections/{collection['id']}")).content)
     flows = await client.get("/api/flows", params=params)
     total += len(flows.content)
     for flow in flows.json()[:6]:
@@ -263,9 +263,9 @@ async def test_hidden_flows_do_not_consume_recent_slots_or_make_scope_nonempty(c
     await _flow(client, db_session, project_id, 'Newest flow', minutes=10)
     empty = (await _recents(client, project_id, include_flows=False)).json()
     assert empty == {'items': [], 'has_entities': False}
-    board_id = await _board(client, db_session, project_id, 'Older board', minutes=1)
+    collection_id = await _collection(client, db_session, project_id, 'Older collection', minutes=1)
     hidden = (await _recents(client, project_id, include_flows=False, limit=1)).json()
-    assert hidden['items'][0]['type'] == 'board'
-    assert hidden['items'][0]['board']['id'] == board_id
+    assert hidden['items'][0]['type'] == 'collection'
+    assert hidden['items'][0]['collection']['id'] == collection_id
     shown = (await _recents(client, project_id, include_flows=True, limit=1)).json()
     assert shown['items'][0]['type'] == 'flow'

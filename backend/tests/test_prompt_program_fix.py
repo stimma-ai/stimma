@@ -16,7 +16,7 @@ JOBS = '''
 job = pick("job", ["nun", "lifeguard", "surgeon"], label="Job", source="list", phase=1)
 outfit = pick("outfit", by=job, label="Outfit", about="what she wears", phase=2, options={
     "nun": ["a black habit", "a grey habit"],
-    "lifeguard": ["a red swimsuit", "board shorts"],
+    "lifeguard": ["a red swimsuit", "collection shorts"],
     "surgeon": ["green scrubs", "blue scrubs"]})
 light = pick("light", ["dawn light", "noon sun", "moonlight", "candlelight"], label="Light", phase=1)
 emit("A", job, "wearing", outfit, "under", light)

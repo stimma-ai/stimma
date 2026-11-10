@@ -20,17 +20,17 @@ import { useProvidersApi } from './useProvidersApi'
 import { isSettingsLoaded } from '../appConfig'
 import { recordEntityVisit, setRecentEntityProject, updateRecentEntityName, type RecentEntityType } from './useRecentEntities'
 
-export type WorkspaceTabType = 'tool' | 'chat' | 'board' | 'editor' | 'lineage' | 'project' | 'flow'
+export type WorkspaceTabType = 'tool' | 'chat' | 'collection' | 'editor' | 'lineage' | 'project' | 'flow'
 
 export interface WorkspaceTab {
-  id: string              // 'tool:{fullToolId}[:project:{p}]:i:{K}', 'chat:{id}', 'board:{id}', 'editor:asset:{assetId}'
+  id: string              // 'tool:{fullToolId}[:project:{p}]:i:{K}', 'chat:{id}', 'collection:{id}', 'editor:asset:{assetId}'
   type: WorkspaceTabType
-  entityId: string        // fullToolId, chatId, boardId, or asset-prefixed editor id
+  entityId: string        // fullToolId, chatId, collectionId, or asset-prefixed editor id
   pinned: boolean
   displayOrder: number
   displayName: string     // cached name for rendering without extra API calls
   editorMediaId?: string  // Only for editor tabs: the current mediaId being edited
-  projectId?: number | null // Owning project (tool, chat, board, flow), or editor entry context
+  projectId?: number | null // Owning project (tool, chat, collection, flow), or editor entry context
   contextProjectIds?: Array<number | null> // Shared editor/lineage access, without duplicating the document
   projectName?: string    // Cached project name for display
   instanceId?: string     // Tool tabs: instance discriminator; every tool tab is an instance
@@ -632,7 +632,7 @@ export function useWorkspaceTabs() {
   }
 
   /**
-   * A deleted project takes its tabs with it: its tool, chat, board and flow
+   * A deleted project takes its tabs with it: its tool, chat, collection and flow
    * tabs and its project tab close (not into the reopen stack), editor and
    * lineage tabs lose it as a context (closing when it was their only one),
    * and its tool instances' saved working state is dropped. Returns the

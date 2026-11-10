@@ -126,28 +126,28 @@
             </button>
           </div>
 
-          <!-- Boards landing link (with drag-drop to create new) -->
+          <!-- Collections landing link (with drag-drop to create new) -->
           <div class="group relative">
             <button
-              @click="handleNavClick('boards')"
+              @click="handleNavClick('collections')"
               @dragover="handleDragOver"
-              @dragenter="handleNewBoardDragEnter"
-              @dragleave="handleNewBoardDragLeave"
-              @drop="handleNewBoardDrop"
+              @dragenter="handleNewCollectionDragEnter"
+              @dragleave="handleNewCollectionDragLeave"
+              @drop="handleNewCollectionDrop"
               class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
               :class="[
-                activeTab === 'boards' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
-                dragHoverNewBoard ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
+                activeTab === 'collections' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
+                dragHoverNewCollection ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
-              title="Boards (drag media here to create new)"
+              title="Collections (drag media here to create new)"
             >
               <Squares2X2Icon class="w-icon-nav h-icon-nav flex-shrink-0" />
-              <span>Boards</span>
+              <span>Collections</span>
             </button>
-            <!-- Create new board button -->
-            <Tooltip text="Create new board" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <!-- Create new collection button -->
+            <Tooltip text="Create new collection" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
-                @click.stop="createNewBoard"
+                @click.stop="createNewCollection"
                 class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
               >
                 <PlusIcon class="w-icon-inline h-icon-inline" />
@@ -285,25 +285,25 @@
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
                   <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
+                  <div v-else-if="tab.type === 'collection'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getCollectionPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
-                        v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
-                        :key="`${tab.id}-rename-board-column-${columnIndex}`"
+                        v-for="(column, columnIndex) in getCollectionPreviewColumns(tab.entityId)"
+                        :key="`${tab.id}-rename-collection-column-${columnIndex}`"
                         class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
-                          :key="`${tab.id}-rename-board-item-${columnIndex}-${item.id}-${index}`"
+                          :key="`${tab.id}-rename-collection-item-${columnIndex}-${item.id}-${index}`"
                           class="overflow-hidden rounded-media bg-overlay-subtle"
-                          :style="getBoardPreviewTileStyle(item)"
+                          :style="getCollectionPreviewTileStyle(item)"
                         >
                           <MediaImage
                             :media-id="item.id"
                             :file-hash="item.file_hash"
                             :file-path="item.file_path"
                             :file-format="item.file_format"
-                            :is-video="isBoardPreviewVideo(item.file_format)"
+                            :is-video="isCollectionPreviewVideo(item.file_format)"
                             thumbnail
                             :thumbnail-size="128"
                             :draggable="false"
@@ -340,25 +340,25 @@
                 <!-- Normal display -->
                 <template v-else>
                   <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
+                  <div v-else-if="tab.type === 'collection'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getCollectionPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
-                        v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
-                        :key="`${tab.id}-board-column-${columnIndex}`"
+                        v-for="(column, columnIndex) in getCollectionPreviewColumns(tab.entityId)"
+                        :key="`${tab.id}-collection-column-${columnIndex}`"
                         class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
-                          :key="`${tab.id}-board-item-${columnIndex}-${item.id}-${index}`"
+                          :key="`${tab.id}-collection-item-${columnIndex}-${item.id}-${index}`"
                           class="overflow-hidden rounded-media bg-overlay-subtle"
-                          :style="getBoardPreviewTileStyle(item)"
+                          :style="getCollectionPreviewTileStyle(item)"
                         >
                           <MediaImage
                             :media-id="item.id"
                             :file-hash="item.file_hash"
                             :file-path="item.file_path"
                             :file-format="item.file_format"
-                            :is-video="isBoardPreviewVideo(item.file_format)"
+                            :is-video="isCollectionPreviewVideo(item.file_format)"
                             thumbnail
                             :thumbnail-size="128"
                             :draggable="false"
@@ -407,14 +407,14 @@
                     />
                   </div>
 
-                  <!-- Board with title/subtitle -->
-                  <div v-else-if="tab.type === 'board' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
+                  <!-- Collection with title/subtitle -->
+                  <div v-else-if="tab.type === 'collection' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
                       <span class="truncate text-[13px] leading-4">
                         {{ tab.displayName }}
                       </span>
                       <span class="min-w-0 truncate font-mono tabular-nums text-[11px] leading-[14px] text-content-muted">
-                        {{ formatBoardTabDetail(tab.entityId) }}
+                        {{ formatCollectionTabDetail(tab.entityId) }}
                       </span>
                     </div>
                   </div>
@@ -494,7 +494,7 @@
                     />
                   </div>
 
-                  <!-- Non-tool/chat/board/flow items -->
+                  <!-- Non-tool/chat/collection/flow items -->
                   <span
                     v-else-if="tab.displayName"
                     class="truncate text-sm flex-1"
@@ -502,11 +502,11 @@
                     {{ tab.displayName }}
                   </span>
                   <span
-                    v-else-if="tab.type === 'board'"
+                    v-else-if="tab.type === 'collection'"
                     @click.stop="startInlineRename(tab)"
                     class="truncate text-sm flex-1 text-content-muted italic cursor-pointer hover:text-content-secondary"
                   >
-                    Name this board...
+                    Name this collection...
                   </span>
                   <!-- Working: spinner. The dot is reserved for "finished since
                        you last looked". -->
@@ -600,25 +600,25 @@
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
                   <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
+                  <div v-else-if="tab.type === 'collection'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getCollectionPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
-                        v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
-                        :key="`${tab.id}-rename-open-board-column-${columnIndex}`"
+                        v-for="(column, columnIndex) in getCollectionPreviewColumns(tab.entityId)"
+                        :key="`${tab.id}-rename-open-collection-column-${columnIndex}`"
                         class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
-                          :key="`${tab.id}-rename-open-board-item-${columnIndex}-${item.id}-${index}`"
+                          :key="`${tab.id}-rename-open-collection-item-${columnIndex}-${item.id}-${index}`"
                           class="overflow-hidden rounded-media bg-overlay-subtle"
-                          :style="getBoardPreviewTileStyle(item)"
+                          :style="getCollectionPreviewTileStyle(item)"
                         >
                           <MediaImage
                             :media-id="item.id"
                             :file-hash="item.file_hash"
                             :file-path="item.file_path"
                             :file-format="item.file_format"
-                            :is-video="isBoardPreviewVideo(item.file_format)"
+                            :is-video="isCollectionPreviewVideo(item.file_format)"
                             thumbnail
                             :thumbnail-size="128"
                             :draggable="false"
@@ -655,25 +655,25 @@
                 <!-- Normal display -->
                 <template v-else>
                   <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
+                  <div v-else-if="tab.type === 'collection'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getCollectionPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
-                        v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
-                        :key="`${tab.id}-open-board-column-${columnIndex}`"
+                        v-for="(column, columnIndex) in getCollectionPreviewColumns(tab.entityId)"
+                        :key="`${tab.id}-open-collection-column-${columnIndex}`"
                         class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
-                          :key="`${tab.id}-open-board-item-${columnIndex}-${item.id}-${index}`"
+                          :key="`${tab.id}-open-collection-item-${columnIndex}-${item.id}-${index}`"
                           class="overflow-hidden rounded-media bg-overlay-subtle"
-                          :style="getBoardPreviewTileStyle(item)"
+                          :style="getCollectionPreviewTileStyle(item)"
                         >
                           <MediaImage
                             :media-id="item.id"
                             :file-hash="item.file_hash"
                             :file-path="item.file_path"
                             :file-format="item.file_format"
-                            :is-video="isBoardPreviewVideo(item.file_format)"
+                            :is-video="isCollectionPreviewVideo(item.file_format)"
                             thumbnail
                             :thumbnail-size="128"
                             :draggable="false"
@@ -723,14 +723,14 @@
                     />
                   </div>
 
-                  <!-- Board with title/subtitle -->
-                  <div v-else-if="tab.type === 'board' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
+                  <!-- Collection with title/subtitle -->
+                  <div v-else-if="tab.type === 'collection' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
                       <span class="truncate text-[13px] leading-4">
                         {{ tab.displayName }}
                       </span>
                       <span class="min-w-0 truncate font-mono tabular-nums text-[11px] leading-[14px] text-content-muted">
-                        {{ formatBoardTabDetail(tab.entityId) }}
+                        {{ formatCollectionTabDetail(tab.entityId) }}
                       </span>
                     </div>
                   </div>
@@ -810,7 +810,7 @@
                     />
                   </div>
 
-                  <!-- Non-tool/chat/board/flow items -->
+                  <!-- Non-tool/chat/collection/flow items -->
                   <span
                     v-else-if="tab.displayName"
                     class="truncate text-sm flex-1"
@@ -818,11 +818,11 @@
                     {{ tab.displayName }}
                   </span>
                   <span
-                    v-else-if="tab.type === 'board'"
+                    v-else-if="tab.type === 'collection'"
                     @click.stop="startInlineRename(tab)"
                     class="truncate text-sm flex-1 text-content-muted italic cursor-pointer hover:text-content-secondary"
                   >
-                    Name this board...
+                    Name this collection...
                   </span>
                   <!-- Working: spinner. The dot is reserved for "finished since
                        you last looked". -->
@@ -1205,7 +1205,7 @@ useFlowCounts()
 const { draggedMediaInfo, draggedMediaItems, draggedMediaCount, draggedMediaType } = useDragStore()
 
 // APIs
-const { getSavedViews, getBoard, getProject, createBoard: apiCreateBoard, updateBoard, updateProject } = useMediaApi()
+const { getSavedViews, getCollection, getProject, createCollection: apiCreateCollection, updateCollection, updateProject } = useMediaApi()
 const { listPinnedTools, fetchProvidersAndTools, subscribeToProviderChanges } = useProvidersApi()
 
 // ==================== State ====================
@@ -1230,7 +1230,7 @@ watch(allToolsMap, (map) => {
     if (t?.name && t.name !== tab.displayName) updateTabName(tab.id, t.name)
   }
 }, { deep: false })
-type BoardPreviewItem = {
+type CollectionPreviewItem = {
   id: number
   file_hash?: string | null
   file_path?: string | null
@@ -1239,22 +1239,22 @@ type BoardPreviewItem = {
   height?: number | null
 }
 
-type BoardMetadata = {
+type CollectionMetadata = {
   cover_media_id: number | null
   item_count: number
   section_count: number
   project_id: number | null
-  preview_items: BoardPreviewItem[]
+  preview_items: CollectionPreviewItem[]
 }
 
-const boardMetadata = ref<Map<string, BoardMetadata>>(new Map())
+const collectionMetadata = ref<Map<string, CollectionMetadata>>(new Map())
 const chatMetadata = ref<Map<string, { thumbnail_media_id: number | null, last_message: string, project_id: number | null, mcp_driven?: boolean }>>(new Map())
 const projectNames = ref<Map<string, string>>(new Map())
 
 const flowMetadata = ref<Map<string, number | null | undefined>>(new Map())
 function isContextTab(tab: WorkspaceTab) {
-  if (tab.type === 'board') {
-    const owner = boardMetadata.value.has(tab.entityId) ? boardMetadata.value.get(tab.entityId)!.project_id : tab.projectId
+  if (tab.type === 'collection') {
+    const owner = collectionMetadata.value.has(tab.entityId) ? collectionMetadata.value.get(tab.entityId)!.project_id : tab.projectId
     return owner !== undefined && owner === activeProjectId.value
   }
   if (tab.type === 'chat') {
@@ -1282,12 +1282,12 @@ const dragHoverToolTab = computed(() => {
   if (!id) return false
   return [...pinnedTabs.value, ...openTabs.value].some(t => t.id === id && t.type === 'tool')
 })
-const dragHoverNewBoard = ref(false)
+const dragHoverNewCollection = ref(false)
 const dragHoverNewChat = ref(false)
 const dragHoverNewFlow = ref(false)
 const dragHoverStimmaHome = ref(false)
 const tabDragCounters = ref<Map<string, number>>(new Map())
-const newBoardDragCounter = ref(0)
+const newCollectionDragCounter = ref(0)
 const newChatDragCounter = ref(0)
 const newFlowDragCounter = ref(0)
 const stimmaHomeDragCounter = ref(0)
@@ -1419,7 +1419,7 @@ function isTwoLineTab(tab: WorkspaceTab): boolean {
   switch (tab.type) {
     // Tools carry a trailing provider mark; chats show only their title.
     case 'tool': return false
-    case 'board': return !!tab.displayName
+    case 'collection': return !!tab.displayName
     case 'chat': return false
     case 'flow':
     case 'project': return true
@@ -1436,17 +1436,17 @@ function isToolStimmaCloud(fullToolId: string): boolean {
   return tool ? isStimmaCloudTool(tool) : false
 }
 
-function extractBoardMetadata(board: any) {
-  const sections = board?.sections || []
+function extractCollectionMetadata(collection: any) {
+  const sections = collection?.sections || []
   const previewItems = sections
     .flatMap((section: any) => section.items || [])
     .slice(0, 4)
   const firstItem = previewItems[0] || null
   return {
     cover_media_id: firstItem?.id || null,
-    item_count: board?.asset_count || 0,
+    item_count: collection?.asset_count || 0,
     section_count: sections.length,
-    project_id: board?.project_id ?? null,
+    project_id: collection?.project_id ?? null,
     preview_items: previewItems
   }
 }
@@ -1462,56 +1462,56 @@ async function ensureProjectName(projectId: number | string | null | undefined) 
   } catch {}
 }
 
-// The open chat, board or flow moved to another project (here or in another
+// The open chat, collection or flow moved to another project (here or in another
 // window): the working context follows what's on screen.
 function followOpenEntity(routeName: string, id: string, projectId: number | null) {
   if (route.name === routeName && String(route.params.id) === id && activeProjectId.value !== projectId) selectProject(projectId)
 }
 
-function applyBoardUpdate(board: any) {
-  if (!board?.id) return
-  const boardId = String(board.id)
-  setTabContext(`board:${boardId}`, board.project_id ?? null)
-  if ('project_id' in board) followOpenEntity('board-detail', boardId, board.project_id ?? null)
-  boardMetadata.value.set(boardId, extractBoardMetadata(board))
-  boardMetadata.value = new Map(boardMetadata.value)
-  ensureProjectName(board?.project_id ?? null)
+function applyCollectionUpdate(collection: any) {
+  if (!collection?.id) return
+  const collectionId = String(collection.id)
+  setTabContext(`collection:${collectionId}`, collection.project_id ?? null)
+  if ('project_id' in collection) followOpenEntity('collection-detail', collectionId, collection.project_id ?? null)
+  collectionMetadata.value.set(collectionId, extractCollectionMetadata(collection))
+  collectionMetadata.value = new Map(collectionMetadata.value)
+  ensureProjectName(collection?.project_id ?? null)
 
-  const nextName = (board.name || '').trim()
+  const nextName = (collection.name || '').trim()
   if (nextName) {
-    updateTabName(`board:${boardId}`, nextName)
+    updateTabName(`collection:${collectionId}`, nextName)
   }
 }
 
-async function loadBoardMetadata(boardId: string) {
+async function loadCollectionMetadata(collectionId: string) {
   try {
-    const board = await getBoard(parseInt(boardId, 10))
-    if (board) {
-      applyBoardUpdate(board)
+    const collection = await getCollection(parseInt(collectionId, 10))
+    if (collection) {
+      applyCollectionUpdate(collection)
     }
   } catch (error) {
-    console.error('Failed to load board metadata:', error)
+    console.error('Failed to load collection metadata:', error)
   }
 }
 
-function getBoardMetadata(boardId: string) {
-  return boardMetadata.value.get(boardId)
+function getCollectionMetadata(collectionId: string) {
+  return collectionMetadata.value.get(collectionId)
 }
 
-function getBoardPreviewItems(boardId: string) {
-  return getBoardMetadata(boardId)?.preview_items || []
+function getCollectionPreviewItems(collectionId: string) {
+  return getCollectionMetadata(collectionId)?.preview_items || []
 }
 
-function getBoardPreviewColumns(boardId: string) {
-  const items = getBoardPreviewItems(boardId)
-  const columns: BoardPreviewItem[][] = [[], []]
+function getCollectionPreviewColumns(collectionId: string) {
+  const items = getCollectionPreviewItems(collectionId)
+  const columns: CollectionPreviewItem[][] = [[], []]
   items.forEach((item, index) => {
     columns[index % columns.length].push(item)
   })
   return columns
 }
 
-function getBoardPreviewTileStyle(item: BoardPreviewItem) {
+function getCollectionPreviewTileStyle(item: CollectionPreviewItem) {
   const width = Math.max(item?.width || 1, 1)
   const height = Math.max(item?.height || 1, 1)
   return {
@@ -1519,7 +1519,7 @@ function getBoardPreviewTileStyle(item: BoardPreviewItem) {
   }
 }
 
-function isBoardPreviewVideo(fileFormat?: string | null) {
+function isCollectionPreviewVideo(fileFormat?: string | null) {
   return !!fileFormat && ['mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'].includes(fileFormat.toLowerCase())
 }
 
@@ -1527,8 +1527,8 @@ function formatCount(count: number, singular: string): string {
   return `${count} ${count === 1 ? singular : `${singular}s`}`
 }
 
-function formatBoardTabDetail(boardId: string): string {
-  const metadata = getBoardMetadata(boardId)
+function formatCollectionTabDetail(collectionId: string): string {
+  const metadata = getCollectionMetadata(collectionId)
   const itemText = formatCount(metadata?.item_count || 0, 'asset')
   const sectionCount = metadata?.section_count || 0
   return sectionCount > 1 ? `${itemText} · ${formatCount(sectionCount, 'section')}` : itemText
@@ -1576,10 +1576,10 @@ function loadAllChatMetadata() {
   }
 }
 
-function loadAllBoardMetadata() {
+function loadAllCollectionMetadata() {
   for (const tab of allTabs.value) {
-    if (tab.type === 'board' && !boardMetadata.value.has(tab.entityId)) {
-      loadBoardMetadata(tab.entityId)
+    if (tab.type === 'collection' && !collectionMetadata.value.has(tab.entityId)) {
+      loadCollectionMetadata(tab.entityId)
     }
   }
 }
@@ -1615,7 +1615,7 @@ function getTabIcon(tab: WorkspaceTab) {
     return createTaskTypeIconComponent(tool?.task_type || 'text-to-image', 'currentColor')
   }
   if (tab.type === 'chat') return h(ChatBubbleLeftRightIcon, {})
-  if (tab.type === 'board') return h(Squares2X2Icon, {})
+  if (tab.type === 'collection') return h(Squares2X2Icon, {})
   if (tab.type === 'project') return ArchiveBoxIcon
   if (tab.type === 'lineage') {
     // Git-branch-like icon for lineage
@@ -1635,7 +1635,7 @@ function isTabActive(tab: WorkspaceTab): boolean {
     return (tab.instanceId || null) === (route.query.instance ? String(route.query.instance) : null)
   }
   if (tab.type === 'chat') return route.name === 'chat' && String(route.params.id) === tab.entityId
-  if (tab.type === 'board') return route.name === 'board-detail' && String(route.params.id) === tab.entityId
+  if (tab.type === 'collection') return route.name === 'collection-detail' && String(route.params.id) === tab.entityId
   if (tab.type === 'project') return String(route.name || '').startsWith('project-') && String(route.params.id) === tab.entityId
   if (tab.type === 'editor') return editorRouteTabId(route) === tab.id
   if (tab.type === 'lineage') return route.name === 'lineage' && String(route.params.mediaId) === tab.entityId
@@ -1656,7 +1656,7 @@ function navigateToTab(tab: WorkspaceTab) {
     router.push(toolTabRoute(tab))
   }
   else if (tab.type === 'chat') router.push({ name: 'chat', params: { id: tab.entityId } })
-  else if (tab.type === 'board') router.push({ name: 'board-detail', params: { id: tab.entityId } })
+  else if (tab.type === 'collection') router.push({ name: 'collection-detail', params: { id: tab.entityId } })
   else if (tab.type === 'project') router.push({ name: getLastProjectRoute(tab.entityId), params: { id: tab.entityId } })
   else if (tab.type === 'editor') router.push(editorTabRoute(tab))
   else if (tab.type === 'lineage') router.push({ name: 'lineage', params: { mediaId: tab.entityId } })
@@ -1691,11 +1691,11 @@ function onShelfContextMenu(payload: { tabId: string, event: MouseEvent }) {
 }
 
 function showTabContextMenu(tab: WorkspaceTab, event: MouseEvent) {
-  // Resolve project_id from metadata for boards/chats; tool instances carry
+  // Resolve project_id from metadata for collections/chats; tool instances carry
   // their own scope (used by "New Tab" to open a sibling in the same project)
   let projectId: number | null = null
-  if (tab.type === 'board') {
-    projectId = boardMetadata.value.get(tab.entityId)?.project_id ?? null
+  if (tab.type === 'collection') {
+    projectId = collectionMetadata.value.get(tab.entityId)?.project_id ?? null
   } else if (tab.type === 'chat') {
     projectId = chatMetadata.value.get(tab.entityId)?.project_id ?? null
   } else if (tab.type === 'tool') {
@@ -1829,9 +1829,9 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
     if (flowChatId != null) setPendingMedia('chat', mediaIds, flowChatId)
     router.push({ name: 'flow', params: { id: tab.entityId } })
     if (props.isMobile) emit('close')
-  } else if (tab.type === 'board') {
+  } else if (tab.type === 'collection') {
     try {
-      const response = await fetch(`/api/boards/${tab.entityId}/items`, {
+      const response = await fetch(`/api/collections/${tab.entityId}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(assetIds.length > 0 ? { asset_ids: assetIds } : { media_ids: mediaIds })
@@ -1839,7 +1839,7 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
       if (!response.ok) throw new Error(await response.text())
       if (props.isMobile) emit('close')
     } catch (error) {
-      reportActionError("Couldn't add to board.", error)
+      reportActionError("Couldn't add to collection.", error)
     }
   }
 }
@@ -1983,43 +1983,43 @@ async function onFlowTargetDrop(zone: FlowMediaInputField | null, e: DragEvent) 
   }
 }
 
-// New Board drag-drop (on the Boards link)
-function handleNewBoardDragEnter(e: DragEvent) {
+// New Collection drag-drop (on the Collections link)
+function handleNewCollectionDragEnter(e: DragEvent) {
   if (e.dataTransfer?.types.includes('application/x-media-id')) {
     e.preventDefault()
-    newBoardDragCounter.value++
-    dragHoverNewBoard.value = true
+    newCollectionDragCounter.value++
+    dragHoverNewCollection.value = true
   }
 }
 
-function handleNewBoardDragLeave(e: DragEvent) {
-  newBoardDragCounter.value--
-  if (newBoardDragCounter.value <= 0) {
-    dragHoverNewBoard.value = false
-    newBoardDragCounter.value = 0
+function handleNewCollectionDragLeave(e: DragEvent) {
+  newCollectionDragCounter.value--
+  if (newCollectionDragCounter.value <= 0) {
+    dragHoverNewCollection.value = false
+    newCollectionDragCounter.value = 0
   }
 }
 
-async function handleNewBoardDrop(e: DragEvent) {
+async function handleNewCollectionDrop(e: DragEvent) {
   e.preventDefault()
-  dragHoverNewBoard.value = false
-  newBoardDragCounter.value = 0
+  dragHoverNewCollection.value = false
+  newCollectionDragCounter.value = 0
 
   const mediaIds = getDroppedMediaIds(e.dataTransfer)
   const assetIds = getDroppedAssetRefs(e.dataTransfer).map((item) => item.asset_id)
   if (mediaIds.length > 0) {
     try {
-      const newBoard = await apiCreateBoard('', activeProjectId.value)
-      const response = await fetch(`/api/boards/${newBoard.id}/items`, {
+      const newCollection = await apiCreateCollection('', activeProjectId.value)
+      const response = await fetch(`/api/collections/${newCollection.id}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(assetIds.length > 0 ? { asset_ids: assetIds } : { media_ids: mediaIds })
       })
       if (!response.ok) throw new Error(await response.text())
-      router.push({ name: 'board-detail', params: { id: newBoard.id } })
+      router.push({ name: 'collection-detail', params: { id: newCollection.id } })
       if (props.isMobile) emit('close')
     } catch (error) {
-      reportActionError("Couldn't create board.", error)
+      reportActionError("Couldn't create collection.", error)
     }
   }
 }
@@ -2164,14 +2164,14 @@ function handleStimmaHomeDrop(e: DragEvent) {
   }
 }
 
-// Create new board (from plus button)
-async function createNewBoard() {
+// Create new collection (from plus button)
+async function createNewCollection() {
   try {
-    const newBoard = await apiCreateBoard('', activeProjectId.value)
-    router.push({ name: 'board-detail', params: { id: newBoard.id } })
+    const newCollection = await apiCreateCollection('', activeProjectId.value)
+    router.push({ name: 'collection-detail', params: { id: newCollection.id } })
     if (props.isMobile) emit('close')
   } catch (error) {
-    reportActionError("Couldn't create board.", error)
+    reportActionError("Couldn't create collection.", error)
   }
 }
 
@@ -2249,7 +2249,7 @@ function handleTabReorderDragEnd() {
 const renameSheet = ref<{ tabId: string, tabType: string, entityId: string, name: string, label: string } | null>(null)
 // Open state lives apart from the target: the sheet emits close before save.
 const renameSheetOpen = ref(false)
-const RENAME_LABELS: Record<string, string> = { chat: 'Rename chat', board: 'Rename board', flow: 'Rename flow', project: 'Rename project', tool: 'Rename tool window' }
+const RENAME_LABELS: Record<string, string> = { chat: 'Rename chat', collection: 'Rename collection', flow: 'Rename flow', project: 'Rename project', tool: 'Rename tool window' }
 function openRenameSheet(tabId: string, tabType: string, entityId: string, name: string) {
   renameSheet.value = { tabId, tabType, entityId, name, label: RENAME_LABELS[tabType] || 'Rename' }
   renameSheetOpen.value = true
@@ -2263,7 +2263,7 @@ function saveRenameFromSheet(name: string) {
   saveRename()
 }
 
-function handleRenameFromContextMenu(tabType: 'board' | 'chat' | 'flow' | 'project', entityId: string, currentName: string) {
+function handleRenameFromContextMenu(tabType: 'collection' | 'chat' | 'flow' | 'project', entityId: string, currentName: string) {
   const tabId = `${tabType}:${entityId}`
   if (props.isMobile) { openRenameSheet(tabId, tabType, entityId, currentName); return }
   editingItem.value = { tabId, tabType, entityId }
@@ -2283,7 +2283,7 @@ function handleRenameTabFromContextMenu(tabId: string) {
 }
 
 function startInlineRename(tab: WorkspaceTab) {
-  if (tab.type !== 'chat' && tab.type !== 'board' && tab.type !== 'flow' && tab.type !== 'tool' && tab.type !== 'project') return
+  if (tab.type !== 'chat' && tab.type !== 'collection' && tab.type !== 'flow' && tab.type !== 'tool' && tab.type !== 'project') return
   if (props.isMobile) {
     openRenameSheet(tab.id, tab.type, tab.entityId, tab.type === 'tool' ? (tab.customName || '') : (tab.displayName || ''))
     return
@@ -2321,8 +2321,8 @@ async function saveRename() {
   }
 
   try {
-    if (tabType === 'board') {
-      await updateBoard(parseInt(entityId, 10), { name: newName })
+    if (tabType === 'collection') {
+      await updateCollection(parseInt(entityId, 10), { name: newName })
     } else if (tabType === 'project') {
       await updateProject(entityId, { name: newName })
     } else if (tabType === 'chat') {
@@ -2566,38 +2566,38 @@ on('flow_deleted', (data) => {
   removeRecentEntity('flow', String(data.flow_id))
 })
 
-// Board events - open new boards as tabs, update names, remove on deletion
-on('board_created', (data) => {
-  if (data.board) {
-    addTab('board', String(data.board.id), data.board.name)
-    applyBoardUpdate(data.board)
+// Collection events - open new collections as tabs, update names, remove on deletion
+on('collection_created', (data) => {
+  if (data.collection) {
+    addTab('collection', String(data.collection.id), data.collection.name)
+    applyCollectionUpdate(data.collection)
   }
 })
 
-on('board_updated', (data) => {
-  if (data.board) {
-    applyBoardUpdate(data.board)
+on('collection_updated', (data) => {
+  if (data.collection) {
+    applyCollectionUpdate(data.collection)
   }
 })
 
-on('board_items_changed', (data) => {
-  if (data.board) {
-    applyBoardUpdate(data.board)
+on('collection_items_changed', (data) => {
+  if (data.collection) {
+    applyCollectionUpdate(data.collection)
   }
 })
 
-on('board_deleted', (data) => {
-  const tabId = `board:${data.board_id}`
+on('collection_deleted', (data) => {
+  const tabId = `collection:${data.collection_id}`
   const closingTab = allTabs.value.find(t => t.id === tabId)
   if (closingTab && isTabActive(closingTab)) {
     const next = findNextTab(new Set([tabId]), visibleTabIds.value)
     if (next) navigateToTab(next)
     else router.push({ name: 'browse' })
   }
-  boardMetadata.value.delete(String(data.board_id))
-  boardMetadata.value = new Map(boardMetadata.value)
-  removeTabByEntity('board', String(data.board_id))
-  removeRecentEntity('board', String(data.board_id))
+  collectionMetadata.value.delete(String(data.collection_id))
+  collectionMetadata.value = new Map(collectionMetadata.value)
+  removeTabByEntity('collection', String(data.collection_id))
+  removeRecentEntity('collection', String(data.collection_id))
 })
 
 // Chat generation tracking
@@ -2609,7 +2609,7 @@ on('project_updated', (data) => {
   const name = project.name || 'Untitled Project'
   projectNames.value.set(id, name)
   projectNames.value = new Map(projectNames.value)
-  // Update tab displayName for project tabs and projectName on tool/chat/board tabs
+  // Update tab displayName for project tabs and projectName on tool/chat/collection tabs
   for (const tab of allTabs.value) {
     if (tab.type === 'project' && tab.entityId === id) {
       updateTabName(tab.id, project.name || '')
@@ -2643,7 +2643,7 @@ watch(
     const params = current.params
 
     // Track library routes for "close last tab" navigation
-    if (['browse', 'trash', 'saved-view', 'boards', 'chats', 'flows', 'all-tools', 'projects'].includes(name) || name?.startsWith('project-')) {
+    if (['browse', 'trash', 'saved-view', 'collections', 'chats', 'flows', 'all-tools', 'projects'].includes(name) || name?.startsWith('project-')) {
       setLastLibraryRoute(route.fullPath)
     }
 
@@ -2692,16 +2692,16 @@ watch(
       }
       // Load preview metadata (thumbnail + last message)
       loadChatMetadata(chatId)
-    } else if (name === 'board-detail' && params.id) {
+    } else if (name === 'collection-detail' && params.id) {
       const colId = String(params.id)
-      const tab = addTab('board', colId)
+      const tab = addTab('collection', colId)
       setTabContext(tab.id, route.meta.workingProjectId ?? null)
-      // Fetch board data for name and metadata
-      if (!tab.displayName || tab.displayName === colId || !getBoardMetadata(colId)) {
-        getBoard(parseInt(colId, 10)).then(col => {
+      // Fetch collection data for name and metadata
+      if (!tab.displayName || tab.displayName === colId || !getCollectionMetadata(colId)) {
+        getCollection(parseInt(colId, 10)).then(col => {
           if (col) {
             updateTabName(tab.id, col.name || '')
-            boardMetadata.value.set(colId, {
+            collectionMetadata.value.set(colId, {
               cover_media_id: null,
               item_count: col.asset_count || 0,
               section_count: col.sections?.length || 0,
@@ -2710,7 +2710,7 @@ watch(
                 .flatMap((section: any) => section.items || [])
                 .slice(0, 4)
             })
-            boardMetadata.value = new Map(boardMetadata.value)
+            collectionMetadata.value = new Map(collectionMetadata.value)
             ensureProjectName(col.project_id ?? null)
           }
         }).catch(() => {})
@@ -2748,14 +2748,14 @@ watch(
 // ==================== Lifecycle ====================
 
 async function handleProfileChanged() {
-  boardMetadata.value = new Map()
+  collectionMetadata.value = new Map()
   chatMetadata.value = new Map()
   flowMetadata.value = new Map()
   projectNames.value = new Map()
   chatMetadataLoaded.clear()
   chatMetadataLoading.clear()
   refreshProjects()
-  loadAllBoardMetadata()
+  loadAllCollectionMetadata()
   loadAllChatMetadata()
   await fetchProvidersAndTools(true)
   await Promise.all([loadPinnedTools(), loadSavedViews()])
@@ -2783,9 +2783,9 @@ onMounted(() => {
   window.addEventListener('drop', resetFlowDropTargets)
 })
 
-// Load chat/board metadata whenever tabs change (covers initial load, new tabs, profile switch)
+// Load chat/collection metadata whenever tabs change (covers initial load, new tabs, profile switch)
 watch(allTabs, () => loadAllChatMetadata(), { immediate: true })
-watch(allTabs, () => loadAllBoardMetadata(), { immediate: true })
+watch(allTabs, () => loadAllCollectionMetadata(), { immediate: true })
 watch(allTabs, () => {
   for (const tab of allTabs.value) {
     if (tab.type === 'flow' && !flowMetadata.value.has(tab.entityId)) {

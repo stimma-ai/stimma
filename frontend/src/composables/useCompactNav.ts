@@ -1,7 +1,7 @@
 /**
  * Two-layer navigation for the compact chrome.
  *
- * Layer 1: each hub (Home, Library, Workspace, Boards, Chats) owns a stack of
+ * Layer 1: each hub (Home, Library, Workspace, Collections, Chats) owns a stack of
  * routes. Navigating inside a hub pushes; the header's back control pops.
  * Layer 2: the order hubs were visited. When a hub's stack bottoms out, back
  * returns to the hub you came from, at the screen you left it on. Switching
@@ -9,7 +9,7 @@
  * hub pops it to its root.
  *
  * This is the model native tab bars use (Instagram's, notably), and it is the
- * only way "leave a chat for Boards, come back to the chat" and "back always
+ * only way "leave a chat for Collections, come back to the chat" and "back always
  * goes somewhere sensible" both hold. The browser's own history keeps working
  * for the OS back gesture; this store decides what the in-app control does.
  *

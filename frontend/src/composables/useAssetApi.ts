@@ -144,8 +144,8 @@ export function useAssetApi() {
     return (await axios.get(`${api()}/assets/item/${assetId}/projects`)).data
   }
 
-  async function getBoards(assetId: number) {
-    return (await axios.get(`${api()}/assets/item/${assetId}/boards`)).data
+  async function getCollections(assetId: number) {
+    return (await axios.get(`${api()}/assets/item/${assetId}/collections`)).data
   }
 
   async function getContainers(assetId: number) {
@@ -200,31 +200,31 @@ export function useAssetApi() {
     }
   }
 
-  async function addToBoard(boardId: number, assetIds: number[], sectionId: number | null = null) {
-    return (await axios.post(`${api()}/boards/${boardId}/items`, {
+  async function addToCollection(collectionId: number, assetIds: number[], sectionId: number | null = null) {
+    return (await axios.post(`${api()}/collections/${collectionId}/items`, {
       asset_ids: assetIds,
       section_id: sectionId,
     })).data
   }
 
-  async function removeFromBoardSection(sectionId: number, assetId: number) {
-    return (await axios.delete(`${api()}/boards/sections/${sectionId}/asset-items/${assetId}`)).data
+  async function removeFromCollectionSection(sectionId: number, assetId: number) {
+    return (await axios.delete(`${api()}/collections/sections/${sectionId}/asset-items/${assetId}`)).data
   }
 
-  async function bulkRemoveFromBoard(boardId: number, assetIds: number[]) {
-    return (await axios.post(`${api()}/boards/${boardId}/items/bulk-remove`, {
+  async function bulkRemoveFromCollection(collectionId: number, assetIds: number[]) {
+    return (await axios.post(`${api()}/collections/${collectionId}/items/bulk-remove`, {
       asset_ids: assetIds,
     })).data
   }
 
-  async function moveBoardItem(
-    boardId: number,
+  async function moveCollectionItem(
+    collectionId: number,
     assetId: number,
     fromSectionId: number,
     toSectionId: number,
     targetIndex: number,
   ) {
-    return (await axios.post(`${api()}/boards/${boardId}/asset-items/move`, {
+    return (await axios.post(`${api()}/collections/${collectionId}/asset-items/move`, {
       asset_id: assetId,
       from_section_id: fromSectionId,
       to_section_id: toSectionId,
@@ -232,8 +232,8 @@ export function useAssetApi() {
     })).data
   }
 
-  async function bulkMoveBoardItems(boardId: number, assetIds: number[], toSectionId: number) {
-    return (await axios.post(`${api()}/boards/${boardId}/items/bulk-move`, {
+  async function bulkMoveCollectionItems(collectionId: number, assetIds: number[], toSectionId: number) {
+    return (await axios.post(`${api()}/collections/${collectionId}/items/bulk-move`, {
       asset_ids: assetIds,
       to_section_id: toSectionId,
     })).data
@@ -263,7 +263,7 @@ export function useAssetApi() {
     addToProject,
     removeFromProject,
     getProjects,
-    getBoards,
+    getCollections,
     getContainers,
     promoteContainerMembers,
     trash,
@@ -274,10 +274,10 @@ export function useAssetApi() {
     permanentlyDeleteMany,
     emptyTrash,
     getTrashSourceFileCount,
-    addToBoard,
-    removeFromBoardSection,
-    bulkRemoveFromBoard,
-    moveBoardItem,
-    bulkMoveBoardItems,
+    addToCollection,
+    removeFromCollectionSection,
+    bulkRemoveFromCollection,
+    moveCollectionItem,
+    bulkMoveCollectionItems,
   }
 }

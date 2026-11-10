@@ -18,7 +18,7 @@ from database import (
     AssetRevision,
     AssetSnapshot,
     AssetTag,
-    BoardAssetItem,
+    CollectionAssetItem,
     ContactSheetReview,
     ChatItem,
     ContainerMember,
@@ -446,7 +446,7 @@ async def permanently_delete_asset(
         from sqlalchemy import or_
         await session.execute(delete(MediaOwner).where(or_(*root_filters)))
 
-    for model in (AssetMarker, AssetTag, ProjectAsset, BoardAssetItem, ContactSheetReview):
+    for model in (AssetMarker, AssetTag, ProjectAsset, CollectionAssetItem, ContactSheetReview):
         await session.execute(delete(model).where(model.asset_id == asset_id))
     await session.execute(
         update(AssetMigrationMap)

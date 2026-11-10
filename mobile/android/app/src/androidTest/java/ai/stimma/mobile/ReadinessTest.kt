@@ -120,7 +120,7 @@ class ReadinessTest {
     @Test fun rotationSleepBackAndProviderFramesKeepTheMountedPage() = fixture { scenario ->
         var original: MainActivity? = null
         scenario.onActivity { original = it; assertEquals(android.media.AudioManager.STREAM_MUSIC, it.volumeControlStream); assertEquals(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, it.requestedOrientation) }
-        evaluate(scenario, "history.pushState({},'', '/board/test');window.draft='kept';window.drawer=true;window.addEventListener('keydown',e=>{if(e.key==='Escape'&&drawer){e.preventDefault();drawer=false}})")
+        evaluate(scenario, "history.pushState({},'', '/collection/test');window.draft='kept';window.drawer=true;window.addEventListener('keydown',e=>{if(e.key==='Escape'&&drawer){e.preventDefault();drawer=false}})")
         command(scenario, "setSlideshowActive", "{active:true}")
         command(scenario, "setKeepAwake", "{active:true}")
         scenario.onActivity {
@@ -135,7 +135,7 @@ class ReadinessTest {
         }
         scenario.onActivity { assertSame(original, it) }
         assertEquals("\"kept\"", evaluate(scenario, "draft"))
-        assertEquals("\"/board/test\"", evaluate(scenario, "location.pathname"))
+        assertEquals("\"/collection/test\"", evaluate(scenario, "location.pathname"))
         assertEquals("true", evaluate(scenario, "drawer"))
         eventually { evaluate(scenario, "Boolean(document.querySelector('iframe').contentDocument?.querySelector('button'))") == "true" }
         evaluate(scenario, "window.pauses=0;document.querySelector('audio').pause=()=>pauses++")
@@ -153,7 +153,7 @@ class ReadinessTest {
         assertEquals("\"kept\"", evaluate(scenario, "draft"))
         scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         eventually { evaluate(scenario, "drawer") == "false" }
-        assertEquals("\"/board/test\"", evaluate(scenario, "location.pathname"))
+        assertEquals("\"/collection/test\"", evaluate(scenario, "location.pathname"))
         command(scenario, "setKeepAwake", "{active:false}")
         scenario.onActivity { assertEquals(0, it.window.attributes.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
         command(scenario, "setSlideshowActive", "{active:false}")

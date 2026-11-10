@@ -8,9 +8,9 @@ from database import (
     AssetMarker,
     AssetRevision,
     AssetTag,
-    Board,
-    BoardAssetItem,
-    BoardSection,
+    Collection,
+    CollectionAssetItem,
+    CollectionSection,
     Chat,
     ChatItem,
     ContainerMember,
@@ -132,7 +132,7 @@ def asset_engaged_predicate(asset_id_column):
         it and we can't cheaply prove the consumer chain is dead)
       - any of its media is embedded in — or the Asset is linked from — a live
         container (set/grid) revision
-      - it carries a live marker (non-suppressed), tag, board membership, or
+      - it carries a live marker (non-suppressed), tag, collection membership, or
         project membership
       - it was created by a chat item of a live chat, or a live chat references
         it (asset_id/asset_ids/media_id/media_ids)
@@ -245,14 +245,14 @@ def asset_engaged_predicate(asset_id_column):
         AssetMarker.deleted_at.is_(None),
     )
     tag_assets = select(AssetTag.asset_id).where(AssetTag.deleted_at.is_(None))
-    board_assets = (
-        select(BoardAssetItem.asset_id)
-        .join(BoardSection, BoardSection.id == BoardAssetItem.board_section_id)
-        .join(Board, Board.id == BoardSection.board_id)
+    collection_assets = (
+        select(CollectionAssetItem.asset_id)
+        .join(CollectionSection, CollectionSection.id == CollectionAssetItem.collection_section_id)
+        .join(Collection, Collection.id == CollectionSection.collection_id)
         .where(
-            BoardAssetItem.deleted_at.is_(None),
-            BoardSection.deleted_at.is_(None),
-            Board.deleted_at.is_(None),
+            CollectionAssetItem.deleted_at.is_(None),
+            CollectionSection.deleted_at.is_(None),
+            Collection.deleted_at.is_(None),
         )
     )
     project_assets = (
@@ -300,7 +300,7 @@ def asset_engaged_predicate(asset_id_column):
     engaged_assets = union_all(
         marker_assets,
         tag_assets,
-        board_assets,
+        collection_assets,
         project_assets,
         linked_container_assets,
         chat_direct_assets,

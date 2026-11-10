@@ -6,7 +6,7 @@ test('matches outside a project count other projects\' items, other projects and
   const global = {
     chats: [{ id: 1, project_id: 7 }, { id: 2, project_id: 8 }, { id: 3, project_id: null }],
     flows: [{ id: 4, project_id: 7 }],
-    boards: [],
+    collections: [],
     projects: [{ id: 7 }, { id: 9 }],
   }
   assert.deepEqual(countOutside(global, 7, 20, { scoped: 4, global: 10 }), { count: 2 + 0 + 1 + 6, capped: false })
@@ -28,7 +28,7 @@ test('scoped recents keep the project\'s items and tools only', () => {
   const entries = [
     { type: 'chat', id: '1', projectId: 7 },
     { type: 'chat', id: '2', projectId: null },
-    { type: 'board', id: '3' },
+    { type: 'collection', id: '3' },
     { type: 'tool', id: 'x' },
     { type: 'project', id: '7', projectId: 7 },
   ]

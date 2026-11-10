@@ -8,7 +8,7 @@ import {
   addMediaToProject,
   apiJSON,
   chooseContext,
-  createBoard,
+  createCollection,
   createChat,
   createProject,
   expectContext,
@@ -239,18 +239,18 @@ test.describe('project world', () => {
     await expectContext(page, p.name);
   });
 
-  test('top-level Chats, Boards and Flows list no project items', async ({ page }) => {
+  test('top-level Chats, Collections and Flows list no project items', async ({ page }) => {
     await apiJSON(page, '/api/preferences/experimental_flows', { method: 'PUT', data: { enabled: true } } as any);
     const { p } = await twoProjects(page);
     const tag = stamp();
     await createChat(page, `World loose chat ${tag}`);
     await createChat(page, `World P chat ${tag}`, p.id);
-    await createBoard(page, `World loose board ${tag}`);
-    await createBoard(page, `World P board ${tag}`, p.id);
+    await createCollection(page, `World loose collection ${tag}`);
+    await createCollection(page, `World P collection ${tag}`, p.id);
     await apiJSON(page, '/api/flows', { method: 'POST', data: { name: `World loose flow ${tag}` } } as any);
     await apiJSON(page, '/api/flows', { method: 'POST', data: { name: `World P flow ${tag}`, project_id: p.id } } as any);
 
-    for (const [route, noun] of [['/chats', 'chat'], ['/boards', 'board'], ['/flows', 'flow']] as const) {
+    for (const [route, noun] of [['/chats', 'chat'], ['/collections', 'collection'], ['/flows', 'flow']] as const) {
       await page.goto(route);
       await expectContext(page, 'Everything');
       await expect(page.getByText(`World loose ${noun} ${tag}`).first()).toBeVisible({ timeout: 15000 });
@@ -400,7 +400,7 @@ test.describe('project world', () => {
     await expect(plus).toHaveCSS('opacity', '1');
     // Nothing but the header: no rows, no help sentence, no All projects.
     await expect(projects).toHaveText(/^\s*Projects\s*$/);
-    await expect(projects.getByText('Keep the assets, chats and boards')).toHaveCount(0);
+    await expect(projects.getByText('Keep the assets, chats and collections')).toHaveCount(0);
     await expect(projects.getByRole('button', { name: /^All projects/ })).toHaveCount(0);
   });
 });

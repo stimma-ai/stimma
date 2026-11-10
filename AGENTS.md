@@ -179,7 +179,7 @@ uv run pytest -k "test_filter"         # Run tests matching pattern
 **Test files:**
 - `test_media.py` - Media listing, filtering, search, WebSocket events
 - `test_markers.py` - Marker CRUD, assignment, bulk operations
-- `test_boards.py` - Board CRUD, membership, cover images
+- `test_collections.py` - Collection CRUD, membership, cover images
 - `test_tags.py` - Tag CRUD, assignment, bulk operations
 - `test_trash.py` - Soft delete, restore, permanent delete, empty trash
 - `test_browse_filters.py` - Media type, resolution, folder, date, generated filters
@@ -221,7 +221,7 @@ Most of the config file surface area is mirrored in the settings UI. The correct
 - **Ingestion**: A separate process that handles processing and importing media in the background. Performs tasks like AI captioning, visual indexing (CLIP encoding), metadata extraction, etc.
 - **Source**: An optional external folder Stimma scans for media. Stimma never writes new files into a Source and never uses one as a generation or upload destination; emptying the trash deletes trashed source files from disk.
 - **Managed Storage**: Private per-profile content-addressed storage owned by Stimma. Generated and uploaded payloads pass through private staging before ingestion; clients do not select its location.
-- **Browser Screens**: This includes All Assets, saved views, board screens, and Trash. These are Asset browsers and never list bare Media. They share substantial infrastructure, treatment, functionality, and behavior, and should be kept in sync.
+- **Browser Screens**: This includes All Assets, saved views, collection screens, and Trash. These are Asset browsers and never list bare Media. They share substantial infrastructure, treatment, functionality, and behavior, and should be kept in sync.
 - **Selection Bar**: The controls that appear at the bottom of the browser screen when the user selects an asset
 - **Implicit Marker**: A read-only, system-owned marker computed from an Asset's current Media provenance. It appears and filters like a marker in browser screens, but is not part of the user-configurable marker catalog and cannot be manually assigned or removed.
 - **Package**: A deliverable: a `.stimmapackage` directory bundle (container Asset type `package`) holding members (library assets by content hash), recipe runs (derivative file trees), extras, and a cover (`index.html`). Built by `packages/bundle.py`, exported as a zip or a single HTML file, rebuildable when a member's Asset gets a new revision.

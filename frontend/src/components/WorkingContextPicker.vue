@@ -148,7 +148,7 @@ function requestDelete() {
 const deleteMessage = computed(() => {
   const p = deleting.value
   if (!p) return ''
-  return `Delete "${p.name || 'Untitled'}"? This cannot be undone.\n\nIts assets stay in your library. Its chats, boards, and saved views are deleted with it.`
+  return `Delete "${p.name || 'Untitled'}"? This cannot be undone.\n\nIts assets stay in your library. Its chats, collections, and saved views are deleted with it.`
 })
 async function confirmDelete() {
   if (!deleting.value || busy.value) return

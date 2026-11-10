@@ -91,8 +91,8 @@
         </button>
       </template>
 
-      <!-- Rename (tools, chats, boards, flows & projects) -->
-      <template v-if="contextMenu.state.value.tabType === 'tool' || contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'board' || contextMenu.state.value.tabType === 'flow' || contextMenu.state.value.tabType === 'project'">
+      <!-- Rename (tools, chats, collections, flows & projects) -->
+      <template v-if="contextMenu.state.value.tabType === 'tool' || contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'collection' || contextMenu.state.value.tabType === 'flow' || contextMenu.state.value.tabType === 'project'">
         <div class="border-t border-edge-subtle my-1"></div>
         <button
           @click="handleRename"
@@ -105,8 +105,8 @@
         </button>
       </template>
 
-      <!-- Move to Project (chats, boards & flows) -->
-      <template v-if="contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'board' || contextMenu.state.value.tabType === 'flow'">
+      <!-- Move to Project (chats, collections & flows) -->
+      <template v-if="contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'collection' || contextMenu.state.value.tabType === 'flow'">
         <div
           class="relative"
           ref="projectTriggerRef"
@@ -152,8 +152,8 @@
         </div>
       </template>
 
-      <!-- Delete (chats, boards, flows & projects) -->
-      <template v-if="contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'board' || contextMenu.state.value.tabType === 'flow' || contextMenu.state.value.tabType === 'project'">
+      <!-- Delete (chats, collections, flows & projects) -->
+      <template v-if="contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'collection' || contextMenu.state.value.tabType === 'flow' || contextMenu.state.value.tabType === 'project'">
         <div class="border-t border-edge-subtle my-1"></div>
         <button
           @click="handleDelete"
@@ -192,7 +192,7 @@ const { activeProjectId } = useWorkingContext()
 const contextTabs = computed(() => allTabs.value.filter(tab => belongsToContext(tab, activeProjectId.value)))
 const contextTabIds = computed(() => contextTabs.value.map(tab => tab.id))
 const { getLastProjectRoute } = useProjectRoute()
-const { deleteBoard, restoreBoard, updateBoard } = useMediaApi()
+const { deleteCollection, restoreCollection, updateCollection } = useMediaApi()
 const { addToast } = useToasts()
 const moveEntityToProject = useEntityMove()
 const deleteProjectAndCleanUp = useProjectDeletion()
@@ -214,7 +214,7 @@ function getActiveTabId(): string | null {
     return toolRouteTabId(route)
   }
   if (route.name === 'chat') return `chat:${route.params.id}`
-  if (route.name === 'board-detail') return `board:${route.params.id}`
+  if (route.name === 'collection-detail') return `collection:${route.params.id}`
   if (route.name === 'flow') return `flow:${route.params.id}`
   if (String(route.name || '').startsWith('project-')) return `project:${route.params.id}`
   const editorId = editorRouteTabId(route)
@@ -227,7 +227,7 @@ function goToTab(tab: import('../composables/useWorkspaceTabs').WorkspaceTab) {
     router.push(toolTabRoute(tab))
   }
   else if (tab.type === 'chat') router.push({ name: 'chat', params: { id: tab.entityId } })
-  else if (tab.type === 'board') router.push({ name: 'board-detail', params: { id: tab.entityId } })
+  else if (tab.type === 'collection') router.push({ name: 'collection-detail', params: { id: tab.entityId } })
   else if (tab.type === 'flow') router.push({ name: 'flow', params: { id: tab.entityId } })
   else if (tab.type === 'project') router.push({ name: getLastProjectRoute(tab.entityId), params: { id: tab.entityId } })
   else if (tab.type === 'editor') router.push(editorTabRoute(tab))
@@ -245,7 +245,7 @@ function navigateAfterClose(excludeIds: Set<string>) {
 const menuRef = ref<HTMLElement | null>(null)
 
 const emit = defineEmits<{
-  (e: 'rename', tabType: 'board' | 'chat' | 'project' | 'flow', entityId: string, currentName: string): void
+  (e: 'rename', tabType: 'collection' | 'chat' | 'project' | 'flow', entityId: string, currentName: string): void
   (e: 'rename-tab', tabId: string): void
   (e: 'refresh'): void
 }>()
@@ -315,7 +315,7 @@ function handleRename() {
     emit('rename-tab', tabId)
     return
   }
-  if (tabType && entityId && (tabType === 'chat' || tabType === 'board' || tabType === 'project' || tabType === 'flow')) {
+  if (tabType && entityId && (tabType === 'chat' || tabType === 'collection' || tabType === 'project' || tabType === 'flow')) {
     emit('rename', tabType, entityId, displayName || '')
   }
 }
@@ -359,8 +359,8 @@ async function handleDelete() {
   }
 
   try {
-    if (tabType === 'board') {
-      await deleteBoard(parseInt(entityId, 10))
+    if (tabType === 'collection') {
+      await deleteCollection(parseInt(entityId, 10))
     } else if (tabType === 'chat') {
       const response = await fetch(`/api/chats/${entityId}`, { method: 'DELETE' })
       if (!response.ok) throw new Error('chat delete failed')
@@ -377,14 +377,14 @@ async function handleDelete() {
     return
   }
 
-  if (tabType === 'board' || tabType === 'chat' || tabType === 'flow') {
+  if (tabType === 'collection' || tabType === 'chat' || tabType === 'flow') {
     const id = parseInt(entityId, 10)
     addToast(`Deleted 1 ${tabType}`, 'info', 5000, {
       label: 'Undo',
       onClick: async () => {
         try {
-          if (tabType === 'board') {
-            await restoreBoard(id)
+          if (tabType === 'collection') {
+            await restoreCollection(id)
           } else if (tabType === 'flow') {
             const response = await fetch(`/api/flows/${id}/restore`, { method: 'POST' })
             if (!response.ok) throw new Error('restore failed')
@@ -408,7 +408,7 @@ async function handleMoveToProject(projectId: number | null) {
   showProjectSubmenu.value = false
   if (!tabType || !entityId) return
 
-  if (tabType !== 'board' && tabType !== 'chat' && tabType !== 'flow') return
+  if (tabType !== 'collection' && tabType !== 'chat' && tabType !== 'flow') return
   if (await moveEntityToProject(tabType, entityId, projectId)) emit('refresh')
 }
 

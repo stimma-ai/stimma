@@ -677,21 +677,21 @@ class ProjectAsset(Base):
     )
 
 
-class BoardAssetItem(Base):
-    """Ordered Asset membership in a board section."""
-    __tablename__ = "board_asset_items"
+class CollectionAssetItem(Base):
+    """Ordered Asset membership in a collection section."""
+    __tablename__ = "collection_asset_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    board_section_id = Column(Integer, ForeignKey('board_sections.id', ondelete='CASCADE'), nullable=False, index=True)
+    collection_section_id = Column(Integer, ForeignKey('collection_sections.id', ondelete='CASCADE'), nullable=False, index=True)
     asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
     display_order = Column(Integer, nullable=False, default=0)
     added_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True, index=True)
 
     __table_args__ = (
-        Index('idx_board_asset_items_order', 'board_section_id', 'display_order'),
+        Index('idx_collection_asset_items_order', 'collection_section_id', 'display_order'),
         Index(
-            'idx_board_asset_items_live', 'board_section_id', 'asset_id',
+            'idx_collection_asset_items_live', 'collection_section_id', 'asset_id',
             unique=True, sqlite_where=text('deleted_at IS NULL'),
         ),
         {'sqlite_autoincrement': True},
@@ -1069,7 +1069,7 @@ class MediaTag(Base):
 
 
 class Project(Base):
-    """Scoped working world for assets, chats, boards, and agent state."""
+    """Scoped working world for assets, chats, collections, and agent state."""
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -1252,9 +1252,9 @@ class UserTool(Base):
         }
 
 
-class Board(Base):
-    """Curated board containing ordered sections of assets."""
-    __tablename__ = "boards"
+class Collection(Base):
+    """Curated collection containing ordered sections of assets."""
+    __tablename__ = "collections"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
@@ -1275,12 +1275,12 @@ class Board(Base):
         }
 
 
-class BoardSection(Base):
-    """Ordered section within a board."""
-    __tablename__ = "board_sections"
+class CollectionSection(Base):
+    """Ordered section within a collection."""
+    __tablename__ = "collection_sections"
 
     id = Column(Integer, primary_key=True, index=True)
-    board_id = Column(Integer, ForeignKey('boards.id', ondelete='CASCADE'), nullable=False, index=True)
+    collection_id = Column(Integer, ForeignKey('collections.id', ondelete='CASCADE'), nullable=False, index=True)
     name = Column(String, nullable=True)
     is_default = Column(Boolean, nullable=False, default=False, index=True)
     is_collapsed = Column(Boolean, nullable=False, default=False)
@@ -1290,14 +1290,14 @@ class BoardSection(Base):
     deleted_at = Column(DateTime, nullable=True, index=True)
 
     __table_args__ = (
-        Index('idx_board_sections_board_order', board_id, display_order),
+        Index('idx_collection_sections_collection_order', collection_id, display_order),
         {'sqlite_autoincrement': True},
     )
 
     def to_dict(self):
         return {
             "id": self.id,
-            "board_id": self.board_id,
+            "collection_id": self.collection_id,
             "name": self.name,
             "is_default": self.is_default,
             "is_collapsed": self.is_collapsed,
@@ -1307,18 +1307,18 @@ class BoardSection(Base):
         }
 
 
-class BoardItem(Base):
-    """Ordered media membership within a board section."""
-    __tablename__ = "board_items"
+class CollectionItem(Base):
+    """Ordered media membership within a collection section."""
+    __tablename__ = "collection_items"
 
-    board_section_id = Column(Integer, ForeignKey('board_sections.id', ondelete='CASCADE'), nullable=False, primary_key=True)
+    collection_section_id = Column(Integer, ForeignKey('collection_sections.id', ondelete='CASCADE'), nullable=False, primary_key=True)
     media_id = Column(Integer, ForeignKey('media_items.id', ondelete='CASCADE'), nullable=False, primary_key=True)
     display_order = Column(Integer, nullable=False, default=0)
     added_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (
-        Index('idx_board_items_section_order', board_section_id, display_order),
-        Index('idx_board_items_media', media_id),
+        Index('idx_collection_items_section_order', collection_section_id, display_order),
+        Index('idx_collection_items_media', media_id),
     )
 
 

@@ -620,7 +620,7 @@ const { getMediaFileUrl, getMediaFaces } = useMediaApi()
 const {
   getAssetBrowserItem,
   getProjects: getAssetProjects,
-  getBoards: getAssetBoards,
+  getCollections: getAssetCollections,
   addMarker: addAssetMarker,
   removeMarker: removeAssetMarker,
 } = useAssetApi()
@@ -635,7 +635,7 @@ const baseInfo = ref<any>(null)
 const infoItem = ref<any>(null)
 const infoLoading = ref(false)
 const infoProjects = ref<any[]>([])
-const infoBoards = ref<any[]>([])
+const infoCollections = ref<any[]>([])
 const infoFaces = ref<any[]>([])
 const infoDescendants = ref<any[]>([])
 const infoInspiredDescendants = ref<any[]>([])
@@ -8007,9 +8007,9 @@ async function loadEditorMediaInfo() {
       media_id: mediaId,
     }
 
-    const [projects, boards, faceResult, lineage, chat] = await Promise.all([
+    const [projects, collections, faceResult, lineage, chat] = await Promise.all([
       getAssetProjects(Number(props.assetId)).catch(() => []),
-      getAssetBoards(Number(props.assetId)).catch(() => []),
+      getAssetCollections(Number(props.assetId)).catch(() => []),
       getMediaFaces(mediaId).catch(() => ({ faces: [] })),
       axios.get(`/api/media/${mediaId}/lineage?include_descendants=true`)
         .then(response => response.data)
@@ -8036,7 +8036,7 @@ async function loadEditorMediaInfo() {
     ).values()]
 
     infoProjects.value = projects
-    infoBoards.value = boards
+    infoCollections.value = collections
     infoFaces.value = faceResult?.faces ?? []
     infoDescendants.value = uniqueDescendants.filter(
       descendant => descendant._relationship_type !== 'inspired',
@@ -8086,8 +8086,8 @@ function navigateInfoProject(projectId: number) {
   void router.push({ name: 'project-overview', params: { id: projectId } })
 }
 
-function navigateInfoBoard(boardId: number) {
-  void router.push({ name: 'board-detail', params: { id: boardId } })
+function navigateInfoCollection(collectionId: number) {
+  void router.push({ name: 'collection-detail', params: { id: collectionId } })
 }
 
 function navigateInfoMedia(mediaId: number) {
@@ -9791,7 +9791,7 @@ watch(
             :available-markers="availableMarkers"
             :marker-update-trigger="infoMarkerUpdateTrigger"
             :media-projects="infoProjects"
-            :media-boards="infoBoards"
+            :media-collections="infoCollections"
             :faces="infoFaces"
             :descendants="infoDescendants"
             :inspired-descendants="infoInspiredDescendants"
@@ -9802,7 +9802,7 @@ watch(
             @toggle-marker="toggleInfoMarker"
             @tags-updated="updateInfoTags"
             @navigate-to-project="navigateInfoProject"
-            @navigate-to-board="navigateInfoBoard"
+            @navigate-to-collection="navigateInfoCollection"
             @navigate-to-source-media="navigateInfoMedia"
             @view-lineage="navigateInfoLineage"
             @jump-to-chat="navigateInfoChat"

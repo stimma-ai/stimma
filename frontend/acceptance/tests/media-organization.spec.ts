@@ -1,19 +1,19 @@
 import { expect, test } from '../helpers/testbed';
 import {
   addMarkerToMedia,
-  addMediaToBoard,
+  addMediaToCollection,
   bulkMarkerOperation,
   bulkRestoreMedia,
   bulkTrashMedia,
-  createBoard,
+  createCollection,
   generateMedia,
   goToBrowse,
-  getBoard,
+  getCollection,
   getMarkers,
   listMedia,
   listTrash,
   removeMarkerFromMedia,
-  removeMediaFromBoardSection,
+  removeMediaFromCollectionSection,
   restoreMedia,
   setBatchSize,
   submitGeneration,
@@ -273,53 +273,53 @@ test.describe('media organization acceptance', () => {
     }, 30000);
   });
 
-  test('boards can collect generated media', async ({ page }) => {
-    const prompt = `acceptance board media ${Date.now()}`;
+  test('collections can collect generated media', async ({ page }) => {
+    const prompt = `acceptance collection media ${Date.now()}`;
     const media = await generateMedia(page, prompt);
-    const board = await createBoard(page, 'Acceptance Board');
+    const collection = await createCollection(page, 'Acceptance Collection');
 
-    await addMediaToBoard(page, board.id, [media.id]);
+    await addMediaToCollection(page, collection.id, [media.id]);
 
     await waitFor(async () => {
-      const loaded = await getBoard(page, board.id);
+      const loaded = await getCollection(page, collection.id);
       const hasMedia = loaded.sections.some((section) => (
         section.items.some((item) => item.id === media.id)
       ));
       return hasMedia ? loaded : null;
     }, 30000);
 
-    await page.goto(`/boards/${board.id}`);
+    await page.goto(`/collections/${collection.id}`);
     await expect(page.locator('img').first()).toBeVisible({ timeout: 30000 });
   });
 
-  test('media can be removed from a board', async ({ page }) => {
-    const prompt = `acceptance board remove ${Date.now()}`;
+  test('media can be removed from a collection', async ({ page }) => {
+    const prompt = `acceptance collection remove ${Date.now()}`;
     const media = await generateMedia(page, prompt);
-    const board = await createBoard(page, 'Acceptance Remove Board');
+    const collection = await createCollection(page, 'Acceptance Remove Collection');
 
-    await addMediaToBoard(page, board.id, [media.id]);
+    await addMediaToCollection(page, collection.id, [media.id]);
     const loaded = await waitFor(async () => {
-      const current = await getBoard(page, board.id);
+      const current = await getCollection(page, collection.id);
       const section = current.sections.find((item) => item.items.some((entry) => entry.id === media.id));
       return section ? { current, section } : null;
     }, 30000);
 
-    await removeMediaFromBoardSection(page, loaded.section.id, media.id);
+    await removeMediaFromCollectionSection(page, loaded.section.id, media.id);
 
     await waitFor(async () => {
-      const current = await getBoard(page, board.id);
+      const current = await getCollection(page, collection.id);
       const stillPresent = current.sections.some((section) => section.items.some((item) => item.id === media.id));
       return stillPresent ? null : current;
     }, 30000);
   });
 
-  test('board detail survives reload with generated media visible', async ({ page }) => {
-    const prompt = `acceptance board reload ${Date.now()}`;
+  test('collection detail survives reload with generated media visible', async ({ page }) => {
+    const prompt = `acceptance collection reload ${Date.now()}`;
     const media = await generateMedia(page, prompt);
-    const board = await createBoard(page, 'Acceptance Reload Board');
-    await addMediaToBoard(page, board.id, [media.id]);
+    const collection = await createCollection(page, 'Acceptance Reload Collection');
+    await addMediaToCollection(page, collection.id, [media.id]);
 
-    await page.goto(`/boards/${board.id}`);
+    await page.goto(`/collections/${collection.id}`);
     await expect(page.locator('img').first()).toBeVisible({ timeout: 30000 });
     await page.reload();
     await expect(page.locator('img').first()).toBeVisible({ timeout: 30000 });

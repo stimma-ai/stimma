@@ -1,7 +1,7 @@
 /**
  * What the compact header shows for the current route.
  *
- * Hub routes have fixed titles. Detail routes (a board, a chat, a tool) call
+ * Hub routes have fixed titles. Detail routes (a collection, a chat, a tool) call
  * `setCompactTitle()` once they know their entity's name; the header reads it
  * and App.vue clears it on every navigation so a stale title never survives a
  * route change. Views never render their own navigation chrome (DESIGN.md
@@ -20,7 +20,7 @@ const HUB_TITLES: Record<string, string> = {
   trash: 'Trash',
   'saved-view': 'Saved view',
   upload: 'Upload',
-  boards: 'Boards',
+  collections: 'Collections',
   chats: 'Chats',
   workspace: 'Open',
   'all-tools': 'Tools',
@@ -29,7 +29,7 @@ const HUB_TITLES: Record<string, string> = {
 }
 
 const DETAIL_FALLBACKS: Record<string, string> = {
-  'board-detail': 'Board',
+  'collection-detail': 'Collection',
   chat: 'Chat',
   flow: 'Flow',
   tool: 'Tool',
@@ -45,10 +45,10 @@ export function hubForRoute(name: unknown): HubId | null {
     case 'home': return 'home'
     case 'browse': case 'trash': case 'saved-view': case 'upload': return 'library'
     // Search belongs to no hub: it rides on whichever hub opened it.
-    // Studio hub: tools, flows, boards, projects, and every detail of those.
+    // Studio hub: tools, flows, collections, projects, and every detail of those.
     case 'workspace': case 'all-tools': case 'flows': case 'tool': case 'flow':
     case 'edit-image': case 'lineage': case 'projects':
-    case 'boards': case 'board-detail': return 'workspace'
+    case 'collections': case 'collection-detail': return 'workspace'
     case 'chats': case 'chat': return 'chats'
     default:
       if (typeof name === 'string' && name.startsWith('project-')) return 'workspace'

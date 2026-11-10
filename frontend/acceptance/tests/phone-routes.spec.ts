@@ -19,7 +19,7 @@ const ROUTES = [
   '/home',
   '/browse',
   '/search?q=test',
-  '/boards',
+  '/collections',
   '/chats',
   '/flows',
   '/projects',
@@ -31,7 +31,7 @@ const ROUTES = [
 // Ratchet. Everything starts here; the chrome PR and each hub PR delete rows.
 const KNOWN_BAD: Record<string, { overflow?: boolean; hitTargets?: boolean }> = {
   // Overflow is clean on every hub since the compact chrome landed, except
-  // the Boards landing's fixed-width search field. Hit targets are the
+  // the Collections landing's fixed-width search field. Hit targets are the
   // per-hub PRs' job; each one deletes its row here.
   '/browse': { hitTargets: true },
   '/trash': { hitTargets: true },

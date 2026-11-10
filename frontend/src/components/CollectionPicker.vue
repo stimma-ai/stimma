@@ -7,7 +7,7 @@
   >
     <template #header>
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-content">Add to Board</h2>
+        <h2 class="text-lg font-semibold text-content">Add to Collection</h2>
         <IconButton @click="close">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-icon-nav w-icon-nav">
             <path d="M6 18L18 6M6 6l12 12" />
@@ -19,16 +19,16 @@
           <div class="flex gap-2 border-b border-edge-subtle px-5 py-4">
             <input
               v-no-autocorrect
-              v-model="newBoardName"
+              v-model="newCollectionName"
               type="text"
-              placeholder="Create new board..."
+              placeholder="Create new collection..."
               class="flex-1 rounded-md border border-edge-subtle bg-surface-raised px-3 py-2 text-sm text-content outline-none ring-0 placeholder:text-content-muted focus:border-edge-strong"
-              @keydown.enter="createNewBoard"
+              @keydown.enter="createNewCollection"
             />
             <button
               class="rounded-md bg-surface-hover px-4 py-2 text-sm font-medium text-content transition-colors hover:bg-surface-active disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="!newBoardName.trim() || creating"
-              @click="createNewBoard"
+              :disabled="!newCollectionName.trim() || creating"
+              @click="createNewCollection"
             >
               {{ creating ? 'Creating...' : 'Create' }}
             </button>
@@ -36,31 +36,31 @@
 
           <div class="flex-1 overflow-y-auto px-5 py-3">
             <div v-if="loading" class="py-10 text-center text-sm text-content-tertiary">
-              Loading boards...
+              Loading collections...
             </div>
 
-            <div v-else-if="boards.length === 0" class="py-10 text-center text-sm text-content-tertiary">
-              No boards yet. Create one above.
+            <div v-else-if="collections.length === 0" class="py-10 text-center text-sm text-content-tertiary">
+              No collections yet. Create one above.
             </div>
 
             <button
-              v-for="board in boards"
-              :key="board.id"
+              v-for="collection in collections"
+              :key="collection.id"
               class="mb-2 flex w-full items-center justify-between gap-3 rounded-lg px-3 py-3 text-left transition-colors"
-              :class="selectedBoardId === board.id ? 'bg-selection/15 ring-1 ring-selection/40' : 'hover:bg-overlay-subtle'"
-              @click="selectedBoardId = board.id"
+              :class="selectedCollectionId === collection.id ? 'bg-selection/15 ring-1 ring-selection/40' : 'hover:bg-overlay-subtle'"
+              @click="selectedCollectionId = collection.id"
             >
               <div class="min-w-0 flex-1">
                 <h3
                   class="truncate text-sm font-medium"
-                  :class="board.name ? 'text-content' : 'italic text-content-muted'"
+                  :class="collection.name ? 'text-content' : 'italic text-content-muted'"
                 >
-                  {{ board.name || 'Name this board...' }}
+                  {{ collection.name || 'Name this collection...' }}
                 </h3>
-                <span class="font-mono text-xs tabular-nums text-content-muted">{{ board.asset_count || 0 }} {{ (board.asset_count || 0) === 1 ? 'asset' : 'assets' }}</span>
+                <span class="font-mono text-xs tabular-nums text-content-muted">{{ collection.asset_count || 0 }} {{ (collection.asset_count || 0) === 1 ? 'asset' : 'assets' }}</span>
               </div>
               <svg
-                v-if="selectedBoardId === board.id"
+                v-if="selectedCollectionId === collection.id"
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
                 fill="currentColor"
@@ -75,8 +75,8 @@
       <Button variant="ghost" @click="close">
         Cancel
       </Button>
-      <Button variant="primary" :disabled="!selectedBoardId || saving" @click="saveChanges">
-        {{ saving ? 'Saving...' : 'Add to Board' }}
+      <Button variant="primary" :disabled="!selectedCollectionId || saving" @click="saveChanges">
+        {{ saving ? 'Saving...' : 'Add to Collection' }}
       </Button>
     </template>
   </Modal>
@@ -95,56 +95,56 @@ const props = defineProps({
   visible: { type: Boolean, default: false },
   mediaIds: { type: Array, default: () => [] },
   assetIds: { type: Array, default: () => [] },
-  // Boards listed and created here belong to this project. Defaults to the
-  // active working project; null means top-level boards.
+  // Collections listed and created here belong to this project. Defaults to the
+  // active working project; null means top-level collections.
   projectId: { type: Number, default: undefined }
 })
 
 const emit = defineEmits(['close', 'saved'])
-const { addMediaToBoard, createBoard, getBoards } = useMediaApi()
-const { addToBoard: addAssetsToBoard } = useAssetApi()
+const { addMediaToCollection, createCollection, getCollections } = useMediaApi()
+const { addToCollection: addAssetsToCollection } = useAssetApi()
 
-const boardProjectId = useOwnerProject(() => props.projectId)
-const boards = ref([])
+const collectionProjectId = useOwnerProject(() => props.projectId)
+const collections = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const creating = ref(false)
-const selectedBoardId = ref(null)
-const newBoardName = ref('')
+const selectedCollectionId = ref(null)
+const newCollectionName = ref('')
 
-async function loadBoards() {
+async function loadCollections() {
   loading.value = true
   try {
-    boards.value = await getBoards(boardProjectId.value)
+    collections.value = await getCollections(collectionProjectId.value)
   } finally {
     loading.value = false
   }
 }
 
-async function createNewBoard() {
-  const name = newBoardName.value.trim()
+async function createNewCollection() {
+  const name = newCollectionName.value.trim()
   if (!name) return
   creating.value = true
   try {
-    const board = await createBoard(name, boardProjectId.value)
-    boards.value.unshift({ ...board, asset_count: board.asset_count || 0 })
-    selectedBoardId.value = board.id
-    newBoardName.value = ''
+    const collection = await createCollection(name, collectionProjectId.value)
+    collections.value.unshift({ ...collection, asset_count: collection.asset_count || 0 })
+    selectedCollectionId.value = collection.id
+    newCollectionName.value = ''
   } finally {
     creating.value = false
   }
 }
 
 async function saveChanges() {
-  if (!selectedBoardId.value) return
+  if (!selectedCollectionId.value) return
   saving.value = true
   try {
     if (props.assetIds.length > 0) {
-      await addAssetsToBoard(selectedBoardId.value, props.assetIds)
+      await addAssetsToCollection(selectedCollectionId.value, props.assetIds)
     } else {
-      await addMediaToBoard(selectedBoardId.value, props.mediaIds)
+      await addMediaToCollection(selectedCollectionId.value, props.mediaIds)
     }
-    emit('saved', selectedBoardId.value)
+    emit('saved', selectedCollectionId.value)
     close()
   } finally {
     saving.value = false
@@ -153,11 +153,11 @@ async function saveChanges() {
 
 function close() {
   emit('close')
-  selectedBoardId.value = null
-  newBoardName.value = ''
+  selectedCollectionId.value = null
+  newCollectionName.value = ''
 }
 
 watch(() => props.visible, (visible) => {
-  if (visible) loadBoards()
+  if (visible) loadCollections()
 })
 </script>

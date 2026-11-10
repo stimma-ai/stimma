@@ -11,9 +11,9 @@ from database import (
     AssetRevision,
     AssetMarker,
     AssetTag,
-    Board,
-    BoardAssetItem,
-    BoardItem,
+    Collection,
+    CollectionAssetItem,
+    CollectionItem,
     MediaMarker,
     MediaTag,
     Marker,
@@ -435,33 +435,33 @@ async def detach_asset_from_project(session: AsyncSession, project_id: int, asse
     return True
 
 
-async def attach_asset_to_board_section(
+async def attach_asset_to_collection_section(
     session: AsyncSession,
     *,
-    board: Board,
+    collection: Collection,
     section_id: int,
     asset_id: int,
     display_order: int,
-) -> tuple[BoardAssetItem | None, bool]:
-    """Add one live Asset to a board and apply board retention semantics."""
+) -> tuple[CollectionAssetItem | None, bool]:
+    """Add one live Asset to a collection and apply collection retention semantics."""
     asset = await session.get(Asset, asset_id)
     if asset is None or asset.state != "active" or asset.deleted_at is not None:
         return None, False
     existing = await session.scalar(
-        select(BoardAssetItem).where(
-            BoardAssetItem.board_section_id == section_id,
-            BoardAssetItem.asset_id == asset_id,
-            BoardAssetItem.deleted_at.is_(None),
+        select(CollectionAssetItem).where(
+            CollectionAssetItem.collection_section_id == section_id,
+            CollectionAssetItem.asset_id == asset_id,
+            CollectionAssetItem.deleted_at.is_(None),
         )
     )
     await clear_asset_expiration(session, asset_id)
-    if board.project_id is not None:
-        await attach_asset_to_project(session, board.project_id, asset_id)
+    if collection.project_id is not None:
+        await attach_asset_to_project(session, collection.project_id, asset_id)
     if existing is not None:
         await session.flush()
         return existing, False
-    row = BoardAssetItem(
-        board_section_id=section_id,
+    row = CollectionAssetItem(
+        collection_section_id=section_id,
         asset_id=asset_id,
         display_order=display_order,
     )
@@ -609,24 +609,24 @@ async def mirror_media_associations_to_asset(
         await attach_asset_to_project(session, project_id, asset_id)
         await session.delete(project_row)
 
-    board_items = list(
-        await session.scalars(select(BoardItem).where(BoardItem.media_id == media_id))
+    collection_items = list(
+        await session.scalars(select(CollectionItem).where(CollectionItem.media_id == media_id))
     )
-    for board_item in board_items:
+    for collection_item in collection_items:
         await _add_live(
             session,
-            BoardAssetItem,
-            {"board_section_id": board_item.board_section_id, "asset_id": asset_id},
+            CollectionAssetItem,
+            {"collection_section_id": collection_item.collection_section_id, "asset_id": asset_id},
             {
-                "board_section_id": board_item.board_section_id,
+                "collection_section_id": collection_item.collection_section_id,
                 "asset_id": asset_id,
-                "display_order": board_item.display_order,
-                "added_at": board_item.added_at,
+                "display_order": collection_item.display_order,
+                "added_at": collection_item.added_at,
             },
         )
-        await session.delete(board_item)
+        await session.delete(collection_item)
 
-    if marker_rows or tag_ids or board_items:
+    if marker_rows or tag_ids or collection_items:
         await clear_asset_expiration(session, asset_id)
     await session.flush()
 
@@ -644,7 +644,7 @@ async def media_ids_with_staged_associations(
             select(MediaMarker.media_id).where(MediaMarker.media_id.in_(ids)),
             select(MediaTag.media_id).where(MediaTag.media_id.in_(ids)),
             select(ProjectMedia.media_id).where(ProjectMedia.media_id.in_(ids)),
-            select(BoardItem.media_id).where(BoardItem.media_id.in_(ids)),
+            select(CollectionItem.media_id).where(CollectionItem.media_id.in_(ids)),
         )
     )
     return set(rows)

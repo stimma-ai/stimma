@@ -1,6 +1,6 @@
 /**
  * One width-based sizing rule for every grid of square media tiles (browse,
- * boards, and any strip that wants to match them). The column count comes from
+ * collections, and any strip that wants to match them). The column count comes from
  * the real content width, never from the layout tier: a folded phone, an
  * unfolded one and a desktop pane all ask the same question.
  *
@@ -12,12 +12,12 @@
  * - Gutters are 2px between tiles and equal to the matte's outer padding.
  *
  * Density is a documented choice per surface (DESIGN.md "Tile grids"):
- * `browse` scans many assets, `board` is a curated sheet and runs a touch larger.
+ * `browse` scans many assets, `collection` is a curated sheet and runs a touch larger.
  */
 export const TILE_GAP_PX = 2
 export const MIN_COLUMNS = 3
-export type TileDensity = 'browse' | 'board'
-export const MIN_TILE_PX: Record<TileDensity, number> = { browse: 200, board: 220 }
+export type TileDensity = 'browse' | 'collection'
+export const MIN_TILE_PX: Record<TileDensity, number> = { browse: 200, collection: 220 }
 
 /** `inner` is the width the tiles and their gutters share (outer padding excluded). */
 export function tileColumns(inner: number, density: TileDensity): number {

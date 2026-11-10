@@ -5,7 +5,7 @@ import AppImage from './media/AppImage.vue'
 import { useAssetApi, type AssetBrowserItem } from '../composables/useAssetApi'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useOwnerProject } from '../composables/useProjectScope'
-// projectId: the board's project. Its assets are offered; defaults to the
+// projectId: the collection's project. Its assets are offered; defaults to the
 // active working project. At the top level every asset is offered.
 const props = withDefaults(defineProps<{ show: boolean; saving?: boolean; projectId?: number | null }>(), { projectId: undefined })
 const emit = defineEmits<{ close: []; select: [ids: number[]] }>()

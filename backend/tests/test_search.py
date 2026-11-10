@@ -12,8 +12,8 @@ async def _create_chat(client: AsyncClient, name: str) -> int:
     return response.json()["id"]
 
 
-async def _create_board(client: AsyncClient, name: str) -> int:
-    response = await client.post("/api/boards", json={"name": name})
+async def _create_collection(client: AsyncClient, name: str) -> int:
+    response = await client.post("/api/collections", json={"name": name})
     assert response.status_code == 200, response.text
     return response.json()["id"]
 
@@ -48,7 +48,7 @@ class TestGlobalSearch:
     @pytest.mark.asyncio
     async def test_matches_across_entity_types(self, client: AsyncClient):
         await _create_chat(client, "Portrait explorations")
-        await _create_board(client, "Portrait reference wall")
+        await _create_collection(client, "Portrait reference wall")
         await _create_project(client, "Portrait project")
         await _create_flow(client, "Portrait batch cleanup")
         await _create_preset(client, "Portrait studio light")
@@ -59,7 +59,7 @@ class TestGlobalSearch:
         data = response.json()
 
         assert [c["name"] for c in data["chats"]] == ["Portrait explorations"]
-        assert [b["name"] for b in data["boards"]] == ["Portrait reference wall"]
+        assert [b["name"] for b in data["collections"]] == ["Portrait reference wall"]
         assert [p["name"] for p in data["projects"]] == ["Portrait project"]
         assert [f["name"] for f in data["flows"]] == ["Portrait batch cleanup"]
         assert [p["name"] for p in data["presets"]] == ["Portrait studio light"]
@@ -78,23 +78,23 @@ class TestGlobalSearch:
     @pytest.mark.asyncio
     async def test_prefix_matches_rank_before_substring(self, client: AsyncClient):
         # Substring match created last (newest updated_at) — prefix still wins.
-        await _create_board(client, "Polar expedition")
-        await _create_board(client, "North pole moodboard")
+        await _create_collection(client, "Polar expedition")
+        await _create_collection(client, "North pole moodboard")
 
         response = await client.get("/api/search", params={"q": "pol"})
         assert response.status_code == 200
-        names = [b["name"] for b in response.json()["boards"]]
+        names = [b["name"] for b in response.json()["collections"]]
         assert names.index("Polar expedition") < names.index("North pole moodboard")
 
     @pytest.mark.asyncio
     async def test_soft_deleted_excluded(self, client: AsyncClient):
-        board_id = await _create_board(client, "Doomed board xq")
-        delete = await client.delete(f"/api/boards/{board_id}")
+        collection_id = await _create_collection(client, "Doomed collection xq")
+        delete = await client.delete(f"/api/collections/{collection_id}")
         assert delete.status_code == 200
 
-        response = await client.get("/api/search", params={"q": "doomed board xq"})
+        response = await client.get("/api/search", params={"q": "doomed collection xq"})
         assert response.status_code == 200
-        assert response.json()["boards"] == []
+        assert response.json()["collections"] == []
 
     @pytest.mark.asyncio
     async def test_flow_backed_chats_excluded(self, client: AsyncClient):
@@ -124,13 +124,13 @@ class TestGlobalSearch:
     @pytest.mark.asyncio
     async def test_contiguous_match_ranks_above_scattered(self, client: AsyncClient):
         # Contiguous match created FIRST (older) so recency alone can't win.
-        await _create_board(client, "Old Klein2 Pro board")  # contiguous, older
-        await _create_board(client, "Klein.2 Space Pro")  # scattered, newer
+        await _create_collection(client, "Old Klein2 Pro collection")  # contiguous, older
+        await _create_collection(client, "Klein.2 Space Pro")  # scattered, newer
 
         response = await client.get("/api/search", params={"q": "klein2 pro"})
         assert response.status_code == 200
-        names = [b["name"] for b in response.json()["boards"]]
-        assert names.index("Old Klein2 Pro board") < names.index("Klein.2 Space Pro")
+        names = [b["name"] for b in response.json()["collections"]]
+        assert names.index("Old Klein2 Pro collection") < names.index("Klein.2 Space Pro")
 
     @pytest.mark.asyncio
     async def test_project_scope_filters_entities(self, client: AsyncClient):

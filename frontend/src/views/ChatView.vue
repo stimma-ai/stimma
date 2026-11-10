@@ -2128,7 +2128,7 @@ const LIBRARY_ACTION_NAMES = {
   lineage: 'Checking lineage',
   tag: 'Tagging',
   marker: 'Marking',
-  board: 'Organizing board',
+  collection: 'Organizing collection',
 }
 
 // Infrastructure tools hidden from pill summary (still shown in expanded timeline)

@@ -166,25 +166,25 @@
         </button>
 
 
-        <!-- Boards -->
+        <!-- Collections -->
         <div
           class="relative"
-          @mouseenter="!isCoarsePointer && openSubmenu('board', $event)"
-          @click.stop="openSubmenu('board', $event)"
+          @mouseenter="!isCoarsePointer && openSubmenu('collection', $event)"
+          @click.stop="openSubmenu('collection', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button
-            ref="boardTriggerRef"
+            ref="collectionTriggerRef"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
             <Squares2X2Icon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-            <span class="flex-1">{{ isMultiple ? `Boards (${targetCount} items)` : 'Boards' }}</span>
+            <span class="flex-1">{{ isMultiple ? `Collections (${targetCount} items)` : 'Collections' }}</span>
             <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
           <Teleport to="body">
           <div
-            v-if="!isCoarsePointer && (activeSubmenu === 'board')"
+            v-if="!isCoarsePointer && (activeSubmenu === 'collection')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
@@ -193,8 +193,8 @@
 
           <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'board'"
-            ref="boardSubmenuRef" data-escape-layer
+            v-if="activeSubmenu === 'collection'"
+            ref="collectionSubmenuRef" data-escape-layer
             class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[260px] max-h-[420px] flex flex-col"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
@@ -206,10 +206,10 @@
               <div class="relative">
                 <MagnifyingGlassIcon class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-content-muted" :stroke-width="1.75" />
                 <input
-                  ref="boardSearchInputRef"
-                  v-model="boardSearchQuery"
+                  ref="collectionSearchInputRef"
+                  v-model="collectionSearchQuery"
                   type="text"
-                  placeholder="Find a board"
+                  placeholder="Find a collection"
                   class="w-full bg-overlay-subtle border border-edge-subtle rounded px-2 py-1 pl-7 text-xs text-content placeholder:text-content-muted focus:outline-none focus:border-edge"
                 />
               </div>
@@ -218,29 +218,29 @@
             <div class="min-h-0 overflow-y-auto flex-1">
               <button
                 class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
-                :disabled="creatingBoardQuickAdd"
-                @click="handleCreateBoardQuickAdd"
+                :disabled="creatingCollectionQuickAdd"
+                @click="handleCreateCollectionQuickAdd"
               >
                 <PlusIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-                <span>{{ creatingBoardQuickAdd ? 'Creating...' : 'New board' }}</span>
+                <span>{{ creatingCollectionQuickAdd ? 'Creating...' : 'New collection' }}</span>
               </button>
 
               <div class="border-t border-edge-subtle my-1"></div>
 
-              <div v-if="loadingBoards" class="px-3 py-2 text-xs text-content-tertiary">Loading boards...</div>
-              <div v-else-if="filteredBoards.length === 0" class="px-3 py-2 text-xs text-content-tertiary">No matching boards</div>
+              <div v-if="loadingCollections" class="px-3 py-2 text-xs text-content-tertiary">Loading collections...</div>
+              <div v-else-if="filteredCollections.length === 0" class="px-3 py-2 text-xs text-content-tertiary">No matching collections</div>
 
               <button
-                v-for="board in filteredBoards"
-                :key="board.id"
+                v-for="collection in filteredCollections"
+                :key="collection.id"
                 class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
-                :disabled="savingBoardQuickAddId === board.id"
-                @click="handleQuickAddToBoard(board.id)"
+                :disabled="savingCollectionQuickAddId === collection.id"
+                @click="handleQuickAddToCollection(collection.id)"
               >
                 <Squares2X2Icon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
                 <div class="min-w-0 flex-1">
-                  <div class="truncate" :class="board.name ? 'text-content' : 'italic text-content-muted'">{{ board.name || 'Name this board...' }}</div>
-                  <div class="truncate text-[10px] text-content-muted">{{ formatBoardSubmenuSummary(board) }}</div>
+                  <div class="truncate" :class="collection.name ? 'text-content' : 'italic text-content-muted'">{{ collection.name || 'Name this collection...' }}</div>
+                  <div class="truncate text-[10px] text-content-muted">{{ formatCollectionSubmenuSummary(collection) }}</div>
                 </div>
               </button>
             </div>
@@ -309,14 +309,14 @@
           </button>
         </template>
 
-        <!-- Board-specific section -->
-        <template v-if="inBoard">
+        <!-- Collection-specific section -->
+        <template v-if="inCollection">
           <button
-            @click="handleRemoveFromBoard"
+            @click="handleRemoveFromCollection"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
             <Squares2X2Icon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-            <span>{{ isMultiple ? `Remove ${targetCount} from Board` : 'Remove from Board' }}</span>
+            <span>{{ isMultiple ? `Remove ${targetCount} from Collection` : 'Remove from Collection' }}</span>
           </button>
         </template>
 
@@ -1046,14 +1046,14 @@ const contextMenu = useMediaContextMenu()
 const { trashAssetsWithUndo } = useAssetTrash()
 const { isCoarsePointer, allowsAutofocus } = useViewport()
 const { printAssetDetail, printContactSheet } = usePrint()
-const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject, getMediaProjects } = useMediaApi()
+const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getCollections, createCollection, addMediaToCollection, removeMediaFromProject, getMediaProjects } = useMediaApi()
 const {
   getAssetBrowserItem,
   addMarker: addMarkerToAsset,
   removeMarker: removeMarkerFromAsset,
   bulkMarker: bulkAssetMarkerOperation,
-  addToBoard: addAssetsToBoard,
-  removeFromBoardSection,
+  addToCollection: addAssetsToCollection,
+  removeFromCollectionSection,
   removeFromProject: removeAssetFromProject,
   getProjects: getAssetProjects,
   restore: restoreAsset,
@@ -1080,17 +1080,17 @@ const generateTriggerRef = ref<HTMLElement | null>(null)
 const toolTriggerRef = ref<HTMLElement | null>(null)
 const chatTriggerRef = ref<HTMLElement | null>(null)
 const flowTriggerRef = ref<HTMLElement | null>(null)
-const boardTriggerRef = ref<HTMLElement | null>(null)
+const collectionTriggerRef = ref<HTMLElement | null>(null)
 const generateSubmenuRef = ref<HTMLElement | null>(null)
 const toolSubmenuRef = ref<HTMLElement | null>(null)
 const chatSubmenuRef = ref<HTMLElement | null>(null)
 const flowSubmenuRef = ref<HTMLElement | null>(null)
 const flowDestinationSubmenuRef = ref<HTMLElement | null>(null)
-const boardSubmenuRef = ref<HTMLElement | null>(null)
+const collectionSubmenuRef = ref<HTMLElement | null>(null)
 const projectSubmenuRef = ref<HTMLElement | null>(null)
 const projectTriggerRef = ref<HTMLElement | null>(null)
 
-const activeSubmenu = ref<'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'project' | null>(null)
+const activeSubmenu = ref<'generate' | 'tool' | 'chat' | 'flow' | 'collection' | 'project' | null>(null)
 
 // Touch sheets fold related destinations behind one named row (a second sheet,
 // and the destination's own list a third). Elsewhere the groups are transparent
@@ -1099,9 +1099,9 @@ type MenuGroup = 'send' | 'explore' | 'share'
 const activeGroup = ref<MenuGroup | null>(null)
 const groupSheetRef = ref<HTMLElement | null>(null)
 // On a desktop pointer the same groups are hover submenus beside the menu: a
-// group panel opens next to the root menu and its destinations (Boards,
+// group panel opens next to the root menu and its destinations (Collections,
 // Tool, Chat...) open as the usual submenus beside the panel.
-// Boards and Projects stay two rows of the root menu, each opening its own list.
+// Collections and Projects stay two rows of the root menu, each opening its own list.
 const groupedSend = computed(() => true)
 const groupedExplore = computed(() => exploreRowCount.value >= 2)
 const groupedShare = computed(() => isCoarsePointer.value || shareRowCount.value >= 2)
@@ -1159,8 +1159,8 @@ function isMouseOverElement(el: HTMLElement | null): boolean {
 // Generate submenu search
 const generateSearchInputRef = ref<HTMLInputElement | null>(null)
 const generateSearchQuery = ref('')
-const boardSearchInputRef = ref<HTMLInputElement | null>(null)
-const boardSearchQuery = ref('')
+const collectionSearchInputRef = ref<HTMLInputElement | null>(null)
+const collectionSearchQuery = ref('')
 
 // Recent generate tools tracking
 const RECENT_GENERATE_KEY = 'generate-more' as const
@@ -1248,13 +1248,13 @@ const loadingChats = ref(false)
 const chats = ref<Chat[]>([])
 const loadingFlows = ref(false)
 const flows = ref<Flow[]>([])
-const loadingBoards = ref(false)
-const boards = ref<any[]>([])
-const lastBoardsProjectId = ref<number | undefined>(undefined)
+const loadingCollections = ref(false)
+const collections = ref<any[]>([])
+const lastCollectionsProjectId = ref<number | undefined>(undefined)
 const lastChatsProjectId = ref<number | undefined>(undefined)
 const lastFlowsProjectId = ref<number | undefined>(undefined)
-const savingBoardQuickAddId = ref<number | null>(null)
-const creatingBoardQuickAdd = ref(false)
+const savingCollectionQuickAddId = ref<number | null>(null)
+const creatingCollectionQuickAdd = ref(false)
 
 // Markers data
 const markers = ref<Marker[]>([])
@@ -1367,12 +1367,12 @@ const isPackage = computed(() => mediaItem.value?.file_format === 'stimmapackage
 const isSetOrGrid = computed(() => isSet.value || isGrid.value)
 // No single file to hand to the OS share sheet.
 const isMultiFileItem = computed(() => isSetOrGrid.value || isSprite.value || isPackage.value || mediaItem.value?.file_format === 'stimmalayout')
-const inBoard = computed(() => contextMenu.state.value.inBoard || false)
-const boardSectionId = computed(() => contextMenu.state.value.boardSectionId)
+const inCollection = computed(() => contextMenu.state.value.inCollection || false)
+const collectionSectionId = computed(() => contextMenu.state.value.collectionSectionId)
 const inProject = computed(() => contextMenu.state.value.inProject || false)
 // The project this menu acts in: the caller's project when it names one
 // (null for an explicit top-level owner such as an unfiled chat), else the
-// active working project. Lists and creates in the board/chat/flow pickers,
+// active working project. Lists and creates in the collection/chat/flow pickers,
 // the Projects submenu pin and Remove from Project all use it.
 const currentProjectId = computed(() => resolveProjectId(contextMenu.state.value.projectId, workingProjectId.value))
 
@@ -1435,15 +1435,15 @@ const hasGridInSelection = computed(() => {
   return items.some(item => ['stimmagrid.json', 'stimmasprite.json', 'stimmapackage'].includes(item.file_format?.toLowerCase()))
 })
 const creatingSet = ref(false)
-const filteredBoards = computed(() => {
-  const query = boardSearchQuery.value.trim().toLowerCase()
-  if (!query) return boards.value
-  return boards.value.filter((board) => (board.name || '').toLowerCase().includes(query))
+const filteredCollections = computed(() => {
+  const query = collectionSearchQuery.value.trim().toLowerCase()
+  if (!query) return collections.value
+  return collections.value.filter((collection) => (collection.name || '').toLowerCase().includes(query))
 })
 
-function formatBoardSubmenuSummary(board: any): string {
-  const itemCount = board.asset_count || 0
-  const sectionCount = board.section_count || 0
+function formatCollectionSubmenuSummary(collection: any): string {
+  const itemCount = collection.asset_count || 0
+  const sectionCount = collection.section_count || 0
   const itemText = `${itemCount} ${itemCount === 1 ? 'item' : 'items'}`
   return sectionCount > 1 ? `${itemText} · ${sectionCount} sections` : itemText
 }
@@ -1587,7 +1587,7 @@ const {
 // Resolve the active submenu's element ref for measurement
 function getActiveSubmenuEl(): HTMLElement | null {
   switch (activeSubmenu.value) {
-    case 'board': return boardSubmenuRef.value
+    case 'collection': return collectionSubmenuRef.value
     case 'generate': return generateSubmenuRef.value
     case 'tool': return toolSubmenuRef.value
     case 'chat': return chatSubmenuRef.value
@@ -1634,7 +1634,7 @@ function repositionSubmenu() {
 }
 
 // Reposition after the submenu renders (so we can measure its actual size),
-// then keep re-clamping while its async content (tool/board lists) loads in
+// then keep re-clamping while its async content (tool/collection lists) loads in
 let submenuResizeObserver: ResizeObserver | null = null
 
 watch(activeSubmenu, async (menu) => {
@@ -1834,17 +1834,17 @@ async function loadFlows() {
   }
 }
 
-async function loadBoardsList(force = false) {
-  const projectChanged = lastBoardsProjectId.value !== currentProjectId.value
-  if (!force && !projectChanged && (boards.value.length > 0 || loadingBoards.value)) return
-  lastBoardsProjectId.value = currentProjectId.value
-  loadingBoards.value = true
+async function loadCollectionsList(force = false) {
+  const projectChanged = lastCollectionsProjectId.value !== currentProjectId.value
+  if (!force && !projectChanged && (collections.value.length > 0 || loadingCollections.value)) return
+  lastCollectionsProjectId.value = currentProjectId.value
+  loadingCollections.value = true
   try {
-    boards.value = await getBoards(currentProjectId.value)
+    collections.value = await getCollections(currentProjectId.value)
   } catch (err) {
-    console.error('Failed to load boards:', err)
+    console.error('Failed to load collections:', err)
   } finally {
-    loadingBoards.value = false
+    loadingCollections.value = false
   }
 }
 
@@ -1863,7 +1863,7 @@ function handleMarkersChanged() {
   loadMarkers(true)
 }
 
-function openSubmenu(menu: 'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'project', event: MouseEvent) {
+function openSubmenu(menu: 'generate' | 'tool' | 'chat' | 'flow' | 'collection' | 'project', event: MouseEvent) {
   cancelSubmenuClose()
 
   // Capture the trigger element's position for submenu positioning
@@ -1892,9 +1892,9 @@ function openSubmenu(menu: 'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'pr
   } else if (menu === 'flow') {
     if (!wasAlreadyOpen) clearFlowDestination()
     loadFlows()
-  } else if (menu === 'board') {
-    boardSearchQuery.value = ''
-    loadBoardsList()
+  } else if (menu === 'collection') {
+    collectionSearchQuery.value = ''
+    loadCollectionsList()
   } else if (menu === 'project') {
     // ProjectPickerSubmenu loads the project list; its marks need memberships.
     membershipWanted.value = true
@@ -1927,7 +1927,7 @@ function closeSubmenuDelayed() {
       isMouseOverElement(chatSubmenuRef.value) ||
       isMouseOverElement(flowSubmenuRef.value) ||
       isMouseOverElement(flowDestinationSubmenuRef.value) ||
-      isMouseOverElement(boardSubmenuRef.value) ||
+      isMouseOverElement(collectionSubmenuRef.value) ||
       isMouseOverElement(projectSubmenuRef.value)
     )
     if (overSubmenu) return
@@ -1960,7 +1960,7 @@ function handleClickOutside(event: MouseEvent) {
   if (chatSubmenuRef.value?.contains(target)) return
   if (flowSubmenuRef.value?.contains(target)) return
   if (flowDestinationSubmenuRef.value?.contains(target)) return
-  if (boardSubmenuRef.value?.contains(target)) return
+  if (collectionSubmenuRef.value?.contains(target)) return
   if (projectSubmenuRef.value?.contains(target)) return
   if (groupSheetRef.value?.contains(target)) return
   // The tag picker submenu lives in its own Teleport
@@ -1974,7 +1974,7 @@ function handleClickOutside(event: MouseEvent) {
 function handleKeyDown(event: KeyboardEvent) {
   if (event.defaultPrevented || !isRenderer.value || event.key !== 'Escape') return
   const submenus = [generateSubmenuRef, toolSubmenuRef, chatSubmenuRef,
-    flowSubmenuRef, flowDestinationSubmenuRef, boardSubmenuRef, projectSubmenuRef]
+    flowSubmenuRef, flowDestinationSubmenuRef, collectionSubmenuRef, projectSubmenuRef]
   if (submenus.some(menu => isTopmostEscapeLayer(menu.value))) {
     consumeEscape(event)
     if (activeFlowDestination.value) clearFlowDestination()
@@ -2010,9 +2010,9 @@ watch(activeSubmenu, async (menu) => {
   if (menu === 'generate') {
     await nextTick()
     if (allowsAutofocus.value) generateSearchInputRef.value?.focus()
-  } else if (menu === 'board') {
+  } else if (menu === 'collection') {
     await nextTick()
-    if (allowsAutofocus.value) boardSearchInputRef.value?.focus()
+    if (allowsAutofocus.value) collectionSearchInputRef.value?.focus()
   }
 })
 
@@ -2053,7 +2053,7 @@ watch(() => contextMenu.state.value.visible && isRenderer.value, (visible) => {
     activeGroup.value = null
     submenuTriggerRect.value = null
     generateSearchQuery.value = ''
-    boardSearchQuery.value = ''
+    collectionSearchQuery.value = ''
     mediaFaces.value = []
     clearFlowDestination()
     showTagEditor.value = false
@@ -2185,42 +2185,42 @@ function handleEditTags(event: MouseEvent) {
   showTagEditor.value = true
 }
 
-// Boards handler
-async function handleQuickAddToBoard(boardId: number) {
-  if (savingBoardQuickAddId.value != null) return
-  savingBoardQuickAddId.value = boardId
+// Collections handler
+async function handleQuickAddToCollection(collectionId: number) {
+  if (savingCollectionQuickAddId.value != null) return
+  savingCollectionQuickAddId.value = collectionId
   try {
     if (targetAssetIds.value.length > 0) {
-      await addAssetsToBoard(boardId, targetAssetIds.value)
+      await addAssetsToCollection(collectionId, targetAssetIds.value)
     } else {
-      await addMediaToBoard(boardId, targetMediaIds.value)
+      await addMediaToCollection(collectionId, targetMediaIds.value)
     }
     contextMenu.hide()
     emit('refresh')
   } catch (err) {
-    console.error('Failed to add media to board:', err)
+    console.error('Failed to add media to collection:', err)
   } finally {
-    savingBoardQuickAddId.value = null
+    savingCollectionQuickAddId.value = null
   }
 }
 
-async function handleCreateBoardQuickAdd() {
-  if (creatingBoardQuickAdd.value) return
-  creatingBoardQuickAdd.value = true
+async function handleCreateCollectionQuickAdd() {
+  if (creatingCollectionQuickAdd.value) return
+  creatingCollectionQuickAdd.value = true
   try {
-    const board = await createBoard('', currentProjectId.value)
+    const collection = await createCollection('', currentProjectId.value)
     if (targetAssetIds.value.length > 0) {
-      await addAssetsToBoard(board.id, targetAssetIds.value)
+      await addAssetsToCollection(collection.id, targetAssetIds.value)
     } else {
-      await addMediaToBoard(board.id, targetMediaIds.value)
+      await addMediaToCollection(collection.id, targetMediaIds.value)
     }
-    await loadBoardsList(true)
+    await loadCollectionsList(true)
     contextMenu.hide()
     emit('refresh')
   } catch (err) {
-    console.error('Failed to create board from context menu:', err)
+    console.error('Failed to create collection from context menu:', err)
   } finally {
-    creatingBoardQuickAdd.value = false
+    creatingCollectionQuickAdd.value = false
   }
 }
 
@@ -2601,22 +2601,22 @@ function handlePrint() {
   }
 }
 
-// Board-specific actions
-async function handleRemoveFromBoard() {
+// Collection-specific actions
+async function handleRemoveFromCollection() {
   const ids = targetIds.value
-  const sectionId = boardSectionId.value
+  const sectionId = collectionSectionId.value
   contextMenu.hide()
   if (ids.length === 0 || !sectionId) return
 
   try {
     if (targetAssetIds.value.length > 0) {
-      await Promise.all(ids.map((id) => removeFromBoardSection(sectionId, id)))
+      await Promise.all(ids.map((id) => removeFromCollectionSection(sectionId, id)))
     } else {
-      await Promise.all(ids.map((id) => axios.delete(`/api/boards/sections/${sectionId}/items/${id}`)))
+      await Promise.all(ids.map((id) => axios.delete(`/api/collections/sections/${sectionId}/items/${id}`)))
     }
     emit('refresh')
   } catch (err) {
-    console.error('Failed to remove from board:', err)
+    console.error('Failed to remove from collection:', err)
   }
 }
 

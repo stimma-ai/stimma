@@ -814,7 +814,7 @@ const { addToast } = useToasts()
 
 // Lightweight context menu (matches EntityContextMenu visual style; user tools
 // carry string ids + Edit/Delete-only actions, so we keep this self-contained
-// rather than overloading the chat/board singleton menu).
+// rather than overloading the chat/collection singleton menu).
 const toolMenu = ref({ visible: false, x: 0, y: 0, tool: null })
 const toolMenuRef = ref(null)
 

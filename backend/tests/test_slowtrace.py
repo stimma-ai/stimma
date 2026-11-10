@@ -10,4 +10,4 @@ def test_database_scoped_media_routes_skip_detailed_request_logging():
 
 def test_ordinary_api_routes_keep_detailed_request_logging():
     assert not _skip_detailed_logging("/api/assets")
-    assert not _skip_detailed_logging("/api/boards/42")
+    assert not _skip_detailed_logging("/api/collections/42")

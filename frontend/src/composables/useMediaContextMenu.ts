@@ -11,8 +11,8 @@ export interface MediaContextMenuState {
   mediaIds?: number[]     // All target IDs (for multi-selection)
   assetIds?: number[]     // Stable browser/organization identities
   selectedItems?: any[]   // Full item objects (for Send to Tool)
-  inBoard?: boolean       // Whether viewing a board section
-  boardSectionId?: number // The current board section ID if viewing a board section
+  inCollection?: boolean       // Whether viewing a collection section
+  collectionSectionId?: number // The current collection section ID if viewing a collection section
   inProject?: boolean     // Whether viewing a project
   projectId?: number | null // The caller's project; null = explicit top level, omitted = active project
 }
@@ -37,12 +37,12 @@ export function useMediaContextMenu() {
     mediaIds?: number[]
     assetIds?: number[]
     selectedItems?: any[]
-    inBoard?: boolean
-    boardSectionId?: number
+    inCollection?: boolean
+    collectionSectionId?: number
     inProject?: boolean
     projectId?: number | null
   }) {
-    const { event, mediaId, assetId, fileHash, mediaIds, assetIds, selectedItems, inBoard, boardSectionId, inProject, projectId } = options
+    const { event, mediaId, assetId, fileHash, mediaIds, assetIds, selectedItems, inCollection, collectionSectionId, inProject, projectId } = options
 
     // Prevent default browser context menu
     event.preventDefault()
@@ -62,8 +62,8 @@ export function useMediaContextMenu() {
       mediaIds: mediaIds || (mediaId ? [mediaId] : []),
       assetIds: assetIds || (assetId ? [assetId] : []),
       selectedItems: selectedItems || [],
-      inBoard: inBoard || false,
-      boardSectionId,
+      inCollection: inCollection || false,
+      collectionSectionId,
       inProject: inProject || false,
       projectId
     }
@@ -93,12 +93,12 @@ export function useMediaContextMenu() {
     mediaIds?: number[]
     assetIds?: number[]
     selectedItems?: any[]
-    inBoard?: boolean
-    boardSectionId?: number
+    inCollection?: boolean
+    collectionSectionId?: number
     inProject?: boolean
     projectId?: number | null
   }) {
-    const { x, y, bottomY, mediaId, assetId, fileHash, mediaIds, assetIds, selectedItems, inBoard, boardSectionId, inProject, projectId } = options
+    const { x, y, bottomY, mediaId, assetId, fileHash, mediaIds, assetIds, selectedItems, inCollection, collectionSectionId, inProject, projectId } = options
 
     state.value = {
       visible: true,
@@ -111,8 +111,8 @@ export function useMediaContextMenu() {
       mediaIds: mediaIds || (mediaId ? [mediaId] : []),
       assetIds: assetIds || (assetId ? [assetId] : []),
       selectedItems: selectedItems || [],
-      inBoard: inBoard || false,
-      boardSectionId,
+      inCollection: inCollection || false,
+      collectionSectionId,
       inProject: inProject || false,
       projectId
     }

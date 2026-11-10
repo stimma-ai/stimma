@@ -66,7 +66,7 @@ interface Options {
   panelItemId: Ref<number | null>
   openPanel: (itemId: number) => void
   closePanel: () => void
-  /** The chat's project: the menu's boards, chats and project actions act in it. */
+  /** The chat's project: the menu's collections, chats and project actions act in it. */
   projectId?: () => number | null | undefined
 }
 

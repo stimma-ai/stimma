@@ -169,9 +169,9 @@ test('labels are sentence case; values formatted once', () => {
 
 test('file facts name sets and use the shared duration format', () => {
   const facts = Object.fromEntries(fileFacts({
-    file_path: 'C:\\lib\\board.stimmaset.json', file_format: 'stimmaset.json', duration: 75, file_size: 3 * 1024 * 1024,
+    file_path: 'C:\\lib\\collection.stimmaset.json', file_format: 'stimmaset.json', duration: 75, file_size: 3 * 1024 * 1024,
   }).map(f => [f.label, f.value]))
-  assert.equal(facts.Name, 'board.stimmaset.json')
+  assert.equal(facts.Name, 'collection.stimmaset.json')
   assert.equal(facts.Format, 'Set')
   assert.equal(facts.Duration, '1:15')
   assert.equal(facts.Size, '3.0 MB')

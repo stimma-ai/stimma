@@ -20,7 +20,7 @@ import Spinner from '../ui/Spinner.vue'
 const RECENT_LIMIT = 5
 // A touch drawer is short: three recent rows, the rest behind "All projects".
 const TOUCH_RECENT_LIMIT = 3
-const NEW_PROJECT_HINT = 'New project — keep the assets, chats and boards for one piece of work together'
+const NEW_PROJECT_HINT = 'New project — keep the assets, chats and collections for one piece of work together'
 const emit = defineEmits<{ selected: [] }>()
 const router = useRouter()
 const { orderedProjects, projects, refreshProjects, rememberProject, selectProject } = useWorkingContext()

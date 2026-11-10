@@ -36,7 +36,7 @@ async function fixture(t, query = '') {
     if (match) return route.fulfill({ json: Number(match[1]) === 50 ? browserItem(50, 503) : browserItem(Number(match[1]), Number(match[1]) - 100) })
     match = path.match(/\/media\/(\d+)$/)
     if (match) return route.fulfill({ json: { id: Number(match[1]), file_format: 'png', file_hash: `hash-${match[1]}`, width: 64, height: 64, filename: `m${match[1]}.png` } })
-    if (/markers|boards|projects|tools|chats|flows/.test(path)) return route.fulfill({ json: [] })
+    if (/markers|collections|projects|tools|chats|flows/.test(path)) return route.fulfill({ json: [] })
     return route.fulfill({ json: {} })
   })
   await page.goto(`http://chat-media-menus.test/${query}`)

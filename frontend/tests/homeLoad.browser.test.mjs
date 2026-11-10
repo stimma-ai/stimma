@@ -13,7 +13,7 @@ const built = await build({ ...base, configFile: false, logLevel: 'error',
 })
 const output = (Array.isArray(built) ? built : [built]).flatMap(result => result.output)
 
-const HOME_READS = ['/api/chats/previews', '/api/assets/browse', '/api/boards', '/api/flows', '/api/models/available']
+const HOME_READS = ['/api/chats/previews', '/api/assets/browse', '/api/collections', '/api/flows', '/api/models/available']
 
 function chat(id, name) {
   return { id, name, message_count: 1, project_id: null, updated_at: '2026-01-01T00:00:00Z' }
@@ -78,15 +78,15 @@ test('a slow recents read does not hide the composer, and neither does slow artw
   const { page, errors } = await openHome(t, {
     respond: async path => {
       if (path === '/api/chats/previews') { await chatsGate; return { items: [chat(1, 'Late chat')], total: 1 } }
-      if (path === '/api/boards') return [{ id: 5, name: 'Mood board', asset_count: 2, updated_at: '2025-01-01T00:00:00Z' }]
-      if (path === '/api/boards/5') return new Promise(() => {})
+      if (path === '/api/collections') return [{ id: 5, name: 'Mood board', asset_count: 2, updated_at: '2025-01-01T00:00:00Z' }]
+      if (path === '/api/collections/5') return new Promise(() => {})
     },
   })
   await expect(composer(page)).toBeVisible()
   await expect(composer(page)).toBeEditable()
   await expect(page.locator('main > div > div > div').first()).toHaveCSS('opacity', '1')
   await expect(recents(page)).toHaveAttribute('data-recents-state', 'loading')
-  // Boards arrived; their artwork never does. The card still shows.
+  // Collections arrived; their artwork never does. The card still shows.
   await expect(page.getByText('Mood board')).toBeVisible()
   releaseChats()
   await expect(page.getByText('Late chat')).toBeVisible()
@@ -126,8 +126,8 @@ test('a late response from the previous project never replaces the new one', asy
         if (project === '1') { await firstGate; return { items: [{ ...chat(11, 'Project one chat'), project_id: 1 }], total: 1 } }
         return { items: [{ ...chat(22, 'Project two chat'), project_id: 2 }], total: 1 }
       }
-      if (path === '/api/boards') {
-        if (project === '1') { await firstGate; return [{ id: 7, name: 'Project one board', asset_count: 1, project_id: 1 }] }
+      if (path === '/api/collections') {
+        if (project === '1') { await firstGate; return [{ id: 7, name: 'Project one collection', asset_count: 1, project_id: 1 }] }
         return []
       }
       if (path === '/api/assets/browse' && project === '1') { await firstGate; firstAssetsDone(); return { items: [{ id: 99, media_id: 99, file_hash: 'x' }], total: 1 } }
@@ -142,7 +142,7 @@ test('a late response from the previous project never replaces the new one', asy
   await page.waitForTimeout(400)
   await expect(page.getByText('Project two chat')).toBeVisible()
   await expect(page.getByText('Project one chat')).toHaveCount(0)
-  await expect(page.getByText('Project one board')).toHaveCount(0)
+  await expect(page.getByText('Project one collection')).toHaveCount(0)
   await expect(page.getByText('Fresh from this project')).toHaveCount(0)
 })
 
@@ -167,16 +167,16 @@ test('a partly failed recents load keeps what loaded and names what failed', asy
   const { page } = await openHome(t, {
     respond: path => {
       if (path === '/api/chats/previews') return fail ? 503 : { items: [chat(3, 'Chat is back')], total: 1 }
-      if (path === '/api/boards') return [{ id: 5, name: 'Loaded board', asset_count: 1, updated_at: '2025-01-01T00:00:00Z' }]
+      if (path === '/api/collections') return [{ id: 5, name: 'Loaded collection', asset_count: 1, updated_at: '2025-01-01T00:00:00Z' }]
     },
   })
-  await expect(page.getByText('Loaded board')).toBeVisible()
+  await expect(page.getByText('Loaded collection')).toBeVisible()
   await expect(page.getByText("Couldn't load recent chats.")).toBeVisible()
   fail = false
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByText('Chat is back')).toBeVisible()
   await expect(page.locator('[data-recents-error]')).toHaveCount(0)
-  await expect(page.getByText('Loaded board')).toBeVisible()
+  await expect(page.getByText('Loaded collection')).toBeVisible()
 })
 
 test('server and local change events make the next visit reload', async t => {
@@ -558,7 +558,7 @@ for (const failing of ['/api/tools/providers', '/api/tools/providers/tools']) {
 // ==================== Compact recents ====================
 
 const thumbnailPaths = counts => [...counts.keys()].filter(path => path.includes('/thumbnail'))
-const boardReads = counts => [...counts.keys()].filter(path => path.startsWith('/api/boards'))
+const collectionReads = counts => [...counts.keys()].filter(path => path.startsWith('/api/collections'))
 const flowReads = counts => [...counts.keys()].filter(path => path.startsWith('/api/flows/'))
 
 function compactRecents({ project = null, tag = '' } = {}) {
@@ -566,7 +566,7 @@ function compactRecents({ project = null, tag = '' } = {}) {
     items: [
       { type: 'chat', chat: { ...chat(31, `Compact chat${tag}`), project_id: project, updated_at: '2026-03-03T00:00:00', recent_media: [{ media_id: 301, file_hash: 'chathash' }], last_message: 'hi' } },
       { type: 'flow', flow: { id: 41, name: `Compact flow${tag}`, project_id: project, execution_state: 'idle', pending_task_count: 0, root_status_summary: { completed: 2 }, has_load_error: false, updated_at: '2026-03-02T00:00:00', preview_media: [{ media_id: 401, file_hash: 'flowhash1' }, { media_id: 402, file_hash: 'flowhash2' }] } },
-      { type: 'board', board: { id: 51, name: `Compact board${tag}`, project_id: project, asset_count: 5000, updated_at: '2026-03-01T00:00:00', preview_items: [
+      { type: 'collection', collection: { id: 51, name: `Compact collection${tag}`, project_id: project, asset_count: 5000, updated_at: '2026-03-01T00:00:00', preview_items: [
         { id: 501, asset_id: 501, media_id: 601, file_hash: 'boardhash1', file_format: 'png', width: 100, height: 100 },
         { id: 502, asset_id: 502, media_id: 602, file_hash: 'boardhash2', file_format: 'png', width: 200, height: 100 },
       ] } },
@@ -575,7 +575,7 @@ function compactRecents({ project = null, tag = '' } = {}) {
   }
 }
 
-test('Home reads its cards in one compact read, with no board or flow detail reads', async t => {
+test('Home reads its cards in one compact read, with no collection or flow detail reads', async t => {
   const { page, counts, errors, push } = await openHome(t, {
     respond: (path, query) => {
       if (path === '/api/home/recents') {
@@ -585,7 +585,7 @@ test('Home reads its cards in one compact read, with no board or flow detail rea
       }
     },
   })
-  await expect(page.getByText('Compact board')).toBeVisible()
+  await expect(page.getByText('Compact collection')).toBeVisible()
   await expect(page.getByText('Compact flow')).toBeVisible()
   await expect(page.getByText('Compact chat')).toBeVisible()
   await expect(page.getByText(/5000 assets/)).toBeVisible()
@@ -593,7 +593,7 @@ test('Home reads its cards in one compact read, with no board or flow detail rea
   // Artwork comes from the compact read, by content hash.
   await expect.poll(() => thumbnailPaths(counts).filter(path => /boardhash|flowhash|chathash/.test(path)).length).toBe(5)
   assert.equal(counts.get('/api/home/recents'), 1)
-  assert.deepEqual(boardReads(counts), [])
+  assert.deepEqual(collectionReads(counts), [])
   assert.deepEqual(flowReads(counts), [])
   assert.equal(counts.get('/api/chats/previews'), undefined)
   assert.equal(counts.get('/api/assets/browse'), 1)
@@ -625,15 +625,15 @@ test('compact recents: change events make the next visit reload, and a scope swi
   })
   await expect(composer(page)).toBeVisible()
   await push('/projects/2')
-  await expect(page.getByText('Compact board two')).toBeVisible()
+  await expect(page.getByText('Compact collection two')).toBeVisible()
   releaseFirst()
   await firstSettled
   await page.waitForTimeout(300)
-  await expect(page.getByText('Compact board two')).toBeVisible()
-  await expect(page.getByText('Compact board one')).toHaveCount(0)
+  await expect(page.getByText('Compact collection two')).toBeVisible()
+  await expect(page.getByText('Compact collection one')).toHaveCount(0)
 
   const reads = () => counts.get('/api/home/recents')
-  for (const event of ['board_items_changed', 'flow_equation_updated', 'chat_item_created']) {
+  for (const event of ['collection_items_changed', 'flow_equation_updated', 'chat_item_created']) {
     const before = reads()
     await push('/elsewhere')
     await page.evaluate(name => window.homeLoadTest.serverEvent(name, {}), event)
@@ -641,7 +641,7 @@ test('compact recents: change events make the next visit reload, and a scope swi
     await expect.poll(reads).toBe(before + 1)
     await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
   }
-  assert.deepEqual(boardReads(counts), [])
+  assert.deepEqual(collectionReads(counts), [])
   assert.deepEqual(flowReads(counts), [])
 })
 
@@ -652,17 +652,17 @@ test('compact recents: a failed read keeps the composer usable and a retry recov
       if (path === '/api/home/recents') return fail ? 503 : compactRecents()
     },
   })
-  await expect(page.getByText("Couldn't load recent chats, boards and flows.")).toBeVisible()
+  await expect(page.getByText("Couldn't load recent chats, collections and flows.")).toBeVisible()
   await composer(page).fill('still typing')
   fail = false
   await page.getByRole('button', { name: 'Try again' }).click()
-  await expect(page.getByText('Compact board')).toBeVisible()
+  await expect(page.getByText('Compact collection')).toBeVisible()
   await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
   await expect(composer(page)).toHaveValue('still typing')
   assert.equal(counts.get('/api/home/recents'), 2)
   // A server error is not an old server: no fallback to the full lists.
   assert.equal(counts.get('/api/chats/previews'), undefined)
-  assert.deepEqual(boardReads(counts), [])
+  assert.deepEqual(collectionReads(counts), [])
 })
 
 test('compact recents: a malformed reply is a load failure, not an old server', async t => {
@@ -672,12 +672,12 @@ test('compact recents: a malformed reply is a load failure, not an old server', 
       if (path === '/api/home/recents') return malformed ? { unexpected: true } : compactRecents()
     },
   })
-  await expect(page.getByText("Couldn't load recent chats, boards and flows.")).toBeVisible()
+  await expect(page.getByText("Couldn't load recent chats, collections and flows.")).toBeVisible()
   assert.equal(counts.get('/api/chats/previews'), undefined)
-  assert.deepEqual(boardReads(counts), [])
+  assert.deepEqual(collectionReads(counts), [])
   malformed = false
   await page.getByRole('button', { name: 'Try again' }).click()
-  await expect(page.getByText('Compact board')).toBeVisible()
+  await expect(page.getByText('Compact collection')).toBeVisible()
   assert.equal(counts.get('/api/home/recents'), 2)
 })
 
@@ -692,41 +692,41 @@ test('compact recents: a stalled read is aborted at its deadline and a retry rec
     },
   })
   await expect(composer(page)).toBeVisible()
-  await expect(page.getByText("Couldn't load recent chats, boards and flows.")).toBeVisible({ timeout: 5000 })
+  await expect(page.getByText("Couldn't load recent chats, collections and flows.")).toBeVisible({ timeout: 5000 })
   await page.getByRole('button', { name: 'Try again' }).click()
-  await expect(page.getByText('Compact board')).toBeVisible()
+  await expect(page.getByText('Compact collection')).toBeVisible()
   assert.equal(reads, 2)
 })
 
-test('an old server gets the full lists, each board and flow read once per load, and is asked again after a reconnect', async t => {
+test('an old server gets the full lists, each collection and flow read once per load, and is asked again after a reconnect', async t => {
   const { page, counts, push } = await openHome(t, {
     respond: path => {
       if (path === '/api/chats/previews') return { items: [{ ...chat(61, 'Legacy chat'), updated_at: '2026-02-03T00:00:00Z' }], total: 1 }
-      if (path === '/api/boards') return [
-        { id: 5, name: 'Legacy board', asset_count: 1, updated_at: '2026-02-02T00:00:00Z' },
-        { id: 6, name: 'Other board', asset_count: 1, updated_at: '2025-12-01T00:00:00Z' },
+      if (path === '/api/collections') return [
+        { id: 5, name: 'Legacy collection', asset_count: 1, updated_at: '2026-02-02T00:00:00Z' },
+        { id: 6, name: 'Other collection', asset_count: 1, updated_at: '2025-12-01T00:00:00Z' },
       ]
-      if (path === '/api/boards/5' || path === '/api/boards/6') return { id: Number(path.split('/').pop()), sections: [{ items: [{ id: 1, media_id: 1, file_hash: 'legacyhash', width: 1, height: 1 }] }] }
+      if (path === '/api/collections/5' || path === '/api/collections/6') return { id: Number(path.split('/').pop()), sections: [{ items: [{ id: 1, media_id: 1, file_hash: 'legacyhash', width: 1, height: 1 }] }] }
       if (path === '/api/flows') return [{ id: 7, name: 'Legacy flow', updated_at: '2026-01-15T00:00:00Z' }]
     },
   })
-  await expect(page.getByText('Legacy board')).toBeVisible()
+  await expect(page.getByText('Legacy collection')).toBeVisible()
   await expect(page.getByText('Legacy flow')).toBeVisible()
   await expect(page.getByText('Legacy chat')).toBeVisible()
   await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
   await page.waitForTimeout(300)
-  const once = { '/api/home/recents': 1, '/api/chats/previews': 1, '/api/boards': 1, '/api/boards/5': 1, '/api/boards/6': 1, '/api/flows/7/equations': 1 }
+  const once = { '/api/home/recents': 1, '/api/chats/previews': 1, '/api/collections': 1, '/api/collections/5': 1, '/api/collections/6': 1, '/api/flows/7/equations': 1 }
   for (const [path, count] of Object.entries(once)) assert.equal(counts.get(path), count, `${path} once`)
 
   // The next load goes straight to the lists, still one detail read each.
   await push('/elsewhere')
-  await page.evaluate(() => window.homeLoadTest.serverEvent('board_items_changed', {}))
+  await page.evaluate(() => window.homeLoadTest.serverEvent('collection_items_changed', {}))
   await push('/')
   await expect.poll(() => counts.get('/api/chats/previews')).toBe(2)
   await page.waitForTimeout(300)
   assert.equal(counts.get('/api/home/recents'), 1, 'not asked again')
-  assert.equal(counts.get('/api/boards/5'), 2)
-  assert.equal(counts.get('/api/boards/6'), 2)
+  assert.equal(counts.get('/api/collections/5'), 2)
+  assert.equal(counts.get('/api/collections/6'), 2)
   assert.equal(counts.get('/api/flows/7/equations'), 2)
 
   // The server may have been updated while the connection was down.

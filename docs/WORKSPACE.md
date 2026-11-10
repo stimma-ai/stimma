@@ -68,7 +68,7 @@ it kept locally (`frontend/src/utils/workspaceBoot.ts`, `backend/workspace_servi
   first are kept.
 - **Allow-listed.** Only keys `stateRegistry` marks as migrated leave the client, and only
   for this server and profile. A closed tab's data stays behind.
-- **Checked.** Tabs for deleted chats, boards, flows, projects and assets are dropped.
+- **Checked.** Tabs for deleted chats, collections, flows, projects and assets are dropped.
 - **Archived, not merged.** A later desktop's upload is kept in `workspace_migrations`, and
   it takes on the shared workspace.
 - **Reversible.** Local copies aren't touched, so downgrading still has its workspace.

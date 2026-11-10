@@ -30,7 +30,7 @@ from core.logging import get_logger
 from core.profile_context import get_current_profile
 from database import (
     Asset,
-    Board,
+    Collection,
     Chat,
     DatabaseMeta,
     Flow,
@@ -258,7 +258,7 @@ async def seed_pinned_tabs(session: AsyncSession) -> list[dict]:
     return changes
 
 
-_TAB_ENTITIES = {"chat": Chat, "board": Board, "flow": Flow, "project": Project, "lineage": MediaItem}
+_TAB_ENTITIES = {"chat": Chat, "collection": Collection, "flow": Flow, "project": Project, "lineage": MediaItem}
 
 
 async def _tab_entity_exists(session: AsyncSession, tab: dict) -> bool:

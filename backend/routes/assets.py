@@ -30,9 +30,9 @@ from database import (
     AssetMarker,
     AssetRevision,
     AssetTag,
-    Board,
-    BoardAssetItem,
-    BoardSection,
+    Collection,
+    CollectionAssetItem,
+    CollectionSection,
     Chat,
     ContainerMember,
     Face,
@@ -1897,34 +1897,34 @@ async def clear_asset_expiration(
     return {"status": "success"}
 
 
-@router.get("/item/{asset_id}/boards")
-async def get_asset_boards(
+@router.get("/item/{asset_id}/collections")
+async def get_asset_collections(
     asset_id: int,
     session: AsyncSession = Depends(get_db_session),
 ):
     await _live_asset_or_404(session, asset_id)
-    boards = list(
+    collections = list(
         await session.scalars(
-            select(Board)
+            select(Collection)
             .join(
-                BoardSection,
-                (BoardSection.board_id == Board.id)
-                & BoardSection.deleted_at.is_(None),
+                CollectionSection,
+                (CollectionSection.collection_id == Collection.id)
+                & CollectionSection.deleted_at.is_(None),
             )
             .join(
-                BoardAssetItem,
-                (BoardAssetItem.board_section_id == BoardSection.id)
-                & BoardAssetItem.deleted_at.is_(None),
+                CollectionAssetItem,
+                (CollectionAssetItem.collection_section_id == CollectionSection.id)
+                & CollectionAssetItem.deleted_at.is_(None),
             )
             .where(
-                BoardAssetItem.asset_id == asset_id,
-                Board.deleted_at.is_(None),
+                CollectionAssetItem.asset_id == asset_id,
+                Collection.deleted_at.is_(None),
             )
-            .order_by(Board.name.asc())
+            .order_by(Collection.name.asc())
             .distinct()
         )
     )
-    return [board.to_dict() for board in boards]
+    return [collection.to_dict() for collection in collections]
 
 
 @router.get("/item/{asset_id}/containers")

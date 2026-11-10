@@ -36,8 +36,8 @@ ID_KINDS = {
     "revision_id": "revision",
     "current_revision_id": "revision",
     "expected_revision_id": "revision",
-    "board_id": "board",
-    "board_ids": "board",
+    "collection_id": "collection",
+    "collection_ids": "collection",
     "to_section_id": "section",
     "project_id": "project",
     "project_ids": "project",
@@ -49,7 +49,7 @@ ID_KINDS = {
     "section_id": "section",
     "section_ids": "section",
     "target_section_id": "section",
-    "board_section_id": "section",
+    "collection_section_id": "section",
     "destination_section_id": "section",
     "cover_asset_id": "asset",
     "cover_media_id": "media",
@@ -89,7 +89,7 @@ PRIVATE_FIELDS = {
 NESTED_KINDS = {
     "asset": "asset",
     "revision": "revision",
-    "board": "board",
+    "collection": "collection",
     "project": "project",
     "chat": "chat",
     "flow": "flow",
@@ -97,7 +97,7 @@ NESTED_KINDS = {
     "assets": "asset",
     "revisions": "revision",
     "media": "media",
-    "boards": "board",
+    "collections": "collection",
     "sections": "section",
     "projects": "project",
     "chats": "chat",
@@ -356,7 +356,7 @@ class Binding:
         ``*_ref`` (they carry references, never numbers) and Pydantic titles,
         which are internal function and class names, are dropped. They were
         the loudest words in the schema and they misled: a model shown
-        ``Mcp_add_board_items`` next to ``action: add`` invents ``add_items``.
+        ``Mcp_add_collection_items`` next to ``action: add`` invents ``add_items``.
         """
         self.load()
         schema = self._public_schema()
@@ -476,29 +476,29 @@ def family(name, description, module, kind, reads=(), writes=()):
 
 
 family(
-    "boards_get",
-    "Inspect boards, their sections and what is on them.",
-    "boards",
-    "board",
-    [("list", "get_boards"), ("detail", "get_board")],
+    "collections_get",
+    "Inspect collections, their sections and what is on them.",
+    "collections",
+    "collection",
+    [("list", "get_collections"), ("detail", "get_collection")],
 )
 family(
-    "boards_update",
-    "Organize work on boards: create, rename, trash or restore a board; create, rename, reorder or delete its sections; add assets to a board or a section, move them between sections, or remove them. Removing from a board never deletes the asset.",
-    "boards",
-    "board",
+    "collections_update",
+    "Organize work on collections: create, rename, trash or restore a collection; create, rename, reorder or delete its sections; add assets to a collection or a section, move them between sections, or remove them. Removing from a collection never deletes the asset.",
+    "collections",
+    "collection",
     writes=[
-        ("create", "create_board"),
-        ("update", "update_board"),
-        ("trash", "delete_board"),
-        ("restore", "restore_board"),
-        ("section_create", "create_board_section", "section"),
-        ("section_update", "update_board_section", "section"),
-        ("section_delete", "delete_board_section", "section"),
-        ("section_reorder", "reorder_board_sections"),
-        ("add", "add_board_items"),
-        ("remove", "bulk_remove_board_items"),
-        ("move", "bulk_move_board_items"),
+        ("create", "create_collection"),
+        ("update", "update_collection"),
+        ("trash", "delete_collection"),
+        ("restore", "restore_collection"),
+        ("section_create", "create_collection_section", "section"),
+        ("section_update", "update_collection_section", "section"),
+        ("section_delete", "delete_collection_section", "section"),
+        ("section_reorder", "reorder_collection_sections"),
+        ("add", "add_collection_items"),
+        ("remove", "bulk_remove_collection_items"),
+        ("move", "bulk_move_collection_items"),
     ],
 )
 family(

@@ -2,7 +2,7 @@ import { test } from '@playwright/test'
 import { settle, shoot } from '../helpers'
 
 /**
- * Library and boards shots.
+ * Library and collections shots.
  * Inventory: Getting Started #2 context, Layouts #1 context, Organizing #3.
  */
 
@@ -12,18 +12,18 @@ test('library grid (all assets)', async ({ page }) => {
   await shoot(page, 'library/all-assets')
 })
 
-test('boards landing', async ({ page }) => {
-  await page.goto('/boards')
+test('collections landing', async ({ page }) => {
+  await page.goto('/collections')
   await settle(page)
-  await shoot(page, 'library/boards-landing')
+  await shoot(page, 'library/collections-landing')
 })
 
-test('board detail', async ({ page }) => {
-  await page.goto('/boards')
+test('collection detail', async ({ page }) => {
+  await page.goto('/collections')
   await settle(page)
   await page.getByText('Brand Refresh').first().click()
   await settle(page)
-  await shoot(page, 'library/board-detail')
+  await shoot(page, 'library/collection-detail')
 })
 
 test('lineage view', async ({ page }) => {

@@ -174,7 +174,7 @@
       @invert-selection="handleInvertSelection"
       @toggle-marker="handleToggleMarker"
       @add-tags="openTagPicker"
-      @add-to-board="showBoardPicker = true"
+      @add-to-collection="showCollectionPicker = true"
       @find-similar="searchSimilarToSelected"
       @compare="handleCompareSelected"
       @edit-image="handleEditImage"
@@ -186,13 +186,13 @@
       @delete-permanently="handleBulkPermanentDelete"
     />
 
-    <!-- Board Picker Modal -->
-    <BoardPicker
-      :visible="showBoardPicker"
+    <!-- Collection Picker Modal -->
+    <CollectionPicker
+      :visible="showCollectionPicker"
       :asset-ids="selectedItemIds"
       :project-id="projectId ?? undefined"
-      @close="showBoardPicker = false"
-      @saved="handleBoardsAdded"
+      @close="showCollectionPicker = false"
+      @saved="handleCollectionsAdded"
     />
 
     <!-- Export Modal -->
@@ -259,7 +259,7 @@ import Button from '../components/ui/Button.vue'
 import { TrashIcon } from '@heroicons/vue/24/outline'
 import VirtualMediaGrid from '../components/VirtualMediaGrid.vue'
 import MultiSelectActionBar from '../components/MultiSelectActionBar.vue'
-import BoardPicker from '../components/BoardPicker.vue'
+import CollectionPicker from '../components/CollectionPicker.vue'
 import ExportModal from '../components/ExportModal.vue'
 import TagPickerPopover from '../components/TagPickerPopover.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
@@ -622,7 +622,7 @@ async function loadImplicitMarkers() {
     }
   }
 }
-const showBoardPicker = ref(false)
+const showCollectionPicker = ref(false)
 const showExportModal = ref(false)
 const exportMediaIds = ref([])
 const exportMediaItems = ref([])
@@ -1307,9 +1307,9 @@ async function handleCompareAction({ action, item, payload }) {
         addKeywordFilter(payload)
       }
       break
-    case 'navigate-to-board':
+    case 'navigate-to-collection':
       if (payload) {
-        router.push({ name: 'board-detail', params: { id: payload } })
+        router.push({ name: 'collection-detail', params: { id: payload } })
       }
       break
     case 'navigate-to-source-media':
@@ -1336,8 +1336,8 @@ async function handleCompareAction({ action, item, payload }) {
     case 'permanent-delete':
       confirmPermanentDeleteMultiple([item.id])
       break
-    case 'add-to-board':
-      showBoardPicker.value = true
+    case 'add-to-collection':
+      showCollectionPicker.value = true
       break
     case 'toggle-marker':
     case 'tags-saved':
@@ -1392,8 +1392,8 @@ async function handleToggleMarker({ markerId, add }) {
   }
 }
 
-function handleBoardsAdded() {
-  showBoardPicker.value = false
+function handleCollectionsAdded() {
+  showCollectionPicker.value = false
 }
 
 function handleTagsChanged() {
@@ -1618,7 +1618,7 @@ async function handleContextMenuAction({ action, item, targetIds, inSelection })
       break
     case 'markers':
     case 'tags':
-    case 'boards':
+    case 'collections':
       // For bulk actions from context menu, temporarily set the selection
       // so the existing bulk modals work correctly
       if (targetIds.length > 0 && !inSelection) {
@@ -1631,8 +1631,8 @@ async function handleContextMenuAction({ action, item, targetIds, inSelection })
         showMarkerSheet.value = true
       } else if (action === 'tags') {
         openTagPicker()
-      } else if (action === 'boards') {
-        showBoardPicker.value = true
+      } else if (action === 'collections') {
+        showCollectionPicker.value = true
       }
       break
     // Trash mode actions

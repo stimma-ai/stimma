@@ -984,7 +984,7 @@ function handleVideoContextMenu(event: MouseEvent, mediaId: number | undefined) 
   }
 }
 
-// Group actions over the batch members (add to board, create set, tag, export…).
+// Group actions over the batch members (add to collection, create set, tag, export…).
 function onBatchMenu(event: MouseEvent, batch: BatchInfo) {
   const mediaIds = batchMemberMediaIds(batch)
   if (mediaIds.length === 0) return

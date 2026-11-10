@@ -11,8 +11,8 @@ from core.dependencies import get_db_session
 from database import (
     Asset,
     AssetRevision,
-    Board,
-    BoardSection,
+    Collection,
+    CollectionSection,
     Chat,
     Flow,
     GenerationJob,
@@ -54,10 +54,10 @@ async def _serialize_project(project: Project, session: AsyncSession) -> Project
             Chat.deleted_at.is_(None),
         )
     )
-    board_count = await session.scalar(
-        select(func.count()).select_from(Board).where(
-            Board.project_id == project.id,
-            Board.deleted_at.is_(None),
+    collection_count = await session.scalar(
+        select(func.count()).select_from(Collection).where(
+            Collection.project_id == project.id,
+            Collection.deleted_at.is_(None),
         )
     )
     asset_count = await session.scalar(
@@ -81,7 +81,7 @@ async def _serialize_project(project: Project, session: AsyncSession) -> Project
     return ProjectResponse(
         **project.to_dict(),
         chat_count=chat_count or 0,
-        board_count=board_count or 0,
+        collection_count=collection_count or 0,
         asset_count=asset_count or 0,
     )
 
@@ -92,11 +92,11 @@ async def list_projects(session: AsyncSession = Depends(get_db_session)):
         select(
             Project,
             func.count(func.distinct(Chat.id)).label("chat_count"),
-            func.count(func.distinct(Board.id)).label("board_count"),
+            func.count(func.distinct(Collection.id)).label("collection_count"),
             func.count(func.distinct(MediaItem.id)).label("asset_count"),
         )
         .outerjoin(Chat, and_(Chat.project_id == Project.id, Chat.deleted_at.is_(None)))
-        .outerjoin(Board, and_(Board.project_id == Project.id, Board.deleted_at.is_(None)))
+        .outerjoin(Collection, and_(Collection.project_id == Project.id, Collection.deleted_at.is_(None)))
         .outerjoin(
             ProjectAsset,
             (ProjectAsset.project_id == Project.id)
@@ -130,10 +130,10 @@ async def list_projects(session: AsyncSession = Depends(get_db_session)):
         ProjectSummaryResponse(
             **project.to_dict(),
             chat_count=chat_count or 0,
-            board_count=board_count or 0,
+            collection_count=collection_count or 0,
             asset_count=asset_count or 0,
         )
-        for project, chat_count, board_count, asset_count in result.all()
+        for project, chat_count, collection_count, asset_count in result.all()
     ]
 
 
@@ -237,23 +237,23 @@ async def delete_project(project_id: int, session: AsyncSession = Depends(get_db
 
         await _cancel_chat_work(session, deleted_chat_ids, deleted_at)
 
-    board_result = await session.execute(
-        select(Board.id).where(Board.project_id == project_id, Board.deleted_at.is_(None))
+    collection_result = await session.execute(
+        select(Collection.id).where(Collection.project_id == project_id, Collection.deleted_at.is_(None))
     )
-    deleted_board_ids = [row[0] for row in board_result.all()]
-    if deleted_board_ids:
+    deleted_collection_ids = [row[0] for row in collection_result.all()]
+    if deleted_collection_ids:
         await session.execute(
-            update(Board)
-            .where(Board.id.in_(deleted_board_ids))
+            update(Collection)
+            .where(Collection.id.in_(deleted_collection_ids))
             .values(deleted_at=deleted_at, updated_at=deleted_at)
         )
         await session.execute(
-            update(BoardSection)
-            .where(BoardSection.board_id.in_(deleted_board_ids), BoardSection.deleted_at.is_(None))
+            update(CollectionSection)
+            .where(CollectionSection.collection_id.in_(deleted_collection_ids), CollectionSection.deleted_at.is_(None))
             .values(deleted_at=deleted_at, updated_at=deleted_at, is_default=False)
         )
 
-    # Flows live in the project like chats and boards do.
+    # Flows live in the project like chats and collections do.
     flow_result = await session.execute(
         select(Flow.id).where(Flow.project_id == project_id, Flow.deleted_at.is_(None))
     )
@@ -301,8 +301,8 @@ async def delete_project(project_id: int, session: AsyncSession = Depends(get_db
         await ws_manager.broadcast("flow_deleted", {"flow_id": flow_id})
     for chat_id in deleted_chat_ids:
         await ws_manager.broadcast("chat_deleted", {"chat_id": chat_id})
-    for board_id in deleted_board_ids:
-        await ws_manager.broadcast("board_deleted", {"board_id": board_id})
+    for collection_id in deleted_collection_ids:
+        await ws_manager.broadcast("collection_deleted", {"collection_id": collection_id})
     await ws_manager.broadcast("project_deleted", {"project_id": project_id})
 
     from object_hash import salted_hash

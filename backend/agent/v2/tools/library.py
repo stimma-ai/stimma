@@ -14,16 +14,16 @@ from sqlalchemy import select, or_, and_, delete, func, Integer, literal, update
 from ..tools_registry import tool, ToolParameter
 from ..library_query import TEXT_FIELDS, METADATA_FACETS, normalize_match, field_match, metadata_values, text_match
 
-from board_service import serialize_board
+from collection_service import serialize_collection
 import app_dirs
 from core.logging import get_logger
 from core.profile_context import get_current_profile
 from project_service import infer_project_id_from_workspace_path
 from providers.registry import ProviderRegistry
 from database import (
-    Asset, AssetMarker, AssetRevision, AssetTag, BoardAssetItem, ProjectAsset,
+    Asset, AssetMarker, AssetRevision, AssetTag, CollectionAssetItem, ProjectAsset,
     MediaItem, MediaLineage, Tag,
-    Board, BoardItem, BoardSection, Marker,
+    Collection, CollectionItem, CollectionSection, Marker,
     Keyword, MediaKeyword, MediaToolLineage, Face,
 )
 from generation_metadata import build_parameters, dump_generation_metadata
@@ -1033,7 +1033,7 @@ async def resolve_params_from(
     name="library",
     description=(
         "Search, retrieve, save, and browse the media library. "
-        "Manage tags, markers, and boards on Assets. For tag/marker/board actions you can "
+        "Manage tags, markers, and collections on Assets. For tag/marker/collection actions you can "
         "target an item by the media_id you already have (from show/create_layout/media_info/"
         "generation) — it resolves to the owning Asset automatically; you do NOT need to look up "
         "an asset_id first. Browse/search results return both asset_id and media_id. "
@@ -1042,13 +1042,13 @@ async def resolve_params_from(
         "Use generation_params to get a call_tool-ready flow for reproducing an existing image (tweak one field, then call_tool)."
     ),
     parameters=[
-        ToolParameter("action", "string", "search | inspect | get | generation_params | browse | browse_schema | browse_options | save | lineage | tag | marker | board"),
+        ToolParameter("action", "string", "search | inspect | get | generation_params | browse | browse_schema | browse_options | save | lineage | tag | marker | collection"),
         ToolParameter("query", "string", "Text query. Search matches against generation prompts by default (best signal). Use search_fields to broaden.", required=False),
         ToolParameter("search_fields", "string", "prompt (default) | caption | keywords | all — which fields search.query matches. Structured filters compose with search too.", required=False),
-        ToolParameter("media_id", "integer", "Exact Media payload ID. Used for get/lineage, and ALSO accepted as the target for tag/marker/board actions (resolved to its owning Asset — just pass the media_id you already have).", required=False),
-        ToolParameter("media_ids", "array", "Exact Media payload IDs for payload operations, or as bulk targets for tag/marker/board actions.", required=False, items={"type": "integer"}),
-        ToolParameter("asset_id", "integer", "Asset ID for tag/marker/board actions. Optional — if you only have a media_id, pass that instead (do not mix asset and media IDs in one call).", required=False),
-        ToolParameter("asset_ids", "array", "Asset IDs for bulk tag/marker/board actions. Optional — media_ids works too.", required=False, items={"type": "integer"}),
+        ToolParameter("media_id", "integer", "Exact Media payload ID. Used for get/lineage, and ALSO accepted as the target for tag/marker/collection actions (resolved to its owning Asset — just pass the media_id you already have).", required=False),
+        ToolParameter("media_ids", "array", "Exact Media payload IDs for payload operations, or as bulk targets for tag/marker/collection actions.", required=False, items={"type": "integer"}),
+        ToolParameter("asset_id", "integer", "Asset ID for tag/marker/collection actions. Optional — if you only have a media_id, pass that instead (do not mix asset and media IDs in one call).", required=False),
+        ToolParameter("asset_ids", "array", "Asset IDs for bulk tag/marker/collection actions. Optional — media_ids works too.", required=False, items={"type": "integer"}),
         ToolParameter("tags", "array", "Filter by tag names (browse) or tag names to add/remove (tag action)", required=False, items={"type": "string"}),
         ToolParameter("limit", "integer", "Max results, default 20", required=False),
         ToolParameter("offset", "integer", "Browse result offset, default 0", required=False),
@@ -1063,11 +1063,11 @@ async def resolve_params_from(
         ToolParameter("path", "string", "Workspace filename to save (save action)", required=False),
         ToolParameter("save_tags", "array", "Tags to apply on save — only when the user explicitly requests tagging", required=False, items={"type": "string"}),
         ToolParameter("marker_name", "string", "Marker name (marker action). Markers are a FIXED, curated set (typically 'favorite' and 'library' — the saved-for-later flag) — you cannot create new ones. Use operation='list' if unsure which names exist; 'add' only applies an existing marker.", required=False),
-        ToolParameter("board_name", "string", "Board name (board action)", required=False),
-        ToolParameter("board_id", "integer", "Board ID (board action)", required=False),
-        ToolParameter("section_name", "string", "Section name (board action)", required=False),
-        ToolParameter("section_id", "integer", "Section ID (board action)", required=False),
-        ToolParameter("operation", "string", "Default: add. Supported ops differ by action — tag: add | remove | list ('add' creates missing tags); marker: add | remove | list ('add' applies an existing marker only — markers cannot be created here); board: add | remove | move | list | contents | create | delete | rename | create_section | rename_section | delete_section | set_collapsed. Board 'add' auto-creates the board if board_name doesn't exist yet — no separate create needed. Move relocates items to a target section.", required=False),
+        ToolParameter("collection_name", "string", "Collection name (collection action)", required=False),
+        ToolParameter("collection_id", "integer", "Collection ID (collection action)", required=False),
+        ToolParameter("section_name", "string", "Section name (collection action)", required=False),
+        ToolParameter("section_id", "integer", "Section ID (collection action)", required=False),
+        ToolParameter("operation", "string", "Default: add. Supported ops differ by action — tag: add | remove | list ('add' creates missing tags); marker: add | remove | list ('add' applies an existing marker only — markers cannot be created here); collection: add | remove | move | list | contents | create | delete | rename | create_section | rename_section | delete_section | set_collapsed. Collection 'add' auto-creates the collection if collection_name doesn't exist yet — no separate create needed. Move relocates items to a target section.", required=False),
     ],
 )
 async def library(
@@ -1092,8 +1092,8 @@ async def library(
     path: Optional[str] = None,
     save_tags: Optional[List[str]] = None,
     marker_name: Optional[str] = None,
-    board_name: Optional[str] = None,
-    board_id: Optional[int] = None,
+    collection_name: Optional[str] = None,
+    collection_id: Optional[int] = None,
     section_name: Optional[str] = None,
     section_id: Optional[int] = None,
     operation: Optional[str] = None,
@@ -1125,7 +1125,7 @@ async def library(
         if unknown:
             raise ValueError(f"Unknown library arguments: {sorted(unknown)}. Put supported criteria in filters; see browse_schema.")
         arguments = locals().copy()
-        parameter_names = {"query", "search_fields", "media_id", "media_ids", "asset_id", "asset_ids", "tags", "limit", "offset", "filters", "scope", "direction", "relationship", "sort_by", "random_seed", "facet", "cursor", "path", "save_tags", "marker_name", "board_name", "board_id", "section_name", "section_id", "operation"}
+        parameter_names = {"query", "search_fields", "media_id", "media_ids", "asset_id", "asset_ids", "tags", "limit", "offset", "filters", "scope", "direction", "relationship", "sort_by", "random_seed", "facet", "cursor", "path", "save_tags", "marker_name", "collection_name", "collection_id", "section_name", "section_id", "operation"}
         invalid = [name for name in parameter_names - query_actions[action] if arguments[name] is not None]
         if invalid:
             raise ValueError(f"{action} does not accept {sorted(invalid)}; use browse_schema for query capabilities")
@@ -1164,16 +1164,16 @@ async def library(
         return await _marker(
             session, asset_id, asset_ids, media_id, media_ids, marker_name, op
         )
-    elif action == "board":
+    elif action == "collection":
         project_id = kwargs.get("project_id")
-        return await _board(
+        return await _collection(
             session,
             asset_id,
             asset_ids,
             media_id,
             media_ids,
-            board_name,
-            board_id,
+            collection_name,
+            collection_id,
             section_name,
             section_id,
             op,
@@ -1183,7 +1183,7 @@ async def library(
         return (
             "Error: Unknown action "
             f"'{action}'. Use: search, inspect, get, generation_params, browse, browse_schema, browse_options, "
-            "save, lineage, tag, marker, board"
+            "save, lineage, tag, marker, collection"
         )
 
 
@@ -2029,14 +2029,14 @@ async def _marker(
     return f"Error: Unknown operation '{operation}'. Use: add, remove, list"
 
 
-async def _board(
+async def _collection(
     session: AsyncSession,
     asset_id: Optional[int],
     asset_ids: Optional[List[int]],
     media_id: Optional[int],
     media_ids: Optional[List[int]],
-    board_name: Optional[str],
-    board_id: Optional[int],
+    collection_name: Optional[str],
+    collection_id: Optional[int],
     section_name: Optional[str],
     section_id: Optional[int],
     operation: str,
@@ -2045,109 +2045,109 @@ async def _board(
     from utils.websocket import ws_manager
 
     if operation == "list":
-        q = select(Board).where(Board.deleted_at.is_(None))
+        q = select(Collection).where(Collection.deleted_at.is_(None))
         if project_id is not None:
-            q = q.where(Board.project_id == project_id)
-        result = await session.execute(q.order_by(Board.updated_at.desc()))
-        boards = result.scalars().all()
-        return json.dumps([b.to_dict() for b in boards])
+            q = q.where(Collection.project_id == project_id)
+        result = await session.execute(q.order_by(Collection.updated_at.desc()))
+        collections = result.scalars().all()
+        return json.dumps([b.to_dict() for b in collections])
 
     if operation == "create":
-        if not board_name:
-            return "Error: board_name is required to create a board"
-        board = Board(name=board_name, project_id=project_id)
-        session.add(board)
+        if not collection_name:
+            return "Error: collection_name is required to create a collection"
+        collection = Collection(name=collection_name, project_id=project_id)
+        session.add(collection)
         await session.flush()
-        session.add(BoardSection(board_id=board.id, name=None, is_default=True, display_order=0))
+        session.add(CollectionSection(collection_id=collection.id, name=None, is_default=True, display_order=0))
         await session.commit()
-        await session.refresh(board)
-        board_payload = (await serialize_board(board, session)).model_dump()
-        await ws_manager.broadcast("board_created", {"board": board_payload})
-        return json.dumps({"status": "ok", "board": board_payload})
+        await session.refresh(collection)
+        collection_payload = (await serialize_collection(collection, session)).model_dump()
+        await ws_manager.broadcast("collection_created", {"collection": collection_payload})
+        return json.dumps({"status": "ok", "collection": collection_payload})
 
-    board = None
-    if board_id:
+    collection = None
+    if collection_id:
         result = await session.execute(
-            select(Board).where(
-                Board.id == board_id,
-                Board.deleted_at.is_(None),
+            select(Collection).where(
+                Collection.id == collection_id,
+                Collection.deleted_at.is_(None),
             )
         )
-        board = result.scalar_one_or_none()
+        collection = result.scalar_one_or_none()
         if (
-            board is not None
+            collection is not None
             and project_id is not None
-            and board.project_id != project_id
+            and collection.project_id != project_id
         ):
-            return "Error: Board does not belong to the current project"
-    elif board_name:
-        board_query = select(Board).where(
-                Board.name == board_name,
-                Board.deleted_at.is_(None),
+            return "Error: Collection does not belong to the current project"
+    elif collection_name:
+        collection_query = select(Collection).where(
+                Collection.name == collection_name,
+                Collection.deleted_at.is_(None),
             )
-        board_query = board_query.where(
-            Board.project_id == project_id
+        collection_query = collection_query.where(
+            Collection.project_id == project_id
             if project_id is not None
-            else Board.project_id.is_(None)
+            else Collection.project_id.is_(None)
         )
-        matches = list(await session.scalars(board_query.limit(2)))
+        matches = list(await session.scalars(collection_query.limit(2)))
         if len(matches) > 1:
-            return "Error: Board name is ambiguous; use board_id"
-        board = matches[0] if matches else None
+            return "Error: Collection name is ambiguous; use collection_id"
+        collection = matches[0] if matches else None
 
-    if not board and board_name and operation == "add":
-        # Auto-create board on add when board_name is given but doesn't exist
-        board = Board(name=board_name, project_id=project_id)
-        session.add(board)
+    if not collection and collection_name and operation == "add":
+        # Auto-create collection on add when collection_name is given but doesn't exist
+        collection = Collection(name=collection_name, project_id=project_id)
+        session.add(collection)
         await session.flush()
-        session.add(BoardSection(board_id=board.id, name=None, is_default=True, display_order=0))
+        session.add(CollectionSection(collection_id=collection.id, name=None, is_default=True, display_order=0))
         await session.commit()
-        await session.refresh(board)
-        board_payload = (await serialize_board(board, session)).model_dump()
-        await ws_manager.broadcast("board_created", {"board": board_payload})
+        await session.refresh(collection)
+        collection_payload = (await serialize_collection(collection, session)).model_dump()
+        await ws_manager.broadcast("collection_created", {"collection": collection_payload})
 
-    if not board:
-        return "Error: Board not found. Use operation='list' to see available boards, or operation='create' to make one."
+    if not collection:
+        return "Error: Collection not found. Use operation='list' to see available collections, or operation='create' to make one."
 
     default_section_result = await session.execute(
-        select(BoardSection).where(
-            BoardSection.board_id == board.id,
-            BoardSection.is_default.is_(True),
-            BoardSection.deleted_at.is_(None),
+        select(CollectionSection).where(
+            CollectionSection.collection_id == collection.id,
+            CollectionSection.is_default.is_(True),
+            CollectionSection.deleted_at.is_(None),
         )
     )
     default_section = default_section_result.scalar_one_or_none()
     if not default_section:
-        default_section = BoardSection(board_id=board.id, name=None, is_default=True, display_order=0)
+        default_section = CollectionSection(collection_id=collection.id, name=None, is_default=True, display_order=0)
         session.add(default_section)
         await session.flush()
 
     if operation == "delete":
-        board.deleted_at = datetime.utcnow()
+        collection.deleted_at = datetime.utcnow()
         await session.commit()
-        await ws_manager.broadcast("board_deleted", {"board_id": board.id})
-        return json.dumps({"status": "ok", "deleted": board.name})
+        await ws_manager.broadcast("collection_deleted", {"collection_id": collection.id})
+        return json.dumps({"status": "ok", "deleted": collection.name})
 
     if operation == "rename":
-        if not board_name:
-            return "Error: board_name is required for rename (the new name)"
-        old_name = board.name
-        board.name = board_name
+        if not collection_name:
+            return "Error: collection_name is required for rename (the new name)"
+        old_name = collection.name
+        collection.name = collection_name
         await session.commit()
-        await session.refresh(board)
-        board_payload = (await serialize_board(board, session)).model_dump()
-        await ws_manager.broadcast("board_updated", {"board": board_payload})
-        return json.dumps({"status": "ok", "old_name": old_name, "new_name": board.name, "board": board_payload})
+        await session.refresh(collection)
+        collection_payload = (await serialize_collection(collection, session)).model_dump()
+        await ws_manager.broadcast("collection_updated", {"collection": collection_payload})
+        return json.dumps({"status": "ok", "old_name": old_name, "new_name": collection.name, "collection": collection_payload})
 
     if operation == "create_section":
         max_order = await session.scalar(
-            select(func.coalesce(func.max(BoardSection.display_order), -1)).where(
-                BoardSection.board_id == board.id,
-                BoardSection.deleted_at.is_(None),
+            select(func.coalesce(func.max(CollectionSection.display_order), -1)).where(
+                CollectionSection.collection_id == collection.id,
+                CollectionSection.deleted_at.is_(None),
             )
         )
-        section = BoardSection(
-            board_id=board.id,
+        section = CollectionSection(
+            collection_id=collection.id,
             name=section_name,
             is_default=False,
             display_order=(max_order or -1) + 1,
@@ -2159,52 +2159,52 @@ async def _board(
     section = None
     if section_id:
         result = await session.execute(
-            select(BoardSection).where(
-                BoardSection.id == section_id,
-                BoardSection.board_id == board.id,
-                BoardSection.deleted_at.is_(None),
+            select(CollectionSection).where(
+                CollectionSection.id == section_id,
+                CollectionSection.collection_id == collection.id,
+                CollectionSection.deleted_at.is_(None),
             )
         )
         section = result.scalar_one_or_none()
     elif section_name:
         result = await session.execute(
-            select(BoardSection).where(
-                BoardSection.board_id == board.id,
-                BoardSection.name == section_name,
-                BoardSection.deleted_at.is_(None),
+            select(CollectionSection).where(
+                CollectionSection.collection_id == collection.id,
+                CollectionSection.name == section_name,
+                CollectionSection.deleted_at.is_(None),
             )
         )
         section = result.scalar_one_or_none()
 
     if operation == "contents":
         result = await session.execute(
-            select(Asset, MediaItem, BoardSection.name)
-            .join(BoardAssetItem, BoardAssetItem.asset_id == Asset.id)
-            .join(BoardSection, BoardSection.id == BoardAssetItem.board_section_id)
+            select(Asset, MediaItem, CollectionSection.name)
+            .join(CollectionAssetItem, CollectionAssetItem.asset_id == Asset.id)
+            .join(CollectionSection, CollectionSection.id == CollectionAssetItem.collection_section_id)
             .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
             .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
             .where(
-                BoardSection.board_id == board.id,
-                BoardSection.deleted_at.is_(None),
-                BoardAssetItem.deleted_at.is_(None),
+                CollectionSection.collection_id == collection.id,
+                CollectionSection.deleted_at.is_(None),
+                CollectionAssetItem.deleted_at.is_(None),
                 Asset.state == "active",
                 Asset.deleted_at.is_(None),
                 MediaItem.deleted_at.is_(None),
             )
             .order_by(
-                BoardSection.display_order.asc(),
-                BoardAssetItem.display_order.asc(),
+                CollectionSection.display_order.asc(),
+                CollectionAssetItem.display_order.asc(),
             )
         )
         rows = result.all()
         if not rows:
-            return json.dumps({"board": board.name, "items": [], "count": 0})
+            return json.dumps({"collection": collection.name, "items": [], "count": 0})
         summaries = []
         for asset, item, resolved_section_name in rows:
             summary = _media_summary(item, asset.id)
             summary["section_name"] = resolved_section_name
             summaries.append(summary)
-        return json.dumps({"board": board.name, "items": summaries, "count": len(summaries)})
+        return json.dumps({"collection": collection.name, "items": summaries, "count": len(summaries)})
 
     if operation == "rename_section":
         if not section:
@@ -2218,19 +2218,19 @@ async def _board(
         if not section or section.is_default:
             return "Error: Section not found or cannot delete default section"
         section.deleted_at = datetime.utcnow()
-        await session.execute(delete(BoardItem).where(BoardItem.board_section_id == section.id))
+        await session.execute(delete(CollectionItem).where(CollectionItem.collection_section_id == section.id))
         await session.execute(
-            update(BoardAssetItem)
+            update(CollectionAssetItem)
             .where(
-                BoardAssetItem.board_section_id == section.id,
-                BoardAssetItem.deleted_at.is_(None),
+                CollectionAssetItem.collection_section_id == section.id,
+                CollectionAssetItem.deleted_at.is_(None),
             )
             .values(deleted_at=datetime.utcnow())
         )
         await session.commit()
-        board_payload = (await serialize_board(board, session)).model_dump()
-        await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": board_payload})
-        await ws_manager.broadcast("board_updated", {"board": board_payload})
+        collection_payload = (await serialize_collection(collection, session)).model_dump()
+        await ws_manager.broadcast("collection_items_changed", {"collection_id": collection.id, "collection": collection_payload})
+        await ws_manager.broadcast("collection_updated", {"collection": collection_payload})
         return json.dumps({"status": "ok", "section_id": section.id})
 
     if operation == "set_collapsed":
@@ -2247,73 +2247,73 @@ async def _board(
     if resolution_error:
         return resolution_error
     if not ids:
-        return "Error: pass asset_id/asset_ids or media_id/media_ids to target an item for board add/remove/move"
+        return "Error: pass asset_id/asset_ids or media_id/media_ids to target an item for collection add/remove/move"
 
     if operation == "move":
         if not section:
             return "Error: section_name or section_id is required for move (the destination section)"
         target_section = section
-        # Remove from any section in this board, then add to target
+        # Remove from any section in this collection, then add to target
         all_section_ids_result = await session.execute(
-            select(BoardSection.id).where(
-                BoardSection.board_id == board.id,
-                BoardSection.deleted_at.is_(None),
+            select(CollectionSection.id).where(
+                CollectionSection.collection_id == collection.id,
+                CollectionSection.deleted_at.is_(None),
             )
         )
         all_section_ids = [row[0] for row in all_section_ids_result.all()]
         for aid in ids:
             await session.execute(
-                update(BoardAssetItem).where(
-                    BoardAssetItem.asset_id == aid,
-                    BoardAssetItem.board_section_id.in_(all_section_ids),
-                    BoardAssetItem.deleted_at.is_(None),
+                update(CollectionAssetItem).where(
+                    CollectionAssetItem.asset_id == aid,
+                    CollectionAssetItem.collection_section_id.in_(all_section_ids),
+                    CollectionAssetItem.deleted_at.is_(None),
                 ).values(deleted_at=datetime.utcnow())
             )
         max_order = await session.scalar(
-            select(func.coalesce(func.max(BoardAssetItem.display_order), -1)).where(
-                BoardAssetItem.board_section_id == target_section.id,
-                BoardAssetItem.deleted_at.is_(None),
+            select(func.coalesce(func.max(CollectionAssetItem.display_order), -1)).where(
+                CollectionAssetItem.collection_section_id == target_section.id,
+                CollectionAssetItem.deleted_at.is_(None),
             )
         )
         next_order = (max_order or -1) + 1
-        from asset_association_service import attach_asset_to_board_section
+        from asset_association_service import attach_asset_to_collection_section
         for aid in ids:
-            _, was_added = await attach_asset_to_board_section(
+            _, was_added = await attach_asset_to_collection_section(
                 session,
-                board=board,
+                collection=collection,
                 section_id=target_section.id,
                 asset_id=aid,
                 display_order=next_order,
             )
             if was_added:
                 next_order += 1
-        board.updated_at = datetime.utcnow()
+        collection.updated_at = datetime.utcnow()
         await session.commit()
-        board_payload = (await serialize_board(board, session)).model_dump()
-        await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": board_payload})
-        await ws_manager.broadcast("board_updated", {"board": board_payload})
-        if board.project_id is not None:
+        collection_payload = (await serialize_collection(collection, session)).model_dump()
+        await ws_manager.broadcast("collection_items_changed", {"collection_id": collection.id, "collection": collection_payload})
+        await ws_manager.broadcast("collection_updated", {"collection": collection_payload})
+        if collection.project_id is not None:
             from project_service import broadcast_project_assets_changed_for_assets
             await broadcast_project_assets_changed_for_assets(
-                session, board.project_id, ids, action="added"
+                session, collection.project_id, ids, action="added"
             )
-        return json.dumps({"status": "ok", "moved": len(ids), "to_section": target_section.name or "(default)", "board": board.name})
+        return json.dumps({"status": "ok", "moved": len(ids), "to_section": target_section.name or "(default)", "collection": collection.name})
 
     if operation == "add":
         added = 0
         target_section = section or default_section
         max_order = await session.scalar(
-            select(func.coalesce(func.max(BoardAssetItem.display_order), -1)).where(
-                BoardAssetItem.board_section_id == target_section.id,
-                BoardAssetItem.deleted_at.is_(None),
+            select(func.coalesce(func.max(CollectionAssetItem.display_order), -1)).where(
+                CollectionAssetItem.collection_section_id == target_section.id,
+                CollectionAssetItem.deleted_at.is_(None),
             )
         )
         next_order = (max_order or -1) + 1
-        from asset_association_service import attach_asset_to_board_section
+        from asset_association_service import attach_asset_to_collection_section
         for aid in ids:
-            _, was_added = await attach_asset_to_board_section(
+            _, was_added = await attach_asset_to_collection_section(
                 session,
-                board=board,
+                collection=collection,
                 section_id=target_section.id,
                 asset_id=aid,
                 display_order=next_order,
@@ -2322,17 +2322,17 @@ async def _board(
                 added += 1
                 next_order += 1
 
-        board.updated_at = datetime.utcnow()
+        collection.updated_at = datetime.utcnow()
         await session.commit()
-        board_payload = (await serialize_board(board, session)).model_dump()
-        await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": board_payload})
-        await ws_manager.broadcast("board_updated", {"board": board_payload})
-        if board.project_id is not None:
+        collection_payload = (await serialize_collection(collection, session)).model_dump()
+        await ws_manager.broadcast("collection_items_changed", {"collection_id": collection.id, "collection": collection_payload})
+        await ws_manager.broadcast("collection_updated", {"collection": collection_payload})
+        if collection.project_id is not None:
             from project_service import broadcast_project_assets_changed_for_assets
             await broadcast_project_assets_changed_for_assets(
-                session, board.project_id, ids, action="added"
+                session, collection.project_id, ids, action="added"
             )
-        return json.dumps({"status": "ok", "added": added, "board": board.name})
+        return json.dumps({"status": "ok", "added": added, "collection": collection.name})
 
     elif operation == "remove":
         removed = 0
@@ -2340,33 +2340,33 @@ async def _board(
         for aid in ids:
             if target_section:
                 result = await session.execute(
-                    update(BoardAssetItem).where(
-                        BoardAssetItem.asset_id == aid,
-                        BoardAssetItem.board_section_id == target_section.id,
-                        BoardAssetItem.deleted_at.is_(None),
+                    update(CollectionAssetItem).where(
+                        CollectionAssetItem.asset_id == aid,
+                        CollectionAssetItem.collection_section_id == target_section.id,
+                        CollectionAssetItem.deleted_at.is_(None),
                     ).values(deleted_at=datetime.utcnow())
                 )
                 removed += result.rowcount
             else:
                 result = await session.execute(
-                    update(BoardAssetItem).where(
-                        BoardAssetItem.asset_id == aid,
-                        BoardAssetItem.deleted_at.is_(None),
-                        BoardAssetItem.board_section_id.in_(
-                            select(BoardSection.id).where(
-                                BoardSection.board_id == board.id
+                    update(CollectionAssetItem).where(
+                        CollectionAssetItem.asset_id == aid,
+                        CollectionAssetItem.deleted_at.is_(None),
+                        CollectionAssetItem.collection_section_id.in_(
+                            select(CollectionSection.id).where(
+                                CollectionSection.collection_id == collection.id
                             )
                         ),
                     ).values(deleted_at=datetime.utcnow())
                 )
                 removed += result.rowcount
 
-        board.updated_at = datetime.utcnow()
+        collection.updated_at = datetime.utcnow()
         await session.commit()
-        board_payload = (await serialize_board(board, session)).model_dump()
-        await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": board_payload})
-        await ws_manager.broadcast("board_updated", {"board": board_payload})
-        return json.dumps({"status": "ok", "removed": removed, "board": board.name})
+        collection_payload = (await serialize_collection(collection, session)).model_dump()
+        await ws_manager.broadcast("collection_items_changed", {"collection_id": collection.id, "collection": collection_payload})
+        await ws_manager.broadcast("collection_updated", {"collection": collection_payload})
+        return json.dumps({"status": "ok", "removed": removed, "collection": collection.name})
 
     return f"Error: Unknown operation '{operation}'. Use: add, remove, move, list, create, delete, rename, contents, create_section, rename_section, delete_section, set_collapsed"
 

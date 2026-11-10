@@ -1004,19 +1004,19 @@ async def test_asset_organization_reads_and_expiration_are_asset_scoped(client, 
         )
     ).status_code == 200
 
-    board = await client.post("/api/boards", json={"name": "Asset Board"})
-    board_id = board.json()["id"]
+    collection = await client.post("/api/collections", json={"name": "Asset Collection"})
+    collection_id = collection.json()["id"]
     assert (
         await client.post(
-            f"/api/boards/{board_id}/items",
+            f"/api/collections/{collection_id}/items",
             json={"asset_ids": [asset_id]},
         )
     ).status_code == 200
 
     projects = await client.get(f"/api/assets/item/{asset_id}/projects")
-    boards = await client.get(f"/api/assets/item/{asset_id}/boards")
+    collections = await client.get(f"/api/assets/item/{asset_id}/collections")
     assert [entry["id"] for entry in projects.json()] == [project_id]
-    assert [entry["id"] for entry in boards.json()] == [board_id]
+    assert [entry["id"] for entry in collections.json()] == [collection_id]
 
     tags = await client.get("/api/assets/tags", params={"with_counts": True})
     counted = next(entry for entry in tags.json() if entry["id"] == tag.id)

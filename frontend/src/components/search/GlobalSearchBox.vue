@@ -110,7 +110,7 @@
               @mouseenter="selectedIndex = item.index"
               @click="activateItem(item)"
             >
-              <!-- Icon: sidebar treatments — chat/board previews when present,
+              <!-- Icon: sidebar treatments — chat/collection previews when present,
                    plain nav glyphs otherwise; cloud tool marks stay untinted
                    (brand colors) per TaskTypeToolList -->
               <div
@@ -143,7 +143,7 @@
                     class="w-full h-full object-cover"
                   />
                 </div>
-                <div v-else-if="item.kind === 'board' && item.data?.preview_items?.length" class="w-6 h-6 rounded overflow-hidden bg-overlay-subtle">
+                <div v-else-if="item.kind === 'collection' && item.data?.preview_items?.length" class="w-6 h-6 rounded overflow-hidden bg-overlay-subtle">
                   <div class="grid grid-cols-2 gap-px w-full h-full">
                     <MediaImage
                       v-for="preview in item.data.preview_items.slice(0, 4)"
@@ -162,7 +162,7 @@
                 <div v-else-if="item.kind === 'tool' || item.kind === 'tool-instance'" class="w-4 h-4">
                   <ToolIcon :tool="toolForIcon(item)" bare :ring="false" />
                 </div>
-                <svg v-else-if="item.kind === 'board'" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                <svg v-else-if="item.kind === 'collection'" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M3.75 3A1.75 1.75 0 002 4.75v3.5C2 9.216 2.784 10 3.75 10h3.5C8.216 10 9 9.216 9 8.25v-3.5C9 3.784 8.216 3 7.25 3h-3.5zM3.75 11A1.75 1.75 0 002 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 009 16.25v-3.5A1.75 1.75 0 007.25 11h-3.5zM11 4.75A1.75 1.75 0 0112.75 3h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0116.25 10h-3.5A1.75 1.75 0 0111 8.25v-3.5zM12.75 11A1.75 1.75 0 0011 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0018 16.25v-3.5A1.75 1.75 0 0016.25 11h-3.5z" />
                 </svg>
                 <ArchiveBoxIcon v-else-if="item.kind === 'project'" class="w-4 h-4" />
@@ -343,7 +343,7 @@ const query = ref('')
 const isOpen = ref(false)
 // A list page carries its own field, which is the primary visible search there;
 // the global one rests as an outline only (same geometry, shortcut intact).
-const hasLocalSearch = computed(() => ['boards', 'chats', 'flows', 'all-tools'].includes(String(route.name)))
+const hasLocalSearch = computed(() => ['collections', 'chats', 'flows', 'all-tools'].includes(String(route.name)))
 const { loading, failed: failedSearchSections, run: runSearchTasks, retry: retrySearch, cancel: cancelSearch } = useSearchTasks()
 const selectedIndex = ref(0)
 
@@ -458,7 +458,7 @@ const sections = computed<Section[]>(() => {
   const entitySections: Array<[string, SearchResultKind, keyof EntitySearchResults]> = [
     ['Chats', 'chat', 'chats'],
     ['Flows', 'flow', 'flows'],
-    ['Boards', 'board', 'boards'],
+    ['Collections', 'collection', 'collections'],
     ['Projects', 'project', 'projects'],
     ['Presets', 'preset', 'presets'],
   ]
@@ -473,7 +473,7 @@ const sections = computed<Section[]>(() => {
         kind,
         label: hit.name || `Untitled ${kind}`,
         sub: kind === 'preset' ? (toolById.value.get(hit.tool_id)?.name || undefined) : undefined,
-        projectName: kind === 'chat' || kind === 'flow' || kind === 'board' ? projectNameFor(hit.project_id, hit.project_name) : undefined,
+        projectName: kind === 'chat' || kind === 'flow' || kind === 'collection' ? projectNameFor(hit.project_id, hit.project_name) : undefined,
         meta: hit.updated_at ? formatRelativeTime(hit.updated_at) : undefined,
         highlight: true,
         data: hit,
@@ -606,7 +606,7 @@ async function runSearch() {
   openInstanceResults.value = searchOpenToolInstances(q, 5, projectId)
   if (openInstanceResults.value.length) void ensureToolCatalog()
   return runSearchTasks([
-    { label: 'Chats, boards, flows and projects', read: signal => searchEntities(q, DROPDOWN_ENTITY_LIMIT, projectId, signal), apply: entities => {
+    { label: 'Chats, collections, flows and projects', read: signal => searchEntities(q, DROPDOWN_ENTITY_LIMIT, projectId, signal), apply: entities => {
       entityResults.value = entities
       if (entities.presets.length) void ensureToolCatalog()
     } },

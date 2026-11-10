@@ -28,7 +28,7 @@ protect_sdk_logs()
 server = Server(
     "Stimma",
     version=get_app_version(),
-    instructions="This server is one Stimma profile: its media library, generation tools, projects, boards and chats. "
+    instructions="This server is one Stimma profile: its media library, generation tools, projects, collections and chats. "
     "Use tools_search, tools_inspect and tools_run when you know the operation; use agent_start when you want Stimma to choose tools and creatively iterate from a brief. "
     "Use content_update to create or revise sets, grids, packages, layouts and documents; content_get inspects them and discovers package recipes. "
     "For writes, generate request_key yourself (any unique string, e.g. a UUID), at the top level. Reuse it only for identical retries. "
@@ -456,7 +456,7 @@ def catalog():
             (
                 "assets_query",
                 workspace.query_binding,
-                "Find and count library assets. Scope to a known project first. Use similar_to_text for visual appearance, caption_query for caption words and prompt_query for generation instructions. Tags, markers and board sections carry explicit organization or approval; similarity and recency do not imply approval. Preview a shortlist with media_read before choosing inputs.",
+                "Find and count library assets. Scope to a known project first. Use similar_to_text for visual appearance, caption_query for caption words and prompt_query for generation instructions. Tags, markers and collection sections carry explicit organization or approval; similarity and recency do not imply approval. Preview a shortlist with media_read before choosing inputs.",
             ),
             (
                 "lineage_get",

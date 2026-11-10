@@ -1,9 +1,9 @@
 import { scopeParam } from './scopedList'
 
 /**
- * Home's "Jump back in" cards, chosen by the server: the newest boards,
+ * Home's "Jump back in" cards, chosen by the server: the newest collections,
  * flows, and chats in a scope, each with only the artwork its card draws.
- * The response size follows the number of cards, not the size of the boards
+ * The response size follows the number of cards, not the size of the collections
  * and flows behind them.
  */
 export interface HomeMediaRef {
@@ -13,11 +13,11 @@ export interface HomeMediaRef {
 
 export interface HomeRecents {
   items: Array<
-    | { type: 'board'; board: { id: number; preview_items: any[]; [key: string]: any } }
+    | { type: 'collection'; collection: { id: number; preview_items: any[]; [key: string]: any } }
     | { type: 'flow'; flow: { id: number; preview_media: HomeMediaRef[]; [key: string]: any } }
     | { type: 'chat'; chat: { id: number; [key: string]: any } }
   >
-  /** The scope has boards, flows, or chats, even if none is worth a card. */
+  /** The scope has collections, flows, or chats, even if none is worth a card. */
   has_entities: boolean
 }
 

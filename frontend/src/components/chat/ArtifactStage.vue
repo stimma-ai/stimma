@@ -264,7 +264,7 @@ const { getThumbnailUrl, getMediaFileUrl, getMseLoopUrls, getMediaItem } = useMe
 // The <MediaContextMenu> itself is mounted once by ChatView.
 const contextMenu = useMediaContextMenu()
 
-// The menu's boards, chats and Remove from Project follow the chat's project,
+// The menu's collections, chats and Remove from Project follow the chat's project,
 // not whichever project happens to be active. Undefined while unknown.
 const chatProjectId = ref<number | null | undefined>(undefined)
 watch(() => [props.projectId, props.chatId] as const, async ([explicit, chatId]) => {

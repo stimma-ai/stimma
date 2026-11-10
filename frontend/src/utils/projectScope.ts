@@ -1,7 +1,7 @@
 /**
  * Project scoping helpers shared by asset menus, pickers and upload callers.
  * A project is its own small world: anything created while working in project
- * P (uploads, saves, new boards and chats) lands in P.
+ * P (uploads, saves, new collections and chats) lands in P.
  */
 
 export type ProjectId = number | null

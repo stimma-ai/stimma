@@ -308,16 +308,16 @@ const props = defineProps({
     default: null
   },
   /**
-   * Whether this grid is inside a board view
+   * Whether this grid is inside a collection view
    */
-  inBoard: {
+  inCollection: {
     type: Boolean,
     default: false
   },
   /**
-   * The board section ID if viewing a board section
+   * The collection section ID if viewing a collection section
    */
-  boardSectionId: {
+  collectionSectionId: {
     type: Number,
     default: null
   },
@@ -338,7 +338,7 @@ const props = defineProps({
   /**
    * Storage key for persisting scroll position across navigation.
    * If provided, scroll position is saved to sessionStorage.
-   * Use a unique key per view (e.g., 'browse', 'trash', 'board-123').
+   * Use a unique key per view (e.g., 'browse', 'trash', 'collection-123').
    */
   storageKey: {
     type: String,
@@ -529,7 +529,7 @@ function calculateItemsPerRow() {
   lastCalculatedWidth = scrollerWidth
   const gridWidth = scrollerWidth - GRID_SIDE_PADDING_PX
 
-  // One width-based rule shared with boards (utils/tileGrid.ts): three
+  // One width-based rule shared with collections (utils/tileGrid.ts): three
   // across at the narrowest, then as many tiles as the width allows.
   const newItemsPerRow = tileColumns(gridWidth, 'browse')
   const actualItemWidth = tileWidth(gridWidth, newItemsPerRow)
@@ -1046,8 +1046,8 @@ function handleRightClick(item, event) {
         mediaId,
         mediaIds: selectedItems.map(mediaIdOf).filter(Boolean),
         selectedItems,
-        inBoard: props.inBoard,
-        boardSectionId: props.boardSectionId,
+        inCollection: props.inCollection,
+        collectionSectionId: props.collectionSectionId,
         inProject: props.inProject,
         projectId: props.projectId ?? undefined
       })
@@ -1060,8 +1060,8 @@ function handleRightClick(item, event) {
         mediaId,
         mediaIds: mediaId ? [mediaId] : [],
         selectedItems: [item],
-        inBoard: props.inBoard,
-        boardSectionId: props.boardSectionId,
+        inCollection: props.inCollection,
+        collectionSectionId: props.collectionSectionId,
         inProject: props.inProject,
         projectId: props.projectId ?? undefined
       })
@@ -1352,8 +1352,8 @@ function showContextMenuForItem(itemId) {
         mediaId: mediaIds[0],
         mediaIds,
         selectedItems,
-        inBoard: props.inBoard,
-        boardSectionId: props.boardSectionId,
+        inCollection: props.inCollection,
+        collectionSectionId: props.collectionSectionId,
         inProject: props.inProject,
         projectId: props.projectId ?? undefined
       })
@@ -1368,8 +1368,8 @@ function showContextMenuForItem(itemId) {
         mediaId,
         mediaIds: mediaId ? [mediaId] : [],
         selectedItems: item ? [item] : [],
-        inBoard: props.inBoard,
-        boardSectionId: props.boardSectionId,
+        inCollection: props.inCollection,
+        collectionSectionId: props.collectionSectionId,
         inProject: props.inProject,
         projectId: props.projectId ?? undefined
       })

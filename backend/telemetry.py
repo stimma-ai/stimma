@@ -294,7 +294,7 @@ class TelemetryClient:
         """
         try:
             from database_registry import get_database_registry
-            from database import Asset, AssetMarker, AssetRevision, Board, MediaItem, Marker, Chat
+            from database import Asset, AssetMarker, AssetRevision, Collection, MediaItem, Marker, Chat
             from utils.query_builder import (
                 IMAGE_FORMATS, VIDEO_FORMATS, AUDIO_FORMATS,
                 TEXT_FORMATS, SET_FORMATS, GRID_FORMATS,
@@ -312,7 +312,7 @@ class TelemetryClient:
             total_documents = 0
             total_sets = 0
             total_grids = 0
-            total_boards = 0
+            total_collections = 0
             total_chats = 0
             from telemetry_props import marker_name_for_telemetry
             markers_breakdown: Dict[str, int] = {}
@@ -350,9 +350,9 @@ class TelemetryClient:
                     total_grids += row.grids or 0
 
                     result = await session.execute(
-                        select(func.count()).select_from(Board).where(Board.deleted_at.is_(None))
+                        select(func.count()).select_from(Collection).where(Collection.deleted_at.is_(None))
                     )
-                    total_boards += result.scalar() or 0
+                    total_collections += result.scalar() or 0
 
                     result = await session.execute(
                         select(func.count()).select_from(Chat).where(Chat.deleted_at.is_(None))
@@ -386,7 +386,7 @@ class TelemetryClient:
                 "sets": total_sets,
                 "grids": total_grids,
             }
-            stats["boardCount"] = total_boards
+            stats["boardCount"] = total_collections  # wire name predates the rename to collections
             stats["chatCount"] = total_chats
             stats["markerCounts"] = markers_breakdown
 

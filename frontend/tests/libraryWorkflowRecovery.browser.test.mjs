@@ -13,7 +13,7 @@ const built = await build({ ...base, configFile: false, logLevel: 'error', root,
   build: { write: false, minify: false, lib: { entry: fileURLToPath(new URL('./fixtures/libraryWorkflowRecovery.ts', import.meta.url)), name: 'WorkflowRecoveryTest', formats: ['iife'] } },
 })
 const output = (Array.isArray(built) ? built : [built]).flatMap(result => result.output)
-const entities = name => ({ chats: name ? [{ id: 1, name, project_id: null }] : [], boards: [], flows: [], projects: [], presets: [] })
+const entities = name => ({ chats: name ? [{ id: 1, name, project_id: null }] : [], collections: [], flows: [], projects: [], presets: [] })
 
 async function open(t, { start = '/elsewhere', respond = () => undefined, touch = false, deadline = 1500 } = {}) {
   const browser = await chromium.launch()

@@ -4,7 +4,7 @@ import { ref, onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
 export const TAB_NAMES = {
   BROWSE: 'browse',
   GENERATE: 'generate',
-  BOARDS: 'boards',
+  COLLECTIONS: 'collections',
   TRASH: 'trash'
 }
 

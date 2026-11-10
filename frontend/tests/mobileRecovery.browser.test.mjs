@@ -107,7 +107,7 @@ test('native recovery phases hold writes for their budgets, send them once, and 
   await page.evaluate(async () => {
     window.navResults = []
     fetch('/api/chats/7/items', { method: 'POST', body: 'hello' }).then(() => navResults.push('post sent'), e => navResults.push(e.message))
-    recovery.axios.delete('/api/boards/3').then(() => navResults.push('delete sent'), e => navResults.push(e.message))
+    recovery.axios.delete('/api/collections/3').then(() => navResults.push('delete sent'), e => navResults.push(e.message))
     fetch('/api/settings').then(() => navResults.push('read'), e => navResults.push(e.message))
     // The user then taps elsewhere; the router reports a new page (router/index.js afterEach).
     await new Promise(resolve => setTimeout(resolve, 50))
@@ -118,17 +118,17 @@ test('native recovery phases hold writes for their budgets, send them once, and 
   await native(4, 'ready')
   await page.waitForFunction(() => navResults.length === 3)
   await page.waitForTimeout(200)
-  assert.equal(sent.filter(entry => entry === 'POST /api/chats/7/items' || entry === 'DELETE /api/boards/3').length, 0, 'no write is dispatched after navigation')
+  assert.equal(sent.filter(entry => entry === 'POST /api/chats/7/items' || entry === 'DELETE /api/collections/3').length, 0, 'no write is dispatched after navigation')
   assert.equal(sent.filter(entry => entry === 'GET /api/settings').length, 1)
   // A long outage: unavailable fails new writes at once, shows it, and sends nothing later.
   await native(5, "checking", 5000)
   await native(5, "reconnecting", 20000)
   await native(5, "unavailable")
-  assert.match(await page.evaluate(() => fetch('/api/boards', { method: 'POST' }).then(() => 'sent', e => e.message)), /Still reconnecting/)
+  assert.match(await page.evaluate(() => fetch('/api/collections', { method: 'POST' }).then(() => 'sent', e => e.message)), /Still reconnecting/)
   assert.equal(await page.evaluate(() => recovery.status.value), 'unavailable')
   await native(5, "ready")
   await page.waitForTimeout(200)
-  assert.equal(sent.filter(entry => entry === 'POST /api/boards').length, 0, 'a failed write is never replayed')
+  assert.equal(sent.filter(entry => entry === 'POST /api/collections').length, 0, 'a failed write is never replayed')
   assert.equal(await page.evaluate(() => recovery.visible.value), false)
 })
 

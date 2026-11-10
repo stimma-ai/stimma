@@ -111,7 +111,7 @@ class PooledProxyTest {
         repeat(6) { server.enqueue(MockResponse().setBody("item $it")) }
         server.enqueue(MockResponse().setResponseCode(201).setBody("created"))
         repeat(6) { assertEquals("item $it", get("/api/media/$it").body.toString(Charsets.UTF_8)) }
-        val post = read(open("POST", "/api/boards", "Content-Type: application/json\r\n", 2).also { it.getOutputStream().write("{}".toByteArray()) })
+        val post = read(open("POST", "/api/collections", "Content-Type: application/json\r\n", 2).also { it.getOutputStream().write("{}".toByteArray()) })
         assertEquals("201", post.status)
         // Every request, including the upload, went over the first TLS connection.
         val sequence = (0 until 7).map { server.takeRequest().sequenceNumber }
@@ -327,7 +327,7 @@ class PooledProxyTest {
         attach(server)
         val socket = Socket("127.0.0.1", transport.port)
         socket.soTimeout = 5000
-        socket.getOutputStream().write("POST /api/boards HTTP/1.1\r\nHost: 127.0.0.1:${transport.port}\r\nCookie: $cookie\r\nOrigin: http://evil.example\r\nContent-Length: 0\r\n\r\n".toByteArray())
+        socket.getOutputStream().write("POST /api/collections HTTP/1.1\r\nHost: 127.0.0.1:${transport.port}\r\nCookie: $cookie\r\nOrigin: http://evil.example\r\nContent-Length: 0\r\n\r\n".toByteArray())
         val reply = read(socket)
         assertEquals("403", reply.status)
         assertEquals(ProxyFailure.REJECTED.category, reply.header("x-stimma-proxy-failure"))
@@ -372,7 +372,7 @@ class PooledProxyTest {
         other.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
         other.enqueue(MockResponse().setBody("replayed"))
         assertEquals("warm", get("/api/profiles").body.toString(Charsets.UTF_8))
-        assertEquals("502", read(open("DELETE", "/api/boards/1")).status)
+        assertEquals("502", read(open("DELETE", "/api/collections/1")).status)
         assertEquals(2, other.requestCount)
         other.takeRequest()
         assertEquals("DELETE", other.takeRequest().method)
@@ -702,7 +702,7 @@ class PooledProxyTest {
         // Reads and mutations use separate pools: a mutation never takes a read's warm connection.
         assertEquals("ok GET", get("/api/profiles").body.toString(Charsets.UTF_8))
         val read = server.takeRequest().sequenceNumber
-        assertEquals("ok POST", post("/api/boards").body.toString(Charsets.UTF_8))
+        assertEquals("ok POST", post("/api/collections").body.toString(Charsets.UTF_8))
         assertEquals(0, server.takeRequest().sequenceNumber)
         assertEquals(1, session.pooledConnections)
         assertEquals(1, session.pooledMutationConnections)
@@ -715,7 +715,7 @@ class PooledProxyTest {
         // connection, and past the mutation pool's 3 second idle limit. The POST goes out once,
         // on a fresh connection, and succeeds.
         Thread.sleep(6000)
-        val after = post("/api/boards")
+        val after = post("/api/collections")
         assertEquals("status=${after.status} failure=${after.header("x-stimma-proxy-failure")}", "ok POST", after.body.toString(Charsets.UTF_8))
         assertEquals(0, server.takeRequest().sequenceNumber)
         // A mutation whose connection dies after the request was sent is reported, never sent again.
@@ -730,7 +730,7 @@ class PooledProxyTest {
         val probe = PinnedServer("127.0.0.1", server.port, pin)
         runBlocking { probe.ping("d") }
         val session = probe.withSession("s").also { transport.target = it }
-        get("/api/profiles"); post("/api/boards")
+        get("/api/profiles"); post("/api/collections")
         assertEquals(1, session.pooledConnections)
         assertEquals(1, session.pooledMutationConnections)
         transport.networkChanged()

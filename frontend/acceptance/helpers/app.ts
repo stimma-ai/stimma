@@ -29,18 +29,18 @@ type Project = {
   name: string;
   asset_count?: number;
   chat_count?: number;
-  board_count?: number;
+  collection_count?: number;
 };
 
-type Board = {
+type Collection = {
   id: number;
   name: string;
   project_id?: number | null;
-  sections: BoardSection[];
+  sections: CollectionSection[];
   asset_count?: number;
 };
 
-type BoardSection = {
+type CollectionSection = {
   id: number;
   name?: string | null;
   is_default: boolean;
@@ -431,72 +431,72 @@ export async function bulkMarkerOperation(page: Page, mediaIds: number[], marker
   } as any);
 }
 
-export async function createBoard(page: Page, name: string, projectId?: number): Promise<{ id: number }> {
-  return apiJSON(page, '/api/boards', {
+export async function createCollection(page: Page, name: string, projectId?: number): Promise<{ id: number }> {
+  return apiJSON(page, '/api/collections', {
     method: 'POST',
     data: { name, project_id: projectId ?? null },
   } as any);
 }
 
-export async function listBoards(page: Page, projectId?: number): Promise<Board[]> {
+export async function listCollections(page: Page, projectId?: number): Promise<Collection[]> {
   const suffix = projectId == null ? '' : `?project_id=${projectId}`;
-  return apiJSON(page, `/api/boards${suffix}`);
+  return apiJSON(page, `/api/collections${suffix}`);
 }
 
-export async function updateBoard(page: Page, boardId: number, data: Record<string, unknown>): Promise<Board> {
-  return apiJSON(page, `/api/boards/${boardId}`, { method: 'PUT', data } as any);
+export async function updateCollection(page: Page, collectionId: number, data: Record<string, unknown>): Promise<Collection> {
+  return apiJSON(page, `/api/collections/${collectionId}`, { method: 'PUT', data } as any);
 }
 
-export async function deleteBoard(page: Page, boardId: number) {
-  return apiJSON(page, `/api/boards/${boardId}`, { method: 'DELETE' });
+export async function deleteCollection(page: Page, collectionId: number) {
+  return apiJSON(page, `/api/collections/${collectionId}`, { method: 'DELETE' });
 }
 
-export async function restoreBoard(page: Page, boardId: number): Promise<Board> {
-  return apiJSON(page, `/api/boards/${boardId}/restore`, { method: 'POST' });
+export async function restoreCollection(page: Page, collectionId: number): Promise<Collection> {
+  return apiJSON(page, `/api/collections/${collectionId}/restore`, { method: 'POST' });
 }
 
-export async function createBoardSection(page: Page, boardId: number, name: string): Promise<BoardSection> {
-  return apiJSON(page, `/api/boards/${boardId}/sections`, {
+export async function createCollectionSection(page: Page, collectionId: number, name: string): Promise<CollectionSection> {
+  return apiJSON(page, `/api/collections/${collectionId}/sections`, {
     method: 'POST',
     data: { name },
   } as any);
 }
 
-export async function updateBoardSection(page: Page, sectionId: number, data: Record<string, unknown>): Promise<BoardSection> {
-  return apiJSON(page, `/api/boards/sections/${sectionId}`, { method: 'PUT', data } as any);
+export async function updateCollectionSection(page: Page, sectionId: number, data: Record<string, unknown>): Promise<CollectionSection> {
+  return apiJSON(page, `/api/collections/sections/${sectionId}`, { method: 'PUT', data } as any);
 }
 
-export async function deleteBoardSection(page: Page, sectionId: number) {
-  return apiJSON(page, `/api/boards/sections/${sectionId}`, { method: 'DELETE' });
+export async function deleteCollectionSection(page: Page, sectionId: number) {
+  return apiJSON(page, `/api/collections/sections/${sectionId}`, { method: 'DELETE' });
 }
 
-export async function reorderBoardSections(page: Page, boardId: number, sectionIds: number[]) {
-  return apiJSON(page, `/api/boards/${boardId}/sections/reorder`, {
+export async function reorderCollectionSections(page: Page, collectionId: number, sectionIds: number[]) {
+  return apiJSON(page, `/api/collections/${collectionId}/sections/reorder`, {
     method: 'POST',
     data: { section_ids: sectionIds },
   } as any);
 }
 
-export async function addMediaToBoard(page: Page, boardId: number, mediaIds: number[]) {
-  return apiJSON(page, `/api/boards/${boardId}/items`, {
+export async function addMediaToCollection(page: Page, collectionId: number, mediaIds: number[]) {
+  return apiJSON(page, `/api/collections/${collectionId}/items`, {
     method: 'POST',
     data: { media_ids: mediaIds, section_id: null },
   } as any);
 }
 
-export async function removeMediaFromBoardSection(page: Page, sectionId: number, mediaId: number) {
-  return apiJSON(page, `/api/boards/sections/${sectionId}/items/${mediaId}`, { method: 'DELETE' });
+export async function removeMediaFromCollectionSection(page: Page, sectionId: number, mediaId: number) {
+  return apiJSON(page, `/api/collections/sections/${sectionId}/items/${mediaId}`, { method: 'DELETE' });
 }
 
-export async function moveBoardItem(
+export async function moveCollectionItem(
   page: Page,
-  boardId: number,
+  collectionId: number,
   mediaId: number,
   fromSectionId: number,
   toSectionId: number,
   targetIndex: number,
 ) {
-  return apiJSON(page, `/api/boards/${boardId}/items/move`, {
+  return apiJSON(page, `/api/collections/${collectionId}/items/move`, {
     method: 'POST',
     data: {
       media_id: mediaId,
@@ -507,25 +507,25 @@ export async function moveBoardItem(
   } as any);
 }
 
-export async function bulkRemoveBoardItems(page: Page, boardId: number, mediaIds: number[]) {
-  return apiJSON(page, `/api/boards/${boardId}/items/bulk-remove`, {
+export async function bulkRemoveCollectionItems(page: Page, collectionId: number, mediaIds: number[]) {
+  return apiJSON(page, `/api/collections/${collectionId}/items/bulk-remove`, {
     method: 'POST',
     data: { media_ids: mediaIds },
   } as any);
 }
 
-export async function bulkMoveBoardItems(page: Page, boardId: number, mediaIds: number[], toSectionId: number) {
-  return apiJSON(page, `/api/boards/${boardId}/items/bulk-move`, {
+export async function bulkMoveCollectionItems(page: Page, collectionId: number, mediaIds: number[], toSectionId: number) {
+  return apiJSON(page, `/api/collections/${collectionId}/items/bulk-move`, {
     method: 'POST',
     data: { media_ids: mediaIds, to_section_id: toSectionId },
   } as any);
 }
 
-export async function getBoard(page: Page, boardId: number): Promise<{
+export async function getCollection(page: Page, collectionId: number): Promise<{
   id: number;
   sections: { id: number; items: MediaItem[]; item_count: number }[];
 }> {
-  return apiJSON(page, `/api/boards/${boardId}`);
+  return apiJSON(page, `/api/collections/${collectionId}`);
 }
 
 export async function trashMedia(page: Page, mediaId: number) {

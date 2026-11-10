@@ -9,10 +9,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, or_, and_, func, literal, Integer, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import Asset, AssetRevision, Board, BoardAssetItem, BoardSection, Marker, MediaItem, Keyword, MediaKeyword, MediaToolLineage, Face, Project, ProjectAsset, ProjectMedia
+from database import Asset, AssetRevision, Collection, CollectionAssetItem, CollectionSection, Marker, MediaItem, Keyword, MediaKeyword, MediaToolLineage, Face, Project, ProjectAsset, ProjectMedia
 from asset_association_service import media_compatibility_projections
 from core.dependencies import get_db_session
-from models.api_models import BoardSummaryResponse, MediaListResponse, MediaItemResponse, MediaIndexResponse, SimilaritySearchRequest, StructuredContentUpdateRequest
+from models.api_models import CollectionSummaryResponse, MediaListResponse, MediaItemResponse, MediaIndexResponse, SimilaritySearchRequest, StructuredContentUpdateRequest
 from config import get_settings
 from utils.query_builder import (
     build_filtered_query, not_due_for_autodelete, VIDEO_FORMATS, IMAGE_FORMATS, AUDIO_FORMATS,
@@ -1109,12 +1109,12 @@ async def remove_auto_delete(media_id: int, session: AsyncSession = Depends(get_
     return {"status": "success", "message": "Auto-delete removed"}
 
 
-@router.get("/api/media/{media_id}/boards", response_model=List[BoardSummaryResponse])
-async def get_media_boards(
+@router.get("/api/media/{media_id}/collections", response_model=List[CollectionSummaryResponse])
+async def get_media_collections(
     media_id: int,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Get all boards that contain this media item."""
+    """Get all collections that contain this media item."""
     # First verify the media item exists (ephemeral one-shot intermediates read as gone)
     media_result = await session.execute(
         select(MediaItem).where(
@@ -1138,19 +1138,19 @@ async def get_media_boards(
 
     # Organization belongs to the Asset, even through this Media-shaped route.
     result = await session.execute(
-        select(Board)
-        .join(BoardSection, and_(BoardSection.board_id == Board.id, BoardSection.deleted_at.is_(None)))
-        .join(BoardAssetItem, BoardAssetItem.board_section_id == BoardSection.id)
+        select(Collection)
+        .join(CollectionSection, and_(CollectionSection.collection_id == Collection.id, CollectionSection.deleted_at.is_(None)))
+        .join(CollectionAssetItem, CollectionAssetItem.collection_section_id == CollectionSection.id)
         .where(
-            BoardAssetItem.asset_id == revision.asset_id,
-            BoardAssetItem.deleted_at.is_(None),
+            CollectionAssetItem.asset_id == revision.asset_id,
+            CollectionAssetItem.deleted_at.is_(None),
         )
-        .where(Board.deleted_at.is_(None))
-        .order_by(Board.name)
+        .where(Collection.deleted_at.is_(None))
+        .order_by(Collection.name)
     )
-    boards = result.scalars().all()
+    collections = result.scalars().all()
 
-    return [BoardSummaryResponse(**board.to_dict()) for board in boards]
+    return [CollectionSummaryResponse(**collection.to_dict()) for collection in collections]
 
 
 @router.get("/api/media/{media_id}/projects")
@@ -2350,7 +2350,7 @@ async def explode_set_or_grid(
 
 
 # ============================================================================
-# LIBRARY MANAGEMENT ENDPOINTS (Markers, Tags, Boards, Delete/Trash)
+# LIBRARY MANAGEMENT ENDPOINTS (Markers, Tags, Collections, Delete/Trash)
 # ============================================================================
 
 # ===== MARKERS =====

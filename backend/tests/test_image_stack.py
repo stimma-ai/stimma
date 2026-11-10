@@ -1005,7 +1005,7 @@ class TestStepNaming:
             json={
                 "operation": "repaint",
                 "image_b64": "Zm9v",
-                "prompt": "a red fox walking on the boards",
+                "prompt": "a red fox walking on the collections",
             },
         )
         assert response.json()["label"] == "Dog → fox"

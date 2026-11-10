@@ -6,7 +6,7 @@ import { syncedStorage } from '../utils/workspaceStore'
  * Cross-entity recents with frecency, backing the global search omnibox.
  *
  * Every entity open funnels through useWorkspaceTabs.addTab (the sidebar's
- * route watcher creates a tab for each tool/chat/board/project/flow visit),
+ * route watcher creates a tab for each tool/chat/collection/project/flow visit),
  * which calls recordEntityVisit here. The omnibox empty state and ranking
  * tie-breaks read recentEntities().
  *
@@ -15,7 +15,7 @@ import { syncedStorage } from '../utils/workspaceStore'
  * switches.
  */
 
-export type RecentEntityType = 'tool' | 'chat' | 'board' | 'project' | 'flow'
+export type RecentEntityType = 'tool' | 'chat' | 'collection' | 'project' | 'flow'
 
 export interface RecentEntity {
   type: RecentEntityType
@@ -23,14 +23,14 @@ export interface RecentEntity {
   name: string
   lastVisited: number // epoch ms
   count: number
-  projectId?: number | null // chats, boards, flows: owning project (null = top level)
+  projectId?: number | null // chats, collections, flows: owning project (null = top level)
 }
 
 const MAX_ENTRIES = 60
 // Frecency decay half-life: a visit loses half its weight every 3 days.
 const HALF_LIFE_MS = 3 * 24 * 60 * 60 * 1000
 
-const RECORDABLE_TYPES: ReadonlySet<string> = new Set(['tool', 'chat', 'board', 'project', 'flow'])
+const RECORDABLE_TYPES: ReadonlySet<string> = new Set(['tool', 'chat', 'collection', 'project', 'flow'])
 
 // makeStorageKey (db-guid scoped), NOT makeProfileKey: entries hold database
 // ids, which must not resurface against a different database after a reset.
@@ -102,9 +102,9 @@ export function updateRecentEntityName(type: RecentEntityType, id: string, name:
   }
 }
 
-/** Record which project a chat, board or flow belongs to (scoped recents). */
+/** Record which project a chat, collection or flow belongs to (scoped recents). */
 export function setRecentEntityProject(type: RecentEntityType, id: string, projectId: number | null) {
-  if (type !== 'chat' && type !== 'board' && type !== 'flow') return
+  if (type !== 'chat' && type !== 'collection' && type !== 'flow') return
   const entries = load()
   const existing = entries.find(e => e.type === type && e.id === id)
   if (existing && existing.projectId !== projectId) {

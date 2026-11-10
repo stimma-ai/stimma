@@ -114,12 +114,12 @@
             class="inline-flex items-center gap-1 px-2 py-0.5 bg-overlay-subtle rounded-md text-content-secondary hover:bg-overlay-light hover:text-content transition-colors duration-150 cursor-pointer no-underline"
           ><ArchiveBoxIcon class="w-3 h-3 text-content-muted" />{{ project.name || 'Untitled' }}</a>
           <a
-            v-for="board in mediaBoards"
-            :key="'b-' + board.id"
+            v-for="collection in mediaCollections"
+            :key="'b-' + collection.id"
             href="#"
-            @click.prevent="$emit('navigate-to-board', board.id)"
+            @click.prevent="$emit('navigate-to-collection', collection.id)"
             class="inline-flex items-center gap-1 px-2 py-0.5 bg-overlay-subtle rounded-md text-content-secondary hover:bg-overlay-light hover:text-content transition-colors duration-150 cursor-pointer no-underline"
-          ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted"><path fill-rule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v11.5A2.25 2.25 0 004.25 18h11.5A2.25 2.25 0 0018 15.75V4.25A2.25 2.25 0 0015.75 2H4.25zM3.5 4.25a.75.75 0 01.75-.75h5v6.5h-5.75V4.25zm0 7.25v4.25c0 .414.336.75.75.75h5v-5h-5.75zm7.25-7.75v6.5h5.75V4.25a.75.75 0 00-.75-.75h-5zm5.75 8h-5.75v5h5a.75.75 0 00.75-.75v-4.25z" clip-rule="evenodd" /></svg>{{ board.name || 'Untitled' }}</a>
+          ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted"><path fill-rule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v11.5A2.25 2.25 0 004.25 18h11.5A2.25 2.25 0 0018 15.75V4.25A2.25 2.25 0 0015.75 2H4.25zM3.5 4.25a.75.75 0 01.75-.75h5v6.5h-5.75V4.25zm0 7.25v4.25c0 .414.336.75.75.75h5v-5h-5.75zm7.25-7.75v6.5h5.75V4.25a.75.75 0 00-.75-.75h-5zm5.75 8h-5.75v5h5a.75.75 0 00.75-.75v-4.25z" clip-rule="evenodd" /></svg>{{ collection.name || 'Untitled' }}</a>
           <button
             v-for="container in assetContainers"
             :key="`c-${container.asset_id}-${container.member_order}`"
@@ -593,7 +593,7 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
-  mediaBoards: {
+  mediaCollections: {
     type: Array,
     default: () => []
   },
@@ -644,7 +644,7 @@ const emit = defineEmits([
   'share-to-cloud',
   'filter-by-tag',
   'filter-by-keyword',
-  'navigate-to-board',
+  'navigate-to-collection',
   'navigate-to-project',
   'navigate-to-source-media',
   'compare-with-source',

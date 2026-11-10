@@ -3,7 +3,7 @@
 [![CI](https://github.com/stimma-ai/stimma/actions/workflows/ci.yml/badge.svg)](https://github.com/stimma-ai/stimma/actions/workflows/ci.yml)
 [![Canary](https://github.com/stimma-ai/stimma/actions/workflows/canary.yml/badge.svg)](https://github.com/stimma-ai/stimma/actions/workflows/canary.yml)
 
-Stimma is a desktop app for making images, videos, and designs with AI, and a durable home for the work you produce along the way. It pairs a local media library — semantic search, boards, full generation lineage, repeatable flows — with an agent that can drive every tool in the app, from a single generation to a multi-step pipeline.
+Stimma is a desktop app for making images, videos, and designs with AI, and a durable home for the work you produce along the way. It pairs a local media library — semantic search, collections, full generation lineage, repeatable flows — with an agent that can drive every tool in the app, from a single generation to a multi-step pipeline.
 
 Generation tools plug in over the [Stimma Tools Protocol (STP)](https://github.com/stimma-ai/stimma-tools-protocol), an open JSON-RPC protocol. Your ComfyUI workflows, a provider you write yourself, and Stimma Cloud are all peers on the same protocol: the app discovers whatever tools your providers expose and builds its UI and agent capabilities from their schemas.
 

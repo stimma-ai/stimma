@@ -100,7 +100,7 @@ Preferences persist per account and server and restore before page scripts run,
 even after changing loopback ports. Provider-management frames load through the
 same-origin proxy and cannot directly call the native bridge. Android uses the
 same server UI package for safe areas, expandable drawers, gallery swipes, and
-unified board/chat/flow headers as iOS.
+unified collection/chat/flow headers as iOS.
 
 Android share cancellation returns false. Choosing a receiving app reports a
 successful handoff; Android does not report whether that app ultimately saves

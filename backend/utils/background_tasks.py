@@ -284,14 +284,14 @@ async def cleanup_ephemeral_media():
 
 
 async def cleanup_empty_unnamed_entities(ws_manager):
-    """Reap abandoned empty, unnamed boards/flows/chats older than 12 hours.
+    """Reap abandoned empty, unnamed collections/flows/chats older than 12 hours.
 
     Covers both the ongoing case and the first-deploy backlog: it runs shortly
     after startup and then hourly, so any husks already older than 12h are
     swept on the very first pass — no special one-time migration needed.
 
     An object is only reaped if the user never gave it identity or content: a
-    board with no name and no assets, a flow with no name whose program is the
+    collection with no name and no assets, a flow with no name whose program is the
     untouched placeholder and whose chat has no messages, or a standalone chat
     with an auto-generated name and no messages. See
     ``CleanupService.cleanup_empty_unnamed_entities``.
@@ -323,14 +323,14 @@ async def cleanup_empty_unnamed_entities(ws_manager):
                 if total:
                     log.info(
                         "HUSK CLEANUP: reaped %d empty husk(s) for profile %s "
-                        "(boards=%d flows=%d chats=%d)",
-                        total, profile.id, len(reaped["boards"]),
+                        "(collections=%d flows=%d chats=%d)",
+                        total, profile.id, len(reaped["collections"]),
                         len(reaped["flows"]), len(reaped["chats"]),
                     )
-                for board_id in reaped["boards"]:
+                for collection_id in reaped["collections"]:
                     await ws_manager.broadcast(
-                        "board_deleted",
-                        {"board_id": board_id, "reason": "auto_delete_empty",
+                        "collection_deleted",
+                        {"collection_id": collection_id, "reason": "auto_delete_empty",
                          "profile_id": profile.id},
                         include_profile=False,
                     )

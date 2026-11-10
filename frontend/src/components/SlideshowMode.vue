@@ -35,7 +35,7 @@
       :focus-mode="focusMode"
       :marker-update-trigger="markerUpdateTrigger"
       :media-projects="mediaProjects"
-      :media-boards="mediaBoards"
+      :media-collections="mediaCollections"
       :descendants="descendants"
       :inspired-descendants="inspiredDescendants"
       :faces="faces"
@@ -46,7 +46,7 @@
       @download="downloadMedia"
       @filter-by-tag="filterByTag"
       @filter-by-keyword="filterByKeyword"
-      @navigate-to-board="navigateToBoard"
+      @navigate-to-collection="navigateToCollection"
       @navigate-to-project="navigateToProject"
       @navigate-to-source-media="navigateToSourceMedia"
       @view-in-tool="viewInTool"
@@ -1310,13 +1310,13 @@
       </div>
     </Modal>
 
-    <!-- Board Picker Modal -->
-    <BoardPicker
-      :visible="showBoardPicker"
+    <!-- Collection Picker Modal -->
+    <CollectionPicker
+      :visible="showCollectionPicker"
       :media-ids="currentPayloadId ? [currentPayloadId] : []"
       :asset-ids="currentAssetId ? [currentAssetId] : []"
-      @close="showBoardPicker = false"
-      @saved="handleBoardAdded"
+      @close="showCollectionPicker = false"
+      @saved="handleCollectionAdded"
     />
 
     <!-- Export Modal -->
@@ -1375,7 +1375,7 @@ import {
   PlayIcon,
   PauseIcon
 } from '@heroicons/vue/24/solid'
-import BoardPicker from './BoardPicker.vue'
+import CollectionPicker from './CollectionPicker.vue'
 import Modal from './ui/Modal.vue'
 import ExportModal from './ExportModal.vue'
 import NativeShareDialog from './NativeShareDialog.vue'
@@ -1513,9 +1513,9 @@ const {
   removeMarker: removeMarkerFromAsset,
   addToProject: addAssetsToProject,
   removeFromProject: removeAssetFromProject,
-  removeFromBoardSection: removeAssetFromBoardSection,
+  removeFromCollectionSection: removeAssetFromCollectionSection,
   getProjects: getAssetProjects,
-  getBoards: getAssetBoards,
+  getCollections: getAssetCollections,
   getAssetBrowserItem,
 } = useAssetApi()
 const { on: onWebSocketEvent } = useWebSocket()
@@ -1740,12 +1740,12 @@ const STRIP_ROW = slideshowCompact.value ? STRIP_TILE.sm + 8 : STRIP_TILE.lg + 8
 const SIDEBAR_WIDTH = slideshowCompact.value ? 0 : 384
 const focusMode = ref(savedSettings.focusMode ?? false)
 const visibleImageStrip = computed(() => showImageStrip.value && !focusMode.value && props.showThumbnailStrip && !isViewingGrid.value && !(slideshowCompact.value && compactImmersive.value))
-// Markers and boards state
+// Markers and collections state
 const availableMarkers = ref([])
 const mediaProjects = ref([])
-const mediaBoards = ref([])
+const mediaCollections = ref([])
 const showProjectPicker = ref(false)
-const showBoardPicker = ref(false)
+const showCollectionPicker = ref(false)
 const showExportModal = ref(false)
 const nativeShareSupported = supportsNativeShare(desktop.kind)
 const nativeShareMediaId = ref(null)
@@ -5170,47 +5170,47 @@ async function removeFromProject(projectId) {
   }
 }
 
-async function removeFromBoard(boardId) {
+async function removeFromCollection(collectionId) {
   if (!currentItem.value) return
   try {
-    // Find the board section this media belongs to
-    const boardData = await axios.get(`/api/boards/${boardId}`)
-    const sections = boardData.data?.sections || []
+    // Find the collection section this media belongs to
+    const collectionData = await axios.get(`/api/collections/${collectionId}`)
+    const sections = collectionData.data?.sections || []
     for (const section of sections) {
       const items = section.items || []
       if (items.some(item => assetIdOf(item) === itemIdentity(currentItem.value))) {
-        if (currentAssetId.value) await removeAssetFromBoardSection(section.id, currentAssetId.value)
-        else await axios.delete(`/api/boards/sections/${section.id}/items/${currentPayloadId.value}`)
+        if (currentAssetId.value) await removeAssetFromCollectionSection(section.id, currentAssetId.value)
+        else await axios.delete(`/api/collections/sections/${section.id}/items/${currentPayloadId.value}`)
         break
       }
     }
     invalidateMetadataCache(itemIdentity(currentItem.value))
-    mediaBoards.value = currentAssetId.value
-      ? await getAssetBoards(currentAssetId.value)
-      : (await axios.get(`/api/media/${currentPayloadId.value}/boards`)).data
+    mediaCollections.value = currentAssetId.value
+      ? await getAssetCollections(currentAssetId.value)
+      : (await axios.get(`/api/media/${currentPayloadId.value}/collections`)).data
   } catch (err) {
-    console.error('Failed to remove from board:', err)
+    console.error('Failed to remove from collection:', err)
   }
 }
 
-function addToBoard() {
+function addToCollection() {
   if (!currentItem.value) return
-  showBoardPicker.value = true
+  showCollectionPicker.value = true
 }
 
-async function handleBoardAdded() {
-  showBoardPicker.value = false
-  // Reload boards to show the newly added board
+async function handleCollectionAdded() {
+  showCollectionPicker.value = false
+  // Reload collections to show the newly added collection
   if (currentItem.value) {
     // Invalidate cache for this item so fresh data is fetched
     invalidateMetadataCache(itemIdentity(currentItem.value))
-    if (currentAssetId.value) mediaBoards.value = await getAssetBoards(currentAssetId.value)
-    else await fetchMediaBoards(currentPayloadId.value)
+    if (currentAssetId.value) mediaCollections.value = await getAssetCollections(currentAssetId.value)
+    else await fetchMediaCollections(currentPayloadId.value)
   }
 }
 
-function navigateToBoard(boardId) {
-  router.push({ name: 'board-detail', params: { id: boardId } })
+function navigateToCollection(collectionId) {
+  router.push({ name: 'collection-detail', params: { id: collectionId } })
   close()
 }
 
@@ -5656,7 +5656,7 @@ function applyMetadataFromCache(item) {
   if (!metadata) return
   faces.value = metadata.faces
   mediaProjects.value = metadata.projects || []
-  mediaBoards.value = metadata.boards
+  mediaCollections.value = metadata.collections
   generationJob.value = metadata.job
   chatInfo.value = metadata.chat
   descendants.value = metadata.descendants || []
@@ -6389,13 +6389,13 @@ async function fetchAndCacheMetadata(item) {
 
   try {
     // Fetch all metadata in parallel
-    const [facesResult, boardsResult, projectsResult, jobResult, chatResult, lineageResult] = await Promise.all([
+    const [facesResult, collectionsResult, projectsResult, jobResult, chatResult, lineageResult] = await Promise.all([
       getMediaFaces(mediaId).catch(err => {
         console.error('Failed to load faces:', err)
         return { faces: [] }
       }),
-      (assetId ? getAssetBoards(assetId) : axios.get(`/api/media/${mediaId}/boards`).then(r => r.data)).catch(err => {
-        console.error('Failed to fetch media boards:', err)
+      (assetId ? getAssetCollections(assetId) : axios.get(`/api/media/${mediaId}/collections`).then(r => r.data)).catch(err => {
+        console.error('Failed to fetch media collections:', err)
         return []
       }),
       (assetId ? getAssetProjects(assetId) : axios.get(`/api/media/${mediaId}/projects`).then(r => r.data)).catch(err => {
@@ -6435,7 +6435,7 @@ async function fetchAndCacheMetadata(item) {
     // Store in cache
     const metadata = {
       faces: facesResult?.faces || [],
-      boards: boardsResult || [],
+      collections: collectionsResult || [],
       projects: projectsResult || [],
       job: jobResult,
       chat: chatResult,
@@ -6450,7 +6450,7 @@ async function fetchAndCacheMetadata(item) {
     // Return safe defaults so the panel still renders with whatever we have
     return {
       faces: [],
-      boards: [],
+      collections: [],
       projects: [],
       job: null,
       chat: null,
@@ -6473,7 +6473,7 @@ watch(currentItem, async (newItem) => {
   if (!newItem?.id) {
     faces.value = []
     mediaProjects.value = []
-    mediaBoards.value = []
+    mediaCollections.value = []
     generationJob.value = null
     chatInfo.value = null
     descendants.value = []
@@ -6486,7 +6486,7 @@ watch(currentItem, async (newItem) => {
   if (cached) {
     faces.value = cached.faces
     mediaProjects.value = cached.projects || []
-    mediaBoards.value = cached.boards
+    mediaCollections.value = cached.collections
     generationJob.value = cached.job
     chatInfo.value = cached.chat
     descendants.value = cached.descendants || []
@@ -6504,7 +6504,7 @@ watch(currentItem, async (newItem) => {
   if (metadata && itemPayloadId(currentItem.value) === itemPayloadId(newItem)) {
     faces.value = metadata.faces
     mediaProjects.value = metadata.projects || []
-    mediaBoards.value = metadata.boards
+    mediaCollections.value = metadata.collections
     generationJob.value = metadata.job
     chatInfo.value = metadata.chat
     descendants.value = metadata.descendants || []
@@ -6525,19 +6525,19 @@ async function fetchMarkers() {
   }
 }
 
-// Fetch boards for current media item
-async function fetchMediaBoards(mediaId) {
+// Fetch collections for current media item
+async function fetchMediaCollections(mediaId) {
   if (!mediaId) {
-    mediaBoards.value = []
+    mediaCollections.value = []
     return
   }
 
   try {
-    const response = await axios.get(`/api/media/${mediaId}/boards`)
-    mediaBoards.value = response.data
+    const response = await axios.get(`/api/media/${mediaId}/collections`)
+    mediaCollections.value = response.data
   } catch (error) {
-    console.error('Failed to fetch media boards:', error)
-    mediaBoards.value = []
+    console.error('Failed to fetch media collections:', error)
+    mediaCollections.value = []
   }
 }
 

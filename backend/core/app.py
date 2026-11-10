@@ -1295,7 +1295,7 @@ async def lifespan(app: FastAPI):
         ephemeral_cleanup_task = asyncio.create_task(cleanup_ephemeral_media())
         background_tasks.append(ephemeral_cleanup_task)
 
-        # Reaper for abandoned empty, unnamed boards/flows/chats (>12h old)
+        # Reaper for abandoned empty, unnamed collections/flows/chats (>12h old)
         husk_cleanup_task = asyncio.create_task(cleanup_empty_unnamed_entities(ws_manager))
         background_tasks.append(husk_cleanup_task)
 

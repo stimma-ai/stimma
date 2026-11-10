@@ -452,7 +452,7 @@ onBeforeUnmount(() => {
             v-if="!isSingle"
             :model-value="state.view"
             :options="VIEWS"
-            aria-label="Collection view"
+            aria-label="Image layout"
             class="coarse:[&_button]:min-h-11 coarse:[&_button]:px-3.5"
             @update:model-value="setView"
           />

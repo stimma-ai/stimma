@@ -8,7 +8,7 @@ interface Hit { id: number; project_id?: number | null }
 export interface EntityHits {
   chats?: Hit[]
   flows?: Hit[]
-  boards?: Hit[]
+  collections?: Hit[]
   projects?: Hit[]
 }
 
@@ -19,7 +19,7 @@ export interface OutsideCount {
 }
 
 /**
- * Matches outside `projectId`: chats, flows and boards that belong elsewhere
+ * Matches outside `projectId`: chats, flows and collections that belong elsewhere
  * (they are strictly scoped), other projects, and assets the unscoped search
  * found beyond the scoped total. Presets aren't scoped, so they never count.
  */
@@ -31,7 +31,7 @@ export function countOutside(
 ): OutsideCount {
   let count = 0
   let capped = false
-  for (const kind of ['chats', 'flows', 'boards'] as const) {
+  for (const kind of ['chats', 'flows', 'collections'] as const) {
     const hits = global?.[kind] ?? []
     if (hits.length >= limit) capped = true
     count += hits.filter(h => (h.project_id ?? null) !== projectId).length
@@ -51,7 +51,7 @@ export function outsideLabel({ count, capped }: OutsideCount, projectName: strin
 interface Recent { type: string; projectId?: number | null }
 
 /**
- * Recents shown for a scope. Scoped to a project: its own chats, boards and
+ * Recents shown for a scope. Scoped to a project: its own chats, collections and
  * flows plus tools (which open in the project), never projects or items
  * whose project isn't known. Unscoped (`null`): everything.
  */

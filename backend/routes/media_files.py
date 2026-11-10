@@ -1546,7 +1546,7 @@ async def _generate_browser_thumbnail_to_cache(
     A single-tone vector is the exception: it gets its legible ground baked in
     here. Transparency is only useful if something behind it makes the mark
     visible, and a black icon lands on dark app chrome everywhere it appears —
-    chips, grids, boards. Deciding it once, where the thumbnail is made, is what
+    chips, grids, collections. Deciding it once, where the thumbnail is made, is what
     keeps every one of those surfaces from having to solve it separately.
     """
     from utils.document_render import LayoutRenderBusy, LayoutRenderUnavailable

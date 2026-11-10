@@ -4,7 +4,7 @@ Stimma separates user-facing identity from immutable payloads and physical
 storage.
 
 - **Assets** are stable items shown by All Assets, saved views, projects,
-  boards, and Trash. Assets are durable roots and are never garbage-collected.
+  collections, and Trash. Assets are durable roots and are never garbage-collected.
 - **Asset Revisions** are immutable saved states. An Asset points at one current
   revision, so editing updates one browser card instead of creating clutter.
 - **Media** records identify immutable payloads and their provenance. A chat,
@@ -34,7 +34,7 @@ members of two kinds:
   Saving that member as an Asset is idempotent and does not change the container's
   frozen result.
 
-Assets can belong to any number of containers, projects, and boards. Saving all
+Assets can belong to any number of containers, projects, and collections. Saving all
 container members as Assets promotes only embedded members, reuses linked or
 already-saved Assets, and moves the container to Trash.
 

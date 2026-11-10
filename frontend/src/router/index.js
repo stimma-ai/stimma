@@ -3,8 +3,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { desktop } from '../desktop'
 import { withReadDeadline } from '../utils/readDeadline'
 import BrowseGridView from '../views/BrowseGridView.vue'
-import BoardDetailView from '../views/BoardDetailView.vue'
-import BoardsLandingView from '../views/BoardsLandingView.vue'
+import CollectionDetailView from '../views/CollectionDetailView.vue'
+import CollectionsLandingView from '../views/CollectionsLandingView.vue'
 import UploadView from '../views/UploadView.vue'
 import ChatView from '../views/ChatView.vue'
 import SavedViewPage from '../views/SavedViewPage.vue'
@@ -19,7 +19,7 @@ import FlowView from '../views/FlowView.vue'
 import ProjectLayoutView from '../views/ProjectLayoutView.vue'
 import ProjectAssetsView from '../views/ProjectAssetsView.vue'
 import ProjectChatsView from '../views/ProjectChatsView.vue'
-import ProjectBoardsView from '../views/ProjectBoardsView.vue'
+import ProjectCollectionsView from '../views/ProjectCollectionsView.vue'
 import ProjectFlowsView from '../views/ProjectFlowsView.vue'
 import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectToolsView from '../views/ProjectToolsView.vue'
@@ -35,7 +35,7 @@ import { getApiBase } from '../apiConfig'
 
 // Every route declares its chrome `surface`:
 //   hub     — a top-level landing; on compact viewports the tab bar shows.
-//   detail  — an entity screen (tool, chat, board, flow, project page); on
+//   detail  — an entity screen (tool, chat, collection, flow, project page); on
 //             compact viewports it gets a back header. The tab bar still
 //             shows — only overlays hide it.
 //   overlay — a full-screen takeover (onboarding, image editor); no app chrome.
@@ -77,17 +77,21 @@ const routes = [
     component: SearchResultsView
   },
   {
-    path: '/boards',
-    name: 'boards',
+    path: '/collections',
+    name: 'collections',
     meta: { surface: 'hub' },
-    component: BoardsLandingView
+    component: CollectionsLandingView
   },
   {
-    path: '/boards/:id',
-    name: 'board-detail',
+    path: '/collections/:id',
+    name: 'collection-detail',
     meta: { surface: 'detail' },
-    component: BoardDetailView
+    component: CollectionDetailView
   },
+  // Collections were called boards; keep old links working.
+  { path: '/boards', redirect: to => ({ path: '/collections', query: to.query, hash: to.hash }) },
+  { path: '/boards/:id', redirect: to => ({ path: `/collections/${to.params.id}`, query: to.query, hash: to.hash }) },
+  { path: '/projects/:id/boards', redirect: to => ({ path: `/projects/${to.params.id}/collections`, query: to.query, hash: to.hash }) },
   {
     path: '/projects',
     name: 'projects',
@@ -120,10 +124,10 @@ const routes = [
         component: ProjectChatsView
       },
       {
-        path: 'boards',
-        name: 'project-boards',
+        path: 'collections',
+        name: 'project-collections',
         meta: { surface: 'hub' },
-        component: ProjectBoardsView
+        component: ProjectCollectionsView
       },
       {
         path: 'flows',
@@ -283,13 +287,13 @@ router.beforeEach(async (to, from) => {
     return { ...contextRoute(section, context.activeProjectId.value), query: to.query, hash: to.hash, replace: true }
   } else if (section) {
     to.meta.workingProjectId = null
-  } else if (['chat', 'board-detail', 'flow', 'saved-view'].includes(to.name)) {
-    const kind = { chat: 'chats', 'board-detail': 'boards', flow: 'flows', 'saved-view': 'saved-views' }[to.name]
+  } else if (['chat', 'collection-detail', 'flow', 'saved-view'].includes(to.name)) {
+    const kind = { chat: 'chats', 'collection-detail': 'collections', flow: 'flows', 'saved-view': 'saved-views' }[to.name]
     const data = await fetchOwner(`${getApiBase()}/${kind}/${to.params.id}`)
     if (!data) {
       // Never show an item under a context it may not belong to: fall back
       // to the current context's landing page for that kind.
-      const noun = { chat: 'chat', 'board-detail': 'board', flow: 'flow', 'saved-view': 'saved view' }[to.name]
+      const noun = { chat: 'chat', 'collection-detail': 'collection', flow: 'flow', 'saved-view': 'saved view' }[to.name]
       addToast(`Could not open that ${noun}.`, 'warning')
       if (from.matched.length) return false
       return { ...contextRoute(entityFallbackSection[to.name], context.activeProjectId.value), replace: true }
@@ -352,7 +356,7 @@ router.beforeEach(async (to, from) => {
 
 // Track screen navigation with the catalog's `screen_viewed` event. Only
 // the route NAME is sent — never the path, which can embed entity ids
-// (/boards/<id>, /lineage/<mediaId>). Dev-only routes are excluded.
+// (/collections/<id>, /lineage/<mediaId>). Dev-only routes are excluded.
 const { track: trackNav } = useTelemetry()
 router.afterEach((to, _from, failure) => {
   if (failure) return
