@@ -21,7 +21,7 @@ def P(cid, cls=None, about="a detail", seed="x", label="Detail", phase=1, extra=
 AGE, ETH, HAIR, STYLE, OUTFIT, DOG = ("person.age_band", "person.ethnicity", "person.hair_color", "person.hairstyle",
                                       "person.outfit.casual", "animal.dog_breed")
 SEEDS = {"person.expression": "a frown", "person.outfit.formal": "a navy suit", AGE: "25–29-year-old", ETH: "Korean", HAIR: "black", STYLE: "a low ponytail", OUTFIT: "a denim jacket",
-         DOG: "French bulldog"}
+         DOG: "French bulldog", "animal.cat_coat": "ginger tabby", "person.eye_color": "hazel"}
 
 
 def detail(cls):
@@ -240,6 +240,37 @@ class TestShapes:
                                    f"c = {bound('outfit', OUTFIT)}", f"d = {P('street_shops', about='shops', seed='a bakery')}",
                                    f"e = {P('street_cars', about='cars', seed='a taxi')}"])
         assert prep.fix_subjects(single)[1] == []  # a pick no prefix heads: the prefixes are details, not owners
+
+    def test_a_person_beside_an_animal_named_by_list_kind(self):
+        cat = "animal.cat_coat"
+        src = hand(extra_lines=[f"a = {bound('girl_age', AGE)}", f"b = {bound('girl_hairstyle', STYLE)}",
+                                f"c = {bound('cat_coat', cat)}", f"d = {P('cat_pose', about='how it lies', seed='curled up')}",
+                                f"e = {P('window_view', about='the view', seed='rain')}"])
+        fixed, checked, notes = written(src, "a girl reading with her cat")
+        assert '"girl.age"' in fixed and '"cat.coat"' in fixed and '"cat.pose"' in fixed and notes
+        assert '"window_view"' in fixed  # a scene detail no list says is anyone's
+        assert not subject_problems(checked)
+        assert sections(checked["info"]) == [("girl", None), ("cat", None)]
+        two = hand(extra_lines=[f"a = {bound('man_age', AGE)}", f"b = {bound('man_outfit', OUTFIT)}",
+                                f"c = {bound('dog_breed', DOG)}", f"d = {bound('cat_coat', cat)}"])
+        fixed, checked, _ = written(two, "a man with a dog and a cat")
+        assert '"man.age"' in fixed and '"dog.breed"' in fixed and '"cat.coat"' in fixed
+        assert sections(checked["info"]) == [("man", None), ("dog", None), ("cat", None)]
+        lone = hand(extra_lines=[f"a = {bound('hair_color', HAIR)}", f"b = {bound('hair_style', STYLE)}",
+                                 f"c = {bound('outfit', OUTFIT)}", f"d = {bound('dog_breed', DOG)}"])
+        assert prep.fix_subjects(lone)[1] == []  # a person pick no prefix heads: nothing to read
+        details = hand(extra_lines=[f"a = {bound('hair_color', HAIR)}", f"b = {bound('eye_color', 'person.eye_color')}",
+                                    f"c = {bound('dog_breed', DOG)}"])
+        assert prep.fix_subjects(details)[1] == []  # several one-detail prefixes on each side: details, not owners
+        named = hand(("cats[1]", [cat]), ("cats[2]", [cat]),
+                     extra_lines=[f"a = {bound('woman_age', AGE)}", f"b = {bound('woman_outfit', OUTFIT)}"])
+        fixed, checked, _ = written(named, "an old woman feeding two cats")
+        assert '"woman.age"' in fixed and not subject_problems(checked)
+        assert sections(checked["info"]) == [("cats", 1), ("cats", 2), ("woman", None)]
+        hair = hand(("dog", [DOG]), extra_lines=[f"a = {bound('hair_color', HAIR)}", f"b = {bound('hair_style', STYLE)}"])
+        assert '"hair_color"' in written(hair, "a woman and her dog")[0]  # her hair's details, not a "hair" subject
+        alone = hand(extra_lines=[f"a = {bound('dog_breed', DOG)}", f"b = {P('dog_pose', about='its pose', seed='sitting')}"])
+        assert prep.fix_subjects(alone)[1] == []  # one subject: plain ids stay
 
     def test_numbered_families_and_lone_indexes(self):
         lines = [f"{v} = {P(v, about='a detail', seed='x')}" for v in ("outfit1", "outfit2", "face1", "face2")]
