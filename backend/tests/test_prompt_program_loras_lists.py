@@ -77,7 +77,7 @@ class TestLoraNameNeverEmitted:
         src = ('b = pick_lora("b", ["curly", "pixie"], line=1)\n'
                'emit(f"Two friends, {b} style.")\n')
         problems = prep.validate(src, "two friends, pick a hair lora: curly or pixie", LORAS, set())["problems"]
-        assert any("LoRA names" in p for p in problems)
+        assert any("the value pick_lora() returns is the LoRA's name" in p for p in problems)
 
 
 LIST_PROMPT = "Two friends wearing different colored {hot pink|jet black|teal} bodysuits on a sofa."
@@ -475,7 +475,7 @@ class TestLoraNamesInText:
         loras = [LoraInfo("Dress", "k/d"), LoraInfo("Curtain bangs", "k/c"), LoraInfo("studio krea", "k/f"),
                  LoraInfo("XYZ 000003000", "k/k")]
         src = f'emit("{text}")\n'
-        return [p for p in prep.validate(src, prompt, loras, set())["problems"] if "LoRA names" in p]
+        return [p for p in prep.validate(src, prompt, loras, set())["problems"] if "name of a LoRA" in p]
 
     def test_an_exact_lora_name_the_user_didnt_write_is_sent_back(self):
         assert self.flagged("Soft light, studio krea.")
@@ -484,6 +484,22 @@ class TestLoraNamesInText:
 
     def test_a_name_the_user_wrote_stays(self):
         assert not self.flagged("A woman wearing a dress.", "a woman wearing a dress, pick a lora")
+
+    def test_words_for_the_lora_thats_on_are_only_noted(self):
+        loras = [LoraInfo("Braided Crown", "k/b"), LoraInfo("Pixie Cut XL", "k/p")]
+        src = ('h = pick_lora("hair", ["Braided Crown", "Pixie Cut XL"], phase=1, line=1)\n'
+               'words = {"Braided Crown": "her hair in a braided crown"}.get(h, "")\n'
+               'emit("A woman at a bus stop,", words, ".")\n')
+        checked = prep.validate(src, "A woman at a bus stop, pick a hairstyle lora", loras, set())
+        assert not any("LoRA" in p for p in checked["problems"])
+        assert any('names the LoRA "Braided Crown" while it is on' in n for n in checked["notes"])
+
+    def test_a_name_that_is_a_trigger_word_is_the_loras_own(self):
+        # the runtime adds "curtain bangs" with the Curtain Bangs LoRA: the program can't leave it out
+        loras = [LoraInfo("Curtain Bangs", "k/c", 1.0, "curtain bangs"), LoraInfo("Pixie Cut XL", "k/p", 1.0, "pixiecut")]
+        src = 'h = pick_lora("hair", ["Curtain Bangs", "Pixie Cut XL"], phase=1, line=1)\nemit("A girl on a swing.")\n'
+        checked = prep.validate(src, "A girl on a swing, choose a hair lora", loras, set())
+        assert not any("LoRA" in p for p in checked["problems"])
 
     def test_whole_names_only(self):
         # part of a name, or a name inside a longer word, is not the name

@@ -1033,6 +1033,28 @@ def _names_lora_set(options: Sequence[str], names: Sequence[str]) -> bool:
     return len(opts) >= 2 and opts <= {_bare(n) for n in names}
 
 
+def _formats_lora(source: str) -> bool:
+    """The program turns a pick_lora value (the LoRA's name) into text: an f-string, + or str()."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False
+    names = {n.targets[0].id for n in ast.walk(tree)
+             if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name)
+             and isinstance(n.value, ast.Call) and getattr(n.value.func, "id", None) == "pick_lora"}
+
+    def is_lora(x: ast.AST) -> bool:
+        return isinstance(x, ast.Name) and x.id in names
+    for n in ast.walk(tree):
+        if isinstance(n, ast.FormattedValue) and is_lora(n.value):
+            return True
+        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Add) and (is_lora(n.left) or is_lora(n.right)):
+            return True
+        if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "str" and any(is_lora(a) for a in n.args):
+            return True
+    return False
+
+
 def _listed_picks(source: str) -> Set[str]:
     """Ids of picks that give their options as a list (pick(id, [...])) rather than about= and seed=."""
     try:
@@ -1082,14 +1104,31 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
                 continue
             if d.kind == "pick" and not d.hidden and d.value and str(d.value).lower() not in text:
                 missing.setdefault(d.id, str(d.value))
-    for r in samples:  # LoRAs work by being on; a name in the text is noise to the image model
+    # LoRAs work by being on. A listed LoRA's exact name in the text, when the user didn't write
+    # it: while another LoRA (or none) is on, the text says what the image isn't (sent back);
+    # while that LoRA is on, it is only noise (noted). A name that is a LoRA's own trigger word
+    # is added with that LoRA, never by the program.
+    triggers = {_bare(t) for lo in loras for t in (lo.trigger or "").split(",") if t.strip()}
+    for r in samples:
         text = r.prompt.lower()
+        on = {lu.name for lu in r.loras}
         named = [n for n in dict.fromkeys([lu.name for lu in r.loras] + [lo.name for lo in loras])
-                 if _mentions(text, n) and not _mentions(prompt, n)]
-        if named:
-            problems.append(f'Don\'t write LoRA names into the prompt ("{named[0]}"). pick_lora() already turns the LoRA on; '
-                            "emit only words that describe the image.")
+                 if _bare(n) not in triggers and _mentions(text, n) and not _mentions(prompt, n)]
+        off = [n for n in named if n not in on]
+        if off:
+            problems.append(f'The prompt you emit says "{off[0]}", the name of a LoRA that isn\'t on in that image, so '
+                            "the text contradicts the image. pick_lora() turns a LoRA on and its trigger words are "
+                            "added for you: leave LoRA names out of emit() and the seeds, or put words for a LoRA in a "
+                            "lookup on the name pick_lora returns, so they appear only when that LoRA is on.")
             break
+        if named and _formats_lora(source):
+            problems.append(f'The prompt you emit says "{named[0]}": the value pick_lora() returns is the LoRA\'s name, '
+                            "for comparing or looking up, never text. Don't put it into a string (f\"{...}\", + or "
+                            "str()); emit only words that describe the image.")
+            break
+        if named:
+            notes.append(f'The prompt names the LoRA "{named[0]}" while it is on. A LoRA works by being on; its name '
+                         "in the text tells the image model nothing.")
     lora_sets = [(c["id"], set(c.get("options") or [])) for c in info["choices"] if c.get("kind") == "lora"]
     stacked: Set[Tuple[str, str]] = set()
     # a LoRA applies to the whole image: two picks over one set in one run stack. With more
