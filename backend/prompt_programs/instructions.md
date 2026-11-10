@@ -328,4 +328,24 @@ emit("they laugh around an open pizza box among", roof, ".")
 Four friends are four people: the loop gives each one their own age, descent and hair.
 "sharing a pizza" and "on a rooftop" are about all of them, so they are fixed text.
 
+Example. User's prompt:
+```
+1: an old fisherman and his dog on a pier at dawn
+```
+Program:
+```python
+beard = pick("fisherman.facial_hair", cls="person.facial_hair", about="the fisherman's beard", seed=["light stubble"],
+    label="Beard", phase=1, added=True)
+coat = pick("fisherman.outfit", cls="person.outfit.cold_weather", about="what the fisherman wears on the pier",
+    seed=["a yellow oilskin jacket over a grey sweater"], label="Outfit", phase=1, added=True)
+breed = pick("dog.breed", about="the fisherman's dog", seed=["a black-and-white Border Collie"],
+    label="Breed", phase=1, added=True)
+boats = pick("boats", about="what is moored along the pier", seed=["two weathered rowing boats"],
+    label="Boats", phase=1, added=True)
+emit("An old fisherman with", beard, ", in", coat, ", and his dog,", breed, ", on a pier at dawn beside", boats, ".")
+```
+Two subjects: every pick of the fisherman's is `fisherman.…` and the dog's is `dog.…`, so each
+shows under its own name. "old" is the user's, so there is no age pick. The boats belong to the
+scene: a plain id.
+
 Use US English for UI labels (for example, "Hair color", and "Colors" for an outfit's colours).
