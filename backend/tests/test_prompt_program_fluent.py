@@ -463,19 +463,78 @@ class TestRealize:
         with pytest.raises(ProgramError, match="can't be replayed exactly"):
             prep.realize(entry, seed=1, revision={**r.revision, "judge": "fake-1"})
 
-class TestParseOptions:
-    def test_the_first_json_list_wins(self):
-        from prompt_programs.options import parse_options
-        reply = 'Sure:\n```json\n["a sleek bob", "pin curls (expected)", "finger waves"]\n```\n["ignored"]'
-        assert parse_options(reply) == ["a sleek bob", "pin curls", "finger waves"]
+class TestStructuredOptions:
+    def test_a_reply_that_is_exactly_a_json_list_is_read(self):
+        from prompt_programs.options import parse_options, read_options
+        assert read_options('```json\n["a sleek bob", "pin curls"]\n```') == ["a sleek bob", "pin curls"]
+        assert read_options('{"options": ["finger waves"]}') == ["finger waves"]
+        assert parse_options('  ["a sleek bob", "", "[x]", "pin curls"] ') == ["a sleek bob", "pin curls"]
 
-    def test_leaked_reasoning_is_not_an_option(self):
-        from prompt_programs.options import parse_options
-        reply = ("[\nof South Asian descent\nof Hispanic descent\n]\n```\nWait, the instructions say \"Write 12 options\".\n"
-                 "of East Asian descent (Default/Expected)\nActually, the prompt asks for 12 *different* options.\n"
-                 "Here is the corrected list:\nLet's try a real list.\n- of West African descent")
-        assert parse_options(reply) == ["of South Asian descent", "of Hispanic descent", "of East Asian descent",
-                                        "of West African descent"]
+    def test_anything_around_or_inside_the_list_is_not_mined_for_options(self):
+        from prompt_programs.options import read_options
+        assert read_options('Sure:\n["a sleek bob"]') is None              # text around the list
+        assert read_options('["a sleek bob"]\nWait, the instructions say 12.') is None
+        assert read_options("- a sleek bob\n- pin curls") is None            # lines are not a list
+        assert read_options('["a sleek bob", 3]') is None                   # strings only
+
+    @staticmethod
+    def job():
+        from prompt_programs.draws import PickSpec
+        from prompt_programs.options import OptionJob, ProgramContext
+        spec = PickSpec("hair", "Hairstyle", "her hairstyle", 1, "text", "pick", ["a sleek bob"], [])
+        return OptionJob("k", spec, {}, ProgramContext(template="a woman with [Hairstyle]"), "a woman", 0)
+
+    def fake(self, monkeypatch, replies, tool=True):
+        from prompt_programs import options as opts
+        calls = []
+
+        async def endpoint(_pid):
+            return ("e", "m"), tool and ("e", "m") not in opts._TEXT_ONLY
+
+        async def ask(messages, project_id, tool):
+            calls.append((messages, tool))
+            got = replies.pop(0)
+            if isinstance(got, Exception):
+                raise got
+            return got
+
+        monkeypatch.setattr(opts, "_endpoint", endpoint)
+        monkeypatch.setattr(opts, "_ask_options", ask)
+        monkeypatch.setattr(opts, "_TEXT_ONLY", set())
+        return calls
+
+    async def test_the_tool_call_carries_the_options(self, monkeypatch):
+        from prompt_programs.options import write_options
+        calls = self.fake(monkeypatch, [("", '{"options": ["pin curls", "finger waves"]}')])
+        assert await write_options(self.job()) == ["pin curls", "finger waves"]
+        assert calls[0][1] is True and "write_options tool" in calls[0][0][0]["content"]
+
+    async def test_an_unreadable_reply_is_asked_again_and_told_why(self, monkeypatch):
+        from prompt_programs.options import write_options
+        calls = self.fake(monkeypatch, [('Let me think. ["pin curls"]', None), ('["pin curls"]', None)], tool=False)
+        assert await write_options(self.job()) == ["pin curls"]
+        assert len(calls) == 2 and "wasn't a JSON list of strings" in calls[1][0][-1]["content"]
+
+    async def test_a_model_that_skips_the_tool_gets_the_text_form(self, monkeypatch):
+        from prompt_programs import options as opts
+        calls = self.fake(monkeypatch, [("Here you go: pin curls", None), ('["pin curls"]', None)])
+        assert await opts.write_options(self.job()) == ["pin curls"]
+        assert [t for _, t in calls] == [True, False] and "JSON list of strings" in calls[1][0][0]["content"]
+        assert ("e", "m") in opts._TEXT_ONLY
+
+    async def test_an_endpoint_without_tools_falls_back_to_text(self, monkeypatch):
+        from prompt_programs import prepare as prep
+        from prompt_programs.options import write_options
+        err = RuntimeError('400 Bad Request: "auto" tool choice requires --enable-auto-tool-choice')
+        calls = self.fake(monkeypatch, [err, ('["pin curls"]', None)])
+        monkeypatch.setattr(prep, "_PROTOCOL", {})
+        assert await write_options(self.job()) == ["pin curls"]
+        assert prep._PROTOCOL[("e", "m")] == "text" and calls[-1][1] is False
+
+    async def test_nothing_readable_twice_is_no_options(self, monkeypatch):
+        from prompt_programs.options import write_options
+        self.fake(monkeypatch, [("pin curls", None), ("still not a list", None)], tool=False)
+        assert await write_options(self.job()) == []
 
 
 class TestLookupKeyRule:

@@ -751,11 +751,15 @@ class TestSuggestOptions:
         from prompt_programs import options as opts
         calls = []
 
-        async def fake_ask(messages, project_id, max_tokens=4096):
+        async def fake_ask(messages, project_id, tool):
             calls.append(messages)
-            return '```json\n["a silk tank top", "a ribbed cotton tank", "A ribbed cotton tank", "a sheer mesh tank"]\n```'
+            return '```json\n["a silk tank top", "a ribbed cotton tank", "A ribbed cotton tank", "a sheer mesh tank"]\n```', None
 
-        monkeypatch.setattr(prep, "_ask_model", fake_ask)
+        async def text_only(_pid):
+            return ("", ""), False
+
+        monkeypatch.setattr(opts, "_ask_options", fake_ask)
+        monkeypatch.setattr(opts, "_endpoint", text_only)
         out = await opts.suggest_options(self.ENTRY, "stylish_tank_top", ["a silk tank top", "a linen tank top"], 2, None)
         assert out == ["a ribbed cotton tank", "a sheer mesh tank"] and len(calls) == 1
         system, user = calls[0][0]["content"], calls[0][1]["content"]
@@ -763,14 +767,18 @@ class TestSuggestOptions:
         assert "Write 2 options" in system and "a few words" in system and "most typical" in system
         assert "- a linen tank top" in user and '"stylish tank top"' in user
 
-    async def test_retries_once_when_short_and_parses_lines(self, monkeypatch):
+    async def test_retries_once_when_short(self, monkeypatch):
         from prompt_programs import options as opts
-        replies = ["- a ribbed cotton tank", "1. a sheer mesh tank\n2. a crochet halter"]
+        replies = ['["a ribbed cotton tank"]', '["a sheer mesh tank", "a crochet halter"]']
 
-        async def fake_ask(messages, project_id, max_tokens=4096):
-            return replies.pop(0)
+        async def fake_ask(messages, project_id, tool):
+            return replies.pop(0), None
 
-        monkeypatch.setattr(prep, "_ask_model", fake_ask)
+        async def text_only(_pid):
+            return ("", ""), False
+
+        monkeypatch.setattr(opts, "_ask_options", fake_ask)
+        monkeypatch.setattr(opts, "_endpoint", text_only)
         out = await opts.suggest_options(self.ENTRY, "stylish_tank_top", [], 3, None)
         assert out == ["a ribbed cotton tank", "a sheer mesh tank", "a crochet halter"]
 
