@@ -334,10 +334,18 @@ class TestOneLoraPickPerSet:
 
     def test_text_that_names_the_loras_is_sent_back(self):
         src = ('b = pick_lora("hair", ["curly", "pixie", "braids"], line=1)\n'
-               't = pick("hair_type", ["curly", "pixie", "braids"], label="Hair", line=1)\n'
+               't = pick("hair_type", ["KREA2 hairshop curly v1", "KREA2 hairshop pixie v1"], label="Hair", line=1)\n'
                'emit("Two friends on a sofa, her", t, "hair.")\n')
         problems = prep.validate(src, self.PROMPT, LORAS, set())["notes"]
         assert any("names the same things" in p for p in problems)
+
+    def test_a_pick_that_shares_words_with_the_loras_is_not_their_names(self):
+        # exact names only: "curly" is a word of "KREA2 hairshop curly v1", not its name
+        src = ('b = pick_lora("hair", ["curly", "pixie", "braids"], line=1)\n'
+               't = pick("hair_type", ["curly", "pixie", "braids"], label="Hair", line=1)\n'
+               'emit("Two friends on a sofa, her", t, "hair.")\n')
+        notes = prep.validate(src, self.PROMPT, LORAS, set())["notes"]
+        assert not any("names the same things" in p for p in notes)
 
     def test_one_pick_and_plain_text_pass_those_checks(self):
         src = ('b = pick_lora("hair", ["curly", "pixie", "braids"], line=1)\n'
@@ -462,27 +470,24 @@ class TestLorasShownToTheModels:
         assert [c["name"] for c in seen["ctx"]] == ["Wolf cut"]
 
 
-class TestPlainWordLoraNames:
-    def test_plain_word_names_leave_the_text_alone(self):
-        loras = [LoraInfo("Dress", "k/d"), LoraInfo("Detail", "k/x"), LoraInfo("Curtain bangs", "k/c")]
-        src = 'emit("A woman wearing a dress, detailed portrait, curtain bangs.")\n'
-        problems = prep.validate(src, "a woman wearing a dress, pick a lora", loras, set())["problems"]
-        assert not any("LoRA names" in p for p in problems)
+class TestLoraNamesInText:
+    def flagged(self, text, prompt="a woman, pick a lora"):
+        loras = [LoraInfo("Dress", "k/d"), LoraInfo("Curtain bangs", "k/c"), LoraInfo("studio krea", "k/f"),
+                 LoraInfo("XYZ 000003000", "k/k")]
+        src = f'emit("{text}")\n'
+        return [p for p in prep.validate(src, prompt, loras, set())["problems"] if "LoRA names" in p]
 
-    def test_name_like_names_are_flagged_whole_words_only(self):
-        loras = [LoraInfo("studio krea", "k/f"), LoraInfo("XYZ 000003000", "k/k")]
+    def test_an_exact_lora_name_the_user_didnt_write_is_sent_back(self):
+        assert self.flagged("Soft light, studio krea.")
+        assert self.flagged("A woman with curtain bangs.")
+        assert self.flagged("Portrait, XYZ 000003000.")
 
-        def flagged(text):
-            src = f'emit("{text}")\n'
-            return any("LoRA names" in p for p in prep.validate(src, "a woman, pick a lora", loras, set())["problems"])
-        assert flagged("Soft light, studio krea, XYZ 000003000.")
-        assert not flagged("prestudio kreative")
+    def test_a_name_the_user_wrote_stays(self):
+        assert not self.flagged("A woman wearing a dress.", "a woman wearing a dress, pick a lora")
 
-    def test_ordinary_words_that_are_model_names_are_kept(self):
-        loras = [LoraInfo("XL", "k/xl"), LoraInfo("Pony", "k/p"), LoraInfo("Flux", "k/f")]
-        src = 'emit("A woman wearing an XL shirt, riding a pony.")\n'
-        problems = prep.validate(src, "a woman in an oversized shirt, pick a lora", loras, set())["problems"]
-        assert not any("LoRA names" in p for p in problems)
+    def test_whole_names_only(self):
+        # part of a name, or a name inside a longer word, is not the name
+        assert not self.flagged("prestudio kreative, a dressmaker, curtains")
 
 
 class TestArticles:

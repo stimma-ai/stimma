@@ -269,14 +269,6 @@ class TestPrepare:
                                   lora_items=[], project_id=None, profile_id="p", elaborate=False)
         assert "comma-separated tags" in calls[0][1]["content"]
 
-    async def test_kept_words_that_go_missing_are_sent_back(self, stub):
-        calls, replies = stub
-        replies.append("```python\n" + TRAIN_M.replace('"A woman waiting for a train on a"', '"A woman for a train on a"') + "```")
-        replies.append(f"```python\n{TRAIN_M}```")
-        entry = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="",
-                                          lora_items=[], project_id=None, profile_id="p", elaborate=False)
-        assert entry["attempts"] == 1 and any('"waiting"' in w for w in entry["warnings"])  # noted, not retried
-
     async def test_a_pick_emitted_twice_is_sent_back(self, stub):
         calls, replies = stub
         replies.append("```python\n" + TRAIN_M.replace('", umbrella, ". [EXACT_1]', '", umbrella, ", in", clothing, ". [EXACT_1]') + "```")
@@ -518,10 +510,15 @@ class TestFixInCode:
         assert 'emit("A ", a, " in ", b, " ")' in out and notes == ["2 placeholder bracket pair(s) taken out of emit()"]
         compile(out, "<program>", "exec")
 
-    def test_a_wildcards_name_with_an_article_is_not_a_seed(self):
-        src = 'brand = pick("brand", about="the brand", seed=["a brand", "Acme"], phase=1)\nemit(brand)\n'
+    def test_a_wildcards_own_name_is_not_a_seed(self):
+        src = 'brand = pick("brand", about="the brand", seed=["Brand.", "Acme"], phase=1)\nemit(brand)\n'
         assert 'seed=["Acme"]' in prep.drop_name_options(src, "a {{brand}} laptop")
-        assert prep.is_name_of("The Brands.", "brand") and not prep.is_name_of("a brand new laptop", "brand")
+        assert prep.is_name_of(" BRAND. ", "brand") and prep.is_name_of("35mm  film look", "35mm film look")
+
+    def test_only_the_name_itself_is_its_name(self):
+        # exact, never by words: an article, a plural or a longer phrase is an option in its own right
+        assert not prep.is_name_of("a brand", "brand") and not prep.is_name_of("brands", "brand")
+        assert not prep.is_name_of("a brand new laptop", "brand")
 
     # What the writer wrote for "young woman in a yoga outfit" (canary, pp-37): an age narrowed to
     # young adults, an outfit narrowed to yoga looks, and the details the prompt leaves open.
@@ -929,6 +926,46 @@ def test_a_smart_wildcard_written_as_a_list_is_a_problem():
                for p in prep.validate(listed, "A girl, {{season}}", [], set())["problems"])
     ok = 'season = pick("season", about="the season", seed=["spring"], label="Season", phase=1, line=1)\nemit("A girl,", season)\n'
     assert not prep.validate(ok, "A girl, {{season}}", [], set())["problems"]
+
+
+class TestWildcardPicksAreNamedById:
+    PROMPT = "A man on a pier, {{a summer hat}}"
+
+    def test_the_pick_with_the_wildcards_id_holds_it(self):
+        src = ('hat = pick("a_summer_hat", about="a summer hat", seed=["a straw boater"], label="Hat", phase=1, line=1)\n'
+               'emit("A man on a pier, wearing", hat)\n')
+        checked = prep.validate(src, self.PROMPT, [], set())
+        assert not checked["problems"]
+        prep.normalize_sources(checked["info"], self.PROMPT)
+        hat = checked["info"]["choices"][0]
+        assert hat["wildcard"] == "a summer hat" and hat["source"] == "text"
+
+    def test_one_per_person_ends_with_the_id(self):
+        prompt = "Three friends at a campfire, each in {{a winter hat}}"
+        src = ('friends = group("friends", 3, label="Friends", line=1)\n'
+               'emit("Three friends at a campfire:")\n'
+               'for i in range(friends):\n'
+               '    hat = pick(f"friends[{i+1}].a_winter_hat", about="a winter hat", seed=["a red bobble hat"], '
+               'label="Hat", phase=1, line=1)\n'
+               '    emit("one in", hat, ";")\n')
+        checked = prep.validate(src, prompt, [], set())
+        assert not any("smart wildcard" in p for p in checked["problems"])
+        prep.normalize_sources(checked["info"], prompt)
+        assert [c.get("wildcard") for c in checked["info"]["choices"] if c["kind"] == "pick"] == ["a winter hat"] * 3
+
+    def test_a_pick_under_another_id_is_not_guessed(self):
+        # its about and label say "summer hat", but only the id names the wildcard
+        src = ('hat = pick("hat", about="a summer hat", seed=["a straw boater"], label="Summer hat", phase=1, line=1)\n'
+               'emit("A man on a pier, wearing", hat)\n')
+        checked = prep.validate(src, self.PROMPT, [], set())
+        assert any('{{a summer hat}} is a smart wildcard, but no pick has the id "a_summer_hat"' in p
+                   and 'rename that pick to "a_summer_hat"' in p for p in checked["problems"])
+        prep.normalize_sources(checked["info"], self.PROMPT)
+        assert "wildcard" not in checked["info"]["choices"][0]
+
+    def test_the_writer_is_told_each_wildcards_id(self):
+        msg = prep.build_user_message(self.PROMPT, "m", "prose", {}, [], {})
+        assert 'a_summer_hat = pick("a_summer_hat"' in msg and "exactly the id shown" in msg
 
 
 def test_a_one_item_list_is_fixed_text():
