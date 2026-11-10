@@ -73,6 +73,74 @@ def no_fluent_background_generation():
             os.environ[k] = v
 
 
+_REAL_MODEL_DOWNLOAD: list = []
+
+
+@pytest.fixture
+def local_model_mirror(tmp_path, monkeypatch):
+    """A models mirror on loopback for download tests: files written under
+    `mirror.root` are served at `mirror.url`, STIMMA_MODELS_BASE_URL points at it,
+    the model cache is a fresh temp dir, and the real `model_cache._download` runs
+    for this mirror's URLs only (anything else still fails the suite guard).
+    `mirror.hits` lists the paths requested; `mirror.handler` can be replaced to
+    misbehave (truncate, stall, corrupt)."""
+    import http.server
+    import threading
+    import model_cache
+
+    root = tmp_path / "mirror"
+    root.mkdir()
+    cache = tmp_path / "cache"
+    cache.mkdir()
+
+    class Mirror:
+        pass
+
+    mirror = Mirror()
+    mirror.root = root
+    mirror.hits = []
+    mirror.handler = None  # optional (handler, path) -> bool: True when it answered
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            path = self.path.lstrip("/")
+            mirror.hits.append(path)
+            if mirror.handler is not None and mirror.handler(self, path):
+                return
+            f = root / path
+            if not f.is_file():
+                self.send_error(404)
+                return
+            data = f.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server.daemon_threads = True
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    mirror.url = f"http://127.0.0.1:{server.server_address[1]}"
+    real = _REAL_MODEL_DOWNLOAD[0]
+    guard = model_cache._download
+
+    def download(url, tmp, on_chunk=None):
+        if not url.startswith(mirror.url + "/"):
+            return guard(url, tmp, on_chunk)
+        return real(url, tmp, on_chunk)
+
+    monkeypatch.setenv("STIMMA_MODELS_BASE_URL", mirror.url)
+    monkeypatch.setattr(model_cache, "_download", download)
+    monkeypatch.setattr(model_cache.app_dirs, "get_cache_dir", lambda: cache)
+    monkeypatch.setattr(model_cache, "_RETRY_BASE_SECONDS", 0.01)
+    yield mirror
+    server.shutdown()
+    server.server_close()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def no_model_downloads():
     """Suite-wide guard: tests must NEVER download ML model weights.
@@ -98,7 +166,7 @@ def no_model_downloads():
     import model_cache
     from clip_service import CLIP_EMBEDDING_DIM
 
-    def forbid_download(url: str, tmp: Path) -> None:
+    def forbid_download(url: str, tmp: Path, on_chunk=None) -> None:
         raise AssertionError(
             f"tests must not download models (attempted fetch of {url}); "
             "patch clip_service.get_clip_service / model_cache instead"
@@ -142,6 +210,7 @@ def no_model_downloads():
 
     fake = FakeClipService()
     mp = pytest.MonkeyPatch()
+    _REAL_MODEL_DOWNLOAD.append(model_cache._download)
     mp.setattr(model_cache, "_download", forbid_download)
     mp.setattr(clip_service, "get_clip_service", lambda *args, **kwargs: fake)
     yield
