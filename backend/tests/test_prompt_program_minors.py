@@ -202,6 +202,10 @@ class TestNarrowing:
         assert "only when the description asks for them" in user
         assert "only when asked" not in messages_for(vocabulary().get("person.eye_color"), "dark", ["brown"])[1]["content"]
 
+    def test_the_reader_quotes_the_kind_of_person_for_their_age(self):
+        from prompt_programs.narrow import _READ_SYSTEM
+        assert '"two kids"' in _READ_SYSTEM and "quote it for their age" in _READ_SYSTEM
+
     def test_the_writer_is_told_too(self):
         from prompt_programs import prepare as prep
         assert '"A girl"\n  or "a boy" alone is a young adult' in prep._INSTRUCTIONS

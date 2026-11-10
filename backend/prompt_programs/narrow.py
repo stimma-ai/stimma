@@ -74,6 +74,8 @@ _READ_SYSTEM = """You read an image prompt and find the words in it that describ
 For each detail, quote the prompt's own words about that detail, exactly as written, with the
 person or thing they describe ("young woman", "his dark hair", "a smiling girl"), or null when
 the prompt says nothing about it. Don't guess and don't infer: only words the prompt contains.
+The word that says what kind of person someone is speaks to their age too ("two kids", "a
+toddler", "a teenage boy", "a woman", "her young daughter", "a girl"): quote it for their age.
 Reply with only a JSON object mapping each detail's id to those words or null."""
 
 
