@@ -132,14 +132,14 @@ create GitHub releases. Archival workflow uploads happen after publication.
 ### Build runners
 
 Desktop builds and trusted Canary/release/manual quality checks use self-hosted
-pools. PR checks remain GitHub-hosted, as do the small Electron and release-tooling
-checks. Headless packages use separate self-hosted workers so they can build
-alongside the desktop jobs without taking their slots.
+pools, including frontend regressions, Electron and release-tooling checks.
+PR checks remain GitHub-hosted. Headless packages use separate self-hosted
+workers so they can build alongside the desktop jobs without taking their slots.
 
 | Work | Runner labels |
 |------|---------------|
-| Trusted backend/acceptance tests and Canary version | `self-hosted, linux, x64, stimma-test` |
-| PR quality gate by default | `ubuntu-latest` |
+| All trusted quality checks and Canary version | `self-hosted, linux, x64, stimma-test` |
+| PR quality gate by default | `ubuntu-24.04` |
 | macOS | `self-hosted, macOS, ARM64` |
 | Windows | `self-hosted, Windows, X64` |
 | Linux AppImage x64 | `self-hosted, linux, x64, stimma-build` |
@@ -150,8 +150,13 @@ alongside the desktop jobs without taking their slots.
 The x64 pool uses Ubuntu 22.04 / glibc 2.35 to preserve AppImage compatibility.
 Each test slot must have its own container, workspace, HOME, and process/port
 namespace. Preprovisioned images include FFmpeg, Xvfb, and Chromium's system
-libraries and set `STIMMA_PREPROVISIONED=1`. Keep sufficient always-available
-build and test slots; optional workers join the same capability pool. Offline
+libraries and set `STIMMA_PREPROVISIONED=1`. Browser setup reuses the locked
+Chromium revision in each worker's persistent cache, skips system package installation on prepared workers, and
+verifies Chromium launches before testing. Frontend and acceptance tests use
+disposable data/config/temp directories on the workspace volume. Jobs beyond
+the available slots queue normally; hosted runners are not an overflow fallback.
+Keep sufficient always-available build and test slots; optional workers join
+the same capability pool. Offline
 optional workers are not required by any job, though an executing job can
 still fail if its host disappears and must be rerun.
 

@@ -1,0 +1,26 @@
+name: Setup Playwright
+description: Reuse prepared browser libraries and persistently cached locked browser binaries
+runs:
+  using: composite
+  steps:
+    - name: Install locked Chromium
+      shell: bash
+      working-directory: frontend
+      run: |
+        if [ "${STIMMA_PREPROVISIONED:-}" = "1" ]; then
+          # System libraries belong in the runner image, not each CI run.
+          # Playwright reuses the browser cache when the locked revision exists.
+          npx --no-install playwright install chromium
+        else
+          npx --no-install playwright install --with-deps chromium
+        fi
+    - name: Verify Chromium launches
+      shell: bash
+      working-directory: frontend
+      run: |
+        node --input-type=module -e '
+          import { chromium } from "playwright";
+          const browser = await chromium.launch();
+          console.log(`Chromium ${browser.version()} is ready`);
+          await browser.close();
+        '

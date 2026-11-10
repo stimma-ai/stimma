@@ -40,7 +40,7 @@ permissions:
 jobs:
   release-cleanup-tests:
     name: Release tooling tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-24.04"') }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +53,7 @@ jobs:
 
   desktop-tests:
     name: Electron type check and unit tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-24.04"') }}
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -128,8 +128,8 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2]
-    # Keep the trusted eight-slot pool available for backend + acceptance.
-    runs-on: ubuntu-24.04
+    # Trusted callers select prepared workers; external PRs retain the hosted default.
+    runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-24.04"') }}
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -140,7 +140,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
           cache-dependency-path: frontend/package-lock.json
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -149,7 +149,7 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
         with:
-          enable-cache: true
+          enable-cache: ${{ runner.environment == 'github-hosted' }}
           cache-local-path: ~/.cache/uv
       - name: Install backend deps
         working-directory: backend
@@ -162,13 +162,17 @@ jobs:
         uses: ./.github/actions/setup-ffmpeg
       - name: Install Playwright Chromium
         timeout-minutes: 3
-        working-directory: frontend
-        run: npx --no-install playwright install --with-deps chromium
+        uses: ./.github/actions/setup-playwright
+      - name: Prepare test scratch
+        run: python3 scripts/ci-test-scratch.py
       - name: Run frontend regression tests
         run: tools/stimma test frontend --test-shard=${{ matrix.shard }}/2
       - name: Check unused frontend files
         if: matrix.shard == 1
         run: tools/stimma lint frontend-dead-code
+      - name: Clean test scratch
+        if: always()
+        run: python3 scripts/ci-test-scratch.py cleanup
 
   acceptance-tests:
     name: Acceptance tests (${{ matrix.lane }})
@@ -217,13 +221,7 @@ jobs:
 
       - name: Install Playwright Chromium
         timeout-minutes: 3
-        working-directory: frontend
-        run: |
-          if [ "${STIMMA_PREPROVISIONED:-}" = "1" ]; then
-            npx --no-install playwright install chromium
-          else
-            npx --no-install playwright install --with-deps chromium
-          fi
+        uses: ./.github/actions/setup-playwright
 
       - name: Lint frontend (small-screen ratchet)
         run: tools/stimma lint frontend

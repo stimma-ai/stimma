@@ -86,6 +86,39 @@ class FFmpegSetupTests(unittest.TestCase):
 
 
 class PublicationTests(unittest.TestCase):
+    def test_every_quality_job_respects_the_trusted_pool_and_hosted_default(self):
+        jobs = workflow('quality-gate.yml')['jobs']
+        for name, config in jobs.items():
+            with self.subTest(job=name):
+                self.assertEqual(config['runs-on'], '${{ fromJSON(inputs.runs_on || \'"ubuntu-24.04"\') }}')
+        for name in ['canary.yml', 'release.yml', 'build-desktop.yml']:
+            self.assertIn('stimma-test', workflow(name)['jobs']['quality-gate']['with']['runs_on'])
+        self.assertNotIn('runs_on', workflow('ci.yml')['jobs']['quality-gate']['with'])
+
+    def test_prepared_browser_setup_never_installs_system_packages(self):
+        action = yaml.load((ROOT / '.github/actions/setup-playwright/action.yml').read_text(), Loader=yaml.BaseLoader)
+        install = action['runs']['steps'][0]['run']
+        with tempfile.TemporaryDirectory() as tmp:
+            stub = Path(tmp) / 'npx'
+            stub.write_text('#!/bin/sh\nprintf "%s\\n" "$*"\n')
+            stub.chmod(0o755)
+            for prepared, expected in [('1', '--no-install playwright install chromium'),
+                                       ('', '--no-install playwright install --with-deps chromium')]:
+                with self.subTest(prepared=prepared):
+                    result = subprocess.run(['bash', '-e', '-c', install], check=True,
+                                            capture_output=True, text=True,
+                                            env={**os.environ, 'PATH': tmp + os.pathsep + os.environ['PATH'],
+                                                 'STIMMA_PREPROVISIONED': prepared})
+                    self.assertEqual(result.stdout.strip(), expected)
+        jobs = workflow('quality-gate.yml')['jobs']
+        for name in ['frontend-tests', 'acceptance-tests']:
+            steps = jobs[name]['steps']
+            setup = next(s for s in steps if s.get('name') == 'Install Playwright Chromium')
+            self.assertEqual(setup['uses'], './.github/actions/setup-playwright')
+            self.assertTrue(any(s.get('name') == 'Prepare test scratch' for s in steps))
+            cleanup = next(s for s in steps if s.get('name') == 'Clean test scratch')
+            self.assertEqual(cleanup['if'], 'always()')
+
     def test_transient_api_failures_retry_then_return_the_actual_response(self):
         for error in [urllib.error.HTTPError('https://api.test', 500, 'temporary', {}, None),
                       urllib.error.HTTPError('https://api.test', 429, 'limited', {'Retry-After': '3'}, None),
