@@ -3611,6 +3611,8 @@ function handleRemixUseExactPrompt() {
     ...globalPrefs.value.promptOptions,
     autoImprove: { ...globalPrefs.value.promptOptions.autoImprove, enabled: false },
     translate: { language: 'zh-Hans', ...globalPrefs.value.promptOptions.translate, enabled: false },
+    // The exact prompt goes out as it was: Direct, so nothing reads it and varies it again.
+    ...(fluentOn.value ? { direct: true, raw: undefined } : {}),
   }
   suppressRemixDeactivation()
 }
