@@ -43,9 +43,9 @@ from prompt_programs.vocab import (
 
 log = get_logger(__name__)
 
-OPTIONS_VERSION = "opts-3"     # bump to invalidate every generated pool on purpose. opts-3: US spelling
+OPTIONS_VERSION = "opts-4"     # bump to invalidate every generated pool on purpose. opts-4: US words. opts-3: US spelling
 FIRST_OPTIONS_VERSION = "opts-1"   # what a revision that records no options version drew with
-OPTIONS_VERSIONS = (FIRST_OPTIONS_VERSION, "opts-2", OPTIONS_VERSION)   # versions a recorded revision can replay
+OPTIONS_VERSIONS = (FIRST_OPTIONS_VERSION, "opts-2", "opts-3", OPTIONS_VERSION)   # versions a recorded revision can replay
 BATCH_SIZE = 12                # options asked for per generation call
 GEN_DECAY = 0.96               # rank decay across generated options (gentler than the writer's lists)
 THIN = 6                       # a generated pool with fewer usable options asks for more, high priority
@@ -332,7 +332,7 @@ Write {count} options for {what}. Order them from the most typical for this prom
 - Each is a concrete, visual phrase that reads naturally in place of [{label}]{style}.
 - Each differs for real from the others and from the existing options (no synonyms).
 - Say what to show, never what to leave out (no "no", "not", "without").
-- Use US English spelling ("color", "gray", "pajamas").
+- Use US English spelling and words ("color", "gray", "pajamas", "sneakers").
 - Each string is the option itself, exactly as it goes in the prompt: no numbering, notes or
   remarks.
 

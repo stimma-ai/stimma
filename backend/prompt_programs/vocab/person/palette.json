@@ -370,10 +370,10 @@
       }
     },
     {
-      "text": "petrol teal, slate blue and charcoal",
+      "text": "dark teal, slate blue and charcoal",
       "tier": "typical",
       "roles": {
-        "main": "petrol teal",
+        "main": "dark teal",
         "accent": "slate blue",
         "neutral": "charcoal"
       },
@@ -512,10 +512,10 @@
       }
     },
     {
-      "text": "aubergine, mauve and gray",
+      "text": "eggplant, mauve and gray",
       "tier": "plausible",
       "roles": {
-        "main": "aubergine",
+        "main": "eggplant",
         "accent": "mauve",
         "neutral": "gray"
       },

@@ -92,7 +92,7 @@
       }
     },
     {
-      "text": "a {main} linen tunic and loose {neutral} trousers",
+      "text": "a {main} linen tunic and loose {neutral} pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -375,7 +375,7 @@
       }
     },
     {
-      "text": "a {accent} crochet top and loose {neutral} linen trousers",
+      "text": "a {accent} crochet top and loose {neutral} linen pants",
       "tier": "plausible",
       "tags": {
         "climate": [
@@ -439,7 +439,7 @@
       }
     },
     {
-      "text": "a {main} cotton tank and {neutral} drawstring trousers",
+      "text": "a {main} cotton tank and {neutral} drawstring pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -702,7 +702,7 @@
       }
     },
     {
-      "text": "a {main} cotton kurta with {accent} printed motifs and {neutral} linen trousers",
+      "text": "a {main} cotton kurta with {accent} printed motifs and {neutral} linen pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -959,7 +959,7 @@
       }
     },
     {
-      "text": "a {main} cotton ao ba ba with loose {neutral} trousers",
+      "text": "a {main} cotton ao ba ba with loose {neutral} pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1305,7 +1305,7 @@
       }
     },
     {
-      "text": "a {main} swim tunic and {neutral} ankle-length swim trousers",
+      "text": "a {main} swim tunic and {neutral} ankle-length swim pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1544,7 +1544,7 @@
       }
     },
     {
-      "text": "a {main} linen waistcoat and matching loose shorts",
+      "text": "a {main} linen vest and matching loose shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1575,7 +1575,7 @@
       }
     },
     {
-      "text": "a {main} smocked top and {neutral} cotton trousers",
+      "text": "a {main} smocked top and {neutral} cotton pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1687,7 +1687,7 @@
       }
     },
     {
-      "text": "a {main} sleeveless tunic and {neutral} ankle-length trousers",
+      "text": "a {main} sleeveless tunic and {neutral} ankle-length pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1863,7 +1863,7 @@
       }
     },
     {
-      "text": "a lightweight {main} cotton wrap tunic and loosely gathered {neutral} linen trousers",
+      "text": "a lightweight {main} cotton wrap tunic and loosely gathered {neutral} linen pants",
       "tier": "typical",
       "tags": {
         "genre": [

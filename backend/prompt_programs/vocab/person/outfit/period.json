@@ -171,7 +171,7 @@
       }
     },
     {
-      "text": "a {main} wool tunic and trousers with {accent} and {neutral} woven checks",
+      "text": "a {main} wool tunic and pants with {accent} and {neutral} woven checks",
       "tier": "typical",
       "tags": {
         "era": [
@@ -203,7 +203,7 @@
       }
     },
     {
-      "text": "a belted {main} Persian tunic and loose {accent} trousers",
+      "text": "a belted {main} Persian tunic and loose {accent} pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -552,7 +552,7 @@
       }
     },
     {
-      "text": "a wool kaftan with {main} and {accent} stripes over a linen shirt and {neutral} trousers",
+      "text": "a wool kaftan with {main} and {accent} stripes over a linen shirt and {neutral} pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -775,7 +775,7 @@
       }
     },
     {
-      "text": "a {main} wool justaucorps, {accent} waistcoat, and {neutral} knee breeches",
+      "text": "a {main} wool justaucorps, {accent} vest, and {neutral} knee breeches",
       "tier": "typical",
       "tags": {
         "era": [
@@ -849,7 +849,7 @@
       }
     },
     {
-      "text": "a white Mughal jama and fitted cotton churidar trousers",
+      "text": "a white Mughal jama and fitted cotton churidar pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -982,7 +982,7 @@
       }
     },
     {
-      "text": "a {main} wool frock coat and trousers with {neutral} and {accent} stripes",
+      "text": "a {main} wool frock coat and pants with {neutral} and {accent} stripes",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1159,7 +1159,7 @@
       }
     },
     {
-      "text": "a {main} Qing jacket and matching silk trousers",
+      "text": "a {main} Qing jacket and matching silk pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1304,7 +1304,7 @@
       }
     },
     {
-      "text": "a white cotton tunic and trousers beneath an embroidered {main} agbada",
+      "text": "a white cotton tunic and pants beneath an embroidered {main} agbada",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1377,7 +1377,7 @@
       }
     },
     {
-      "text": "a {main} linen suit with high-waisted wide trousers",
+      "text": "a {main} linen suit with high-waisted wide pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1439,7 +1439,7 @@
       }
     },
     {
-      "text": "a {main} work jacket and high-waisted blue denim dungarees",
+      "text": "a {main} work jacket and high-waisted blue denim overalls",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1636,7 +1636,7 @@
       }
     },
     {
-      "text": "a {main} padded-shoulder blazer and matching pleated trousers",
+      "text": "a {main} padded-shoulder blazer and matching pleated pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1668,7 +1668,7 @@
       }
     },
     {
-      "text": "a {main} shell-suit jacket and matching nylon track trousers",
+      "text": "a {main} shell-suit jacket and matching nylon track pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1910,7 +1910,7 @@
       }
     },
     {
-      "text": "a {main} linen tunic and {neutral} wool trousers with cross-gartered leg wraps",
+      "text": "a {main} linen tunic and {neutral} wool pants with cross-gartered leg wraps",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2127,7 +2127,7 @@
       }
     },
     {
-      "text": "a {main} wool riding coat over a {accent} linen tunic and {neutral} trousers",
+      "text": "a {main} wool riding coat over a {accent} linen tunic and {neutral} pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2427,7 +2427,7 @@
       }
     },
     {
-      "text": "a {main} quilted cotton jacket over a white shirt and {neutral} work trousers",
+      "text": "a {main} quilted cotton jacket over a white shirt and {neutral} work pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2462,7 +2462,7 @@
       }
     },
     {
-      "text": "a {main} wool sack coat, {accent} waistcoat, and {neutral} trousers",
+      "text": "a {main} wool sack coat, {accent} vest, and {neutral} pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2500,7 +2500,7 @@
       }
     },
     {
-      "text": "a {main} cotton smock-frock with gathered embroidery over {neutral} corduroy trousers",
+      "text": "a {main} cotton smock-frock with gathered embroidery over {neutral} corduroy pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2538,7 +2538,7 @@
       }
     },
     {
-      "text": "a {main} wool morning coat over a white shirt and {neutral} striped trousers",
+      "text": "a {main} wool morning coat over a white shirt and {neutral} striped pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2690,7 +2690,7 @@
       }
     },
     {
-      "text": "a {main} wool knickerbocker suit with a {accent} knitted waistcoat and {neutral} stockings",
+      "text": "a {main} wool knickerbocker suit with a {accent} knitted vest and {neutral} stockings",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2854,7 +2854,7 @@
       }
     },
     {
-      "text": "a loose {main} linen work smock over a {neutral} wool tunic and drawstring trousers",
+      "text": "a loose {main} linen work smock over a {neutral} wool tunic and drawstring pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2886,7 +2886,7 @@
       }
     },
     {
-      "text": "a hooded {main} wool travel cloak over a {accent} linen smock and loose {neutral} trousers",
+      "text": "a hooded {main} wool travel cloak over a {accent} linen smock and loose {neutral} pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2919,7 +2919,7 @@
       }
     },
     {
-      "text": "a {main} wool cutaway tailcoat over a {accent} waistcoat, white linen shirt, and {neutral} pantaloons",
+      "text": "a {main} wool cutaway tailcoat over a {accent} vest, white linen shirt, and {neutral} pantaloons",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2989,7 +2989,7 @@
       }
     },
     {
-      "text": "a {main} wool greatcoat with stacked shoulder capes over a {accent} linen work shirt and {neutral} fall-front trousers",
+      "text": "a {main} wool greatcoat with stacked shoulder capes over a {accent} linen work shirt and {neutral} fall-front pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -3023,7 +3023,7 @@
       }
     },
     {
-      "text": "a {main} cotton motoring duster over a {accent} high-collared shirt and {neutral} straight trousers",
+      "text": "a {main} cotton motoring duster over a {accent} high-collared shirt and {neutral} straight pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -3193,7 +3193,7 @@
       }
     },
     {
-      "text": "a {main} cotton bowling shirt with {accent} vertical panels and {neutral} cuffed trousers",
+      "text": "a {main} cotton bowling shirt with {accent} vertical panels and {neutral} cuffed pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -3226,7 +3226,7 @@
       }
     },
     {
-      "text": "a {main} gabardine windbreaker over a {accent} knitted polo and {neutral} straight cotton trousers",
+      "text": "a {main} gabardine windbreaker over a {accent} knitted polo and {neutral} straight cotton pants",
       "tier": "typical",
       "tags": {
         "era": [

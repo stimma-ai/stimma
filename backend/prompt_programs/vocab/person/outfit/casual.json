@@ -4,7 +4,7 @@
   "description": "Everyday outfits built from relaxed garments and practical separates.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete everyday looks, including simple dresses and culturally specific daily garments. Smart owns tailored workwear; athletic owns exercise kit; summer owns beachwear; cold_weather owns outerwear-led looks. Excludes accessories, props, body descriptors, and grooming. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply garment colors; blue denim and undyed fabric may retain intrinsic colors. Coverage describes garment extent. Historical dyed looks use muted, earthy or monochrome schemes.",
+  "notes": "Complete everyday looks, including simple dresses and culturally specific daily garments. Smart owns tailored workwear; athletic owns exercise clothes; summer owns beachwear; cold_weather owns outerwear-led looks. Excludes accessories, props, body descriptors, and grooming. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply garment colors; blue denim and undyed fabric may retain intrinsic colors. Coverage describes garment extent. Historical dyed looks use muted, earthy or monochrome schemes.",
   "facets": [
     "presentation",
     "age",
@@ -55,7 +55,7 @@
       }
     },
     {
-      "text": "a {main} jersey T-shirt and {neutral} cargo trousers",
+      "text": "a {main} jersey T-shirt and {neutral} cargo pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -140,7 +140,7 @@
       }
     },
     {
-      "text": "a {main} cable-knit sweater and {neutral} corduroy trousers",
+      "text": "a {main} cable-knit sweater and {neutral} corduroy pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -255,7 +255,7 @@
       }
     },
     {
-      "text": "a {main} linen blouse and wide {neutral} trousers",
+      "text": "a {main} linen blouse and wide {neutral} pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -345,7 +345,7 @@
       }
     },
     {
-      "text": "a cotton shirt with {main} and {accent} checks and stonewashed denim dungarees",
+      "text": "a cotton shirt with {main} and {accent} checks and stonewashed denim overalls",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -401,7 +401,7 @@
       }
     },
     {
-      "text": "a {main} henley shirt and {neutral} canvas trousers",
+      "text": "a {main} henley shirt and {neutral} canvas pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -588,7 +588,7 @@
       }
     },
     {
-      "text": "a {main} short-sleeved linen top and {neutral} drawstring trousers",
+      "text": "a {main} short-sleeved linen top and {neutral} drawstring pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -629,7 +629,7 @@
       }
     },
     {
-      "text": "a {main} fleece pullover and {neutral} hiking trousers",
+      "text": "a {main} fleece pullover and {neutral} hiking pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -685,7 +685,7 @@
       }
     },
     {
-      "text": "a {main} canvas boiler suit with rolled sleeves",
+      "text": "a {main} canvas coverall with rolled sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -714,7 +714,7 @@
       }
     },
     {
-      "text": "a {main} hoodie and {neutral} cargo trousers",
+      "text": "a {main} hoodie and {neutral} cargo pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -801,7 +801,7 @@
       }
     },
     {
-      "text": "a {main} knit vest over a {accent} shirt with {neutral} trousers",
+      "text": "a {main} knit vest over a {accent} shirt with {neutral} pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -891,7 +891,7 @@
       }
     },
     {
-      "text": "an embroidered {main} kurta and loose {neutral} cotton pajama trousers",
+      "text": "an embroidered {main} kurta and loose {neutral} cotton pajama pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1076,7 +1076,7 @@
       }
     },
     {
-      "text": "a cotton djellaba with {main} and {accent} stripes over loose {neutral} trousers",
+      "text": "a cotton djellaba with {main} and {accent} stripes over loose {neutral} pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1154,7 +1154,7 @@
       }
     },
     {
-      "text": "a {main} boubou over matching cotton trousers",
+      "text": "a {main} boubou over matching cotton pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1198,7 +1198,7 @@
       }
     },
     {
-      "text": "an embroidered {main} dashiki with {accent} stitching and {neutral} trousers",
+      "text": "an embroidered {main} dashiki with {accent} stitching and {neutral} pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1229,7 +1229,7 @@
       }
     },
     {
-      "text": "a {main} guayabera and {neutral} linen trousers",
+      "text": "a {main} guayabera and {neutral} linen pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1345,7 +1345,7 @@
       }
     },
     {
-      "text": "a {main} samue jacket and matching loose trousers",
+      "text": "a {main} samue jacket and matching loose pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1411,7 +1411,7 @@
       }
     },
     {
-      "text": "a loose {main} long-sleeved tunic and {neutral} harem trousers",
+      "text": "a loose {main} long-sleeved tunic and {neutral} harem pants",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1443,7 +1443,7 @@
       }
     },
     {
-      "text": "a {main} cropped canvas chore vest over a {accent} T-shirt and {neutral} barrel-leg trousers",
+      "text": "a {main} cropped canvas chore vest over a {accent} T-shirt and {neutral} barrel-leg pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1546,7 +1546,7 @@
       }
     },
     {
-      "text": "a {main} cotton turtleneck and {neutral} straight wool trousers",
+      "text": "a {main} cotton turtleneck and {neutral} straight wool pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1571,7 +1571,7 @@
       }
     },
     {
-      "text": "a {main} boat-neck jersey top and {neutral} cropped cotton trousers",
+      "text": "a {main} boat-neck jersey top and {neutral} cropped cotton pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1646,7 +1646,7 @@
       }
     },
     {
-      "text": "a {main} velour zip hoodie and matching flared track trousers",
+      "text": "a {main} velour zip hoodie and matching flared track pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1721,7 +1721,7 @@
       }
     },
     {
-      "text": "an oversized {main} cotton T-shirt and {neutral} parachute trousers",
+      "text": "an oversized {main} cotton T-shirt and {neutral} parachute pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1771,7 +1771,7 @@
       }
     },
     {
-      "text": "a {main} cropped jersey top and {neutral} low-rise cargo trousers",
+      "text": "a {main} cropped jersey top and {neutral} low-rise cargo pants",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1877,7 +1877,7 @@
       }
     },
     {
-      "text": "a {main} crochet camisole and {neutral} wide-leg linen trousers",
+      "text": "a {main} crochet camisole and {neutral} wide-leg linen pants",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1933,7 +1933,7 @@
       }
     },
     {
-      "text": "a {main} linen waistcoat over a {accent} long-sleeved blouse and {neutral} palazzo trousers",
+      "text": "a {main} linen vest over a {accent} long-sleeved blouse and {neutral} palazzo pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1961,7 +1961,7 @@
       }
     },
     {
-      "text": "a {main} cotton chore jacket over a {accent} henley and {neutral} canvas trousers",
+      "text": "a {main} cotton chore jacket over a {accent} henley and {neutral} canvas pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2036,7 +2036,7 @@
       }
     },
     {
-      "text": "a {main} side-fastening seated-cut overshirt and {neutral} elastic-waist canvas trousers",
+      "text": "a {main} side-fastening seated-cut overshirt and {neutral} elastic-waist canvas pants",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -2164,7 +2164,7 @@
       }
     },
     {
-      "text": "a {main} fine-knit crew-neck sweater and matching straight jersey trousers",
+      "text": "a {main} fine-knit crew-neck sweater and matching straight jersey pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2242,7 +2242,7 @@
       }
     },
     {
-      "text": "a {main} long-sleeved jersey tunic and matching wide-leg trousers",
+      "text": "a {main} long-sleeved jersey tunic and matching wide-leg pants",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -2351,7 +2351,7 @@
       }
     },
     {
-      "text": "a {main} thobe beneath a cropped {accent} sleeveless brocade waistcoat",
+      "text": "a {main} thobe beneath a cropped {accent} sleeveless brocade vest",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2416,7 +2416,7 @@
       }
     },
     {
-      "text": "a patched {main} canvas coat and faded {neutral} cargo trousers",
+      "text": "a patched {main} canvas coat and faded {neutral} cargo pants",
       "tier": "typical",
       "tags": {
         "genre": [

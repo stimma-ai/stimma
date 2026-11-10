@@ -4,7 +4,7 @@
   "description": "Sleepwear and soft indoor leisure outfits described as complete garment combinations.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete pajamas, nightdresses, robes over underlayers, and relaxed home clothes. Casual owns everyday streetwear; athletic owns workout kit; summer owns swimwear. Excludes underwear-only looks, bedclothes, props, locations, and body descriptions. Palette roles coordinate garment colors; white and undyed historical shifts retain intrinsic colors. Coverage describes garment extent. Historical dyed looks use muted, earthy or light schemes.",
+  "notes": "Complete pajamas, nightgowns, robes over underlayers, and relaxed home clothes. Casual owns everyday streetwear; athletic owns workout clothes; summer owns swimwear. Excludes underwear-only looks, bedclothes, props, locations, and body descriptions. Palette roles coordinate garment colors; white and undyed historical shifts retain intrinsic colors. Coverage describes garment extent. Historical dyed looks use muted, earthy or light schemes.",
   "facets": [
     "presentation",
     "age",
@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a {main} cotton pajama shirt and matching loose trousers",
+      "text": "a {main} cotton pajama shirt and matching loose pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -62,7 +62,7 @@
       }
     },
     {
-      "text": "a {main} jersey T-shirt and soft {neutral} lounge trousers",
+      "text": "a {main} jersey T-shirt and soft {neutral} lounge pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -118,7 +118,7 @@
       }
     },
     {
-      "text": "a {main} flannel pajama shirt and trousers with {main} and {accent} checks",
+      "text": "a {main} flannel pajama shirt and pants with {main} and {accent} checks",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -154,7 +154,7 @@
       }
     },
     {
-      "text": "a white cotton nightdress with long sleeves",
+      "text": "a white cotton nightgown with long sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -190,7 +190,7 @@
       }
     },
     {
-      "text": "a {main} satin pajama shirt and matching wide-leg trousers",
+      "text": "a {main} satin pajama shirt and matching wide-leg pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -316,7 +316,7 @@
       }
     },
     {
-      "text": "a {main} terrycloth robe over a {neutral} cotton nightdress",
+      "text": "a {main} terrycloth robe over a {neutral} cotton nightgown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -373,7 +373,7 @@
       }
     },
     {
-      "text": "a {main} lounge cardigan and matching knitted trousers",
+      "text": "a {main} lounge cardigan and matching knitted pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -551,7 +551,7 @@
       }
     },
     {
-      "text": "a {main} cotton pajama top and matching capri trousers",
+      "text": "a {main} cotton pajama top and matching capri pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -578,7 +578,7 @@
       }
     },
     {
-      "text": "a {main} jersey nightdress with short sleeves",
+      "text": "a {main} jersey nightgown with short sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -635,7 +635,7 @@
       }
     },
     {
-      "text": "a {main} silk camisole and matching loose pajama trousers",
+      "text": "a {main} silk camisole and matching loose pajama pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -665,7 +665,7 @@
       }
     },
     {
-      "text": "a {main} satin robe over a matching knee-length nightdress",
+      "text": "a {main} satin robe over a matching knee-length nightgown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -696,7 +696,7 @@
       }
     },
     {
-      "text": "a {main} cotton kurta and loose {neutral} pajama trousers",
+      "text": "a {main} cotton kurta and loose {neutral} pajama pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -807,7 +807,7 @@
       }
     },
     {
-      "text": "a {main} sleeveless quilted lounge vest over a {accent} ribbed top and {neutral} wide cropped trousers",
+      "text": "a {main} sleeveless quilted lounge vest over a {accent} ribbed top and {neutral} wide cropped pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -831,7 +831,7 @@
       }
     },
     {
-      "text": "a {main} velour zip jacket and matching lounge trousers",
+      "text": "a {main} velour zip jacket and matching lounge pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -982,7 +982,7 @@
       }
     },
     {
-      "text": "a {main} fleece dressing gown over {neutral} jersey pajamas",
+      "text": "a {main} fleece robe over {neutral} jersey pajamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1012,7 +1012,7 @@
       }
     },
     {
-      "text": "a {main} hooded lounge tunic and {neutral} stretch trousers",
+      "text": "a {main} hooded lounge tunic and {neutral} stretch pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1038,7 +1038,7 @@
       }
     },
     {
-      "text": "a {main} pointelle-knit long-sleeved sleep top and matching flared trousers with broad {accent} lace ankle ruffles",
+      "text": "a {main} pointelle-knit long-sleeved sleep top and matching flared pants with broad {accent} lace ankle ruffles",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1213,7 +1213,7 @@
       }
     },
     {
-      "text": "a {main} short-sleeved jersey sleep top and matching cropped harem trousers",
+      "text": "a {main} short-sleeved jersey sleep top and matching cropped harem pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1356,7 +1356,7 @@
       "adult_only": true
     },
     {
-      "text": "a short {main} cotton nightdress with narrow straps and a gathered neckline",
+      "text": "a short {main} cotton nightgown with narrow straps and a gathered neckline",
       "tier": "typical",
       "tags": {
         "kind": [

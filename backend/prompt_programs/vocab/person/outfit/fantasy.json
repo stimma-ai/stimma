@@ -28,7 +28,7 @@
   },
   "values": [
     {
-      "text": "a {main} wool tunic and {neutral} lace-up trousers",
+      "text": "a {main} wool tunic and {neutral} lace-up pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -58,7 +58,7 @@
       }
     },
     {
-      "text": "a {main} linen robe over {neutral} ankle-gathered trousers",
+      "text": "a {main} linen robe over {neutral} ankle-gathered pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -277,7 +277,7 @@
       }
     },
     {
-      "text": "a silver mail shirt over a padded {main} tunic and {neutral} wool trousers",
+      "text": "a silver mail shirt over a padded {main} tunic and {neutral} wool pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -335,7 +335,7 @@
       }
     },
     {
-      "text": "a steel breastplate over a {main} gambeson and {neutral} quilted trousers",
+      "text": "a steel breastplate over a {main} gambeson and {neutral} quilted pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -456,7 +456,7 @@
       }
     },
     {
-      "text": "a patched {main} tunic and oversized {neutral} wool trousers",
+      "text": "a patched {main} tunic and oversized {neutral} wool pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -517,7 +517,7 @@
       }
     },
     {
-      "text": "a {main} wrap tunic and {neutral} gathered trousers",
+      "text": "a {main} wrap tunic and {neutral} gathered pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -576,7 +576,7 @@
       }
     },
     {
-      "text": "a {main} quilted surcoat over steel mail and {neutral} padded trousers",
+      "text": "a {main} quilted surcoat over steel mail and {neutral} padded pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -686,7 +686,7 @@
       }
     },
     {
-      "text": "a {main} tiered capelet of embroidered fern-shaped panels over a fitted {accent} tunic and {neutral} flared trousers",
+      "text": "a {main} tiered capelet of embroidered fern-shaped panels over a fitted {accent} tunic and {neutral} flared pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -715,7 +715,7 @@
       }
     },
     {
-      "text": "a {main} patchwork cloak over a {accent} linen shirt and {neutral} trousers",
+      "text": "a {main} patchwork cloak over a {accent} linen shirt and {neutral} pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -811,7 +811,7 @@
       }
     },
     {
-      "text": "a silver lamellar coat over a {main} tunic and {neutral} trousers",
+      "text": "a silver lamellar coat over a {main} tunic and {neutral} pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -871,7 +871,7 @@
       }
     },
     {
-      "text": "a {main} knee-length linen smock with rolled sleeves over {neutral} cropped trousers and a broad {accent} pocketed apron",
+      "text": "a {main} knee-length linen smock with rolled sleeves over {neutral} cropped pants and a broad {accent} pocketed apron",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -935,7 +935,7 @@
       }
     },
     {
-      "text": "a sculpted gold lamellar robe over {neutral} pleated trousers",
+      "text": "a sculpted gold lamellar robe over {neutral} pleated pants",
       "tier": "unusual",
       "tags": {
         "genre": [
@@ -963,7 +963,7 @@
       }
     },
     {
-      "text": "a {main} velvet frock coat and {accent} brocade waistcoat with {neutral} trousers",
+      "text": "a {main} velvet frock coat and {accent} brocade vest with {neutral} pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1245,7 +1245,7 @@
       }
     },
     {
-      "text": "a sleeveless {main} brocade tunic over {neutral} cropped silk trousers with {accent} knotted hems",
+      "text": "a sleeveless {main} brocade tunic over {neutral} cropped silk pants with {accent} knotted hems",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1272,7 +1272,7 @@
       }
     },
     {
-      "text": "a fitted {main} suede hooded doublet with {neutral} split-knee trousers and {accent} cloth wrist wraps",
+      "text": "a fitted {main} suede hooded doublet with {neutral} split-knee pants and {accent} cloth wrist wraps",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1355,7 +1355,7 @@
       "adult_only": true
     },
     {
-      "text": "a fur-lined {main} wool hooded coat over {neutral} felt trousers and leather boots",
+      "text": "a fur-lined {main} wool hooded coat over {neutral} felt pants and leather boots",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1381,7 +1381,7 @@
       }
     },
     {
-      "text": "a {main} linen tabard over a {neutral} short-sleeved tunic and {accent} cropped trousers",
+      "text": "a {main} linen tabard over a {neutral} short-sleeved tunic and {accent} cropped pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1407,7 +1407,7 @@
       }
     },
     {
-      "text": "a {main} waxed-canvas hooded cape over a {accent} wool jerkin and {neutral} riding trousers",
+      "text": "a {main} waxed-canvas hooded cape over a {accent} wool jerkin and {neutral} riding pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1614,7 +1614,7 @@
       }
     },
     {
-      "text": "a steel mail hauberk beneath a {main} split ceremonial surcoat and {neutral} padded trousers",
+      "text": "a steel mail hauberk beneath a {main} split ceremonial surcoat and {neutral} padded pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1698,7 +1698,7 @@
       }
     },
     {
-      "text": "a sheepskin-lined {main} wool smock over {neutral} patched trousers and felt boots",
+      "text": "a sheepskin-lined {main} wool smock over {neutral} patched pants and felt boots",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1727,7 +1727,7 @@
       }
     },
     {
-      "text": "a {main} quilted silk kaftan with {accent} braided closures over {neutral} linen trousers",
+      "text": "a {main} quilted silk kaftan with {accent} braided closures over {neutral} linen pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1779,7 +1779,7 @@
       }
     },
     {
-      "text": "a {main} brocade waistcoat over a {accent} puff-sleeved shirt and {neutral} striped trousers",
+      "text": "a {main} brocade vest over a {accent} puff-sleeved shirt and {neutral} striped pants",
       "tier": "typical",
       "tags": {
         "genre": [

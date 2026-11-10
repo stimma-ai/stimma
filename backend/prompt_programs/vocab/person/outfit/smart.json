@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a {main} blazer, {accent} shirt, and {neutral} tailored trousers",
+      "text": "a {main} blazer, {accent} shirt, and {neutral} tailored pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -108,7 +108,7 @@
       }
     },
     {
-      "text": "a {main} linen blazer and matching tapered trousers",
+      "text": "a {main} linen blazer and matching tapered pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -148,7 +148,7 @@
       }
     },
     {
-      "text": "a {accent} silk blouse and {main} cigarette trousers",
+      "text": "a {accent} silk blouse and {main} cigarette pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -188,7 +188,7 @@
       }
     },
     {
-      "text": "a {main} turtleneck and {neutral} wool dress trousers",
+      "text": "a {main} turtleneck and {neutral} wool dress pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -301,7 +301,7 @@
       }
     },
     {
-      "text": "a {accent} Oxford shirt and {main} pleated trousers",
+      "text": "a {accent} Oxford shirt and {main} pleated pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -381,7 +381,7 @@
       }
     },
     {
-      "text": "a {main} cardigan over a {accent} shirt and {neutral} trousers",
+      "text": "a {main} cardigan over a {accent} shirt and {neutral} pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -462,7 +462,7 @@
       }
     },
     {
-      "text": "a {main} waistcoat over a {accent} shirt and {neutral} trousers",
+      "text": "a {main} vest over a {accent} shirt and {neutral} pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -502,7 +502,7 @@
       }
     },
     {
-      "text": "a {accent} jersey top and a {main} trouser suit",
+      "text": "a {accent} jersey top and a {main} pantsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -624,7 +624,7 @@
       }
     },
     {
-      "text": "a {main} collarless jacket and matching straight trousers",
+      "text": "a {main} collarless jacket and matching straight pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -784,7 +784,7 @@
       }
     },
     {
-      "text": "a {main} sweater vest over a {accent} shirt and {neutral} trousers",
+      "text": "a {main} sweater vest over a {accent} shirt and {neutral} pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -822,7 +822,7 @@
       }
     },
     {
-      "text": "a {accent} roll-neck and a {main} checked midi skirt",
+      "text": "a {accent} turtleneck and a {main} checked midi skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -942,7 +942,7 @@
       }
     },
     {
-      "text": "a {main} linen waistcoat and matching pleated trousers",
+      "text": "a {main} linen vest and matching pleated pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -982,7 +982,7 @@
       }
     },
     {
-      "text": "a {accent} tunic blouse and {neutral} palazzo trousers",
+      "text": "a {accent} tunic blouse and {neutral} palazzo pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1023,7 +1023,7 @@
       }
     },
     {
-      "text": "a {main} silk kurta and {neutral} straight trousers",
+      "text": "a {main} silk kurta and {neutral} straight pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1068,7 +1068,7 @@
       }
     },
     {
-      "text": "a {main} band-collar jacket and matching tailored trousers",
+      "text": "a {main} band-collar jacket and matching tailored pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1282,7 +1282,7 @@
       }
     },
     {
-      "text": "a {main} batik shirt and pressed {neutral} trousers",
+      "text": "a {main} batik shirt and pressed {neutral} pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1323,7 +1323,7 @@
       }
     },
     {
-      "text": "a short-sleeved cotton barong Tagalog and {neutral} tailored trousers",
+      "text": "a short-sleeved cotton barong Tagalog and {neutral} tailored pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1411,7 +1411,7 @@
       }
     },
     {
-      "text": "a {main} embroidered guayabera and {neutral} dress trousers",
+      "text": "a {main} embroidered guayabera and {neutral} dress pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1452,7 +1452,7 @@
       }
     },
     {
-      "text": "a {main} tang jacket and {neutral} tailored trousers",
+      "text": "a {main} tang jacket and {neutral} tailored pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1493,7 +1493,7 @@
       }
     },
     {
-      "text": "a {main} wax-print jacket and {neutral} tailored trousers",
+      "text": "a {main} wax-print jacket and {neutral} tailored pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1534,7 +1534,7 @@
       }
     },
     {
-      "text": "a {main} kaftan with structured shoulders and matching trousers",
+      "text": "a {main} kaftan with structured shoulders and matching pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1575,7 +1575,7 @@
       }
     },
     {
-      "text": "a {main} sleeveless knee-length tailored waistcoat over a {accent} shirt dress and {neutral} opaque tights",
+      "text": "a {main} sleeveless knee-length tailored vest over a {accent} shirt dress and {neutral} opaque tights",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1612,7 +1612,7 @@
       }
     },
     {
-      "text": "a {main} cape-back blazer over a {accent} shell top and {neutral} split-hem cigarette trousers",
+      "text": "a {main} cape-back blazer over a {accent} shell top and {neutral} split-hem cigarette pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1720,7 +1720,7 @@
       }
     },
     {
-      "text": "a {main} sleeveless longline blazer over a {accent} fine-knit top and {neutral} flared trousers",
+      "text": "a {main} sleeveless longline blazer over a {accent} fine-knit top and {neutral} flared pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1791,7 +1791,7 @@
       }
     },
     {
-      "text": "a {main} box-pleated overshirt with a wide belt over a {accent} cotton top and {neutral} tapered trousers",
+      "text": "a {main} box-pleated overshirt with a wide belt over a {accent} cotton top and {neutral} tapered pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1825,7 +1825,7 @@
       }
     },
     {
-      "text": "a {main} cropped bolero jacket over a {accent} poplin shirt and matching high-waisted wide-leg trousers",
+      "text": "a {main} cropped bolero jacket over a {accent} poplin shirt and matching high-waisted wide-leg pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1860,7 +1860,7 @@
       }
     },
     {
-      "text": "a {main} herringbone jacket over a {accent} merino crew-neck and {neutral} flannel trousers",
+      "text": "a {main} herringbone jacket over a {accent} merino crew-neck and {neutral} flannel slacks",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1885,7 +1885,7 @@
       }
     },
     {
-      "text": "a {main} short-sleeved camp-collar linen shirt and {neutral} pressed cotton trousers",
+      "text": "a {main} short-sleeved camp-collar linen shirt and {neutral} pressed cotton pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1963,7 +1963,7 @@
       }
     },
     {
-      "text": "a {main} longline crepe blazer over a {accent} silk shell and {neutral} wide-leg trousers",
+      "text": "a {main} longline crepe blazer over a {accent} silk shell and {neutral} wide-leg pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2028,7 +2028,7 @@
       }
     },
     {
-      "text": "a {main} cropped box jacket over a {accent} ribbed tank and {neutral} pleated trousers",
+      "text": "a {main} cropped box jacket over a {accent} ribbed tank and {neutral} pleated pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2053,7 +2053,7 @@
       }
     },
     {
-      "text": "a {main} wrap-front long-sleeved blouse and {neutral} straight wool trousers",
+      "text": "a {main} wrap-front long-sleeved blouse and {neutral} straight wool pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2109,7 +2109,7 @@
       }
     },
     {
-      "text": "a {main} long-sleeved crepe tunic with side slits and matching ankle-length trousers",
+      "text": "a {main} long-sleeved crepe tunic with side slits and matching ankle-length pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2134,7 +2134,7 @@
       }
     },
     {
-      "text": "a {main} seated-cut blazer with front patch pockets and matching elastic-back dress trousers over a {accent} cotton shirt",
+      "text": "a {main} seated-cut blazer with front patch pockets and matching elastic-back dress pants over a {accent} cotton shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2159,7 +2159,7 @@
       }
     },
     {
-      "text": "a {main} magnetic-button cotton shirt and {neutral} side-opening tailored trousers",
+      "text": "a {main} magnetic-button cotton shirt and {neutral} side-opening tailored pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2212,7 +2212,7 @@
       }
     },
     {
-      "text": "a {main} long-sleeved silk shirt with a concealed placket and {neutral} tapered dress trousers",
+      "text": "a {main} long-sleeved silk shirt with a concealed placket and {neutral} tapered dress pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2290,7 +2290,7 @@
       }
     },
     {
-      "text": "a {main} ribbed knitted capelet over a {accent} cotton shirt and {neutral} wool trousers",
+      "text": "a {main} ribbed knitted capelet over a {accent} cotton shirt and {neutral} wool pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2324,7 +2324,7 @@
       }
     },
     {
-      "text": "a {main} asymmetric crepe tunic with elbow sleeves and {neutral} cropped trousers",
+      "text": "a {main} asymmetric crepe tunic with elbow sleeves and {neutral} cropped pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2352,7 +2352,7 @@
       }
     },
     {
-      "text": "a {main} long-sleeved cotton kurta beneath a {accent} woven waistcoat with {neutral} straight trousers",
+      "text": "a {main} long-sleeved cotton kurta beneath a {accent} woven vest with {neutral} straight pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2383,7 +2383,7 @@
       }
     },
     {
-      "text": "a {main} long-sleeved belted tunic and matching tapered trousers with pintucked seams",
+      "text": "a {main} long-sleeved belted tunic and matching tapered pants with pintucked seams",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2464,7 +2464,7 @@
       }
     },
     {
-      "text": "a {main} double-breasted wool blazer over a {accent} silk shirt and {neutral} straight trousers",
+      "text": "a {main} double-breasted wool blazer over a {accent} silk shirt and {neutral} straight pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2489,7 +2489,7 @@
       }
     },
     {
-      "text": "a {main} patch-pocket cotton jacket over a {accent} knitted polo and {neutral} tailored drawstring trousers",
+      "text": "a {main} patch-pocket cotton jacket over a {accent} knitted polo and {neutral} tailored drawstring pants",
       "tier": "typical",
       "tags": {
         "formality": [

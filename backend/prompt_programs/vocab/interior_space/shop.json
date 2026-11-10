@@ -17,7 +17,7 @@
   "closed": false,
   "values": [
     {
-      "text": "a grocery shop with produce crates and narrow aisles",
+      "text": "a grocery store with produce crates and narrow aisles",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -118,7 +118,7 @@
       }
     },
     {
-      "text": "a clothing shop with garment rails and curtained changing booths, neatly arranged",
+      "text": "a clothing shop with clothing racks and curtained changing booths, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -301,7 +301,7 @@
       }
     },
     {
-      "text": "a charity shop with mismatched racks and donated crockery",
+      "text": "a thrift store with mismatched racks and donated dishes",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -708,7 +708,7 @@
       }
     },
     {
-      "text": "a sweet shop with glass jars and a brass scale, neatly arranged",
+      "text": "a candy store with glass jars and a brass scale, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -787,7 +787,7 @@
       }
     },
     {
-      "text": "a mobile-phone shop with tethered handsets and accessory walls, neatly arranged",
+      "text": "a cell phone store with tethered handsets and accessory walls, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -918,7 +918,7 @@
       }
     },
     {
-      "text": "a boutique with stone plinths and widely spaced garment rails, neatly arranged",
+      "text": "a boutique with stone plinths and widely spaced clothing racks, neatly arranged",
       "tier": "typical",
       "tags": {
         "budget": [
@@ -1090,7 +1090,7 @@
       }
     },
     {
-      "text": "a general store with barrel displays and a wooden till",
+      "text": "a general store with barrel displays and a wooden cash register",
       "tier": "typical",
       "tags": {
         "era": [

@@ -57,7 +57,7 @@
       }
     },
     {
-      "text": "an alley with fire escapes and wheeled bins",
+      "text": "an alley with fire escapes and wheeled trash cans",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -102,7 +102,7 @@
       }
     },
     {
-      "text": "a railway platform with benches and a corrugated canopy",
+      "text": "a train platform with benches and a corrugated canopy",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -733,7 +733,7 @@
       }
     },
     {
-      "text": "a railway goods yard with turntables and timber loading platforms",
+      "text": "a railroad freight yard with turntables and timber loading platforms",
       "tier": "typical",
       "tags": {
         "era": [
