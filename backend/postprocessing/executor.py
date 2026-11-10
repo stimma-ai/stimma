@@ -847,6 +847,7 @@ async def _run_tool_step(
             session=session,
             project_id=project_id,
             generator_instance_id=CHAIN_INSTANCE_ID,
+            prompt_processed=True,  # the step's own pipeline ran above
         )
     media_id = result.get("media_id")
     if not media_id:

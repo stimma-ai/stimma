@@ -770,10 +770,11 @@ async def execute_call_tool(
 
     # How the prompt goes out (prompt_handling.py): the person's Direct handling by
     # default, a rewrite per enhance_prompt, or fresh choices with vary. Internal callers
-    # that pass no flag (flows) get Direct with no rewrite.
-    from ..prompt_handling import prepare_prompt
+    # that pass no flag (flows) get Direct with no rewrite. A caller that already ran
+    # the prompt through its own pipeline (a chain step, Raw included) sends it as given.
+    from ..prompt_handling import PreparedPrompt, prepare_prompt
     prompt_request = kwargs.get("prompt_request") or prompt_request_for
-    prepared = await prepare_prompt(
+    prepared = PreparedPrompt(job_params) if kwargs.get("prompt_processed") else await prepare_prompt(
         job_params,
         tool_id=tool_id,
         task_type=task_type,

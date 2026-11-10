@@ -604,3 +604,29 @@ def test_follow_input_dims_list_tool_keeps_default_short_edge():
         "height": {"type": "integer", "default": 1536},
     }})
     assert follow_input_dims(desc, 720, 1280) == (1440, 2560)
+
+
+@pytest.mark.asyncio
+async def test_a_prompt_its_caller_already_processed_goes_out_as_given():
+    """A chain step runs its own prompt pipeline (a Raw step sends its words exactly as
+    typed, for a later stage to fill): the call doesn't handle the prompt again."""
+    captured = {}
+
+    class _Queue:
+        async def submit_job(self, **kw):
+            captured["params"] = kw["parameters"]
+            raise RuntimeError("__stop__")
+
+    raw = "a {red|blue} car on {{downstream_list}}"
+    with patch.object(ct, "ProviderRegistry", _Reg), \
+         patch.object(ct, "get_generation_queue", lambda: _Queue()), \
+         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"):
+        with pytest.raises(RuntimeError, match="__stop__"):
+            await ct.execute_call_tool(
+                tool_id="comfyui:mock",
+                parameters={"prompt": raw},
+                task_type_override="text-to-image",
+                session=object(),
+                prompt_processed=True,
+            )
+    assert captured["params"]["prompt"] == raw

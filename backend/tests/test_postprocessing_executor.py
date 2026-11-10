@@ -361,6 +361,7 @@ class TestChainPromptPipeline:
 
         async def fake_execute_call_tool(**kwargs):
             seen["parameters"] = kwargs["parameters"]
+            seen["prompt_processed"] = kwargs.get("prompt_processed")
             return {"media_id": 4242}
 
         async def fake_pipeline(db, prompt, prompt_options, tool_id, task_type, input_media_id,
@@ -389,6 +390,7 @@ class TestChainPromptPipeline:
         )
         assert media_id == 4242
         assert seen["parameters"]["prompt"] == "make it moody [ENHANCED]"
+        assert seen["prompt_processed"] is True  # not handled a second time
         assert seen["prompt_options"] == step["promptOptions"]
         assert seen["profile_id"] == "default"
         # promptOptions must never leak into the STP parameters.
