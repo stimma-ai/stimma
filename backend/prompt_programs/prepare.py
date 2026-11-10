@@ -1267,14 +1267,16 @@ def enhance_level(enhance: Optional[str], elaborate: bool = True) -> str:
 async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], instructions: str,
                          lora_items: Sequence[Dict[str, Any]], project_id: Optional[int],
                          profile_id: Optional[str], cache_only: bool = False, force: bool = False,
-                         elaborate: bool = True, lora_notes: bool = True,
+                         elaborate: bool = True, lora_notes: bool = True, lora_triggers: bool = True,
                          base_key: Optional[str] = None, enhance: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """The prepared program for these inputs, from cache or by asking the model.
     enhance: "expand" (the per-model guide is part of the writer's instructions and the
     program writes a complete, rich prompt with content picks), "fill" (a short per-model
     guide: the user's words plus only what the model needs to read them, no added picks) or
     "off" (the user's own words). Without it, elaborate picks expand or off. base_key: the
-    program the editor showed before this prompt (an edit continues from it when it fits)."""
+    program the editor showed before this prompt (an edit continues from it when it fits).
+    lora_triggers: the prompt menu's "Trigger words"; off, the writer isn't told the on
+    LoRAs' trigger words (so it never writes them), as the classic enhancer isn't."""
     level = enhance_level(enhance, elaborate)
     elaborate = level == "expand"
     from prompt_pipeline import _profile_wildcards_and_segments
@@ -1297,8 +1299,11 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     # prompt asks to choose LoRAs). The enhancer is told only about the LoRAs switched on,
     # for their trigger words and notes; choosing isn't its job, and names aren't prompt text.
     loras = match_loras(source_prompt, candidates)
-    lora_context = [{"name": lo.name, "trigger_words": [t.strip() for t in lo.trigger.split(",") if t.strip()],
-                     "notes": notes.get(lo.name, "")} for lo in candidates if lo.on and (lo.trigger or notes.get(lo.name))]
+    # With "Trigger words" off they reach neither the writer nor the key: only the notes do.
+    lora_context = [{"name": lo.name,
+                     "trigger_words": [t.strip() for t in lo.trigger.split(",") if t.strip()] if lora_triggers else [],
+                     "notes": notes.get(lo.name, "")}
+                    for lo in candidates if lo.on and ((lo.trigger and lora_triggers) or notes.get(lo.name))]
     # The canvas only matters to layout formats (Ideogram), which have no programs;
     # leaving it out keeps a prepared program valid across sizes.
     enhance = {k: v for k, v in (ctx.get("enhance") or {}).items() if k not in ("width", "height")}

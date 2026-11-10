@@ -766,3 +766,28 @@ class TestPlainFailures:
         body = {"tool_id": "t", "prompt": PROMPT, "choice_id": "weather", "existing": ["x"] * 500}
         assert _route_client(monkeypatch).post("/api/prompt-programs/options", json=body).status_code == 422
 
+
+class TestTriggerWordsToggle:
+    """With "Trigger words" off the writer never hears the on LoRAs' trigger words."""
+
+    def test_off_keeps_trigger_words_from_the_writer(self, model, monkeypatch):
+        from prompt_programs.runtime import LoraInfo
+        heard = []
+
+        async def style(prompt, ctx, instructions, lora_context, *a, **kw):
+            heard.append(lora_context)
+            return "STYLE GUIDE", []
+
+        async def on_lora(tool_id, items, profile_id):
+            return [LoraInfo("Wolf cut", "k/w", 0.9, "wolfcut", on=True),
+                    LoraInfo("Noted", "k/n", 0.9, "notedz", on=True)], {"Noted": "soft light"}
+
+        monkeypatch.setattr(prep, "writer_style", style)
+        monkeypatch.setattr(prep, "lora_candidates", on_lora)
+        model.replies = [reply(write(GOOD)), reply(write(GOOD))]
+        on = asyncio.run(ensure())
+        off = asyncio.run(ensure(lora_triggers=False))
+        assert [c["trigger_words"] for c in heard[0]] == [["wolfcut"], ["notedz"]]
+        assert heard[1] == [{"name": "Noted", "trigger_words": [], "notes": "soft light"}]  # notes still go
+        assert on["key"] != off["key"]
+        assert "wolfcut" not in json.dumps(model.seen[1]) and "notedz" not in json.dumps(model.seen[1])
