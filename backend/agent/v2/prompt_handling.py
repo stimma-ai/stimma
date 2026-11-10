@@ -247,8 +247,8 @@ async def prepare_prompt(
 ) -> PreparedPrompt:
     """The job's parameters with its prompt handled as asked, plus what to tell the agent.
 
-    Raises PromptHandlingError (plain, fixable words) when nothing should be generated.
-    Enhancement failures keep their existing message (raised by the caller's wrapper).
+    Raises PromptHandlingError (plain, fixable words) when nothing should be generated;
+    a failed rewrite raises ValueError with the message the agent has always seen.
     """
     prompt = job_params.get("prompt")
     if not isinstance(prompt, str) or not prompt.strip():
