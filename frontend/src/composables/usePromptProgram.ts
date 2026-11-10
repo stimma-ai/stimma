@@ -33,6 +33,8 @@ export interface ProgramChoice {
   group?: string
   index?: number
   attr?: string
+  /** One value for every subject (the user asked for the same: matching outfits). */
+  shared?: boolean
   /** The user's own {{name}} smart wildcard this choice fills. */
   wildcard?: string
   /** The vocabulary list this pick draws from; its options are the list's values. */
