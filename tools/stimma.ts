@@ -660,6 +660,13 @@ Commands:
                       [--yes] skip the confirmation prompt
   releases cleanup [--report FILE]  Preview expired R2 release artifacts
                       Add --apply to delete (requires --report FILE)
+  models pack DIR --version V --license FILE [--model F] [--cut X] [--out DIR]
+                      Build a versioned model release dir (allowlisted files + manifest)
+  models verify DIR|VERSION|pinned [--base-url URL] [--selftest]
+                      Check a release dir, or that the bucket serves the pinned version
+  models publish DIR [--bucket B] [--dry-run]
+                      Upload a release to the models bucket, verify it, write the pin
+  models pin DIR      Write backend/model_manifests/<name>.json from a release dir
   dir               Print data directory path
   fork              List all sandboxes with sizes and ports
   fork create NAME  Snapshot default sandbox to a new named sandbox
@@ -2316,6 +2323,14 @@ async function main(): Promise<void> {
       if (sub !== "cleanup") printUsage();
       await run("uv", ["run", "--no-project", "--python", "3.11", "--with", "boto3==1.40.59", "--with", "pyyaml==6.0.3",
         "python", join(repoRoot, "tools", "release_cleanup.py"), ...rest], { cwd: repoRoot });
+      break;
+    }
+    case "models": {
+      if (!["pack", "verify", "publish", "pin"].includes(sub)) printUsage();
+      // The backend env runs the app's own judge for the pack/verify selftest; publish adds boto3.
+      const withBoto = sub === "publish" ? ["--with", "boto3==1.40.59"] : [];
+      await run("uv", ["run", ...withBoto, "python", join(repoRoot, "tools", "models_release.py"), sub, ...rest],
+        { cwd: join(repoRoot, "backend"), env: { STIMMA_CALLER_CWD: Deno.cwd() } });
       break;
     }
     case "mobile": {
