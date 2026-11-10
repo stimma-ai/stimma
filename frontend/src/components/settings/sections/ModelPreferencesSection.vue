@@ -71,7 +71,7 @@
           </template>
           <Toggle :model-value="flowsEnabled" :disabled="savingFlowsPreference" label="Enable Flows" @update:model-value="updateFlows" />
         </SettingRow>
-        <SettingRow v-if="fluentEnabled" :label="`${PROMPT_BRAND} judge`" :divider="true">
+        <SettingRow v-if="fluentEnabled && devModeRef" :label="`${PROMPT_BRAND} judge`" :divider="true">
           <div class="flex items-center gap-2" data-fluent-judge>
             <StatusDot v-if="judge.status !== 'off'" :bucket="judge.status === 'ready' ? 'done' : 'failed'" :title="judge.error || judge.version" />
             <input
@@ -103,13 +103,14 @@ import axios from 'axios'
 import { onMounted, ref } from 'vue'
 import { getApiBase } from '../../../apiConfig'
 import { PROMPT_BRAND, fluentEnabled } from '../../generation/promptBrand'
-import { setGenerationPreviews, imagePreviewsRef as imagePreviews, videoPreviewsRef as videoPreviews } from '../../../appConfig'
+import { setGenerationPreviews, imagePreviewsRef as imagePreviews, videoPreviewsRef as videoPreviews, devModeRef } from '../../../appConfig'
 
-// Fluent judge (dev/canary): a local model folder that checks each draw.
+// Fluent judge (dev mode only, until it has a real picker): a local model folder that
+// checks each draw. Reading it loads the model on the server, so only dev mode asks.
 const judge = ref({ status: 'off', model: '' })
 const judgeModel = ref('')
 async function loadJudge() {
-  if (!fluentEnabled.value) return
+  if (!fluentEnabled.value || !devModeRef.value) return
   try {
     const { data } = await axios.get(`${getApiBase()}/prompt-programs/fix-judge`)
     judge.value = data

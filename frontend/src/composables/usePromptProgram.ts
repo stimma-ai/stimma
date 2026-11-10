@@ -4,13 +4,16 @@ import { getApiBase } from '../apiConfig'
 import type { ChoiceVocab } from '../utils/programVocab'
 import { shownOption } from '../utils/programVocab'
 import { programSections } from '../utils/programChoiceLayout'
+import { prepareErrorCode } from '../utils/fluentSubmit'
+import { createChoiceCard } from '../utils/choiceCard'
 
 export type { ChoiceVocab } from '../utils/programVocab'
 
 /**
- * Prompt programs: unless Raw is on, the prompt is prepared once into a small program
- * (model calls once, cached on the server) and every generation runs it. Enhance on
- * writes a rich program; off keeps the user's own words. This holds
+ * Prompt programs: in Fluent (not Direct or Raw) the prompt is prepared once into a small
+ * program (the model is called once, cached on the server) and every generation runs it.
+ * Detail level decides how much the program adds: Yours keeps the user's words, Medium
+ * adds what the model needs, High fills in the rest. This holds
  * the prepared program for the current prompt, its status, and the user's pins and
  * edits to its choices. Pins and edits live in promptOptions, so they persist per
  * tool and ride presets like the rest of the prompt's settings.
@@ -41,7 +44,7 @@ export interface ProgramGroup { id: string; count: number; label: string; source
 export interface ProgramLora { name: string; path: string; weight: number; trigger: string }
 
 export interface PreparedProgram {
-  /** false: prepared at Detail Level Yours or Medium (the user's words kept). */
+  /** false: prepared at Detail level Yours or Medium (the user's words kept). Dev dialog only. */
   elaborate?: boolean
   enhance?: EnhanceLevel
   key: string
@@ -71,17 +74,16 @@ export interface ChoiceEdit { add?: string[]; remove?: string[]; off?: boolean }
 
 export type ProgramStatus = 'off' | 'ready' | 'stale' | 'busy' | 'error'
 
-/** Enhance: off keeps the user's words; fill adds only what the model needs; expand upsamples. */
+/** Detail level, by its wire values: off is Yours (the user's words), fill is Medium (adds
+    only what the model needs), expand is High (fills in the details left open). */
 export type EnhanceLevel = 'off' | 'fill' | 'expand'
 
 interface Options {
   toolId: Ref<string | null>
   prompt: Ref<string>
   enabled: ComputedRef<boolean>
-  /** Enhance on: the program elaborates. Off: it keeps the user's words. */
-  elaborate: ComputedRef<boolean>
-  /** The Enhance level; when given it decides, and elaborate is what older servers read. */
-  enhance?: ComputedRef<EnhanceLevel>
+  /** Detail level. */
+  enhance: ComputedRef<EnhanceLevel>
   /** Tell the model the user's LoRA notes. */
   loraNotes: ComputedRef<boolean>
   loraItems: ComputedRef<Array<{ lora: string; weight: number; enabled?: boolean }>>
@@ -100,8 +102,6 @@ export function usePromptProgram(o: Options) {
   const error = ref<{ sig: string; message: string; code?: string } | null>(null)
   // Formats that are still enhanced per image (MiniMax H3, Ideogram JSON) have no program.
   const unsupportedSig = ref<string | null>(null)
-  // Which choice card is open, and where it hangs from.
-  const openCard = ref<{ id: string; anchor: DOMRect } | null>(null)
 
   /** Everything but the prompt text: a prompt prepared under the same settings can still run. */
   const settingsSig = computed(() => JSON.stringify({
@@ -109,8 +109,7 @@ export function usePromptProgram(o: Options) {
     loras: o.loraItems.value.map(i => [i.lora, i.weight, !!i.enabled]),
     context: o.contextParams.value,
     instructions: o.instructions.value,
-    elaborate: o.elaborate.value,
-    enhance: o.enhance?.value,
+    enhance: o.enhance.value,
     loraNotes: o.loraNotes.value,
   }))
   const signature = computed(() => JSON.stringify({ prompt: (o.prompt.value || '').trim(), settings: settingsSig.value }))
@@ -137,8 +136,8 @@ export function usePromptProgram(o: Options) {
     return program.value && preparedSig.value === signature.value ? 'ready' : 'stale'
   })
 
-  /** This tool's prompt format can't be prepared (structured JSON formats): Add detail
-      enhances each image instead, and Keep my words isn't offered. */
+  /** This tool's prompt format can't be prepared (Ideogram JSON, MiniMax H3): each image's
+      prompt is written fuller instead, and Detail level isn't offered. */
   const unsupported = computed(() => unsupportedSig.value !== null && unsupportedSig.value === signature.value)
 
   const pins = computed<Record<string, string[]>>(() => o.promptOptions.value?.programPins || {})
@@ -174,8 +173,7 @@ export function usePromptProgram(o: Options) {
       loras: o.loraItems.value.map(i => ({ lora: i.lora, weight: i.weight, enabled: !!i.enabled })),
       parameters: o.contextParams.value,
       instructions: o.instructions.value || '',
-      elaborate: o.elaborate.value,
-      enhance: o.enhance?.value,
+      enhance: o.enhance.value,
       lora_notes: o.loraNotes.value,
       project_id: o.projectId.value ?? null,
       ...extra,
@@ -184,7 +182,7 @@ export function usePromptProgram(o: Options) {
 
   let lookupId = 0
   /** The server no longer has the program we showed as prepared (its cache was
-      cleared or reset): drop it so the dot says so and the next run prepares. */
+      cleared or reset): drop it so the next run prepares. */
   function forget(sig: string) {
     if (preparedSig.value !== sig) return
     program.value = null
@@ -204,7 +202,7 @@ export function usePromptProgram(o: Options) {
       preparedSig.value = sig
       markReady(sig)
     } catch {
-      // Not prepared yet: the dot says so; Run prepares.
+      // Not prepared yet: the next run prepares.
     }
   }
 
@@ -248,8 +246,7 @@ export function usePromptProgram(o: Options) {
       return true
     } catch (e: any) {
       const detail = e?.response?.data?.detail
-      // No response at all (timeout, network): the chat model couldn't be reached.
-      const code = detail?.code || (e?.response && e.response.status < 500 ? undefined : 'llm_unavailable')
+      const code = prepareErrorCode(e)
       error.value = { sig, code, message: (typeof detail === 'string' ? detail : detail?.message) || 'Couldn’t read this prompt.' }
       return false
     } finally {
@@ -402,7 +399,7 @@ export function usePromptProgram(o: Options) {
     if (c.kind === 'param') return `${c.options[0]}–${c.options[1]}`
     const all = optionsOf(c)
     const p = (pins.value[c.id] || []).filter(v => all.includes(v))
-    if (!p.length) return `${all.length} options`
+    if (!p.length) return all.length === 1 ? '1 option' : `${all.length} options`
     if (p.length === 1) return shownOption(p[0])
     return `${p.length} of ${all.length}`
   }
@@ -435,16 +432,14 @@ export function usePromptProgram(o: Options) {
     return out
   })
 
-  function open(id: string, el: Element | null) {
-    if (!el) return
-    openCard.value = { id, anchor: el.getBoundingClientRect() }
-  }
-  function close() { openCard.value = null }
+  // Which choice card is open, and where it hangs from. It closes itself when its choice
+  // goes (a new prepare without it), and never opens on one that isn't shown.
+  const { openCard, open, close } = createChoiceCard(byId)
 
   // Look up a prepared program when the tool or prompt settles (cheap, no model).
   let t: ReturnType<typeof setTimeout> | null = null
-  // Look again when the inputs change, and when programs turn back on (leaving
-  // Verbatim): a lookup that landed while they were off was skipped.
+  // Look again when the inputs change, and when programs turn back on (back to Fluent
+  // from Direct or Raw): a lookup that landed while they were off was skipped.
   watch([signature, () => o.enabled.value], () => {
     if (t) clearTimeout(t)
     t = setTimeout(lookup, 400)
@@ -455,9 +450,9 @@ export function usePromptProgram(o: Options) {
   onUnmounted(() => window.removeEventListener('focus', onFocus))
 
   return {
-    program, status, error, signature, elaborate: o.elaborate, unsupported, pins, edits, choices, sections, byId, openCard,
-    prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, lookup, fetchProgramText, previewRuns, suggestOptions,
-    setPins, setManyPins, setEdit, optionsOf, vocabOf, valueText, isPinned, visible,
+    program, status, error, unsupported, pins, edits, choices, sections, byId, openCard,
+    prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns, suggestOptions,
+    setPins, setManyPins, setEdit, optionsOf, vocabOf, valueText, isPinned,
     loraControl, paramControl, open, close,
   }
 }

@@ -30,9 +30,12 @@
         <div v-if="programRun" class="mt-4" data-program-draws>
           <div class="text-xs font-semibold text-content-secondary mb-2">Choices drawn</div>
           <PromptProgramRolls :run="programRun" />
-          <div class="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" @click="$emit('program-replay', programRun); $emit('close')">Same draws, new seed</Button>
-            <Button size="sm" variant="secondary" @click="$emit('program-use', programRun); $emit('close')">Use these choices</Button>
+          <!-- Only where the prompt feature runs, and only what still applies to the
+               prompt as it is now. -->
+          <div v-if="runActions" class="mt-3 flex flex-wrap items-center gap-2">
+            <Button size="sm" :disabled="!runActions.replay" :title="runActions.reason" @click="$emit('program-replay', programRun); $emit('close')">Same draws, new seed</Button>
+            <Button v-if="hasRunPins" size="sm" variant="secondary" @click="$emit('program-use', programRun); $emit('close')">Use these choices</Button>
+            <span v-if="runActions.reason" class="text-[11px] text-content-muted">{{ runActions.reason }}</span>
           </div>
         </div>
       </div>
@@ -65,6 +68,7 @@ import { mapJobStatus, textClass, dotClass, bgClass } from '../../utils/statusCo
 import GenerationDetailsModal, { type InputEntry } from './GenerationDetailsModal.vue'
 import PromptProgramRolls from './PromptProgramRolls.vue'
 import Button from '../ui/Button.vue'
+import type { RunActions } from '../../utils/fluentSubmit'
 
 interface Job {
   id: number
@@ -82,6 +86,8 @@ interface Job {
 const props = defineProps<{
   show: boolean
   job: Job | null
+  /** What an image's draws can still do in this tool (none: the buttons don't show). */
+  programActions?: ((run: any) => RunActions) | null
 }>()
 
 defineEmits<{
@@ -129,6 +135,8 @@ const programRun = computed<any | null>(() => {
   const run = meta?.prompt_program
   return run && Array.isArray(run.draws) && run.draws.length ? run : null
 })
+const runActions = computed(() => (programRun.value && props.programActions ? props.programActions(programRun.value) : null))
+const hasRunPins = computed(() => !!runActions.value && Object.keys(runActions.value.pins).length > 0)
 function openMedia(mediaId: number) {
   mediaDetails.open(mediaId)
 }
