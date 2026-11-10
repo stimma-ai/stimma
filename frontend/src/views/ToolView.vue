@@ -355,7 +355,7 @@
               @translate="(code) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, translate: { enabled: !!code, language: code ?? globalPrefs.promptOptions?.translate?.language ?? 'zh-Hans' } }"
               @lora="(key, on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, [key]: on ? undefined : false }"
               @way="(w) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined }"
-              @mode="(level) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, autoImprove: { ...globalPrefs.promptOptions?.autoImprove, enabled: level !== 'off', ...(level !== 'off' ? { level } : {}) } }"
+              @mode="setDetailLevel"
               @help="(anchor) => openHelp(anchor)"
             /></template>
             <template #below-editor><PromptProgramChoices :program="promptProgram" /></template>
@@ -4161,6 +4161,16 @@ function handlePromptFocusOut(event: FocusEvent) {
   // Fluent reads a changed prompt as soon as you're done typing, so the first run
   // usually doesn't wait. Same request as a run's, shared if both happen.
   if (promptProgram.status.value === 'stale') void promptProgram.prepare()
+}
+
+// Detail Level changes what the program writes, so read the prompt again right away,
+// as when an edit is done (the prepared program for that level is reused if there is one).
+function setDetailLevel(level: EnhanceLevel) {
+  globalPrefs.value.promptOptions = {
+    ...globalPrefs.value.promptOptions,
+    autoImprove: { ...globalPrefs.value.promptOptions?.autoImprove, enabled: level !== 'off', ...(level !== 'off' ? { level } : {}) },
+  }
+  void nextTick(preparePromptNow)
 }
 
 // The prompt is done (Vim :w, Cmd/Ctrl+Enter, a pause): read it now. A prepare in
