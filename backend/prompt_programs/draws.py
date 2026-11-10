@@ -42,7 +42,7 @@ from typing import Any, Dict, FrozenSet, List, Optional, Protocol, Sequence, Set
 from prompt_programs.runtime import (
     RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _Runner, LoraName, _as_list,
     _label_from_id, _lora_key, check, compile_program, execute, flatten_parts, holds_said, lora_names, said_value,
-    tidy_text,
+    subject_of, tidy_text,
 )
 from prompt_programs.vocab import AGE_LIST, fill, is_template, minor_ages, tags_match, template_matches, vocabulary
 
@@ -108,13 +108,25 @@ class Site:
 
 
 def person_of(cid: str) -> str:
-    """Whose detail a pick is, from its id: `friends[2].age` and `friends[2].outfit` are
-    friends[2]'s, `man.outfit` the man's, and a plain `outfit` the image's one subject ("").
-    A template's Colours (`outfit.colours`) belong to the look's wearer."""
+    """Whose detail a pick is, as the id names its subject (runtime.subject_of, the one rule
+    the choices row, validation, the age policy and context all read): `friends[2].age` and
+    `friends[2].outfit.colours` are friends[2]'s, `woman1.hair` woman1's, `man.outfit` the
+    man's. A plain id (`outfit`, `outfit.colours`) names no subject: "" — the image's one
+    subject, or with several a detail shared by all of them (shared=True), so a person's
+    policies read "" as theirs too (`owns`). A loop's id (`friends[{}].age`) names its member."""
     cid = str(cid)
-    if cid.endswith(".colours"):
-        cid = cid[: -len(".colours")]
-    return cid.rsplit(".", 1)[0] if "." in cid else ""
+    s = subject_of(cid.replace("{}", "1"))
+    if s is None:
+        return ""
+    tail = "." + s[2]
+    return cid[: -len(tail)] if cid.endswith(tail) else cid.split(".", 1)[0]
+
+
+def owns(owner: str, person: str) -> bool:
+    """Whether what `owner`'s pick draws (person_of) holds for `person`'s: their own, or either
+    names no subject and so is every subject's (a couple's one shared descent or age speaks for
+    each of them; a shared outfit is worn by each, so it is fit for the youngest)."""
+    return owner == person or owner == "" or person == ""
 
 
 @dataclass
@@ -486,7 +498,7 @@ def context_links(sites: Sequence[Site]) -> List[Tuple[int, int]]:
     for t, tl in leaves.items():
         for g, gl in leaves.items():
             if g != t and any(f in gl.gives and (vocab.scope(f) == "scene" or
-                                                 person_of(sites[g].id_text) == person_of(sites[t].id_text))
+                                                 owns(person_of(sites[g].id_text), person_of(sites[t].id_text)))
                               for f in tl.takes):
                 out.append((g, t))
     return out
@@ -803,9 +815,9 @@ class _Exec(_Runner):
         A list not drawn before this pick (a later phase, or later in this one) may be any of
         its values, so every age under 18 it holds counts."""
         p = person_of(cid)
-        out = list(self.eng.minors.get(p, ()))
+        out = [a for who, ages in self.eng.minors.items() if owns(who, p) for a in ages]
         for lid, young in self.eng.list_ages.items():
-            if person_of(lid) != p or not young:
+            if not owns(person_of(lid), p) or not young:
                 continue
             d, seen = self.by_id.get(lid), self.seen.get(lid)
             drawn = (d is not None and seen is not None and seen.phase <= min(site.phase, self.k)
@@ -837,14 +849,18 @@ class _Exec(_Runner):
             person = vocab.scope(facet) == "person"
             fam: Set[str] = set()
             for oid, (seen, value) in drawn.items():
-                if oid == cid or (person and person_of(oid) != p):
+                if oid == cid or (person and not owns(person_of(oid), p)):
                     continue
                 gl = vocab.get(seen.spec.cls) if seen.spec.cls and seen.spec.source != "list" else None
                 if gl is not None and facet in gl.gives:
                     fam |= set(gl.context_tags(value, facet) or ())
                 fam |= set(eng.list_context.get(oid, {}).get(value, {}).get(facet, ()))
             if not fam:   # nothing drawn gave it: what the prompt states, if anything
-                fam = set(eng.stated.get(p if person else None, {}).get(facet, ()))
+                if person:
+                    fam = {f for who, st in eng.stated.items() if who is not None and owns(who, p)
+                           for f in st.get(facet, ())}
+                else:
+                    fam = set(eng.stated.get(None, {}).get(facet, ()))
             if fam:
                 out.append((facet, tuple(sorted(fam))))
         return tuple(out)
@@ -1360,5 +1376,5 @@ def fixed_text(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_par
 
 __all__ = [
     "CONTEXT_VERSION", "Analysis", "DrawAborted", "DrawResult", "LiteralOptions", "OptionsService", "PickSpec", "Pool",
-    "analyze", "context_links", "context_suffix", "draw", "fixed_text", "person_of", "pool_key", "uses_draws",
+    "analyze", "context_links", "context_suffix", "draw", "fixed_text", "owns", "person_of", "pool_key", "uses_draws",
 ]

@@ -1495,7 +1495,8 @@ def _shared_person_details(info: Dict[str, Any], source: str = "") -> List[str]:
     ("a couple" drawing one ethnicity for both) or left ungrouped beside the others' details.
     More than one subject: a group() of two or more, ids naming two or more subjects
     (girl[1].hair and girl[2].hair, man.outfit and woman.outfit), or one named subject beside
-    such a detail. A pick marked shared=True is one value for all of them, as the user asked."""
+    such a detail. A pick marked shared=True is one value for all of them, as the user asked, and
+    so is a said= pick: their words name one thing, drawn as written for whoever it is."""
     from prompt_programs.runtime import subject_of
     choices = info["choices"]
     subjects: List[str] = []
@@ -1510,7 +1511,9 @@ def _shared_person_details(info: Dict[str, Any], source: str = "") -> List[str]:
     shared = [str(c["id"]) for c in choices
               if c.get("kind") == "pick" and getattr(vocab.get(c.get("cls")), "individual", False)
               and str(c.get("cls")) not in palettes and subject_of(str(c.get("id"))) is None
-              and not str(c.get("id")).endswith(".colours") and not c.get("shared")]
+              and not str(c.get("id")).endswith(".colours") and not c.get("shared")
+              # the user's own words for one thing they named: never split per subject (said.py)
+              and not c.get("said")]
     many = any(int(g.get("count") or 0) >= 2 for g in info.get("groups") or []) or len(subjects) >= 1
     if not shared or not many:
         return []

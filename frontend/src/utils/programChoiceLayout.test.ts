@@ -84,3 +84,20 @@ test("choices that hold the user's own words follow the ones that vary", () => {
   const sections = programSections([pick('car', { said: 'yellow ferrari' }), pick('sky'), pick('light')], [])
   assert.deepEqual(sections[0].choices.map(c => c.id), ['sky', 'light', 'car'])
 })
+
+test("a choice holding the user's words sits in its subject's section, after that subject's varying ones", () => {
+  const sections = programSections([
+    pick('mother.outfit', { group: 'mother', attr: 'outfit', said: 'red dress' }),
+    pick('mother.hair', { group: 'mother', attr: 'hair' }),
+    pick('daughter.hair', { group: 'daughter', attr: 'hair' }),
+    pick('place'),
+  ], [])
+  assert.deepEqual(shape(sections), [
+    ['scene', '', ['place']],
+    ['subject', 'Mother', ['mother.hair', 'mother.outfit']],
+    ['subject', 'Daughter', ['daughter.hair']],
+  ])
+  // programs prepared before choices carried their subject: the id still decides
+  const legacy = programSections([pick('mother.outfit', { said: 'red dress' }), pick('mother.hair'), pick('daughter.hair')], [])
+  assert.deepEqual(shape(legacy).map(s => s[2]), [['mother.hair', 'mother.outfit'], ['daughter.hair']])
+})

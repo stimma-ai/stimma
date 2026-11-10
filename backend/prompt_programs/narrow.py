@@ -50,7 +50,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
-from prompt_programs.draws import person_of
+from prompt_programs.draws import owns, person_of
 from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
 log = get_logger(__name__)
@@ -458,10 +458,14 @@ def stated_ages(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> List[
         return []
     aged = {person_of(c["id"]) for c in bound if c.get("cls") == AGE_LIST}
     ids = {str(c.get("id")) for c in entry.get("choices") or []}
+    named = {person_of(c["id"]) for c in bound if str(c.get("cls") or "").startswith("person.")} - {""}
     out: Dict[str, Dict[str, Any]] = {}
     for c in bound:
         p = person_of(c["id"])
-        if p in aged or p in out or not str(c.get("cls") or "").startswith("person."):
+        # an age pick speaks for its person, and one naming no subject for everyone (draws.owns);
+        # a shared detail beside named people is read through theirs, not as "the person"
+        if any(owns(a, p) for a in aged) or p in out or (p == "" and named) \
+                or not str(c.get("cls") or "").startswith("person."):
             continue
         sid = f"{p}.stated_age" if p else "stated_age"
         while sid in ids:
@@ -483,7 +487,12 @@ def _context_scopes(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> L
         person = vocab.scope(g.gives[0]) == "person"
         takers = {person_of(c["id"]) if person else None for c, lf in leaves if set(lf.takes) & set(g.gives)}
         given = {person_of(c["id"]) if person else None for c, lf in leaves if set(lf.gives) & set(g.gives)}
-        out += [(g, who) for who in sorted(takers - given, key=lambda x: x or "")]
+        if person:  # a detail naming no subject is every subject's (draws.owns): read each named one
+            takers -= {""} if takers - {""} else set()
+            takers = {who for who in takers if not any(owns(gv, who) for gv in given)}
+        else:
+            takers -= given
+        out += [(g, who) for who in sorted(takers, key=lambda x: x or "")]
     return out
 
 
@@ -515,9 +524,11 @@ def list_context_values(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) 
     for c in entry.get("choices") or []:
         if c.get("source") != "list" or c.get("kind", "pick") != "pick" or c.get("cls"):
             continue
+        read: set = set()
         for g, who in scopes:
-            if who is not None and person_of(str(c.get("id"))) != who:
+            if (who is not None and not owns(person_of(str(c.get("id"))), who)) or g.id in read:
                 continue
+            read.add(g.id)   # a shared list in several people's scopes is read once
             of = (who.replace("_", " ") if who else "the person") if who is not None else "the scene"
             for v in dict.fromkeys(str(o) for o in c.get("options") or [] if str(o).strip()):
                 out.append({"id": f'{c["id"]}\x00{g.id}\x00{v}', "cls": g.id, "where": v,
@@ -539,11 +550,14 @@ def list_age_values(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> L
     if vocabulary().get(AGE_LIST) is None:
         return []
     aged = {person_of(c["id"]) for c in bound if c.get("cls") == AGE_LIST}
-    people = {person_of(c["id"]) for c in bound if str(c.get("cls") or "").startswith("person.")} - aged
+    people = {q for q in (person_of(c["id"]) for c in bound if str(c.get("cls") or "").startswith("person."))
+              if not any(owns(a, q) for a in aged)}
     out: List[Dict[str, Any]] = []
     for c in entry.get("choices") or []:
         p = person_of(str(c.get("id")))
-        if c.get("source") != "list" or c.get("kind", "pick") != "pick" or c.get("cls") or p not in people:
+        # a user list naming no subject (a twins' shared {8|30}) is read for whoever it speaks for
+        if c.get("source") != "list" or c.get("kind", "pick") != "pick" or c.get("cls") \
+                or not any(owns(p, q) for q in people):
             continue
         for v in dict.fromkeys(str(o) for o in c.get("options") or [] if str(o).strip()):
             out.append({"id": f'{c["id"]}\x00{v}', "cls": AGE_LIST, "where": v,

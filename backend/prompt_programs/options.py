@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
-from prompt_programs.draws import LiteralOptions, PickSpec, Pool, context_suffix, person_of, pool_key
+from prompt_programs.draws import LiteralOptions, PickSpec, Pool, context_suffix, owns, person_of, pool_key
 from prompt_programs.runtime import RANK_DECAY
 from prompt_programs.vocab import (
     AGE_LIST, OPEN_SHARE, Leaf, fill, given_families, minor_ages, tags_match, template_matches, vocabulary,
@@ -519,7 +519,8 @@ async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Seque
                     seeds=[str(o) for o in (choice.get("options") or [])[:3]], cls=str(choice.get("cls") or ""))
     program = ProgramContext.of(entry)
     if spec.cls != AGE_LIST and spec.id not in program.wildcards:
-        spec.minor = dict(program.minors).get(person_of(spec.id), ())
+        p = person_of(spec.id)
+        spec.minor = tuple(dict.fromkeys(a for who, ages in program.minors if owns(who, p) for a in ages))
     job = OptionJob(key="", spec=spec, context={}, program=program, signature=program.signature, round=0,
                     existing=have, project_id=project_id)
     seen = {_norm(o) for o in have}
