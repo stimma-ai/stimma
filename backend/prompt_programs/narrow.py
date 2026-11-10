@@ -23,6 +23,14 @@ the words, rather than from a list that ignores them.
 A narrowing that didn't finish (the reading or a subset call failed, timed out or came back
 unreadable, or there was no time to try) is not final: `entry["narrow_pending"]` holds each
 such pick's list and options as they were, and prepare.renarrow tries again later.
+
+Ages. A person is an adult unless asked: the age list's bands under 18 are opt-in (vocab.py),
+so an age pick these steps leave unnarrowed (no words, a failed or skipped call) draws adults
+only, and the narrowing model is told that "a girl" alone is no child. A person with no age
+pick of their own whose details are bound (an age the prompt states as fixed text: "a
+10-year-old at the beach") still gets their age read and narrowed, as `entry["ages"]`
+({person: subset}, person as draws.person_of names them), so their pools know when they are
+under 18. Which words make someone a child is the models' reading, never matched here.
 """
 
 from __future__ import annotations
@@ -37,11 +45,12 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
-from prompt_programs.vocab import Leaf, vocabulary
+from prompt_programs.draws import person_of
+from prompt_programs.vocab import AGE_LIST, Leaf, vocabulary
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-1"
+NARROW_VERSION = "narrow-2"   # narrow-2: ages under 18 only when asked; "a girl" alone is a young adult
 NARROW_SECONDS = 20.0   # all of a program's narrowing calls together; past it, unresolved picks go unbound
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
@@ -49,16 +58,24 @@ Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 _SYSTEM = """You choose which items of a list fit a description from an image prompt.
 
 Reply with only a JSON list of the items that fit, each copied exactly as written. Read the
-description literally and whole, with what it is said of: a man or a woman is an adult (18 or
-over), a boy or a girl is under 18, a "teenage boy" is 13 to 19.
+description literally and whole, with what it is said of.
 Keep every item the description allows and leave out every item it rules out. When the
-description doesn't speak to an item either way, keep it. If no item fits, reply []."""
+description doesn't speak to an item either way, keep it, unless the list says that item fits
+only when asked for. If no item fits, reply [].
+
+Ages: a person is an adult (18 or over) unless the description itself makes them a child or
+a teenager: "a child", "a baby", "a toddler", "kids", "a teenage boy", "a 10-year-old", "a
+little girl", "a schoolboy". A man or a woman is an adult. "A girl" or "a boy" alone is a
+young adult, as people often say of a young woman or man: ages under 18 fit only when other
+words make them a child or a teenager. A "teenage boy" is 13 to 19."""
 
 _READ_SYSTEM = """You read an image prompt and find the words in it that describe certain details.
 
 For each detail, quote the prompt's own words about that detail, exactly as written, with the
 person or thing they describe ("young woman", "his dark hair", "a smiling girl"), or null when
 the prompt says nothing about it. Don't guess and don't infer: only words the prompt contains.
+The word that says what kind of person someone is speaks to their age too ("two kids", "a
+toddler", "a teenage boy", "a woman", "her young daughter", "a girl"): quote it for their age.
 Reply with only a JSON object mapping each detail's id to those words or null."""
 
 
@@ -112,6 +129,11 @@ def messages_for(leaf: Leaf, phrase: str, values: Sequence[str], about: str = ""
     said = f', said of {about.strip()}' if about.strip() else ""
     user = (f'The list "{leaf.label}" ({leaf.description}):\n{json.dumps(list(values), ensure_ascii=False)}\n\n'
             f'Which of these fit "{phrase}"{said}?')
+    shown = set(values)
+    asked = [_shown(v.text) for v in leaf.values if v.opt_in and _shown(v.text) in shown]
+    if asked:  # opt-in values (vocab.py): never kept by default
+        user += ("\n\nThese items fit only when the description asks for them in its own words, never because it "
+                 f"doesn't rule them out: {json.dumps(asked, ensure_ascii=False)}")
     return [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": user}]
 
 
@@ -265,7 +287,8 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             else:
                 notes.append(f'{ch["id"]}: nothing in {lf.id} has {want}; drawing from the whole list')
     t0 = asyncio.get_running_loop().time()
-    readable = [c for c in bound if not c.get("wildcard")]
+    stated = stated_ages(entry, bound)
+    readable = [c for c in bound if not c.get("wildcard")] + stated
     try:
         read = await asyncio.wait_for(read_words(str(entry.get("prompt") or ""), readable, cache, ask, project_id),
                                       seconds)
@@ -283,6 +306,10 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
                 c["where_words"] = phrase   # the facet filter stays; the words narrow within it
             else:
                 c["where"] = phrase
+            wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
+    for c in stated:  # a person's age the prompt states: narrowed like an age pick, recorded apart
+        phrase = phrase_of(c, read)
+        if phrase:
             wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
     words: Dict[str, List[str]] = {}
     keys = list(wanted)
@@ -331,9 +358,41 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             filters[parent["id"]] = coloured
             parent["options"] = coloured
     entry["filters"] = filters
+    ages = {c["age_of"]: words[c["id"]] for c in stated if c["id"] in words and words[c["id"]]}
+    if ages:
+        entry["ages"] = ages
+    else:
+        entry.pop("ages", None)
     if unfinished:
         entry["narrow_pending"] = {cid: before[cid] for cid in before if cid in unfinished}
+        for c in stated:  # the next try reads it again (reopen_pending passes it by: it isn't a choice)
+            if c["id"] in unfinished:
+                entry["narrow_pending"][c["id"]] = {"cls": AGE_LIST, "options": [], "age_of": c["age_of"]}
     return notes
+
+
+def stated_ages(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """For each person with bound details but no age pick, a detail to read their age by:
+    {"id", "cls": the age list, "about", "age_of": the person}. Their stated age ("a
+    10-year-old", "a little girl") is then read and narrowed like an age pick's words, so
+    their pools know when they are under 18 (options.program_minors)."""
+    vocab = vocabulary()
+    if vocab.get(AGE_LIST) is None:
+        return []
+    aged = {person_of(c["id"]) for c in bound if c.get("cls") == AGE_LIST}
+    ids = {str(c.get("id")) for c in entry.get("choices") or []}
+    out: Dict[str, Dict[str, Any]] = {}
+    for c in bound:
+        p = person_of(c["id"])
+        if p in aged or p in out or not str(c.get("cls") or "").startswith("person."):
+            continue
+        sid = f"{p}.stated_age" if p else "stated_age"
+        while sid in ids:
+            sid += "_"
+        # One wording per person, not per prompt, so a narrowing ("a woman" on ages) is cached for good.
+        out[p] = {"id": sid, "cls": AGE_LIST, "about": f"the age of {p.replace('_', ' ') if p else 'the person'}",
+                  "age_of": p}
+    return list(out.values())
 
 
 def mark_pending(entry: Dict[str, Any]) -> bool:

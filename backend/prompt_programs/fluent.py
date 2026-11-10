@@ -167,8 +167,10 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
         leaf = vocabulary().get(bound_cls.get(cid))
         if leaf is not None and seen:
             # A bound pick shows its whole list (the picker searches and groups it), each
-            # value's tier, and which values were generated to extend an open list.
-            tiers = {v.text: v.tier for v in leaf.values}
+            # value's tier, and which values were generated to extend an open list. Opt-in
+            # values the user's words didn't ask for are drawn only when picked: their own group.
+            asked = set((entry.get("filters") or {}).get(cid) or ())
+            tiers = {v.text: ("opt_in" if v.opt_in and v.text not in asked else v.tier) for v in leaf.values}
             out[cid] = seen
             vocab[cid] = {"cls": leaf.id, "label": leaf.label, "closed": leaf.closed,
                           "tiers": {o: tiers.get(o, "generated") for o in seen}}

@@ -1127,7 +1127,8 @@
           "earthy",
           "monochrome"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a {main} quilted arming coat with {accent} laced sleeves and {neutral} padded hose",
@@ -1210,7 +1211,8 @@
           "earthy",
           "monochrome"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a {main} felted wool coat with spiral-shaped sleeves over a {neutral} knitted robe",
@@ -1349,7 +1351,8 @@
           "earthy",
           "monochrome"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a fur-lined {main} wool hooded coat over {neutral} felt trousers and leather boots",
@@ -1529,7 +1532,8 @@
           "earthy",
           "monochrome"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a {main} linen cassock beneath a {accent} embroidered tabard with a {neutral} woven sash",

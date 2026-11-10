@@ -114,6 +114,8 @@
               >
                 <span class="text-[13px] text-content min-w-0 break-words">{{ v.value.text }}</span>
                 <span :class="['font-mono text-[10px] px-1.5 py-px rounded-md bg-overlay-subtle', TIER_TEXT[v.value.tier] || 'text-content-tertiary']">{{ v.value.tier }}</span>
+                <span v-if="v.value.opt_in" class="font-mono text-[10px] text-content-tertiary" title="Drawn only when the prompt or the person asks for it">only when asked</span>
+                <span v-if="v.value.adult_only" class="font-mono text-[10px] text-content-tertiary" title="Never drawn for a person under 18">adults only</span>
                 <span v-for="(tag, f) in v.value.tags || {}" :key="f" class="font-mono text-[10px] text-content-muted">
                   {{ f }}: {{ tag === 'any' ? 'any' : tag.join(', ') }}
                 </span>

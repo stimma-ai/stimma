@@ -199,8 +199,15 @@ Still write `about=` and a seed in the list's form.
   Before you bind a pick, check the user's prompt for any word about that detail: if there is
   one, it goes in `where=`. A `{{wildcard}}` bound to a list is narrowed by its own words; no
   `where=` needed.
+- Ages: a person is an adult unless the user's words make them a child or a teenager ("a
+  child", "a toddler", "a teenage boy", "a family with two kids", "a 10-year-old"). "A girl"
+  or "a boy" alone is a young adult, as people often say of a young woman or man; other words
+  can make them a child ("a little girl", "a schoolboy"). Only for a child or teenager the user
+  asked for, narrow their age pick to their words (`where="toddler"`), or to
+  `where={"life_stage": "child"}` (or "baby", "teen"); never choose those for anyone else.
 - Each person's details bind to the same lists: `girl[1].eyes` and `girl[2].eyes` both use
-  `person.eye_color`.
+  `person.eye_color`. With more than one person, every pick id names whose detail it is
+  (`man.outfit`, `girl.outfit`, `couple[1].age`), so each person's details stay their own.
 - Like any pick written with `about=`, a bound pick's value is never a lookup key.
 - Use only these ids, exactly:
 

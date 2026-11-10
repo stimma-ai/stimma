@@ -1953,7 +1953,8 @@
         "presentation": [
           "feminine"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a {main} backless silk halter gown with a thigh-high side slit",
@@ -1973,7 +1974,8 @@
         "presentation": [
           "feminine"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a {main} strapless velvet column gown with a structured bodice",

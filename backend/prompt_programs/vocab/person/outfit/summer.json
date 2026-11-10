@@ -1098,7 +1098,8 @@
         "coverage": [
           "light"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a {main} long-sleeved swimsuit with full-length legs",
@@ -1270,7 +1271,8 @@
         "coverage": [
           "light"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a rash guard with {main} and {accent} stripes and {neutral} knee-length swim shorts",
@@ -1436,7 +1438,8 @@
         "presentation": [
           "masculine"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a {accent} linen cover-up over a {main} one-piece swimsuit",

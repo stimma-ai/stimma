@@ -3,7 +3,9 @@
  * dev vocabulary browser shows. Pure functions only, so they test without a DOM.
  */
 
-export type VocabTier = 'typical' | 'plausible' | 'unusual' | 'generated'
+/** `opt_in`: a value drawn only when asked for (an age under 18 the prompt didn't ask for):
+ *  the picker offers it in its own group, and picking it draws it. */
+export type VocabTier = 'typical' | 'plausible' | 'unusual' | 'generated' | 'opt_in'
 
 /** A bound pick's list, as the pools endpoint describes it (keyed by choice id). */
 export interface ChoiceVocab {
@@ -16,7 +18,7 @@ export interface ChoiceVocab {
 /** Picks with more options than this get the search-and-scroll picker. */
 export const MANY_OPTIONS = 12
 
-export const TIER_ORDER: VocabTier[] = ['typical', 'plausible', 'unusual', 'generated']
+export const TIER_ORDER: VocabTier[] = ['typical', 'plausible', 'unusual', 'generated', 'opt_in']
 
 /** What a person reads for each tier's group in the picker. */
 export const TIER_LABEL: Record<VocabTier, string> = {
@@ -24,6 +26,7 @@ export const TIER_LABEL: Record<VocabTier, string> = {
   plausible: 'Less usual',
   unusual: 'Rare',
   generated: 'More ideas',
+  opt_in: 'Only when picked',
 }
 
 /** Case-insensitive; every word in the query must appear somewhere in the option. */
@@ -100,7 +103,15 @@ export function groupOpen(group: OptionGroup, query: string, opened: Record<stri
 
 export interface VocabFacet { values: string[]; default: string | null; about: string }
 export interface VocabNode { id: string; label: string; description: string }
-export interface VocabValue { text: string; tier: VocabTier; tags?: Record<string, string[] | 'any'> }
+export interface VocabValue {
+  text: string
+  tier: VocabTier
+  tags?: Record<string, string[] | 'any'>
+  /** Drawn only when the prompt or the person asks for it (ages under 18). */
+  opt_in?: boolean
+  /** An adult-coded look: never in the pools of a person under 18. */
+  adult_only?: boolean
+}
 export interface VocabLeaf {
   id: string
   label: string

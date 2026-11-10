@@ -37,7 +37,7 @@ from prompt_programs.runtime import (
     RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _Runner, LoraName, _as_list,
     _label_from_id, _lora_key, check, compile_program, execute, flatten_parts, lora_names, tidy_text,
 )
-from prompt_programs.vocab import fill, is_template, tags_match, template_matches, vocabulary
+from prompt_programs.vocab import AGE_LIST, fill, is_template, minor_ages, tags_match, template_matches, vocabulary
 
 DRAW_VERSION = "draws-2"
 SPEC_ARGS = ("about", "phase", "seed", "cls")
@@ -93,6 +93,17 @@ class Site:
     deps: Dict[int, str] = field(default_factory=dict)      # site -> where its value is used
     named: Dict[int, str] = field(default_factory=dict)     # site -> the argument (about=, seed=, label) naming it
     exclude_deps: Set[int] = field(default_factory=set)
+    cls: str = ""                   # the vocabulary list it is bound to, when written as a constant
+
+
+def person_of(cid: str) -> str:
+    """Whose detail a pick is, from its id: `friends[2].age` and `friends[2].outfit` are
+    friends[2]'s, `man.outfit` the man's, and a plain `outfit` the image's one subject ("").
+    A template's Colours (`outfit.colours`) belong to the look's wearer."""
+    cid = str(cid)
+    if cid.endswith(".colours"):
+        cid = cid[: -len(".colours")]
+    return cid.rsplit(".", 1)[0] if "." in cid else ""
 
 
 @dataclass
@@ -164,7 +175,9 @@ class _Analyzer:
                     text, pattern = text + "*", pattern + ".+?"
         else:
             raise _err(node, f"{node.func.id}() needs a written id, like \"hair\" or f\"people[{{i+1}}].age\".")  # type: ignore[attr-defined]
-        return Site(index, kind, text, re.compile(pattern), node.lineno)
+        cls = args.get("cls")
+        cls = cls.value.strip() if isinstance(cls, ast.Constant) and isinstance(cls.value, str) else ""
+        return Site(index, kind, text, re.compile(pattern), node.lineno, cls=cls)
 
     # -- expressions
     def expr(self, node: Optional[ast.AST], ctx: List[Tuple[Taint, str]], local: Dict[str, Taint]) -> Taint:
@@ -557,6 +570,10 @@ class PickSpec:
     literal: List[str] = field(default_factory=list)   # the program's own options on this branch
     cls: str = ""                # the vocabulary list it is bound to (vocab.py); "" for none
     restrict: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()   # a palette pick: its template's allowed facets
+    # The ages under 18 its person may be (vocab.minor_ages): their pools leave adult-only values
+    # out and generated options are written for that age. Empty for an adult, a user list, a
+    # wildcard (the user's own words) and the age pick itself.
+    minor: Tuple[str, ...] = ()
 
 
 @dataclass
@@ -586,7 +603,7 @@ class LiteralOptions:
     """Pools from the program itself: seeds first, then its option literals, then the
     user's edits (removals stay removed: an emptied pool is empty, never restored). A pick
     the program writes no values for (a template's Colours, added by the engine) draws from
-    its list, restricted as the template says."""
+    its list, restricted as the template says (opt-in values at weight 0, see vocab.py)."""
 
     def __init__(self, edits: Optional[Dict[str, Dict[str, Any]]] = None):
         self.edits = edits or {}
@@ -595,10 +612,13 @@ class LiteralOptions:
     def get(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
         items = list(dict.fromkeys([*spec.seeds, *spec.literal]))
         leaf = vocabulary().resolve(spec.cls) if not items and spec.cls else None
+        standby: Set[str] = set()
         if leaf is not None:
             want = {f: list(vals) for f, vals in spec.restrict}
-            values = leaf.eligible()
+            drawn, held = leaf.pool_values(minor=bool(spec.minor))
+            values = [*drawn, *held]
             items = [v.text for v in values if tags_match(v.tags, want)] or [v.text for v in values]
+            standby = {v.text for v in held}
         edit = self.edits.get(spec.id) or {}
         if edit.get("remove"):
             gone = {str(x) for x in edit["remove"]}
@@ -608,6 +628,7 @@ class LiteralOptions:
                 items.append(str(extra))
         uniform = spec.source == "list" or spec.kind == "lora"
         weights = [1.0] * len(items) if uniform else [RANK_DECAY ** i for i in range(len(items))]
+        weights = [0.0 if o in standby else w for o, w in zip(items, weights)]
         return Pool(pool_key(spec, context), items, weights, False)
 
     def request_more(self, spec: PickSpec, context: Dict[str, Any], priority: str) -> None:
@@ -721,7 +742,9 @@ class _Exec(_Runner):
         if site.phase <= self.k:
             v = self.proposals.get(cid)
             if v not in names:
-                if not items:
+                # Values at weight 0 (opt-in, not asked for) draw only when pinned or kept.
+                if not items or (cid not in eng.pins and not any(w > 0 for _, w in items)
+                                 and eng.fixed.get(cid) not in names):
                     if spec.kind == "pick" and spec.source != "list" and self.probe is None:
                         eng.options.request_more(spec, context, "high")
                     raise _Abort(cid, spec.label, "empty")
@@ -764,6 +787,8 @@ class _Exec(_Runner):
         spec = PickSpec(cid, lbl, str(about or ""), site.phase, source, "pick",
                         _as_list(seed if seed is not None else [], f'pick("{cid}") seed'), opts,
                         leaf.id if leaf is not None else (str(cls).strip() if cls and source != "list" else ""))
+        if source != "list" and spec.cls != AGE_LIST and cid not in self.eng.theirs:
+            spec.minor = self.eng.minors.get(person_of(cid), ())
         context = self._context(site)
         if leaf is not None and leaf.slots:
             self._unfill_kept(cid, leaf)
@@ -899,6 +924,8 @@ class _Engine:
                      if vs and not (edits.get(str(k)) or {}).get("off")}
         self.single_pins = {k: next(iter(vs)) for k, vs in self.pins.items() if len(vs) == 1}
         self.fixed, self.edits, self.options = fixed, edits, options
+        self.theirs: Set[str] = set(getattr(options, "theirs", ()) or ())   # wildcard picks: the user's words
+        self.minors = self._minors()
         self.more_coming: List[str] = []
         self.proposals = 0
         self.rejected = 0
@@ -916,6 +943,32 @@ class _Engine:
                 for d in sorted(set(s.deps) | s.exclude_deps):
                     self.pin_watch.setdefault(d, []).append((cid, s))
 
+    def _minors(self) -> Dict[str, Tuple[str, ...]]:
+        """Each person who may be under 18, with those ages: from the program (an age pick
+        narrowed to them, or the age the prompt states, see narrow.py), and from the user's
+        own choices of an age pick here: a pin, an added value or a kept one. A person under
+        18 is so because someone asked; nothing here reads the prompt's words."""
+        out: Dict[str, Tuple[str, ...]] = {p: tuple(a) for p, a in (getattr(self.options, "minor_ages", None) or {}).items()}
+        ages = {s.index for s in self.an.sites if s.kind == "pick" and s.cls and
+                getattr(vocabulary().resolve(s.cls), "id", None) == AGE_LIST}
+        if not ages:
+            return out
+        chosen: Dict[str, List[str]] = {}
+        for cid, vs in self.pins.items():
+            chosen.setdefault(cid, []).extend(vs)
+        for cid, e in self.edits.items():
+            chosen.setdefault(cid, []).extend(str(x) for x in (e or {}).get("add") or [])
+        for cid, v in self.fixed.items():
+            chosen.setdefault(cid, []).append(str(v))
+        for cid, vs in chosen.items():
+            if not any(s.index in ages for s in self.an.sites_for_id(cid)):
+                continue
+            young = minor_ages(vs)
+            if young:
+                p = person_of(cid)
+                out[p] = tuple(dict.fromkeys([*out.get(p, ()), *young]))
+        return out
+
     # -- primitives
     def propose(self, cid: str, items: List[Tuple[str, float]]) -> str:
         kept = self.fixed.get(cid)
@@ -925,6 +978,12 @@ class _Engine:
         return self._weighted(items)
 
     def _weighted(self, items: List[Tuple[str, float]]) -> str:
+        """One item by weight. Weight-0 items (opt-in values held for the picker) are drawn
+        only when nothing else is left, which only pins allow (_settle)."""
+        if not any(w > 0 for _, w in items):
+            items = [(o, 1.0) for o, _ in items]
+        else:
+            items = [(o, w) for o, w in items if w > 0]
         total = sum(w for _, w in items)
         r = self.rng.random() * total
         for o, w in items:
@@ -1137,5 +1196,5 @@ def fixed_text(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_par
 
 __all__ = [
     "Analysis", "DrawAborted", "DrawResult", "LiteralOptions", "OptionsService", "PickSpec", "Pool", "analyze", "draw",
-    "fixed_text", "pool_key", "uses_draws",
+    "fixed_text", "person_of", "pool_key", "uses_draws",
 ]

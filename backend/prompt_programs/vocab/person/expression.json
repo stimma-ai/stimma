@@ -581,7 +581,8 @@
         "mood": [
           "flirtatious"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a sultry expression with heavy eyelids and softly parted lips",
@@ -590,7 +591,8 @@
         "mood": [
           "flirtatious"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a teasing kiss-shaped pout with lifted eyebrows",
@@ -599,7 +601,8 @@
         "mood": [
           "flirtatious"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a coy half-smile with one slightly lowered eyelid",
