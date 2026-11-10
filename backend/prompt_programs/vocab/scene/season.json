@@ -12,43 +12,99 @@
   "values": [
     {
       "text": "early spring",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "season": [
+          "early_spring"
+        ]
+      }
     },
     {
       "text": "late spring",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "season": [
+          "late_spring"
+        ]
+      }
     },
     {
       "text": "early summer",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "season": [
+          "early_summer"
+        ]
+      }
     },
     {
       "text": "the height of summer",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "season": [
+          "high_summer"
+        ]
+      }
     },
     {
       "text": "early autumn",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "season": [
+          "early_autumn"
+        ]
+      }
     },
     {
       "text": "late autumn",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "season": [
+          "late_autumn"
+        ]
+      }
     },
     {
       "text": "early winter",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "season": [
+          "early_winter"
+        ]
+      }
     },
     {
       "text": "deep winter",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "season": [
+          "deep_winter"
+        ]
+      }
     },
     {
       "text": "the rainy season",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "season": [
+          "wet_season"
+        ]
+      }
     },
     {
       "text": "the dry season",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "season": [
+          "dry_season"
+        ]
+      }
     }
-  ]
+  ],
+  "context": {
+    "gives": [
+      "season"
+    ],
+    "stated": true
+  }
 }

@@ -623,13 +623,23 @@
       }
     }
   ],
-  "untagged": {},
+  "untagged": {
+    "space": [
+      "outdoor"
+    ]
+  },
   "local_facets": {
     "setting_type": [
       "beach",
       "rocky shore",
       "tidal wetland",
       "built waterfront"
+    ]
+  },
+  "context": {
+    "gives": [
+      "space",
+      "climate"
     ]
   }
 }

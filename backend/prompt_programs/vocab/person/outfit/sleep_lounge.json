@@ -1400,5 +1400,13 @@
       "moderate",
       "full"
     ]
+  },
+  "context": {
+    "takes": {
+      "climate": {
+        "mismatch": "rare",
+        "factor": 0.1
+      }
+    }
   }
 }

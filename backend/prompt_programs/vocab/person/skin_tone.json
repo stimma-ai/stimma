@@ -4,7 +4,7 @@
   "description": "Skin color and visible complexion variation across the full tonal range.",
   "pos": "adjective phrase",
   "frame": "___ skin",
-  "notes": "Literal tone and visible complexion variation only, independent of descent. Broad base tones have equal typical tiers; freckles, sun spots and depigmentation are separate visual variations within this leaf, with rarer variants downweighted. No food comparisons, group labels or health judgments.",
+  "notes": "Literal tone and visible complexion variation only. Each tone carries its broad skin_family; drawn after a person's descent, tones outside that descent's typical families are rare (weight x0.02), never excluded. Broad base tones have equal typical tiers; freckles, sun spots and depigmentation are separate visual variations within this leaf, with rarer variants downweighted. No food comparisons, group labels or health judgments.",
   "facets": [
     "genre"
   ],
@@ -12,83 +12,202 @@
   "values": [
     {
       "text": "very fair",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "fair"
+        ]
+      }
     },
     {
       "text": "fair",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "fair"
+        ]
+      }
     },
     {
       "text": "light beige",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "fair",
+          "light"
+        ]
+      }
     },
     {
       "text": "warm beige",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "light"
+        ]
+      }
     },
     {
       "text": "medium beige",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "light",
+          "medium"
+        ]
+      }
     },
     {
       "text": "light brown",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "medium",
+          "brown"
+        ]
+      }
     },
     {
       "text": "medium brown",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "brown"
+        ]
+      }
     },
     {
       "text": "deep brown",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "brown",
+          "deep"
+        ]
+      }
     },
     {
       "text": "very deep brown",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "deep"
+        ]
+      }
     },
     {
       "text": "golden-brown",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "medium",
+          "brown"
+        ]
+      }
     },
     {
       "text": "olive",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "light",
+          "medium"
+        ]
+      }
     },
     {
       "text": "fair and freckled",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "fair"
+        ]
+      }
     },
     {
       "text": "light brown and freckled",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "medium",
+          "brown"
+        ]
+      }
     },
     {
       "text": "deep brown and freckled",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "skin_family": [
+          "brown",
+          "deep"
+        ]
+      }
     },
     {
       "text": "fair and patchily depigmented",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "skin_family": [
+          "fair"
+        ]
+      }
     },
     {
       "text": "medium brown and patchily depigmented",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "skin_family": [
+          "brown"
+        ]
+      }
     },
     {
       "text": "deep brown and patchily depigmented",
-      "tier": "unusual"
+      "tier": "unusual",
+      "tags": {
+        "skin_family": [
+          "brown",
+          "deep"
+        ]
+      }
     },
     {
       "text": "fair and sun-spotted",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "skin_family": [
+          "fair"
+        ]
+      }
     },
     {
       "text": "light brown and sun-spotted",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "skin_family": [
+          "medium",
+          "brown"
+        ]
+      }
     },
     {
       "text": "deep brown and sun-spotted",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "skin_family": [
+          "brown",
+          "deep"
+        ]
+      }
     }
-  ]
+  ],
+  "context": {
+    "takes": {
+      "skin_family": {
+        "mismatch": "rare",
+        "factor": 0.02
+      }
+    }
+  }
 }

@@ -1253,5 +1253,13 @@
       "layered",
       "heavy outerwear"
     ]
+  },
+  "context": {
+    "takes": {
+      "climate": {
+        "mismatch": "rare",
+        "factor": 0.1
+      }
+    }
   }
 }

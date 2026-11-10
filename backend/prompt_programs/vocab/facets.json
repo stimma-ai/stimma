@@ -120,5 +120,82 @@
    "default": null,
    "about": "a cultural region, only for values that are culturally specific (a tatami room, a sari)"
   }
+ },
+ "context": {
+  "about": "Context facets: a value drawn for one detail gives context to the details drawn after it in the same scope (a person, or the whole scene). A list's \"context\" says which facets its values give and which it takes, and what a mismatch costs: rare multiplies the value's weight by a factor, never sets it to 0. Values with no tag on a facet fit every context.",
+  "facets": {
+   "skin_family": {
+    "scope": "person",
+    "values": [
+     "fair",
+     "light",
+     "medium",
+     "brown",
+     "deep"
+    ],
+    "about": "broad skin-tone families, from fair to deep; on a descent value, the families typical of that heritage, for drawing"
+   },
+   "eye_family": {
+    "scope": "person",
+    "values": [
+     "brown",
+     "hazel",
+     "light"
+    ],
+    "about": "broad natural eye-colour families: brown, hazel or amber, and light (blue, grey, green); on a descent value, the families typical of that heritage, for drawing"
+   },
+   "hair_family": {
+    "scope": "person",
+    "values": [
+     "black",
+     "dark_brown",
+     "brown",
+     "blonde",
+     "red"
+    ],
+    "about": "broad natural hair-colour families; grey, white and dyed colours are untagged and fit everyone. On a descent value, the families typical of that heritage, for drawing"
+   },
+   "texture": {
+    "scope": "person",
+    "values": [
+     "straight",
+     "wavy",
+     "curly",
+     "coily"
+    ],
+    "neutral": [
+     "unspecified"
+    ],
+    "about": "natural hair texture (the hair list's own texture tags); on a descent value, the textures typical of that heritage, for drawing"
+   },
+   "time_of_day": {
+    "scope": "scene",
+    "about": "the time of day (the facet of the same name)"
+   },
+   "space": {
+    "scope": "scene",
+    "about": "indoors or outdoors (the facet of the same name)"
+   },
+   "climate": {
+    "scope": "scene",
+    "about": "the temperature the scene implies (the facet of the same name)"
+   },
+   "season": {
+    "scope": "scene",
+    "values": [
+     "early_spring",
+     "late_spring",
+     "early_summer",
+     "high_summer",
+     "early_autumn",
+     "late_autumn",
+     "early_winter",
+     "deep_winter",
+     "wet_season",
+     "dry_season"
+    ],
+    "about": "the stage of the year"
+   }
+  }
  }
 }

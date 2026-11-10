@@ -965,6 +965,9 @@
     ],
     "era": [
       "contemporary"
+    ],
+    "space": [
+      "outdoor"
     ]
   },
   "local_facets": {
@@ -973,6 +976,12 @@
       "ornamental garden",
       "food or herb garden",
       "courtyard or rooftop"
+    ]
+  },
+  "context": {
+    "gives": [
+      "space",
+      "climate"
     ]
   }
 }

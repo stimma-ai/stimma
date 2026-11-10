@@ -4,429 +4,2835 @@
   "description": "National or ethnic descent adjectives, sampled with a uniform prior.",
   "pos": "adjective",
   "frame": "the ___ person",
-  "notes": "National or ethnic descent adjectives at a named people or country level, never continental categories. All values are typical and untagged: descent does not constrain appearance, region, genre or presentation. person.skin_tone owns skin color; hair and eye leaves own their respective traits. Membership categories can overlap and are neither exhaustive nor a claim about citizenship. Bengali and Bangladeshi, Punjabi and Indian, Tamil and Indian or Sri Lankan, and Pashtun and Pakistani or Afghan are retained as distinct ethnic and national descent labels with overlapping membership. Values also read before woman or man. Mixed descent is left to explicit composition rather than enumerating pairs.",
+  "notes": "National or ethnic descent adjectives at a named people or country level, never continental categories. A descent word means that heritage's typical look: each value carries the colouring families typical of that heritage for drawing (skin_family, eye_family, hair_family, texture), and a person's skin tone, eye colour, hair colour and texture drawn after it are weighted toward them (a mismatch stays possible, rarely). These are drawing defaults, not claims about any person; nations with wide variation carry every family. Membership categories can overlap and are neither exhaustive nor a claim about citizenship. Bengali and Bangladeshi, Punjabi and Indian, Tamil and Indian or Sri Lankan, and Pashtun and Pakistani or Afghan are retained as distinct ethnic and national descent labels with overlapping membership. Values also read before woman or man. Mixed descent is left to explicit composition rather than enumerating pairs.",
   "facets": [],
   "closed": true,
   "values": [
     {
       "text": "Korean",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Japanese",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Chinese",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Taiwanese",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Mongolian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Tibetan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "east_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Kazakh",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Uzbek",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Tajik",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Kyrgyz",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Turkmen",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Vietnamese",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Thai",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Cambodian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Lao",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Burmese",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Filipino",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Indonesian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Malay",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "southeast_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Indian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Pakistani",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Bangladeshi",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "skin_family": [
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Sri Lankan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "skin_family": [
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Nepali",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Punjabi",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Tamil",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "skin_family": [
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Bengali",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "skin_family": [
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Pashtun",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Afghan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "south_asian"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Iranian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Kurdish",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Turkish",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Armenian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Georgian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Lebanese",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Iraqi",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Syrian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Palestinian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Saudi",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Yemeni",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "middle_eastern"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Nigerian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Ghanaian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Senegalese",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Ethiopian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Eritrean",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Somali",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Sudanese",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Kenyan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Ugandan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Tanzanian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Congolese",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Angolan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Zimbabwean",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "South African",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown",
+          "blonde",
+          "red"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Moroccan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Algerian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Tunisian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Libyan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Egyptian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "african"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Irish",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde",
+          "red"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Scottish",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde",
+          "red"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Welsh",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde",
+          "red"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "English",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde",
+          "red"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "French",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "German",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Dutch",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Polish",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Romanian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Ukrainian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Russian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Italian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Spanish",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Portuguese",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Greek",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Swedish",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Norwegian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Danish",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Finnish",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "european"
+        ],
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "African American",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Mexican",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Guatemalan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Salvadoran",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Jamaican",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Haitian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Cuban",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Dominican",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Puerto Rican",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Brazilian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium",
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown",
+          "blonde",
+          "red"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Colombian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Venezuelan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Ecuadorian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Peruvian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Bolivian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Chilean",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Argentinian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "latin_american"
+        ],
+        "skin_family": [
+          "fair",
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Māori",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "skin_family": [
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Native Hawaiian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "skin_family": [
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Samoan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "skin_family": [
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Tongan",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "skin_family": [
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Fijian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Papua New Guinean",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "curly",
+          "coily"
+        ]
+      }
     },
     {
       "text": "Aboriginal Australian",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "oceanian"
+        ],
+        "skin_family": [
+          "brown",
+          "deep"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "wavy",
+          "curly"
+        ]
+      }
     },
     {
       "text": "Navajo",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Cherokee",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "skin_family": [
+          "light",
+          "medium",
+          "brown"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy"
+        ]
+      }
     },
     {
       "text": "Inuit",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "region": [
+          "north_american"
+        ],
+        "skin_family": [
+          "light",
+          "medium"
+        ],
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown"
+        ],
+        "texture": [
+          "straight"
+        ]
+      }
     }
-  ]
+  ],
+  "context": {
+    "gives": [
+      "skin_family",
+      "eye_family",
+      "hair_family",
+      "texture"
+    ],
+    "stated": true
+  }
 }

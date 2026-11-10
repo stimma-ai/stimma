@@ -4,7 +4,7 @@
   "description": "The color of scalp hair, including natural shades, dye and fantastical effects.",
   "pos": "adjective",
   "frame": "her ___ hair",
-  "notes": "Color only; person.hair_length_texture owns length, density and texture, and person.hairstyle owns cuts and arrangements. Dyed colors remain eligible in realistic scenes; luminous or physically impossible effects require a genre tag. Shades do not imply descent or age.",
+  "notes": "Color only; person.hair_length_texture owns length, density and texture, and person.hairstyle owns cuts and arrangements. Dyed colors remain eligible in realistic scenes; luminous or physically impossible effects require a genre tag. Shades do not imply descent or age. Natural shades carry a hair_family; drawn after a person's descent, families outside that descent's typical ones are rare (weight x0.04: hair is often dyed), never excluded. Grey, white, highlighted and dyed colours are untagged and fit everyone.",
   "facets": [
     "era",
     "genre"
@@ -17,6 +17,9 @@
       "tags": {
         "shade": [
           "black"
+        ],
+        "hair_family": [
+          "black"
         ]
       }
     },
@@ -26,6 +29,9 @@
       "tags": {
         "shade": [
           "brunette"
+        ],
+        "hair_family": [
+          "dark_brown"
         ]
       }
     },
@@ -35,6 +41,9 @@
       "tags": {
         "shade": [
           "brunette"
+        ],
+        "hair_family": [
+          "brown"
         ]
       }
     },
@@ -44,6 +53,9 @@
       "tags": {
         "shade": [
           "brunette"
+        ],
+        "hair_family": [
+          "brown"
         ]
       }
     },
@@ -52,6 +64,9 @@
       "tier": "typical",
       "tags": {
         "shade": [
+          "blonde"
+        ],
+        "hair_family": [
           "blonde"
         ]
       }
@@ -62,6 +77,9 @@
       "tags": {
         "shade": [
           "blonde"
+        ],
+        "hair_family": [
+          "blonde"
         ]
       }
     },
@@ -71,6 +89,9 @@
       "tags": {
         "shade": [
           "auburn"
+        ],
+        "hair_family": [
+          "red"
         ]
       }
     },
@@ -108,6 +129,9 @@
       "tags": {
         "shade": [
           "brunette"
+        ],
+        "hair_family": [
+          "brown"
         ]
       }
     },
@@ -116,6 +140,9 @@
       "tier": "plausible",
       "tags": {
         "shade": [
+          "red"
+        ],
+        "hair_family": [
           "red"
         ]
       }
@@ -127,6 +154,10 @@
         "shade": [
           "blonde",
           "red"
+        ],
+        "hair_family": [
+          "blonde",
+          "red"
         ]
       }
     },
@@ -135,6 +166,9 @@
       "tier": "plausible",
       "tags": {
         "shade": [
+          "blonde"
+        ],
+        "hair_family": [
           "blonde"
         ]
       }
@@ -145,6 +179,9 @@
       "tags": {
         "shade": [
           "blonde"
+        ],
+        "hair_family": [
+          "blonde"
         ]
       }
     },
@@ -154,6 +191,9 @@
       "tags": {
         "shade": [
           "blonde"
+        ],
+        "hair_family": [
+          "blonde"
         ]
       }
     },
@@ -162,6 +202,9 @@
       "tier": "plausible",
       "tags": {
         "shade": [
+          "red"
+        ],
+        "hair_family": [
           "red"
         ]
       }
@@ -173,6 +216,9 @@
         "shade": [
           "brunette",
           "grey"
+        ],
+        "hair_family": [
+          "dark_brown"
         ]
       }
     },
@@ -183,6 +229,9 @@
         "shade": [
           "black",
           "white"
+        ],
+        "hair_family": [
+          "black"
         ]
       }
     },
@@ -421,5 +470,13 @@
       "white",
       "dyed"
     ]
+  },
+  "context": {
+    "takes": {
+      "hair_family": {
+        "mismatch": "rare",
+        "factor": 0.04
+      }
+    }
   }
 }

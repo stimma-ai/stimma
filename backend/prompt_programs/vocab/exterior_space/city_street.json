@@ -1308,6 +1308,9 @@
     ],
     "era": [
       "contemporary"
+    ],
+    "space": [
+      "outdoor"
     ]
   },
   "local_facets": {
@@ -1316,6 +1319,12 @@
       "commercial",
       "major road",
       "industrial"
+    ]
+  },
+  "context": {
+    "gives": [
+      "space",
+      "climate"
     ]
   }
 }

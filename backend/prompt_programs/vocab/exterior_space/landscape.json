@@ -668,7 +668,11 @@
       }
     }
   ],
-  "untagged": {},
+  "untagged": {
+    "space": [
+      "outdoor"
+    ]
+  },
   "local_facets": {
     "setting_type": [
       "inland water",
@@ -678,6 +682,12 @@
       "grassland or scrub",
       "woodland",
       "ice or tundra"
+    ]
+  },
+  "context": {
+    "gives": [
+      "space",
+      "climate"
     ]
   }
 }
