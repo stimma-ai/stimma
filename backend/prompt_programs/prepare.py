@@ -777,9 +777,13 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
     - plain ids bound to the same per-individual list with the same detail but different
       owners ("mother_age", "daughter_age"), each owner heading at least two details,
       name those owners: "mother.age", "daughter.age";
-    - plain ids bound to one per-individual list that differ only by a number ("eth1",
-      "eth2") are numbered subjects: the program's one group() ("couple[1].eth"), else the
-      list's namespace ("person[1].eth").
+    - plain ids of one detail that differ only by a number ("eth1", "eth2"), when bound to a
+      per-individual list or when two or more details are numbered alike ("outfit1",
+      "outfit2", "face1", "face2"), are numbered subjects: the program's one group()
+      ("couple[1].eth"), else the list's namespace ("person[1].eth") or "subject[1]";
+    - exactly two plain prefixes that each head two or more details and between them head
+      every per-individual pick ("woman_age", "woman_outfit", "dog_breed", "dog_size") are
+      subjects: "woman.age", "dog.breed".
     A smart wildcard's own id is the user's and stays. Anything else is left for validation."""
     from prompt_programs.runtime import subject_of
     try:
@@ -847,24 +851,39 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
         cls = _const(_kw(call, "cls"))
         key = f"{p}{n or ''}".lower()
         count[key] += 1  # every detail it heads, bound or not (chef_details, chef_expr)
-        if _individual_leaf(cls):
-            by_detail.setdefault((str(vocabulary().resolve(cls).id), s.lower()), set()).add(key)
+        if _individual_leaf(cls):  # one kind of list: person.outfit.casual and .scifi are both outfits
+            kind = ".".join(vocabulary().resolve(cls).id.split(".")[:2])
+            by_detail.setdefault((kind, s.lower()), set()).add(key)
     for owners in by_detail.values():
-        if len(owners) >= 2:
-            known |= {o for o in owners if count[o] >= 2}
+        heads = {o for o in owners if count[o] >= 2}
+        if len(heads) >= 2:
+            known |= heads
+    # Owners by prefix alone (woman_age ... woman_outfit beside dog_breed, dog_size): exactly two
+    # prefixes that each head two or more details, between them heading every per-individual pick.
+    bound_flat = [x for x in flat if _individual_leaf(_const(_kw(x[0], "cls")))]
+    heads = {f"{p}{n or ''}".lower() for _, _, p, n, _ in flat if count[f"{p}{n or ''}".lower()] >= 2}
+    individual_plain = [c for c in calls if _individual_leaf(_const(_kw(c, "cls"))) and id(c) not in loop_of
+                        and isinstance(_const(id_node(c)), str) and "." not in _const(id_node(c))]
+    if (len(heads) == 2 and bound_flat and len(bound_flat) == len(individual_plain)
+            and all(f"{p}{n or ''}".lower() in heads for _, _, p, n, _ in bound_flat)):
+        known |= heads
     numbered: Dict[str, Dict[int, ast.Call]] = {}  # eth1, eth2: one detail, numbered per subject
     for call in calls:
         t = _const(id_node(call))
         m = _NUMBERED.match(t) if isinstance(t, str) and t not in wild and id(call) not in loop_of else None
-        if m and _individual_leaf(_const(_kw(call, "cls"))):
+        if m:
             numbered.setdefault(m.group("stem"), {})[int(m.group("n"))] = call
+    numbered = {k: v for k, v in numbered.items() if len(v) >= 2}
+    families = Counter(frozenset(v) for v in numbered.values())  # outfit1, outfit2 beside face1, face2
     owner = next(iter(groups.values())) if len(set(groups.values())) == 1 else None
     renamed: Dict[int, str] = {}
     for stem, calls_by_n in numbered.items():
-        if len(calls_by_n) < 2:
-            continue
+        bound_stem = any(_individual_leaf(_const(_kw(c, "cls"))) for c in calls_by_n.values())
+        if not bound_stem and families[frozenset(calls_by_n)] < 2:
+            continue  # shot1, shot2 alone: the scene's
         for n, call in calls_by_n.items():
-            root = vocabulary().resolve(_const(_kw(call, "cls"))).id.split(".")[0]
+            leaf = vocabulary().resolve(_const(_kw(call, "cls"))) if _individual_leaf(_const(_kw(call, "cls"))) else None
+            root = leaf.id.split(".")[0] if leaf is not None else "subject"
             renamed[id(call)] = f"{owner or root}[{n}].{stem.rstrip('_')}"
     pos = _offsets(source)
     edits: List[Tuple[int, int, str]] = []

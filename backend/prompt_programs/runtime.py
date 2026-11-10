@@ -1156,6 +1156,9 @@ def _scope_subjects(choices: Dict[str, "Choice"], order: List[str], groups: Dict
         if s and (s[0], s[1]) not in subjects:
             subjects.append((s[0], s[1]))
     declared = any(int(g.get("count") or 0) >= 2 for g in groups.values())
+    # bride[1] with no group() and no bride[2]: one subject, shown as "Bride", not "Bride 1"
+    lone = {k for k, _ in subjects if int((groups.get(k) or {}).get("count") or 1) < 2
+            and {i for n, i in subjects if n == k} == {1}}
     labelled = {c.group for c in choices.values() if c.group and subject_of(c.id) is None}  # "Girl 1 Hair" labels
     many = len(subjects) + len({(c.group, c.index) for c in choices.values() if c.group in labelled}) >= 2 or declared
     for cid in order:
@@ -1168,7 +1171,7 @@ def _scope_subjects(choices: Dict[str, "Choice"], order: List[str], groups: Dict
         if s is None:
             continue
         name, index, attr = s
-        c.group, c.index, c.attr, c.shared = name, index, attr, False
+        c.group, c.index, c.attr, c.shared = name, None if name in lone else index, attr, False
         if name not in groups:
             n = max((i or 1) for k, i in subjects if k == name)
             groups[name] = {"id": name, "count": n, "label": name.replace("_", " ").strip().capitalize(),
