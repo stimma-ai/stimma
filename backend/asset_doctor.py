@@ -32,7 +32,7 @@ REQUIRED_TABLES = CORE_ASSET_TABLES | {"chats", "flows", "generation_jobs"}
 ASSET_MODEL_TABLES = CORE_ASSET_TABLES | {
     "asset_markers",
     "asset_tags",
-    "board_asset_items",
+    "collection_asset_items",
     "managed_artifacts",
     "project_assets",
 }

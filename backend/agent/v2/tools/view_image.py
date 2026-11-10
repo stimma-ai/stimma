@@ -92,14 +92,14 @@ def _flatten_on_checkerboard(img: Image.Image, cell: int = 16) -> Image.Image:
     if img.mode != "RGBA":
         return img.convert("RGB")
     w, h = img.size
-    board = Image.new("RGB", (w, h), (0xE8, 0xE8, 0xE8))
+    collection = Image.new("RGB", (w, h), (0xE8, 0xE8, 0xE8))
     dark = Image.new("RGB", (cell, cell), (0xB4, 0xB4, 0xB4))
     for y in range(0, h, cell):
         for x in range(0, w, cell):
             if ((x // cell) + (y // cell)) % 2:
-                board.paste(dark, (x, y))
-    board.paste(img, (0, 0), img)
-    return board
+                collection.paste(dark, (x, y))
+    collection.paste(img, (0, 0), img)
+    return collection
 
 
 def _copy_svg_to_workspace(svg_path: Path, workspace_dir: str) -> str | None:

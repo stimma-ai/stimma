@@ -3,7 +3,7 @@ import test from 'node:test'
 import { assetLinkContext, belongsToContext, contextRoute, contextSection, contextSwitchRoute, projectIdFrom } from './workingContext.ts'
 
 test('all browser sections follow context and retain their section when switching', () => {
-  for (const section of ['home', 'browse', 'boards', 'chats', 'flows', 'all-tools']) {
+  for (const section of ['home', 'browse', 'collections', 'chats', 'flows', 'all-tools']) {
     const scoped = contextRoute(section, 17)
     assert.equal(contextSection(scoped.name), section)
     assert.deepEqual(contextSwitchRoute({ name: scoped.name, params: { id: '17' } }, 22), contextRoute(section, 22))

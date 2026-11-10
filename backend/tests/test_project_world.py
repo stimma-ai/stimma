@@ -3,7 +3,7 @@
 Covers the backend half of the project-world contract: uploads and editor
 saves attach to the project, top-level lists can ask for unscoped items only,
 search labels results with their project, membership changes are broadcast,
-and moving boards brings their assets along.
+and moving collections brings their assets along.
 """
 
 import io
@@ -281,8 +281,8 @@ class TestUnscopedLists:
         p = await _project(client, "Lists")
         top_chat = (await client.post("/api/chats", json={"name": "top"})).json()
         p_chat = (await client.post("/api/chats", json={"name": "in p", "project_id": p})).json()
-        top_board = (await client.post("/api/boards", json={"name": "top"})).json()
-        p_board = (await client.post("/api/boards", json={"name": "in p", "project_id": p})).json()
+        top_collection = (await client.post("/api/collections", json={"name": "top"})).json()
+        p_collection = (await client.post("/api/collections", json={"name": "in p", "project_id": p})).json()
         top_flow = (await client.post("/api/flows", json={"name": "top"})).json()
         p_flow = (await client.post("/api/flows", json={"name": "in p", "project_id": p})).json()
         top_view = (await client.post("/api/saved-views", json={"name": "top", "filters": {}})).json()
@@ -305,7 +305,7 @@ class TestUnscopedLists:
         assert chats_p == {p_chat["id"]}
 
         for path, top, inner in (
-            ("/api/boards", top_board, p_board),
+            ("/api/collections", top_collection, p_collection),
             ("/api/flows", top_flow, p_flow),
         ):
             default = ids((await client.get(path)).json())
@@ -324,7 +324,7 @@ class TestUnscopedLists:
 
     async def test_bad_project_filter_is_422(self, client):
         assert (await client.get("/api/chats?project_id=abc")).status_code == 422
-        assert (await client.get("/api/boards?project_id=abc")).status_code == 422
+        assert (await client.get("/api/collections?project_id=abc")).status_code == 422
 
 
 class TestSearchProjectNames:
@@ -332,7 +332,7 @@ class TestSearchProjectNames:
         p = await _project(client, "Moonbase")
         await client.post("/api/chats", json={"name": "quokkachat top"})
         await client.post("/api/chats", json={"name": "quokkachat inner", "project_id": p})
-        await client.post("/api/boards", json={"name": "quokkaboard", "project_id": p})
+        await client.post("/api/collections", json={"name": "quokkaboard", "project_id": p})
         await client.post("/api/flows", json={"name": "quokkaflow", "project_id": p})
 
         body = (await client.get("/api/search?q=quokka")).json()
@@ -341,7 +341,7 @@ class TestSearchProjectNames:
         assert chats["quokkachat top"]["project_name"] is None
         assert chats["quokkachat inner"]["project_id"] == p
         assert chats["quokkachat inner"]["project_name"] == "Moonbase"
-        assert body["boards"][0]["project_name"] == "Moonbase"
+        assert body["collections"][0]["project_name"] == "Moonbase"
         assert body["flows"][0]["project_name"] == "Moonbase"
 
         scoped = (await client.get(f"/api/search?q=quokka&project_id={p}")).json()
@@ -405,53 +405,53 @@ class TestProjectAssetsChanged:
         removed = _events(broadcasts, "project_assets_changed")[-1]
         assert removed["action"] == "removed" and removed["asset_ids"] == [asset_ids[1]]
 
-    async def test_board_add_broadcasts_project_attach(self, client, db_session, broadcasts):
+    async def test_collection_add_broadcasts_project_attach(self, client, db_session, broadcasts):
         async with db_session() as session:
             (media,) = await create_test_media(session, count=1)
-        p = await _project(client, "Board add")
-        board = (await client.post("/api/boards", json={"name": "B", "project_id": p})).json()
-        await client.post(f"/api/boards/{board['id']}/items", json={"media_ids": [media.id]})
+        p = await _project(client, "Collection add")
+        collection = (await client.post("/api/collections", json={"name": "B", "project_id": p})).json()
+        await client.post(f"/api/collections/{collection['id']}/items", json={"media_ids": [media.id]})
         events = _events(broadcasts, "project_assets_changed")
         assert events and events[-1]["project_id"] == p
         assert events[-1]["media_ids"] == [media.id]
 
 
-class TestBoardMove:
-    async def test_moving_board_attaches_assets_and_broadcasts(self, client, db_session, broadcasts):
+class TestCollectionMove:
+    async def test_moving_collection_attaches_assets_and_broadcasts(self, client, db_session, broadcasts):
         async with db_session() as session:
             first, second = await create_test_media(session, count=2)
-        board = (await client.post("/api/boards", json={"name": "Movable"})).json()
+        collection = (await client.post("/api/collections", json={"name": "Movable"})).json()
         await client.post(
-            f"/api/boards/{board['id']}/items", json={"media_ids": [first.id, second.id]}
+            f"/api/collections/{collection['id']}/items", json={"media_ids": [first.id, second.id]}
         )
         p = await _project(client, "Destination")
-        response = await client.put(f"/api/boards/{board['id']}", json={"project_id": p})
+        response = await client.put(f"/api/collections/{collection['id']}", json={"project_id": p})
         assert response.status_code == 200, response.text
         assert response.json()["project_id"] == p
         assert {first.id, second.id} <= await _project_media_ids(client, p)
 
-        updated = _events(broadcasts, "board_updated")[-1]
-        assert updated["board"]["project_id"] == p
+        updated = _events(broadcasts, "collection_updated")[-1]
+        assert updated["collection"]["project_id"] == p
         changed = _events(broadcasts, "project_assets_changed")[-1]
         assert changed["project_id"] == p and set(changed["media_ids"]) == {first.id, second.id}
 
-    async def test_moving_board_to_missing_project_is_404(self, client):
-        board = (await client.post("/api/boards", json={"name": "Stuck"})).json()
-        response = await client.put(f"/api/boards/{board['id']}", json={"project_id": 999999})
+    async def test_moving_collection_to_missing_project_is_404(self, client):
+        collection = (await client.post("/api/collections", json={"name": "Stuck"})).json()
+        response = await client.put(f"/api/collections/{collection['id']}", json={"project_id": 999999})
         assert response.status_code == 404
         p = await _project(client, "Deleted target")
         await client.delete(f"/api/projects/{p}")
-        response = await client.put(f"/api/boards/{board['id']}", json={"project_id": p})
+        response = await client.put(f"/api/collections/{collection['id']}", json={"project_id": p})
         assert response.status_code == 404
 
-    async def test_bulk_move_attaches_to_board_project(self, client, db_session):
+    async def test_bulk_move_attaches_to_collection_project(self, client, db_session):
         async with db_session() as session:
             (media,) = await create_test_media(session, count=1)
         p = await _project(client, "Bulk move")
-        board = (await client.post("/api/boards", json={"name": "B", "project_id": p})).json()
-        section_id = board["sections"][0]["id"]
+        collection = (await client.post("/api/collections", json={"name": "B", "project_id": p})).json()
+        section_id = collection["sections"][0]["id"]
         response = await client.post(
-            f"/api/boards/{board['id']}/items/bulk-move",
+            f"/api/collections/{collection['id']}/items/bulk-move",
             json={"media_ids": [media.id], "asset_ids": [], "to_section_id": section_id},
         )
         assert response.status_code == 200, response.text

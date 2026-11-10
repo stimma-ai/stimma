@@ -4,7 +4,7 @@ Tests for the Unused ("dead end") asset filter.
 An asset is Unused when it is a generated leaf nobody ever did anything with:
 - no lineage child belonging to a live asset (and no bare-media children)
 - not embedded in / linked from a live container revision
-- no live marker (non-suppressed), tag, board, or project membership
+- no live marker (non-suppressed), tag, collection, or project membership
 - not created by, or referenced from, a live chat
 - only a single live revision
 """

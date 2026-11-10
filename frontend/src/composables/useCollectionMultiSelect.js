@@ -2,22 +2,22 @@ import { computed, ref } from 'vue'
 import { useMultiSelect } from './useMultiSelect'
 
 /**
- * Board-specific multi-select composable.
+ * Collection-specific multi-select composable.
  * Wraps useMultiSelect with section-aware shift-click and item-to-section mapping.
  *
  * @param {Object} options
- * @param {import('vue').Ref} options.board - Ref to board data
+ * @param {import('vue').Ref} options.collection - Ref to collection data
  * @param {import('vue').Ref} options.markers - Ref to markers array
  */
-export function useBoardMultiSelect(options = {}) {
-  const { board, markers } = options
+export function useCollectionMultiSelect(options = {}) {
+  const { collection, markers } = options
 
   const lastClickedItem = ref(null) // { sectionId, itemId, itemIndex }
   const lastClickedAction = ref('select') // 'select' or 'deselect'
 
   function getAllItems() {
-    if (!board?.value?.sections) return []
-    return board.value.sections.flatMap(section =>
+    if (!collection?.value?.sections) return []
+    return collection.value.sections.flatMap(section =>
       (section.items || []).map(item => ({ ...item, _sectionId: section.id }))
     )
   }
@@ -53,9 +53,9 @@ export function useBoardMultiSelect(options = {}) {
    */
   const selectedItemSectionMap = computed(() => {
     const map = new Map()
-    if (!board?.value?.sections) return map
+    if (!collection?.value?.sections) return map
     const selectedSet = new Set(selectedItemIds.value)
-    for (const section of board.value.sections) {
+    for (const section of collection.value.sections) {
       for (const item of section.items || []) {
         if (selectedSet.has(item.id)) {
           map.set(item.id, section.id)
@@ -74,7 +74,7 @@ export function useBoardMultiSelect(options = {}) {
 
     if (event.shiftKey && lastClickedItem.value) {
       // Shift-click: range select across all sections (flat order)
-      const allSections = board?.value?.sections || []
+      const allSections = collection?.value?.sections || []
       const flatItems = allSections.flatMap(s => (s.items || []).map(i => ({ id: i.id, sectionId: s.id })))
       const anchorIndex = flatItems.findIndex(fi => fi.id === lastClickedItem.value.itemId)
       const targetIndex = flatItems.findIndex(fi => fi.id === item.id)

@@ -14,7 +14,7 @@ const { selection } = collections
 const { isCompact } = useViewport()
 const contextMenu = useMediaContextMenu()
 
-// Everything else the picks can do (boards, print, send to a tool, trash): the
+// Everything else the picks can do (collections, print, send to a tool, trash): the
 // browser selection's menu, anchored above the bar.
 function openActions(event) {
   // The menu closes on any document click, and this one is still bubbling.

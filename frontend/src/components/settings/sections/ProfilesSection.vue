@@ -141,7 +141,7 @@
         <ul class="text-sm text-content-tertiary mt-2 ml-4 list-disc space-y-1">
           <li>All asset metadata and thumbnails</li>
           <li>Chat history and conversations</li>
-          <li>Markers and boards</li>
+          <li>Markers and collections</li>
           <li>Profile settings and folders</li>
         </ul>
       </div>

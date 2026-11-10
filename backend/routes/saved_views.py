@@ -146,6 +146,8 @@ async def update_saved_view(
         saved_view.filters = json.dumps(request.filters)
     if request.sort_by is not None:
         saved_view.sort_by = request.sort_by
+    if request.pinned is not None:
+        saved_view.pinned = request.pinned
 
     saved_view.updated_at = datetime.utcnow()
     await session.commit()

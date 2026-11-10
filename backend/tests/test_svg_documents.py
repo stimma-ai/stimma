@@ -130,7 +130,7 @@ class TestInkTone:
 
     def test_thumbnail_grounding_reads_the_file(self, tmp_path):
         """Vector thumbnails bake their ground in, so every surface that shows
-        one — chips, grids, boards — inherits the right answer."""
+        one — chips, grids, collections — inherits the right answer."""
         from routes.media_files import _SVG_GROUND_FOR_INK, _svg_ink_tone
 
         icon = tmp_path / "icon.svg"

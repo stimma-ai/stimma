@@ -1,7 +1,7 @@
 /**
  * Live shelf entries for the sidebar: open editors as thumbnails instead of
  * named rows. Editor tabs only — every other tab type stays a text row,
- * because chats, tools and boards do have names worth reading.
+ * because chats, tools and collections do have names worth reading.
  *
  * The ordering and capacity rules are pure; see utils/editorShelf.ts.
  */

@@ -8,7 +8,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import delete, select
 
-from database import Chat, DatabaseMeta, PinnedTool, WorkspaceDoc, WorkspaceMigration
+from database import Chat, Collection, DatabaseMeta, PinnedTool, WorkspaceDoc, WorkspaceMigration
 from tests.helpers.ws import MockWebSocketManager
 
 PATCH_TARGET = "routes.workspace.ws_manager"
@@ -234,6 +234,26 @@ class TestMigrate:
         snapshot = await docs(client)
         assert ("tab", f"chat:{chat.id}") in snapshot
         assert ("tab", "tool:offline:i:1") in snapshot
+
+    async def test_board_tabs_from_before_the_rename_carry_over(self, client: AsyncClient, db):
+        collection = Collection(name="Dogs")
+        db.add(collection)
+        await db.commit()
+        old_id = f"board:{collection.id}"
+        recents = '[{"type":"board","id":"%d","name":"Dogs"}]' % collection.id
+        result = await self._migrate(
+            client, "desktop-one",
+            {"namespace": "tab", "key": old_id, "value": tab(old_id)},
+            {"namespace": "kv", "key": "global_search_recents", "value": recents},
+            {"namespace": "kv", "key": "last_route", "value": f"/boards/{collection.id}"},
+        )
+        assert result["stats"]["dropped"] == []
+        snapshot = await docs(client)
+        new_id = f"collection:{collection.id}"
+        assert snapshot[("tab", new_id)]["value"]["type"] == "collection"
+        assert snapshot[("tab", new_id)]["value"]["id"] == new_id
+        assert '"type":"collection"' in snapshot[("kv", "global_search_recents")]["value"]
+        assert snapshot[("kv", "last_route")]["value"] == f"/collections/{collection.id}"
 
     async def test_failed_import_leaves_nothing_behind(self, client: AsyncClient, db):
         response = await client.post("/api/workspace/migrate", json={"client_id": "desktop-one", "docs": [

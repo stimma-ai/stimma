@@ -250,7 +250,7 @@ async def test_discovery_locked_and_actual_sdk_client(mcp_http, mcp_app):
         async with ClientSession(read, write) as session:
             await session.initialize()
             tools = await session.list_tools()
-            assert {"agent_start", "tools_run", "boards_update", "media_export"} <= {
+            assert {"agent_start", "tools_run", "collections_update", "media_export"} <= {
                 t.name for t in tools.tools
             }
             result = await session.call_tool("workspace_get", {})
@@ -302,22 +302,22 @@ async def test_synchronous_create_receipt_is_atomic_and_retryable(mcp_http):
     await rpc(mcp_http, "access_open")
     args = {
         "action": "create",
-        "name": "MCP retry board",
-        "request_key": "board-retry",
+        "name": "MCP retry collection",
+        "request_key": "collection-retry",
     }
-    first = await rpc(mcp_http, "boards_update", args)
+    first = await rpc(mcp_http, "collections_update", args)
     assert not first.get("isError"), first
-    second = await rpc(mcp_http, "boards_update", args)
+    second = await rpc(mcp_http, "collections_update", args)
     assert body(first) == body(second)
     conflict = await rpc(
-        mcp_http, "boards_update", {**args, "name": "Changed"}
+        mcp_http, "collections_update", {**args, "name": "Changed"}
     )
     assert body(conflict)["code"] == "request_key_conflict"
     result = await rpc(
-        mcp_http, "boards_get", {"action": "detail", "board_ref": body(first)["id"]}
+        mcp_http, "collections_get", {"action": "detail", "collection_ref": body(first)["id"]}
     )
     assert not result.get("isError"), result
-    assert body(result)["name"] == "MCP retry board"
+    assert body(result)["name"] == "MCP retry collection"
 
 
 async def test_query_and_catalog_schema(mcp_http):
@@ -708,7 +708,7 @@ async def test_second_profile_database_and_custom_tool_cache_are_isolated(
 ):
     from config import get_settings, ProfileConfig
     from core.profile_context import ProfileScope
-    from database import Board
+    from database import Collection
     from database_registry import get_database_registry
     from mcp_server.access import access, installation_id
     from mcp_server.models import McpClient
@@ -742,7 +742,7 @@ async def test_second_profile_database_and_custom_tool_cache_are_isolated(
                         installation=installation_id(),
                     )
                 )
-                session.add(Board(id=1, name="Other profile board"))
+                session.add(Collection(id=1, name="Other profile collection"))
                 await session.commit()
         unauthorized = await mcp_http.post(
             "/mcp/profiles/mcp-other",
@@ -754,7 +754,7 @@ async def test_second_profile_database_and_custom_tool_cache_are_isolated(
         from mcp_server.access import McpError
 
         with pytest.raises(McpError):
-            access.resolve(other_caller, access.ref(caller, "board", 1), "board")
+            access.resolve(other_caller, access.ref(caller, "collection", 1), "collection")
         provider = UserToolsProvider()
         catalog = ProviderRegistry()
         from types import SimpleNamespace
@@ -786,7 +786,7 @@ async def test_atomic_mutation_broadcasts_only_after_commit(mcp_http):
     from mcp_server.access import access
     from mcp_server.jobs import mutate
     from utils.websocket import WebSocketManager
-    from database import Board
+    from database import Collection
     from database_registry import get_database_registry
     from core.profile_context import ProfileScope
 
@@ -800,8 +800,8 @@ async def test_atomic_mutation_broadcasts_only_after_commit(mcp_http):
             async with db.async_session_maker() as session:
                 delivered.append(
                     await session.scalar(
-                        select(Board.name).where(
-                            Board.id == json.loads(message)["data"]["board_id"]
+                        select(Collection.name).where(
+                            Collection.id == json.loads(message)["data"]["collection_id"]
                         )
                     )
                 )
@@ -810,10 +810,10 @@ async def test_atomic_mutation_broadcasts_only_after_commit(mcp_http):
     manager.attach(receiver)
 
     async def change(session):
-        board = Board(name="Committed before broadcast")
-        session.add(board)
+        collection = Collection(name="Committed before broadcast")
+        session.add(collection)
         await session.commit()
-        await manager.broadcast("board_created", {"board_id": board.id})
+        await manager.broadcast("collection_created", {"collection_id": collection.id})
         assert delivered == []
         return {"created": True}
 
@@ -909,13 +909,13 @@ async def test_surface_is_the_product_surface(mcp_app):
     from mcp_server.server import catalog
 
     offered = catalog()
-    assert {"tools_run", "agent_start", "assets_query", "assets_update", "boards_update", "content_update", "content_get", "media_export"} <= set(offered)
+    assert {"tools_run", "agent_start", "assets_query", "assets_update", "collections_update", "content_update", "content_get", "media_export"} <= set(offered)
     for gone in ("flows_run", "flows_update", "custom_tools_update", "chat_history", "ui_context_get",
                  "share_publish", "presets_update", "saved_views_get", "assets_select", "entities_search",
                  "markers_update", "assets_trash", "containers_create"):
         assert gone not in offered, gone
     actions = lambda n: {v["properties"]["action"]["const"] for v in offered[n].inputSchema["oneOf"]}
-    assert actions("boards_update") == {"create", "update", "trash", "restore", "section_create", "section_update", "section_delete", "section_reorder", "add", "remove", "move"}
+    assert actions("collections_update") == {"create", "update", "trash", "restore", "section_create", "section_update", "section_delete", "section_reorder", "add", "remove", "move"}
     assert actions("chats_update") == {"update", "trash"}
     assert actions("projects_update") == {"create", "update"}
     assert "markers" in actions("assets_update") and "promote" not in actions("assets_update")

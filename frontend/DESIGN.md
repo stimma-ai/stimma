@@ -195,7 +195,7 @@ style.css; fields write `placeholder:text-content-muted`, never `placeholder-whi
   editable; bare/chip mono = read-only (codifying the one convention the app
   already keeps). Names and context (project subtitle, provider and task line
   under a tool name) are UI sans, not mono. Applied everywhere, rows
-  included: a chat or flow row's date, a board's asset count, a sidebar
+  included: a chat or flow row's date, a collection's asset count, a sidebar
   detail line, a slider readout are all mono.
   **One date format** (`utils/timeFormat.js`, nothing else formats a date):
   within a week, relative (`now`, `5m`, `3h`, `2d` in rows; `5m ago` in
@@ -203,9 +203,9 @@ style.css; fields write `placeholder:text-content-muted`, never `placeholder-whi
   otherwise (`formatDate`); detail panels and account or sharing facts always
   carry the year; an exact timestamp (tooltips, the Created fact) is
   `Aug 13, 2026, 11:36 PM`. The numeric locale form (`8/13/2026`) is retired.
-  **One noun for what a board holds: "assets"** (`1 asset`, `20 assets`) in
-  the sidebar, board cards, pickers and the browse count; "items" is not used
-  for board contents. A status value shown to people is sentence case
+  **One noun for what a collection holds: "assets"** (`1 asset`, `20 assets`) in
+  the sidebar, collection cards, pickers and the browse count; "items" is not used
+  for collection contents. A status value shown to people is sentence case
   (`Your turn`) even where the stored vocabulary keeps `Your Turn`
   (`displayFlowStatus`).
 - **Display = General Sans** (decided 2026-07-17; already bundled as
@@ -270,7 +270,7 @@ same right edge as the trailing button (a touch target's padding is pulled
 back with a negative margin so the text, not the target, lands on the edge).
 Rows with a hover tint run full bleed and pad themselves by `px-page`. **Media
 grids may bleed** past the margin to the pane edge on 2px matte gutters, and
-Browse and Board bleed the same way: no inset matte box. Sections are
+Browse and Collection bleed the same way: no inset matte box. Sections are
 separated by `--section-gap`, not per-screen numbers. A centered reading
 column (chat transcript, home, search) keeps its own measure and takes the
 margin only as its minimum side padding.
@@ -322,7 +322,7 @@ margin only as its minimum side padding.
   selection ring with a 2px offset on the matte, drawn outside the tile. Tiles
   that are not current dim to 80%, never lower. Aspect handling stays per strip
   (natural aspect in the tool strip, square crops in the slideshow).
-- **Secondary toolbar on a phone** (browse filters, tools filters, a board's
+- **Secondary toolbar on a phone** (browse filters, tools filters, a collection's
   section row, the flow's status and workspace row): one band under the header,
   `bg-surface`, a 48px minimum height with 44px targets and no vertical
   padding, side padding of `--page-margin` (the same edge as the header's
@@ -386,7 +386,7 @@ It uses the warning/amber bucket; when the missing provider is Stimma Cloud
 and the person is signed out, show the cloud-branded Log in action.
 
 Never inline a status→color switch in a component again. Amber is
-warning-family ONLY: the boards-amber association, countdown badges, and the
+warning-family ONLY: the collections-amber association, countdown badges, and the
 set/grid type icon migrate off amber in Phase 2 (countdown badges adopt the
 existing tiered `getRemainingTimeColor()`; type icons go monochrome).
 
@@ -474,7 +474,7 @@ that a desktop-sized window never trips.
   row in Settings and the editor: Menu (hubs) or back chevron (details),
   title (`font-brand` 18px), then the right strip (the transient background-work
   indicator, provider managers, search, create). No tab bar: the phone keeps
-  the desktop's navigation model — library links, projects, boards, chats,
+  the desktop's navigation model — library links, projects, collections, chats,
   flows, tools, the working set, and the footer (account, server, feedback,
   settings) all live in the one sidebar, so nothing is renamed or re-homed
   between the two. The account row in the drawer footer opens the account
@@ -515,7 +515,7 @@ that a desktop-sized window never trips.
   coarse pointers hover-revealed controls render visible or move into the
   row's context sheet.
 - **Drag is an accelerator.** Every drag/drop action has a menu twin: Send
-  to board / chat / flow / tool, reorder by long-press. Never a drag-only
+  to collection / chat / flow / tool, reorder by long-press. Never a drag-only
   path. Touch drag is not attempted.
 - **Menus and modals.** The ContextMenu shell renders a bottom sheet on
   coarse pointers; submenus stack as a second sheet with a back caret.
@@ -583,7 +583,7 @@ that a desktop-sized window never trips.
   Safe-area tokens describe space still needed inside the web viewport.
   The Android shell already insets its WebView, so its frontend tokens are
   zero; browser and iOS viewports retain the CSS environment insets.
-- **One matte.** Every surface that places artwork (browse, board, editor, tool,
+- **One matte.** Every surface that places artwork (browse, collection, editor, tool,
   slideshow with its strip and its viewers) sits on `--color-matte`: near-black
   in dark, paper in light. `--color-slideshow-matt` is an alias of it.
 - **Browse toolbar.** Upload is the toolbar's one create action and the
@@ -602,16 +602,16 @@ that a desktop-sized window never trips.
   and a docked drawer.
 - **The media menu on a phone** is a first level without scrolling: direct
   actions (Edit, Tags, Remix, Share link, Print, Export, Move to Trash) plus
-  named rows that open the next stacked sheet: Boards and projects, Send to
+  named rows that open the next stacked sheet: Collections and projects, Send to
   (Tool, Chat, Flow), Explore, Share. A group with one visible row shows that
   row directly. Every action is at most one extra tap. Destinations keep their
   full accessible names (`Send to Chat`); only the visible label drops the
   prefix inside the group sheet. Desktop uses the same groups as hover
-  submenus: Boards and projects, Send to, Explore (and Share and export, once
+  submenus: Collections and projects, Send to, Explore (and Share and export, once
   the OS share row makes it two or more share rows; otherwise Share link, Print
-  and Export stay inline) open a panel beside the menu, and a destination inside it (Boards,
+  and Export stay inline) open a panel beside the menu, and a destination inside it (Collections,
   Tool, Chat, Flow) opens its usual submenu beside the panel. Edit, Tags and
-  Boards and projects (organization) stay direct; Remix, Send to and Explore
+  Collections and projects (organization) stay direct; Remix, Send to and Explore
   are one group; sharing and export are one group; the destructive row stays
   separated at the bottom. A rule exists only between those groups, desktop and
   sheet alike.
@@ -724,23 +724,23 @@ own field is it, so the phone header drops its global-search icon there
 
 | Role | Treatment | Used for |
 |---|---|---|
-| Primary | solid accent (`Button` primary at the main-action height; on a phone a 36px fill in a 44px target) | the one create or run action of a view: New (collections), Add assets (a board), Upload (browse), Run, Start. At most one per view. |
+| Primary | solid accent (`Button` primary at the main-action height; on a phone a 36px fill in a 44px target) | the one create or run action of a view: New (collections), Add assets (a collection), Upload (browse), Run, Start. At most one per view. |
 | Secondary | raised fill, primary text (`Button` secondary; `ProviderRow`'s action) | a labelled supporting action: Configure, Manage, Sign in, Edit inputs |
 | Tertiary | bare glyph or secondary-colour text, fill only on hover or when on | toggles, filters, per-section adds, overflow, anything repeated down a list |
 
 Adding content is one treatment: the primary of the view that adds. A second
-add action in the same view (a section's own Add assets on a board with several
+add action in the same view (a section's own Add assets on a collection with several
 sections) is tertiary. Teal text is a link or a selected label, never a button.
 Configure, Manage and Sign in share the secondary style in every state of a
 settings row; the Stimma account's gradient is the one exception and is
 cloud-reserved. A screen's global search rests quiet where the page has its own
-list field (boards, chats, flows, tools): the list field is the visible search,
+list field (collections, chats, flows, tools): the list field is the visible search,
 and the top bar's field keeps its geometry and shortcut but drops its fill and its resting outline (the outline returns on hover and focus). It reads the route name, no setting.
 
-A board whose only section is unnamed has no band of its own on desktop: the
+A collection whose only section is unnamed has no band of its own on desktop: the
 page header carries the count and Add assets, the matte starts directly below,
 and "Name this section…" floats over the matte's corner on hover and focus.
-On a phone the same board has one quiet line instead: no rule and no fill,
+On a phone the same collection has one quiet line instead: no rule and no fill,
 "Name this section…" at the page margin on the left, the count and a text
 Add assets (tertiary, 44px target) on the right. Once the section is named, or
 a second one exists, the band and its filled add return.
@@ -832,13 +832,13 @@ Until a kit component exists, new code uses these exact patterns:
   tile is an active favorite heart. No per-type icon colors, no bare counts,
   no dog-ears. Set and grid covers are centred on their own backdrop so the
   tile has no blank band.
-- **Board section headings:** a named section's title is `text-sm font-semibold
+- **Collection section headings:** a named section's title is `text-sm font-semibold
   text-content` with a mono asset count on the right. An unnamed section shows
   one quiet muted line (`Name this section…` and a pencil), never a band: on
   compact it is always there (its 44px target overlaps the gutter instead of
   adding height); on desktop it appears on hover. Every section carries the
   same quiet action, `Add assets`, beside the mono count at the right margin.
-- **Tile grids** (`utils/tileGrid.ts`, one rule for browse and boards): the
+- **Tile grids** (`utils/tileGrid.ts`, one rule for browse and collections): the
   column count is `max(3, floor((width + 2) / (minimum + 2)))` from the pane's
   real content width, so a folded phone, an unfolded one and a desktop pane
   all ask the same question and tiles never get small because a layout tier
@@ -846,9 +846,9 @@ Until a kit component exists, new code uses these exact patterns:
   the width left after 2px gutters, which equal the 2px outer matte padding;
   tiles sit on `bg-matte` with no separate fill; a short last row keeps the
   tile size. Density is a choice per surface: `browse` minimum 200px (scanning
-  many assets), `board` minimum 220px (a curated sheet, a touch larger). Strips
+  many assets), `collection` minimum 220px (a curated sheet, a touch larger). Strips
   that sit beside these grids (home recents) take the same function and the
-  `browse` density. Board landing covers use 1, 2 or 4 tiles by asset count;
+  `browse` density. Collection landing covers use 1, 2 or 4 tiles by asset count;
   the name takes its own line above the mono facts.
 - **Empty state**: EmptyState.vue (extended for display-serif titles in
   Phase 3); errors keep ConnectionError but gain a red-tinted icon circle to

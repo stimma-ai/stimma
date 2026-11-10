@@ -226,76 +226,76 @@ export function useMediaApi() {
     return response.data
   }
 
-  // ===== Boards =====
-  async function getBoards(projectId = null, config = {}) {
+  // ===== Collections =====
+  async function getCollections(projectId = null, config = {}) {
     const params = {}
     if (projectId != null) params.project_id = projectId
-    const response = await axios.get(`${getAPIBase()}/boards`, { ...config, params })
+    const response = await axios.get(`${getAPIBase()}/collections`, { ...config, params })
     return response.data
   }
 
-  async function createBoard(name = '', projectId = null) {
-    const response = await axios.post(`${getAPIBase()}/boards`, { name, project_id: projectId })
+  async function createCollection(name = '', projectId = null) {
+    const response = await axios.post(`${getAPIBase()}/collections`, { name, project_id: projectId })
     return response.data
   }
 
-  async function getBoard(boardId, config = {}) {
-    const response = await axios.get(`${getAPIBase()}/boards/${boardId}`, config)
+  async function getCollection(collectionId, config = {}) {
+    const response = await axios.get(`${getAPIBase()}/collections/${collectionId}`, config)
     return response.data
   }
 
-  async function updateBoard(boardId, updates) {
-    const response = await axios.put(`${getAPIBase()}/boards/${boardId}`, updates)
+  async function updateCollection(collectionId, updates) {
+    const response = await axios.put(`${getAPIBase()}/collections/${collectionId}`, updates)
     return response.data
   }
 
-  async function deleteBoard(boardId) {
-    const response = await axios.delete(`${getAPIBase()}/boards/${boardId}`)
+  async function deleteCollection(collectionId) {
+    const response = await axios.delete(`${getAPIBase()}/collections/${collectionId}`)
     return response.data
   }
 
-  async function restoreBoard(boardId) {
-    const response = await axios.post(`${getAPIBase()}/boards/${boardId}/restore`)
+  async function restoreCollection(collectionId) {
+    const response = await axios.post(`${getAPIBase()}/collections/${collectionId}/restore`)
     return response.data
   }
 
-  async function createBoardSection(boardId, name = null) {
-    const response = await axios.post(`${getAPIBase()}/boards/${boardId}/sections`, { name })
+  async function createCollectionSection(collectionId, name = null) {
+    const response = await axios.post(`${getAPIBase()}/collections/${collectionId}/sections`, { name })
     return response.data
   }
 
-  async function updateBoardSection(sectionId, updates) {
-    const response = await axios.put(`${getAPIBase()}/boards/sections/${sectionId}`, updates)
+  async function updateCollectionSection(sectionId, updates) {
+    const response = await axios.put(`${getAPIBase()}/collections/sections/${sectionId}`, updates)
     return response.data
   }
 
-  async function deleteBoardSection(sectionId) {
-    const response = await axios.delete(`${getAPIBase()}/boards/sections/${sectionId}`)
+  async function deleteCollectionSection(sectionId) {
+    const response = await axios.delete(`${getAPIBase()}/collections/sections/${sectionId}`)
     return response.data
   }
 
-  async function reorderBoardSections(boardId, sectionIds) {
-    const response = await axios.post(`${getAPIBase()}/boards/${boardId}/sections/reorder`, {
+  async function reorderCollectionSections(collectionId, sectionIds) {
+    const response = await axios.post(`${getAPIBase()}/collections/${collectionId}/sections/reorder`, {
       section_ids: sectionIds
     })
     return response.data
   }
 
-  async function addMediaToBoard(boardId, mediaIds, sectionId = null) {
-    const response = await axios.post(`${getAPIBase()}/boards/${boardId}/items`, {
+  async function addMediaToCollection(collectionId, mediaIds, sectionId = null) {
+    const response = await axios.post(`${getAPIBase()}/collections/${collectionId}/items`, {
       media_ids: mediaIds.map(id => parseInt(id)),
       section_id: sectionId == null ? null : parseInt(sectionId)
     })
     return response.data
   }
 
-  async function removeMediaFromBoardSection(sectionId, mediaId) {
-    const response = await axios.delete(`${getAPIBase()}/boards/sections/${sectionId}/items/${mediaId}`)
+  async function removeMediaFromCollectionSection(sectionId, mediaId) {
+    const response = await axios.delete(`${getAPIBase()}/collections/sections/${sectionId}/items/${mediaId}`)
     return response.data
   }
 
-  async function moveBoardItem(boardId, mediaId, fromSectionId, toSectionId, targetIndex) {
-    const response = await axios.post(`${getAPIBase()}/boards/${boardId}/items/move`, {
+  async function moveCollectionItem(collectionId, mediaId, fromSectionId, toSectionId, targetIndex) {
+    const response = await axios.post(`${getAPIBase()}/collections/${collectionId}/items/move`, {
       media_id: parseInt(mediaId),
       from_section_id: parseInt(fromSectionId),
       to_section_id: parseInt(toSectionId),
@@ -304,28 +304,28 @@ export function useMediaApi() {
     return response.data
   }
 
-  async function bulkRemoveFromBoard(boardId, mediaIds) {
-    const response = await axios.post(`${getAPIBase()}/boards/${boardId}/items/bulk-remove`, {
+  async function bulkRemoveFromCollection(collectionId, mediaIds) {
+    const response = await axios.post(`${getAPIBase()}/collections/${collectionId}/items/bulk-remove`, {
       media_ids: mediaIds.map(id => parseInt(id))
     })
     return response.data
   }
 
-  async function bulkMoveBoardItems(boardId, mediaIds, toSectionId) {
-    const response = await axios.post(`${getAPIBase()}/boards/${boardId}/items/bulk-move`, {
+  async function bulkMoveCollectionItems(collectionId, mediaIds, toSectionId) {
+    const response = await axios.post(`${getAPIBase()}/collections/${collectionId}/items/bulk-move`, {
       media_ids: mediaIds.map(id => parseInt(id)),
       to_section_id: parseInt(toSectionId)
     })
     return response.data
   }
 
-  async function getMediaBoards(mediaId) {
-    const response = await axios.get(`${getAPIBase()}/media/${mediaId}/boards`)
+  async function getMediaCollections(mediaId) {
+    const response = await axios.get(`${getAPIBase()}/media/${mediaId}/collections`)
     return response.data
   }
 
-  async function duplicateBoard(boardId) {
-    const response = await axios.post(`${getAPIBase()}/boards/${boardId}/duplicate`)
+  async function duplicateCollection(collectionId) {
+    const response = await axios.post(`${getAPIBase()}/collections/${collectionId}/duplicate`)
     return response.data
   }
 
@@ -502,6 +502,7 @@ export function useMediaApi() {
     if (updates.name !== undefined) payload.name = updates.name
     if (updates.filters !== undefined) payload.filters = updates.filters
     if (updates.sortBy !== undefined) payload.sort_by = updates.sortBy
+    if (updates.pinned !== undefined) payload.pinned = updates.pinned
 
     const response = await axios.put(`${getAPIBase()}/saved-views/${viewId}`, payload)
     return response.data
@@ -608,24 +609,24 @@ export function useMediaApi() {
     removeTagFromMedia,
     bulkTagOperation,
     deleteTag,
-    // Boards
-    getBoards,
-    getMediaBoards,
-    duplicateBoard,
-    createBoard,
-    getBoard,
-    updateBoard,
-    deleteBoard,
-    restoreBoard,
-    createBoardSection,
-    updateBoardSection,
-    deleteBoardSection,
-    reorderBoardSections,
-    addMediaToBoard,
-    removeMediaFromBoardSection,
-    moveBoardItem,
-    bulkRemoveFromBoard,
-    bulkMoveBoardItems,
+    // Collections
+    getCollections,
+    getMediaCollections,
+    duplicateCollection,
+    createCollection,
+    getCollection,
+    updateCollection,
+    deleteCollection,
+    restoreCollection,
+    createCollectionSection,
+    updateCollectionSection,
+    deleteCollectionSection,
+    reorderCollectionSections,
+    addMediaToCollection,
+    removeMediaFromCollectionSection,
+    moveCollectionItem,
+    bulkRemoveFromCollection,
+    bulkMoveCollectionItems,
     // Projects
     getProjects,
     createProject,

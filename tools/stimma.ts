@@ -624,6 +624,9 @@ Commands:
   test backend    Run backend pytest tests
   test release-cleanup  Verify release retention and current-feed protection
   test release-pipeline  Verify release version planning and publication gates
+  test ci-runner   Verify prepared-runner checks and action-cache maintenance
+  ci check        Check that runner temporary files can execute and caches are writable
+  ci cache-actions --logs DIR  Warm immutable action archives from runner logs
   test frontend   Run all frontend unit and browser regression tests
                   --file=tests/example.browser.test.mjs runs just that file
                   --list lists matching files without starting tests
@@ -2515,11 +2518,21 @@ async function main(): Promise<void> {
       break;
     }
 
+    case "ci": {
+      if (sub !== "check" && sub !== "cache-actions") {
+        printUsage();
+      }
+      await run("python3", [join(repoRoot, "scripts", "ci_runner.py"), sub, ...rest], { cwd: repoRoot });
+      break;
+    }
+
     case "test": {
       if (sub === "release-pipeline") {
         await run(Deno.execPath(), ["test", "tools/tests/release-tags.test.ts"], { cwd: repoRoot });
         await run("uv", ["run", "--no-project", "--python", "3.11", "--with", "pyyaml==6.0.3", "python", "-m", "unittest",
           "discover", "-s", "tools/tests", "-p", "test_release_pipeline.py", ...rest], { cwd: repoRoot });
+      } else if (sub === "ci-runner") {
+        await run("python3", ["-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_ci_runner.py", ...rest], { cwd: repoRoot });
       } else if (sub === "release-cleanup") {
         await run("uv", ["run", "--no-project", "--python", "3.11", "--with", "pyyaml==6.0.3", "python", "-m", "unittest",
           "discover", "-s", "tools/tests", "-p", "test_release_cleanup.py", ...rest], { cwd: repoRoot });

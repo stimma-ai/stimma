@@ -4,10 +4,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   addMarkerToMedia,
-  addMediaToBoard,
-  createBoard,
+  addMediaToCollection,
+  createCollection,
   createProject,
-  getBoard,
+  getCollection,
   getMarkers,
   goToBrowse,
   listMedia,
@@ -56,7 +56,7 @@ test.describe('upload import acceptance', () => {
   test('uploaded image can be marked, boarded, and trashed', async ({ page }, testInfo) => {
     const uploaded = await uploadMediaViaUI(page, await uniqueUploadFixture(testInfo));
     const marker = (await getMarkers(page))[0];
-    const board = await createBoard(page, 'Acceptance Upload Board');
+    const collection = await createCollection(page, 'Acceptance Upload Collection');
 
     await addMarkerToMedia(page, uploaded.id, marker.id);
     const marked = await listMedia(page, {
@@ -67,9 +67,9 @@ test.describe('upload import acceptance', () => {
     });
     expect(marked.some((item) => item.id === uploaded.id)).toBe(true);
 
-    await addMediaToBoard(page, board.id, [uploaded.id]);
-    const loadedBoard = await getBoard(page, board.id);
-    expect(loadedBoard.sections.some((section) => section.items.some((item) => item.id === uploaded.id))).toBe(true);
+    await addMediaToCollection(page, collection.id, [uploaded.id]);
+    const loadedCollection = await getCollection(page, collection.id);
+    expect(loadedCollection.sections.some((section) => section.items.some((item) => item.id === uploaded.id))).toBe(true);
 
     await trashMedia(page, uploaded.id);
     const trashed = await listTrash(page, { page: 1, page_size: 50 });

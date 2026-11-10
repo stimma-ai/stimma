@@ -39,6 +39,11 @@ function loadRecents() {
   } catch { recents.value = [] }
 }
 
+// The workspace's first read doesn't tell each key's listeners: read again.
+if (typeof window !== 'undefined') {
+  window.addEventListener('workspace-loaded', () => { recentsLoadedFor = null })
+}
+
 function remember(text: string, kind: AskKind) {
   loadRecents()
   const t = text.trim()

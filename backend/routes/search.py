@@ -2,7 +2,7 @@
 Global search across named entities.
 
 One endpoint powering the omnibox and the full /search page: case-insensitive
-name matching over chats, flows, boards, projects, and presets. Tools,
+name matching over chats, flows, collections, projects, and presets. Tools,
 stimpacks, and media are matched elsewhere (tools/stimpacks client-side from
 the already-cached catalogs, media via /api/media text search).
 """
@@ -18,9 +18,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import (
     Asset,
     AssetRevision,
-    Board,
-    BoardAssetItem,
-    BoardSection,
+    Collection,
+    CollectionAssetItem,
+    CollectionSection,
     Chat,
     Flow,
     MediaItem,
@@ -56,7 +56,7 @@ class SearchHit(BaseModel):
     tool_id: Optional[str] = None
     # Chats only: most recent generated media, for the row thumbnail.
     thumbnail: Optional[MediaRef] = None
-    # Boards only: first items, for the mosaic preview tile.
+    # Collections only: first items, for the mosaic preview tile.
     preview_items: Optional[List[MediaRef]] = None
 
 
@@ -64,7 +64,7 @@ class SearchResponse(BaseModel):
     query: str
     chats: List[SearchHit]
     flows: List[SearchHit]
-    boards: List[SearchHit]
+    collections: List[SearchHit]
     projects: List[SearchHit]
     presets: List[SearchHit]
 
@@ -125,30 +125,30 @@ async def _chat_thumbnails(session: AsyncSession, chat_ids: List[int]) -> dict:
     return thumbnails
 
 
-async def _board_previews(session: AsyncSession, board_ids: List[int]) -> dict:
-    """First items per board for the 2x2 mosaic (matches sidebar/home boards)."""
-    if not board_ids:
+async def _collection_previews(session: AsyncSession, collection_ids: List[int]) -> dict:
+    """First items per collection for the 2x2 mosaic (matches sidebar/home collections)."""
+    if not collection_ids:
         return {}
     query = (
-        select(BoardSection.board_id, MediaItem.id, MediaItem.file_hash)
-        .join(BoardAssetItem, BoardAssetItem.board_section_id == BoardSection.id)
-        .join(Asset, Asset.id == BoardAssetItem.asset_id)
+        select(CollectionSection.collection_id, MediaItem.id, MediaItem.file_hash)
+        .join(CollectionAssetItem, CollectionAssetItem.collection_section_id == CollectionSection.id)
+        .join(Asset, Asset.id == CollectionAssetItem.asset_id)
         .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
         .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
         .where(
-            BoardSection.board_id.in_(board_ids),
-            BoardSection.deleted_at.is_(None),
-            BoardAssetItem.deleted_at.is_(None),
+            CollectionSection.collection_id.in_(collection_ids),
+            CollectionSection.deleted_at.is_(None),
+            CollectionAssetItem.deleted_at.is_(None),
             Asset.state == "active",
             Asset.deleted_at.is_(None),
             AssetRevision.deleted_at.is_(None),
             MediaItem.deleted_at.is_(None),
         )
-        .order_by(BoardSection.board_id, BoardAssetItem.display_order)
+        .order_by(CollectionSection.collection_id, CollectionAssetItem.display_order)
     )
     previews: dict = {}
-    for board_id, media_id, file_hash in (await session.execute(query)).all():
-        items = previews.setdefault(board_id, [])
+    for collection_id, media_id, file_hash in (await session.execute(query)).all():
+        items = previews.setdefault(collection_id, [])
         if len(items) < 4:
             items.append(MediaRef(media_id=media_id, file_hash=file_hash))
     return previews
@@ -158,7 +158,7 @@ async def _board_previews(session: AsyncSession, board_ids: List[int]) -> dict:
 async def global_search(
     q: str = Query(..., min_length=1, max_length=200),
     limit: int = Query(8, ge=1, le=50, description="Max results per entity type"),
-    project_id: Optional[int] = Query(None, description="Scope chats/flows/boards to a project"),
+    project_id: Optional[int] = Query(None, description="Scope chats/flows/collections to a project"),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Search entity names for the omnibox / search page.
@@ -168,7 +168,7 @@ async def global_search(
     """
     tokens = _tokenize(q)
     if not tokens:
-        return SearchResponse(query=q, chats=[], flows=[], boards=[], projects=[], presets=[])
+        return SearchResponse(query=q, chats=[], flows=[], collections=[], projects=[], presets=[])
 
     async def fetch(model, *extra_filters):
         query = select(model).where(model.deleted_at.is_(None)).limit(FETCH_CAP)
@@ -189,7 +189,7 @@ async def global_search(
     # Flow-backed chats surface through their flow, not as standalone chats.
     chats = await fetch(Chat, Chat.flow_id.is_(None), *scoped(Chat))
     flows = await fetch(Flow, *scoped(Flow))
-    boards = await fetch(Board, *scoped(Board))
+    collections = await fetch(Collection, *scoped(Collection))
     # Searching projects makes no sense inside a project scope.
     projects = [] if project_id is not None else live_projects
     presets = await fetch(Preset)
@@ -198,22 +198,22 @@ async def global_search(
         return [_hit(r, project_names=project_names) for r in _match_and_rank(rows, tokens, limit)]
 
     chat_hits = hits(chats)
-    board_hits = hits(boards)
+    collection_hits = hits(collections)
 
     # Preview enrichment for the returned hits only (same treatments as the
-    # sidebar: chat thumbnail, board mosaic).
+    # sidebar: chat thumbnail, collection mosaic).
     thumbnails = await _chat_thumbnails(session, [h.id for h in chat_hits])
-    previews = await _board_previews(session, [h.id for h in board_hits])
+    previews = await _collection_previews(session, [h.id for h in collection_hits])
     for hit in chat_hits:
         hit.thumbnail = thumbnails.get(hit.id)
-    for hit in board_hits:
+    for hit in collection_hits:
         hit.preview_items = previews.get(hit.id)
 
     return SearchResponse(
         query=q,
         chats=chat_hits,
         flows=hits(flows),
-        boards=board_hits,
+        collections=collection_hits,
         projects=[_hit(r) for r in _match_and_rank(projects, tokens, limit)],
         presets=[_hit(r, tool_id=True) for r in _match_and_rank(presets, tokens, limit)],
     )

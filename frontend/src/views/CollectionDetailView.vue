@@ -10,30 +10,30 @@
       @update:current-media-id="updateCurrentMediaId"
     />
     <Sheet :show="moveProjectOpen" title="Move to project" @close="moveProjectOpen = false">
-      <ProjectPickerSubmenu v-if="moveProjectOpen" mode="move" :current-project-id="board?.project_id" @select="moveBoardToProject" />
+      <ProjectPickerSubmenu v-if="moveProjectOpen" mode="move" :current-project-id="collection?.project_id" @select="moveCollectionToProject" />
     </Sheet>
-    <AssetSelectionSheet :show="addAssetsSection !== null" :project-id="board ? (board.project_id ?? null) : undefined" :saving="addingAssets" @close="addAssetsSection = null" @select="addSectionAssets" />
-    <RenameSheet :show="renameOpen" :name="board?.name || ''" label="Rename board" @close="renameOpen = false" @save="renameBoard" />
+    <AssetSelectionSheet :show="addAssetsSection !== null" :project-id="collection ? (collection.project_id ?? null) : undefined" :saving="addingAssets" @close="addAssetsSection = null" @select="addSectionAssets" />
+    <RenameSheet :show="renameOpen" :name="collection?.name || ''" label="Rename collection" @close="renameOpen = false" @save="renameCollection" />
 
-    <PageHeader v-show="!isCompact && !slideshowState.active && board">
+    <PageHeader v-show="!isCompact && !slideshowState.active && collection">
       <template #title>
         <input
-          v-if="isEditingBoardName || (editedName && !isCompact)"
-          ref="boardNameInputRef"
+          v-if="isEditingCollectionName || (editedName && !isCompact)"
+          ref="collectionNameInputRef"
           v-model="editedName"
           class="-ml-2 min-w-[6ch] max-w-80 [field-sizing:content] rounded-md border border-transparent bg-transparent px-2 py-1 font-brand text-[18px] leading-6 font-semibold text-content outline-none transition-colors hover:bg-overlay-subtle focus:bg-overlay-subtle focus:border-accent"
-          placeholder="Name this board..."
-          @blur="handleBoardNameBlur"
-          @keydown.enter.prevent="saveBoardName"
-          @keydown.esc.prevent="cancelBoardNameEdit"
+          placeholder="Name this collection..."
+          @blur="handleCollectionNameBlur"
+          @keydown.enter.prevent="saveCollectionName"
+          @keydown.esc.prevent="cancelCollectionNameEdit"
         />
         <span v-else-if="editedName">{{ editedName }}</span>
         <button
           v-else
           class="bg-transparent text-left text-content-muted/70 outline-none transition-colors hover:text-content-secondary"
-          @click="!isCompact && startBoardNameEdit()"
+          @click="!isCompact && startCollectionNameEdit()"
         >
-          Name this board...
+          Name this collection...
         </button>
       </template>
       <template v-if="loneSection" #meta>
@@ -47,21 +47,21 @@
       </template>
       <template #menu>
         <div class="relative">
-          <OverflowButton ref="boardMenuButtonRef" size="lg" label="Board actions" @click="toggleBoardMenu" />
+          <OverflowButton ref="collectionMenuButtonRef" size="lg" label="Collection actions" @click="toggleCollectionMenu" />
 
           <div
-            v-if="boardMenuOpen"
-            ref="boardMenuRef" data-escape-layer
+            v-if="collectionMenuOpen"
+            ref="collectionMenuRef" data-escape-layer
             class="absolute right-0 top-11 z-menu min-w-[180px] overflow-hidden rounded-lg border border-edge-subtle bg-surface shadow-lg"
           >
             <button
               class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
-              @click="handleBoardMenuDeleteBoard"
+              @click="handleCollectionMenuDeleteCollection"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-icon-inline w-icon-inline">
                 <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5z" clip-rule="evenodd" />
               </svg>
-              <span>Delete board</span>
+              <span>Delete collection</span>
             </button>
           </div>
         </div>
@@ -69,14 +69,14 @@
     </PageHeader>
 
     <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto py-section compact:pt-0" :class="[{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }, loneSection ? '!pt-0' : '']">
-      <div v-if="loading" class="px-page py-20 text-center text-content-muted">Loading board...</div>
-      <div v-else-if="!board" class="px-page py-20 text-center text-content-muted">Board not found.</div>
+      <div v-if="loading" class="px-page py-20 text-center text-content-muted">Loading collection...</div>
+      <div v-else-if="!collection" class="px-page py-20 text-center text-content-muted">Collection not found.</div>
       <TransitionGroup v-else tag="div" class="space-y-section">
         <section
           v-for="section in displaySections"
           :key="section.id"
           :ref="(el) => setSectionRef(section.id, el)"
-          data-board-section="true"
+          data-collection-section="true"
           class="relative transition-colors"
           :class="[
             loneSection && loneSection.id === section.id ? 'group/head' : '',
@@ -133,14 +133,14 @@
             </div>
             <div v-if="!(loneSection && loneSection.id === section.id)" class="flex flex-none items-center gap-1">
               <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary" :class="quietSection && quietSection.id === section.id ? 'text-xs' : ''">{{ assetCountLabel(section) }}</span>
-              <!-- A phone board's single unnamed section is one quiet line: the add is text, not a filled glyph. -->
+              <!-- A phone collection's single unnamed section is one quiet line: the add is text, not a filled glyph. -->
               <button
                 v-if="quietSection && quietSection.id === section.id"
                 type="button"
                 class="-mr-2 whitespace-nowrap rounded-md px-2 text-xs font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content min-h-11 min-w-11"
                 @click="addAssetsSection = section.id"
               >Add assets</button>
-              <!-- The view's one primary add: a phone board with a single named section has no page header, so it is the filled glyph here. -->
+              <!-- The view's one primary add: a phone collection with a single named section has no page header, so it is the filled glyph here. -->
               <button
                 v-else-if="compactAddSection && compactAddSection.id === section.id"
                 type="button"
@@ -195,7 +195,7 @@
                   :draggable="!item.__placeholder"
                 >
                   <div
-                    :data-board-item="item.__placeholder ? undefined : 'true'"
+                    :data-collection-item="item.__placeholder ? undefined : 'true'"
                     class="h-full w-full"
                   >
                     <MediaImage
@@ -280,17 +280,17 @@
         </div>
         <div
           class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
-          :class="dragState.removeFromBoardHover ? 'border-red-500 bg-red-600 text-white shadow-red-500/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
-          @dragenter.prevent="dragState.removeFromBoardHover = true"
-          @dragover.prevent="handleRemoveFromBoardDragOver"
-          @dragleave="handleRemoveFromBoardDragLeave"
-          @drop.prevent="removeFromBoardDrop($event)"
+          :class="dragState.removeFromCollectionHover ? 'border-red-500 bg-red-600 text-white shadow-red-500/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
+          @dragenter.prevent="dragState.removeFromCollectionHover = true"
+          @dragover.prevent="handleRemoveFromCollectionDragOver"
+          @dragleave="handleRemoveFromCollectionDragLeave"
+          @drop.prevent="removeFromCollectionDrop($event)"
         >
           <div class="flex items-center gap-2 text-sm font-medium">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
               <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5z" clip-rule="evenodd" />
             </svg>
-            Remove from board
+            Remove from collection
           </div>
         </div>
       </div>
@@ -343,24 +343,24 @@
       :total-count="totalAssetCount"
       :markers="markersData"
       :active-marker-ids="activeMarkerIds"
-      :in-board="true"
+      :in-collection="true"
       :first-selected-item="selectedItems[0] || null"
       :selected-items="selectedItems"
       @clear="selectNone"
       @select-all="selectAll"
       @toggle-marker="handleToggleMarker"
       @add-tags="openTagPicker"
-      @add-to-board="showBoardPicker = true"
+      @add-to-collection="showCollectionPicker = true"
       @download="handleExport"
       @delete="handleBulkMoveToTrash"
     />
 
-    <BoardPicker
-      :visible="showBoardPicker"
+    <CollectionPicker
+      :visible="showCollectionPicker"
       :media-ids="selectedMediaIds"
       :asset-ids="selectedItemIds"
-      @close="showBoardPicker = false"
-      @saved="handleBoardsAdded"
+      @close="showCollectionPicker = false"
+      @saved="handleCollectionsAdded"
     />
 
     <TagPickerPopover
@@ -399,12 +399,12 @@ import { useEntityMove } from '../composables/useEntityMove'
 import AssetSelectionSheet from '../components/AssetSelectionSheet.vue'
 import { useRoute, useRouter } from 'vue-router'
 import MultiSelectActionBar from '../components/MultiSelectActionBar.vue'
-import BoardPicker from '../components/BoardPicker.vue'
+import CollectionPicker from '../components/CollectionPicker.vue'
 import TagPickerPopover from '../components/TagPickerPopover.vue'
 import ExportModal from '../components/ExportModal.vue'
 import { MediaContextMenu, MediaImage, TileMarkers } from '../components/media'
 import SlideshowMode from '../components/SlideshowMode.vue'
-import { useBoardMultiSelect } from '../composables/useBoardMultiSelect'
+import { useCollectionMultiSelect } from '../composables/useCollectionMultiSelect'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
@@ -423,32 +423,32 @@ const router = useRouter()
 const { resolvedTheme } = useTheme()
 const mediaContextMenu = useMediaContextMenu()
 const {
-  createBoardSection,
-  deleteBoard,
-  restoreBoard,
-  deleteBoardSection,
-  getBoard,
+  createCollectionSection,
+  deleteCollection,
+  restoreCollection,
+  deleteCollectionSection,
+  getCollection,
   getMarkers,
   getThumbnailUrl,
-  reorderBoardSections,
-  updateBoard,
-  updateBoardSection
+  reorderCollectionSections,
+  updateCollection,
+  updateCollectionSection
 } = useMediaApi()
 const {
   getAssetBrowserItem,
-  addToBoard,
+  addToCollection,
   bulkMarker: bulkMarkerOperation,
-  bulkMoveBoardItems,
-  bulkRemoveFromBoard,
-  moveBoardItem,
-  removeFromBoardSection: removeMediaFromBoardSection,
+  bulkMoveCollectionItems,
+  bulkRemoveFromCollection,
+  moveCollectionItem,
+  removeFromCollectionSection: removeMediaFromCollectionSection,
 } = useAssetApi()
 const { trashAssetsWithUndo: bulkDeleteMedia } = useAssetTrash()
 const { addToast } = useToasts()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 
 const markersData = ref([])
-const showBoardPicker = ref(false)
+const showCollectionPicker = ref(false)
 const showTagEditor = ref(false)
 const tagPickerAnchor = ref(null)
 
@@ -459,13 +459,13 @@ function openTagPicker(anchorEl = null) {
 const showExportModal = ref(false)
 
 const loading = ref(false)
-const board = ref(null)
+const collection = ref(null)
 const editedName = ref('')
-const isEditingBoardName = ref(false)
-const boardNameInputRef = ref(null)
-const boardMenuOpen = ref(false)
-const boardMenuButtonRef = ref(null)
-const boardMenuRef = ref(null)
+const isEditingCollectionName = ref(false)
+const collectionNameInputRef = ref(null)
+const collectionMenuOpen = ref(false)
+const collectionMenuButtonRef = ref(null)
+const collectionMenuRef = ref(null)
 const sectionEditingId = ref(null)
 const scrollerRef = ref(null)
 const sectionNames = reactive({})
@@ -503,7 +503,7 @@ const dragState = reactive({
   sectionTargetId: null,
   sectionTargetIndex: null,
   newSectionHover: false,
-  removeFromBoardHover: false,
+  removeFromCollectionHover: false,
   deleteSectionHover: false,
   explodeSectionHover: false,
   committing: false
@@ -532,14 +532,14 @@ const {
   currentTagCounts,
   selectedItemSectionMap,
   createKeyboardHandler
-} = useBoardMultiSelect({ board, markers: markersData })
+} = useCollectionMultiSelect({ collection, markers: markersData })
 
 const multiSelectKeyboardHandler = createKeyboardHandler()
 
-function logBoardDnD(eventName, payload = {}) {
+function logCollectionDnD(eventName, payload = {}) {
   const timestamp = new Date().toISOString()
-  console.log(`[BoardDnD ${timestamp}] ${eventName}`, {
-    boardId: board.value?.id ?? null,
+  console.log(`[CollectionDnD ${timestamp}] ${eventName}`, {
+    collectionId: collection.value?.id ?? null,
     dragState: {
       item: dragState.item ? { ...dragState.item } : null,
       targetSectionId: dragState.targetSectionId,
@@ -568,7 +568,7 @@ const GRID_GAP_PX = TILE_GAP_PX
 
 function buildRows(items, width) {
   const inner = Math.max(width - GRID_GAP_PX * 2, 1)
-  const columns = tileColumns(inner, 'board')
+  const columns = tileColumns(inner, 'collection')
   const tile = Math.floor(tileWidth(inner, columns) * 100) / 100
   const rows = []
   for (let i = 0; i < items.length; i += columns) {
@@ -581,8 +581,8 @@ function buildRows(items, width) {
 }
 
 function getDraggedSourceItem() {
-  if (!board.value || !dragState.item) return null
-  const sourceSection = (board.value.sections || []).find((section) => section.id === dragState.item.fromSectionId)
+  if (!collection.value || !dragState.item) return null
+  const sourceSection = (collection.value.sections || []).find((section) => section.id === dragState.item.fromSectionId)
   return (sourceSection?.items || []).find((item) => item.id === dragState.item.mediaId) || null
 }
 
@@ -620,8 +620,8 @@ function getDisplayItemsForSection(section) {
 }
 
 const visibleSections = computed(() => {
-  if (!board.value) return []
-  return board.value.sections || []
+  if (!collection.value) return []
+  return collection.value.sections || []
 })
 
 const displaySections = computed(() => {
@@ -646,8 +646,8 @@ const layoutRows = computed(() => {
 })
 
 const draggedSectionIsDefault = computed(() => {
-  if (!dragState.sectionDragId || !board.value) return false
-  const section = (board.value.sections || []).find((s) => s.id === dragState.sectionDragId)
+  if (!dragState.sectionDragId || !collection.value) return false
+  const section = (collection.value.sections || []).find((s) => s.id === dragState.sectionDragId)
   return Boolean(section?.is_default)
 })
 
@@ -656,7 +656,7 @@ const loneSection = computed(() => {
   const sections = displaySections.value
   return sections.length === 1 && !sections[0].name ? sections[0] : null
 })
-// A phone board with one section: that section's add is the board's add.
+// A phone collection with one section: that section's add is the collection's add.
 const compactAddSection = computed(() => (isCompact.value && displaySections.value.length === 1 ? displaySections.value[0] : null))
 // ...and while it is unnamed its band drops the rule and the fill.
 const quietSection = computed(() => (compactAddSection.value && !compactAddSection.value.name ? compactAddSection.value : null))
@@ -665,7 +665,7 @@ function assetCountLabel(section) {
   return `${n} ${n === 1 ? 'asset' : 'assets'}`
 }
 
-const totalAssetCount = computed(() => (board.value?.sections || []).reduce((sum, section) => sum + (section.item_count || section.items.length || 0), 0))
+const totalAssetCount = computed(() => (collection.value?.sections || []).reduce((sum, section) => sum + (section.item_count || section.items.length || 0), 0))
 const selectedMediaIds = computed(() => selectedItems.value.map(mediaIdOf).filter(Boolean))
 const selectedPayloadItems = computed(() => selectedItems.value.map((item) => ({
   ...item,
@@ -678,31 +678,31 @@ const slideshowItems = computed(() => (
   })))
 ))
 
-let boardLoadSequence = 0
+let collectionLoadSequence = 0
 
-async function loadBoard() {
+async function loadCollection() {
   // Only show loading spinner on initial load, not on refreshes
-  const isInitialLoad = !board.value
+  const isInitialLoad = !collection.value
   if (isInitialLoad) loading.value = true
   // Events, reconnects and route changes can overlap; only the latest read may land,
-  // so a slow reply for the previous board never replaces the one now open.
-  const sequence = ++boardLoadSequence
+  // so a slow reply for the previous collection never replaces the one now open.
+  const sequence = ++collectionLoadSequence
   try {
-    const next = await getBoard(Number(route.params.id))
-    if (sequence !== boardLoadSequence) return
-    board.value = next
-    editedName.value = board.value.name || ''
-    isEditingBoardName.value = false
-    for (const section of board.value.sections || []) {
+    const next = await getCollection(Number(route.params.id))
+    if (sequence !== collectionLoadSequence) return
+    collection.value = next
+    editedName.value = collection.value.name || ''
+    isEditingCollectionName.value = false
+    for (const section of collection.value.sections || []) {
       sectionNames[section.id] = section.name || ''
     }
   } finally {
-    if (sequence === boardLoadSequence) loading.value = false
+    if (sequence === collectionLoadSequence) loading.value = false
   }
 }
 
 // Width the tiles can actually use: the scroller minus its own padding. A hidden
-// board (slideshow open, KeepAlive) measures 0, so keep the last good width.
+// collection (slideshow open, KeepAlive) measures 0, so keep the last good width.
 function measureWidth() {
   const el = scrollerRef.value
   if (!el || !el.clientWidth) return
@@ -803,12 +803,12 @@ async function loadSlideshowItem(item) {
     slideshowItemCache.set(assetId, fullItem)
     return fullItem
   } catch (error) {
-    console.error('Failed to load board slideshow item:', error)
+    console.error('Failed to load collection slideshow item:', error)
     return item
   }
 }
 
-function createBoardSlideshowPageProvider(items) {
+function createCollectionSlideshowPageProvider(items) {
   return async (pageNumber, pageSize) => {
     const start = pageNumber * pageSize
     const pageItems = items.slice(start, start + pageSize)
@@ -826,7 +826,7 @@ function openItemSlideshow(mediaId) {
   enterSlideshow({
     totalCount: items.length,
     startIndex,
-    pageProvider: createBoardSlideshowPageProvider(items)
+    pageProvider: createCollectionSlideshowPageProvider(items)
   })
 }
 
@@ -862,8 +862,8 @@ function handleItemContextMenu(section, item, event) {
     mediaIds,
     selectedItems: items,
     fileHash: item.file_hash,
-    inBoard: true,
-    boardSectionId: section.id
+    inCollection: true,
+    collectionSectionId: section.id
   })
 }
 
@@ -876,33 +876,33 @@ function getSectionLabelWidth(section) {
   return `${clampedWidth}px`
 }
 
-async function saveBoardName() {
-  if (!board.value) return
-  isEditingBoardName.value = false
-  if ((editedName.value || '') === (board.value.name || '')) return
-  board.value = await updateBoard(board.value.id, { name: editedName.value })
+async function saveCollectionName() {
+  if (!collection.value) return
+  isEditingCollectionName.value = false
+  if ((editedName.value || '') === (collection.value.name || '')) return
+  collection.value = await updateCollection(collection.value.id, { name: editedName.value })
 }
 
-function startBoardNameEdit() {
-  isEditingBoardName.value = true
+function startCollectionNameEdit() {
+  isEditingCollectionName.value = true
   nextTick(() => {
-    boardNameInputRef.value?.focus()
-    boardNameInputRef.value?.select?.()
+    collectionNameInputRef.value?.focus()
+    collectionNameInputRef.value?.select?.()
   })
 }
 
-function cancelBoardNameEdit() {
-  editedName.value = board.value?.name || ''
-  isEditingBoardName.value = false
+function cancelCollectionNameEdit() {
+  editedName.value = collection.value?.name || ''
+  isEditingCollectionName.value = false
 }
 
-function handleBoardNameBlur() {
-  saveBoardName()
+function handleCollectionNameBlur() {
+  saveCollectionName()
 }
 
 async function saveSection(section) {
   const nextName = sectionNames[section.id] || null
-  const updated = await updateBoardSection(section.id, { name: nextName })
+  const updated = await updateCollectionSection(section.id, { name: nextName })
   section.name = updated.name
   section.is_default = updated.is_default
   sectionEditingId.value = null
@@ -923,55 +923,55 @@ function cancelSectionEdit(section) {
 }
 
 async function deleteSection(section) {
-  await deleteBoardSection(section.id)
-  await loadBoard()
+  await deleteCollectionSection(section.id)
+  await loadCollection()
 }
 
-async function deleteCurrentBoard() {
-  if (!board.value) return
-  const id = board.value.id
+async function deleteCurrentCollection() {
+  if (!collection.value) return
+  const id = collection.value.id
   try {
-    await deleteBoard(id)
+    await deleteCollection(id)
   } catch (err) {
-    console.error('Failed to delete board:', err)
-    addToast('Failed to delete board', 'error', 5000)
+    console.error('Failed to delete collection:', err)
+    addToast('Failed to delete collection', 'error', 5000)
     return
   }
-  router.push({ name: 'boards' })
-  addToast('Deleted 1 board', 'info', 5000, {
+  router.push({ name: 'collections' })
+  addToast('Deleted 1 collection', 'info', 5000, {
     label: 'Undo',
     onClick: async () => {
       try {
-        await restoreBoard(id)
+        await restoreCollection(id)
       } catch (err) {
-        console.error('Failed to restore board:', err)
-        addToast('Failed to restore board', 'error', 5000)
+        console.error('Failed to restore collection:', err)
+        addToast('Failed to restore collection', 'error', 5000)
       }
     }
   })
 }
 
-function toggleBoardMenu() {
-  boardMenuOpen.value = !boardMenuOpen.value
+function toggleCollectionMenu() {
+  collectionMenuOpen.value = !collectionMenuOpen.value
 }
 
-async function handleBoardMenuDeleteBoard() {
-  boardMenuOpen.value = false
-  await deleteCurrentBoard()
+async function handleCollectionMenuDeleteCollection() {
+  collectionMenuOpen.value = false
+  await deleteCurrentCollection()
 }
 
 function handleDocumentClick(event) {
   const target = event.target
-  if (boardMenuOpen.value && !boardMenuRef.value?.contains(target) && !(boardMenuButtonRef.value?.$el ?? boardMenuButtonRef.value)?.contains(target)) {
-    boardMenuOpen.value = false
+  if (collectionMenuOpen.value && !collectionMenuRef.value?.contains(target) && !(collectionMenuButtonRef.value?.$el ?? collectionMenuButtonRef.value)?.contains(target)) {
+    collectionMenuOpen.value = false
   }
 }
 
 function handleWindowKeydown(event) {
   if (event.defaultPrevented) return
-  if (event.key === 'Escape' && boardMenuOpen.value && isTopmostEscapeLayer(boardMenuRef.value)) {
+  if (event.key === 'Escape' && collectionMenuOpen.value && isTopmostEscapeLayer(collectionMenuRef.value)) {
     consumeEscape(event)
-    boardMenuOpen.value = false
+    collectionMenuOpen.value = false
     return
   }
   if (slideshowState.active || hasEscapeLayer()) return
@@ -986,7 +986,7 @@ function handleWindowKeydown(event) {
   if (multiSelectKeyboardHandler(event)) return
 
   if (event.key === 'Escape') {
-    boardMenuOpen.value = false
+    collectionMenuOpen.value = false
   }
 }
 
@@ -994,29 +994,29 @@ useGlobalKeyboardShortcuts({ onKeydown: handleWindowKeydown })
 
 // --- Multi-select action handlers ---
 
-async function handleBulkRemoveFromBoard() {
-  if (!board.value || selectedItemIds.value.length === 0) return
+async function handleBulkRemoveFromCollection() {
+  if (!collection.value || selectedItemIds.value.length === 0) return
   const ids = [...selectedItemIds.value]
   selectNone()
-  await bulkRemoveFromBoard(board.value.id, ids)
-  await loadBoard()
+  await bulkRemoveFromCollection(collection.value.id, ids)
+  await loadCollection()
 }
 
 async function handleMoveToSection(sectionId) {
-  if (!board.value || selectedItemIds.value.length === 0) return
+  if (!collection.value || selectedItemIds.value.length === 0) return
   const ids = [...selectedItemIds.value]
   selectNone()
-  await bulkMoveBoardItems(board.value.id, ids, sectionId)
-  await loadBoard()
+  await bulkMoveCollectionItems(collection.value.id, ids, sectionId)
+  await loadCollection()
 }
 
 async function handleMoveToNewSection() {
-  if (!board.value || selectedItemIds.value.length === 0) return
+  if (!collection.value || selectedItemIds.value.length === 0) return
   const ids = [...selectedItemIds.value]
-  const created = await createBoardSection(board.value.id, '')
+  const created = await createCollectionSection(collection.value.id, '')
   selectNone()
-  await bulkMoveBoardItems(board.value.id, ids, created.id)
-  await loadBoard()
+  await bulkMoveCollectionItems(collection.value.id, ids, created.id)
+  await loadCollection()
 }
 
 async function handleCreateSectionFromSelection() {
@@ -1029,8 +1029,8 @@ async function handleToggleMarker({ markerId, add }) {
 }
 
 
-function handleBoardsAdded() {
-  showBoardPicker.value = false
+function handleCollectionsAdded() {
+  showCollectionPicker.value = false
 }
 
 async function handleBulkMoveToTrash() {
@@ -1039,7 +1039,7 @@ async function handleBulkMoveToTrash() {
   try {
     await bulkDeleteMedia(ids)
     selectNone()
-    await loadBoard()
+    await loadCollection()
   } catch {
     addToast('Could not move assets to Trash', 'error')
   }
@@ -1060,11 +1060,11 @@ function onItemDragStart(section, item, event) {
   const allMediaIds = isMultiDrag ? selectedMediaIds.value : null
 
   dragState.item = { mediaId: item.id, fromSectionId: section.id, allMediaIds: allDragIds }
-  // Board tiles reorder within the board ('move') but can also be dropped on
+  // Collection tiles reorder within the collection ('move') but can also be dropped on
   // sidebar tool tabs, which need 'copy' available for the shift = add cursor.
   event.dataTransfer.effectAllowed = 'copyMove'
   if (mediaId) event.dataTransfer.setData('application/x-media-id', String(mediaId))
-  event.dataTransfer.setData('application/x-board-drag', JSON.stringify({
+  event.dataTransfer.setData('application/x-collection-drag', JSON.stringify({
     mediaId: item.id,
     fromSectionId: section.id,
     allMediaIds: allDragIds
@@ -1089,7 +1089,7 @@ function onItemDragStart(section, item, event) {
   const thumbnailUrl = getThumbnailUrl(thumbnailIdentifier, 128)
   const fileFormat = item.file_format || ''
   const itemIsVideo = !!(item.file_format && ['mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'].includes(item.file_format))
-  logBoardDnD('item-dragstart', {
+  logCollectionDnD('item-dragstart', {
     mediaId: item.id,
     fromSectionId: section.id,
     fileHash: item.file_hash ?? null,
@@ -1099,9 +1099,9 @@ function onItemDragStart(section, item, event) {
   if (mediaId) createDragPreview(event, thumbnailUrl, mediaId, fileFormat, itemIsVideo, allMediaIds)
 }
 
-function getDraggedBoardPayload(event) {
+function getDraggedCollectionPayload(event) {
   try {
-    const raw = event?.dataTransfer?.getData('application/x-board-drag')
+    const raw = event?.dataTransfer?.getData('application/x-collection-drag')
     if (raw) {
       const parsed = JSON.parse(raw)
       if (parsed?.mediaId != null && parsed?.fromSectionId != null) {
@@ -1132,7 +1132,7 @@ function resetItemDragState() {
   dragState.targetIndex = null
   dragState.targetSide = null
   dragState.newSectionHover = false
-  dragState.removeFromBoardHover = false
+  dragState.removeFromCollectionHover = false
   lastEnteredItemId = null
   itemEntryEdge = null
   lastReflowPointer = null
@@ -1170,17 +1170,17 @@ function cancelAllDrags() {
     pendingSectionFallbackCommit = null
   }
   if (dragState.item && !dragState.committing) {
-    logBoardDnD('drag-cancelled')
+    logCollectionDnD('drag-cancelled')
     resetItemDragState()
   }
   if (dragState.sectionDragId && !dragState.committing) {
-    logBoardDnD('section-drag-cancelled')
+    logCollectionDnD('section-drag-cancelled')
     resetSectionDragState()
   }
 }
 
 function onItemDragEnd() {
-  logBoardDnD('item-dragend')
+  logCollectionDnD('item-dragend')
   stopAutoScroll()
 
   if (pendingItemDragCleanup) {
@@ -1194,13 +1194,13 @@ function onItemDragEnd() {
   // For aborts (no drop event), this is the only cleanup path.
   pendingItemDragCleanup = setTimeout(() => {
     pendingItemDragCleanup = null
-    logBoardDnD('item-dragend-cleanup')
+    logCollectionDnD('item-dragend-cleanup')
     resetItemDragState()
   }, 100)
 }
 
 function onSectionDragStart(section, event) {
-  if (event.target?.closest?.('input, button, [data-board-item="true"]')) {
+  if (event.target?.closest?.('input, button, [data-collection-item="true"]')) {
     event.preventDefault()
     return
   }
@@ -1228,10 +1228,10 @@ function onSectionDragEnd() {
   pendingSectionFallbackCommit = setTimeout(async () => {
     pendingSectionFallbackCommit = null
     if (dragState.sectionDragId && dragState.sectionTargetIndex != null) {
-      logBoardDnD('section-dragend-fallback-commit')
+      logCollectionDnD('section-dragend-fallback-commit')
       await commitSectionDrop()
     } else {
-      logBoardDnD('section-dragend-cleanup')
+      logCollectionDnD('section-dragend-cleanup')
     }
     resetSectionDragState()
   }, 100)
@@ -1396,7 +1396,7 @@ function handleSectionContainerDragOver(section, event) {
 
 async function commitSectionDrop() {
   if (dragState.committing) return
-  if (!dragState.sectionDragId || !board.value) return
+  if (!dragState.sectionDragId || !collection.value) return
   if (dragState.sectionTargetIndex == null) return
   if (pendingSectionFallbackCommit) {
     clearTimeout(pendingSectionFallbackCommit)
@@ -1412,9 +1412,9 @@ async function commitSectionDrop() {
   dragState.sectionTargetIndex = null
   scrollToSectionAfterDrop = droppedSectionId
   try {
-    await reorderBoardSections(board.value.id, ordered)
+    await reorderCollectionSections(collection.value.id, ordered)
   } catch (error) {
-    await loadBoard()
+    await loadCollection()
     throw error
   }
 }
@@ -1426,7 +1426,7 @@ async function handleSectionContainerDrop(section, event) {
     return
   }
 
-  const payload = getDraggedBoardPayload(event)
+  const payload = getDraggedCollectionPayload(event)
   if (!payload) return
   await commitDrop(payload, section, section.items.length)
 }
@@ -1446,7 +1446,7 @@ function handleSectionBodyDragOver(section, event) {
   if (!dragState.item) return
   updateAutoScroll(event)
   const target = event.target
-  if (target?.closest?.('[data-board-item="true"]')) return
+  if (target?.closest?.('[data-collection-item="true"]')) return
   // Pointer is in empty space between items — reset item entry tracking
   lastEnteredItemId = null
   itemEntryEdge = null
@@ -1569,9 +1569,9 @@ function handleItemDragOver(section, item, event) {
 async function commitItemDrop(section, item, event) {
   if (dragState.committing) return
   stopAutoScroll()
-  const payload = getDraggedBoardPayload(event)
+  const payload = getDraggedCollectionPayload(event)
   if (!payload) return
-  logBoardDnD('item-drop', {
+  logCollectionDnD('item-drop', {
     payload,
     sectionId: section.id,
     itemId: item.id
@@ -1590,12 +1590,12 @@ async function commitSectionBodyDrop(section, event) {
   }
   if (dragState.committing) return
   stopAutoScroll()
-  const payload = getDraggedBoardPayload(event)
+  const payload = getDraggedCollectionPayload(event)
   if (!payload) return
   const target = event.target
-  if (target?.closest?.('[data-board-item="true"]')) return
+  if (target?.closest?.('[data-collection-item="true"]')) return
   const targetIndex = getPointerTargetIndex(section, event)
-  logBoardDnD('section-body-drop', {
+  logCollectionDnD('section-body-drop', {
     payload,
     sectionId: section.id,
     targetIndex
@@ -1607,7 +1607,7 @@ async function commitDrop(payload, section, targetIndex) {
   if (dragState.committing) return
   dragState.targetSectionId = section.id
   dragState.targetIndex = targetIndex
-  logBoardDnD('commit-drop', {
+  logCollectionDnD('commit-drop', {
     payload,
     sectionId: section.id,
     targetIndex
@@ -1617,7 +1617,7 @@ async function commitDrop(payload, section, targetIndex) {
 
 async function finalizeItemDrop(payload, targetSectionId, rawTargetIndex) {
   if (dragState.committing) return
-  if (!board.value || !payload || targetSectionId == null || rawTargetIndex == null) return
+  if (!collection.value || !payload || targetSectionId == null || rawTargetIndex == null) return
   const item = { ...payload }
   dragState.committing = true
 
@@ -1626,7 +1626,7 @@ async function finalizeItemDrop(payload, targetSectionId, rawTargetIndex) {
   // the dragged item, indices shift down by 1 if the item was before the target.
   let targetIndex = rawTargetIndex
   if (item.fromSectionId === targetSectionId) {
-    const section = board.value.sections.find((s) => s.id === item.fromSectionId)
+    const section = collection.value.sections.find((s) => s.id === item.fromSectionId)
     if (section) {
       const originalIndex = (section.items || []).findIndex((i) => i.id === item.mediaId)
       if (originalIndex !== -1 && originalIndex < rawTargetIndex) {
@@ -1636,7 +1636,7 @@ async function finalizeItemDrop(payload, targetSectionId, rawTargetIndex) {
   }
 
   try {
-    logBoardDnD('finalize-drop-start', {
+    logCollectionDnD('finalize-drop-start', {
       payload: item,
       targetSectionId,
       rawTargetIndex,
@@ -1655,35 +1655,35 @@ async function finalizeItemDrop(payload, targetSectionId, rawTargetIndex) {
     dragState.targetIndex = null
     dragState.targetSide = null
     dragState.newSectionHover = false
-    dragState.removeFromBoardHover = false
+    dragState.removeFromCollectionHover = false
     await nextTick()
     handleDragPreviewEnd()
     if (isMultiDrag) {
-      await bulkMoveBoardItems(board.value.id, item.allMediaIds, targetSectionId)
+      await bulkMoveCollectionItems(collection.value.id, item.allMediaIds, targetSectionId)
       selectNone()
-      await loadBoard()
+      await loadCollection()
     } else {
-      await moveBoardItem(
-        board.value.id,
+      await moveCollectionItem(
+        collection.value.id,
         item.mediaId,
         item.fromSectionId,
         targetSectionId,
         targetIndex
       )
     }
-    logBoardDnD('finalize-drop-success', {
+    logCollectionDnD('finalize-drop-success', {
       payload: item,
       targetSectionId,
       targetIndex
     })
   } catch (error) {
-    logBoardDnD('finalize-drop-error', {
+    logCollectionDnD('finalize-drop-error', {
       payload: item,
       targetSectionId,
       targetIndex,
       error: error?.message || String(error)
     })
-    await loadBoard()
+    await loadCollection()
     handleDragPreviewEnd()
     throw error
   } finally {
@@ -1694,7 +1694,7 @@ async function finalizeItemDrop(payload, targetSectionId, rawTargetIndex) {
     dragState.targetIndex = null
     dragState.targetSide = null
     dragState.newSectionHover = false
-    dragState.removeFromBoardHover = false
+    dragState.removeFromCollectionHover = false
   }
 }
 
@@ -1710,20 +1710,20 @@ function handleNewSectionDragOver(event) {
   updateAutoScroll(event)
 }
 
-function handleRemoveFromBoardDragLeave(event) {
+function handleRemoveFromCollectionDragLeave(event) {
   const nextTarget = event.relatedTarget
   if (nextTarget && event.currentTarget?.contains?.(nextTarget)) return
-  dragState.removeFromBoardHover = false
+  dragState.removeFromCollectionHover = false
 }
 
-function handleRemoveFromBoardDragOver(event) {
-  dragState.removeFromBoardHover = true
+function handleRemoveFromCollectionDragOver(event) {
+  dragState.removeFromCollectionHover = true
 }
 
-async function removeFromBoardDrop(event) {
+async function removeFromCollectionDrop(event) {
   if (dragState.committing) return
-  const payload = getDraggedBoardPayload(event)
-  if (!payload || !board.value) return
+  const payload = getDraggedCollectionPayload(event)
+  if (!payload || !collection.value) return
   dragState.committing = true
   try {
     if (pendingItemDragCleanup) {
@@ -1732,20 +1732,20 @@ async function removeFromBoardDrop(event) {
     }
     const isMultiDrag = payload.allMediaIds && payload.allMediaIds.length > 1
     if (isMultiDrag) {
-      await bulkRemoveFromBoard(board.value.id, payload.allMediaIds)
+      await bulkRemoveFromCollection(collection.value.id, payload.allMediaIds)
       selectNone()
     } else {
-      await removeMediaFromBoardSection(payload.fromSectionId, payload.mediaId)
+      await removeMediaFromCollectionSection(payload.fromSectionId, payload.mediaId)
     }
     dragState.item = null
     dragState.targetSectionId = null
     dragState.targetIndex = null
     dragState.targetSide = null
-    dragState.removeFromBoardHover = false
+    dragState.removeFromCollectionHover = false
     handleDragPreviewEnd()
-    await loadBoard()
+    await loadCollection()
   } catch (error) {
-    await loadBoard()
+    await loadCollection()
     handleDragPreviewEnd()
     throw error
   } finally {
@@ -1754,7 +1754,7 @@ async function removeFromBoardDrop(event) {
     dragState.targetSectionId = null
     dragState.targetIndex = null
     dragState.targetSide = null
-    dragState.removeFromBoardHover = false
+    dragState.removeFromCollectionHover = false
   }
 }
 
@@ -1771,30 +1771,30 @@ function handleExplodeSectionDragLeave(event) {
 }
 
 async function deleteSectionDrop() {
-  if (!board.value || !dragState.sectionDragId) return
+  if (!collection.value || !dragState.sectionDragId) return
   const sectionId = dragState.sectionDragId
-  const section = (board.value.sections || []).find((s) => s.id === sectionId)
+  const section = (collection.value.sections || []).find((s) => s.id === sectionId)
   if (!section) {
     resetSectionDragState()
     return
   }
   try {
-    await deleteBoardSection(sectionId)
+    await deleteCollectionSection(sectionId)
   } finally {
     resetSectionDragState()
-    await loadBoard()
+    await loadCollection()
   }
 }
 
 async function explodeSectionDrop() {
-  if (!board.value || !dragState.sectionDragId) return
+  if (!collection.value || !dragState.sectionDragId) return
   const sectionId = dragState.sectionDragId
-  const section = (board.value.sections || []).find((s) => s.id === sectionId)
+  const section = (collection.value.sections || []).find((s) => s.id === sectionId)
   if (!section || section.is_default) {
     resetSectionDragState()
     return
   }
-  const defaultSection = (board.value.sections || []).find((entry) => entry.is_default)
+  const defaultSection = (collection.value.sections || []).find((entry) => entry.is_default)
   if (!defaultSection) {
     resetSectionDragState()
     return
@@ -1803,27 +1803,27 @@ async function explodeSectionDrop() {
   try {
     if (items.length > 0) {
       // Bulk-move auto-deletes the empty source section via _delete_section_if_empty.
-      await bulkMoveBoardItems(board.value.id, items.map((item) => item.id), defaultSection.id)
+      await bulkMoveCollectionItems(collection.value.id, items.map((item) => item.id), defaultSection.id)
     } else {
-      await deleteBoardSection(sectionId)
+      await deleteCollectionSection(sectionId)
     }
   } finally {
     resetSectionDragState()
-    await loadBoard()
+    await loadCollection()
   }
 }
 
 function syncSectionCounts() {
-  if (!board.value?.sections) return
-  for (const section of board.value.sections) {
+  if (!collection.value?.sections) return
+  for (const section of collection.value.sections) {
     section.item_count = section.items?.length || 0
   }
 }
 
 function applyLocalItemMove(mediaId, fromSectionId, toSectionId, targetIndex) {
-  if (!board.value?.sections) return
-  const sourceSection = board.value.sections.find((section) => section.id === fromSectionId)
-  const targetSection = board.value.sections.find((section) => section.id === toSectionId)
+  if (!collection.value?.sections) return
+  const sourceSection = collection.value.sections.find((section) => section.id === fromSectionId)
+  const targetSection = collection.value.sections.find((section) => section.id === toSectionId)
   if (!sourceSection || !targetSection) return
 
   const sourceItems = [...(sourceSection.items || [])]
@@ -1842,59 +1842,59 @@ function applyLocalItemMove(mediaId, fromSectionId, toSectionId, targetIndex) {
   targetSection.items = targetItems
 
   if (fromSectionId !== toSectionId && !sourceSection.is_default && sourceSection.items.length === 0) {
-    board.value.sections = board.value.sections.filter((section) => section.id !== fromSectionId)
+    collection.value.sections = collection.value.sections.filter((section) => section.id !== fromSectionId)
   }
 
   syncSectionCounts()
-  board.value = {
-    ...board.value,
-    sections: [...board.value.sections]
+  collection.value = {
+    ...collection.value,
+    sections: [...collection.value.sections]
   }
 }
 
 function insertLocalSection(section) {
-  if (!board.value?.sections) return
-  board.value = {
-    ...board.value,
-    sections: [...board.value.sections, { ...section, items: [], item_count: 0 }]
+  if (!collection.value?.sections) return
+  collection.value = {
+    ...collection.value,
+    sections: [...collection.value.sections, { ...section, items: [], item_count: 0 }]
   }
 }
 
 function applyLocalSectionReorder(orderedIds) {
-  if (!board.value?.sections) return
-  const sectionMap = new Map(board.value.sections.map((section) => [section.id, section]))
+  if (!collection.value?.sections) return
+  const sectionMap = new Map(collection.value.sections.map((section) => [section.id, section]))
   const reordered = orderedIds
     .map((id) => sectionMap.get(id))
     .filter(Boolean)
 
-  if (reordered.length !== board.value.sections.length) return
+  if (reordered.length !== collection.value.sections.length) return
 
-  board.value = {
-    ...board.value,
+  collection.value = {
+    ...collection.value,
     sections: reordered
   }
 }
 
 async function createSectionFromDrop(event) {
   if (dragState.committing) return
-  const payload = getDraggedBoardPayload(event)
-  if (!payload || !board.value) return
+  const payload = getDraggedCollectionPayload(event)
+  if (!payload || !collection.value) return
   dragState.committing = true
   const item = { ...payload }
   try {
-    logBoardDnD('create-section-drop-start', { payload: item })
+    logCollectionDnD('create-section-drop-start', { payload: item })
     if (pendingItemDragCleanup) {
       clearTimeout(pendingItemDragCleanup)
       pendingItemDragCleanup = null
     }
-    const createdSection = await createBoardSection(board.value.id, '')
+    const createdSection = await createCollectionSection(collection.value.id, '')
     const isMultiDrag = item.allMediaIds && item.allMediaIds.length > 1
     if (isMultiDrag) {
-      await bulkMoveBoardItems(board.value.id, item.allMediaIds, createdSection.id)
+      await bulkMoveCollectionItems(collection.value.id, item.allMediaIds, createdSection.id)
       selectNone()
     } else {
       insertLocalSection(createdSection)
-      await moveBoardItem(board.value.id, item.mediaId, item.fromSectionId, createdSection.id, 0)
+      await moveCollectionItem(collection.value.id, item.mediaId, item.fromSectionId, createdSection.id, 0)
       applyLocalItemMove(item.mediaId, item.fromSectionId, createdSection.id, 0)
     }
     dragState.item = null
@@ -1902,12 +1902,12 @@ async function createSectionFromDrop(event) {
     dragState.targetIndex = null
     dragState.targetSide = null
     dragState.newSectionHover = false
-    dragState.removeFromBoardHover = false
+    dragState.removeFromCollectionHover = false
     handleDragPreviewEnd()
     if (isMultiDrag) {
-      await loadBoard()
+      await loadCollection()
     }
-    logBoardDnD('create-section-drop-success', {
+    logCollectionDnD('create-section-drop-success', {
       payload: item,
       newSectionId: createdSection.id
     })
@@ -1918,11 +1918,11 @@ async function createSectionFromDrop(event) {
       input.select?.()
     }
   } catch (error) {
-    logBoardDnD('create-section-drop-error', {
+    logCollectionDnD('create-section-drop-error', {
       payload: item,
       error: error?.message || String(error)
     })
-    await loadBoard()
+    await loadCollection()
     handleDragPreviewEnd()
     throw error
   } finally {
@@ -1932,56 +1932,56 @@ async function createSectionFromDrop(event) {
     dragState.targetIndex = null
     dragState.targetSide = null
     dragState.newSectionHover = false
-    dragState.removeFromBoardHover = false
+    dragState.removeFromCollectionHover = false
   }
 }
 
-watch(() => route.params.id, loadBoard)
+watch(() => route.params.id, loadCollection)
 
-const unsubBoardChanged = on('board_items_changed', (data) => {
-  if (data.board_id === board.value?.id) loadBoard()
+const unsubCollectionChanged = on('collection_items_changed', (data) => {
+  if (data.collection_id === collection.value?.id) loadCollection()
 })
 
 // Renames, section create/rename/delete/reorder: the backend broadcasts the
-// whole board. Anyone can cause these while this view is open, including an
-// assistant over MCP, so the open board must follow.
-const unsubBoardUpdated = on('board_updated', (data) => {
-  if (data?.board?.id === board.value?.id) loadBoard()
+// whole collection. Anyone can cause these while this view is open, including an
+// assistant over MCP, so the open collection must follow.
+const unsubCollectionUpdated = on('collection_updated', (data) => {
+  if (data?.collection?.id === collection.value?.id) loadCollection()
 })
 
 const unsubMediaUpdated = on('assets_updated', (data) => {
   const { asset_ids, fields } = data
-  if (!board.value || !asset_ids?.length) return
+  if (!collection.value || !asset_ids?.length) return
   if (
     !fields.includes('markers') &&
     !fields.includes('tags') &&
     !fields.includes('source_visibility')
   ) return
-  loadBoard()
+  loadCollection()
 })
 
 // Changes made while the socket was down were never broadcast to this view.
-// The board stays on screen while it refreshes; a failed refresh keeps it.
-// A cached, inactive board defers its refresh until it is shown again.
-let boardVisible = true
-let boardStale = false
+// The collection stays on screen while it refreshes; a failed refresh keeps it.
+// A cached, inactive collection defers its refresh until it is shown again.
+let collectionVisible = true
+let collectionStale = false
 const unsubReconnected = on('websocket_reconnected', () => {
-  if (!board.value) return undefined
-  if (!boardVisible) { boardStale = true; return undefined }
-  return loadBoard()
+  if (!collection.value) return undefined
+  if (!collectionVisible) { collectionStale = true; return undefined }
+  return loadCollection()
 })
 const assetLifecycleUnsubscribers = ['assets_trashed', 'asset_trashed', 'assets_restored', 'asset_restored'].map(event => on(event, () => {
-  if (!boardVisible) { boardStale = true; return }
-  void loadBoard().catch(() => {})
+  if (!collectionVisible) { collectionStale = true; return }
+  void loadCollection().catch(() => {})
 }))
 onActivated(() => {
-  boardVisible = true
-  if (boardStale) { boardStale = false; void loadBoard().catch(() => {}) }
+  collectionVisible = true
+  if (collectionStale) { collectionStale = false; void loadCollection().catch(() => {}) }
 })
-onDeactivated(() => { boardVisible = false })
+onDeactivated(() => { collectionVisible = false })
 
 onMounted(async () => {
-  await loadBoard()
+  await loadCollection()
   markersData.value = await getMarkers()
   measureWidth()
   document.addEventListener('mousedown', handleDocumentClick)
@@ -1995,8 +1995,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  unsubBoardChanged()
-  unsubBoardUpdated()
+  unsubCollectionChanged()
+  unsubCollectionUpdated()
   unsubMediaUpdated()
   unsubReconnected()
   assetLifecycleUnsubscribers.forEach(unsubscribe => unsubscribe())
@@ -2017,56 +2017,56 @@ onUnmounted(() => {
 
 const { isCompact } = useViewport()
 const renameOpen = ref(false)
-async function renameBoard(name) {
-  if (!board.value) return
+async function renameCollection(name) {
+  if (!collection.value) return
   editedName.value = name
-  try { board.value = await updateBoard(board.value.id, { name }) }
-  catch { addToast('Could not rename the board', 'error') }
+  try { collection.value = await updateCollection(collection.value.id, { name }) }
+  catch { addToast('Could not rename the collection', 'error') }
 }
 // Arriving with ?rename=1 (row menu → Rename): compact opens the sheet,
 // desktop starts the inline edit. The flag is consumed once.
-watch([() => route.query.rename, () => board.value?.id], ([flag, id]) => {
+watch([() => route.query.rename, () => collection.value?.id], ([flag, id]) => {
   if (flag !== '1' || !id) return
   router.replace({ query: { ...route.query, rename: undefined } })
   if (isCompact.value) renameOpen.value = true
-  else startBoardNameEdit()
+  else startCollectionNameEdit()
 }, { immediate: true })
 const moveProjectOpen = ref(false)
 const addAssetsSection = ref(null)
 const addingAssets = ref(false)
 const moveEntityToProject = useEntityMove()
-async function moveBoardToProject(projectId) {
-  const updated = await moveEntityToProject('board', board.value.id, projectId)
+async function moveCollectionToProject(projectId) {
+  const updated = await moveEntityToProject('collection', collection.value.id, projectId)
   if (!updated) return
-  board.value = updated
+  collection.value = updated
   moveProjectOpen.value = false
 }
 async function addSectionAssets(assetIds) {
   if (addingAssets.value || addAssetsSection.value === null) return
   addingAssets.value = true
   try {
-    await addToBoard(board.value.id, assetIds, addAssetsSection.value)
+    await addToCollection(collection.value.id, assetIds, addAssetsSection.value)
     addAssetsSection.value = null
-    await loadBoard()
+    await loadCollection()
   } catch { addToast('Could not add assets to the section', 'error') }
   finally { addingAssets.value = false }
 }
 function updateCompactHeader() {
-  if (route.name !== 'board-detail' || String(route.params.id) !== String(board.value?.id)) return
-  setCompactTitle(board.value?.name || 'Name this board…', '', () => { renameOpen.value = true })
+  if (route.name !== 'collection-detail' || String(route.params.id) !== String(collection.value?.id)) return
+  setCompactTitle(collection.value?.name || 'Name this collection…', '', () => { renameOpen.value = true })
   setCompactMenu([
     { label: 'Open', run: () => { scrollerRef.value?.scrollTo({ top: 0 }) } },
     { label: 'Rename', run: () => { renameOpen.value = true } },
     { label: 'Move to project', run: () => { moveProjectOpen.value = true } },
-    { label: 'Delete', destructive: true, run: handleBoardMenuDeleteBoard },
+    { label: 'Delete', destructive: true, run: handleCollectionMenuDeleteCollection },
   ])
 }
-watch([() => board.value?.id, () => board.value?.name], updateCompactHeader, { immediate: true })
+watch([() => collection.value?.id, () => collection.value?.name], updateCompactHeader, { immediate: true })
 onActivated(updateCompactHeader)
 </script>
 
 <style scoped>
-[data-board-item="true"] {
+[data-collection-item="true"] {
   transition:
     transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
     opacity 180ms ease,

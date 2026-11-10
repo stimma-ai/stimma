@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { apiJSON, createBoard, createChat, createProject, promptInput, TEST_T2I_TOOL_ID } from '../helpers/app';
+import { apiJSON, createCollection, createChat, createProject, promptInput, TEST_T2I_TOOL_ID } from '../helpers/app';
 import { settleAnyViewport } from '../helpers/viewport';
 
 test.beforeEach(async ({ page }) => {
@@ -33,37 +33,37 @@ async function renameFromHeader(page: Page, name: string) {
   await expect(page.locator('.compact-header h1')).toHaveText(name);
 }
 
-test('board has one editable header, complete options, and touch-based asset selection', async ({ page }) => {
-  const media = await generate(page, 'board asset');
-  const board = await createBoard(page, '');
-  const project = await createProject(page, 'Phone board project');
-  await page.goto(`/boards/${board.id}`);
+test('collection has one editable header, complete options, and touch-based asset selection', async ({ page }) => {
+  const media = await generate(page, 'collection asset');
+  const collection = await createCollection(page, '');
+  const project = await createProject(page, 'Phone collection project');
+  await page.goto(`/collections/${collection.id}`);
   await settleAnyViewport(page);
-  await expect(page.locator('.compact-header h1')).toHaveText('Name this board…');
-  await expect(page.getByTitle('Board actions')).toBeHidden();
+  await expect(page.locator('.compact-header h1')).toHaveText('Name this collection…');
+  await expect(page.getByTitle('Collection actions')).toBeHidden();
   await expect(page.getByText('Drop assets here', { exact: true })).toBeHidden();
-  await renameFromHeader(page, 'My phone board');
+  await renameFromHeader(page, 'My phone collection');
   const section = page.getByRole('button', { name: 'Name this section…', exact: true });
   expect((await section.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await section.click();
-  await page.locator('[data-board-section] input').fill('My section');
-  await page.locator('[data-board-section] input').press('Enter');
+  await page.locator('[data-collection-section] input').fill('My section');
+  await page.locator('[data-collection-section] input').press('Enter');
   await expect(page.getByRole('button', { name: 'My section', exact: true })).toBeVisible();
-  await page.locator('[data-board-section]').filter({ has: page.getByRole('button', { name: 'My section', exact: true }) }).getByRole('button', { name: 'Add assets', exact: true }).click();
+  await page.locator('[data-collection-section]').filter({ has: page.getByRole('button', { name: 'My section', exact: true }) }).getByRole('button', { name: 'Add assets', exact: true }).click();
   const picker = page.locator('[data-sheet-layer]');
   await picker.getByRole('button', { name: `Select asset ${media.asset_id}`, exact: true }).click();
   await picker.getByRole('button', { name: 'Add 1 asset', exact: true }).click();
   await expect(picker).toBeHidden();
-  await expect(page.locator('[data-board-item="true"]')).toHaveCount(1);
+  await expect(page.locator('[data-collection-item="true"]')).toHaveCount(1);
   await page.locator('.compact-header').getByRole('button', { name: 'More', exact: true }).click();
   for (const name of ['Open', 'Rename', 'Move to project', 'Delete']) await expect(page.locator('[data-sheet-layer]').getByRole('button', { name, exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Move to project', exact: true }).click();
   await page.locator('[data-sheet-layer]').getByRole('button', { name: project.name, exact: true }).click();
-  await expect.poll(async () => (await apiJSON<any>(page, `/api/boards/${board.id}`)).project_id).toBe(project.id);
+  await expect.poll(async () => (await apiJSON<any>(page, `/api/collections/${collection.id}`)).project_id).toBe(project.id);
   await page.reload();
   await settleAnyViewport(page);
-  await expect(page.locator('.compact-header h1')).toHaveText('My phone board');
-  await page.screenshot({ path: 'acceptance/phone-shots/board-touch-controls.png' });
+  await expect(page.locator('.compact-header h1')).toHaveText('My phone collection');
+  await page.screenshot({ path: 'acceptance/phone-shots/collection-touch-controls.png' });
 });
 
 for (const entity of ['chat', 'flow']) {

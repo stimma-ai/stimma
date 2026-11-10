@@ -19,7 +19,7 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const LATENCY_MS = 60
 // Maintenance answers more slowly than the queue's gap between tasks, so a
 // task that resolved before its network work finished would overlap the next.
-const SLOW = { '/api/boards/7': 800, '/api/boards/8': Infinity, '/api/headless/status': 1500, '/api/stimpack-marketplace/auto-install': 400, '/api/stimpack-marketplace/check-updates': 400 }
+const SLOW = { '/api/collections/7': 800, '/api/collections/8': Infinity, '/api/headless/status': 1500, '/api/stimpack-marketplace/auto-install': 400, '/api/stimpack-marketplace/check-updates': 400 }
 const DESKTOP_CHECK_MS = 800
 const MAINTENANCE = ['/api/stimpack-marketplace/auto-install', '/api/stimpack-marketplace/check-updates', '/api/headless/status']
 const BUNDLE = 'ai.stimma.stimma.debug'
@@ -159,8 +159,8 @@ async function boot(t, { profiles = [profile('main')], pins = {}, storedProfile 
       body = ok ? { valid: true } : { detail: 'Invalid PIN' }
     } else if (path === '/api/settings') {
       body = { ...settingsBody, profile_id: profileId }
-    } else if (path === '/api/boards/7') {
-      body = { id: 7, name: 'Deep-linked board', project_id: null, items: [], sections: [] }
+    } else if (path === '/api/collections/7') {
+      body = { id: 7, name: 'Deep-linked collection', project_id: null, items: [], sections: [] }
     } else if (path === '/api/headless/status') {
       status = 404
       body = {}
@@ -316,19 +316,19 @@ test('a PIN-locked start sees only profile metadata, then unlock fetches its set
 })
 
 test('a deep link whose route guard is still fetching is not replaced by the saved route', async t => {
-  // Startup now finishes before the board's owner check answers.
-  const { page, backend } = await boot(t, { path: 'boards/7', savedRoute: '/browse' })
+  // Startup now finishes before the collection's owner check answers.
+  const { page, backend } = await boot(t, { path: 'collections/7', savedRoute: '/browse' })
   await shellVisibleAt(page)
   await settle(page, backend)
-  assert.equal(new URL(page.url()).pathname, '/boards/7')
+  assert.equal(new URL(page.url()).pathname, '/collections/7')
 })
 
 test('a deep link whose guard never answers still gets the shell and keeps its destination', async t => {
-  const { page, backend } = await boot(t, { path: 'boards/8', savedRoute: '/browse' })
+  const { page, backend } = await boot(t, { path: 'collections/8', savedRoute: '/browse' })
   const shellAt = await shellVisibleAt(page)
   assert.ok(shellAt < 15_000, `shell at ${Math.round(shellAt)} ms`)
   await settle(page, backend)
-  assert.equal(new URL(page.url()).pathname, '/boards/8', 'not replaced by the saved route')
+  assert.equal(new URL(page.url()).pathname, '/collections/8', 'not replaced by the saved route')
 })
 
 test('opening the app at its root restores the saved route', async t => {

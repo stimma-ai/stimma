@@ -3,7 +3,7 @@ Seed the docs-demo sandbox with a curated demo library.
 
 Drives the backend HTTP API exactly like the frontend does: submits real
 generation jobs to the demo provider (scripts/docs-shots/demo_provider.py),
-then arranges the results into boards and markers. Everything created here
+then arranges the results into collections and markers. Everything created here
 has genuine lineage, so library, remix, and history shots look real.
 
 Usage (backend for the docs-demo sandbox must be running):
@@ -60,7 +60,7 @@ GENERATIONS = [
     ("comfyui:sdxl", "ribbon currents, cool palette", 1344, 768, 208),
 ]
 
-BOARDS = {
+COLLECTIONS = {
     "Brand Refresh": [0, 3, 7, 11, 14, 18],     # indexes into GENERATIONS results
     "Moodboard — Dusk Series": [1, 6, 10, 16],
     "Gallery Prints": [2, 4, 8, 12, 15, 19],
@@ -139,12 +139,12 @@ def main() -> None:
     chain_media = wait_for(list(chain_jobs.values()))
     print(f"lineage chains: {chain_media}")
 
-    # 3. Boards
-    for name, indexes in BOARDS.items():
-        board = api("POST", "/api/boards", {"name": name})
-        api("POST", f"/api/boards/{board['id']}/items",
+    # 3. Collections
+    for name, indexes in COLLECTIONS.items():
+        collection = api("POST", "/api/collections", {"name": name})
+        api("POST", f"/api/collections/{collection['id']}/items",
             {"media_ids": [media_ids[i] for i in indexes]})
-        print(f"board '{name}': {len(indexes)} items")
+        print(f"collection '{name}': {len(indexes)} items")
 
     # 4. Favorites
     markers = api("GET", "/api/markers")

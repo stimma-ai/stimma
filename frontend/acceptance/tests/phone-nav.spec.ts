@@ -70,8 +70,8 @@ test.describe('phone lane: drawer navigation', () => {
     await expect(renameSheet).toBeHidden();
 
     // A drawer link navigates and closes the drawer.
-    await drawer.getByText('Boards', { exact: true }).first().click();
-    await expect(page).toHaveURL(/\/boards$/);
+    await drawer.getByText('Collections', { exact: true }).first().click();
+    await expect(page).toHaveURL(/\/collections$/);
     await closed();
 
     // Tapping the pushed app closes the drawer without navigating.
@@ -79,7 +79,7 @@ test.describe('phone lane: drawer navigation', () => {
     await open();
     await page.mouse.click(370, 400);
     await closed();
-    await expect(page).toHaveURL(/\/boards$/);
+    await expect(page).toHaveURL(/\/collections$/);
 
     // Chats → chat (push): back pops to the chats list; a hub root has no back.
     await page.goto('/chats');

@@ -30,7 +30,7 @@ from core.logging import get_logger
 from core.profile_context import get_current_profile
 from database import (
     Asset,
-    Board,
+    Collection,
     Chat,
     DatabaseMeta,
     Flow,
@@ -258,7 +258,7 @@ async def seed_pinned_tabs(session: AsyncSession) -> list[dict]:
     return changes
 
 
-_TAB_ENTITIES = {"chat": Chat, "board": Board, "flow": Flow, "project": Project, "lineage": MediaItem}
+_TAB_ENTITIES = {"chat": Chat, "collection": Collection, "flow": Flow, "project": Project, "lineage": MediaItem}
 
 
 async def _tab_entity_exists(session: AsyncSession, tab: dict) -> bool:
@@ -276,6 +276,33 @@ async def _tab_entity_exists(session: AsyncSession, tab: dict) -> bool:
     return row is not None and getattr(row, "deleted_at", None) is None
 
 
+_LEGACY_TYPE_FIELDS = {"type", "kind", "entityType", "tabType"}
+
+
+def _from_boards(value: Any) -> Any:
+    """Collections were called boards. Carry a local workspace saved before the
+    rename across: board tab ids, types and routes become collection ones."""
+    if isinstance(value, dict):
+        return {
+            _from_boards(k): "collection" if k in _LEGACY_TYPE_FIELDS and v == "board" else _from_boards(v)
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [_from_boards(v) for v in value]
+    if not isinstance(value, str):
+        return value
+    if value.strip()[:1] in ("[", "{"):
+        try:
+            inner = json.loads(value)
+        except ValueError:
+            inner = None
+        if isinstance(inner, (dict, list)):
+            renamed = _from_boards(inner)
+            return _dumps(renamed) if renamed != inner else value
+    value = re.sub(r"^board:(\d+)$", r"collection:\1", value)
+    return re.sub(r"(?<=/)boards(?=/|\?|#|$)", "collections", value) if value.startswith("/") else value
+
+
 async def _import_docs(session: AsyncSession, docs: list[dict]) -> tuple[list[dict], dict]:
     """Add uploaded documents to the workspace. Never overwrites or deletes
     anything a client already put there, apart from a stand-in tab made from a
@@ -284,7 +311,7 @@ async def _import_docs(session: AsyncSession, docs: list[dict]) -> tuple[list[di
     ops: list[dict] = []
     tool_with_pinned_tab = set()
     for doc in docs:
-        namespace, key, value = doc["namespace"], doc["key"], doc.get("value")
+        namespace, key, value = doc["namespace"], _from_boards(doc["key"]), _from_boards(doc.get("value"))
         _validate_name(namespace, key)
         if namespace == TAB:
             if not isinstance(value, dict) or value.get("id") != key:

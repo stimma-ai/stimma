@@ -2,7 +2,7 @@
  * Route → workspace tab, for chromes without the sidebar.
  *
  * On desktop NavigationSidebar watches the route and turns every visited
- * tool instance, chat, board, project, editor, lineage view and flow into a
+ * tool instance, chat, collection, project, editor, lineage view and flow into a
  * workspace tab; tool state (prompt, params, LoRAs) lives on that tab's
  * instance. The compact chrome has no sidebar, so without this nothing would
  * create tabs: every visit to a tool would mint a fresh, empty instance and
@@ -25,7 +25,7 @@ export function installWorkspaceTabRoutes(route: RouteLocationNormalizedLoaded, 
   const { addTab, addEditorTab, markTabActivated, updateTabName, updateEditorMedia, setLastLibraryRoute, setTabContext } = useWorkspaceTabs()
   const { activeProjectId } = useWorkingContext()
   const { fetchProvidersAndTools } = useProvidersApi()
-  const { getBoard, getProject } = useMediaApi() as { getBoard: (id: number) => Promise<any>; getProject: (id: number) => Promise<any> }
+  const { getCollection, getProject } = useMediaApi() as { getCollection: (id: number) => Promise<any>; getProject: (id: number) => Promise<any> }
 
   async function toolName(fullToolId: string): Promise<string> {
     const fallback = fullToolId.split(':').pop() || fullToolId
@@ -44,7 +44,7 @@ export function installWorkspaceTabRoutes(route: RouteLocationNormalizedLoaded, 
       const name = current.name as string
       const params = current.params as Record<string, string>
 
-      if (['browse', 'trash', 'saved-view', 'boards', 'chats', 'flows', 'all-tools', 'projects', 'workspace'].includes(name) || name?.startsWith('project-')) {
+      if (['browse', 'trash', 'saved-view', 'collections', 'chats', 'flows', 'all-tools', 'projects', 'workspace'].includes(name) || name?.startsWith('project-')) {
         setLastLibraryRoute(route.fullPath)
       }
 
@@ -73,13 +73,13 @@ export function installWorkspaceTabRoutes(route: RouteLocationNormalizedLoaded, 
             if (chat) updateTabName(tab.id, chat.name || '')
           }).catch(() => {})
         }
-      } else if (name === 'board-detail' && params.id) {
-        const boardId = String(params.id)
-        const tab = addTab('board', boardId)
+      } else if (name === 'collection-detail' && params.id) {
+        const collectionId = String(params.id)
+        const tab = addTab('collection', collectionId)
         setTabContext(tab.id, route.meta.workingProjectId as number | null ?? null)
-        if (!tab.displayName || tab.displayName === boardId) {
-          getBoard(parseInt(boardId, 10)).then((board) => {
-            if (board) updateTabName(tab.id, board.name || '')
+        if (!tab.displayName || tab.displayName === collectionId) {
+          getCollection(parseInt(collectionId, 10)).then((collection) => {
+            if (collection) updateTabName(tab.id, collection.name || '')
           }).catch(() => {})
         }
       } else if (name === 'edit-image' && params.assetId) {

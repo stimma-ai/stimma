@@ -8,7 +8,7 @@ UI, and the specs in `shots/` are the record of how each image was made.
 ## How it works
 
 - **Sandbox**: a dedicated `docs-demo` sandbox (`stimma fork`) on the debug
-  bundle, ports 9300/9301. Its library, boards, and markers are created by
+  bundle, ports 9300/9301. Its library, collections, and markers are created by
   `scripts/docs-shots/seed.py` through the normal backend API, so everything
   has real lineage.
 - **Content**: `scripts/docs-shots/demo_provider.py` is a stdio STP provider

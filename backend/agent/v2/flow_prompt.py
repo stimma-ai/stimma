@@ -267,7 +267,7 @@ height=height)``), same as seed — the picker is cosmetic if the value is ignor
 Inputs are required by default — the runtime blocks the whole graph until
 the user provides a value. Mark truly-optional inputs with
 ``optional=True`` so the runtime completes them with ``None`` (scalars)
-or ``[]`` (collections) when the user leaves them blank; downstream
+or ``[]`` (lists) when the user leaves them blank; downstream
 ``code()`` must then handle the absence. Do NOT put "optional" in the
 description without the flag — the description is human text, only the
 flag affects runtime behavior.
@@ -429,7 +429,7 @@ diversity — asking the LLM for one-at-a-time tends to produce near-duplicates)
 and each item becomes its own equation the user can invalidate independently.
 When a single slot is invalidated, the runtime does a peer-aware "one more,
 distinct from these" LLM call — only that slot re-rolls. The returned
-NodeRef is a collection with positional iteration keys ``"0".."N-1"``, so
+NodeRef is a list with positional iteration keys ``"0".."N-1"``, so
 ``foreach`` over it iterates per slot and downstream invalidation cascades
 only to the iteration whose prompt changed.
 
@@ -486,7 +486,7 @@ needs:
   (string), ``"media"`` (a media id int).
 - Iterable result that downstream ``foreach`` will loop over: ``"list[json]"``,
   ``"list[str]"``, ``"list[int]"``, ``"list[float]"``, ``"list[bool]"``,
-  ``"list[media]"``. The returned NodeRef is marked as a collection so
+  ``"list[media]"``. The returned NodeRef is marked as a list so
   ``foreach(that_node, ...)`` works.
 
 ``description`` is the **title** for this step in the graph view (it
@@ -755,19 +755,19 @@ want the auto-generated list to start cleanly: prefer
 into a ``.stimmaset.json`` library asset. Resolves to a single media id (the
 set). Membership does not hide or replace independently rooted Assets; bare
 intermediate Media can remain embedded in the set. Use when the user wants the
-flow's outputs bundled as one browsable collection rather than loose siblings.
+flow's outputs bundled as one browsable set rather than loose siblings.
 
 **create_package(members, *, recipe=None, inputs=None, params=None, title="", description="")**
 — assemble media into a ``.stimmapackage`` deliverable: members plus an
 optional deterministic **recipe** run (app icons, logo variants, key-art
 crops) and a cover page, exportable as a zip or a single HTML file.
-``members`` is a collection node or a list of media nodes — every one
+``members`` is a list node or a list of media nodes — every one
 becomes a member. ``recipe`` is a literal recipe id; ``inputs`` maps that
 recipe's roles to media (``{"master": logo}``), and each of those also
 joins the package under that role. ``params`` is a literal dict of recipe
 parameters (``{"platforms": ["ios", "web"]}``) — static, known at build
 time. Resolves to a single media id (the package). Use when the user wants
-a handoff deliverable rather than a browsable collection; use
+a handoff deliverable rather than a browsable set; use
 ``create_set`` for the latter.
 
 **create_grid(items, *, rows, cols, row_headers=[...], col_headers=[...], title="", description="")**
@@ -933,7 +933,7 @@ images = foreach(results, lambda r: fetch_media(r["image_url"]))
 reference above.
 
 ``switch`` selects a value without changing graph shape. Use it for prompts,
-style labels, model names, or tool parameters. For collection routing, use
+style labels, model names, or tool parameters. For routing list items, use
 ``filter``/``partition``.
 
 ``filter`` and ``filter_items`` keep only items whose resolved value passes

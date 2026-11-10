@@ -1,4 +1,4 @@
-"""Tests for the empty/unnamed board/flow/chat reaper.
+"""Tests for the empty/unnamed collection/flow/chat reaper.
 
 CleanupService.cleanup_empty_unnamed_entities hard-evaporates the useless husks
 a misclick or an abandoned start leaves behind, but must never touch an object
@@ -12,10 +12,10 @@ from sqlalchemy import select
 
 from cleanup_service import CleanupService
 from database import (
-    Board,
-    BoardSection,
-    BoardAssetItem,
-    BoardItem,
+    Collection,
+    CollectionSection,
+    CollectionAssetItem,
+    CollectionItem,
     Chat,
     ChatItem,
     Flow,
@@ -36,19 +36,19 @@ OLD = datetime.utcnow() - timedelta(hours=13)
 RECENT = datetime.utcnow() - timedelta(hours=1)
 
 
-async def _add_board(session, *, name, created_at, with_asset=False):
-    board = Board(name=name, created_at=created_at, updated_at=created_at)
-    session.add(board)
+async def _add_collection(session, *, name, created_at, with_asset=False):
+    collection = Collection(name=name, created_at=created_at, updated_at=created_at)
+    session.add(collection)
     await session.flush()
-    section = BoardSection(board_id=board.id, is_default=True)
+    section = CollectionSection(collection_id=collection.id, is_default=True)
     session.add(section)
     await session.flush()
     if with_asset:
         media = (await create_test_media(session, count=1, materialize_assets=False))[0]
         asset = await create_asset_from_media(session, media_id=media.id)
-        session.add(BoardAssetItem(board_section_id=section.id, asset_id=asset.id))
+        session.add(CollectionAssetItem(collection_section_id=section.id, asset_id=asset.id))
     await session.flush()
-    return board
+    return collection
 
 
 async def _add_flow(session, *, name, created_at, program=None, with_message=False):
@@ -85,15 +85,15 @@ class TestReapEmptyHusks:
     async def test_reaps_only_abandoned_husks(self, db_session):
         async with db_session() as session:
             # --- reapable: unnamed + empty + old ---
-            husk_board = await _add_board(session, name="", created_at=OLD)
+            husk_collection = await _add_collection(session, name="", created_at=OLD)
             husk_flow = await _add_flow(session, name="", created_at=OLD)
             husk_chat = await _add_chat(session, name="", created_at=OLD)
             husk_chat_untitled = await _add_chat(session, name="Untitled 4", created_at=OLD)
 
             # --- must survive ---
-            named_board = await _add_board(session, name="Keepers", created_at=OLD)
-            content_board = await _add_board(session, name="", created_at=OLD, with_asset=True)
-            recent_board = await _add_board(session, name="", created_at=RECENT)
+            named_collection = await _add_collection(session, name="Keepers", created_at=OLD)
+            content_collection = await _add_collection(session, name="", created_at=OLD, with_asset=True)
+            recent_collection = await _add_collection(session, name="", created_at=RECENT)
 
             named_flow = await _add_flow(session, name="My Flow", created_at=OLD)
             edited_flow = await _add_flow(
@@ -109,10 +109,10 @@ class TestReapEmptyHusks:
             await session.commit()
 
             ids = {
-                "husk_board": husk_board.id, "husk_flow": husk_flow.id,
+                "husk_collection": husk_collection.id, "husk_flow": husk_flow.id,
                 "husk_chat": husk_chat.id, "husk_chat_untitled": husk_chat_untitled.id,
-                "named_board": named_board.id, "content_board": content_board.id,
-                "recent_board": recent_board.id, "named_flow": named_flow.id,
+                "named_collection": named_collection.id, "content_collection": content_collection.id,
+                "recent_collection": recent_collection.id, "named_flow": named_flow.id,
                 "edited_flow": edited_flow.id, "chatted_flow": chatted_flow.id,
                 "recent_flow": recent_flow.id, "named_chat": named_chat.id,
                 "msg_chat": msg_chat.id, "recent_chat": recent_chat.id,
@@ -120,91 +120,91 @@ class TestReapEmptyHusks:
 
             reaped = await CleanupService().cleanup_empty_unnamed_entities(session)
 
-        assert set(reaped["boards"]) == {ids["husk_board"]}
+        assert set(reaped["collections"]) == {ids["husk_collection"]}
         assert set(reaped["flows"]) == {ids["husk_flow"]}
         assert set(reaped["chats"]) == {ids["husk_chat"], ids["husk_chat_untitled"]}
 
         async with db_session() as session:
-            live_boards = set(await session.scalars(
-                select(Board.id).where(Board.deleted_at.is_(None))))
+            live_collections = set(await session.scalars(
+                select(Collection.id).where(Collection.deleted_at.is_(None))))
             live_flows = set(await session.scalars(
                 select(Flow.id).where(Flow.deleted_at.is_(None))))
             live_chats = set(await session.scalars(
                 select(Chat.id).where(Chat.deleted_at.is_(None))))
 
-        # Husks gone (boards/flows hard-deleted, chat soft-deleted).
-        assert ids["husk_board"] not in live_boards
-        assert await _row_gone(db_session, Board, ids["husk_board"])
+        # Husks gone (collections/flows hard-deleted, chat soft-deleted).
+        assert ids["husk_collection"] not in live_collections
+        assert await _row_gone(db_session, Collection, ids["husk_collection"])
         assert ids["husk_flow"] not in live_flows
         assert await _row_gone(db_session, Flow, ids["husk_flow"])
         assert ids["husk_chat"] not in live_chats
         assert ids["husk_chat_untitled"] not in live_chats
 
         # Everything with identity or content survives.
-        for key in ("named_board", "content_board", "recent_board"):
-            assert ids[key] in live_boards
+        for key in ("named_collection", "content_collection", "recent_collection"):
+            assert ids[key] in live_collections
         for key in ("named_flow", "edited_flow", "chatted_flow", "recent_flow"):
             assert ids[key] in live_flows
         for key in ("named_chat", "msg_chat", "recent_chat"):
             assert ids[key] in live_chats
 
-    async def test_board_with_any_item_row_survives(self, db_session):
-        """Fail-closed emptiness: a blank board is spared if it holds *any* item
-        row — legacy BoardItem, an asset in a soft-deleted section, or a
-        soft-deleted BoardAssetItem — so a permanent delete never destroys
+    async def test_collection_with_any_item_row_survives(self, db_session):
+        """Fail-closed emptiness: a blank collection is spared if it holds *any* item
+        row — legacy CollectionItem, an asset in a soft-deleted section, or a
+        soft-deleted CollectionAssetItem — so a permanent delete never destroys
         restorable curation."""
         async with db_session() as session:
             media = await create_test_media(session, count=3, materialize_assets=False)
 
-            # (a) legacy BoardItem-only membership
-            legacy = Board(name="", created_at=OLD, updated_at=OLD)
+            # (a) legacy CollectionItem-only membership
+            legacy = Collection(name="", created_at=OLD, updated_at=OLD)
             session.add(legacy)
             await session.flush()
-            legacy_sec = BoardSection(board_id=legacy.id, is_default=True)
+            legacy_sec = CollectionSection(collection_id=legacy.id, is_default=True)
             session.add(legacy_sec)
             await session.flush()
-            session.add(BoardItem(board_section_id=legacy_sec.id, media_id=media[0].id))
+            session.add(CollectionItem(collection_section_id=legacy_sec.id, media_id=media[0].id))
 
             # (b) asset living only in a SOFT-DELETED section
-            soft_sec_board = Board(name="", created_at=OLD, updated_at=OLD)
-            session.add(soft_sec_board)
+            soft_sec_collection = Collection(name="", created_at=OLD, updated_at=OLD)
+            session.add(soft_sec_collection)
             await session.flush()
-            dead_sec = BoardSection(board_id=soft_sec_board.id, is_default=True,
+            dead_sec = CollectionSection(collection_id=soft_sec_collection.id, is_default=True,
                                     deleted_at=datetime.utcnow())
             session.add(dead_sec)
             await session.flush()
             asset_b = await create_asset_from_media(session, media_id=media[1].id)
-            session.add(BoardAssetItem(board_section_id=dead_sec.id, asset_id=asset_b.id))
+            session.add(CollectionAssetItem(collection_section_id=dead_sec.id, asset_id=asset_b.id))
 
             # (c) an item that was added then removed (soft-deleted item row)
-            removed_board = Board(name="", created_at=OLD, updated_at=OLD)
-            session.add(removed_board)
+            removed_collection = Collection(name="", created_at=OLD, updated_at=OLD)
+            session.add(removed_collection)
             await session.flush()
-            rsec = BoardSection(board_id=removed_board.id, is_default=True)
+            rsec = CollectionSection(collection_id=removed_collection.id, is_default=True)
             session.add(rsec)
             await session.flush()
             asset_c = await create_asset_from_media(session, media_id=media[2].id)
-            session.add(BoardAssetItem(board_section_id=rsec.id, asset_id=asset_c.id,
+            session.add(CollectionAssetItem(collection_section_id=rsec.id, asset_id=asset_c.id,
                                        deleted_at=datetime.utcnow()))
             await session.commit()
-            ids = [legacy.id, soft_sec_board.id, removed_board.id]
+            ids = [legacy.id, soft_sec_collection.id, removed_collection.id]
 
             await CleanupService().cleanup_empty_unnamed_entities(session)
 
         async with db_session() as session:
             live = set(await session.scalars(
-                select(Board.id).where(Board.deleted_at.is_(None))))
+                select(Collection.id).where(Collection.deleted_at.is_(None))))
         for bid in ids:
-            assert bid in live, f"board {bid} was wrongly reaped"
+            assert bid in live, f"collection {bid} was wrongly reaped"
 
     async def test_whitespace_name_is_reaped(self, db_session):
         """A whitespace-only name is not real identity — trim() → reapable."""
         async with db_session() as session:
-            board = await _add_board(session, name="   ", created_at=OLD)
+            collection = await _add_collection(session, name="   ", created_at=OLD)
             await session.commit()
-            bid = board.id
+            bid = collection.id
             reaped = await CleanupService().cleanup_empty_unnamed_entities(session)
-        assert bid in reaped["boards"]
+        assert bid in reaped["collections"]
 
     async def test_flow_with_traced_empty_chat_is_reaped_not_stuck(self, db_session):
         """An empty agent chat carrying an LLMTrace (NOT NULL, no cascade) must

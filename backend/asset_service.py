@@ -213,7 +213,7 @@ async def create_asset_from_media(
             idempotency_key=idempotency_key,
         )
     # Promotion consumes any provisional pre-Asset staging rows (legacy
-    # media_markers/media_tags/project_media/board_items) so every promotion
+    # media_markers/media_tags/project_media/collection_items) so every promotion
     # site — not just the organization routes — upholds the staging contract.
     if mirror_associations:
         from asset_association_service import mirror_media_associations_to_asset

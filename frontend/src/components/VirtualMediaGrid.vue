@@ -1,5 +1,5 @@
 <template>
-  <div class="flex-1 flex flex-col overflow-hidden w-full min-w-0 [&_img]:[-webkit-touch-callout:none] [&_img]:select-none [&_video]:[-webkit-touch-callout:none] [&_video]:select-none" :class="{ relative: !!sections }">
+  <div class="flex-1 flex flex-col overflow-hidden w-full min-w-0 [&_img]:[-webkit-touch-callout:none] [&_img]:select-none [&_video]:[-webkit-touch-callout:none] [&_video]:select-none">
     <!-- Loading state -->
     <div v-if="initialLoading" class="flex-1 p-2 overflow-hidden bg-matte">
       <div class="grid grid-cols-6 gap-2 loading-grid">
@@ -20,7 +20,7 @@
       v-else
       ref="scroller"
       :items="allItems"
-      :item-size="sections ? null : itemHeight"
+      :item-size="itemHeight"
       :buffer="bufferSize"
       class="flex-1 min-w-0 overflow-y-scroll overflow-x-hidden media-grid-container custom-scrollbar pt-[2px] bg-matte"
       @scroll="handleScroll"
@@ -28,90 +28,10 @@
       key-field="id"
     >
       <template v-slot="{ item, index }">
-        <!-- Grouped rows (only with `sections`): a group's header -->
-        <BrowseGroupHeader
-          v-if="item.type === 'header'"
-          :data-group="item.sectionKey"
-          :title="sectionAt(item).title"
-          :sub="sectionAt(item).sub"
-          :count-label="sectionAt(item).countLabel ?? String(sectionAt(item).count)"
-          :open="sectionAt(item).open"
-          :project-name="sectionAt(item).projectName"
-          :select-state="sectionSelect(sectionAt(item))"
-          :selecting="selectedItemIds.length > 0"
-          :style="{ height: `${item.size}px` }"
-          @toggle="emit('toggle-section', item.sectionKey)"
-          @select="handleSelectSection(sectionAt(item))"
-        />
-
-        <!-- A revisit's "Made from" frames: they live in an older group and show here too -->
-        <div v-else-if="item.type === 'refs'" class="flex w-full min-w-0 items-center gap-2 overflow-hidden px-page pb-2" :style="{ height: `${item.size}px` }">
-          <span class="flex-none text-xs text-content-tertiary">Made from</span>
-          <div
-            v-for="refItem in sectionAt(item).refs"
-            :key="`ref-${assetIdOf(refItem)}`"
-            :data-testid="`media-grid-ref-${assetIdOf(refItem)}`"
-            class="grid-ref-cell relative flex-none cursor-pointer overflow-hidden rounded-media bg-matte transition-opacity duration-150 hover:opacity-100"
-            :class="isSelected(assetIdOf(refItem)) ? 'ring-2 ring-inset ring-selection' : 'opacity-80'"
-            :style="{ width: `${REF_TILE_PX}px`, height: `${REF_TILE_PX}px` }"
-            draggable="true"
-            :title="itemTitle(refItem) || undefined"
-            @click.stop="handleRefClick(refItem, sectionAt(item), $event)"
-            @contextmenu.stop.prevent="handleRightClick(refItem, $event)"
-            @dragstart="handleDragStart($event, refItem)"
-            @dragend="handleGridDragEnd"
-          >
-            <AppImage
-              :src="getThumbnailUrl(refItem.file_hash, GRID_THUMBNAIL_SIZE)"
-              :alt="refItem.vlm_caption || 'Media item'"
-              :has-alpha="refItem.has_alpha"
-              loading="eager"
-              queued
-              background-class="bg-matte"
-              container-class="w-full h-full"
-            />
-          </div>
-          <button
-            v-if="sectionAt(item).home"
-            type="button"
-            class="min-w-0 truncate rounded-md px-1.5 py-0.5 text-xs text-content-secondary transition-colors duration-150 hover:bg-overlay-subtle hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-            @click.stop="scrollToSection(sectionAt(item).home.key)"
-          >in {{ sectionAt(item).home.label }} ↓</button>
-        </div>
-
-        <!-- A folded group: one strip of its first frames; a click opens it -->
-        <div
-          v-else-if="item.type === 'strip'"
-          class="box-border w-full min-w-0 cursor-pointer"
-          :style="stripRowStyle"
-          @click.stop="emit('toggle-section', item.sectionKey)"
-        >
-          <div class="flex min-w-0 overflow-hidden" :class="sectionAt(item).count > item.cells ? '[mask-image:linear-gradient(90deg,black_85%,transparent)]' : ''" :style="{ gap: `${GRID_GAP_PX}px` }">
-            <div
-              v-for="(cell, cellIndex) in item.items"
-              :key="`strip-${item.startIndex + cellIndex}`"
-              class="relative flex-none overflow-hidden rounded-media bg-matte"
-              :style="{ width: `${stripPx}px`, height: `${stripPx}px` }"
-            >
-              <AppImage
-                v-if="cell"
-                :src="getThumbnailUrl(cell.file_hash, GRID_THUMBNAIL_SIZE)"
-                :alt="cell.vlm_caption || 'Media item'"
-                :has-alpha="cell.has_alpha"
-                loading="eager"
-                queued
-                background-class="bg-matte"
-                container-class="w-full h-full"
-              />
-              <span v-if="cell && isSelected(assetIdOf(cell))" class="pointer-events-none absolute inset-0 rounded-media ring-2 ring-inset ring-selection"></span>
-            </div>
-          </div>
-        </div>
-
         <!-- Placeholder for loading items -->
-        <div v-else-if="item.isPlaceholder" class="overflow-visible box-border w-full min-w-0" :style="rowStyle">
+        <div v-if="item.isPlaceholder" class="overflow-visible box-border w-full min-w-0" :style="rowStyle">
           <div class="grid min-w-0" :style="gridStyle">
-            <div v-for="i in (item.cells || itemsPerRow)" :key="`placeholder-${item.startIndex}-${i}`" class="grid-cell-placeholder relative aspect-square bg-matte rounded-media overflow-hidden cursor-pointer flex items-center justify-center">
+            <div v-for="i in itemsPerRow" :key="`placeholder-${item.startIndex}-${i}`" class="grid-cell-placeholder relative aspect-square bg-matte rounded-media overflow-hidden cursor-pointer flex items-center justify-center">
               <div class="loading-skeleton w-6 h-6 border-2 border-edge border-t-zinc-600 rounded-full"></div>
             </div>
           </div>
@@ -298,29 +218,6 @@
       </template>
     </RecycleScroller>
 
-    <!-- Group headers can't be CSS-sticky inside RecycleScroller (its rows are
-         absolutely positioned), so the group scrolled under the top edge gets
-         a floating copy of its header, pushed up by the next one. -->
-    <div
-      v-if="sections && stickySection && sectionByKey.get(stickySection.sectionKey)"
-      class="pointer-events-none absolute left-0 top-0 z-chrome overflow-hidden"
-      :style="{ width: `${scrollerClientWidth}px`, height: `${GROUP_HEADER_PX}px` }"
-    >
-      <BrowseGroupHeader
-        class="pointer-events-auto bg-matte"
-        :title="sectionByKey.get(stickySection.sectionKey).title"
-        :sub="sectionByKey.get(stickySection.sectionKey).sub"
-        :count-label="sectionByKey.get(stickySection.sectionKey).countLabel ?? String(sectionByKey.get(stickySection.sectionKey).count)"
-        :open="sectionByKey.get(stickySection.sectionKey).open"
-        :project-name="sectionByKey.get(stickySection.sectionKey).projectName"
-        :select-state="sectionSelect(sectionByKey.get(stickySection.sectionKey))"
-        :selecting="selectedItemIds.length > 0"
-        :style="{ transform: `translateY(${stickySection.push}px)` }"
-        @toggle="toggleStickySection"
-        @select="handleSelectSection(sectionByKey.get(stickySection.sectionKey))"
-      />
-    </div>
-
     <!-- Item context menu -->
     <MediaContextMenu
       @refresh="$emit('context-menu-action', { action: 'refresh' })"
@@ -358,10 +255,6 @@ import { makeProfileKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
 import { tileColumns, tileWidth } from '../utils/tileGrid'
-import {
-  buildSectionRows, pagesForRange, rowTops, sectionSelectState, sectionTop, stickySectionAt, stripCapacity,
-} from '../utils/groupedRows'
-import BrowseGroupHeader from './browse/BrowseGroupHeader.vue'
 import { editorLivePreview } from '../imageEditor/liveEditorPreview'
 
 const { formatRemainingTime } = useExpirationClock()
@@ -415,16 +308,16 @@ const props = defineProps({
     default: null
   },
   /**
-   * Whether this grid is inside a board view
+   * Whether this grid is inside a collection view
    */
-  inBoard: {
+  inCollection: {
     type: Boolean,
     default: false
   },
   /**
-   * The board section ID if viewing a board section
+   * The collection section ID if viewing a collection section
    */
-  boardSectionId: {
+  collectionSectionId: {
     type: Number,
     default: null
   },
@@ -445,39 +338,10 @@ const props = defineProps({
   /**
    * Storage key for persisting scroll position across navigation.
    * If provided, scroll position is saved to sessionStorage.
-   * Use a unique key per view (e.g., 'browse', 'trash', 'board-123').
+   * Use a unique key per view (e.g., 'browse', 'trash', 'collection-123').
    */
   storageKey: {
     type: String,
-    default: null
-  },
-  /**
-   * Grouped mode (the Assets browser's Group by). Each section is a run of
-   * flat indexes, [offset, offset + count), with `{ key, title, sub,
-   * countLabel, count, total, offset, refs, open, projectName, home }`.
-   * Without it the grid renders exactly as an ungrouped grid.
-   */
-  sections: {
-    type: Array,
-    default: null
-  },
-  /** Full id lists of sections whose checkbox was used (key -> ids), for the header state. */
-  sectionIds: {
-    type: Object,
-    default: null
-  },
-  /** Minimum tile width in px (the size slider); null keeps the density default. */
-  tileMin: {
-    type: Number,
-    default: null
-  },
-  /**
-   * Grouped shift-range: resolves the ids between two flat indexes
-   * (inclusive) from the server's grouped order, so a folded group's
-   * unloaded members are included.
-   */
-  resolveRange: {
-    type: Function,
     default: null
   }
 })
@@ -490,7 +354,7 @@ let unsubscribeBulkDeleted = null
 let unsubscribeAutoDelete = null
 let autoMarkersSyncedHandler = null
 
-const emit = defineEmits(['item-click', 'item-find-similar', 'toggle-selection', 'shift-click-range', 'context-menu-action', 'empty-space-action', 'items-removed', 'toggle-section', 'select-group', 'ref-click'])
+const emit = defineEmits(['item-click', 'item-find-similar', 'toggle-selection', 'shift-click-range', 'context-menu-action', 'empty-space-action', 'items-removed'])
 
 const { getThumbnailUrl, getMseLoopUrls } = useMediaApi()
 const mediaContextMenu = useMediaContextMenu()
@@ -629,117 +493,6 @@ const gridStyle = computed(() => ({
   gap: `${GRID_GAP_PX}px`
 }))
 
-// Grouped mode geometry. Row heights vary by type (header, refs, tiles,
-// strip), so the scroller takes per-row sizes and the page math walks row
-// tops instead of multiplying by one row height.
-const GROUP_HEADER_PX = 48
-const REF_TILE_PX = 48
-const REFS_ROW_PX = REF_TILE_PX + 8
-const STRIP_ROW_GAP_PX = 6
-const scrollerClientWidth = ref(0)
-let groupedTops = [0]
-const stickySection = ref(null)
-let pendingSectionScroll = null
-const sectionByKey = computed(() => new Map((props.sections || []).map(section => [section.key, section])))
-// A folded group's strip: small square thumbnails, about a third of a tile.
-const stripPx = computed(() => Math.round(Math.min(84, Math.max(40, (itemHeight.value - ROW_VERTICAL_GUTTER_PX) * 0.3))))
-const stripRowStyle = computed(() => ({
-  paddingLeft: `${GRID_SIDE_PADDING_PX / 2}px`,
-  paddingRight: `${GRID_SIDE_PADDING_PX / 2}px`,
-  paddingBottom: `${STRIP_ROW_GAP_PX}px`,
-  height: `${stripPx.value + STRIP_ROW_GAP_PX}px`
-}))
-
-function sectionAt(row) {
-  // By key: between a sections change and the next row rebuild, an index can
-  // point at a different group.
-  return sectionByKey.value.get(row.sectionKey) || { key: row.sectionKey, title: '', refs: [], count: 0, offset: 0, open: false }
-}
-
-function sectionRefIds(section) {
-  return (section?.refs || []).map(ref => assetIdOf(ref)).filter(id => id != null)
-}
-
-function sectionSelect(section) {
-  if (!section) return 'none'
-  const cache = itemsCache.value
-  return sectionSelectState(
-    section,
-    selectedItemIdSet.value,
-    index => assetIdOf(cache.get(index)),
-    sectionRefIds(section),
-    props.sectionIds?.get?.(section.key) || null,
-  )
-}
-
-function handleSelectSection(section) {
-  if (!section) return
-  emit('select-group', { key: section.key, select: sectionSelect(section) !== 'all', refIds: sectionRefIds(section) })
-}
-
-function handleRefClick(refItem, section, event) {
-  const assetId = assetIdOf(refItem)
-  if (event.metaKey || event.ctrlKey || event.shiftKey || props.multiSelectMode) {
-    emit('toggle-selection', assetId, null)
-    return
-  }
-  emit('ref-click', { item: refItem, refs: section?.refs || [refItem] })
-}
-
-function groupedMetrics() {
-  const gridWidth = Math.max(0, (lastCalculatedWidth || window.innerWidth) - GRID_SIDE_PADDING_PX)
-  return {
-    perRow: itemsPerRow.value,
-    tileRowHeight: itemHeight.value,
-    headerHeight: GROUP_HEADER_PX,
-    stripHeight: stripPx.value + STRIP_ROW_GAP_PX,
-    stripCells: stripCapacity(gridWidth, stripPx.value, GRID_GAP_PX),
-    refsHeight: REFS_ROW_PX,
-    total: effectiveTotal.value,
-  }
-}
-
-function buildGroupedRows() {
-  const cache = itemsCache.value
-  const rows = buildSectionRows(props.sections, groupedMetrics(), index => cache.get(index))
-  groupedTops = rowTops(rows)
-  allItems.value = rows
-  updateStickySection()
-  if (pendingSectionScroll) {
-    const key = pendingSectionScroll
-    pendingSectionScroll = null
-    nextTick(() => scrollToSection(key))
-  }
-}
-
-function updateStickySection() {
-  if (!props.sections || !scroller.value?.$el) {
-    stickySection.value = null
-    return
-  }
-  const next = stickySectionAt(allItems.value, groupedTops, scroller.value.$el.scrollTop, GROUP_HEADER_PX)
-  const current = stickySection.value
-  if (next?.sectionKey !== current?.sectionKey || next?.push !== current?.push) stickySection.value = next
-}
-
-// Folding the group you're scrolled into from its floating header keeps that
-// group's header at the top instead of landing somewhere further down.
-function toggleStickySection() {
-  const key = stickySection.value?.sectionKey
-  if (!key) return
-  pendingSectionScroll = key
-  emit('toggle-section', key)
-}
-
-function scrollToSection(key) {
-  const el = scroller.value?.$el
-  if (!el) return
-  const top = sectionTop(allItems.value, groupedTops, key)
-  if (top == null) return
-  el.scrollTop = top
-  handleScroll()
-}
-
 // Data management - use shared mediaList if provided, otherwise local state
 const localLoadedPages = ref(new Set())
 const localItemsCache = ref(new Map()) // Cache items by index
@@ -774,12 +527,11 @@ function calculateItemsPerRow() {
   // the occasional wrong-size grid. Keep the last good layout instead.
   if (scrollerWidth <= 0) return false
   lastCalculatedWidth = scrollerWidth
-  scrollerClientWidth.value = scrollerWidth
   const gridWidth = scrollerWidth - GRID_SIDE_PADDING_PX
 
-  // One width-based rule shared with boards (utils/tileGrid.ts): three
+  // One width-based rule shared with collections (utils/tileGrid.ts): three
   // across at the narrowest, then as many tiles as the width allows.
-  const newItemsPerRow = tileColumns(gridWidth, 'browse', props.tileMin)
+  const newItemsPerRow = tileColumns(gridWidth, 'browse')
   const actualItemWidth = tileWidth(gridWidth, newItemsPerRow)
 
   // Row height = square item height + row vertical gutter (py-2 top+bottom)
@@ -799,10 +551,6 @@ function calculateItemsPerRow() {
 let buildRowsRafId = null
 
 function buildRowsImmediate() {
-  if (props.sections) {
-    buildGroupedRows()
-    return
-  }
   const rows = []
   const perRow = itemsPerRow.value
   const total = effectiveTotal.value
@@ -959,8 +707,6 @@ function handleScroll() {
   // Save scroll position for persistence (debounced) - immediate path
   debouncedSaveScroll(scrollTop)
 
-  if (props.sections) updateStickySection()
-
   // Coalesce page loading to the next frame so fast scrollbar scrubs do not
   // pay an extra fixed delay before the visible page request can start.
   if (scrollPageLoadRafId !== null) {
@@ -977,16 +723,6 @@ async function loadVisiblePages() {
 
   const { scrollTop, clientHeight } = scroller.value.$el
   const scrollBottom = scrollTop + clientHeight
-
-  if (props.sections) {
-    // Variable row heights: find the rows in view (plus a buffer) by their
-    // tops, and load only the pages those rows draw. A folded group asks
-    // for its strip's page, never for the rest of the group.
-    const buffer = 3 * itemHeight.value
-    const pages = pagesForRange(allItems.value, groupedTops, scrollTop - buffer, scrollBottom + buffer, 200)
-    await Promise.all(pages.filter(page => !loadedPages.value.has(`${page}:200`)).map(page => loadPage(page)))
-    return
-  }
 
   // Calculate which rows are visible
   const startRow = Math.floor(scrollTop / itemHeight.value)
@@ -1310,8 +1046,8 @@ function handleRightClick(item, event) {
         mediaId,
         mediaIds: selectedItems.map(mediaIdOf).filter(Boolean),
         selectedItems,
-        inBoard: props.inBoard,
-        boardSectionId: props.boardSectionId,
+        inCollection: props.inCollection,
+        collectionSectionId: props.collectionSectionId,
         inProject: props.inProject,
         projectId: props.projectId ?? undefined
       })
@@ -1324,8 +1060,8 @@ function handleRightClick(item, event) {
         mediaId,
         mediaIds: mediaId ? [mediaId] : [],
         selectedItems: [item],
-        inBoard: props.inBoard,
-        boardSectionId: props.boardSectionId,
+        inCollection: props.inCollection,
+        collectionSectionId: props.collectionSectionId,
         inProject: props.inProject,
         projectId: props.projectId ?? undefined
       })
@@ -1338,7 +1074,7 @@ function handleContainerContextMenu(event) {
   // Check if right-click is on empty space (not on a grid item)
   // Grid items have the .grid-cell class
   const target = event.target
-  const isOnItem = target.closest('.grid-cell') || target.closest('.grid-cell-placeholder') || target.closest('.grid-ref-cell')
+  const isOnItem = target.closest('.grid-cell') || target.closest('.grid-cell-placeholder')
 
   if (!isOnItem) {
     // Show empty space context menu
@@ -1366,11 +1102,6 @@ function handleRangeSelection(endIndex) {
   const start = Math.min(lastClickedIndex.value, endIndex)
   const end = Math.max(lastClickedIndex.value, endIndex)
 
-  if (props.sections && props.resolveRange) {
-    void selectGroupedRange(start, end, endIndex)
-    return
-  }
-
   // Collect all item IDs in the range
   const idsToSelect = []
   for (let i = start; i <= end; i++) {
@@ -1387,24 +1118,6 @@ function handleRangeSelection(endIndex) {
   }
 
   lastClickedIndex.value = endIndex
-}
-
-// Grouped lists resolve a range by flat index through the server's grouped id
-// list, so members of a folded group between the ends are included. [Sol S8]
-async function selectGroupedRange(start, end, endIndex) {
-  const action = lastClickedAction.value
-  lastClickedIndex.value = endIndex
-  let ids = []
-  try {
-    ids = await props.resolveRange(start, end)
-  } catch (error) {
-    console.error('[VirtualMediaGrid] Failed to resolve grouped range:', error)
-    for (let i = start; i <= end; i++) {
-      const identity = assetIdOf(itemsCache.value.get(i))
-      if (identity) ids.push(identity)
-    }
-  }
-  if (ids.length > 0) emit('shift-click-range', { ids, endIndex, action })
 }
 
 function handleMouseDown(itemId, index) {
@@ -1462,19 +1175,6 @@ function getItemsByIds(ids) {
   for (const [index, item] of itemsCache.value.entries()) {
     if (item && idSet.has(assetIdOf(item))) {
       items.push(item)
-    }
-  }
-  if (props.sections) {
-    // "Made from" frames aren't in the flat list; the groups payload carries them.
-    const found = new Set(items.map(item => assetIdOf(item)))
-    for (const section of props.sections) {
-      for (const refItem of section.refs || []) {
-        const identity = assetIdOf(refItem)
-        if (identity != null && idSet.has(identity) && !found.has(identity)) {
-          found.add(identity)
-          items.push(refItem)
-        }
-      }
     }
   }
   return items
@@ -1652,8 +1352,8 @@ function showContextMenuForItem(itemId) {
         mediaId: mediaIds[0],
         mediaIds,
         selectedItems,
-        inBoard: props.inBoard,
-        boardSectionId: props.boardSectionId,
+        inCollection: props.inCollection,
+        collectionSectionId: props.collectionSectionId,
         inProject: props.inProject,
         projectId: props.projectId ?? undefined
       })
@@ -1668,8 +1368,8 @@ function showContextMenuForItem(itemId) {
         mediaId,
         mediaIds: mediaId ? [mediaId] : [],
         selectedItems: item ? [item] : [],
-        inBoard: props.inBoard,
-        boardSectionId: props.boardSectionId,
+        inCollection: props.inCollection,
+        collectionSectionId: props.collectionSectionId,
         inProject: props.inProject,
         projectId: props.projectId ?? undefined
       })
@@ -1725,7 +1425,7 @@ async function refreshAfterRemoval() {
   // within the new range. Its scrollHeight is still stale here, so compute the
   // new content height from the row count and clamp scrollTop into range before
   // dispatching the scroll that triggers the recompute + visible-page load.
-  const contentHeight = props.sections ? groupedTops[groupedTops.length - 1] || 0 : allItems.value.length * itemHeight.value
+  const contentHeight = allItems.value.length * itemHeight.value
   const maxScroll = Math.max(0, contentHeight - el.clientHeight)
   if (el.scrollTop > maxScroll) el.scrollTop = maxScroll
   el.dispatchEvent(new Event('scroll'))
@@ -1742,33 +1442,7 @@ defineExpose({
   refreshAfterRemoval,
   showContextMenuForItem,
   restoreScrollPosition,
-  scrollToTop,
-  scrollToSection
-})
-
-// New sections (a reload, a fold, Expand all): redraw and load what's now in view.
-watch(() => props.sections, () => {
-  if (!props.sections) stickySection.value = null
-  buildRows()
-  handleScroll()
-})
-
-// The size slider: recompute columns, keep the first visible tile in view
-// (ungrouped), and load whatever the new layout shows. Pages are by flat
-// index, so a column change doesn't invalidate them.
-watch(() => props.tileMin, () => {
-  const el = scroller.value?.$el
-  const anchorIndex = !props.sections && el ? Math.floor(el.scrollTop / itemHeight.value) * itemsPerRow.value : null
-  calculateItemsPerRow()
-  buildRowsImmediate()
-  if (el && anchorIndex != null && el.scrollTop > 0) {
-    nextTick(() => {
-      el.scrollTop = Math.floor(anchorIndex / itemsPerRow.value) * itemHeight.value
-      handleScroll()
-    })
-  } else {
-    handleScroll()
-  }
+  scrollToTop
 })
 
 // Clear context target when media context menu closes

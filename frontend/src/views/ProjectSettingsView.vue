@@ -86,7 +86,7 @@
         <div>
           <h4 class="text-xs font-semibold text-red-400">Delete project</h4>
           <p class="mt-1 text-xs text-content-tertiary">
-            Delete this project, its boards, and chats. Assets will remain in All Assets.
+            Delete this project, its collections, and chats. Assets will remain in All Assets.
           </p>
         </div>
         <Button variant="danger-ghost" class="flex-shrink-0" @click="openDeleteProjectModal">

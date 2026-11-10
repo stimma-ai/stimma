@@ -139,7 +139,7 @@
             <Button variant="link" size="sm" class="coarse:min-h-11" @click="refreshHome({ force: true })">Try again</Button>
           </p>
 
-          <!-- Jump back in: boards, flows, and chats merged into one recency row -->
+          <!-- Jump back in: collections, flows, and chats merged into one recency row -->
           <div v-if="jumpBackIn.length > 0">
             <div class="mb-2 flex items-center justify-between">
               <h2 class="text-xs font-semibold text-content-secondary">Jump back in</h2>
@@ -150,27 +150,27 @@
                 :key="`${item.type}-${item.id}`"
                 @click="openJumpItem(item)"
                 @contextmenu="handleJumpContextMenu($event, item)"
-                @dragover.prevent="item.type === 'board' && (dragOverBoardId = item.id)"
-                @dragleave="item.type === 'board' && dragOverBoardId === item.id && (dragOverBoardId = null)"
-                @drop.prevent="item.type === 'board' && handleBoardDrop(item.id, $event)"
+                @dragover.prevent="item.type === 'collection' && (dragOverCollectionId = item.id)"
+                @dragleave="item.type === 'collection' && dragOverCollectionId === item.id && (dragOverCollectionId = null)"
+                @drop.prevent="item.type === 'collection' && handleCollectionDrop(item.id, $event)"
                 class="group flex min-w-0 w-full rounded-media text-left bg-transparent transition-colors cursor-pointer"
-                :class="[jumpColumns === 1 ? 'flex-row items-center gap-3 py-3 hover:bg-overlay-subtle' : 'flex-col max-w-[360px]', item.type === 'board' && dragOverBoardId === item.id
+                :class="[jumpColumns === 1 ? 'flex-row items-center gap-3 py-3 hover:bg-overlay-subtle' : 'flex-col max-w-[360px]', item.type === 'collection' && dragOverCollectionId === item.id
                   ? 'ring-1 ring-accent/50 bg-accent/10'
                   : '']"
               >
                 <!-- Art -->
                 <div data-jump-cover class="relative shrink-0 overflow-hidden rounded-media transition-opacity group-hover:opacity-85" :class="[jumpColumns === 1 ? 'w-20 h-20' : 'w-full aspect-[3/2]', jumpHasArt(item) ? 'bg-matte' : 'bg-surface-raised']">
-                  <!-- Board: filmstrip of tiles at natural aspect, full strip
+                  <!-- Collection: filmstrip of tiles at natural aspect, full strip
                        height, left-aligned on matte with 2px media-grid
                        gutters. Widths follow each item's aspect ratio so
-                       sparse boards read as tiles on a shelf. -->
+                       sparse collections read as tiles on a shelf. -->
                   <div
-                    v-if="item.type === 'board' && getBoardPreviewItems(item.board).length > 0"
+                    v-if="item.type === 'collection' && getCollectionPreviewItems(item.collection).length > 0"
                     class="absolute inset-0 overflow-hidden p-0.5"
                   >
                     <div class="flex h-full gap-0.5">
                       <div
-                        v-for="(previewItem, index) in getBoardPreviewItems(item.board)"
+                        v-for="(previewItem, index) in getCollectionPreviewItems(item.collection)"
                         :key="`${item.id}-${previewItem.id}-${index}`"
                         class="h-full flex-shrink-0 max-w-[55%] overflow-hidden bg-overlay-faint"
                         :style="getPreviewTileStyle(previewItem)"
@@ -269,7 +269,7 @@
                     <div
                       v-else
                       class="text-xs truncate min-w-0"
-                      :class="item.type === 'board' ? 'font-mono tabular-nums text-content-tertiary' : 'text-content-muted'"
+                      :class="item.type === 'collection' ? 'font-mono tabular-nums text-content-tertiary' : 'text-content-muted'"
                     >{{ item.sub }}</div>
                   </div>
                 </div>
@@ -373,10 +373,10 @@ const { allowsAutofocus } = useViewport()
 const props = defineProps({ project: { type: Object, default: null } })
 const projectId = computed(() => props.project?.id ?? null)
 const router = useRouter()
-const { getBoards, getBoard, addMediaToBoard, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
+const { getCollections, getCollection, addMediaToCollection, deleteCollection, restoreCollection, updateCollection } = useMediaApi()
 // Face-aware framing for "Jump back in" cover art (see useFaceFocalPoints).
 const { request: requestFaceFocalPoints, positionOf: faceObjectPosition } = useFaceFocalPoints()
-const { fetchAssets, addToBoard: addAssetsToBoard } = useAssetApi()
+const { fetchAssets, addToCollection: addAssetsToCollection } = useAssetApi()
 const { listFlows, listEquations, updateFlow, deleteFlow, restoreFlow } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 const entityContextMenu = useEntityContextMenu()
@@ -413,14 +413,14 @@ const composerDirty = computed(() => inputText.value.trim() !== '' || inputAttac
 const showToolHero = computed(() => llmUnconfigured.value && !composerDirty.value)
 const recentChats = ref([])
 const recentMedia = ref([])
-const recentBoards = ref([])
+const recentCollections = ref([])
 const recentFlows = ref([])
 const flowOutputMedia = ref(new Map()) // flow_id -> [{ media_id, file_hash? }, ...]
-const boardDetails = ref(new Map())
-// The scope has boards, flows, or chats even though none made a card (the
+const collectionDetails = ref(new Map())
+// The scope has collections, flows, or chats even though none made a card (the
 // compact read skips empty ones), so this is not a first run.
 const scopeHasEntities = ref(false)
-// 'loading' until the recent chats/boards/flows/assets lists settle, then
+// 'loading' until the recent chats/collections/flows/assets lists settle, then
 // 'ready', or 'error' when any of them failed. Artwork is not part of it.
 const recentsState = ref('loading')
 // Which recents lists failed in the last load ('chats', 'assets', ...). Shown
@@ -436,7 +436,7 @@ const failedRecentsLabel = computed(() => {
 // wait, whichever is first; until the check answers, the composer shows.
 const heroReady = ref(false)
 const HERO_WAIT_MS = 1500
-const dragOverBoardId = ref(null)
+const dragOverCollectionId = ref(null)
 const contentWidth = ref(840)
 
 const isCompact = computed(() => contentWidth.value < 700)
@@ -500,7 +500,7 @@ const visibleMedia = computed(() => recentMedia.value.slice(0, mediaColumns.valu
 
 // Whether a Jump back in card has artwork (else it shows the quiet type glyph).
 function jumpHasArt(item) {
-  if (item.type === 'board') return getBoardPreviewItems(item.board).length > 0
+  if (item.type === 'collection') return getCollectionPreviewItems(item.collection).length > 0
   if (item.type === 'flow') return getFlowPreviewMedia(item.id).length > 0
   return item.type === 'chat' && hasChatMedia(item.chat)
 }
@@ -518,13 +518,13 @@ function chatCoverIsSet(chat) {
 
 // ==================== Greeting ====================
 
-// True only after the first load with nothing to show: no chats, boards,
+// True only after the first load with nothing to show: no chats, collections,
 // flows, or library media — i.e. a fresh install right after onboarding.
 const isFirstRun = computed(() =>
   recentsState.value === 'ready'
   && !scopeHasEntities.value
   && recentChats.value.length === 0
-  && recentBoards.value.length === 0
+  && recentCollections.value.length === 0
   && (!flowsEnabled.value || recentFlows.value.length === 0)
   && recentMedia.value.length === 0
 )
@@ -662,9 +662,9 @@ function isEmptyFlow(flow) {
 
 const jumpBackIn = computed(() => {
   const items = []
-  for (const board of recentBoards.value) {
-    if (!board.name && !(board.asset_count > 0)) continue
-    items.push({ type: 'board', id: board.id, name: board.name, sub: formatBoardMeta(board), updatedAt: board.updated_at, board })
+  for (const collection of recentCollections.value) {
+    if (!collection.name && !(collection.asset_count > 0)) continue
+    items.push({ type: 'collection', id: collection.id, name: collection.name, sub: formatCollectionMeta(collection), updatedAt: collection.updated_at, collection })
   }
   for (const flow of flowsEnabled.value ? recentFlows.value : []) {
     if (isEmptyFlow(flow)) continue
@@ -684,23 +684,23 @@ const jumpBackIn = computed(() => {
 const jumpKindsMixed = computed(() => new Set(jumpBackIn.value.map(item => item.type)).size > 1)
 
 function jumpKindLabel(item) {
-  return { board: 'Board', flow: 'Flow', chat: 'Chat' }[item.type] || item.type
+  return { collection: 'Collection', flow: 'Flow', chat: 'Chat' }[item.type] || item.type
 }
 
 function jumpUntitledLabel(item) {
   if (item.type === 'flow') return 'Name this flow...'
   if (item.type === 'chat') return 'New chat'
-  return 'Untitled board'
+  return 'Untitled collection'
 }
 
 function openJumpItem(item) {
-  if (item.type === 'board') openBoard(item.id)
+  if (item.type === 'collection') openCollection(item.id)
   else if (item.type === 'flow') openFlow(item.flow)
   else openChat(item.chat)
 }
 
 function handleJumpContextMenu(event, item) {
-  if (item.type === 'board') handleBoardContextMenu(event, item.board)
+  if (item.type === 'collection') handleCollectionContextMenu(event, item.collection)
   else if (item.type === 'flow') handleFlowContextMenu(event, item.flow)
   else handleChatContextMenu(event, item.chat)
 }
@@ -819,32 +819,32 @@ function backendKey() {
   return getBackendOrigin() || window.location.origin
 }
 
-// The newest boards, flows, and chats with just their card artwork, chosen
+// The newest collections, flows, and chats with just their card artwork, chosen
 // by the server. Resolves null when the server lacks this read.
 async function loadCompactRecents(isCurrent) {
   try {
     const data = await withReadDeadline(signal => fetchHomeRecents(projectId.value, { limit: JUMP_BACK_IN_LIMIT, includeFlows: flowsEnabled.value, signal }))
     if (data === null) return null
     if (!isCurrent()) return true
-    const boards = []
+    const collections = []
     const flows = []
     const chats = []
     const flowMedia = new Map()
     for (const item of data.items) {
-      if (item.type === 'board' && item.board) boards.push(item.board)
+      if (item.type === 'collection' && item.collection) collections.push(item.collection)
       else if (flowsEnabled.value && item.type === 'flow' && item.flow) {
         flows.push(item.flow)
         flowMedia.set(item.flow.id, item.flow.preview_media || [])
       } else if (item.type === 'chat' && item.chat) chats.push(item.chat)
     }
-    recentBoards.value = boards
+    recentCollections.value = collections
     recentFlows.value = flows
     recentChats.value = chats
-    boardDetails.value = new Map()
+    collectionDetails.value = new Map()
     flowOutputMedia.value = flowMedia
     scopeHasEntities.value = !!data.has_entities
     requestFaceFocalPoints([
-      ...boards.flatMap((board) => (board.preview_items || []).map((it) => mediaIdOf(it))),
+      ...collections.flatMap((collection) => (collection.preview_items || []).map((it) => mediaIdOf(it))),
       ...[...flowMedia.values()].flatMap((media) => media.map((m) => m.media_id)),
       ...chats.map((chat) => chat.recent_media?.[0]?.media_id),
     ])
@@ -860,19 +860,19 @@ async function loadJumpBackIn(isCurrent) {
   const origin = backendKey()
   if (!compactRecentsUnsupported.has(origin)) {
     const loaded = await loadCompactRecents(isCurrent)
-    if (loaded !== null) return loaded ? [] : ['chats', 'boards', 'flows']
+    if (loaded !== null) return loaded ? [] : ['chats', 'collections', 'flows']
     compactRecentsUnsupported.add(origin)
   }
   if (isCurrent()) scopeHasEntities.value = false
-  const names = ['chats', 'boards', 'flows']
-  const results = await Promise.all([loadRecentChats(isCurrent), loadRecentBoards(isCurrent), loadRecentFlows(isCurrent)])
+  const names = ['chats', 'collections', 'flows']
+  const results = await Promise.all([loadRecentChats(isCurrent), loadRecentCollections(isCurrent), loadRecentFlows(isCurrent)])
   return names.filter((_, index) => !results[index])
 }
 
 // Reload the cards after this window changed one of them.
 function reloadJumpBackIn(kind) {
   if (!compactRecentsUnsupported.has(backendKey())) return loadJumpBackIn(homeLoads.guard())
-  if (kind === 'board') return loadRecentBoards()
+  if (kind === 'collection') return loadRecentCollections()
   if (kind === 'flow') return loadRecentFlows()
   return loadRecentChats()
 }
@@ -957,27 +957,27 @@ function openChat(chat) {
   router.push({ name: 'chat', params: { id: chat.id } })
 }
 
-async function loadRecentBoards(isCurrent = homeLoads.guard()) {
+async function loadRecentCollections(isCurrent = homeLoads.guard()) {
   try {
-    const boards = await withReadDeadline(signal => getBoards(projectId.value, { signal }))
+    const collections = await withReadDeadline(signal => getCollections(projectId.value, { signal }))
     if (!isCurrent()) return true
-    recentBoards.value = boards.slice(0, 6)
-    void loadBoardArtwork(recentBoards.value, isCurrent)
+    recentCollections.value = collections.slice(0, 6)
+    void loadCollectionArtwork(recentCollections.value, isCurrent)
     return true
   } catch (err) {
-    console.error('Failed to load boards:', err)
+    console.error('Failed to load collections:', err)
     return false
   }
 }
 
-async function loadBoardArtwork(boards, isCurrent) {
-  const results = await Promise.allSettled(boards.map((board) => withReadDeadline(signal => getBoard(board.id, { signal }))))
+async function loadCollectionArtwork(collections, isCurrent) {
+  const results = await Promise.allSettled(collections.map((collection) => withReadDeadline(signal => getCollection(collection.id, { signal }))))
   if (!isCurrent()) return
   const next = new Map()
   results.forEach((result, index) => {
-    if (result.status === 'fulfilled') next.set(boards[index].id, result.value)
+    if (result.status === 'fulfilled') next.set(collections[index].id, result.value)
   })
-  boardDetails.value = next
+  collectionDetails.value = next
   requestFaceFocalPoints(
     [...next.values()].flatMap((detail) =>
       (detail?.sections || []).flatMap((s) => s.items || []).slice(0, 6).map((it) => mediaIdOf(it))
@@ -985,8 +985,8 @@ async function loadBoardArtwork(boards, isCurrent) {
   )
 }
 
-function openBoard(boardId) {
-  router.push({ name: 'board-detail', params: { id: boardId } })
+function openCollection(collectionId) {
+  router.push({ name: 'collection-detail', params: { id: collectionId } })
 }
 
 function openFlow(flow) {
@@ -995,13 +995,13 @@ function openFlow(flow) {
 
 // ==================== Entity context menu ====================
 
-function handleBoardContextMenu(event, board) {
+function handleCollectionContextMenu(event, collection) {
   entityContextMenu.show({
     event,
-    entityType: 'board',
-    entityId: board.id,
-    entityName: board.name || 'Untitled',
-    projectId: board.project_id ?? null,
+    entityType: 'collection',
+    entityId: collection.id,
+    entityName: collection.name || 'Untitled',
+    projectId: collection.project_id ?? null,
     isSelected: false,
     selectedCount: 0
   })
@@ -1032,56 +1032,56 @@ function handleChatContextMenu(event, chat) {
 }
 
 function handleContextMenuOpen(entityType, entityId) {
-  if (entityType === 'board') openBoard(entityId)
+  if (entityType === 'collection') openCollection(entityId)
   else if (entityType === 'flow') router.push({ name: 'flow', params: { id: String(entityId) } })
   else if (entityType === 'chat') router.push({ name: 'chat', params: { id: entityId } })
 }
 
 function handleContextMenuRename(entityType, entityId) {
-  if (entityType === 'board') router.push({ name: 'board-detail', params: { id: entityId }, query: { rename: '1' } })
+  if (entityType === 'collection') router.push({ name: 'collection-detail', params: { id: entityId }, query: { rename: '1' } })
   else if (entityType === 'flow') router.push({ name: 'flow', params: { id: String(entityId) }, query: { rename: '1' } })
   else if (entityType === 'chat') router.push({ name: 'chat', params: { id: entityId }, query: { rename: '1' } })
 }
 
 const moveEntityToProject = useEntityMove()
 async function handleContextMenuMoveToProject(entityType, entityId, projectId) {
-  if (!['board', 'flow', 'chat'].includes(entityType)) return
+  if (!['collection', 'flow', 'chat'].includes(entityType)) return
   if (!await moveEntityToProject(entityType, entityId, projectId)) return
   await reloadJumpBackIn(entityType)
 }
 
 function handleContextMenuDelete(entityType, entityId) {
-  if (entityType === 'board') deleteBoardEntry(entityId)
+  if (entityType === 'collection') deleteCollectionEntry(entityId)
   else if (entityType === 'flow') deleteFlowEntry(entityId)
   else if (entityType === 'chat') deleteChatEntry(entityId)
 }
 
-async function deleteBoardEntry(id) {
-  const removed = recentBoards.value.find((b) => b.id === id)
+async function deleteCollectionEntry(id) {
+  const removed = recentCollections.value.find((b) => b.id === id)
   if (!removed) return
-  recentBoards.value = recentBoards.value.filter((b) => b.id !== id)
+  recentCollections.value = recentCollections.value.filter((b) => b.id !== id)
 
   try {
-    await deleteBoard(id)
+    await deleteCollection(id)
   } catch (err) {
-    console.error('Failed to delete board:', err)
-    recentBoards.value = [removed, ...recentBoards.value]
-    addToast('Failed to delete board', 'error', 5000)
+    console.error('Failed to delete collection:', err)
+    recentCollections.value = [removed, ...recentCollections.value]
+    addToast('Failed to delete collection', 'error', 5000)
     return
   }
 
-  addToast('Deleted 1 board', 'info', 5000, {
+  addToast('Deleted 1 collection', 'info', 5000, {
     label: 'Undo',
     onClick: async () => {
-      if (!recentBoards.value.find((b) => b.id === id)) {
-        recentBoards.value = [removed, ...recentBoards.value]
+      if (!recentCollections.value.find((b) => b.id === id)) {
+        recentCollections.value = [removed, ...recentCollections.value]
       }
       try {
-        await restoreBoard(id)
+        await restoreCollection(id)
       } catch (err) {
-        console.error('Failed to restore board:', err)
-        recentBoards.value = recentBoards.value.filter((b) => b.id !== id)
-        addToast('Failed to restore board', 'error', 5000)
+        console.error('Failed to restore collection:', err)
+        recentCollections.value = recentCollections.value.filter((b) => b.id !== id)
+        addToast('Failed to restore collection', 'error', 5000)
       }
     }
   })
@@ -1151,23 +1151,23 @@ async function deleteChatEntry(id) {
   })
 }
 
-async function handleBoardDrop(boardId, event) {
-  dragOverBoardId.value = null
+async function handleCollectionDrop(collectionId, event) {
+  dragOverCollectionId.value = null
   const mediaIds = getDroppedMediaIds(event.dataTransfer)
   const assetIds = getDroppedAssetRefs(event.dataTransfer).map((item) => item.asset_id)
   if (mediaIds.length === 0) return
   try {
-    if (assetIds.length > 0) await addAssetsToBoard(boardId, assetIds)
-    else await addMediaToBoard(boardId, mediaIds)
-    await reloadJumpBackIn('board')
+    if (assetIds.length > 0) await addAssetsToCollection(collectionId, assetIds)
+    else await addMediaToCollection(collectionId, mediaIds)
+    await reloadJumpBackIn('collection')
   } catch (err) {
-    reportActionError("Couldn't add to board.", err)
+    reportActionError("Couldn't add to collection.", err)
   }
 }
 
-function getBoardPreviewItems(board) {
-  if (board.preview_items) return board.preview_items.slice(0, 6)
-  const detail = boardDetails.value.get(board.id)
+function getCollectionPreviewItems(collection) {
+  if (collection.preview_items) return collection.preview_items.slice(0, 6)
+  const detail = collectionDetails.value.get(collection.id)
   if (!detail?.sections) return []
 
   return detail.sections
@@ -1175,7 +1175,7 @@ function getBoardPreviewItems(board) {
     .slice(0, 6)
 }
 
-// Natural-aspect board tiles follow the cover height, including compact rows.
+// Natural-aspect collection tiles follow the cover height, including compact rows.
 function getPreviewTileStyle(item) {
   const ratio = Math.min(Math.max(item?.width || 1, 1) / Math.max(item?.height || 1, 1), 16 / 9)
   const height = jumpColumns.value === 1 ? 80 : jumpCoverWidth.value * 2 / 3
@@ -1186,11 +1186,11 @@ function isVideoFormat(fileFormat) {
   return !!fileFormat && ['mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'].includes(fileFormat)
 }
 
-function formatBoardMeta(board) {
-  const assetCount = board.asset_count || 0
+function formatCollectionMeta(collection) {
+  const assetCount = collection.asset_count || 0
   const assetLabel = `${assetCount} ${assetCount === 1 ? 'asset' : 'assets'}`
-  if (!board.updated_at) return assetLabel
-  return `${assetLabel} • ${formatRelativeTime(board.updated_at)}`
+  if (!collection.updated_at) return assetLabel
+  return `${assetLabel} • ${formatRelativeTime(collection.updated_at)}`
 }
 
 
@@ -1218,12 +1218,12 @@ watch(pendingMedia, () => checkPendingMedia(), { flush: 'post' })
 const HOME_FRESH_MS = 30_000
 const homeLoads = createScopedLoad({ freshMs: HOME_FRESH_MS })
 // Every server broadcast that can change a chat preview (name, count,
-// snippet, cover), a board or flow card, or the recent-assets strip.
+// snippet, cover), a collection or flow card, or the recent-assets strip.
 const HOME_CHANGE_EVENTS = [
   'chat_created', 'chat_updated', 'chat_deleted', 'chat_restored', 'chat_cleared',
   'chat_item_created', 'chat_item_updated', 'chat_item_deleted',
-  'board_created', 'board_updated', 'board_deleted', 'board_restored', 'board_items_changed',
-  'board_section_created', 'board_section_updated', 'board_section_deleted',
+  'collection_created', 'collection_updated', 'collection_deleted', 'collection_restored', 'collection_items_changed',
+  'collection_section_created', 'collection_section_updated', 'collection_section_deleted',
   'flow_created', 'flow_updated', 'flow_deleted', 'flow_restored', 'flow_equation_updated',
   'asset_created', 'asset_deleted', 'asset_trashed', 'assets_trashed', 'assets_restored',
   'assets_permanently_deleted', 'asset_identities_deleted', 'asset_current_revision_changed', 'assets_updated',
@@ -1240,10 +1240,10 @@ function homeScope() {
 function resetHomeData() {
   recentChats.value = []
   recentMedia.value = []
-  recentBoards.value = []
+  recentCollections.value = []
   recentFlows.value = []
   flowOutputMedia.value = new Map()
-  boardDetails.value = new Map()
+  collectionDetails.value = new Map()
   scopeHasEntities.value = false
   recentsState.value = 'loading'
   failedRecents.value = []

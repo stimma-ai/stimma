@@ -94,7 +94,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.ref || github.sha }}
 
@@ -102,22 +102,25 @@ jobs:
         run: brew install pango
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version: '22.23.4'
           # The self-hosted signer must not fail an otherwise published release
           # in setup-node's post-job cache upload. npm install is fast here and
           # the GitHub cache service is not part of the release critical path.
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: '1.99.1'
 
       - name: Configure persistent build cache
         run: python3 scripts/configure-build-cache.py
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3
         with:
+          version: '0.13.7'
           enable-cache: ${{ runner.environment == 'github-hosted' }}
           cache-local-path: ~/.cache/uv
 
@@ -391,7 +394,7 @@ jobs:
 
       - name: Publish GitHub release assets
         if: inputs.publish_github_release == true
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ inputs.version }}
           prerelease: ${{ env.STIMMA_RELEASE_CHANNEL != 'production' }}
@@ -605,7 +608,7 @@ jobs:
           exit 0
 
       - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         continue-on-error: true
         with:
           compression-level: 0

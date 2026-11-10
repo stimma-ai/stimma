@@ -3,7 +3,7 @@ Tests for the media API endpoints.
 
 Tests cover:
 - Media listing and pagination
-- Filtering by markers, tags, boards
+- Filtering by markers, tags, collections
 - Caption search
 - Single media fetch
 - Soft delete

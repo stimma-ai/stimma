@@ -13,7 +13,7 @@ replaces them with the telemetry-safe fields before tracking:
     _toToolId    -> toToolRef
     _presetId    -> presetHash
     _chatId      -> chatHash
-    _boardId     -> boardHash
+    _collectionId -> collectionHash
     _projectId   -> projectHash
     _flowId    -> flowHash
 
@@ -38,7 +38,7 @@ class TrackEventRequest(BaseModel):
 _HASH_KEYS = {
     "_presetId": ("presetHash", "preset"),
     "_chatId": ("chatHash", "chat"),
-    "_boardId": ("boardHash", "board"),
+    "_collectionId": ("collectionHash", "collection"),
     "_projectId": ("projectHash", "project"),
     "_flowId": ("flowHash", "flow"),
 }

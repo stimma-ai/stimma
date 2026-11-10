@@ -18,7 +18,7 @@ function routeTabId(route: RouteLocationNormalizedLoaded): string | null {
   const name = String(route.name ?? '')
   const params = route.params as Record<string, string>
   if (name === 'chat') return `chat:${params.id}`
-  if (name === 'board-detail') return `board:${params.id}`
+  if (name === 'collection-detail') return `collection:${params.id}`
   if (name === 'flow') return `flow:${params.id}`
   if (name === 'lineage') return `lineage:${params.mediaId}`
   if (name.startsWith('project-') && params.id) return `project:${params.id}`
@@ -29,7 +29,7 @@ function tabLocation(tab: WorkspaceTab) {
   if (tab.type === 'tool') return toolTabRoute(tab)
   if (tab.type === 'editor') return editorTabRoute(tab)
   if (tab.type === 'chat') return { name: 'chat', params: { id: tab.entityId } }
-  if (tab.type === 'board') return { name: 'board-detail', params: { id: tab.entityId } }
+  if (tab.type === 'collection') return { name: 'collection-detail', params: { id: tab.entityId } }
   if (tab.type === 'flow') return { name: 'flow', params: { id: tab.entityId } }
   if (tab.type === 'lineage') return { name: 'lineage', params: { mediaId: tab.entityId } }
   return { name: useProjectRoute().getLastProjectRoute(tab.entityId), params: { id: tab.entityId } }

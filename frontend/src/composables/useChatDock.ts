@@ -17,7 +17,7 @@ import router from '../router'
 import { makeProfileKey } from '../utils/storageKeys'
 import { syncedStorage } from '../utils/workspaceStore'
 
-import { foldOpenWindows, MAX_OPEN, sanitizeDock, type DockEntry, type DockWin } from '../utils/chatDockState'
+import { foldOpenWindows, MAX_OPEN, sanitizeDock, type DockEntry, type DockSize, type DockWin } from '../utils/chatDockState'
 
 export { MAX_OPEN }
 export type { DockEntry, DockWin }
@@ -38,6 +38,51 @@ const entries = ref<DockEntry[]>([])
 const presence = reactive(new Map<number, DockPresence>())
 /** Windows that just folded to a row, so the row can flash once. */
 const foldedAt = reactive(new Map<number, number>())
+// Window sizes belong to this screen, not the workspace: kept on the device,
+// per chat, with the last size set used for windows that have none.
+// `chats` is in resize order, oldest first, so the oldest go first past the cap.
+interface StoredSizes { last: DockSize | null; chats: Array<{ id: number; w: number; h: number }> }
+const MAX_SIZED_CHATS = 40
+const sizeKey = () => makeProfileKey('dock_window_size')
+const sizes = ref<StoredSizes>({ last: null, chats: [] })
+let sizesLoadedFor: string | null = null
+function validSize(s: any): DockSize | null {
+  return s && Number.isFinite(s.w) && Number.isFinite(s.h) ? { w: s.w, h: s.h } : null
+}
+function loadSizes() {
+  const key = sizeKey()
+  if (sizesLoadedFor === key) return
+  sizesLoadedFor = key
+  try {
+    const raw = JSON.parse(localStorage.getItem(key) || '{}')
+    const chats = (Array.isArray(raw.chats) ? raw.chats : [])
+      .filter((c: any) => Number.isFinite(c?.id) && validSize(c))
+      .map((c: any) => ({ id: c.id, w: c.w, h: c.h }))
+    sizes.value = { last: validSize(raw.last), chats }
+  } catch { sizes.value = { last: null, chats: [] } }
+}
+/** The size this chat's window was given, else null (the default). */
+export function windowSizeFor(chatId: number): DockSize | null {
+  loadSizes()
+  const own = sizes.value.chats.find(c => c.id === chatId)
+  return own ? { w: own.w, h: own.h } : null
+}
+// A window opening without a size of its own starts at the last size set,
+// and keeps it: resizing another window later doesn't move it.
+function adoptLastSize(chatId: number) {
+  loadSizes()
+  if (sizes.value.last && !sizes.value.chats.some(c => c.id === chatId)) setWindowSize(chatId, sizes.value.last, true)
+}
+/** Resize a window; `persist` on release, not while dragging. */
+export function setWindowSize(chatId: number, size: DockSize, persist = false) {
+  loadSizes()
+  const chats = [...sizes.value.chats.filter(c => c.id !== chatId), { id: chatId, w: size.w, h: size.h }].slice(-MAX_SIZED_CHATS)
+  sizes.value = { last: size, chats }
+  if (persist) {
+    try { localStorage.setItem(sizeKey(), JSON.stringify(sizes.value)) } catch { /* size just won't stick */ }
+  }
+}
+
 /** The open windows the dock is showing right now (set by ChatDock from its layout). */
 export const visibleOpen = ref<Set<number>>(new Set())
 const pendingInitial = new Map<number, { text: string; mediaIds: number[] }>()
@@ -64,11 +109,17 @@ function ensureLoaded() {
   })
 }
 
-// Another profile has its own dock.
+// Another profile has its own dock. And the workspace's first read doesn't
+// tell each key's listeners: a dock read before it lands was empty, so read
+// it again then.
 if (typeof window !== 'undefined') {
   window.addEventListener('profile-changed', () => {
     loadedKey = null
     presence.clear()
+    ensureLoaded()
+  })
+  window.addEventListener('workspace-loaded', () => {
+    loadedKey = null
     ensureLoaded()
   })
 }
@@ -115,7 +166,7 @@ export function useChatDock() {
     }
     if (options.initial) pendingInitial.set(chatId, options.initial)
     entries.value = [...entries.value, { chatId, win: options.open ? 'open' : 'row', at: Date.now() }]
-    if (options.open) foldExtras(chatId)
+    if (options.open) { adoptLastSize(chatId); foldExtras(chatId) }
     save()
   }
 
@@ -123,6 +174,7 @@ export function useChatDock() {
   function open(chatId: number, options: { front?: boolean } = {}) {
     if (!find(chatId)) return dock(chatId, { open: true })
     update(chatId, options.front ? { win: 'open', at: Date.now() } : { win: 'open' })
+    adoptLastSize(chatId)
     foldExtras(chatId)
     save()
   }
@@ -177,7 +229,6 @@ export function useChatDock() {
 export type StageIntent =
   | { kind: 'asset'; assetId: number; revisionId?: number | null }
   | { kind: 'file'; file: any }
-  | { kind: 'settings' }
 const stageIntents = new Map<number, StageIntent>()
 export function setStageIntent(chatId: number, intent: StageIntent) {
   stageIntents.set(chatId, intent)

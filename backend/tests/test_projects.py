@@ -8,7 +8,7 @@ from sqlalchemy import select
 from agent.v2.agent_config import resolve_agent_config
 from agent.v2.permissions import check_permission, check_stp_permission
 from agent.v2.workspace import get_project_workspace, get_workspace_dir
-from database import BoardSection, Chat, MediaItem, Project
+from database import CollectionSection, Chat, MediaItem, Project
 from project_service import initialize_project_root
 from tests.helpers.media import create_test_media
 
@@ -43,30 +43,30 @@ class TestProjectsApi:
         updated = update_response.json()
         assert updated["name"] == ""
 
-    async def test_project_scoped_chat_and_board(self, client):
+    async def test_project_scoped_chat_and_collection(self, client):
         project = (await client.post("/api/projects", json={"name": "Campaign"})).json()
 
         chat = (await client.post("/api/chats", json={"project_id": project["id"]})).json()
         assert chat["project_id"] == project["id"]
 
-        board = (await client.post("/api/boards", json={"name": "Mood", "project_id": project["id"]})).json()
-        assert board["project_id"] == project["id"]
+        collection = (await client.post("/api/collections", json={"name": "Mood", "project_id": project["id"]})).json()
+        assert collection["project_id"] == project["id"]
 
         chats = (await client.get(f"/api/chats/previews?page=1&page_size=20&project_id={project['id']}")).json()
         assert any(item["id"] == chat["id"] for item in chats["items"])
 
-        boards = (await client.get(f"/api/boards?project_id={project['id']}")).json()
-        assert any(item["id"] == board["id"] for item in boards)
+        collections = (await client.get(f"/api/collections?project_id={project['id']}")).json()
+        assert any(item["id"] == collection["id"] for item in collections)
 
-        global_boards = (await client.get("/api/boards")).json()
-        assert all(item["id"] != board["id"] for item in global_boards)
+        global_collections = (await client.get("/api/collections")).json()
+        assert all(item["id"] != collection["id"] for item in global_collections)
 
     async def test_rejects_invalid_project_ids(self, client):
         chat_response = await client.post("/api/chats", json={"project_id": 999999})
         assert chat_response.status_code == 404
 
-        board_response = await client.post("/api/boards", json={"project_id": 999999})
-        assert board_response.status_code == 404
+        collection_response = await client.post("/api/collections", json={"project_id": 999999})
+        assert collection_response.status_code == 404
 
     async def test_add_and_filter_project_assets(self, client, seeded_media):
         project = (await client.post("/api/projects", json={"name": "Asset Project"})).json()
@@ -88,15 +88,15 @@ class TestProjectsApi:
         media_after = (await client.get(f"/api/media?project_id={project['id']}&page=1&page_size=20")).json()
         assert all(item["id"] != seeded_media[0].id for item in media_after["items"])
 
-    async def test_adding_asset_to_project_board_also_adds_it_to_project(self, client, seeded_media):
-        project = (await client.post("/api/projects", json={"name": "Board Asset Project"})).json()
-        board = (await client.post(
-            "/api/boards",
+    async def test_adding_asset_to_project_collection_also_adds_it_to_project(self, client, seeded_media):
+        project = (await client.post("/api/projects", json={"name": "Collection Asset Project"})).json()
+        collection = (await client.post(
+            "/api/collections",
             json={"name": "Mood", "project_id": project["id"]},
         )).json()
 
         add_response = await client.post(
-            f"/api/boards/{board['id']}/items",
+            f"/api/collections/{collection['id']}/items",
             json={"media_ids": [seeded_media[0].id]},
         )
         assert add_response.status_code == 200
@@ -131,11 +131,11 @@ class TestProjectsApi:
         summary = next(item for item in projects if item["id"] == project["id"])
         assert summary["asset_count"] == 1
 
-    async def test_delete_project_cascades_to_chats_and_boards_but_not_assets(self, client, seeded_media, db_session):
+    async def test_delete_project_cascades_to_chats_and_collections_but_not_assets(self, client, seeded_media, db_session):
         project = (await client.post("/api/projects", json={"name": "Cascade Project"})).json()
 
         chat = (await client.post("/api/chats", json={"project_id": project["id"]})).json()
-        board = (await client.post("/api/boards", json={"name": "Mood", "project_id": project["id"]})).json()
+        collection = (await client.post("/api/collections", json={"name": "Mood", "project_id": project["id"]})).json()
         attach_response = await client.post(
             f"/api/projects/{project['id']}/assets",
             json={"media_ids": [seeded_media[0].id]},
@@ -154,13 +154,13 @@ class TestProjectsApi:
         chats = (await client.get("/api/chats/previews?page=1&page_size=20")).json()
         assert all(item["id"] != chat["id"] for item in chats["items"])
 
-        boards = (await client.get("/api/boards")).json()
-        assert all(item["id"] != board["id"] for item in boards)
+        collections = (await client.get("/api/collections")).json()
+        assert all(item["id"] != collection["id"] for item in collections)
 
         async with db_session() as session:
             sections = (
                 await session.execute(
-                    select(BoardSection).where(BoardSection.board_id == board["id"])
+                    select(CollectionSection).where(CollectionSection.collection_id == collection["id"])
                 )
             ).scalars().all()
             assert sections

@@ -9,7 +9,7 @@ runs:
       run: bash scripts/ci-install-ffmpeg.sh --cache-metadata >> "$GITHUB_OUTPUT"
     - name: Cache static FFmpeg
       if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted'
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: ${{ steps.pin.outputs.path }}
         key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.pin.outputs.key }}

@@ -333,11 +333,11 @@ def test_entity_hash_prefixes_are_stable_and_distinct(monkeypatch):
     from object_hash import salted_hash
     chat = salted_hash("chat:5")
     chat_again = salted_hash("chat:5")
-    board = salted_hash("board:5")
+    collection = salted_hash("collection:5")
     preset = salted_hash("preset:5")
     assert chat == chat_again                # stable within an install
-    assert len({chat, board, preset}) == 3   # entity types never collide
-    assert all(len(h) == 16 for h in (chat, board, preset))
+    assert len({chat, collection, preset}) == 3   # entity types never collide
+    assert all(len(h) == 16 for h in (chat, collection, preset))
 
 
 # ── llm_config_fields classification ────────────────────────────────────

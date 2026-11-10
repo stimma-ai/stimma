@@ -10,9 +10,9 @@ from database import (
     Asset,
     AssetMarker,
     AssetTag,
-    Board,
-    BoardAssetItem,
-    BoardSection,
+    Collection,
+    CollectionAssetItem,
+    CollectionSection,
     MediaItem,
     Project,
     ProjectAsset,
@@ -80,17 +80,17 @@ class CleanupService:
     async def cleanup_empty_unnamed_entities(
         self, session: AsyncSession, older_than_hours: int = 12
     ) -> Dict[str, list[int]]:
-        """Reap abandoned empty, unnamed boards/flows/chats past the cutoff.
+        """Reap abandoned empty, unnamed collections/flows/chats past the cutoff.
 
         These are the useless husks a misclick or an abandoned start leaves
-        behind: a board with no name and no assets, a flow with no name whose
+        behind: a collection with no name and no assets, a flow with no name whose
         program is still the untouched placeholder and whose agent chat has no
         messages, or a standalone chat with an auto-generated name and no
         messages. Anything the user actually touched — named it, added an
         asset, edited the program, sent a message — is never eligible.
 
         This is a hard evaporation, not a trip to the trash:
-          - boards: the row and its (empty) sections/items are hard-deleted.
+          - collections: the row and its (empty) sections/items are hard-deleted.
           - flows: the row is hard-deleted and the on-disk program/state dir
             removed.
           - chats: soft-deleted so the existing two-phase deletion pipeline
@@ -101,15 +101,15 @@ class CleanupService:
         incidental reconcile / default-section writes) so an actively-built
         scaffold a user just opened is never reaped.
 
-        Returns ``{"boards": [...], "flows": [...], "chats": [...]}`` of the
+        Returns ``{"collections": [...], "flows": [...], "chats": [...]}`` of the
         ids that were reaped. Each entity is committed independently so one
         failure never rolls back the rest.
         """
         from database import (
-            Board,
-            BoardSection,
-            BoardAssetItem,
-            BoardItem,
+            Collection,
+            CollectionSection,
+            CollectionAssetItem,
+            CollectionItem,
             Flow,
             Chat,
             ChatItem,
@@ -121,71 +121,71 @@ class CleanupService:
         import flow_lifecycle
 
         cutoff = datetime.utcnow() - timedelta(hours=older_than_hours)
-        reaped: Dict[str, list[int]] = {"boards": [], "flows": [], "chats": []}
+        reaped: Dict[str, list[int]] = {"collections": [], "flows": [], "chats": []}
 
-        # --- Boards: blank name + zero live assets ---
-        boards = list(
+        # --- Collections: blank name + zero live assets ---
+        collections = list(
             await session.scalars(
-                select(Board).where(
-                    Board.deleted_at.is_(None),
-                    Board.created_at <= cutoff,
-                    func.trim(Board.name) == "",
+                select(Collection).where(
+                    Collection.deleted_at.is_(None),
+                    Collection.created_at <= cutoff,
+                    func.trim(Collection.name) == "",
                 )
             )
         )
-        for board in boards:
+        for collection in collections:
             try:
-                # Fail-closed emptiness: reap only a board that has *never* held
-                # content. Any BoardAssetItem or legacy BoardItem row — even one
+                # Fail-closed emptiness: reap only a collection that has *never* held
+                # content. Any CollectionAssetItem or legacy CollectionItem row — even one
                 # that's soft-deleted or sits in a soft-deleted section — keeps
-                # the board alive, so a permanent delete can never take
+                # the collection alive, so a permanent delete can never take
                 # restorable curation (or the assets' "keep-forever" signal)
                 # with it. A misclick husk has zero rows either way.
                 asset_item_count = await session.scalar(
-                    select(func.count(BoardAssetItem.id))
+                    select(func.count(CollectionAssetItem.id))
                     .join(
-                        BoardSection,
-                        BoardSection.id == BoardAssetItem.board_section_id,
+                        CollectionSection,
+                        CollectionSection.id == CollectionAssetItem.collection_section_id,
                     )
-                    .where(BoardSection.board_id == board.id)
+                    .where(CollectionSection.collection_id == collection.id)
                 )
                 legacy_item_count = await session.scalar(
                     select(func.count())
-                    .select_from(BoardItem)
+                    .select_from(CollectionItem)
                     .join(
-                        BoardSection,
-                        BoardSection.id == BoardItem.board_section_id,
+                        CollectionSection,
+                        CollectionSection.id == CollectionItem.collection_section_id,
                     )
-                    .where(BoardSection.board_id == board.id)
+                    .where(CollectionSection.collection_id == collection.id)
                 )
                 if asset_item_count or legacy_item_count:
                     continue
                 # Hard-delete children explicitly — don't rely on the SQLite FK
-                # pragma being enabled — then the board itself.
+                # pragma being enabled — then the collection itself.
                 section_ids = list(
                     await session.scalars(
-                        select(BoardSection.id).where(BoardSection.board_id == board.id)
+                        select(CollectionSection.id).where(CollectionSection.collection_id == collection.id)
                     )
                 )
                 if section_ids:
                     await session.execute(
-                        delete(BoardItem).where(
-                            BoardItem.board_section_id.in_(section_ids)
+                        delete(CollectionItem).where(
+                            CollectionItem.collection_section_id.in_(section_ids)
                         )
                     )
                     await session.execute(
-                        delete(BoardAssetItem).where(
-                            BoardAssetItem.board_section_id.in_(section_ids)
+                        delete(CollectionAssetItem).where(
+                            CollectionAssetItem.collection_section_id.in_(section_ids)
                         )
                     )
                     await session.execute(
-                        delete(BoardSection).where(BoardSection.id.in_(section_ids))
+                        delete(CollectionSection).where(CollectionSection.id.in_(section_ids))
                     )
-                await session.delete(board)
+                await session.delete(collection)
                 await session.commit()
-                reaped["boards"].append(board.id)
+                reaped["collections"].append(collection.id)
             except Exception:
-                log.exception("HUSK CLEANUP: failed to reap empty board %s", board.id)
+                log.exception("HUSK CLEANUP: failed to reap empty collection %s", collection.id)
                 await session.rollback()
 
         # --- Flows: blank name + untouched program + no chat messages ---
@@ -301,7 +301,7 @@ class CleanupService:
     ) -> tuple[list[int], list[int], datetime | None]:
         """
         Find and mark expired generated images as deleted.
-        Images with tags, boards, or markers are preserved.
+        Images with tags, collections, or markers are preserved.
 
         Args:
             db: Database session
@@ -325,16 +325,16 @@ class CleanupService:
                     AssetMarker.deleted_at.is_(None),
                     AssetMarker.source != "suppressed",
                 ),
-                select(BoardAssetItem.asset_id)
+                select(CollectionAssetItem.asset_id)
                 .join(
-                    BoardSection,
-                    BoardSection.id == BoardAssetItem.board_section_id,
+                    CollectionSection,
+                    CollectionSection.id == CollectionAssetItem.collection_section_id,
                 )
-                .join(Board, Board.id == BoardSection.board_id)
+                .join(Collection, Collection.id == CollectionSection.collection_id)
                 .where(
-                    BoardAssetItem.deleted_at.is_(None),
-                    BoardSection.deleted_at.is_(None),
-                    Board.deleted_at.is_(None),
+                    CollectionAssetItem.deleted_at.is_(None),
+                    CollectionSection.deleted_at.is_(None),
+                    Collection.deleted_at.is_(None),
                 ),
                 select(ProjectAsset.asset_id)
                 .join(Project, Project.id == ProjectAsset.project_id)
@@ -459,19 +459,19 @@ class CleanupService:
         )
         if has_marker is not None:
             return True
-        has_board = await db.scalar(
-            select(BoardAssetItem.id)
-            .join(BoardSection, BoardSection.id == BoardAssetItem.board_section_id)
-            .join(Board, Board.id == BoardSection.board_id)
+        has_collection = await db.scalar(
+            select(CollectionAssetItem.id)
+            .join(CollectionSection, CollectionSection.id == CollectionAssetItem.collection_section_id)
+            .join(Collection, Collection.id == CollectionSection.collection_id)
             .where(
-                BoardAssetItem.asset_id == asset_id,
-                BoardAssetItem.deleted_at.is_(None),
-                BoardSection.deleted_at.is_(None),
-                Board.deleted_at.is_(None),
+                CollectionAssetItem.asset_id == asset_id,
+                CollectionAssetItem.deleted_at.is_(None),
+                CollectionSection.deleted_at.is_(None),
+                Collection.deleted_at.is_(None),
             )
             .limit(1)
         )
-        if has_board is not None:
+        if has_collection is not None:
             return True
         has_project = await db.scalar(
             select(ProjectAsset.id)

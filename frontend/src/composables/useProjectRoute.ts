@@ -4,7 +4,7 @@ import { makeProfileKey } from '../utils/storageKeys'
  * Per-project "last visited sub-route" memory.
  *
  * Projects are `/projects/:id` with child sub-screens (overview, assets, tools,
- * boards, chats, flows, settings). The bare project route redirects to overview,
+ * collections, chats, flows, settings). The bare project route redirects to overview,
  * so without memory, re-entering a project from the sidebar always lands on
  * overview and loses the sub-screen the user was last on.
  *
@@ -18,7 +18,7 @@ const VALID_PROJECT_ROUTE_NAMES = new Set([
   'project-overview',
   'project-assets',
   'project-tools',
-  'project-boards',
+  'project-collections',
   'project-chats',
   'project-flows',
   'project-settings'

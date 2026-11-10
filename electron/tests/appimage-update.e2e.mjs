@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { build as esbuild } from 'esbuild'
 import { makeScratchDir } from './scratch.mjs'
+import { markedProcesses as findMarkedProcesses } from './markedProcesses.mjs'
 
 const electronRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const repoRoot = path.dirname(electronRoot)
@@ -98,17 +99,7 @@ async function waitFor(predicate, message, timeoutMs = 30_000) {
 }
 
 function markedProcesses() {
-  const found = []
-  for (const entry of fs.readdirSync('/proc')) {
-    if (!/^\d+$/.test(entry)) continue
-    try {
-      const env = fs.readFileSync(`/proc/${entry}/environ`, 'utf8')
-      if (env.includes(`STIMMA_UPDATE_TEST_ID=${marker}\0`)) found.push(Number(entry))
-    } catch {
-      // Process exited or belongs to another user.
-    }
-  }
-  return found
+  return findMarkedProcesses(marker, work)
 }
 
 async function stopMarkedProcesses() {
@@ -187,6 +178,7 @@ const feedUrl = `http://127.0.0.1:${server.address().port}${prefix.slice(0, -1)}
 
 const baseConfig = JSON.parse(fs.readFileSync(baseConfigPath, 'utf8'))
 async function buildAppImage(version, label) {
+  const started = performance.now()
   const output = path.join(work, label)
   const config = {
     ...baseConfig,
@@ -215,6 +207,7 @@ async function buildAppImage(version, label) {
     child.once('error', reject)
     child.once('exit', (code) => code === 0 ? resolve() : reject(new Error(`AppImage fixture build exited ${code}`)))
   })
+  console.log(`[timing] ${label} AppImage fixture: ${((performance.now() - started) / 1000).toFixed(1)}s`)
   return {
     appImage: findOne(output, (name) => name.endsWith('.AppImage'), 'AppImage'),
     manifest: findOne(output, (name) => name.endsWith(manifestSuffix), 'Linux manifest'),
@@ -340,6 +333,7 @@ try {
   fixedMain = fs.readFileSync(mainBundle)
   fixedMap = fs.readFileSync(mainMap)
 
+  const fixturesStarted = performance.now()
   console.log('building buggy source AppImage...')
   await buildBuggyMain()
   const buggy = await buildAppImage(versions.buggy, 'buggy')
@@ -354,12 +348,14 @@ try {
   ])
   for (const result of results) if (result.status === 'rejected') throw result.reason
   const [fixed, next] = results.map((result) => result.value)
+  console.log(`[timing] all AppImage fixtures: ${((performance.now() - fixturesStarted) / 1000).toFixed(1)}s`)
 
   const installed = path.join(installDir, 'Stimma-Update-Test.AppImage')
   fs.copyFileSync(buggy.appImage, installed)
   fs.chmodSync(installed, 0o755)
   publish(fixed)
 
+  const bridgeStarted = performance.now()
   console.log('exercising buggy -> fixed with forced recheck...')
   activeApp = await launch(installed, 'update-test-bridge', bridgeDataDir, bridgeCacheDir)
   await stageRecheckAndRelaunch(activeApp, versions.fixed)
@@ -374,7 +370,9 @@ try {
   const bridgeLog = fs.readFileSync(path.join(bridgeDataDir, 'Logs', 'Stimma-shell.log'), 'utf8')
   assert.match(bridgeLog, /Auto install update on quit/)
   await stopMarkedProcesses()
+  console.log(`[timing] legacy update hop: ${((performance.now() - bridgeStarted) / 1000).toFixed(1)}s`)
 
+  const fixedStarted = performance.now()
   console.log('recovering by launching the installed fixed AppImage...')
   activeApp = await launch(installed, 'update-test-fixed', fixedDataDir, fixedCacheDir)
   assert.equal(
@@ -401,6 +399,7 @@ try {
   assert.doesNotMatch(finalTail, /Transport endpoint is not connected|No module named|Failed to spawn backend/)
   console.log('ok - real fixed AppImage update survived a post-download recheck')
   console.log('ok - replacement shell, watchdog, renderer, and Python backend returned')
+  console.log(`[timing] fixed update hop: ${((performance.now() - fixedStarted) / 1000).toFixed(1)}s`)
 } finally {
   if (fixedMain && fixedMap) restoreFixedMain()
   if (activeApp) await activeApp.app.close().catch(() => {})

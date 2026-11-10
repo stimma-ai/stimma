@@ -568,8 +568,8 @@ function getComponentKey(route) {
   if (route.name === 'chat') {
     return `chat-${route.params.id}`
   }
-  if (route.name === 'board-detail') {
-    return `board-${route.params.id}`
+  if (route.name === 'collection-detail') {
+    return `collection-${route.params.id}`
   }
   if (route.name === 'saved-view') {
     return `saved-view-${route.params.id}`
@@ -587,7 +587,7 @@ function getComponentKey(route) {
     return `flow-${route.params.id}`
   }
   // Project layout: one cached instance per project, stable across its
-  // sub-screens (Assets/Boards/Overview/...). Keying by id (not the bare
+  // sub-screens (Assets/Collections/Overview/...). Keying by id (not the bare
   // sub-route name) means leaving to a tool and returning REACTIVATES the same
   // instance instead of remounting — so scroll/state are preserved (like the
   // main browser) and the project isn't reloaded on every sub-screen switch.
@@ -661,7 +661,7 @@ const compactOverlay = computed(() => route.meta?.surface === 'overlay')
 // A detail view's title must not outlive its route.
 watch(() => route.fullPath, () => clearCompactTitle())
 installCompactNav(router)
-// Without the sidebar nothing would turn a visited tool/chat/board into a
+// Without the sidebar nothing would turn a visited tool/chat/collection into a
 // workspace tab (and tool state lives on the tab's instance), so the compact
 // chrome runs the same route → tab logic itself.
 installWorkspaceTabRoutes(route, () => isCompact.value)
@@ -766,7 +766,7 @@ function getActiveTabId() {
     return toolRouteTabId(route)
   }
   if (route.name === 'chat') return `chat:${route.params.id}`
-  if (route.name === 'board-detail') return `board:${route.params.id}`
+  if (route.name === 'collection-detail') return `collection:${route.params.id}`
   if (String(route.name || '').startsWith('project-')) return `project:${route.params.id}`
   if (route.name === 'flow') return `flow:${route.params.id}`
   const editorTabId = editorRouteTabId(route)
@@ -779,7 +779,7 @@ function navigateToTab(tab) {
     router.push(toolTabRoute(tab))
   }
   else if (tab.type === 'chat') router.push({ name: 'chat', params: { id: tab.entityId } })
-  else if (tab.type === 'board') router.push({ name: 'board-detail', params: { id: tab.entityId } })
+  else if (tab.type === 'collection') router.push({ name: 'collection-detail', params: { id: tab.entityId } })
   else if (tab.type === 'project') router.push({ name: getLastProjectRoute(tab.entityId), params: { id: tab.entityId } })
   else if (tab.type === 'editor') router.push(editorTabRoute(tab))
   else if (tab.type === 'flow') router.push({ name: 'flow', params: { id: tab.entityId } })
@@ -1240,7 +1240,7 @@ async function syncWorkingContext() {
     workingContext.selectProject(explicitId)
   } else if (name === 'tool' && route.query.project_id === '0') {
     workingContext.selectProject(null)
-  } else if (['chat', 'board-detail', 'flow', 'saved-view', 'edit-image', 'lineage'].includes(name) && 'workingProjectId' in route.meta) {
+  } else if (['chat', 'collection-detail', 'flow', 'saved-view', 'edit-image', 'lineage'].includes(name) && 'workingProjectId' in route.meta) {
     workingContext.selectProject(route.meta.workingProjectId)
   }
   const section = contextSection(route.name)

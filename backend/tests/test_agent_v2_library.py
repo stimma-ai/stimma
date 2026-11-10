@@ -12,9 +12,9 @@ from asset_service import commit_revision, create_asset_from_media
 from database import (
     AssetMarker,
     AssetTag,
-    Board,
-    BoardAssetItem,
-    BoardSection,
+    Collection,
+    CollectionAssetItem,
+    CollectionSection,
     Keyword,
     Marker,
     MediaKeyword,
@@ -231,14 +231,14 @@ async def test_library_organization_actions_target_asset_roots(db_session):
         ))
         assert tagged["added"] == 1
         await commit_revision(session, asset_id=asset.id, media_id=second.id)
-        board_result = json.loads(await library(
-            action="board",
+        collection_result = json.loads(await library(
+            action="collection",
             asset_id=asset.id,
-            board_name="Agent Board",
+            collection_name="Agent Collection",
             operation="add",
             session=session,
         ))
-        assert board_result["added"] == 1
+        assert collection_result["added"] == 1
 
         assert await session.scalar(
             select(AssetTag.id).where(AssetTag.asset_id == asset.id)
@@ -247,12 +247,12 @@ async def test_library_organization_actions_target_asset_roots(db_session):
             select(MediaTag.media_id).where(MediaTag.media_id.in_([first.id, second.id]))
         ) is None
         assert await session.scalar(
-            select(BoardAssetItem.id).where(BoardAssetItem.asset_id == asset.id)
+            select(CollectionAssetItem.id).where(CollectionAssetItem.asset_id == asset.id)
         ) is not None
 
         contents = json.loads(await library(
-            action="board",
-            board_name="Agent Board",
+            action="collection",
+            collection_name="Agent Collection",
             operation="contents",
             session=session,
         ))
@@ -362,40 +362,40 @@ async def test_library_marker_unknown_name_lists_available(db_session):
         assert "favorite" in result and "library" in result
 
 
-async def test_library_board_retains_assets_and_scopes_names_by_project(db_session):
+async def test_library_collection_retains_assets_and_scopes_names_by_project(db_session):
     async with db_session() as session:
-        media = await create_media_item(session, file_path=Path("/library/board-retain.png"))
+        media = await create_media_item(session, file_path=Path("/library/collection-retain.png"))
         asset = await create_asset_from_media(session, media_id=media.id)
         asset.expires_at = datetime.utcnow() + timedelta(hours=1)
-        project = Project(name="Agent Board Project")
+        project = Project(name="Agent Collection Project")
         session.add(project)
         await session.flush()
-        global_board = Board(name="Same Board")
-        project_board = Board(name="Same Board", project_id=project.id)
-        session.add_all([global_board, project_board])
+        global_collection = Collection(name="Same Collection")
+        project_collection = Collection(name="Same Collection", project_id=project.id)
+        session.add_all([global_collection, project_collection])
         await session.commit()
 
         global_result = json.loads(await library(
-            action="board",
+            action="collection",
             asset_id=asset.id,
-            board_name="Same Board",
+            collection_name="Same Collection",
             operation="add",
             session=session,
         ))
-        assert global_result["board"] == "Same Board"
+        assert global_result["collection"] == "Same Collection"
         await session.refresh(asset)
         assert asset.expires_at is None
 
         asset.expires_at = datetime.utcnow() + timedelta(hours=1)
         project_result = json.loads(await library(
-            action="board",
+            action="collection",
             asset_id=asset.id,
-            board_name="Same Board",
+            collection_name="Same Collection",
             operation="add",
             project_id=project.id,
             session=session,
         ))
-        assert project_result["board"] == "Same Board"
+        assert project_result["collection"] == "Same Collection"
         assert await session.scalar(
             select(ProjectAsset.id).where(
                 ProjectAsset.project_id == project.id,
@@ -405,23 +405,23 @@ async def test_library_board_retains_assets_and_scopes_names_by_project(db_sessi
         ) is not None
         assert asset.expires_at is None
 
-        global_section_board = await session.scalar(
-            select(BoardAssetItem)
-            .join(BoardSection, BoardSection.id == BoardAssetItem.board_section_id)
+        global_section_collection = await session.scalar(
+            select(CollectionAssetItem)
+            .join(CollectionSection, CollectionSection.id == CollectionAssetItem.collection_section_id)
             .where(
-                BoardSection.board_id == global_board.id,
-                BoardAssetItem.asset_id == asset.id,
+                CollectionSection.collection_id == global_collection.id,
+                CollectionAssetItem.asset_id == asset.id,
             )
         )
-        assert global_section_board is not None
+        assert global_section_collection is not None
 
-        duplicate = Board(name="Same Board")
+        duplicate = Collection(name="Same Collection")
         session.add(duplicate)
         await session.commit()
         ambiguous = await library(
-            action="board",
+            action="collection",
             asset_id=asset.id,
-            board_name="Same Board",
+            collection_name="Same Collection",
             operation="add",
             session=session,
         )

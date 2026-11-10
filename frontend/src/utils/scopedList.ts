@@ -1,5 +1,5 @@
 /**
- * Chats, boards, flows and saved views are strictly scoped: a project lists
+ * Chats, collections, flows and saved views are strictly scoped: a project lists
  * its own, and the top level lists only items with no project
  * (`project_id=none`). An older server that rejects `none` gets the
  * unfiltered request and the result is filtered here instead.

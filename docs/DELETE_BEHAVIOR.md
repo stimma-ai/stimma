@@ -147,7 +147,7 @@ Explicit deletes are used for:
 - `media_tags`
 - `media_tool_lineage`
 - `project_media`
-- `board_items`
+- `collection_items`
 
 This is deliberate. The code does not rely on SQLite FK enforcement to clean everything up.
 
@@ -252,14 +252,14 @@ Behavior:
 Primary coverage:
 - [test_alembic_integrity.py](backend/tests/test_alembic_integrity.py)
 - [test_trash.py](backend/tests/test_trash.py)
-- [test_boards.py](backend/tests/test_boards.py)
+- [test_collections.py](backend/tests/test_collections.py)
 
 Covered areas:
 - Alembic graph integrity
 - async permanent delete contract
 - batch delete and empty-trash queueing
 - websocket completion behavior
-- board cleanup after permanent delete
+- collection cleanup after permanent delete
 - scrubbing of chat refs, lineage refs, and tool refs
 
 ## Guidance For Future Agents

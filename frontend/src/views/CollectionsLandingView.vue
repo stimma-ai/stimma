@@ -1,7 +1,7 @@
 <template>
   <div class="flex h-full flex-col bg-base">
     <PageHeader class="compact:hidden">
-      <template #title>Boards</template>
+      <template #title>Collections</template>
       <template #actions>
         <div class="relative" ref="sortDropdownRef">
           <Select :label="activeSortLabel" :open="sortDropdownOpen" @click="sortDropdownOpen = !sortDropdownOpen" />
@@ -32,8 +32,8 @@
             </button>
           </div>
         </div>
-        <SearchField v-model="searchQuery" placeholder="Search boards..." class="w-48" />
-        <Button variant="primary" @click="createNewBoard">
+        <SearchField v-model="searchQuery" placeholder="Search collections..." class="w-48" />
+        <Button variant="primary" @click="createNewCollection">
           <template #icon><PlusIcon class="h-icon-inline w-icon-inline" /></template>
           New
         </Button>
@@ -41,39 +41,39 @@
     </PageHeader>
 
     <div class="flex-1 overflow-y-auto px-page pb-section">
-      <div v-if="loading" class="py-20 text-center text-content-muted">Loading boards...</div>
-      <div v-else-if="boards.length === 0" class="flex h-64 compact:h-full flex-col items-center justify-center text-center">
-        <p class="mb-2 text-content-muted">No boards yet</p>
-        <p class="text-sm text-content-muted">Create a board to curate a working set of assets.</p>
+      <div v-if="loading" class="py-20 text-center text-content-muted">Loading collections...</div>
+      <div v-else-if="collections.length === 0" class="flex h-64 compact:h-full flex-col items-center justify-center text-center">
+        <p class="mb-2 text-content-muted">No collections yet</p>
+        <p class="text-sm text-content-muted">Create a collection to curate a working set of assets.</p>
       </div>
-      <div v-else-if="filteredBoards.length === 0" class="flex h-64 flex-col items-center justify-center text-center">
+      <div v-else-if="filteredCollections.length === 0" class="flex h-64 flex-col items-center justify-center text-center">
         <svg class="mb-4 h-16 w-16 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
         </svg>
-        <p class="mb-2 text-content-muted">No boards match your search</p>
+        <p class="mb-2 text-content-muted">No collections match your search</p>
       </div>
 
       <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-section pt-section compact:grid-cols-2 compact:gap-3 compact:pt-3">
         <button
-          v-for="board in filteredBoards"
-          :key="board.id"
+          v-for="collection in filteredCollections"
+          :key="collection.id"
           class="group text-left"
-          @click="openBoard(board.id)"
-          @contextmenu="handleBoardContextMenu($event, board)"
+          @click="openCollection(collection.id)"
+          @contextmenu="handleCollectionContextMenu($event, collection)"
         >
           <!-- Contact-sheet cover: 1, 2 or 4 tiles chosen by how many assets the
-               board holds, so a small board never leaves empty matte. Fixed
+               collection holds, so a small collection never leaves empty matte. Fixed
                4:3 frame at radius-media on matte, 2px gutters, no card, no
                border - hover draws a hairline ring. -->
           <div class="relative aspect-[4/3] overflow-hidden rounded-media bg-matte transition-shadow group-hover:ring-1 group-hover:ring-edge">
             <div
-              v-if="getBoardCover(board).length > 0"
+              v-if="getCollectionCover(collection).length > 0"
               class="grid h-full w-full gap-0.5 p-0.5"
-              :class="getBoardCover(board).length === 1 ? 'grid-cols-1' : getBoardCover(board).length === 2 ? 'grid-cols-2' : 'grid-cols-2 grid-rows-2'"
+              :class="getCollectionCover(collection).length === 1 ? 'grid-cols-1' : getCollectionCover(collection).length === 2 ? 'grid-cols-2' : 'grid-cols-2 grid-rows-2'"
             >
               <div
-                v-for="(item, index) in getBoardCover(board)"
-                :key="`${board.id}-${item.id}-${index}`"
+                v-for="(item, index) in getCollectionCover(collection)"
+                :key="`${collection.id}-${item.id}-${index}`"
                 class="min-h-0 min-w-0 overflow-hidden rounded-media bg-matte"
               >
                 <MediaImage
@@ -104,17 +104,17 @@
           <div class="px-0.5 pt-2">
             <h2
               class="truncate text-[13px] font-medium"
-              :class="board.name ? 'text-content' : 'font-normal text-content-muted'"
+              :class="collection.name ? 'text-content' : 'font-normal text-content-muted'"
             >
-              {{ board.name || 'Name this board...' }}
+              {{ collection.name || 'Name this collection...' }}
             </h2>
-            <p class="mt-0.5 truncate font-mono text-[11px] tabular-nums text-content-tertiary">{{ board.asset_count || 0 }} {{ (board.asset_count || 0) === 1 ? 'asset' : 'assets' }}<span v-if="board.updated_at"> · {{ formatRelativeTime(board.updated_at) }}</span></p>
+            <p class="mt-0.5 truncate font-mono text-[11px] tabular-nums text-content-tertiary">{{ collection.asset_count || 0 }} {{ (collection.asset_count || 0) === 1 ? 'asset' : 'assets' }}<span v-if="collection.updated_at"> · {{ formatRelativeTime(collection.updated_at) }}</span></p>
           </div>
         </button>
       </div>
     </div>
 
-    <RenameSheet :show="renameTarget !== null" :name="renameTarget?.name || ''" label="Rename board" @close="renameTarget = null" @save="renameFromSheet" />
+    <RenameSheet :show="renameTarget !== null" :name="renameTarget?.name || ''" label="Rename collection" @close="renameTarget = null" @save="renameFromSheet" />
     <EntityContextMenu
       @open="handleContextMenuOpen"
       @delete="handleContextMenuDelete"
@@ -154,12 +154,12 @@ const props = defineProps({
 const router = useRouter()
 const entityContextMenu = useEntityContextMenu()
 const { isCompact } = useViewport()
-const { createBoard, deleteBoard, restoreBoard, getBoard, getBoards, updateBoard } = useMediaApi()
+const { createCollection, deleteCollection, restoreCollection, getCollection, getCollections, updateCollection } = useMediaApi()
 const { addToast } = useToasts()
 const { on } = useWebSocket()
 
-const boards = ref([])
-const boardDetails = ref(new Map())
+const collections = ref([])
+const collectionDetails = ref(new Map())
 const loading = ref(false)
 const searchQuery = ref('')
 
@@ -182,20 +182,20 @@ const activeSortLabel = computed(() => {
   return sortOptions.find((option) => option.value === sortBy.value)?.label || 'Sort'
 })
 
-const filteredBoards = computed(() => {
+const filteredCollections = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   const filtered = !query
-    ? [...boards.value]
-    : boards.value.filter((board) => {
-        const name = (board.name || '').toLowerCase()
-        const meta = formatBoardMeta(board).toLowerCase()
+    ? [...collections.value]
+    : collections.value.filter((collection) => {
+        const name = (collection.name || '').toLowerCase()
+        const meta = formatCollectionMeta(collection).toLowerCase()
         return name.includes(query) || meta.includes(query)
       })
 
   filtered.sort((a, b) => {
     if (sortBy.value === 'name') {
-      const aName = (a.name || '').trim() || 'Name this board...'
-      const bName = (b.name || '').trim() || 'Name this board...'
+      const aName = (a.name || '').trim() || 'Name this collection...'
+      const bName = (b.name || '').trim() || 'Name this collection...'
       return aName.localeCompare(bName, undefined, { sensitivity: 'base' })
     }
 
@@ -207,66 +207,66 @@ const filteredBoards = computed(() => {
   return filtered
 })
 
-async function loadBoards() {
+async function loadCollections() {
   loading.value = true
   try {
-    boards.value = await getBoards(props.projectId)
-    await loadBoardPreviews()
+    collections.value = await getCollections(props.projectId)
+    await loadCollectionPreviews()
   } finally {
     loading.value = false
   }
 }
 
-async function loadBoardPreviews() {
+async function loadCollectionPreviews() {
   const results = await Promise.allSettled(
-    boards.value.map((board) => getBoard(board.id))
+    collections.value.map((collection) => getCollection(collection.id))
   )
 
   const next = new Map()
   results.forEach((result, index) => {
     if (result.status === 'fulfilled') {
-      next.set(boards.value[index].id, result.value)
+      next.set(collections.value[index].id, result.value)
     }
   })
-  boardDetails.value = next
+  collectionDetails.value = next
 }
 
-function upsertBoardSummary(board) {
+function upsertCollectionSummary(collection) {
   const summary = {
-    id: board.id,
-    name: board.name || '',
-    asset_count: board.asset_count || 0,
-    updated_at: board.updated_at
+    id: collection.id,
+    name: collection.name || '',
+    asset_count: collection.asset_count || 0,
+    updated_at: collection.updated_at
   }
-  const index = boards.value.findIndex((entry) => entry.id === board.id)
+  const index = collections.value.findIndex((entry) => entry.id === collection.id)
   if (index === -1) {
-    boards.value = [summary, ...boards.value]
+    collections.value = [summary, ...collections.value]
   } else {
-    boards.value[index] = {
-      ...boards.value[index],
+    collections.value[index] = {
+      ...collections.value[index],
       ...summary
     }
-    boards.value = [...boards.value]
+    collections.value = [...collections.value]
   }
 }
 
-function applyBoardPayload(board) {
-  if (!board) return
-  upsertBoardSummary(board)
-  boardDetails.value.set(board.id, board)
-  boardDetails.value = new Map(boardDetails.value)
+function applyCollectionPayload(collection) {
+  if (!collection) return
+  upsertCollectionSummary(collection)
+  collectionDetails.value.set(collection.id, collection)
+  collectionDetails.value = new Map(collectionDetails.value)
 }
 
-function removeBoard(boardId) {
-  boards.value = boards.value.filter((board) => board.id !== boardId)
-  if (boardDetails.value.has(boardId)) {
-    boardDetails.value.delete(boardId)
-    boardDetails.value = new Map(boardDetails.value)
+function removeCollection(collectionId) {
+  collections.value = collections.value.filter((collection) => collection.id !== collectionId)
+  if (collectionDetails.value.has(collectionId)) {
+    collectionDetails.value.delete(collectionId)
+    collectionDetails.value = new Map(collectionDetails.value)
   }
 }
 
-function getBoardPreviewItems(board) {
-  const detail = boardDetails.value.get(board.id)
+function getCollectionPreviewItems(collection) {
+  const detail = collectionDetails.value.get(collection.id)
   if (!detail?.sections) return []
 
   return detail.sections
@@ -274,9 +274,9 @@ function getBoardPreviewItems(board) {
     .slice(0, 9)
 }
 
-// 1, 2 or 4 cover tiles: the largest layout the board can fill completely.
-function getBoardCover(board) {
-  const items = getBoardPreviewItems(board)
+// 1, 2 or 4 cover tiles: the largest layout the collection can fill completely.
+function getCollectionCover(collection) {
+  const items = getCollectionPreviewItems(collection)
   const count = items.length >= 4 ? 4 : items.length >= 2 ? 2 : items.length
   return items.slice(0, count)
 }
@@ -285,91 +285,91 @@ function isVideo(fileFormat) {
   return !!fileFormat && ['mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'].includes(fileFormat)
 }
 
-function openBoard(id) {
-  router.push({ name: 'board-detail', params: { id } })
+function openCollection(id) {
+  router.push({ name: 'collection-detail', params: { id } })
 }
 
-function handleBoardContextMenu(event, board) {
+function handleCollectionContextMenu(event, collection) {
   entityContextMenu.show({
     event,
-    entityType: 'board',
-    entityId: board.id,
-    entityName: board.name || 'Untitled',
+    entityType: 'collection',
+    entityId: collection.id,
+    entityName: collection.name || 'Untitled',
     isSelected: false,
     selectedCount: 1,
-    projectId: board.project_id
+    projectId: collection.project_id
   })
 }
 
 function handleContextMenuOpen(entityType, entityId) {
-  if (entityType !== 'board') return
-  openBoard(entityId)
+  if (entityType !== 'collection') return
+  openCollection(entityId)
 }
 
 async function handleContextMenuDelete(entityType, entityId) {
-  if (entityType !== 'board') return
-  const removedSummary = boards.value.find((b) => b.id === entityId)
-  const removedDetail = boardDetails.value.get(entityId)
+  if (entityType !== 'collection') return
+  const removedSummary = collections.value.find((b) => b.id === entityId)
+  const removedDetail = collectionDetails.value.get(entityId)
   if (!removedSummary) return
 
-  removeBoard(entityId)
+  removeCollection(entityId)
 
   try {
-    await deleteBoard(entityId)
+    await deleteCollection(entityId)
   } catch (err) {
-    console.error('Failed to delete board:', err)
-    upsertBoardSummary(removedSummary)
+    console.error('Failed to delete collection:', err)
+    upsertCollectionSummary(removedSummary)
     if (removedDetail) {
-      boardDetails.value.set(entityId, removedDetail)
-      boardDetails.value = new Map(boardDetails.value)
+      collectionDetails.value.set(entityId, removedDetail)
+      collectionDetails.value = new Map(collectionDetails.value)
     }
-    addToast('Failed to delete board', 'error', 5000)
+    addToast('Failed to delete collection', 'error', 5000)
     return
   }
 
-  addToast('Deleted 1 board', 'info', 5000, {
+  addToast('Deleted 1 collection', 'info', 5000, {
     label: 'Undo',
     onClick: async () => {
-      if (!boards.value.find((b) => b.id === entityId)) {
-        upsertBoardSummary(removedSummary)
+      if (!collections.value.find((b) => b.id === entityId)) {
+        upsertCollectionSummary(removedSummary)
         if (removedDetail) {
-          boardDetails.value.set(entityId, removedDetail)
-          boardDetails.value = new Map(boardDetails.value)
+          collectionDetails.value.set(entityId, removedDetail)
+          collectionDetails.value = new Map(collectionDetails.value)
         }
       }
       try {
-        await restoreBoard(entityId)
+        await restoreCollection(entityId)
       } catch (err) {
-        console.error('Failed to restore board:', err)
-        removeBoard(entityId)
-        addToast('Failed to restore board', 'error', 5000)
+        console.error('Failed to restore collection:', err)
+        removeCollection(entityId)
+        addToast('Failed to restore collection', 'error', 5000)
       }
     }
   })
 }
 
 async function handleContextMenuRename(entityType, entityId, entityName) {
-  if (isCompact.value) { renameTarget.value = boards.value.find((b) => b.id === entityId) || { id: entityId, name: entityName }; return }
-  router.push({ name: 'board-detail', params: { id: entityId }, query: { rename: '1' } })
+  if (isCompact.value) { renameTarget.value = collections.value.find((b) => b.id === entityId) || { id: entityId, name: entityName }; return }
+  router.push({ name: 'collection-detail', params: { id: entityId }, query: { rename: '1' } })
 }
 
 const renameTarget = ref(null)
 async function renameFromSheet(name) {
-  const board = renameTarget.value
+  const collection = renameTarget.value
   renameTarget.value = null
-  if (!board) return
+  if (!collection) return
   try {
-    const updated = await updateBoard(board.id, { name })
-    const idx = boards.value.findIndex((b) => b.id === board.id)
-    if (idx >= 0) boards.value[idx] = { ...boards.value[idx], name: updated?.name ?? name }
+    const updated = await updateCollection(collection.id, { name })
+    const idx = collections.value.findIndex((b) => b.id === collection.id)
+    if (idx >= 0) collections.value[idx] = { ...collections.value[idx], name: updated?.name ?? name }
   } catch (err) {
-    console.error('Failed to rename board:', err)
+    console.error('Failed to rename collection:', err)
   }
 }
 
 const moveEntityToProject = useEntityMove()
 async function handleContextMenuMoveToProject(entityType, entityId, projectId) {
-  if (await moveEntityToProject('board', entityId, projectId)) await loadBoards()
+  if (await moveEntityToProject('collection', entityId, projectId)) await loadCollections()
 }
 
 function selectSort(value) {
@@ -383,47 +383,47 @@ function handleDocumentClick(event) {
   sortDropdownOpen.value = false
 }
 
-function formatBoardMeta(board) {
-  const assetCount = board.asset_count || 0
+function formatCollectionMeta(collection) {
+  const assetCount = collection.asset_count || 0
   const assetLabel = `${assetCount} ${assetCount === 1 ? 'asset' : 'assets'}`
-  if (!board.updated_at) return assetLabel
-  return `${assetLabel} • Updated ${formatRelativeTime(board.updated_at)}`
+  if (!collection.updated_at) return assetLabel
+  return `${assetLabel} • Updated ${formatRelativeTime(collection.updated_at)}`
 }
 
-async function createNewBoard() {
-  const board = await createBoard('', props.projectId)
-  router.push({ name: 'board-detail', params: { id: board.id } })
+async function createNewCollection() {
+  const collection = await createCollection('', props.projectId)
+  router.push({ name: 'collection-detail', params: { id: collection.id } })
 }
 
-onMounted(loadBoards)
+onMounted(loadCollections)
 onMounted(() => {
   document.addEventListener('mousedown', handleDocumentClick)
 })
 
-unsubscribers.push(on('board_created', (data) => {
-  if (!data.board) return
-  if ((data.board.project_id ?? null) !== (props.projectId ?? null)) return
-  applyBoardPayload(data.board)
+unsubscribers.push(on('collection_created', (data) => {
+  if (!data.collection) return
+  if ((data.collection.project_id ?? null) !== (props.projectId ?? null)) return
+  applyCollectionPayload(data.collection)
 }))
 
-unsubscribers.push(on('board_updated', (data) => {
-  if (!data.board) return
-  if ((data.board.project_id ?? null) !== (props.projectId ?? null)) return
-  applyBoardPayload(data.board)
+unsubscribers.push(on('collection_updated', (data) => {
+  if (!data.collection) return
+  if ((data.collection.project_id ?? null) !== (props.projectId ?? null)) return
+  applyCollectionPayload(data.collection)
 }))
 
-unsubscribers.push(on('board_items_changed', (data) => {
-  if (data.board) applyBoardPayload(data.board)
+unsubscribers.push(on('collection_items_changed', (data) => {
+  if (data.collection) applyCollectionPayload(data.collection)
 }))
 
-unsubscribers.push(on('board_deleted', (data) => {
-  if (data.board_id != null) removeBoard(data.board_id)
+unsubscribers.push(on('collection_deleted', (data) => {
+  if (data.collection_id != null) removeCollection(data.collection_id)
 }))
 
-unsubscribers.push(on('board_restored', (data) => {
-  if (!data.board) return
-  if ((data.board.project_id ?? null) !== (props.projectId ?? null)) return
-  applyBoardPayload(data.board)
+unsubscribers.push(on('collection_restored', (data) => {
+  if (!data.collection) return
+  if ((data.collection.project_id ?? null) !== (props.projectId ?? null)) return
+  applyCollectionPayload(data.collection)
 }))
 
 onUnmounted(() => {
@@ -432,7 +432,7 @@ onUnmounted(() => {
 })
 
 // Compact header: the hub's create action is the header plus button.
-const compactCreate = { label: 'New board', run: () => createNewBoard() }
+const compactCreate = { label: 'New collection', run: () => createNewCollection() }
 onMounted(() => setCompactPrimaryAction(compactCreate))
 onActivated(() => setCompactPrimaryAction(compactCreate))
 </script>

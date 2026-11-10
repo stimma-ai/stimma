@@ -1,9 +1,9 @@
 """Home screen read model.
 
-Home shows a few "Jump back in" cards: the most recently updated boards,
+Home shows a few "Jump back in" cards: the most recently updated collections,
 flows, and chats in the current scope, each with a little cover artwork.
 This endpoint selects those cards on the server and returns only what they
-draw, so the response stays the same size however large the boards, flows,
+draw, so the response stays the same size however large the collections, flows,
 and chats behind them grow. Clients on older servers fall back to the
 general list and detail endpoints.
 """
@@ -18,18 +18,18 @@ from pydantic import BaseModel
 from sqlalchemy import desc, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from board_service import board_asset_count_column, board_preview_items, board_summaries_query
+from collection_service import collection_asset_count_column, collection_preview_items, collection_summaries_query
 from core.dependencies import get_db_session
-from database import Asset, AssetRevision, Board, Chat, ChatItem, Flow, MediaItem
+from database import Asset, AssetRevision, Collection, Chat, ChatItem, Flow, MediaItem
 from project_service import PROJECT_NONE, parse_project_filter
 from routes.chats import ChatPreview, build_chat_previews
 from routes.flows import _serialize as serialize_flow, flow_output_media_ids
 
 router = APIRouter(prefix="/api/home", tags=["home"])
 
-# What one card draws: a board filmstrip of up to six tiles, a flow strip of
+# What one card draws: a collection filmstrip of up to six tiles, a flow strip of
 # up to three outputs, a chat cover of one image and a one-line snippet.
-BOARD_PREVIEW_ITEMS = 6
+COLLECTION_PREVIEW_ITEMS = 6
 FLOW_PREVIEW_MEDIA = 3
 CHAT_PREVIEW_MEDIA = 1
 CHAT_SNIPPET_CHARS = 240
@@ -39,7 +39,7 @@ FLOW_BATCH = 100
 MEDIA_CHECK_BATCH = 500
 
 
-class HomeBoardPreviewItem(BaseModel):
+class HomeCollectionPreviewItem(BaseModel):
     id: int
     asset_id: int
     revision_id: int
@@ -50,14 +50,14 @@ class HomeBoardPreviewItem(BaseModel):
     height: Optional[int] = None
 
 
-class HomeBoard(BaseModel):
+class HomeCollection(BaseModel):
     id: int
     name: str
     project_id: Optional[int] = None
     created_at: str
     updated_at: str
     asset_count: int
-    preview_items: list[HomeBoardPreviewItem]
+    preview_items: list[HomeCollectionPreviewItem]
 
 
 class HomeMediaRef(BaseModel):
@@ -78,9 +78,9 @@ class HomeFlow(BaseModel):
     preview_media: list[HomeMediaRef]
 
 
-class HomeBoardCard(BaseModel):
-    type: Literal["board"] = "board"
-    board: HomeBoard
+class HomeCollectionCard(BaseModel):
+    type: Literal["collection"] = "collection"
+    collection: HomeCollection
 
 
 class HomeFlowCard(BaseModel):
@@ -95,8 +95,8 @@ class HomeChatCard(BaseModel):
 
 class HomeRecentsResponse(BaseModel):
     # Newest first, at most `limit`.
-    items: list[Union[HomeBoardCard, HomeFlowCard, HomeChatCard]]
-    # Whether the scope has any boards, flows, or chats at all, including
+    items: list[Union[HomeCollectionCard, HomeFlowCard, HomeChatCard]]
+    # Whether the scope has any collections, flows, or chats at all, including
     # ones too empty to show. Home's first-run welcome needs none.
     has_entities: bool
 
@@ -125,16 +125,16 @@ def _flow_is_empty(flow) -> bool:
     return not flow.root_status_summary
 
 
-async def _board_candidates(session, project_filter, limit):
-    count = board_asset_count_column()
+async def _collection_candidates(session, project_filter, limit):
+    count = collection_asset_count_column()
     query = (
-        board_summaries_query()
-        .having(or_(func.coalesce(Board.name, "") != "", count > 0))
-        .order_by(Board.updated_at.desc(), Board.id.desc())
+        collection_summaries_query()
+        .having(or_(func.coalesce(Collection.name, "") != "", count > 0))
+        .order_by(Collection.updated_at.desc(), Collection.id.desc())
         .limit(limit)
     )
-    rows = (await session.execute(_scoped(query, Board.project_id, project_filter))).all()
-    return [(board.updated_at, "board", (board, asset_count)) for board, asset_count in rows]
+    rows = (await session.execute(_scoped(query, Collection.project_id, project_filter))).all()
+    return [(collection.updated_at, "collection", (collection, asset_count)) for collection, asset_count in rows]
 
 
 async def _chat_candidates(session, project_filter, limit):
@@ -193,7 +193,7 @@ async def _flow_candidates(session, project_filter, limit):
 
 async def _scope_has_entities(session, project_filter, include_flows=True) -> bool:
     for model, extra in (
-        (Board, ()),
+        (Collection, ()),
         (Flow, ()),
         (Chat, (Chat.flow_id.is_(None),)),
     ):
@@ -257,7 +257,7 @@ async def get_home_recents(
     include_flows: bool = Query(True),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """The newest boards, flows, and chats worth jumping back into.
+    """The newest collections, flows, and chats worth jumping back into.
 
     Scoped like the list endpoints: a project's own items, or with no
     ``project_id`` (or ``none``) the items with no project. Empty, unnamed
@@ -266,7 +266,7 @@ async def get_home_recents(
     """
     project_filter = parse_project_filter(project_id)
     candidates = [
-        *await _board_candidates(session, project_filter, limit),
+        *await _collection_candidates(session, project_filter, limit),
         *(await _flow_candidates(session, project_filter, limit) if include_flows else []),
         *await _chat_candidates(session, project_filter, limit),
     ]
@@ -283,14 +283,14 @@ async def get_home_recents(
         )
     }
 
-    items: list[Union[HomeBoardCard, HomeFlowCard, HomeChatCard]] = []
+    items: list[Union[HomeCollectionCard, HomeFlowCard, HomeChatCard]] = []
     for _, kind, entity in selected:
-        if kind == "board":
-            board, asset_count = entity
-            items.append(HomeBoardCard(board=HomeBoard(
-                **board.to_dict(),
+        if kind == "collection":
+            collection, asset_count = entity
+            items.append(HomeCollectionCard(collection=HomeCollection(
+                **collection.to_dict(),
                 asset_count=asset_count or 0,
-                preview_items=await board_preview_items(session, board.id, BOARD_PREVIEW_ITEMS),
+                preview_items=await collection_preview_items(session, collection.id, COLLECTION_PREVIEW_ITEMS),
             )))
         elif kind == "flow":
             flow = entity

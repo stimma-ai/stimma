@@ -7,7 +7,7 @@ implementation:
   revision of live Assets.
 - Bare contextual Media (chat/editor/container-retained) never appears in
   ordinary Asset browsers but stays addressable as a payload.
-- Legacy MediaMarker/MediaTag/ProjectMedia/BoardItem rows are provisional
+- Legacy MediaMarker/MediaTag/ProjectMedia/CollectionItem rows are provisional
   staging only and must be consumed on promotion.
 - Expiration is Asset-level (Asset.expires_at); expired Assets leave the
   browser population.
@@ -31,10 +31,10 @@ from database import (
     AssetMarker,
     AssetRevision,
     AssetTag,
-    Board,
-    BoardAssetItem,
-    BoardItem,
-    BoardSection,
+    Collection,
+    CollectionAssetItem,
+    CollectionItem,
+    CollectionSection,
     Marker,
     MediaItem,
     MediaMarker,
@@ -311,10 +311,10 @@ class TestPromotionConsumesLegacyStaging:
             )
             tag = Tag(tag_text="contract-stale-tag")
             project = Project(name="contract-stale-project")
-            board = Board(name="contract-stale-board")
-            session.add_all([marker, tag, project, board])
+            collection = Collection(name="contract-stale-collection")
+            session.add_all([marker, tag, project, collection])
             await session.flush()
-            section = BoardSection(board_id=board.id, is_default=True)
+            section = CollectionSection(collection_id=collection.id, is_default=True)
             session.add(section)
             await session.flush()
             session.add_all(
@@ -324,7 +324,7 @@ class TestPromotionConsumesLegacyStaging:
                     ),
                     MediaTag(media_id=media.id, tag_id=tag.id),
                     ProjectMedia(project_id=project.id, media_id=media.id),
-                    BoardItem(board_section_id=section.id, media_id=media.id),
+                    CollectionItem(collection_section_id=section.id, media_id=media.id),
                 ]
             )
             await session.commit()
@@ -372,10 +372,10 @@ class TestPromotionConsumesLegacyStaging:
             )
             assert (
                 await session.scalar(
-                    select(BoardAssetItem).where(
-                        BoardAssetItem.asset_id == asset_id,
-                        BoardAssetItem.board_section_id == section_id,
-                        BoardAssetItem.deleted_at.is_(None),
+                    select(CollectionAssetItem).where(
+                        CollectionAssetItem.asset_id == asset_id,
+                        CollectionAssetItem.collection_section_id == section_id,
+                        CollectionAssetItem.deleted_at.is_(None),
                     )
                 )
                 is not None
@@ -402,7 +402,7 @@ class TestPromotionConsumesLegacyStaging:
             )
             assert (
                 await session.scalar(
-                    select(BoardItem).where(BoardItem.media_id == media_id)
+                    select(CollectionItem).where(CollectionItem.media_id == media_id)
                 )
                 is None
             )

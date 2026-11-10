@@ -13,7 +13,10 @@ if sys.argv[1:] == ['cleanup']:
         path = Path(scratch)
         if path.parent != Path(os.environ['RUNNER_TEMP']) or not path.name.startswith('stimma-tests-'):
             raise SystemExit('Refusing unexpected test scratch path')
-        shutil.rmtree(path)
+        try:
+            shutil.rmtree(path)
+        except FileNotFoundError:
+            pass  # Cleanup is safe to repeat after cancellation or runner cleanup.
 elif os.environ.get('STIMMA_PREPROVISIONED') == '1':
     scratch = Path(tempfile.mkdtemp(prefix='stimma-tests-', dir=os.environ['RUNNER_TEMP']))
     values = {'STIMMA_CI_TEST_TMP': scratch, 'TMPDIR': scratch,

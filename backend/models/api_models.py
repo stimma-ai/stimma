@@ -299,7 +299,7 @@ class TagCreateRequest(BaseModel):
     tags: List[str]  # Array of tag texts to add
 
 
-class BoardSummaryResponse(BaseModel):
+class CollectionSummaryResponse(BaseModel):
     id: int
     name: str
     project_id: Optional[int] = None
@@ -311,9 +311,9 @@ class BoardSummaryResponse(BaseModel):
         from_attributes = True
 
 
-class BoardSectionResponse(BaseModel):
+class CollectionSectionResponse(BaseModel):
     id: int
-    board_id: int
+    collection_id: int
     name: Optional[str] = None
     is_default: bool
     is_collapsed: bool
@@ -324,22 +324,22 @@ class BoardSectionResponse(BaseModel):
     updated_at: str
 
 
-class BoardResponse(BaseModel):
+class CollectionResponse(BaseModel):
     id: int
     name: str
     project_id: Optional[int] = None
     created_at: str
     updated_at: str
-    sections: List[BoardSectionResponse] = []
+    sections: List[CollectionSectionResponse] = []
     asset_count: Optional[int] = None
 
 
-class BoardCreateRequest(BaseModel):
+class CollectionCreateRequest(BaseModel):
     name: Optional[str] = ""
     project_id: Optional[int] = None
 
 
-class BoardUpdateRequest(BaseModel):
+class CollectionUpdateRequest(BaseModel):
     name: Optional[str] = None
     project_id: Optional[int] = None
 
@@ -350,7 +350,7 @@ class ProjectSummaryResponse(BaseModel):
     created_at: str
     updated_at: str
     chat_count: Optional[int] = None
-    board_count: Optional[int] = None
+    collection_count: Optional[int] = None
     asset_count: Optional[int] = None
 
 
@@ -373,7 +373,7 @@ class ProjectResponse(BaseModel):
     updated_at: str
     deleted_at: Optional[str] = None
     chat_count: Optional[int] = None
-    board_count: Optional[int] = None
+    collection_count: Optional[int] = None
     asset_count: Optional[int] = None
 
 
@@ -404,11 +404,11 @@ class ProjectUpdateRequest(BaseModel):
     flow_effort: Optional[str] = None
 
 
-class BoardSectionCreateRequest(BaseModel):
+class CollectionSectionCreateRequest(BaseModel):
     name: Optional[str] = None
 
 
-class BoardSectionUpdateRequest(BaseModel):
+class CollectionSectionUpdateRequest(BaseModel):
     name: Optional[str] = None
     is_collapsed: Optional[bool] = None
 
@@ -425,17 +425,17 @@ class BulkTagRequest(BaseModel):
     remove_tag_ids: List[int] = []  # Tag IDs to remove
 
 
-class BoardAddItemsRequest(BaseModel):
+class CollectionAddItemsRequest(BaseModel):
     media_ids: List[int] = Field(default_factory=list)
     asset_ids: List[int] = Field(default_factory=list)
     section_id: Optional[int] = None
 
 
-class BoardSectionReorderRequest(BaseModel):
+class CollectionSectionReorderRequest(BaseModel):
     section_ids: List[int]
 
 
-class BoardMoveItemRequest(BaseModel):
+class CollectionMoveItemRequest(BaseModel):
     media_id: Optional[int] = None
     asset_id: Optional[int] = None
     from_section_id: int
@@ -443,12 +443,12 @@ class BoardMoveItemRequest(BaseModel):
     target_index: int
 
 
-class BoardBulkRemoveRequest(BaseModel):
+class CollectionBulkRemoveRequest(BaseModel):
     media_ids: List[int] = Field(default_factory=list)
     asset_ids: List[int] = Field(default_factory=list)
 
 
-class BoardBulkMoveRequest(BaseModel):
+class CollectionBulkMoveRequest(BaseModel):
     media_ids: List[int] = Field(default_factory=list)
     asset_ids: List[int] = Field(default_factory=list)
     to_section_id: int
@@ -474,6 +474,7 @@ class SavedViewResponse(BaseModel):
     filters: dict
     sort_by: str
     display_order: int
+    pinned: bool = False
     created_at: str
     updated_at: str
 
@@ -492,6 +493,7 @@ class SavedViewUpdateRequest(BaseModel):
     name: Optional[str] = None
     filters: Optional[dict] = None
     sort_by: Optional[str] = None
+    pinned: Optional[bool] = None
 
 
 class SavedViewReorderRequest(BaseModel):

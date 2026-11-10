@@ -72,7 +72,7 @@ export const STATE_REGISTRY = {
   /** Stays with this client. */
   device: [
     'workspace_tabs:last_library_route', 'working_context', 'last_route', 'project', 'sidebar', 'allTools',
-    'browse', 'browse_group_by', 'browse_tile_min', 'browse_group_folds', 'trash', 'filters', 'grid_scroll', 'chat:artifact_stage_state', 'chat:artifact_chat_width', 'chatSettingsPanelVisible', 'home_draft',
+    'browse', 'trash', 'filters', 'grid_scroll', 'chat:artifact_stage_state', 'chat:artifact_chat_width', 'dock_window_size', 'chatSettingsPanelVisible', 'home_draft',
     'flow:chat_panel_open', 'flow:chat_panel_width', 'flow_graph', 'flow.viewMode', 'flow.graphCollapseForeach', 'stimma:flow-code-monospace',
     'imageEditor:colorPicker:tab', 'stimma_editor_sidebar', 'stimma_editor_properties', 'stimma:vim-mode',
     'stimma:vim-commands', 'stimma:monospace-font', 'slideshow', 'media_playback', 'stimma:export-last-folder',

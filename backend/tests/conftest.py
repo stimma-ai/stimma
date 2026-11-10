@@ -348,7 +348,7 @@ async def test_app(temp_appdata_dir: Path):
 
         # Import and include routers
         from routes import (
-            assets, boards, chats, generation, image_stack, media, media_files, markers, projects,
+            assets, collections, chats, generation, image_stack, media, media_files, markers, projects,
             workspace, flows, tags, trash, saved_views, search, profiles, keywords, processing,
             settings as settings_routes, sprite_media, svg_media, package_media, contact_sheets,
         )
@@ -363,7 +363,7 @@ async def test_app(temp_appdata_dir: Path):
         app.include_router(sprite_media.router)
         app.include_router(package_media.router)
         app.include_router(contact_sheets.router)
-        app.include_router(boards.router)
+        app.include_router(collections.router)
         from routes import home as home_routes
         app.include_router(home_routes.router)
         app.include_router(chats.router)
@@ -603,12 +603,12 @@ async def generation_app(generation_temp_appdata_dir: Path):
 
         # Import and include routers (including generation and tools)
         from routes import (
-            boards, media, markers, projects, tags, trash,
+            collections, media, markers, projects, tags, trash,
             workspace, saved_views, profiles, keywords, generation, tools,
             postprocessing,
         )
         app.include_router(media.router)
-        app.include_router(boards.router)
+        app.include_router(collections.router)
         app.include_router(projects.router)
         app.include_router(markers.router)
         app.include_router(tags.router)

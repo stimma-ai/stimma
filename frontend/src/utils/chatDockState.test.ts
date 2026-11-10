@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { DOCK_SIZES, fitDock, foldOpenWindows, sanitizeDock, type DockEntry } from './chatDockState.ts'
+import { DOCK_SIZES, WINDOW_MIN, clampWindowSize, fitDock, foldOpenWindows, sanitizeDock, type DockEntry } from './chatDockState.ts'
 
 const entry = (chatId: number, win: 'row' | 'open', at: number): DockEntry => ({ chatId, win, at })
 
@@ -64,4 +64,20 @@ test('the newest always shows, even in a narrow space', () => {
   const layout = fitDock([{ chatId: 9, win: 'open' }, { chatId: 8, win: 'row' }], 100)
   assert.deepEqual(layout.shown, [9])
   assert.deepEqual(layout.hidden, [8])
+})
+
+test('a resized window keeps its own width in the layout', () => {
+  const { open, gap, edge, row } = DOCK_SIZES
+  const wide = 600
+  const layout = fitDock([{ chatId: 1, win: 'open', width: wide }, { chatId: 2, win: 'row' }], edge * 2 + wide + gap + row + gap)
+  assert.deepEqual(layout.shown, [1, 2])
+  // The same space with default-width windows has room to spare for a second open one.
+  assert.ok(edge * 2 + wide + gap > edge * 2 + open + gap)
+})
+
+test('window sizes stay inside the page and above a minimum', () => {
+  assert.deepEqual(clampWindowSize({ w: 2000, h: 50 }, { w: 800, h: 700 }), { w: 800, h: WINDOW_MIN.h })
+  assert.deepEqual(clampWindowSize({ w: 100, h: 5000 }, { w: 800, h: 700 }), { w: WINDOW_MIN.w, h: 700 })
+  // A page smaller than the minimum still gets the minimum.
+  assert.deepEqual(clampWindowSize({ w: 500, h: 500 }, { w: 200, h: 200 }), WINDOW_MIN)
 })

@@ -19,7 +19,7 @@
             v-model="compactQuery"
             type="search"
             enterkeyhint="search"
-            :placeholder="flowsEnabled ? 'Search assets, boards, chats, flows, tools' : 'Search assets, boards, chats, tools'"
+            :placeholder="flowsEnabled ? 'Search assets, collections, chats, flows, tools' : 'Search assets, collections, chats, tools'"
             class="w-full min-h-11 bg-overlay-subtle rounded-md px-3 py-2 text-[15px] text-content placeholder:text-content-muted border border-transparent focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           />
         </form>
@@ -72,7 +72,7 @@
           <EmptyState
             icon="search"
             title="Search Stimma"
-            subtitle="Tools, chats, flows, boards, projects, and assets — press ⌘K anywhere"
+            subtitle="Tools, chats, flows, collections, projects, and assets — press ⌘K anywhere"
           />
         </div>
 
@@ -147,7 +147,7 @@
                 @contextmenu="handleEntityContextMenu($event, section.kind, hit)"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:bg-overlay-faint transition-colors text-left bg-transparent cursor-pointer"
               >
-                <!-- Chat/board previews, same treatment as the home screen & sidebar -->
+                <!-- Chat/collection previews, same treatment as the home screen & sidebar -->
                 <div v-if="section.kind === 'chat' && hit.thumbnail" class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden">
                   <MediaImage
                     :media-id="hit.thumbnail.media_id"
@@ -160,7 +160,7 @@
                     class="w-full h-full object-cover"
                   />
                 </div>
-                <div v-else-if="section.kind === 'board' && hit.preview_items?.length" class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden bg-overlay-subtle">
+                <div v-else-if="section.kind === 'collection' && hit.preview_items?.length" class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden bg-overlay-subtle">
                   <div class="grid grid-cols-2 gap-[1px] w-full h-full">
                     <MediaImage
                       v-for="item in hit.preview_items.slice(0, 4)"
@@ -199,7 +199,7 @@
 
           <!-- Assets, one section per media type. Deliverables (packages,
                layouts, sets, grids, sprites) are named rows like chats and
-               boards; raw media are thumbnail grids. Visual (CLIP) matches
+               collections; raw media are thumbnail grids. Visual (CLIP) matches
                keep their own section. Empty sections are hidden. -->
           <section v-for="assetSection in assetSections" :key="assetSection.key">
             <div class="flex items-baseline gap-2.5 mb-3">
@@ -366,7 +366,7 @@ const route = useRoute()
 const router = useRouter()
 const { searchEntities, searchTools, searchAssetGroups, searchMediaVisual } = useGlobalSearch()
 const { fetchProvidersAndTools } = useProvidersApi()
-const { getProject, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
+const { getProject, deleteCollection, restoreCollection, updateCollection } = useMediaApi()
 const { getAssetBrowserItem, getContextualMedia, promoteContextualMedia } = useAssetApi()
 const { updateFlow, deleteFlow, restoreFlow } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
@@ -449,7 +449,7 @@ interface EntitySection {
   title: string
   kind: SearchResultKind
   hits: EntitySearchHit[]
-  entityIcon: 'chat' | 'board' | 'project' | 'flow' | null
+  entityIcon: 'chat' | 'collection' | 'project' | 'flow' | null
   viewAll: { name: string; query: Record<string, string> } | null
 }
 
@@ -461,7 +461,7 @@ const entitySections = computed<EntitySection[]>(() => {
   const defs: Array<[string, SearchResultKind, EntitySearchHit[], EntitySection['entityIcon'], string | null]> = [
     ['Chats', 'chat', e.chats, 'chat', 'chats'],
     ['Flows', 'flow', e.flows, 'flow', 'flows'],
-    ['Boards', 'board', e.boards, 'board', 'boards'],
+    ['Collections', 'collection', e.collections, 'collection', 'collections'],
     ['Projects', 'project', e.projects, 'project', 'projects'],
     ['Presets', 'preset', e.presets, null, null],
   ]
@@ -525,7 +525,7 @@ const assetSections = computed<AssetSection[]>(() => {
 const totalCount = computed(() => {
   const e = entityResults.value
   const entityTotal = e
-    ? e.chats.length + (flowsEnabled.value ? e.flows.length : 0) + e.boards.length + e.projects.length + e.presets.length
+    ? e.chats.length + (flowsEnabled.value ? e.flows.length : 0) + e.collections.length + e.projects.length + e.presets.length
     : 0
   return entityTotal + toolResults.value.length + promptTotal.value + visualResults.value.length + contextualCount.value
 })
@@ -556,7 +556,7 @@ async function runSearch() {
   if (!current) { lastLoadedQuery.value = null; return runSearchTasks([]) }
   const projectId = scopeProjectId.value
   await runSearchTasks([
-    { label: 'Chats, boards, flows and projects', read: signal => searchEntities(current, PAGE_ENTITY_LIMIT, projectId, signal), apply: entities => {
+    { label: 'Chats, collections, flows and projects', read: signal => searchEntities(current, PAGE_ENTITY_LIMIT, projectId, signal), apply: entities => {
       entityResults.value = entities
       if (entities.presets.length) void ensureToolNames()
     } },
@@ -687,21 +687,21 @@ function openAssetFromGrid(section: AssetSection, index: number) {
   void openMediaSlideshow(section.set, listIndex === -1 ? 0 : listIndex)
 }
 
-// ==================== Entity context menu (chats/flows/boards only) ====================
+// ==================== Entity context menu (chats/flows/collections only) ====================
 
-type ManagedKind = 'chat' | 'flow' | 'board'
+type ManagedKind = 'chat' | 'flow' | 'collection'
 
 function sectionListFor(kind: ManagedKind): EntitySearchHit[] | null {
   const e = entityResults.value
   if (!e) return null
   if (kind === 'chat') return e.chats
   if (kind === 'flow') return e.flows
-  if (kind === 'board') return e.boards
+  if (kind === 'collection') return e.collections
   return null
 }
 
 function handleEntityContextMenu(event: MouseEvent, kind: SearchResultKind, hit: EntitySearchHit) {
-  if (kind !== 'chat' && kind !== 'flow' && kind !== 'board') return
+  if (kind !== 'chat' && kind !== 'flow' && kind !== 'collection') return
   entityContextMenu.show({
     event,
     entityType: kind as EntityType,
@@ -716,24 +716,24 @@ function handleEntityContextMenu(event: MouseEvent, kind: SearchResultKind, hit:
 function handleContextMenuOpen(entityType: string, entityId: number) {
   if (entityType === 'chat') router.push({ name: 'chat', params: { id: entityId } })
   else if (entityType === 'flow') router.push({ name: 'flow', params: { id: String(entityId) } })
-  else if (entityType === 'board') router.push({ name: 'board-detail', params: { id: entityId } })
+  else if (entityType === 'collection') router.push({ name: 'collection-detail', params: { id: entityId } })
 }
 
 function handleContextMenuRename(entityType: string, entityId: number) {
   if (entityType === 'chat') router.push({ name: 'chat', params: { id: entityId }, query: { rename: '1' } })
   else if (entityType === 'flow') router.push({ name: 'flow', params: { id: String(entityId) }, query: { rename: '1' } })
-  else if (entityType === 'board') router.push({ name: 'board-detail', params: { id: entityId }, query: { rename: '1' } })
+  else if (entityType === 'collection') router.push({ name: 'collection-detail', params: { id: entityId }, query: { rename: '1' } })
 }
 
 const moveEntityToProject = useEntityMove()
 async function handleContextMenuMoveToProject(entityType: string, entityId: number, projectId: number | null) {
-  if (entityType !== 'board' && entityType !== 'flow' && entityType !== 'chat') return
+  if (entityType !== 'collection' && entityType !== 'flow' && entityType !== 'chat') return
   if (await moveEntityToProject(entityType, entityId, projectId)) await runSearch()
 }
 
 async function callEntityDelete(kind: ManagedKind, id: number) {
-  if (kind === 'board') {
-    await deleteBoard(id)
+  if (kind === 'collection') {
+    await deleteCollection(id)
   } else if (kind === 'flow') {
     await deleteFlow(id)
   } else {
@@ -743,8 +743,8 @@ async function callEntityDelete(kind: ManagedKind, id: number) {
 }
 
 async function callEntityRestore(kind: ManagedKind, id: number) {
-  if (kind === 'board') {
-    await restoreBoard(id)
+  if (kind === 'collection') {
+    await restoreCollection(id)
   } else if (kind === 'flow') {
     await restoreFlow(id)
   } else {
@@ -754,7 +754,7 @@ async function callEntityRestore(kind: ManagedKind, id: number) {
 }
 
 async function handleContextMenuDelete(entityType: string, entityId: number) {
-  if (entityType !== 'chat' && entityType !== 'flow' && entityType !== 'board') return
+  if (entityType !== 'chat' && entityType !== 'flow' && entityType !== 'collection') return
   const kind = entityType as ManagedKind
   const list = sectionListFor(kind)
   if (!list) return

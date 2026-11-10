@@ -24,7 +24,7 @@ from database import (
     AssetMigrationMap,
     AssetMigrationState,
     AssetRevision,
-    BoardItem,
+    CollectionItem,
     ChatItem,
     DeleteOperation,
     DeleteOperationItem,
@@ -253,7 +253,7 @@ async def classify_legacy_media(
     )
     curated_ids.update(await session.scalars(select(MediaTag.media_id)))
     curated_ids.update(await session.scalars(select(ProjectMedia.media_id)))
-    curated_ids.update(await session.scalars(select(BoardItem.media_id)))
+    curated_ids.update(await session.scalars(select(CollectionItem.media_id)))
 
     chat_ids: set[int] = set(
         await session.scalars(select(ChatItem.media_id).where(ChatItem.media_id.is_not(None)))
@@ -582,7 +582,7 @@ async def apply_asset_backfill(
     )
     association_media_ids.update(await session.scalars(select(MediaTag.media_id)))
     association_media_ids.update(await session.scalars(select(ProjectMedia.media_id)))
-    association_media_ids.update(await session.scalars(select(BoardItem.media_id)))
+    association_media_ids.update(await session.scalars(select(CollectionItem.media_id)))
     total_media = len(media_items)
     phase_started = time.monotonic()
     last_progress = phase_started

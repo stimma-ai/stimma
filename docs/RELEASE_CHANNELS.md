@@ -160,6 +160,29 @@ the same capability pool. Offline
 optional workers are not required by any job, though an executing job can
 still fail if its host disappears and must be rerun.
 
+CI actions are pinned to resolved commits, and the Node, uv, Deno and Rust
+versions are explicit; R2 publication uses the tested AWS CLI 1.46.3. Updating a tool pin requires the release-pipeline checks
+and a real build; an unchanged source commit should not silently pick up a new
+compiler or setup action. Python tests use uv's repository `.python-version`
+instead of installing a second global interpreter.
+
+Prepared Linux workers can run `stimma ci check` as their job-start hook. It
+checks that temporary files really execute (using a native binary, which detects
+`noexec`) and that the cache is writable. Install hook programs outside the
+checkout so checkout cleanup cannot remove them. Keep caches/toolchains on
+persistent volumes; only disposable test data belongs in bounded memory storage.
+Keep uv's managed Python and tool installation directories outside `UV_CACHE_DIR`:
+`uv cache prune` removes unknown directories inside that disposable download cache.
+
+The runner's `ACTIONS_RUNNER_ACTION_ARCHIVE_CACHE` holds official action archives
+keyed by repository and resolved commit. Prewarm a configured cache with
+`stimma ci cache-actions --workflows .github --cache DIR`. A job-completion hook
+can invoke the installed copy of `scripts/ci_runner.py cache-actions --logs DIR`
+to learn new resolved commits from the runner's own ActionManager records.
+Downloads are bounded, validated and committed atomically; cache metadata checks
+SHA-256 before reuse. Completion maintenance is best effort and must never turn
+passing checks into a failed job. Give the hook an outer timeout as well.
+
 `STIMMA_BUILD_CACHE` keeps native Cargo outputs and content-verified Windows
 Python runtime archives outside checkout cleanup. Final installer directories
 are still cleaned before packaging. Compiler/source fingerprints determine

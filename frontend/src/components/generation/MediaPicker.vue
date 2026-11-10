@@ -1447,7 +1447,7 @@ function onReorderDragStart(event: DragEvent, item: MediaItem) {
   // Reordering within this picker runs entirely off dragIndex/dropIndex above and
   // never reads dataTransfer. Setting the standard in-app media payload here too
   // (same shape MediaImage.vue uses) is what lets external drop zones — the
-  // sidebar's board/tool/chat tabs — accept a drop of this tile; it's inert for
+  // sidebar's collection/tool/chat tabs — accept a drop of this tile; it's inert for
   // the reorder path since onReorderDrop/onTileDrop never look at it.
   const mediaId = dragMediaId(item)
   if (mediaId && event.dataTransfer) {

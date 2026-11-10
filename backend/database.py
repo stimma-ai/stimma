@@ -553,70 +553,6 @@ class ContactSheetReview(Base):
     )
 
 
-class AssetGroup(Base):
-    """A browser group: an Auto work thread or a Theme (see asset_grouping.py).
-
-    Groups are written only by the grouping pass. An emptied group is left in
-    place and ignored by the browse queries; a Theme merged into another is
-    soft-deleted.
-    """
-    __tablename__ = "asset_groups"
-
-    id = Column(Integer, primary_key=True)
-    kind = Column(String, nullable=False)  # auto | theme
-    title = Column(String, nullable=True)
-    title_source = Column(String, nullable=False, default="none")  # chat | prompt | folder | none
-    project_id = Column(Integer, ForeignKey('projects.id', ondelete='SET NULL'), nullable=True)
-    first_at = Column(DateTime, nullable=True)
-    last_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    deleted_at = Column(DateTime, nullable=True, index=True)
-
-    __table_args__ = (
-        Index('idx_asset_groups_kind', 'kind'),
-        {'sqlite_autoincrement': True},
-    )
-
-
-class AssetGroupMember(Base):
-    """An Asset's one home per grouping kind, with the inputs it was placed by.
-
-    The inputs are frozen at assignment so a restart rebuilds the same state
-    even after a revision, an in-place autosave or a late CLIP result.
-    """
-    __tablename__ = "asset_group_members"
-
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
-    kind = Column(String, primary_key=True)
-    group_id = Column(Integer, ForeignKey('asset_groups.id', ondelete='CASCADE'), nullable=False)
-    reason = Column(String, nullable=False)
-    assigned_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    media_id = Column(Integer, nullable=True)
-    arrived_at = Column(DateTime, nullable=False)
-    typed_prompt = Column(Text, nullable=True)
-    tool_id = Column(String, nullable=True)
-    chat_id = Column(Integer, nullable=True)
-    import_key = Column(String, nullable=True)
-    vector = Column(LargeBinary, nullable=True)  # float16 CLIP embedding, normalized
-
-    __table_args__ = (
-        Index('idx_asset_group_members_group', 'kind', 'group_id'),
-        Index('idx_asset_group_members_assigned', 'assigned_at'),
-    )
-
-
-class AssetGroupRef(Base):
-    """A "Made from" frame shown in a revisit group while it lives elsewhere."""
-    __tablename__ = "asset_group_refs"
-
-    group_id = Column(Integer, ForeignKey('asset_groups.id', ondelete='CASCADE'), primary_key=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
-
-    __table_args__ = (
-        Index('idx_asset_group_refs_asset', 'asset_id'),
-    )
-
-
 class AssetMigrationMap(Base):
     """Recoverable explanation of how one legacy MediaItem was classified."""
     __tablename__ = "asset_migration_map"
@@ -741,21 +677,21 @@ class ProjectAsset(Base):
     )
 
 
-class BoardAssetItem(Base):
-    """Ordered Asset membership in a board section."""
-    __tablename__ = "board_asset_items"
+class CollectionAssetItem(Base):
+    """Ordered Asset membership in a collection section."""
+    __tablename__ = "collection_asset_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    board_section_id = Column(Integer, ForeignKey('board_sections.id', ondelete='CASCADE'), nullable=False, index=True)
+    collection_section_id = Column(Integer, ForeignKey('collection_sections.id', ondelete='CASCADE'), nullable=False, index=True)
     asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
     display_order = Column(Integer, nullable=False, default=0)
     added_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True, index=True)
 
     __table_args__ = (
-        Index('idx_board_asset_items_order', 'board_section_id', 'display_order'),
+        Index('idx_collection_asset_items_order', 'collection_section_id', 'display_order'),
         Index(
-            'idx_board_asset_items_live', 'board_section_id', 'asset_id',
+            'idx_collection_asset_items_live', 'collection_section_id', 'asset_id',
             unique=True, sqlite_where=text('deleted_at IS NULL'),
         ),
         {'sqlite_autoincrement': True},
@@ -1133,7 +1069,7 @@ class MediaTag(Base):
 
 
 class Project(Base):
-    """Scoped working world for assets, chats, boards, and agent state."""
+    """Scoped working world for assets, chats, collections, and agent state."""
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -1316,9 +1252,9 @@ class UserTool(Base):
         }
 
 
-class Board(Base):
-    """Curated board containing ordered sections of assets."""
-    __tablename__ = "boards"
+class Collection(Base):
+    """Curated collection containing ordered sections of assets."""
+    __tablename__ = "collections"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
@@ -1339,12 +1275,12 @@ class Board(Base):
         }
 
 
-class BoardSection(Base):
-    """Ordered section within a board."""
-    __tablename__ = "board_sections"
+class CollectionSection(Base):
+    """Ordered section within a collection."""
+    __tablename__ = "collection_sections"
 
     id = Column(Integer, primary_key=True, index=True)
-    board_id = Column(Integer, ForeignKey('boards.id', ondelete='CASCADE'), nullable=False, index=True)
+    collection_id = Column(Integer, ForeignKey('collections.id', ondelete='CASCADE'), nullable=False, index=True)
     name = Column(String, nullable=True)
     is_default = Column(Boolean, nullable=False, default=False, index=True)
     is_collapsed = Column(Boolean, nullable=False, default=False)
@@ -1354,14 +1290,14 @@ class BoardSection(Base):
     deleted_at = Column(DateTime, nullable=True, index=True)
 
     __table_args__ = (
-        Index('idx_board_sections_board_order', board_id, display_order),
+        Index('idx_collection_sections_collection_order', collection_id, display_order),
         {'sqlite_autoincrement': True},
     )
 
     def to_dict(self):
         return {
             "id": self.id,
-            "board_id": self.board_id,
+            "collection_id": self.collection_id,
             "name": self.name,
             "is_default": self.is_default,
             "is_collapsed": self.is_collapsed,
@@ -1371,18 +1307,18 @@ class BoardSection(Base):
         }
 
 
-class BoardItem(Base):
-    """Ordered media membership within a board section."""
-    __tablename__ = "board_items"
+class CollectionItem(Base):
+    """Ordered media membership within a collection section."""
+    __tablename__ = "collection_items"
 
-    board_section_id = Column(Integer, ForeignKey('board_sections.id', ondelete='CASCADE'), nullable=False, primary_key=True)
+    collection_section_id = Column(Integer, ForeignKey('collection_sections.id', ondelete='CASCADE'), nullable=False, primary_key=True)
     media_id = Column(Integer, ForeignKey('media_items.id', ondelete='CASCADE'), nullable=False, primary_key=True)
     display_order = Column(Integer, nullable=False, default=0)
     added_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (
-        Index('idx_board_items_section_order', board_section_id, display_order),
-        Index('idx_board_items_media', media_id),
+        Index('idx_collection_items_section_order', collection_section_id, display_order),
+        Index('idx_collection_items_media', media_id),
     )
 
 
@@ -1705,6 +1641,7 @@ class SavedView(Base):
     filters = Column(String, nullable=False)  # JSON string of filter criteria
     sort_by = Column(String, nullable=False, default='created_desc')
     display_order = Column(Integer, nullable=False, default=0)  # For manual ordering
+    pinned = Column(Boolean, nullable=False, default=False, server_default='0')  # Shown in the sidebar outside Assets
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -1720,6 +1657,7 @@ class SavedView(Base):
             "filters": json.loads(self.filters) if self.filters else {},
             "sort_by": self.sort_by,
             "display_order": self.display_order,
+            "pinned": bool(self.pinned),
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }

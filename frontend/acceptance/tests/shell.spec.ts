@@ -13,7 +13,7 @@ test.describe('app shell acceptance', () => {
     const destinations = [
       { path: '/browse', text: 'Assets' },
       { path: '/tools', text: 'All tools' },
-      { path: '/boards', text: 'Boards' },
+      { path: '/collections', text: 'Collections' },
       { path: '/chats', text: 'Chats' },
       { path: '/trash', text: 'Trash' },
     ];

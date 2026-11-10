@@ -1,34 +1,34 @@
 import { expect, test } from '../helpers/testbed';
 import {
-  addMediaToBoard,
+  addMediaToCollection,
   addMediaToProject,
   batchDeleteChats,
   batchRestoreChats,
-  bulkMoveBoardItems,
-  bulkRemoveBoardItems,
-  createBoard,
-  createBoardSection,
+  bulkMoveCollectionItems,
+  bulkRemoveCollectionItems,
+  createCollection,
+  createCollectionSection,
   createChat,
   createProject,
-  deleteBoard,
-  deleteBoardSection,
+  deleteCollection,
+  deleteCollectionSection,
   deleteChat,
   deleteProject,
   generateMedia,
-  getBoard,
+  getCollection,
   getChat,
   getProject,
-  listBoards,
+  listCollections,
   listChats,
   listMedia,
   listProjects,
-  moveBoardItem,
+  moveCollectionItem,
   removeMediaFromProject,
-  reorderBoardSections,
-  restoreBoard,
+  reorderCollectionSections,
+  restoreCollection,
   restoreChat,
-  updateBoard,
-  updateBoardSection,
+  updateCollection,
+  updateCollectionSection,
   updateChat,
   updateProject,
   waitFor,
@@ -106,102 +106,102 @@ test.describe('core object lifecycle acceptance', () => {
     expect(globalMedia.some((item) => item.id === media.id)).toBe(true);
   });
 
-  test('boards can be renamed, moved into project scope, and listed there', async ({ page }) => {
-    const project = await createProject(page, 'Acceptance Board Project');
-    const board = await createBoard(page, 'Acceptance Movable Board');
+  test('collections can be renamed, moved into project scope, and listed there', async ({ page }) => {
+    const project = await createProject(page, 'Acceptance Collection Project');
+    const collection = await createCollection(page, 'Acceptance Movable Collection');
 
-    const updated = await updateBoard(page, board.id, {
-      name: 'Acceptance Project Board Renamed',
+    const updated = await updateCollection(page, collection.id, {
+      name: 'Acceptance Project Collection Renamed',
       project_id: project.id,
     });
-    expect(updated.name).toBe('Acceptance Project Board Renamed');
+    expect(updated.name).toBe('Acceptance Project Collection Renamed');
     expect(updated.project_id).toBe(project.id);
 
-    const projectBoards = await listBoards(page, project.id);
-    expect(projectBoards.some((item) => item.id === board.id)).toBe(true);
+    const projectCollections = await listCollections(page, project.id);
+    expect(projectCollections.some((item) => item.id === collection.id)).toBe(true);
 
-    const globalBoards = await listBoards(page);
-    expect(globalBoards.some((item) => item.id === board.id)).toBe(false);
+    const globalCollections = await listCollections(page);
+    expect(globalCollections.some((item) => item.id === collection.id)).toBe(false);
   });
 
-  test('boards can be soft-deleted and restored', async ({ page }) => {
-    const board = await createBoard(page, 'Acceptance Restorable Board');
+  test('collections can be soft-deleted and restored', async ({ page }) => {
+    const collection = await createCollection(page, 'Acceptance Restorable Collection');
 
-    await deleteBoard(page, board.id);
-    const afterDelete = await listBoards(page);
-    expect(afterDelete.some((item) => item.id === board.id)).toBe(false);
+    await deleteCollection(page, collection.id);
+    const afterDelete = await listCollections(page);
+    expect(afterDelete.some((item) => item.id === collection.id)).toBe(false);
 
-    const restored = await restoreBoard(page, board.id);
-    expect(restored.id).toBe(board.id);
+    const restored = await restoreCollection(page, collection.id);
+    expect(restored.id).toBe(collection.id);
 
-    const afterRestore = await listBoards(page);
-    expect(afterRestore.some((item) => item.id === board.id)).toBe(true);
+    const afterRestore = await listCollections(page);
+    expect(afterRestore.some((item) => item.id === collection.id)).toBe(true);
   });
 
-  test('board sections can be created, renamed, collapsed, reordered, and deleted', async ({ page }) => {
-    const board = await createBoard(page, 'Acceptance Section Board');
-    const alpha = await createBoardSection(page, board.id, 'Alpha');
-    const beta = await createBoardSection(page, board.id, 'Beta');
+  test('collection sections can be created, renamed, collapsed, reordered, and deleted', async ({ page }) => {
+    const collection = await createCollection(page, 'Acceptance Section Collection');
+    const alpha = await createCollectionSection(page, collection.id, 'Alpha');
+    const beta = await createCollectionSection(page, collection.id, 'Beta');
 
-    const renamed = await updateBoardSection(page, alpha.id, {
+    const renamed = await updateCollectionSection(page, alpha.id, {
       name: 'Alpha Renamed',
       is_collapsed: true,
     });
     expect(renamed.name).toBe('Alpha Renamed');
     expect(renamed.is_collapsed).toBe(true);
 
-    await reorderBoardSections(page, board.id, [beta.id, alpha.id]);
-    const reordered = await getBoard(page, board.id);
+    await reorderCollectionSections(page, collection.id, [beta.id, alpha.id]);
+    const reordered = await getCollection(page, collection.id);
     const betaIndex = reordered.sections.findIndex((section) => section.id === beta.id);
     const alphaIndex = reordered.sections.findIndex((section) => section.id === alpha.id);
     expect(betaIndex).toBeGreaterThanOrEqual(0);
     expect(alphaIndex).toBeGreaterThanOrEqual(0);
     expect(betaIndex).toBeLessThan(alphaIndex);
 
-    await deleteBoardSection(page, beta.id);
-    const afterDelete = await getBoard(page, board.id);
+    await deleteCollectionSection(page, beta.id);
+    const afterDelete = await getCollection(page, collection.id);
     expect(afterDelete.sections.some((section) => section.id === beta.id)).toBe(false);
   });
 
-  test('board items can be moved between sections', async ({ page }) => {
-    const prompt = `acceptance board move ${Date.now()}`;
+  test('collection items can be moved between sections', async ({ page }) => {
+    const prompt = `acceptance collection move ${Date.now()}`;
     const media = await generateMedia(page, prompt);
-    const board = await createBoard(page, 'Acceptance Move Board');
-    const target = await createBoardSection(page, board.id, 'Target');
+    const collection = await createCollection(page, 'Acceptance Move Collection');
+    const target = await createCollectionSection(page, collection.id, 'Target');
 
-    await addMediaToBoard(page, board.id, [media.id]);
-    const withMedia = await getBoard(page, board.id);
+    await addMediaToCollection(page, collection.id, [media.id]);
+    const withMedia = await getCollection(page, collection.id);
     const source = withMedia.sections.find((section) => section.items.some((item) => item.id === media.id));
     expect(source).toBeTruthy();
 
-    await moveBoardItem(page, board.id, media.id, source!.id, target.id, 0);
+    await moveCollectionItem(page, collection.id, media.id, source!.id, target.id, 0);
 
     await waitFor(async () => {
-      const loaded = await getBoard(page, board.id);
+      const loaded = await getCollection(page, collection.id);
       const moved = loaded.sections.find((section) => section.id === target.id);
       return moved?.items.some((item) => item.id === media.id) ? loaded : null;
     }, 30000);
   });
 
-  test('board items can be bulk-moved and bulk-removed', async ({ page }) => {
+  test('collection items can be bulk-moved and bulk-removed', async ({ page }) => {
     const stamp = Date.now();
-    const first = await generateMedia(page, `acceptance board bulk first ${stamp}`);
-    const second = await generateMedia(page, `acceptance board bulk second ${stamp}`);
-    const board = await createBoard(page, 'Acceptance Bulk Board');
-    const target = await createBoardSection(page, board.id, 'Bulk Target');
+    const first = await generateMedia(page, `acceptance collection bulk first ${stamp}`);
+    const second = await generateMedia(page, `acceptance collection bulk second ${stamp}`);
+    const collection = await createCollection(page, 'Acceptance Bulk Collection');
+    const target = await createCollectionSection(page, collection.id, 'Bulk Target');
 
-    await addMediaToBoard(page, board.id, [first.id, second.id]);
-    await bulkMoveBoardItems(page, board.id, [first.id, second.id], target.id);
+    await addMediaToCollection(page, collection.id, [first.id, second.id]);
+    await bulkMoveCollectionItems(page, collection.id, [first.id, second.id], target.id);
 
     await waitFor(async () => {
-      const loaded = await getBoard(page, board.id);
+      const loaded = await getCollection(page, collection.id);
       const targetSection = loaded.sections.find((section) => section.id === target.id);
       const ids = new Set(targetSection?.items.map((item) => item.id) ?? []);
       return ids.has(first.id) && ids.has(second.id) ? loaded : null;
     }, 30000);
 
-    await bulkRemoveBoardItems(page, board.id, [first.id, second.id]);
-    const afterRemove = await getBoard(page, board.id);
+    await bulkRemoveCollectionItems(page, collection.id, [first.id, second.id]);
+    const afterRemove = await getCollection(page, collection.id);
     const remainingIds = new Set(afterRemove.sections.flatMap((section) => section.items.map((item) => item.id)));
     expect(remainingIds.has(first.id)).toBe(false);
     expect(remainingIds.has(second.id)).toBe(false);

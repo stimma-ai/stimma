@@ -9,7 +9,7 @@ import { getMediaType, type MediaType } from '../utils/mediaTypes'
 /**
  * Shared search logic for the global search omnibox and the /search page.
  *
- * Entity names (chats/flows/boards/projects/presets) are matched by the
+ * Entity names (chats/flows/collections/projects/presets) are matched by the
  * backend at GET /api/search. Tools are matched client-side from the cached
  * catalog. Assets come in TWO flavors, reflecting the app's duality:
  * TEXT matches (every query token must start a word in the asset's title,
@@ -30,14 +30,14 @@ export interface EntitySearchHit {
   project_id: number | null
   tool_id: string | null // presets only
   thumbnail?: SearchMediaRef | null // chats: latest generated media
-  preview_items?: SearchMediaRef[] | null // boards: mosaic preview
+  preview_items?: SearchMediaRef[] | null // collections: mosaic preview
 }
 
 export interface EntitySearchResults {
   query: string
   chats: EntitySearchHit[]
   flows: EntitySearchHit[]
-  boards: EntitySearchHit[]
+  collections: EntitySearchHit[]
   projects: EntitySearchHit[]
   presets: EntitySearchHit[]
 }
@@ -107,7 +107,7 @@ const EMPTY_ENTITY_RESULTS: EntitySearchResults = {
   query: '',
   chats: [],
   flows: [],
-  boards: [],
+  collections: [],
   projects: [],
   presets: [],
 }
@@ -277,7 +277,7 @@ export function useGlobalSearch() {
 // --- Navigation ---
 
 export type SearchResultKind =
-  | 'tool' | 'chat' | 'flow' | 'board' | 'project' | 'preset'
+  | 'tool' | 'chat' | 'flow' | 'collection' | 'project' | 'preset'
 
 /**
  * Navigate to a search result. Workspace-tab creation and recents recording
@@ -287,7 +287,7 @@ export type SearchResultKind =
  * of the tool — its own instance with project presets/settings — by carrying
  * project_id on the route, same as the sidebar's project tool tabs. With no
  * chip the results are unscoped, so tools and presets open at the top level
- * (project_id=0) wherever the search started. Chats, boards, flows and
+ * (project_id=0) wherever the search started. Chats, collections, flows and
  * projects carry their own context: the router follows them into it.
  */
 export function openSearchResult(
@@ -323,8 +323,8 @@ export function openSearchResult(
     case 'flow':
       router.push({ name: 'flow', params: { id: String(result.id) } })
       break
-    case 'board':
-      router.push({ name: 'board-detail', params: { id: String(result.id) } })
+    case 'collection':
+      router.push({ name: 'collection-detail', params: { id: String(result.id) } })
       break
     case 'project':
       router.push({ name: 'project-overview', params: { id: String(result.id) } })

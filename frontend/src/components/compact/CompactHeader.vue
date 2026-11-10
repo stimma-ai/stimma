@@ -8,8 +8,8 @@
  * Search. On a detail route Search lives in the entity menu. Where the
  * drawer can dock, the left button is the dock toggle. The Library hub's
  * title opens the scope sheet; Workspace hub routes carry the Tools / Flows /
- * Boards / Projects segmented control.
- * The working set (open tools, chats, boards, edits) is the tab bar's
+ * Collections / Projects segmented control.
+ * The working set (open tools, chats, collections, edits) is the tab bar's
  * trailing switcher control, not a header action.
  */
 import { computed, onMounted, ref } from 'vue'

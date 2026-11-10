@@ -1,5 +1,5 @@
 <template>
-  <!-- Keep each project sub-screen (Assets/Boards/Overview/...) alive. The outer
+  <!-- Keep each project sub-screen (Assets/Collections/Overview/...) alive. The outer
        KeepAlive (App.vue, keyed per project) caches this layout, but the inner
        <router-view> stays reactive even while the layout is cached — so when the
        global route navigates away (e.g. to a tool) it would otherwise see "no
@@ -74,7 +74,7 @@ watch(
   () => {
     if (!project.value || !String(route.name || '').startsWith('project-') || Number(route.params.id) !== ownId) return
     const section = contextSection(route.name)
-    const label = { home: 'Home', browse: 'Assets', boards: 'Boards', chats: 'Chats', flows: 'Flows', 'all-tools': 'Tools' }[section] || 'Settings'
+    const label = { home: 'Home', browse: 'Assets', collections: 'Collections', chats: 'Chats', flows: 'Flows', 'all-tools': 'Tools' }[section] || 'Settings'
     const projectName = project.value.name || 'Untitled project'
     // Home is the project itself, so its name is the title; the other sections keep it as the subtitle.
     if (section === 'home') setCompactTitle(projectName)

@@ -75,43 +75,6 @@ export function formatDate(value, { year = 'auto' } = {}) {
   return date.toLocaleDateString(undefined, opts)
 }
 
-function localDayNumber(date) {
-  return Math.round(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12).getTime() / 86400000)
-}
-
-/**
- * A day as a group name in the Assets browser: "Today", "Yesterday", the
- * weekday within the last week, then the weekday and THE date ("Tue Nov 3").
- *
- * @param {Date} date - a local calendar day
- * @param {Date} [now]
- */
-export function formatDayLabel(date, now = new Date()) {
-  const diff = localDayNumber(now) - localDayNumber(date)
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Yesterday'
-  if (diff > 1 && diff < 7) return date.toLocaleDateString(undefined, { weekday: 'long' })
-  return `${date.toLocaleDateString(undefined, { weekday: 'short' })} ${formatDate(date)}`
-}
-
-/**
- * The span of a group: "Today", one date, or "Nov 3 → today" / "Nov 3 → Nov 8".
- *
- * @param {Date} first
- * @param {Date} last
- * @param {Date} [now]
- */
-export function formatDaySpan(first, last, now = new Date()) {
-  const lastIsToday = localDayNumber(last) === localDayNumber(now)
-  if (localDayNumber(first) === localDayNumber(last)) return lastIsToday ? 'Today' : formatDate(first)
-  return `${formatDate(first)} → ${lastIsToday ? 'today' : formatDate(last)}`
-}
-
-/** A month as a group name: "November". The year goes beside it. */
-export function formatMonthLabel(date) {
-  return date.toLocaleDateString(undefined, { month: 'long' })
-}
-
 /**
  * Format an estimated number of seconds for compact progress UI.
  *

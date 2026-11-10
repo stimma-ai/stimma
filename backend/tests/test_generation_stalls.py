@@ -127,32 +127,63 @@ async def test_cancel_wakes_execution_before_remote_reply(supports_cancel):
 
 @pytest.mark.asyncio
 async def test_agent_wait_uses_provider_progress_without_ui(
-    generation_queue, generation_db_session, test_provider, output_folder,
+    generation_queue, generation_db_session, test_provider, output_folder, monkeypatch,
 ):
-    from agent.jobs import wait_for_jobs
-    from providers.test_provider import TestToolConfig
+    import time
+    from types import SimpleNamespace
+    import agent.jobs as jobs_module
+    import generation_queue as queue_module
+    from providers.base import ExecutionProgress
     from tests.helpers.generation import create_generation_job
 
-    tool_id = 'text-to-image:test-model'
-    test_provider.configure_tool(tool_id, TestToolConfig(
-        delay_per_stage=0.2, should_fail=True, fail_at_progress=1.0,
-        fail_message='Finished progress test',
-    ))
+    # Advance only the job clocks, not asyncio's real watchdog. Each poll
+    # requests and observes one heartbeat before the next logical second.
+    # Five seconds of progress must survive a 1.5-second idle deadline,
+    # independently of CPU throttling or DB latency on the worker.
+    now = 0.0
+    clock = SimpleNamespace(monotonic=lambda: now, time=time.time)
+    monkeypatch.setattr(jobs_module, 'time', clock)
+    monkeypatch.setattr(queue_module, 'time', clock)
+    ticks = asyncio.Queue()
+    observed = asyncio.Event()
+
+    async def execute(*args, **kwargs):
+        nonlocal now
+        for index in range(5):
+            await ticks.get()
+            now += 1.0
+            yield ExecutionProgress(progress=index / 5, stage='test')
+            observed.set()  # The queue consumed the progress notification.
+        yield ExecutionResult(success=False, error='Finished progress test')
+
+    monkeypatch.setattr(test_provider, 'execute', execute)
     ws = generation_queue._websocket_manager
     generation_queue._websocket_manager = None
     worker = None
+
+    async def next_heartbeat():
+        observed.clear()
+        ticks.put_nowait(None)
+        acknowledgement = asyncio.create_task(observed.wait())
+        try:
+            await asyncio.wait((worker, acknowledgement), return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            acknowledgement.cancel()
+            await asyncio.gather(acknowledgement, return_exceptions=True)
+
     try:
         async with generation_db_session() as session:
             job = await create_generation_job(session, folder_path=output_folder)
             worker = asyncio.create_task(generation_queue._process_job(job, 'default'))
             _, errors, _, _ = await asyncio.wait_for(
-                wait_for_jobs([job.id], session, poll_interval=0.02, timeout=0.35), 3,
+                jobs_module.wait_for_jobs([job.id], session, poll_interval=0,
+                                          timeout=1.5, status_checker=next_heartbeat), 10,
             )
-            await worker
             assert errors == [f'Job {job.id}: Finished progress test']
+            await worker
+            assert now == 5.0
     finally:
         generation_queue._websocket_manager = ws
-        test_provider.configure_tool(tool_id, TestToolConfig())
         if worker:
             worker.cancel()
             await asyncio.gather(worker, return_exceptions=True)

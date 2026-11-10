@@ -2,7 +2,7 @@
 export const contextSections = {
   home: 'project-overview',
   browse: 'project-assets',
-  boards: 'project-boards',
+  collections: 'project-collections',
   chats: 'project-chats',
   flows: 'project-flows',
   'all-tools': 'project-tools',
@@ -49,7 +49,7 @@ export function contextSwitchRoute(
     }
   }
   const section = contextSection(route.name)
-    ?? ({ chat: 'chats', 'board-detail': 'boards', flow: 'flows' } as Record<string, string>)[String(route.name)]
+    ?? ({ chat: 'chats', 'collection-detail': 'collections', flow: 'flows' } as Record<string, string>)[String(route.name)]
     ?? 'browse'
   return contextRoute(section, projectId)
 }
@@ -68,7 +68,7 @@ export function assetLinkContext(current: number | null, assetProjectIds: number
 
 /** The landing section an entity route falls back to when its item can't load. */
 export const entityFallbackSection: Record<string, string> = {
-  chat: 'chats', 'board-detail': 'boards', flow: 'flows', 'saved-view': 'browse',
+  chat: 'chats', 'collection-detail': 'collections', flow: 'flows', 'saved-view': 'browse',
 }
 
 export function belongsToContext(tab: { type: string; projectId?: number | null; contextProjectIds?: Array<number | null> }, projectId: number | null) {

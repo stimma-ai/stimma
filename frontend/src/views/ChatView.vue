@@ -12,11 +12,6 @@
       :win="dockWin || 'row'"
       :presence="dockPresence"
       @rename="renameChatFromStrip"
-      @clone="cloneChat"
-      @clear="clearChat"
-      @delete="confirmDelete"
-      @copy-raw-messages="copyAllRawMessages"
-      @settings="expandToFull({ kind: 'settings' })"
     />
     <ChatControlStrip
       v-if="!narrow && !isCompact"
@@ -1057,6 +1052,7 @@
           <div v-else-if="item.item_type === 'hitl_request' && shouldShowHITLRequest(item)" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :class="docked ? 'w-full min-w-0' : ''"
               align="left"
               :show-actions="true"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
@@ -1066,6 +1062,7 @@
               <!-- Active: show full interactive UI -->
               <HITLContainer
                 v-if="isActiveHITLRequest(item)"
+                :fit="docked"
                 :chat-id="chat?.id ?? chatId"
                 :action="parseHITLAction(item)"
                 @responded="handleHITLResponded"
@@ -1089,7 +1086,7 @@
                 />
               </div>
               <!-- Completed ask_user: compact question/answer summary -->
-              <div v-else-if="parseHITLAction(item)?.type === 'ask_user'" class="bg-surface/80 rounded-lg p-3 border border-edge-subtle min-w-[420px]">
+              <div v-else-if="parseHITLAction(item)?.type === 'ask_user'" class="bg-surface/80 rounded-lg p-3 border border-edge-subtle" :class="docked ? 'min-w-0' : 'min-w-[420px]'">
                 <AskUserPrompt
                   :action="parseHITLAction(item)"
                   :completed="true"
@@ -1939,9 +1936,7 @@ function applyStageIntent() {
   if (props.docked || chatId.value == null) return
   const intent = takeStageIntent(chatId.value)
   if (!intent) return
-  if (intent.kind === 'settings') {
-    if (!settingsPanelVisible.value) toggleSettingsPanel()
-  } else if (intent.kind === 'file') artifactStage.openFile(intent.file)
+  if (intent.kind === 'file') artifactStage.openFile(intent.file)
   else artifactStage.openOnAsset(intent.assetId, intent.revisionId)
 }
 
@@ -2133,7 +2128,7 @@ const LIBRARY_ACTION_NAMES = {
   lineage: 'Checking lineage',
   tag: 'Tagging',
   marker: 'Marking',
-  board: 'Organizing board',
+  collection: 'Organizing collection',
 }
 
 // Infrastructure tools hidden from pill summary (still shown in expanded timeline)
@@ -3074,7 +3069,7 @@ function closeSlideshow() {
   }
 }
 
-// Back from a slideshow opened on a collection: the collection shows the image
+// Back from a slideshow opened from a collection: the collection shows the image
 // the slideshow ended on (if it is one of the collection's), and has focus.
 function returnToCollection(itemId, row) {
   const find = () => document.querySelector(`[data-testid="media-collection"][data-collection-item="${itemId}"]`)
@@ -4453,6 +4448,14 @@ watch(dockBusy, (busy, wasBusy) => {
 // Seen in the dock: the sidebar's dot for this chat clears too.
 watch(() => props.docked && chatId.value != null && chatDock.isOpenInDock(chatId.value), (inSight) => {
   if (inSight && document.hasFocus()) clearUnseenDot(`chat:${chatId.value}`)
+})
+// Opening a window shows where the chat is now: the latest, which is what
+// it opened for (a question, an answer). While a row it was hidden, so it
+// never followed new items down.
+watch(() => props.docked && props.dockWin === 'open', async (openNow) => {
+  if (!openNow) return
+  await nextTick()
+  requestAnimationFrame(() => requestAnimationFrame(scrollToBottom))
 })
 watch(() => props.docked && props.dockWin === 'open', (openNow) => {
   // Coming into sight takes this chat's queue; folding to a row steps back.

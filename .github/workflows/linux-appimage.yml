@@ -69,7 +69,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.ref || github.sha }}
 
@@ -104,23 +104,26 @@ jobs:
             xvfb
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
-          cache: npm
+          node-version: '22.23.4'
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
           cache-dependency-path: |
             frontend/package-lock.json
             electron/package-lock.json
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: '1.99.1'
 
       - name: Configure persistent build cache
         run: python3 scripts/configure-build-cache.py
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3
         with:
+          version: '0.13.7'
           enable-cache: ${{ runner.environment == 'github-hosted' }}
           cache-local-path: ~/.cache/uv
 
@@ -333,7 +336,7 @@ jobs:
 
       - name: Publish GitHub release assets
         if: inputs.publish_github_release == true
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ inputs.version }}
           prerelease: ${{ env.STIMMA_RELEASE_CHANNEL != 'production' }}
@@ -387,9 +390,9 @@ jobs:
           DOWNLOAD_SHA256="$(sha256sum "$APPIMAGE_FILE" | awk '{print $1}')"
           export APPIMAGE_BASENAME DOWNLOAD_URL DOWNLOAD_SIZE DOWNLOAD_SHA256 SIG_VALUE UPDATER_URL
 
-          uvx --python 3.11 --from awscli aws s3 cp "$APPIMAGE_FILE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${APPIMAGE_BASENAME}" --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$UPDATER_ARCHIVE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}" --content-type application/gzip --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$UPDATER_SIG" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}.sig" --content-type text/plain --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$APPIMAGE_FILE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${APPIMAGE_BASENAME}" --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$UPDATER_ARCHIVE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}" --content-type application/gzip --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$UPDATER_SIG" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}.sig" --content-type text/plain --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
 
           python3 - <<'PY'
           import json, os
@@ -414,7 +417,7 @@ jobs:
           EXISTING_LATEST="${RUNNER_TEMP}/existing-latest-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
           rm -f "$EXISTING_LATEST"
           set +e
-          uvx --python 3.11 --from awscli aws s3 cp "s3://${BUCKET}/${PREFIX}/latest.json" "$EXISTING_LATEST" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "s3://${BUCKET}/${PREFIX}/latest.json" "$EXISTING_LATEST" --endpoint-url "$R2_S3_ENDPOINT"
           existing_fetch_code=$?
           set -e
           if [ "$existing_fetch_code" -ne 0 ]; then
@@ -450,8 +453,8 @@ jobs:
             exit "$guard_code"
           fi
 
-          uvx --python 3.11 --from awscli aws s3 cp latest.json "s3://${BUCKET}/${PREFIX}/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$LATEST_LINUX_YML" "s3://${BUCKET}/${PREFIX}/latest${ELECTRON_MANIFEST_SUFFIX}.yml" --content-type application/yaml --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp latest.json "s3://${BUCKET}/${PREFIX}/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$LATEST_LINUX_YML" "s3://${BUCKET}/${PREFIX}/latest${ELECTRON_MANIFEST_SUFFIX}.yml" --content-type application/yaml --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
 
           python3 - <<'PY'
           import json, os
@@ -471,7 +474,7 @@ jobs:
               json.dump(manifest, fh, indent=2)
               fh.write("\n")
           PY
-          uvx --python 3.11 --from awscli aws s3 cp download.json "s3://${BUCKET}/${PREFIX}/download.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp download.json "s3://${BUCKET}/${PREFIX}/download.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
 
       - name: Purge Cloudflare cache for Linux manifests
         if: inputs.publish_updates == true
@@ -493,7 +496,7 @@ jobs:
 
       - name: Upload workflow artifacts
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           compression-level: 0
           name: stimma-${{ env.LINUX_PLATFORM }}-electron-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}

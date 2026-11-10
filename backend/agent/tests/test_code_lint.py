@@ -248,7 +248,7 @@ class TestLibraryCallable:
     """Tests for catching stimma.library(...) direct calls."""
 
     def test_stimma_library_called_directly(self):
-        code = "await stimma.library(action='board', board_name='x')"
+        code = "await stimma.library(action='collection', collection_name='x')"
         warnings = lint_code(code)
         assert any("not callable" in w.message for w in warnings)
 

@@ -85,15 +85,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.ref || github.sha }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
-          cache: npm
+          node-version: '22.23.4'
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
           cache-dependency-path: |
             frontend/package-lock.json
             electron/package-lock.json
@@ -210,8 +210,9 @@ jobs:
           }
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3
         with:
+          version: '0.13.7'
           enable-cache: ${{ runner.environment == 'github-hosted' }}
 
       - name: Preflight Environment
@@ -387,7 +388,7 @@ jobs:
 
       - name: Publish GitHub release assets
         if: inputs.publish_github_release == true
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ inputs.version }}
           prerelease: ${{ env.STIMMA_RELEASE_CHANNEL != 'production' }}
@@ -435,14 +436,14 @@ jobs:
           $downloadSize = (Get-Item $env:INSTALLER_FILE).Length
           $downloadSha256 = (Get-FileHash -Path $env:INSTALLER_FILE -Algorithm SHA256).Hash.ToLowerInvariant()
 
-          uvx --python 3.11 --from awscli aws s3 cp "$env:INSTALLER_FILE" "s3://$env:BUCKET/$versionedPrefix/$installerBasename" --content-type application/vnd.microsoft.portable-executable --cache-control "public, max-age=31536000, immutable" --endpoint-url "$env:R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$env:APP_ARCHIVE" "s3://$env:BUCKET/$versionedPrefix/$basename" --content-type application/zip --endpoint-url "$env:R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$env:APP_SIG" "s3://$env:BUCKET/$versionedPrefix/$basename.sig" --content-type text/plain --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$env:INSTALLER_FILE" "s3://$env:BUCKET/$versionedPrefix/$installerBasename" --content-type application/vnd.microsoft.portable-executable --cache-control "public, max-age=31536000, immutable" --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$env:APP_ARCHIVE" "s3://$env:BUCKET/$versionedPrefix/$basename" --content-type application/zip --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$env:APP_SIG" "s3://$env:BUCKET/$versionedPrefix/$basename.sig" --content-type text/plain --endpoint-url "$env:R2_S3_ENDPOINT"
 
           # Electron-to-Electron update feed. The manifest uses a bare
           # installer filename, so all three files live at the platform root.
-          uvx --python 3.11 --from awscli aws s3 cp "$env:INSTALLER_FILE" "s3://$env:BUCKET/$platformPrefix/$installerBasename" --content-type application/vnd.microsoft.portable-executable --cache-control "public, max-age=31536000, immutable" --endpoint-url "$env:R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$env:BLOCKMAP" "s3://$env:BUCKET/$platformPrefix/$installerBasename.blockmap" --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$env:INSTALLER_FILE" "s3://$env:BUCKET/$platformPrefix/$installerBasename" --content-type application/vnd.microsoft.portable-executable --cache-control "public, max-age=31536000, immutable" --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$env:BLOCKMAP" "s3://$env:BUCKET/$platformPrefix/$installerBasename.blockmap" --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --endpoint-url "$env:R2_S3_ENDPOINT"
 
           # Write without BOM — Tauri's updater (serde_json) chokes on UTF-8 BOM
           $latestJson = @"
@@ -461,7 +462,7 @@ jobs:
           [System.IO.File]::WriteAllText((Join-Path $PWD "latest.json"), $latestJson, [System.Text.UTF8Encoding]::new($false))
 
           $existingLatest = Join-Path $PWD "existing-latest.json"
-          uvx --python 3.11 --from awscli aws s3 cp "s3://$env:BUCKET/stimma/$env:CHANNEL/windows-x86_64/latest.json" $existingLatest --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "s3://$env:BUCKET/stimma/$env:CHANNEL/windows-x86_64/latest.json" $existingLatest --endpoint-url "$env:R2_S3_ENDPOINT"
           $existingFetchCode = $LASTEXITCODE
           if ($existingFetchCode -ne 0) {
             Write-Host "No existing windows-x86_64 latest.json found in release bucket."
@@ -504,8 +505,8 @@ jobs:
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          uvx --python 3.11 --from awscli aws s3 cp latest.json "s3://$env:BUCKET/stimma/$env:CHANNEL/windows-x86_64/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$env:R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$env:ELECTRON_MANIFEST" "s3://$env:BUCKET/$platformPrefix/latest.yml" --content-type text/yaml --cache-control "no-cache" --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp latest.json "s3://$env:BUCKET/stimma/$env:CHANNEL/windows-x86_64/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$env:ELECTRON_MANIFEST" "s3://$env:BUCKET/$platformPrefix/latest.yml" --content-type text/yaml --cache-control "no-cache" --endpoint-url "$env:R2_S3_ENDPOINT"
 
           $downloadJson = @"
           {
@@ -521,7 +522,7 @@ jobs:
           "@
           [System.IO.File]::WriteAllText((Join-Path $PWD "download.json"), $downloadJson, [System.Text.UTF8Encoding]::new($false))
 
-          uvx --python 3.11 --from awscli aws s3 cp download.json "s3://$env:BUCKET/stimma/$env:CHANNEL/windows-x86_64/download.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp download.json "s3://$env:BUCKET/stimma/$env:CHANNEL/windows-x86_64/download.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$env:R2_S3_ENDPOINT"
 
       - name: Purge Cloudflare cache for latest manifest
         if: inputs.publish_updates == true && steps.collect.outputs.app_archive != ''
@@ -543,7 +544,7 @@ jobs:
 
       - name: Upload workflow artifacts
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           compression-level: 0
           name: stimma-windows-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}

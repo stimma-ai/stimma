@@ -1,9 +1,9 @@
 <template>
-  <BoardsLandingView :project-id="project.id" />
+  <CollectionsLandingView :project-id="project.id" />
 </template>
 
 <script setup>
-import BoardsLandingView from './BoardsLandingView.vue'
+import CollectionsLandingView from './CollectionsLandingView.vue'
 
 defineProps({
   project: {

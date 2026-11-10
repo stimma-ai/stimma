@@ -24,8 +24,8 @@ into a page. Inventory refs point at the docs repo's SCREENSHOT_INVENTORY.md.
 | settings/llm-services.png | 04-settings | open-settings → 'ai-services'; clicks Test connection and waits for the green capability badges (text/thinking/tools/vision against local Ollama). | local-ai/llm-settings.png (replaced stale asset in llms page) |
 | settings/agent.png | 04-settings | open-settings → 'agent'. | — (spare) |
 | library/all-assets.png | 01-library | /browse with the seeded library. Feedback coachmark burned during setup so no stray menu. | — (home hero candidate; existing approved asset kept) |
-| library/boards-landing.png | 01-library | /boards with the three seeded boards. | — (spare) |
-| library/board-detail.png | 01-library | Open the "Brand Refresh" board. | — (spare) |
+| library/collections-landing.png | 01-library | /collections with the three seeded collections. | — (spare) |
+| library/collection-detail.png | 01-library | Open the "Brand Refresh" collection. | — (spare) |
 | lineage/lineage-view-demo.png | 01-library | /lineage/23 (kontext-edit restyle with a source chain). | — (spare; lineage pages have approved assets) |
 
 ## Gotchas encoded in the harness (don't relearn these)

@@ -284,14 +284,14 @@ async def cleanup_ephemeral_media():
 
 
 async def cleanup_empty_unnamed_entities(ws_manager):
-    """Reap abandoned empty, unnamed boards/flows/chats older than 12 hours.
+    """Reap abandoned empty, unnamed collections/flows/chats older than 12 hours.
 
     Covers both the ongoing case and the first-deploy backlog: it runs shortly
     after startup and then hourly, so any husks already older than 12h are
     swept on the very first pass — no special one-time migration needed.
 
     An object is only reaped if the user never gave it identity or content: a
-    board with no name and no assets, a flow with no name whose program is the
+    collection with no name and no assets, a flow with no name whose program is the
     untouched placeholder and whose chat has no messages, or a standalone chat
     with an auto-generated name and no messages. See
     ``CleanupService.cleanup_empty_unnamed_entities``.
@@ -323,14 +323,14 @@ async def cleanup_empty_unnamed_entities(ws_manager):
                 if total:
                     log.info(
                         "HUSK CLEANUP: reaped %d empty husk(s) for profile %s "
-                        "(boards=%d flows=%d chats=%d)",
-                        total, profile.id, len(reaped["boards"]),
+                        "(collections=%d flows=%d chats=%d)",
+                        total, profile.id, len(reaped["collections"]),
                         len(reaped["flows"]), len(reaped["chats"]),
                     )
-                for board_id in reaped["boards"]:
+                for collection_id in reaped["collections"]:
                     await ws_manager.broadcast(
-                        "board_deleted",
-                        {"board_id": board_id, "reason": "auto_delete_empty",
+                        "collection_deleted",
+                        {"collection_id": collection_id, "reason": "auto_delete_empty",
                          "profile_id": profile.id},
                         include_profile=False,
                     )
@@ -389,38 +389,6 @@ async def _broadcast_processing_stats(ws_manager, settings, registry, phase_stat
     await ws_manager.broadcast_profile_details('processing_stats', data, details)
 
 
-async def _broadcast_grouping_changes(ws_manager, settings, registry, last_versions: dict):
-    """Tell a profile's clients when the grouping pass has placed Assets.
-
-    The pass runs in the ingestion process, which can't push. Each profile's
-    ``max(asset_group_members.assigned_at)`` is its grouping version; when it
-    moves, broadcast ``asset_groups_updated`` scoped to that profile. The
-    first reading after startup is only a baseline.
-    """
-    from asset_grouping import grouping_version
-    from core.profile_context import ProfileScope
-
-    for profile in settings.profiles:
-        if not registry.has_profile(profile.id):
-            continue
-        try:
-            with ProfileScope(profile.id):
-                db = registry.get_database(profile.id)
-                async with db.async_session_maker() as session:
-                    version = await grouping_version(session)
-        except Exception as e:
-            log.debug(f"PROCESSING STATS MONITOR: grouping version unavailable for {profile.id}: {e}")
-            continue
-        known = profile.id in last_versions
-        previous = last_versions.get(profile.id)
-        last_versions[profile.id] = version
-        if known and version != previous:
-            await ws_manager.broadcast(
-                'asset_groups_updated',
-                {'profile_id': profile.id, 'grouping_version': version},
-            )
-
-
 async def monitor_processing_stats(ws_manager):
     """
     Background task to monitor processing stats and broadcast via WebSocket.
@@ -441,7 +409,6 @@ async def monitor_processing_stats(ws_manager):
     from sqlalchemy import case
 
     last_phase_stats = None
-    last_grouping_versions: dict = {}
     sleep_seconds = 1
     while True:
         try:
@@ -507,10 +474,6 @@ async def monitor_processing_stats(ws_manager):
                         include_profile=False,
                     )
                 last_phase_stats = phase_stats
-
-            await _broadcast_grouping_changes(
-                ws_manager, settings, registry, last_grouping_versions
-            )
 
         except asyncio.CancelledError:
             log.info("PROCESSING STATS MONITOR: Shutting down")

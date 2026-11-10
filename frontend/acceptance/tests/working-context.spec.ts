@@ -21,8 +21,8 @@ test.describe('working context', () => {
     const projects = sidebar(page).getByRole('region', { name: 'Projects' });
     await expect(projects.getByRole('button', { name: 'New project', exact: true })).toBeVisible();
     // The hint lives in the + tooltip now, not as a sentence in the sidebar.
-    await expect(projects.getByText('Keep the assets, chats and boards')).toHaveCount(0);
-    await expect(projects.getByRole('button', { name: 'New project', exact: true })).toHaveAttribute('title', /keep the assets, chats and boards/);
+    await expect(projects.getByText('Keep the assets, chats and collections')).toHaveCount(0);
+    await expect(projects.getByRole('button', { name: 'New project', exact: true })).toHaveAttribute('title', /keep the assets, chats and collections/);
     await page.goto('/projects');
     const picker = page.getByRole('dialog', { name: 'Choose a project' });
     await expect(picker).toBeVisible();
@@ -54,10 +54,10 @@ test.describe('working context', () => {
     for (let i = 0; i < 5; i++) await createProject(page, `Browser context ${i}`);
     await choose(page, project.name);
     await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/assets`));
-    await sidebar(page).getByRole('button', { name: 'Boards', exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/boards`));
+    await sidebar(page).getByRole('button', { name: 'Collections', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/collections`));
     await choose(page, 'Everything');
-    await expect(page).toHaveURL(/\/boards$/);
+    await expect(page).toHaveURL(/\/collections$/);
     await sidebar(page).getByRole('region', { name: 'Projects' }).getByRole('button', { name: /^All projects/ }).click();
     const picker = page.getByRole('dialog', { name: 'Choose a project' });
     await picker.getByRole('textbox', { name: 'Find a project' }).fill(project.name);
@@ -68,7 +68,7 @@ test.describe('working context', () => {
     await picker.getByRole('textbox', { name: 'Find a project' }).fill('Renamed');
     await picker.getByRole('button', { name: 'Renamed context', exact: true }).click();
     await expect(sidebar(page).getByRole('button', { name: 'Working context' })).toHaveText('Renamed context');
-    await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/boards`));
+    await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/collections`));
   });
 
   test('Home drafts and new chats belong to their selected context', async ({ page }) => {
