@@ -643,7 +643,7 @@ class PickSpec:
     # what it draws unless the user ticks others. Its other options are alternatives to them.
     said: str = ""
     # The context its pool is drawn in (vocab.py): (facet, families) for each facet its list
-    # takes that a giver in its scope drew. Empty for the user's lists, wildcards and pins.
+    # takes that a giver in its scope drew. Empty for the user's lists, wildcards, pins and said picks.
     context: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()
 
 
@@ -933,8 +933,10 @@ class _Exec(_Runner):
                         said=said)
         if source != "list" and spec.cls != AGE_LIST and cid not in self.eng.theirs:
             spec.minor = self._minor(cid, site)
+        # A said pick is the user's own words: it gives context (its drawn value is read like any
+        # giver's) but is never weighted itself, nor are the alternatives they may tick.
         if leaf is not None and leaf.takes and self.eng.context_on and cid not in self.eng.theirs \
-                and cid not in self.eng.pins:
+                and cid not in self.eng.pins and not said:
             spec.context = self._given(cid, site, leaf)
         context = self._context(site)
         if leaf is not None and leaf.slots:
