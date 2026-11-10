@@ -60,9 +60,12 @@ llms: {}
 def no_fluent_background_generation():
     """Fluent draws never generate options in the background or call a judge during
     tests: sync tests resolve to whatever profile and config the machine has, and a
-    queued fill or a configured judge server must never be reached from there. Tests of
-    generation and judging pass their own store, filler and judge."""
-    pinned = {"STIMMA_FLUENT_GENERATE": "0", "STIMMA_FLUENT_JUDGE": "none"}
+    queued fill or a configured judge server must never be reached from there, and the
+    pinned fix judge never starts its download. Tests of generation and judging pass
+    their own store, filler, judge and settings."""
+    pinned = {"STIMMA_FLUENT_GENERATE": "0", "STIMMA_FLUENT_JUDGE": "none",
+              # the pinned pick judge (fix_model: default) is never fetched from settings()
+              "STIMMA_FLUENT_FIX_MODEL": "off"}
     old = {k: os.environ.get(k) for k in pinned}
     os.environ.update(pinned)
     yield

@@ -1,8 +1,11 @@
 """Fluent settings: config.yaml's `fluent:` section, read the way the draw code uses it.
 
     generate_options: true             STIMMA_FLUENT_GENERATE    (background option generation)
-    fix_model: <model dir>             STIMMA_FLUENT_FIX_MODEL   (a small ONNX judge that checks each finished
-                                                                  draw and rerolls flagged picks; empty: off)
+    fix_model: default                 STIMMA_FLUENT_FIX_MODEL   (the small ONNX judge that checks each finished
+                                                                  draw and rerolls flagged picks: "default" is the
+                                                                  pinned pick judge, downloaded on first use
+                                                                  (prompt_programs.pick_judge); "" or "off": off;
+                                                                  anything else: a local model directory)
     fix_cut: 0 (the model's own)       STIMMA_FLUENT_FIX_CUT     (P(wrong) above this rerolls a pick)
     fix_rounds: 4                      STIMMA_FLUENT_FIX_ROUNDS  (rerolls per draw at most)
     fix_threads: 0 (up to 8)           STIMMA_FLUENT_FIX_THREADS
@@ -20,7 +23,7 @@ from typing import Any, Dict
 @dataclass(frozen=True)
 class FluentSettings:
     generate_options: bool = True
-    fix_model: str = ""      # model directory of the fix judge (prompt_programs.fix); empty: off
+    fix_model: str = "default"  # the fix judge (prompt_programs.fix.fix_mode): default | off | a model directory
     fix_cut: float = 0.0     # 0: the cut the model directory names
     fix_rounds: int = 4
     fix_threads: int = 0

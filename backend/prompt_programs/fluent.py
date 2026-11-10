@@ -107,6 +107,8 @@ def start_options(entry: Dict[str, Any], *, profile_id: Optional[str] = None, pr
     pools can't fill still draws from its seeds."""
     if not uses_draws(entry.get("program") or ""):
         return []
+    from prompt_programs.fix import kick_judge
+    kick_judge(cfg)  # the pinned judge's first-use download starts now, before the first image
     try:
         rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, filler=filler, cfg=cfg)
         loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]

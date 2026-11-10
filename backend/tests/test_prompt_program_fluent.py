@@ -32,8 +32,8 @@ hair = pick("hair", label="Hairstyle", about=f"a {era} hairstyle", phase=2, seed
 emit("A woman in the", era, "with", hair)
 '''
 
-ON = FluentSettings(generate_options=True)
-OFF = FluentSettings(generate_options=False)
+ON = FluentSettings(generate_options=True, fix_model="off")
+OFF = FluentSettings(generate_options=False, fix_model="off")
 
 
 def entry_for(program, **kw):

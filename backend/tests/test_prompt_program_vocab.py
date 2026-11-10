@@ -20,7 +20,7 @@ expr = pick("expr", cls="person.expression", about="her expression", seed=["a so
 emit("A portrait of a", eth, "woman with", eyes, "eyes and", expr, ".")
 '''
 
-OFF = FluentSettings(generate_options=False)
+OFF = FluentSettings(generate_options=False, fix_model="off")
 
 
 def program():

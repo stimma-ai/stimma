@@ -188,12 +188,18 @@ class _Ask:
 class OnnxJudge:
     """P(wrong) for (masked prompt, pick) pairs from a cross-encoder in ONNX, on CPU."""
 
-    def __init__(self, model_dir: str | os.PathLike, threads: int = 0, cache_items: int = 20_000):
+    def __init__(self, model_dir: str | os.PathLike, threads: int = 0, cache_items: int = 20_000,
+                 manifest: Optional[Dict[str, Any]] = None):
+        """`manifest`: a pick-judge release manifest (prompt_programs.pick_judge). Its
+        kind, maxlen, output, labels, wrong class, cut and model file win over the
+        directory's io.json, and the judge reports itself as pick-judge/<version>@<sha>."""
         d = Path(os.path.expanduser(str(model_dir)))
         if not d.is_dir():
             raise FixJudgeUnavailable(f"no judge model directory at {d}")
         cfg = dict(DEFAULTS)
         io = _read_json(d / "io.json")
+        if manifest:
+            io = {**io, **{k: manifest[k] for k in ("kind", "maxlen", "cut", "output") if k in manifest}}
         if io.get("kind") in ("enc", "dec"):
             cfg["kind"] = io["kind"]
         if io.get("maxlen"):
@@ -203,6 +209,8 @@ class OnnxJudge:
         if isinstance(io.get("output"), str):
             cfg["output"] = "probs" if io["output"].strip().lower().startswith("prob") else "logits"
         cfg.update(_read_json(d / "judge.json"))
+        if manifest:
+            cfg.update({k: manifest[k] for k in ("labels", "wrong", "model") if manifest.get(k)})
         model = d / cfg["model"] if cfg.get("model") else next((d / f for f in MODEL_FILES if (d / f).exists()), None)
         if model is None or not model.exists():
             raise FixJudgeUnavailable(f"no ONNX model in {d} (looked for {', '.join(MODEL_FILES)})")
@@ -243,7 +251,11 @@ class OnnxJudge:
         self.cut = float(cfg["cut"])
         self.reads_user_prompt = bool(cfg["user_prompt"])
         name = str(cfg.get("name") or d.name)
-        self.version = f"onnx:{name}@{_file_digest(model)}"
+        if manifest:
+            from prompt_programs.pick_judge import version_of
+            self.version = version_of(manifest)
+        else:
+            self.version = f"onnx:{name}@{_file_digest(model)}"
         self.load_seconds = round(time.monotonic() - started, 2)
         self._cache: "OrderedDict[Tuple[str, str], float]" = OrderedDict()
         self._cache_items = cache_items
@@ -415,6 +427,45 @@ def fix_judge(model_dir: str, threads: int = 0) -> OnnxJudge:
             _judges.pop(old, None)
         _judges[k] = j
         return j
+
+
+# --------------------------------------------------------------------------- which judge
+
+DEFAULT_JUDGE = "default"          # fix_model naming the pinned pick judge (prompt_programs.pick_judge)
+OFF = ("", "off", "none")
+
+
+def fix_mode(model: Optional[str]) -> str:
+    """fix_model's meaning: "off" ("", off, none), "default" (the pinned pick judge, the
+    default), or "dir" (a local model directory: dev and evals)."""
+    m = (model or "").strip().lower()
+    if m in OFF:
+        return "off"
+    return "default" if m == DEFAULT_JUDGE else "dir"
+
+
+def kick_judge(cfg: Any = None) -> None:
+    """Start the pinned judge's first-use download in the background, if that's the
+    configured judge (prepare calls this, so it's ready by the first image). Never blocks."""
+    try:
+        if cfg is None:
+            from prompt_programs.judge import settings
+            cfg = settings()
+        if fix_mode(cfg.fix_model) == "default":
+            from prompt_programs import pick_judge
+            pick_judge.kick(cfg.fix_threads)  # a cached copy loads on that thread too
+    except Exception as e:
+        log.debug(f"[fluent-fix] couldn't start the pick judge: {e}")
+
+
+def judge_identity(cfg: Any) -> str:
+    """The configured judge as a draw depends on it: off, the pinned judge's version and
+    readiness, or a model directory. Part of the hot-draw signature."""
+    mode = fix_mode(cfg.fix_model)
+    if mode == "default":
+        from prompt_programs import pick_judge
+        return pick_judge.identity()
+    return "off" if mode == "off" else f"dir:{cfg.fix_model}"
 
 
 # --------------------------------------------------------------------------- the fix loop
@@ -596,7 +647,8 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
                     judge: Any = None) -> Tuple[Any, Optional[Dict[str, Any]]]:
     """realize(), then the fix pass when a fix judge is set (fix_model) and the program
     has pick specs. An exact replay (`revision`) is never fixed. Returns the result and
-    the fix record (None when no fix ran). Blocking: run it in a worker thread."""
+    the fix record (None when no fix ran; {"judge", "skipped"} when the pinned judge
+    isn't ready yet). Blocking (on the CPU, never on a download): run it in a worker thread."""
     if revision:
         from prompt_programs.prepare import realize
         return realize(entry, seed=seed, pins=pins, fixed=fixed, edits=edits, triggers=triggers,
@@ -645,12 +697,20 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
         return [shipped(r) for r in out]
     cfg = cfg or settings()
     if judge is None:
-        if not cfg.fix_model:
+        mode = fix_mode(cfg.fix_model)
+        if mode == "off":
             return [shipped(r) for r in out]
-        try:
-            judge = fix_judge(cfg.fix_model, cfg.fix_threads)
-        except FixJudgeUnavailable as e:
-            return [shipped(r if isinstance(r, Exception) else (r, {"error": str(e)})) for r in out]
+        if mode == "default":  # the pinned judge: never waits for its download
+            from prompt_programs import pick_judge
+            judge = pick_judge.ready(cfg.fix_threads)
+            if judge is None:
+                skipped = pick_judge.skip_record()
+                return [shipped(r if isinstance(r, Exception) else (r, dict(skipped))) for r in out]
+        else:
+            try:
+                judge = fix_judge(cfg.fix_model, cfg.fix_threads)
+            except FixJudgeUnavailable as e:
+                return [shipped(r if isinstance(r, Exception) else (r, {"error": str(e)})) for r in out]
     cut = float(cfg.fix_cut) if cfg.fix_cut else float(getattr(judge, "cut", DEFAULTS["cut"]))
     user_prompt = str(entry.get("prompt") or "")
     fixers = [_fixer(out[i], judge=judge, redraw=draw_once, seed=seeds[i], user_prompt=user_prompt, cut=cut,
@@ -664,5 +724,5 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
     return [shipped(r) for r in out]
 
 
-__all__ = ["FixJudgeUnavailable", "Item", "OnnxJudge", "default_threads", "fix_draw", "fix_judge", "judged_picks",
-           "locate", "mask", "prompt_view", "realize_and_fix", "realize_and_fix_many", "score_draw", "shown_picks"]
+__all__ = ["DEFAULT_JUDGE", "FixJudgeUnavailable", "Item", "OnnxJudge", "default_threads", "fix_draw", "fix_judge",
+           "fix_mode", "judge_identity", "judged_picks", "kick_judge", "locate", "mask", "prompt_view", "realize_and_fix", "realize_and_fix_many", "score_draw", "shown_picks"]

@@ -314,7 +314,7 @@ class TestRealizeAndFix:
 
     def test_off_replay_and_broken_model(self, tmp_path):
         entry = entry_for()
-        r, rec = realize_and_fix(entry, seed=4, cfg=FluentSettings(generate_options=False))
+        r, rec = realize_and_fix(entry, seed=4, cfg=FluentSettings(generate_options=False, fix_model="off"))
         assert rec is None and r.prompt == draw(entry, 4).prompt
         cfg = FluentSettings(generate_options=False, fix_model=str(tiny_model(tmp_path)))
         r, rec = realize_and_fix(entry, seed=4, cfg=cfg, revision=r.revision)
@@ -367,7 +367,7 @@ class TestExactTextIsNeverJudged:
 
     def test_without_a_judge_the_prompt_is_unmasked(self):
         entry = self.entry()
-        out, rec = realize_and_fix(entry, seed=3, cfg=FluentSettings(generate_options=False))
+        out, rec = realize_and_fix(entry, seed=3, cfg=FluentSettings(generate_options=False, fix_model="off"))
         assert rec is None and self.SECRET in out.prompt and "EXACT_1" not in out.prompt
 
 
@@ -387,7 +387,8 @@ async def test_the_fix_judge_setting_route(tmp_path, monkeypatch):
     import config_writer
     from routes import prompt_programs as route
 
-    runtime = type("S", (), {"fluent": config.FluentConfig()})()
+    monkeypatch.delenv("STIMMA_FLUENT_FIX_MODEL", raising=False)  # the config decides here
+    runtime = type("S", (), {"fluent": config.FluentConfig(fix_model="")})()  # saved as off
     written = []
     monkeypatch.setattr(config, "get_settings", lambda: runtime)
     monkeypatch.setattr(config_writer, "patch_global_section", lambda section, value: written.append((section, value)))

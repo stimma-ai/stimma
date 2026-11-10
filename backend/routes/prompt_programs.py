@@ -189,14 +189,21 @@ async def preview(req: PreviewRequest) -> Dict[str, Any]:
 # --------------------------------------------------------------------------- the fix judge
 
 class FixJudgeRequest(BaseModel):
-    model: str = ""   # a model directory on this machine; empty turns the fix pass off
+    # "default" (the pinned pick judge), a model directory on this machine, or empty /
+    # "off" to turn the fix pass off
+    model: str = ""
 
 
 def _fix_judge_status(model: str, threads: int) -> Dict[str, Any]:
-    """Loads the model (once) to say whether it works."""
-    from prompt_programs.fix import FixJudgeUnavailable, fix_judge
-    if not model:
-        return {"model": "", "status": "off"}
+    """The pinned judge's state (never starts its download), or, for a model directory,
+    loads it (once) to say whether it works."""
+    from prompt_programs import pick_judge
+    from prompt_programs.fix import FixJudgeUnavailable, fix_judge, fix_mode
+    mode = fix_mode(model)
+    if mode == "off":
+        return {"model": model, "status": "off"}
+    if mode == "default":
+        return {"model": model, **pick_judge.status()}
     try:
         j = fix_judge(model, threads)
     except FixJudgeUnavailable as e:

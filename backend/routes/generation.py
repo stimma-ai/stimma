@@ -649,12 +649,17 @@ def hot_draw_signature(entry: Dict[str, Any], program_opts: Dict[str, Any], *, t
     submit with the same signature."""
     import dataclasses
     import hashlib
+    from prompt_programs.fix import judge_identity
     from prompt_programs.judge import settings
 
+    cfg = settings()
     payload = {
         "entry": entry, "pins": program_opts.get("pins") or {}, "fixed": program_opts.get("fixed") or {},
         "edits": program_opts.get("edits") or {}, "triggers": bool(triggers), "profile_id": profile_id,
-        "project_id": project_id, "settings": dataclasses.asdict(settings()),
+        "project_id": project_id, "settings": dataclasses.asdict(cfg),
+        # the judge's version and readiness: draws made unjudged while it downloaded
+        # aren't served once it's ready, and a new judge version never serves old draws
+        "judge": judge_identity(cfg),
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 

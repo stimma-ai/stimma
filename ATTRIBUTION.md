@@ -64,6 +64,7 @@ license:
 | [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) | HKU / TikTok | Depth estimation for guided generation | See upstream repository |
 | [CLIP ViT-B/32](https://github.com/openai/CLIP) (ONNX via [onnx_clip](https://github.com/lakeraai/onnx_clip)) | OpenAI | Visual similarity indexing and search | MIT |
 | [RTMPose / DWPose](https://github.com/open-mmlab/mmpose) | OpenMMLab | Pose estimation for guided generation | Apache-2.0 |
+| Pick judge (fine-tuned and 8-bit quantized from [Ettin reranker 150M](https://huggingface.co/cross-encoder/ettin-reranker-150m-v1)) | Stimma (base model: cross-encoder / Sentence Transformers) | Checking that drawn prompt choices fit together | Apache-2.0 |
 | Lineart preprocessors ([informative-drawings](https://github.com/carolineec/informative-drawings), [Anime2Sketch](https://github.com/Mukosame/Anime2Sketch) lineages used by ControlNet preprocessing) | Various | Line-art extraction for guided generation | See upstream repositories |
 
 ## Fonts

@@ -22,6 +22,7 @@ RUNTIME_IMPORTS = (
     "scipy",
     "skimage",
     "sqlalchemy",
+    "tokenizers",
 )
 
 
