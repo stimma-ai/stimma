@@ -68,10 +68,9 @@ def program_http_error(e: Exception, failed: str = "program_failed") -> Optional
         if getattr(e, "problems", ""):
             detail["problems"] = e.problems  # what the writer was told: for the dev panel
         return HTTPException(status_code=422, detail=detail)
-    if isinstance(e, LLMNotConfiguredError):
-        return HTTPException(status_code=424, detail={"code": "llm_not_configured", "message": str(e)})
-    if isinstance(e, LLMUnavailableError):
-        return HTTPException(status_code=424, detail={"code": "llm_unavailable", "message": str(e)})
+    if isinstance(e, LLMUnavailableError):  # its code says which: not set up, no balance, unreachable
+        code = "llm_not_configured" if isinstance(e, LLMNotConfiguredError) else (e.code or "llm_unavailable")
+        return HTTPException(status_code=424, detail={"code": code, "message": str(e)})
     return None
 
 

@@ -739,7 +739,8 @@ class TestWriterDown:
             asyncio.run(_run_prompt_program(PROMPT, {}, {"enabled": True}, tool_id="t", prompt_options={},
                                             ctx={"model": "m", "mode": "prose", "schema_props": {}, "enhance": {}},
                                             project_id=None, profile_id="p"))
-        assert e.value.status_code == 424 and "Generation was not started" in e.value.detail
+        assert e.value.status_code == 424 and e.value.detail["code"] == "llm_unavailable"
+        assert "Generation was not started" in e.value.detail["message"]
 
 
 class TestPlainFailures:

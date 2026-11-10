@@ -588,7 +588,7 @@ async def _run_prompt_program(
     submit's generator instance, served a draw its pool made ahead when one is current."""
     from llm_resolver import LLMUnavailableError
     from prompt_programs.fix import prompt_view, realize_and_fix
-    from prompt_programs.prepare import ProgramError, draw_seed, ensure_program, writer_failure
+    from prompt_programs.prepare import PrepareTimeout, ProgramError, draw_seed, ensure_program, writer_failure
 
     try:
         entry = await ensure_program(
@@ -613,18 +613,21 @@ async def _run_prompt_program(
                 realize_and_fix, entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"),
                 fixed=program_opts.get("fixed"), edits=program_opts.get("edits"), triggers=lora_triggers,
                 profile_id=profile_id, project_id=project_id, revision=program_opts.get("revision"))
-    except ProgramError as e:
-        raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
-    except LLMUnavailableError as e:
-        raise HTTPException(status_code=424, detail=f"Generation was not started: {e}") from None
     except Exception as e:
         # The chat model failing to answer (unreachable, a provider error) is a 424, never a
-        # 500 with a crash report on every submit of a generate-forever lane.
-        failure = writer_failure(e)
+        # 500 with a crash report on every submit of a generate-forever lane. The code is the
+        # one /prompt-programs/prepare answers with, so the client says it the same way.
+        failure = e if isinstance(e, (ProgramError, LLMUnavailableError)) else writer_failure(e)
         if failure is None:
             raise
-        status = 422 if isinstance(failure, ProgramError) else 424
-        raise HTTPException(status_code=status, detail=f"Generation was not started: {failure}") from None
+        if isinstance(failure, ProgramError):
+            status, code = 422, getattr(failure, "code", "program_failed")
+            if isinstance(failure, PrepareTimeout):
+                code = "prepare_timeout"
+        else:
+            status, code = 424, getattr(failure, "code", "llm_unavailable")
+        raise HTTPException(status_code=status,
+                            detail={"code": code, "message": f"Generation was not started: {failure}"}) from None
     by_name = {lo.get("name"): lo.get("path") for lo in entry.get("loras") or [] if isinstance(lo, dict)}
     controlled = sorted({by_name[n] for names in (entry.get("lora_choices") or {}).values() for n in names if by_name.get(n)})
     record = {"key": entry["key"], "mode": entry.get("mode"), "elaborate": entry.get("elaborate", True),
