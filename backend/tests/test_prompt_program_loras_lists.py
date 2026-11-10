@@ -14,39 +14,39 @@ async def fake_style(*a, **kw):
     return "STYLE GUIDE: write rich prose.", []
 
 LORAS = [
-    LoraInfo("KREA2 bodyshop flatchest v1", "k/flat.safetensors", 0.7, ""),
-    LoraInfo("PornMaster Flat chest & Innie krea2 V1", "k/pm.safetensors", 0.8, ""),
-    LoraInfo("KREA2 bodyshop torpedo v1", "k/torpedo.safetensors", 0.6, ""),
-    LoraInfo("KREA2 bodyshop acups v1", "k/acups.safetensors", 0.6, "acupz"),
-    LoraInfo("KREA2 bodyshop bcups v1", "k/bcups.safetensors", 0.6, ""),
+    LoraInfo("KREA2 hairshop bobcut v1", "k/bobcut.safetensors", 0.7, ""),
+    LoraInfo("StyleMaster Bob cut & Fringe krea2 V1", "k/sm.safetensors", 0.8, ""),
+    LoraInfo("KREA2 hairshop pixie v1", "k/pixie.safetensors", 0.6, ""),
+    LoraInfo("KREA2 hairshop curly v1", "k/curly.safetensors", 0.6, "curlz"),
+    LoraInfo("KREA2 hairshop braids v1", "k/braids.safetensors", 0.6, ""),
 ]
 BY_KEY = {_lora_key(lo.name): lo for lo in LORAS}
 
 
 class TestLoraNames:
     def test_short_names_resolve_to_the_one_listed_name(self):
-        assert lora_names(["flatchest", "torpedo", "KREA2 bodyshop acups v1"], BY_KEY) == [
-            "KREA2 bodyshop flatchest v1", "KREA2 bodyshop torpedo v1", "KREA2 bodyshop acups v1"]
+        assert lora_names(["bobcut", "pixie", "KREA2 hairshop curly v1"], BY_KEY) == [
+            "KREA2 hairshop bobcut v1", "KREA2 hairshop pixie v1", "KREA2 hairshop curly v1"]
 
     def test_ambiguous_or_unknown_names_are_dropped(self):
-        # "bodyshop" names four LoRAs; "ghostnipples" names none
-        assert lora_names(["bodyshop", "ghostnipples", "bcups"], BY_KEY) == ["KREA2 bodyshop bcups v1"]
+        # "hairshop" names four LoRAs; "mohawk" names none
+        assert lora_names(["hairshop", "mohawk", "braids"], BY_KEY) == ["KREA2 hairshop braids v1"]
 
     def test_none_known_still_fails(self):
         with pytest.raises(ProgramError, match="none of"):
-            run('b = pick_lora("b", ["ghostnipples"])\nemit("x")', 1, None, LORAS, set())
+            run('b = pick_lora("b", ["mohawk"])\nemit("x")', 1, None, LORAS, set())
 
     def test_short_names_draw_and_turn_on_the_listed_lora(self):
-        src = 'b = pick_lora("breasts", ["flatchest", "torpedo"], label="Breasts")\nemit("Two friends on a sofa.")\n'
+        src = 'b = pick_lora("hair", ["bobcut", "pixie"], label="Hair")\nemit("Two friends on a sofa.")\n'
         seen = set()
         for s in range(30):
             r = run(src, s, None, LORAS, set())
             seen.add(r.loras[0].name)
-            assert r.loras[0].path in ("k/flat.safetensors", "k/torpedo.safetensors")
-        assert seen == {"KREA2 bodyshop flatchest v1", "KREA2 bodyshop torpedo v1"}
+            assert r.loras[0].path in ("k/bobcut.safetensors", "k/pixie.safetensors")
+        assert seen == {"KREA2 hairshop bobcut v1", "KREA2 hairshop pixie v1"}
 
 
-SPARK_EMIT = '''b = pick_lora("breast_lora", ["KREA2 bodyshop acups v1", "KREA2 bodyshop torpedo v1"], label="Breasts", line=5)
+SPARK_EMIT = '''b = pick_lora("hair_lora", ["KREA2 hairshop curly v1", "KREA2 hairshop pixie v1"], label="Hair", line=5)
 emit("Two friends on a beige sofa, harsh flash.", "\\n", b)
 '''
 
@@ -55,28 +55,28 @@ class TestLoraNameNeverEmitted:
     def test_emitting_the_pick_writes_nothing(self):
         for s in range(20):
             r = run(SPARK_EMIT, s, None, LORAS, set())
-            assert "bodyshop" not in r.prompt.lower()
-            assert r.prompt.startswith(("acupz, Two friends", "Two friends"))  # the trigger still goes in
+            assert "hairshop" not in r.prompt.lower()
+            assert r.prompt.startswith(("curlz, Two friends", "Two friends"))  # the trigger still goes in
             assert len(r.loras) == 1
 
     def test_the_value_still_compares_and_looks_up(self):
-        src = ('b = pick_lora("b", ["acups", "torpedo"])\n'
-               'words = {"KREA2 bodyshop acups v1": "small chest"}.get(b, "full chest")\n'
+        src = ('b = pick_lora("b", ["curly", "pixie"])\n'
+               'words = {"KREA2 hairshop curly v1": "curly hair"}.get(b, "straight hair")\n'
                'emit("A woman,", words)\n')
         got = {run(src, s, None, LORAS, set()).prompt for s in range(30)}
-        assert {p.removeprefix("acupz, ") for p in got} == {"A woman, small chest", "A woman, full chest"}
+        assert {p.removeprefix("curlz, ") for p in got} == {"A woman, curly hair", "A woman, straight hair"}
 
     def test_draw_path_skips_it_too(self):
-        src = ('b = pick_lora("b", ["acups", "torpedo"], phase=1)\n'
+        src = ('b = pick_lora("b", ["curly", "pixie"], phase=1)\n'
                'emit("Two friends on a beige sofa.", b)\n')
         for s in range(10):
             r = draw(src, s, None, LORAS, set())
-            assert "bodyshop" not in r.prompt.lower() and r.loras
+            assert "hairshop" not in r.prompt.lower() and r.loras
 
     def test_validate_flags_a_name_written_into_text(self):
-        src = ('b = pick_lora("b", ["acups", "torpedo"], line=1)\n'
+        src = ('b = pick_lora("b", ["curly", "pixie"], line=1)\n'
                'emit(f"Two friends, {b} style.")\n')
-        problems = prep.validate(src, "two friends, pick a breast lora: acups or torpedo", LORAS, set())["problems"]
+        problems = prep.validate(src, "two friends, pick a hair lora: curly or pixie", LORAS, set())["problems"]
         assert any("LoRA names" in p for p in problems)
 
 
@@ -135,10 +135,6 @@ def slow_model(monkeypatch, tmp_path):
     async def fake_candidates(tool_id, items, profile_id):
         return [], {}
 
-    async def fake_upsample(*a, **kw):
-        return "A woman waiting for a train on a [{rainy|foggy}] morning."
-
-    monkeypatch.setattr(prep, "upsample", fake_upsample)
     monkeypatch.setattr(prep, "writer_style", fake_style)
     monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
     monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
@@ -230,47 +226,47 @@ class TestPromptOwnsItsLoras:
     def test_only_the_picked_one_of_the_prompts_loras_runs(self):
         from routes.generation import _apply_program_run
         updated = {"prompt": "x", "loras": [
-            {"lora": "k/flat.safetensors", "weight": 0.7},      # on in the panel, one the prompt chooses among
+            {"lora": "k/bobcut.safetensors", "weight": 0.7},      # on in the panel, one the prompt chooses among
             {"lora": "k/phone.safetensors", "weight": 1.0},     # on in the panel, not the prompt's
         ]}
-        record = {"key": "k", "loras": [{"path": "k/torpedo.safetensors", "weight": 0.6}],
-                  "lora_controlled": ["k/flat.safetensors", "k/torpedo.safetensors", "k/acups.safetensors"]}
+        record = {"key": "k", "loras": [{"path": "k/pixie.safetensors", "weight": 0.6}],
+                  "lora_controlled": ["k/bobcut.safetensors", "k/pixie.safetensors", "k/curly.safetensors"]}
         _apply_program_run(updated, record, {})
-        assert [x["lora"] for x in updated["loras"]] == ["k/phone.safetensors", "k/torpedo.safetensors"]
+        assert [x["lora"] for x in updated["loras"]] == ["k/phone.safetensors", "k/pixie.safetensors"]
 
     def test_a_picked_lora_already_on_stays_once(self):
         from routes.generation import _apply_program_run
-        updated = {"prompt": "x", "loras": [{"lora": "k/flat.safetensors", "weight": 0.7}]}
-        record = {"key": "k", "loras": [{"path": "k/flat.safetensors", "weight": 0.7}], "lora_controlled": ["k/flat.safetensors"]}
+        updated = {"prompt": "x", "loras": [{"lora": "k/bobcut.safetensors", "weight": 0.7}]}
+        record = {"key": "k", "loras": [{"path": "k/bobcut.safetensors", "weight": 0.7}], "lora_controlled": ["k/bobcut.safetensors"]}
         _apply_program_run(updated, record, {})
-        assert [x["lora"] for x in updated["loras"]] == ["k/flat.safetensors"]
+        assert [x["lora"] for x in updated["loras"]] == ["k/bobcut.safetensors"]
 
     def test_records_without_the_list_keep_the_old_behaviour(self):
         from routes.generation import _apply_program_run
-        updated = {"prompt": "x", "loras": [{"lora": "k/flat.safetensors", "weight": 0.7}]}
-        _apply_program_run(updated, {"key": "k", "loras": [{"path": "k/torpedo.safetensors", "weight": 0.6}]}, {})
-        assert [x["lora"] for x in updated["loras"]] == ["k/flat.safetensors", "k/torpedo.safetensors"]
+        updated = {"prompt": "x", "loras": [{"lora": "k/bobcut.safetensors", "weight": 0.7}]}
+        _apply_program_run(updated, {"key": "k", "loras": [{"path": "k/pixie.safetensors", "weight": 0.6}]}, {})
+        assert [x["lora"] for x in updated["loras"]] == ["k/bobcut.safetensors", "k/pixie.safetensors"]
 
 
 class TestOneLoraPickPerSet:
-    PROMPT = "Two friends on a sofa. Pick a breast lora per photo: acups, torpedo, bcups."
+    PROMPT = "Two friends on a sofa. Pick a hair lora per photo: curly, pixie, braids."
 
     def test_two_picks_from_the_same_set_are_sent_back(self):
-        src = ('a = pick_lora("g1_lora", ["acups", "torpedo", "bcups"], line=1)\n'
-               'b = pick_lora("g2_lora", ["acups", "torpedo", "bcups"], line=1)\n'
+        src = ('a = pick_lora("g1_lora", ["curly", "pixie", "braids"], line=1)\n'
+               'b = pick_lora("g2_lora", ["curly", "pixie", "braids"], line=1)\n'
                'emit("Two friends on a sofa.")\n')
         problems = prep.validate(src, self.PROMPT, LORAS, set())["problems"]
         assert any("same LoRAs" in p for p in problems)
 
     def test_text_that_names_the_loras_is_sent_back(self):
-        src = ('b = pick_lora("breasts", ["acups", "torpedo", "bcups"], line=1)\n'
-               't = pick("breast_type", ["acups", "torpedo", "bcups"], label="Breasts", line=1)\n'
-               'emit("Two friends on a sofa, her", t, "breasts.")\n')
+        src = ('b = pick_lora("hair", ["curly", "pixie", "braids"], line=1)\n'
+               't = pick("hair_type", ["curly", "pixie", "braids"], label="Hair", line=1)\n'
+               'emit("Two friends on a sofa, her", t, "hair.")\n')
         problems = prep.validate(src, self.PROMPT, LORAS, set())["notes"]
         assert any("names the same things" in p for p in problems)
 
     def test_one_pick_and_plain_text_pass_those_checks(self):
-        src = ('b = pick_lora("breasts", ["acups", "torpedo", "bcups"], line=1)\n'
+        src = ('b = pick_lora("hair", ["curly", "pixie", "braids"], line=1)\n'
                'emit("Two friends on a sofa.")\n')
         problems = prep.validate(src, self.PROMPT, LORAS, set())["problems"]
         assert not any("same LoRAs" in p or "names the same things" in p for p in problems)
@@ -285,8 +281,8 @@ class TestOneLoraPickPerSet:
 
     def test_picks_in_separate_branches_dont_stack(self):
         src = ('mood = pick("mood", ["calm", "wild"], source="list", line=1)\n'
-               'if mood == "calm":\n    a = pick_lora("calm_lora", ["acups", "torpedo"], line=1)\n'
-               'else:\n    b = pick_lora("wild_lora", ["acups", "bcups"], line=1)\n'
+               'if mood == "calm":\n    a = pick_lora("calm_lora", ["curly", "pixie"], line=1)\n'
+               'else:\n    b = pick_lora("wild_lora", ["curly", "braids"], line=1)\n'
                'emit("A", mood, "portrait.")\n')
         problems = prep.validate(src, "A {calm|wild} portrait, pick a lora", LORAS, set())["problems"]
         assert not any("same LoRAs" in p for p in problems)
@@ -325,8 +321,8 @@ class TestSubjectsGroup:
 class TestConditionalStacking:
     def test_a_sometimes_second_pick_is_caught(self):
         src = ('mood = pick("mood", ["calm", "wild", "sad", "happy", "bored"], source="list", line=1)\n'
-               'a = pick_lora("main", ["acups", "torpedo"], line=1)\n'
-               'if mood == "calm":\n    b = pick_lora("extra", ["acups", "bcups"], line=1)\n'
+               'a = pick_lora("main", ["curly", "pixie"], line=1)\n'
+               'if mood == "calm":\n    b = pick_lora("extra", ["curly", "braids"], line=1)\n'
                'emit("A", mood, "portrait.")\n')
         problems = prep.validate(src, "A {calm|wild|sad|happy|bored} portrait, pick a lora", LORAS, set())["problems"]
         assert any("same LoRAs" in p for p in problems)
@@ -346,9 +342,9 @@ class TestSubjectCells:
 
 class TestLorasShownToTheModels:
     def test_writer_sees_choosable_loras_with_their_words_and_notes_spelled_out(self):
-        loras = [LoraInfo("KREA2 bodyshop acups v1", "k/a", 0.6, ""), LoraInfo("Wolf cut", "k/w", 0.9, "wolfcut")]
+        loras = [LoraInfo("KREA2 hairshop curly v1", "k/a", 0.6, ""), LoraInfo("Wolf cut", "k/w", 0.9, "wolfcut")]
         msg = prep.build_user_message("pick a lora", "m", "prose", {}, loras, {"Wolf cut": "short layered hair"})
-        assert '- "KREA2 bodyshop acups v1" (trigger words: none; notes: none)' in msg
+        assert '- "KREA2 hairshop curly v1" (trigger words: none; notes: none)' in msg
         assert '- "Wolf cut" (trigger words: "wolfcut"; notes: short layered hair)' in msg
         assert "never in emit()" in msg
 
@@ -358,11 +354,6 @@ class TestLorasShownToTheModels:
         g = _lora_guidance([{"name": "ultra real krea2", "trigger_words": [], "notes": ""},
                             {"name": "Wolf cut", "trigger_words": ["wolfcut"], "notes": ""}])
         assert "ultra real krea2" not in g and '"wolfcut"' in g and "never write a LoRA's name" in g
-
-    def test_names_the_enhancer_slipped_in_are_cut(self):
-        loras = [LoraInfo("ultra real krea2", "k/u"), LoraInfo("KNP 000003000", "k/k"), LoraInfo("facial krea", "k/f")]
-        text = "A woman in a kitchen, ultra real krea2, KNP 000003000, facial krea, harsh flash."
-        assert prep.drop_lora_names(text, loras, "a woman, pick a lora") == "A woman in a kitchen, harsh flash."
 
     def test_validate_flags_any_listed_lora_name_in_the_text(self):
         loras = LORAS + [LoraInfo("ultra real krea2", "k/u")]
@@ -380,7 +371,7 @@ class TestLorasShownToTheModels:
         async def fake_candidates(tool_id, items, profile_id):
             return [LoraInfo("ultra real krea2", "k/u", 0.8, "", on=True),
                     LoraInfo("Wolf cut", "k/w", 0.9, "wolfcut", on=True),
-                    LoraInfo("KREA2 bodyshop acups v1", "k/a", 0.6, "", on=False)], {}
+                    LoraInfo("KREA2 hairshop curly v1", "k/a", 0.6, "", on=False)], {}
 
         async def ask(messages, project_id, max_tokens=4096):
             return '```python\nemit("A woman in a kitchen.")\n```'
@@ -400,21 +391,21 @@ class TestLorasShownToTheModels:
 class TestPlainWordLoraNames:
     def test_plain_word_names_leave_the_text_alone(self):
         loras = [LoraInfo("Dress", "k/d"), LoraInfo("Detail", "k/x"), LoraInfo("Curtain bangs", "k/c")]
-        text = "A woman wearing a dress, detailed portrait, curtain bangs."
-        assert prep.drop_lora_names(text, loras, "a woman, pick a lora") == text
         src = 'emit("A woman wearing a dress, detailed portrait, curtain bangs.")\n'
         problems = prep.validate(src, "a woman wearing a dress, pick a lora", loras, set())["problems"]
         assert not any("LoRA names" in p for p in problems)
 
-    def test_name_like_names_are_cut_whole_words_only(self):
-        loras = [LoraInfo("facial krea", "k/f"), LoraInfo("KNP 000003000", "k/k")]
-        assert prep.drop_lora_names("Soft light, facial krea, KNP 000003000.", loras, "x") == "Soft light."
-        assert prep.drop_lora_names("prefacial kreative", loras, "x") == "prefacial kreative"
+    def test_name_like_names_are_flagged_whole_words_only(self):
+        loras = [LoraInfo("studio krea", "k/f"), LoraInfo("XYZ 000003000", "k/k")]
+
+        def flagged(text):
+            src = f'emit("{text}")\n'
+            return any("LoRA names" in p for p in prep.validate(src, "a woman, pick a lora", loras, set())["problems"])
+        assert flagged("Soft light, studio krea, XYZ 000003000.")
+        assert not flagged("prestudio kreative")
 
     def test_ordinary_words_that_are_model_names_are_kept(self):
         loras = [LoraInfo("XL", "k/xl"), LoraInfo("Pony", "k/p"), LoraInfo("Flux", "k/f")]
-        text = "A woman wearing an XL shirt, riding a pony, everything in flux."
-        assert prep.drop_lora_names(text, loras, "a woman, pick a lora") == text
         src = 'emit("A woman wearing an XL shirt, riding a pony.")\n'
         problems = prep.validate(src, "a woman in an oversized shirt, pick a lora", loras, set())["problems"]
         assert not any("LoRA names" in p for p in problems)

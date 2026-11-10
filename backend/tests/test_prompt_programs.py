@@ -139,24 +139,13 @@ def stub(monkeypatch, tmp_path):
         return list(LORAS), {}
 
     replies = []
-    enhanced = {"text": "A woman waiting for a train on a [{rainy|foggy|bright}] morning. [EXACT_1]"}
-
-    async def fake_upsample(prompt, ctx, instructions, lora_context, project_id, profile_id):
-        calls.append([{"role": "upsample", "content": prompt}])
-        return enhanced["text"]
-
-    monkeypatch.setattr(prep, "upsample", fake_upsample)
     monkeypatch.setattr(prep, "writer_style", fake_style)
     monkeypatch.setattr(prep, "_ask_model", fake_ask)
     monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
     monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
     monkeypatch.setattr(prep, "_writer_endpoint", text_endpoint)  # these fake the text protocol's _ask_model
     monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
-    stub_state["enhanced"] = enhanced
     return calls, replies
-
-
-stub_state = {}
 
 
 def ctx(schema):
@@ -262,9 +251,6 @@ class TestPrepare:
         replies.append(f"```python\n{TRAIN_M}```")
         entry = await self._ensure()
         assert entry["attempts"] == 1 and any('pick("clothing") appears more than once' in w for w in entry["warnings"])
-
-    def test_the_enhancer_writes_examples_for_smart_wildcards(self):
-        assert prep._for_enhancer("a woman with {{hair style}} on a {red|blue} wall") == "a woman with \u27e8hair style\u27e9 on a {red|blue} wall"
 
     def test_plain_example_drops_instruction_lines(self):
         assert prep.plain_example("a {{hair}} woman\n# vary her mood\non a {red|blue} wall") == "a [{{hair}}] woman\non a [{red|blue}] wall"
@@ -671,12 +657,6 @@ class TestFastPrepare:
         await self._ensure()  # cached: nothing new
         patched = await self._ensure(PROMPT.replace("{rainy|foggy|bright}", "{rainy|bright}"))
         assert heard == [first["key"], patched["key"]]
-
-    def test_the_placeholder_note_is_only_for_prompts_with_placeholders(self):
-        assert not prep._needs_placeholder_note("A lifeguard sitting in a chair")
-        assert prep._needs_placeholder_note("A {red|blue} car")
-        assert prep._needs_placeholder_note("A sign that says [EXACT_1]")
-        assert prep._needs_placeholder_note("A chef\n# vary her age")
 
     def test_edit_kinds(self):
         assert prep.edit_kind("a {red|blue} car", "a {red|blue|green} car") == "lists"

@@ -180,59 +180,10 @@ def build_user_message(prompt: str, model_name: Optional[str], mode: str,
     return "\n".join(parts)
 
 
-_PLACEHOLDER_NOTE = (
-    "This prompt will become a template: some details vary from image to image. Keep every "
-    "[...] placeholder exactly where it belongs in the sentence. Words in angle brackets, like "
-    "\u27e8hairstyle\u27e9, name something that changes from image to image: write one concrete, "
-    "vivid example of each in its place, without the brackets, and describe it only there. "
-    "Where the prompt asks for something to vary, write one concrete example of it. Add no "
-    "placeholders or brackets of your own: write everything else out in full."
-)
-
-
-def _needs_placeholder_note(prompt: str) -> bool:
-    """Only prompts with placeholders or # lines need the note; without any, it invites
-    the enhancer to invent placeholders ("[location]") of its own."""
-    return bool(re.search(r"[\[{\u27e8]", prompt)) or any(ln.lstrip().startswith("#") for ln in prompt.splitlines())
-
-
-def _for_enhancer(prompt: str) -> str:
-    """{{name}} becomes \u27e8name\u27e9 for the enhancer, which writes one example of it in place.
-    Weak enhancers asked to keep a {{name}} placeholder also describe it, then dump the
-    placeholders at the end; writing the example is what they do well."""
-    return re.sub(r"\{\{([^{}]+)\}\}", lambda m: "\u27e8" + m.group(1).strip() + "\u27e9", prompt)
-
-
 def plain_example(prompt: str) -> str:
     """The user's text without its # lines, with the varying spots protected."""
     lines = [ln for ln in prompt.splitlines() if not ln.lstrip().startswith("#")]
     return protect_variable_spots("\n".join(lines).strip())
-
-
-_KEEP_WORDS = """Rewrite an image prompt so it reads naturally, keeping the user's words.
-
-- Keep every word the user wrote and their order where you can. Add only the small words a
-  reader needs: "a", "and", "wearing", "with", commas. Add no description, detail, style or mood.
-- Words in angle brackets, like \u27e8hairstyle\u27e9, name something that changes from image to
-  image. Replace each with one short, concrete example of it (a few words), in its place.
-- Keep every [{a|b}] and [text] placeholder exactly as written, brackets included.
-- Lines starting with # are instructions for you: follow them, and leave them out.
-{format}
-Reply with only the rewritten prompt."""
-
-_KEEP_FORMAT = {
-    "keyword": "- This model reads comma-separated tags, not sentences: write the prompt as tags.",
-}
-
-
-async def keep_words(prompt: str, mode: str, project_id: Optional[int]) -> str:
-    """Enhance off, step one: the user's own words as one readable example, with an
-    example written for each smart wildcard. Nothing is added beyond joining words."""
-    system = _KEEP_WORDS.replace("{format}", _KEEP_FORMAT.get(mode, "- Write it as plain sentences."))
-    reply = await _ask_model([{"role": "system", "content": system},
-                              {"role": "user", "content": protect_variable_spots(_for_enhancer(prompt))}], project_id)
-    out = re.sub(r"^```\w*\s*|\s*```$", "", (reply or "").strip()).strip().strip('"')
-    return out.replace("\u27e8", "").replace("\u27e9", "") or plain_example(prompt)
 
 
 def protect_variable_spots(prompt: str) -> str:
@@ -240,23 +191,6 @@ def protect_variable_spots(prompt: str) -> str:
     rich text around them and leaves them where they are."""
     s = re.sub(r"\{\{([^{}]+)\}\}", lambda m: "[{{" + m.group(1) + "}}]", prompt)
     return re.sub(r"(?<![\[{])\{([^{}]+\|[^{}]+)\}(?![}\]])", lambda m: "[{" + m.group(1) + "}]", s)
-
-
-async def upsample(prompt: str, ctx: Dict[str, Any], instructions: str, lora_context: List[Dict[str, Any]],
-                   project_id: Optional[int], profile_id: Optional[str]) -> str:
-    """Step one: the regular per-model enhancer (same style, checks and context as the
-    per-image path) writes one rich example of the prompt."""
-    from database_registry import get_database_registry
-    from prompt_pipeline import _improve_with_verbatim_protection
-
-    db = get_database_registry().get_database(profile_id)
-    note = _PLACEHOLDER_NOTE if _needs_placeholder_note(prompt) else ""
-    out = await _improve_with_verbatim_protection(
-        db, protect_variable_spots(_for_enhancer(prompt)),
-        instructions="\n".join(x for x in (instructions, note) if x),
-        model=ctx.get("model"), project_id=project_id, lora_context=lora_context, **ctx["enhance"],
-    )
-    return out.replace("\u27e8", "").replace("\u27e9", "")
 
 
 async def _ask_model(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int = 4096) -> str:
@@ -950,37 +884,20 @@ def realized_text(prompt: str) -> str:
     return re.sub(r"\s+", " ", _VERBATIM.sub(lambda m: m.group(1), prompt)).strip()
 
 
-def _word_count(text: str) -> int:
-    return len(re.findall(r"[\w'-]+", re.sub(r"\[\{.*?\}\]", " x ", text)))
-
-
 # Words that only ever name models or LoRA kinds. Not ones that are also ordinary words
 # ("XL" shirts, "pony", "in flux"): a LoRA named only that is left alone.
 _MODEL_WORDS = {"krea", "sdxl", "lora", "loras", "qwen", "hunyuan", "ltx", "hidream", "lycoris", "locon"}
 
 
 def _name_like(name: str) -> bool:
-    """A LoRA name that can't be ordinary prompt text ("ultra real krea2", "KNP 000003000",
-    "facial krea"), unlike one that is ("Dress", "Curtain bangs"): only these are cut or flagged."""
+    """A LoRA name that can't be ordinary prompt text ("ultra real krea2", "XYZ 000003000",
+    "studio krea"), unlike one that is ("Dress", "Curtain bangs"): only these are cut or flagged."""
     words = re.findall(r"[A-Za-z0-9_.]+", name)
     return any(re.search(r"\d|_", w) or w.lower() in _MODEL_WORDS for w in words)
 
 
 def _mentions(text: str, name: str) -> bool:
     return re.search(rf"(?i)(?<![\w]){re.escape(name)}(?![\w])", text) is not None
-
-
-def drop_lora_names(text: str, loras: Sequence[LoraInfo], prompt: str) -> str:
-    """LoRA names the example text picked up, cut out (unless the user wrote them): the
-    writer copies that text, and every image would carry them."""
-    for lo in sorted(loras, key=lambda x: -len(x.name)):
-        if _name_like(lo.name) and not _mentions(prompt, lo.name):
-            text = re.sub(rf"(?i)(?<![\w]){re.escape(lo.name)}(?![\w])", "", text)
-    text = re.sub(r"\s*,(\s*,)+", ",", text)   # ", ," left where a name stood
-    text = re.sub(r"\s+([,.])", r"\1", text)
-    text = re.sub(r",([.;:!?])", r"\1", text)
-    text = re.sub(r"^\s*,\s*", "", text)
-    return re.sub(r"[ \t]{2,}", " ", text).strip()
 
 
 def _tidy_cut(text: str) -> str:
@@ -1035,7 +952,7 @@ def fix_trigger_words(source: str, loras: Sequence[LoraInfo], prompt: str) -> Tu
 
 
 def _lora_marks(names: Sequence[str]) -> Set[str]:
-    """The word that tells each LoRA of a set apart ("acups" in "KREA2 bodyshop acups v1"),
+    """The word that tells each LoRA of a set apart ("curly" in "KREA2 hairshop curly v1"),
     with the words they all share left out."""
     words = [_words(n) for n in names]
     common = set.intersection(*words) if words else set()
@@ -1070,20 +987,14 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
     samples = [run(source, s, None, loras, params) for s in (11, 23, 37, 51)]
     problems: List[str] = []   # broken or visibly wrong: one repair, as line edits
     notes: List[str] = []      # quality hints: logged and shown in dev mode, never a retry
-    if enhanced:
-        want = _word_count(enhanced)
-        got = min(_word_count(realized_text(r.prompt)) for r in samples)
-        if elaborate and want >= 20 and got < 0.6 * want:
-            notes.append(f"The prompts your program emits are too short ({got} words; the enhanced prompt has {want}). "
-                            "Copy the enhanced prompt's full text into emit() and only swap the parts that vary.")
-        if not elaborate:  # kept words: every word of the example outside the picks survives
-            in_options = set().union(*(_words(o) for c in info["choices"] for o in c.get("options") or []), set())
-            fixed = _words(re.sub(r"\[\{.*?\}\]", " ", enhanced)) - in_options
-            emitted = set().union(*(_words(r.prompt) for r in samples))
-            lost = sorted(fixed - emitted)
-            if lost:
-                notes.append("Keep the user's words: these are missing from what you emit: "
-                                + ", ".join(f'"{w}"' for w in lost) + ". Copy the prompt's text into emit() as written.")
+    if enhanced and not elaborate:  # kept words: every word of the example outside the picks survives
+        in_options = set().union(*(_words(o) for c in info["choices"] for o in c.get("options") or []), set())
+        fixed = _words(re.sub(r"\[\{.*?\}\]", " ", enhanced)) - in_options
+        emitted = set().union(*(_words(r.prompt) for r in samples))
+        lost = sorted(fixed - emitted)
+        if lost:
+            notes.append("Keep the user's words: these are missing from what you emit: "
+                         + ", ".join(f'"{w}"' for w in lost) + ". Copy the prompt's text into emit() as written.")
     if any(re.search(r"<<<|>>>|^\s*[\"']{3}", r.prompt) for r in samples):
         problems.append("Emit only the prompt text itself, with no quote marks or <<< >>> around it.")
     if any(re.search(r"\{[^{}]*\|[^{}]*\}", r.prompt) or "[{" in r.prompt for r in samples):
@@ -1137,7 +1048,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
             if c["id"] in named:
                 continue
             opts = {o.lower().strip() for o in c.get("options") or []}
-            # a list made of the LoRAs' own names (acups, torpedo, tuberous…), not one that
+            # a list made of the LoRAs' own names (curly, pixie, braids…), not one that
             # happens to share a word or two with them ("long", "short")
             if c.get("kind") == "pick" and len(opts) >= 3 and opts <= marks:
                 named.add(c["id"])
