@@ -1679,28 +1679,25 @@ def edit_kind(old: str, new: str) -> Optional[str]:
     """How a prompt edit can be applied to the old prompt's program:
     "same" (only [exact text] changed: the program is unchanged), "lists" (only the items
     of {a|b} lists changed: rewritten in code), "text" (a small edit the writer patches),
-    or None (prepare anew)."""
+    or None (prepare anew: the new prompt is empty). Whether a text change is an edit of
+    this prompt or a different prompt is the writer's call: it answers START OVER (or calls
+    start_over) for a different prompt. Code never judges it from the words."""
     if old == new:
         return "same"
     f0, l0 = _lists_and_frame(old)
     f1, l1 = _lists_and_frame(new)
     if f0 == f1 and len(l0) == len(l1):
         return "lists"
-    # Whether a text change is an edit of this prompt or a different prompt is the patch
-    # writer's call (it can answer START OVER). Here only prompts that share nothing much
-    # are ruled out, so an unrelated prompt never costs a patch call.
-    changes = prompt_changes(old, new)
-    a, b = set(_prompt_words(old)), set(_prompt_words(new))
-    if changes and a and b and len(a & b) / len(a | b) >= 0.3:
-        return "text"
-    return None
+    if not old.strip() or not new.strip():
+        return None
+    return "text"
 
 
 def _patch_base(store: ProgramStore, context: str, prompt: str, base_key: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """The program this prompt is an edit of. The one the editor says it showed (base_key)
-    when it was prepared in this context and this prompt is an edit of it; otherwise the
-    recent program in this context whose prompt is closest to this one (a guess: it can
-    pick a sibling the user wasn't looking at)."""
+    """The program this prompt may be an edit of (the writer decides whether it is). The one
+    the editor says it showed (base_key) when it was prepared in this context; otherwise the
+    recent program in this context with the fewest changed words to this prompt (a guess: it
+    can pick a sibling the user wasn't looking at)."""
     if base_key:
         e = store.get(base_key)
         if (e and e.get("context_key") == context and e.get("version") == PREPARE_VERSION and e.get("program")

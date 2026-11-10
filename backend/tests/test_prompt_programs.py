@@ -690,7 +690,9 @@ class TestFastPrepare:
     def test_edit_kinds(self):
         assert prep.edit_kind("a {red|blue} car", "a {red|blue|green} car") == "lists"
         assert prep.edit_kind("a woman in a red coat at night", "a man in a red coat at night") == "text"
-        assert prep.edit_kind("a woman", "a dog on a skateboard in the city at dusk with fireworks") is None
+        # an unrelated prompt is still the writer's call (it answers START OVER): never judged by its words
+        assert prep.edit_kind("a woman", "a dog on a skateboard in the city at dusk with fireworks") == "text"
+        assert prep.edit_kind("a woman", "a woman") == "same" and prep.edit_kind("a woman", "  ") is None
 
 
 class TestProgramSupport:
