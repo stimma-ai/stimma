@@ -1641,6 +1641,7 @@ class SavedView(Base):
     filters = Column(String, nullable=False)  # JSON string of filter criteria
     sort_by = Column(String, nullable=False, default='created_desc')
     display_order = Column(Integer, nullable=False, default=0)  # For manual ordering
+    pinned = Column(Boolean, nullable=False, default=False, server_default='0')  # Shown in the sidebar outside Assets
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -1656,6 +1657,7 @@ class SavedView(Base):
             "filters": json.loads(self.filters) if self.filters else {},
             "sort_by": self.sort_by,
             "display_order": self.display_order,
+            "pinned": bool(self.pinned),
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }

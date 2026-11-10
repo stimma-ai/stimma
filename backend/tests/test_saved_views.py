@@ -69,6 +69,20 @@ async def test_update_saved_view(client: httpx.AsyncClient):
     assert data["sort_by"] == "oldest"
 
 
+async def test_pin_saved_view(client: httpx.AsyncClient):
+    """Views start unpinned; pinning changes nothing else and persists."""
+    view_id = _state["view_id"]
+    assert (await client.get(f"/api/saved-views/{view_id}")).json()["pinned"] is False
+    response = await client.put(f"/api/saved-views/{view_id}", json={"pinned": True})
+    assert response.status_code == 200
+    assert response.json()["pinned"] is True
+    assert response.json()["name"] == "Test View Alpha Updated"
+    listed = next(v for v in (await client.get("/api/saved-views")).json() if v["id"] == view_id)
+    assert listed["pinned"] is True
+    response = await client.put(f"/api/saved-views/{view_id}", json={"pinned": False})
+    assert response.json()["pinned"] is False
+
+
 async def test_create_duplicate_name_returns_400(client: httpx.AsyncClient):
     """POST /api/saved-views with duplicate name returns 400."""
     response = await client.post(

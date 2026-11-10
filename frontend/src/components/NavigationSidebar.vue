@@ -86,45 +86,52 @@
 
           <div class="h-3.5 flex-shrink-0 coarse:h-2" aria-hidden="true"></div>
 
-          <!-- All Assets. The chevron folds the user's saved views under it;
-               clicking the row itself still opens Assets. -->
-          <div class="group relative">
-            <button
-              @click="handleNavClick('browse')"
-              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
-              :class="[activeTab === 'browse' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '', contextSavedViews.length > 0 ? 'pr-9 coarse:pr-12' : '']"
-            >
-              <PhotoIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
-              <span>Assets</span>
-            </button>
-            <Tooltip v-if="contextSavedViews.length > 0" :text="savedViewsOpen ? 'Hide saved views' : 'Show saved views'" class="absolute right-0 top-0 bottom-0 flex items-center">
-              <button
-                type="button"
-                data-testid="saved-views-toggle"
-                class="flex h-7 w-8 items-center justify-center rounded text-content-muted transition-colors hover:text-content focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:h-11 coarse:w-11"
-                :aria-label="savedViewsOpen ? 'Hide saved views' : 'Show saved views'"
-                :aria-expanded="savedViewsOpen"
-                aria-controls="sidebar-saved-views"
-                @click.stop="toggleSavedViews"
-              >
-                <ChevronDownIcon class="h-icon-inline w-icon-inline transition-transform" :class="savedViewsOpen ? '' : '-rotate-90'" />
-              </button>
-            </Tooltip>
-          </div>
+          <!-- All Assets, then the saved views flush beneath it. Inside Assets
+               (the browser or any saved view) every view shows; elsewhere only
+               the pinned ones do. Pin from the row or its right-click menu. -->
+          <button
+            @click="handleNavClick('browse')"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
+            :class="activeTab === 'browse' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
+          >
+            <PhotoIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
+            <span>Assets</span>
+          </button>
 
-          <div v-if="savedViewsOpen && contextSavedViews.length > 0" id="sidebar-saved-views" class="flex flex-col gap-0.5 pl-4 coarse:gap-0">
+          <div
+            v-for="savedView in sidebarSavedViews"
+            :key="savedView.id"
+            class="group relative"
+            data-testid="sidebar-saved-view"
+          >
             <button
-              v-for="savedView in contextSavedViews"
-              :key="savedView.id"
               @click="openSavedView(savedView.id)"
-              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
+              @contextmenu.prevent.stop="openSavedViewMenu(savedView, $event)"
+              class="flex items-center gap-2 px-3 py-1.5 pr-8 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 coarse:pr-12 [&>:first-child]:mx-1"
               :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
               :title="displaySavedViewName(savedView.name)"
             >
               <component :is="savedViewIcon(savedView)" class="w-icon-nav h-icon-nav flex-shrink-0" />
               <span class="truncate text-sm">{{ displaySavedViewName(savedView.name) }}</span>
             </button>
+            <!-- Inside Assets a pinned view shows its pin, so you can see which
+                 views stay when you leave; otherwise the pin appears on hover. -->
+            <Tooltip :text="savedView.pinned ? 'Unpin' : 'Pin'" class="absolute right-1.5 top-1/2 -translate-y-1/2 transition-opacity" :class="savedView.pinned && inAssets ? 'opacity-70 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100 coarse:opacity-70'">
+              <button
+                type="button"
+                data-testid="saved-view-pin"
+                class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light coarse:h-11 coarse:w-11"
+                :aria-label="savedView.pinned ? 'Unpin' : 'Pin'"
+                :aria-pressed="!!savedView.pinned"
+                @click.stop="toggleSavedViewPin(savedView)"
+              >
+                <svg class="w-icon-inline h-icon-inline" viewBox="0 0 16 16" :fill="savedView.pinned ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.25" aria-hidden="true">
+                  <path :d="PIN_PATH" />
+                </svg>
+              </button>
+            </Tooltip>
           </div>
+          <ActionMenu v-if="savedViewMenu" :x="savedViewMenu.x" :y="savedViewMenu.y" :actions="savedViewMenuActions" @close="savedViewMenu = null" />
 
           <!-- Collections landing link (with drag-drop to create new) -->
           <div class="group relative">
@@ -1011,7 +1018,7 @@
 import ToolProviderBadge from './tools/ToolProviderBadge.vue'
 import { flowsEnabled } from '../composables/useExperimentalFlows'
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, h, nextTick } from 'vue'
-import { ArchiveBoxIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronDownIcon, ChevronLeftIcon, ChevronUpDownIcon, ClockIcon, ExclamationTriangleIcon, FunnelIcon, HeartIcon, HomeIcon, PhotoIcon, PlusIcon, Squares2X2Icon, TrashIcon, WrenchScrewdriverIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronLeftIcon, ChevronUpDownIcon, ClockIcon, ExclamationTriangleIcon, FunnelIcon, HeartIcon, HomeIcon, PhotoIcon, PlusIcon, Squares2X2Icon, TrashIcon, WrenchScrewdriverIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useMarkers } from '../composables/useMarkers'
 import { EXPIRING_MARKER_ID } from '../constants/implicitMarkers'
 import { useRouter, useRoute } from 'vue-router'
@@ -1060,6 +1067,7 @@ import RenameSheet from './compact/RenameSheet.vue'
 import StatusDot from './ui/StatusDot.vue'
 import Spinner from './ui/Spinner.vue'
 import Tooltip from './ui/Tooltip.vue'
+import ActionMenu from './ActionMenu.vue'
 import WorkspaceTabsContextMenu from './WorkspaceTabsContextMenu.vue'
 import EditorShelf from './EditorShelf.vue'
 // @ts-expect-error - distribution-aliased Vue component (see vite.config.js)
@@ -1205,7 +1213,7 @@ useFlowCounts()
 const { draggedMediaInfo, draggedMediaItems, draggedMediaCount, draggedMediaType } = useDragStore()
 
 // APIs
-const { getSavedViews, getCollection, getProject, createCollection: apiCreateCollection, updateCollection, updateProject } = useMediaApi()
+const { getSavedViews, updateSavedView, reorderSavedView, getCollection, getProject, createCollection: apiCreateCollection, updateCollection, updateProject } = useMediaApi()
 const { listPinnedTools, fetchProvidersAndTools, subscribeToProviderChanges } = useProvidersApi()
 
 // ==================== State ====================
@@ -1326,21 +1334,46 @@ watch(() => hasLoadedData.value && props.isMobile, (phoneReady) => {
   if (!isCollapsed('pinned')) toggleSection('pinned')
 }, { immediate: true })
 
-// Saved views fold under Assets. The fold is a per-profile choice that starts
-// closed; the active saved view opens it for as long as it is the screen, so
-// the current location stays visible without rewriting the stored choice.
-const SAVED_VIEWS_OPEN_KEY = makeProfileKey('sidebar', 'saved_views_open')
-const savedViewsStored = ref(localStorage.getItem(SAVED_VIEWS_OPEN_KEY) === '1')
-const savedViewsPeek = ref(false)
-const activeSavedViewInContext = computed(() =>
-  route.name === 'saved-view' && contextSavedViews.value.some(v => isSavedViewActive(v.id)))
-watch(activeSavedViewInContext, (active) => { savedViewsPeek.value = active }, { immediate: true })
-const savedViewsOpen = computed(() => savedViewsStored.value || savedViewsPeek.value)
-function toggleSavedViews() {
-  const next = !savedViewsOpen.value
-  savedViewsStored.value = next
-  savedViewsPeek.value = false
-  try { localStorage.setItem(SAVED_VIEWS_OPEN_KEY, next ? '1' : '0') } catch { /* fold still toggles */ }
+// Saved views sit under Assets. Inside Assets (the browser or any saved view)
+// they all show; elsewhere only the pinned ones do. Pinning is part of the view.
+const inAssets = computed(() => activeTab.value === 'browse' || route.name === 'saved-view')
+const sidebarSavedViews = computed(() => contextSavedViews.value.filter(v => inAssets.value || v.pinned))
+const PIN_PATH = 'M10.5 1.5L14.5 5.5L12 8L11.5 12L8 8.5L4.5 12L4 11.5L7.5 8L4 4.5L8 4L10.5 1.5Z'
+const pinSvg = (filled: boolean) => `<svg viewBox="0 0 16 16" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.25"><path d="${PIN_PATH}"/></svg>`
+async function toggleSavedViewPin(view: any) {
+  const pinned = !view.pinned
+  view.pinned = pinned
+  try {
+    await updateSavedView(view.id, { pinned })
+  } catch (error) {
+    console.error('Failed to pin saved view:', error)
+    view.pinned = !pinned
+  }
+}
+const savedViewMenu = ref<{ view: any, x: number, y: number } | null>(null)
+function openSavedViewMenu(view: any, event: MouseEvent) {
+  savedViewMenu.value = { view, x: event.clientX, y: event.clientY }
+}
+const UP_SVG = '<svg fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5"/></svg>'
+const DOWN_SVG = '<svg fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>'
+const savedViewMenuActions = computed(() => {
+  const view = savedViewMenu.value?.view
+  if (!view) return []
+  const siblings = contextSavedViews.value
+  const index = siblings.findIndex(v => v.id === view.id)
+  const pin = { id: 'pin', label: view.pinned ? 'Unpin' : 'Pin', icon: pinSvg(!view.pinned), action: () => toggleSavedViewPin(view) }
+  // Reordering is offered only where every view is visible, so a move never
+  // swaps with a hidden neighbour.
+  if (!inAssets.value) return [pin]
+  return [
+    pin,
+    { id: 'divider' },
+    { id: 'up', label: 'Move up', disabled: index <= 0, icon: UP_SVG, action: () => moveSavedView(view, 'up') },
+    { id: 'down', label: 'Move down', disabled: index < 0 || index >= siblings.length - 1, icon: DOWN_SVG, action: () => moveSavedView(view, 'down') },
+  ]
+})
+async function moveSavedView(view: any, direction: 'up' | 'down') {
+  try { await reorderSavedView(view.id, direction) } catch (error) { console.error('Failed to move saved view:', error) }
 }
 
 // ==================== Tool compatibility ====================

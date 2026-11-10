@@ -29,3 +29,22 @@ def test_project_scope_migration_preserves_legacy_views_and_ids(tmp_path):
         assert 'project_id' not in {c['name'] for c in inspect(connection).get_columns('saved_views')}
         assert connection.exec_driver_sql('SELECT id FROM saved_views').scalar() == 7
     engine.dispose()
+
+
+def test_pin_migration_starts_existing_views_unpinned(tmp_path):
+    path = Path(__file__).parents[1] / 'alembic/versions/sv02_pin_saved_views.py'
+    spec = importlib.util.spec_from_file_location('saved_view_pin_migration', path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    engine = create_engine(f'sqlite:///{tmp_path / "views.db"}')
+    with engine.begin() as connection:
+        connection.exec_driver_sql('CREATE TABLE saved_views (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR NOT NULL, filters VARCHAR NOT NULL, sort_by VARCHAR NOT NULL, display_order INTEGER NOT NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)')
+        connection.exec_driver_sql("INSERT INTO saved_views VALUES (7, 'Favorites', '{}', 'created_desc', 3, '2026-01-01', '2026-01-01')")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+        assert tuple(connection.exec_driver_sql('SELECT id, pinned FROM saved_views').one()) == (7, 0)
+        assert 'AUTOINCREMENT' in connection.exec_driver_sql("SELECT sql FROM sqlite_master WHERE name='saved_views'").scalar()
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+        assert 'pinned' not in {c['name'] for c in inspect(connection).get_columns('saved_views')}
+    engine.dispose()

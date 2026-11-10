@@ -27,9 +27,7 @@ test('saved views are created, restored and listed within their owning context',
   await choose(page, other.name);
   await expect(sidebar(page).getByRole('button', { name: 'Review picks', exact: true })).toHaveCount(0);
   await choose(page, 'Everything');
-  // Saved views fold under Assets; open the fold when the current screen has not.
-  const fold = sidebar(page).getByTestId('saved-views-toggle');
-  if ((await fold.getAttribute('aria-expanded')) === 'false') await fold.click();
+  // Inside Assets every saved view shows under it.
   await sidebar(page).getByRole('button', { name: 'Review picks', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/saved-view/${global.id}`));
   const scopedRequest = page.waitForRequest(r => new URL(r.url()).pathname === '/api/assets/browse' && new URL(r.url()).searchParams.get('project_id') === String(project.id));
@@ -39,4 +37,32 @@ test('saved views are created, restored and listed within their owning context',
   await page.reload();
   await expectContext(page, project.name);
   await expect(page.getByRole('button', { name: 'Oldest first', exact: true })).toBeVisible();
+});
+
+test('saved views show inside Assets, and pinned ones everywhere', async ({ page }) => {
+  await page.goto('/browse?library=1');
+  await waitForShell(page);
+  await apiJSON<any>(page, '/api/saved-views', { method: 'POST', data: { name: 'Keepers', filters: {}, sort_by: 'created_desc' } } as any);
+  const row = sidebar(page).getByRole('button', { name: 'Keepers', exact: true });
+  await expect(row).toBeVisible();
+  await sidebar(page).getByRole('button', { name: 'Home', exact: true }).click();
+  await expect(row).toHaveCount(0);
+  await sidebar(page).getByRole('button', { name: 'Assets', exact: true }).click();
+  await expect(row).toBeVisible();
+  const pinned = page.waitForResponse(r => /\/api\/saved-views\/\d+$/.test(r.url()) && r.request().method() === 'PUT');
+  await row.hover();
+  await sidebar(page).getByTestId('sidebar-saved-view').filter({ hasText: 'Keepers' }).getByRole('button', { name: 'Pin', exact: true }).click();
+  expect((await (await pinned).json()).pinned).toBe(true);
+  await sidebar(page).getByRole('button', { name: 'Home', exact: true }).click();
+  await expect(row).toBeVisible();
+  await sidebar(page).getByRole('button', { name: 'Assets', exact: true }).click();
+  await page.reload();
+  await waitForShell(page);
+  const reloaded = await apiJSON<any[]>(page, '/api/saved-views');
+  expect(reloaded.find(v => v.name === 'Keepers')?.pinned).toBe(true);
+  await row.click({ button: 'right' });
+  await page.getByText('Unpin', { exact: true }).click();
+  await expect(row).toBeVisible();
+  await sidebar(page).getByRole('button', { name: 'Home', exact: true }).click();
+  await expect(row).toHaveCount(0);
 });

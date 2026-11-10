@@ -474,6 +474,7 @@ class SavedViewResponse(BaseModel):
     filters: dict
     sort_by: str
     display_order: int
+    pinned: bool = False
     created_at: str
     updated_at: str
 
@@ -492,6 +493,7 @@ class SavedViewUpdateRequest(BaseModel):
     name: Optional[str] = None
     filters: Optional[dict] = None
     sort_by: Optional[str] = None
+    pinned: Optional[bool] = None
 
 
 class SavedViewReorderRequest(BaseModel):

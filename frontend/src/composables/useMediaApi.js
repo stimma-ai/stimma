@@ -502,6 +502,7 @@ export function useMediaApi() {
     if (updates.name !== undefined) payload.name = updates.name
     if (updates.filters !== undefined) payload.filters = updates.filters
     if (updates.sortBy !== undefined) payload.sort_by = updates.sortBy
+    if (updates.pinned !== undefined) payload.pinned = updates.pinned
 
     const response = await axios.put(`${getAPIBase()}/saved-views/${viewId}`, payload)
     return response.data
