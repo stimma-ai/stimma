@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { build as esbuild } from 'esbuild'
 import { makeScratchDir } from './scratch.mjs'
+import { markedProcesses as findMarkedProcesses } from './markedProcesses.mjs'
 
 const electronRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const repoRoot = path.dirname(electronRoot)
@@ -98,17 +99,7 @@ async function waitFor(predicate, message, timeoutMs = 30_000) {
 }
 
 function markedProcesses() {
-  const found = []
-  for (const entry of fs.readdirSync('/proc')) {
-    if (!/^\d+$/.test(entry)) continue
-    try {
-      const env = fs.readFileSync(`/proc/${entry}/environ`, 'utf8')
-      if (env.includes(`STIMMA_UPDATE_TEST_ID=${marker}\0`)) found.push(Number(entry))
-    } catch {
-      // Process exited or belongs to another user.
-    }
-  }
-  return found
+  return findMarkedProcesses(marker, work)
 }
 
 async function stopMarkedProcesses() {
