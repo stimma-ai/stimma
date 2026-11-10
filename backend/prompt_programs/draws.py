@@ -46,7 +46,7 @@ MAX_BATCHES = 3        # batches before a pick gives up
 MAX_POOLS = 32         # pools a generated pick may have: one per combination of the lists it names
 
 _PICK_PARAMS = ("id", "options", "label", "by", "source", "line", "exclude", "hidden", "added", "about", "phase", "seed",
-                "cls", "where")
+                "cls", "where", "shared")
 _LORA_PARAMS = ("id", "names", "label", "source", "line", "phase")
 
 
@@ -775,7 +775,7 @@ class _Exec(_Runner):
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
              about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None, cls: Optional[str] = None,
-             where: Any = None, _site: int = -1) -> Optional[str]:
+             where: Any = None, shared: bool = False, _site: int = -1) -> Optional[str]:
         cid = str(id)
         if added:
             source = "added"
@@ -822,6 +822,7 @@ class _Exec(_Runner):
         d = Draw(cid, value, "pick", lbl, source, line, bool(hidden), pinned, [o for o, _ in eligible], follows)
         d.phase, d.about, d.cls = site.phase, spec.about, spec.cls
         d.where = where if isinstance(where, dict) else (str(where).strip() if isinstance(where, str) else "")
+        d.shared = bool(shared)
         self._record(d)
         if colours is not None:
             self._record(colours)
