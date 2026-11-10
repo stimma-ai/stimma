@@ -896,3 +896,19 @@ class TestUnfinishedNarrowingIsRetried:
             e = entry()
             await narrow_entry(e, NarrowCache(tmp_path / str(i)), asker(read, subset))
             assert ("age" in (e.get("narrow_pending") or {})) is pending, (read, subset)
+
+
+class TestEditorAndSubmitShareAKey:
+    def test_a_submit_after_the_editors_prepare_is_a_cache_hit(self, model, monkeypatch):
+        from routes.generation import _run_prompt_program, prompt_enhance_context
+        model.replies = [reply(write(GOOD))]
+        params = {"prompt": PROMPT, "width": 1344, "height": 768}
+        body = {"tool_id": "t", "prompt": PROMPT, "parameters": params, "enhance": "expand", "lora_triggers": False}
+        prepared = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json=body).json()
+        prompt_options = {"autoImprove": {"enabled": True, "level": "expand"}, "loraTriggers": False,
+                          "program": {"enabled": True}}
+        record, _ = asyncio.run(_run_prompt_program(
+            PROMPT, params, {"enabled": True}, ctx=prompt_enhance_context(params, "t", None, prompt_options),
+            tool_id="t", prompt_options=prompt_options, project_id=None, profile_id="p", elaborate=True,
+            enhance="expand", lora_triggers=False))
+        assert record["key"] == prepared["key"] and len(model.seen) == 1
