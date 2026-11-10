@@ -45,15 +45,11 @@ log = get_logger(__name__)
 
 
 def _track_collection_event(event: str, collection_id: int, extra: dict | None = None) -> None:
-    """Emit a collection event carrying boardHash (install-salted; never ids/names).
-
-    Collections were called boards. Telemetry keeps the board_* event names,
-    the boardHash property and its "board:" salt so analytics stay continuous.
-    """
+    """Emit a collection event carrying collectionHash (install-salted; never ids/names)."""
     try:
         from object_hash import salted_hash
         from telemetry import get_telemetry_client
-        props = {"boardHash": salted_hash(f"board:{collection_id}")}
+        props = {"collectionHash": salted_hash(f"collection:{collection_id}")}
         if extra:
             props.update(extra)
         get_telemetry_client().track(event, props, category="organize")
@@ -194,7 +190,7 @@ async def create_collection(
     if collection.project_id:
         from object_hash import salted_hash
         _created_extra["projectHash"] = salted_hash(f"project:{collection.project_id}")
-    _track_collection_event("board_created", collection.id, _created_extra)
+    _track_collection_event("collection_created", collection.id, _created_extra)
     payload = await _serialize_collection(collection, session)
     await ws_manager.broadcast("collection_created", {"collection": payload.model_dump()})
     return payload
@@ -286,7 +282,7 @@ async def delete_collection(collection_id: int, session: AsyncSession = Depends(
     collection.updated_at = datetime.utcnow()
     await session.commit()
     await ws_manager.broadcast("collection_deleted", {"collection_id": collection_id})
-    _track_collection_event("board_deleted", collection_id)
+    _track_collection_event("collection_deleted", collection_id)
     return {"status": "success", "message": "Collection deleted"}
 
 
@@ -331,7 +327,7 @@ async def create_collection_section(
     session.add(section)
     collection.updated_at = datetime.utcnow()
     await session.commit()
-    _track_collection_event("board_section_added", collection_id)
+    _track_collection_event("collection_section_added", collection_id)
     payload = CollectionSectionResponse(**section.to_dict(), items=[], item_count=0)
     await ws_manager.broadcast("collection_section_created", {"collection_id": collection_id, "section": payload.model_dump()})
     await ws_manager.broadcast("collection_updated", {"collection": (await _serialize_collection(collection, session)).model_dump()})
@@ -403,7 +399,7 @@ async def delete_collection_section(section_id: int, session: AsyncSession = Dep
     await _compact_section_orders(collection.id, session)
     collection.updated_at = datetime.utcnow()
     await session.commit()
-    _track_collection_event("board_section_removed", collection.id)
+    _track_collection_event("collection_section_removed", collection.id)
     await ws_manager.broadcast("collection_section_deleted", {"collection_id": collection.id, "section_id": section_id})
     await ws_manager.broadcast("collection_updated", {"collection": (await _serialize_collection(collection, session)).model_dump()})
     return {"status": "success"}
@@ -429,7 +425,7 @@ async def reorder_collection_sections(
             section.display_order = index
     collection.updated_at = datetime.utcnow()
     await session.commit()
-    _track_collection_event("board_sections_reordered", collection.id)
+    _track_collection_event("collection_sections_reordered", collection.id)
     await ws_manager.broadcast("collection_updated", {"collection": (await _serialize_collection(collection, session)).model_dump()})
     return {"status": "success"}
 
@@ -509,7 +505,7 @@ async def add_collection_items(
                 action="added",
             )
     if added > 0:
-        _track_collection_event("board_items_added", collection.id, {"count": added})
+        _track_collection_event("collection_items_added", collection.id, {"count": added})
     payload = await _serialize_collection(collection, session)
     await ws_manager.broadcast("collection_items_changed", {"collection_id": collection.id, "collection": payload.model_dump()})
     await ws_manager.broadcast("collection_updated", {"collection": payload.model_dump()})
@@ -545,7 +541,7 @@ async def remove_collection_item(
     await _delete_section_if_empty(section, session)
     collection.updated_at = datetime.utcnow()
     await session.commit()
-    _track_collection_event("board_items_removed", collection.id, {"count": 1})
+    _track_collection_event("collection_items_removed", collection.id, {"count": 1})
     payload = await _serialize_collection(collection, session)
     await ws_manager.broadcast("collection_items_changed", {"collection_id": collection.id, "collection": payload.model_dump()})
     await ws_manager.broadcast("collection_updated", {"collection": payload.model_dump()})
@@ -719,7 +715,7 @@ async def bulk_remove_collection_items(
     collection.updated_at = datetime.utcnow()
     await session.commit()
     _track_collection_event(
-        "board_items_removed", collection.id,
+        "collection_items_removed", collection.id,
         {"count": len(asset_ids_set)},
     )
     payload = await _serialize_collection(collection, session)
@@ -827,7 +823,7 @@ async def bulk_move_collection_items(
             session, collection.project_id, attached_asset_ids, action="added"
         )
     _track_collection_event(
-        "board_items_moved", collection.id,
+        "collection_items_moved", collection.id,
         {"count": len(asset_ids_set)},
     )
     payload = await _serialize_collection(collection, session)

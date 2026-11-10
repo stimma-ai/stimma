@@ -386,7 +386,7 @@ class TelemetryClient:
                 "sets": total_sets,
                 "grids": total_grids,
             }
-            stats["boardCount"] = total_collections  # wire name predates the rename to collections
+            stats["collectionCount"] = total_collections
             stats["chatCount"] = total_chats
             stats["markerCounts"] = markers_breakdown
 
