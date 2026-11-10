@@ -25,6 +25,8 @@ GOOD = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather",
 # the user's list isn't a pick: a blocking problem
 BAD = 'emit("A woman waiting for a train on a rainy morning.")\n'
 GOOD_EVENING = GOOD.replace("morning", "evening")
+# a pick that never reaches the text: a problem that costs variety only
+UNUSED_PICK = GOOD + 'x = pick("light", ["soft light", "harsh light"], label="Light", phase=1, line=1)\n'
 
 
 class Cfg:
@@ -85,6 +87,7 @@ def model(monkeypatch, tmp_path):
     monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
     monkeypatch.setattr(prep, "_writer_endpoint", endpoint)
     monkeypatch.setattr(prep, "_PROTOCOL", {})
+    monkeypatch.setattr(prep, "_failures", {})  # what failed is remembered per process: per test here
     monkeypatch.setattr(prep, "on_prepared", lambda entry, **kw: None)
     monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
     monkeypatch.setattr(ses, "_ask", m)
@@ -324,10 +327,19 @@ class TestNewPrompt:
         assert "3: emit(\"Extra text" in shown  # the numbering the next edit uses
         assert entry["program"].count("\n") == 2 and "Extra" not in entry["program"]
 
-    async def test_out_of_calls_it_keeps_the_best_program(self, model):
-        model.replies = [reply(write(BAD, f"c{i}")) for i in range(ses.MAX_CALLS)]
+    async def test_out_of_calls_it_keeps_the_best_program_that_runs(self, model):
+        # a pick that does nothing costs variety, not the user's words: the program runs
+        model.replies = [reply(write(UNUSED_PICK, f"c{i}")) for i in range(ses.MAX_CALLS)]
         entry = await ensure()
-        assert entry["attempts"] == ses.MAX_CALLS and entry["program"] == BAD and entry["warnings"]
+        assert entry["attempts"] == ses.MAX_CALLS and entry["program"] == UNUSED_PICK
+        assert entry["partial"] and "never appears" in entry["problems"][0]
+
+    async def test_out_of_calls_a_program_that_loses_the_users_words_isnt_kept(self, model, tmp_path):
+        # BAD freezes the user's {rainy|foggy} as "rainy": the words as written are better than that
+        model.replies = [reply(write(BAD, f"c{i}")) for i in range(ses.MAX_CALLS)]
+        with pytest.raises(prep.PrepareFailed) as e:
+            await ensure()
+        assert "user list" in e.value.problems and not list(tmp_path.glob("??/*.json"))  # no entry
 
     async def test_no_program_at_all_fails_and_stores_nothing(self, model, tmp_path):
         model.replies = [reply({"name": "write_program", "arguments": "{", "id": f"c{i}"}) for i in range(ses.MAX_CALLS)]
@@ -369,16 +381,16 @@ class TestDeadline:
 
         async def stall():
             await asyncio.sleep(5)
-        model.replies = [reply(write(BAD)), stall]
+        model.replies = [reply(write(UNUSED_PICK)), stall]
         entry = await asyncio.wait_for(ensure(), 5)
-        assert entry["program"] == BAD and entry["seconds"] < 2
+        assert entry["program"] == UNUSED_PICK and entry["seconds"] < 2
         log = chain_of(model.store, entry)
         assert log[-1]["role"] == "tool"  # the stalled call left nothing in the log
         assert_replayable(log)
 
     async def test_past_the_soft_budget_no_repair_starts(self, model, monkeypatch):
         monkeypatch.setattr(prep, "PREPARE_SOFT_SECONDS", 0.0)
-        model.replies = [reply(write(BAD))]
+        model.replies = [reply(write(UNUSED_PICK))]
         entry = await ensure()
         assert entry["attempts"] == 1 and entry["session_stats"]["soft_stop"]
 
@@ -509,14 +521,15 @@ class TestEdits:
         assert entry["session_stats"]["reset"] == "style guide changed"
         assert "write tags" in model.seen[-1][0]["content"]
 
-    async def test_the_fallback_program_is_what_the_next_edit_shows(self, model):
-        model.replies = [reply(write(BAD, f"c{i}")) for i in range(ses.MAX_CALLS)]
+    async def test_the_kept_program_is_what_the_next_edit_shows(self, model):
+        model.replies = [reply(write(UNUSED_PICK, f"c{i}")) for i in range(ses.MAX_CALLS)]
         base = await ensure()
-        model.replies = [reply(edit([{"line": 1, "text": GOOD_EVENING.rstrip()}]))]
+        model.replies = [reply(edit([{"line": 2, "text": 'emit("A woman waiting for a train on a", w, "evening.")'}])),
+                         reply(edit([{"line": 3, "text": ""}]))]
         entry = await ensure(EDITED)
         assert entry["program"] == GOOD_EVENING
-        assert "1: emit(\"A woman waiting for a train on a rainy morning.\")" in model.seen[-1][-1]["content"]
-        assert base["program"] == BAD
+        assert '3: x = pick("light"' in model.seen[-2][-1]["content"]  # the edit turn showed the kept program
+        assert base["program"] == UNUSED_PICK
 
 
 class TestImages:
@@ -740,16 +753,14 @@ class TestWriterDown:
         r = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PROMPT})
         assert r.status_code == 424 and r.json()["detail"]["code"] == "llm_unavailable"
 
-    def test_a_submit_answers_424(self, model):
-        from fastapi import HTTPException
+    def test_a_submit_runs_on_the_words_as_written(self, model):
         from routes.generation import _run_prompt_program
         model.replies = [self._down()]
-        with pytest.raises(HTTPException) as e:
-            asyncio.run(_run_prompt_program(PROMPT, {}, {"enabled": True}, tool_id="t", prompt_options={},
-                                            ctx={"model": "m", "mode": "prose", "schema_props": {}, "enhance": {}},
-                                            project_id=None, profile_id="p"))
-        assert e.value.status_code == 424 and e.value.detail["code"] == "llm_unavailable"
-        assert "Generation was not started" in e.value.detail["message"]
+        record, prompt = asyncio.run(_run_prompt_program(
+            PROMPT, {}, {"enabled": True}, tool_id="t", prompt_options={},
+            ctx={"model": "m", "mode": "prose", "schema_props": {}, "enhance": {}}, project_id=None, profile_id="p"))
+        assert record["fallback"]["rung"] == "words" and record["fallback"]["code"] == "llm_unavailable"
+        assert prompt == PROMPT and record["key"] is None and record["draws"] == []
 
 
 class TestPlainFailures:
@@ -978,3 +989,153 @@ class TestValidationIsOffTheEventLoop:
         entry = await ensure(PROMPT.replace("{rainy|foggy}", "{rainy|foggy|snowy}"))
         assert not model.replies and "snowy" in entry["program"]  # no model call: carried over in code
         assert threads and threading.current_thread() not in threads
+
+
+# --------------------------------------------------------------------------- a failed prepare never stops a run
+
+def _down():
+    from llm_http import LLMConnectionError
+
+    async def refused():
+        raise LLMConnectionError("Could not reach the chat model at http://writer.test/v1.")
+    return refused
+
+
+def _submit(prompt=PROMPT, enhance="expand", program=None):
+    from routes.generation import _run_prompt_program
+    return _run_prompt_program(prompt, {}, {"enabled": True, **(program or {})}, tool_id="t", prompt_options={},
+                               ctx={"model": "m", "mode": "prose", "schema_props": {}, "enhance": {}},
+                               project_id=None, profile_id="p", elaborate=enhance == "expand", enhance=enhance)
+
+
+class TestFallbackRungs:
+    async def test_a_failed_prepare_runs_the_words_as_written(self, model):
+        model.replies = [reply(write(BAD, f"c{i}")) for i in range(ses.MAX_CALLS)]
+        record, prompt = await _submit()
+        assert record["fallback"] == {"rung": "words", "code": "program_failed",
+                                      "message": record["fallback"]["message"]}
+        assert prompt == PROMPT and not record["draws"]  # the Direct pipeline varies {rainy|foggy} after this
+
+    async def test_a_program_kept_with_variety_only_problems_runs_as_itself(self, model):
+        model.replies = [reply(write(UNUSED_PICK, f"c{i}")) for i in range(ses.MAX_CALLS)]
+        record, prompt = await _submit()
+        assert "fallback" not in record and record["partial"] and record["key"]
+        assert prompt.split(" morning")[0] in ("A woman waiting for a train on a rainy", "A woman waiting for a train on a foggy")
+
+    async def test_the_same_words_prepared_under_other_settings_run_when_the_new_settings_fail(self, model):
+        model.replies = [reply(write(GOOD))]
+        yours = await ensure(enhance="off")
+        model.replies = [_down()]
+        record, prompt = await _submit(enhance="expand")
+        assert record["fallback"]["rung"] == "previous" and record["fallback"]["code"] == "llm_unavailable"
+        assert record["key"] == yours["key"] and record["draws"]
+
+    async def test_an_edited_prompt_never_runs_the_previous_prompts_program(self, model):
+        model.replies = [reply(write(GOOD))]
+        await ensure()
+        model.replies = [_down()]
+        record, prompt = await _submit(EDITED)
+        assert record["fallback"]["rung"] == "words" and prompt == EDITED
+
+    async def test_an_earlier_program_that_doesnt_fit_the_pins_falls_to_the_words(self, model):
+        model.replies = [reply(write(GOOD))]
+        await ensure(enhance="off")
+        model.replies = [_down()]
+        record, _ = await _submit(program={"pins": {"weather": ["sunny"]}})  # nothing fits that pin
+        assert record["fallback"]["rung"] == "words"
+
+    async def test_a_prompt_too_long_runs_its_words_and_says_why(self, model):
+        long = PROMPT + " " + "a quiet platform. " * 600
+        record, prompt = await _submit(long)
+        assert record["fallback"]["code"] == "prompt_too_long" and prompt == long and not model.seen
+
+    async def test_a_name_that_is_no_saved_wildcard_reads_as_its_words(self, model, monkeypatch):
+        monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments",
+                            lambda profile_id: ([{"name": "weather", "values": ["rainy", "foggy"]}], []))
+        model.replies = [_down()]
+        record, prompt = await _submit("A {{stormy sky}} over a {{weather}} harbour")
+        assert prompt == "A stormy sky over a {{weather}} harbour"  # the saved one fills in the pipeline
+
+    async def test_no_balance_is_its_own_code(self, model):
+        from llm_http import EntitlementError
+
+        async def broke():
+            raise EntitlementError("No balance left.")
+        model.replies = [broke]
+        record, _ = await _submit()
+        assert record["fallback"]["code"] == "llm_insufficient_balance"
+
+
+class TestBackgroundRetry:
+    async def test_runs_after_a_failure_dont_wait_for_another_prepare(self, model, monkeypatch):
+        monkeypatch.setattr(prep, "RETRY_DELAYS", (60.0,))  # not during this test
+        model.replies = [_down()]
+        first, _ = await _submit()
+        second, _ = await _submit()  # a generate-forever lane's next image: at once, no model call
+        assert first["fallback"]["rung"] == second["fallback"]["rung"] == "words"
+        assert len(model.seen) == 1
+
+    async def test_try_again_prepares_now(self, model, monkeypatch):
+        monkeypatch.setattr(prep, "RETRY_DELAYS", (60.0,))
+        model.replies = [_down()]
+        with pytest.raises(Exception):
+            await ensure()
+        model.replies = [reply(write(GOOD))]
+        assert (await ensure(force=True))["program"] == GOOD
+        assert not prep._failures
+
+    async def test_the_background_retry_lands_and_later_runs_use_it(self, model, monkeypatch):
+        monkeypatch.setattr(prep, "RETRY_DELAYS", (0.01, 0.01))
+        limits = []
+
+        async def slow_then_good():
+            limits.append(prep.prepare_limit())
+            return reply(write(GOOD))
+        model.replies = [_down(), _down(), slow_then_good]
+        record, _ = await _submit()
+        assert record["fallback"]["rung"] == "words"
+        task = next(iter(prep._failures.values())).task
+        await asyncio.wait_for(task, 5)
+        assert not prep._failures and limits == [prep.BACKGROUND_LIMIT_SECONDS]  # nobody waits on it: more time
+        record, _ = await _submit()
+        assert "fallback" not in record and record["draws"]
+
+    async def test_the_retry_stops_when_the_prompt_changes(self, model, monkeypatch):
+        monkeypatch.setattr(prep, "RETRY_DELAYS", (0.05,))
+        model.replies = [_down()]
+        await _submit()
+        task = next(iter(prep._failures.values())).task
+        await ensure(EDITED, cache_only=True)  # the editor moved on to other words
+        await asyncio.wait_for(task, 5)
+        assert len(model.seen) == 1 and not prep._failures
+
+    async def test_a_round_that_fails_waits_before_the_next(self, model, monkeypatch):
+        monkeypatch.setattr(prep, "RETRY_DELAYS", (0.01,))
+        model.replies = [_down(), _down()]
+        await _submit()
+        f = next(iter(prep._failures.values()))
+        await asyncio.wait_for(f.task, 5)
+        assert f.round_ended is not None and f.tries == 1
+        await _submit()  # a run soon after: no new round yet
+        assert f.task.done() and len(model.seen) == 2
+
+
+class TestCodeRepairs:
+    def test_a_pick_written_below_its_use_moves_up(self):
+        src = ('a = pick("a", about="light", seed=["soft"], label="Light", phase=1, line=1)\n'
+               'emit("photo in", a, "with", c, "eyes")\n'
+               'c = pick("c", ["dark", "light"], label="Eyes", phase=2, line=1)\n')
+        out, notes = prep.fix_order(src)
+        assert out.splitlines()[1].startswith("c = pick") and notes
+        assert prep.fix_order(out) == (out, [])
+
+    def test_a_pick_that_reads_a_later_name_stays(self):
+        src = ('emit(c)\nb = pick("b", ["x", "y"])\nc = pick("c", about=f"{b}", seed=["s"])\n')
+        assert prep.fix_order(src) == (src, [])
+
+    async def test_a_tool_call_with_raw_line_breaks_is_read(self, model):
+        raw = '{"source": "' + GOOD.replace('"', '\\"') + '"}'  # the newlines unescaped
+        model.replies = [reply({"name": "write_program", "arguments": raw, "id": "c1"})]
+        entry = await ensure()
+        assert entry["program"] == GOOD and entry["session_stats"]["json_recovered"] == 1
+        assert_replayable(chain_of(model.store, entry))

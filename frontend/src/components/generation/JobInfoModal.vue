@@ -26,6 +26,8 @@
         <ProvenanceAppHost @navigate="openMedia">
           <ProvenanceSteps :steps="provenance.steps" />
         </ProvenanceAppHost>
+        <!-- The prompt couldn't be read when this was made: it ran on the words as written. -->
+        <div v-if="madeFromWords" class="mt-4 text-[12px] text-content-secondary" data-program-words>Made from your words as written.</div>
         <!-- Prompt programs: the prompt as drawn, one row per roll. -->
         <div v-if="programRun" class="mt-4" data-program-draws>
           <div class="text-xs font-semibold text-content-secondary mb-2">Choices drawn</div>
@@ -134,6 +136,13 @@ const programRun = computed<any | null>(() => {
   }
   const run = meta?.prompt_program
   return run && Array.isArray(run.draws) && run.draws.length ? run : null
+})
+const madeFromWords = computed(() => {
+  let meta: any = resultMedia.value?.generation_metadata
+  if (typeof meta === 'string') {
+    try { meta = JSON.parse(meta) } catch { meta = null }
+  }
+  return meta?.prompt_program?.fallback?.rung === 'words'
 })
 const runActions = computed(() => (programRun.value && props.programActions ? props.programActions(programRun.value) : null))
 const hasRunPins = computed(() => !!runActions.value && Object.keys(runActions.value.pins).length > 0)

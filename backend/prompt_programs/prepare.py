@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 from collections import Counter
 import asyncio
+import contextvars
 import difflib
 import json
 import random
@@ -30,7 +31,8 @@ from prompt_programs.vocab import vocabulary
 log = get_logger(__name__)
 
 PREPARE_VERSION = "pp-46"   # pp-46: said= keeps a thing the user named (said.py); context facets: a stated descent, time
-# or season and user list values read as context; every subject's details name the subject, shared=True (fix_subjects).
+# or season and user list values read as context; every subject's details name the subject, shared=True (fix_subjects);
+# a program that loses the user's words is never kept; fix_order.
 # pp-45: a user list's ages under 18 are read (narrow.list_age_values)
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
@@ -38,6 +40,20 @@ MAX_ATTEMPTS = 3
 # usable program is in hand; the hard limit stops everything.
 PREPARE_SOFT_SECONDS = 30.0
 PREPARE_LIMIT_SECONDS = 45.0
+# A prepare retried in the background after one failed: nothing waits on it (the run went
+# ahead on its fallback), so a slow local writer gets twice the time.
+BACKGROUND_LIMIT_SECONDS = 90.0
+_LIMIT: "contextvars.ContextVar[Optional[float]]" = contextvars.ContextVar("prepare_limit", default=None)
+
+
+def prepare_limit() -> float:
+    """The hard deadline of the prepare running in this context, in seconds."""
+    return _LIMIT.get() or PREPARE_LIMIT_SECONDS
+
+
+def prepare_soft() -> float:
+    """Past this, no new model call starts while a usable program is in hand."""
+    return PREPARE_SOFT_SECONDS + (prepare_limit() - PREPARE_LIMIT_SECONDS)
 
 
 class StartOver(Exception):
@@ -309,7 +325,7 @@ async def _ask_in_time(messages: List[Dict[str, Any]], project_id: Optional[int]
     """A text-protocol writer call bounded by what's left of the prepare's deadline. Raises
     asyncio.TimeoutError when it runs out, so the caller can keep the best program it has
     (the outer wait_for in _prepare would throw it away)."""
-    left = PREPARE_LIMIT_SECONDS - (time.monotonic() - started)
+    left = prepare_limit() - (time.monotonic() - started)
     if left <= 0:
         raise asyncio.TimeoutError
     return await asyncio.wait_for(_ask_model(messages, project_id, max_tokens=max_tokens), left)
@@ -1261,19 +1277,29 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
     samples = [run(source, s, None, loras, params) for s in (11, 23, 37, 51)]
     problems: List[str] = []   # broken or visibly wrong: one repair, as line edits
     notes: List[str] = []      # quality hints: logged and shown in dev mode, never a retry
+    # The problems a program can't run with even when no repair fixes them: what it emits
+    # would carry text that isn't prompt, lose or change the user's own words ([exact text],
+    # their lists, their {{wildcards}}). The rest (a pick that does nothing, LoRA or label
+    # slips, a detail shared by two people) cost variety, not the user's words: a program
+    # with only those still runs (prompt_programs.fallback).
+    blocking: List[str] = []
+
+    def block(message: str) -> None:
+        problems.append(message)
+        blocking.append(message)
     if any(re.search(r"<<<|>>>|^\s*[\"']{3}", r.prompt) for r in samples):
-        problems.append("Emit only the prompt text itself, with no quote marks or <<< >>> around it.")
+        block("Emit only the prompt text itself, with no quote marks or <<< >>> around it.")
     if any(re.search(r"\{[^{}]*\|[^{}]*\}", r.prompt) or "[{" in r.prompt for r in samples):
-        problems.append("Replace every {a|b} list with its pick's value; never emit the braces.")
+        block("Replace every {a|b} list with its pick's value; never emit the braces.")
     for seg in _verbatim_segments(prompt):
         bad = [r for r in samples if seg.lower() not in realized_text(r.prompt).lower()]
         if bad:
-            problems.append(f'The protected text "{seg}" must appear exactly in every prompt you emit.')
+            block(f'The protected text "{seg}" must appear exactly in every prompt you emit.')
     for r in samples:
         for line in prompt.splitlines():
             ln = line.strip()
             if ln.startswith("#") and len(ln) > 12 and ln.lstrip("# ").lower()[:40] in r.prompt.lower():
-                problems.append(f'Don\'t emit instruction lines ("{ln[:50]}"). They are for you, not the image model.')
+                block(f'Don\'t emit instruction lines ("{ln[:50]}"). They are for you, not the image model.')
                 break
     missing: Dict[str, str] = {}
     # a palette pick (a template's Colours) reaches the prompt as the colours it fills in, never by its name
@@ -1356,7 +1382,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
     for cid, value in missing.items():
         if cid in lists:  # the user's own list: its value is the words they wrote, emitted as is
             items = "|".join(lists[cid].get("options") or [])
-            problems.append(f'pick("{cid}") is the user\'s list {{{items}}}, but its value ("{value}") never appears in the '
+            block(f'pick("{cid}") is the user\'s list {{{items}}}, but its value ("{value}") never appears in the '
                             "emitted prompt. Pass its variable itself to emit(...) where the list stood in the user's prompt. "
                             "A pick that describes the list's value doesn't replace it: drop that pick, or emit it beside the "
                             "list's variable.")
@@ -1365,7 +1391,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
                             "emit(...) where its subject stands, and drop any other pick or fixed text that says the same thing.")
     for name in smart_wildcards(prompt):
         if not _smart_choice(info, name):
-            problems.append(_smart_missing(name, info))
+            block(_smart_missing(name, info))
     if uses_draws(source):  # older programs write options as lists
         user_lists = [[o.strip() for o in m.group(1).split("|")] for m in _INLINE_LIST.finditer(prompt)]
         listed = _listed_picks(source)
@@ -1396,14 +1422,20 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
         if len(c["label"]) > 24 or len(c["label"].split()) > 3:
             notes.append(f'label="{c["label"]}" is too long for {c["id"]}: use one or two words, like "Weather" or "Photo look".')
     if any("{{" in r.prompt for r in samples):
-        problems.append("Don't emit {{...}}: replace each smart wildcard with its pick's value.")
+        block("Don't emit {{...}}: replace each smart wildcard with its pick's value.")
     for m in _INLINE_LIST.finditer(prompt):
         opts = [o.strip() for o in m.group(1).split("|")]
         if not any(c["options"][: len(opts)] == opts and c.get("source") == "list" for c in info["choices"]):
-            problems.append(f'The user list {{{m.group(1)}}} must be a pick with exactly these options in order and source="list".')
+            block(f'The user list {{{m.group(1)}}} must be a pick with exactly these options in order and source="list".')
     problems += _shared_person_details(info, source)
-    problems += _said_problems(info, prompt, samples)
-    return {"info": info, "problems": list(dict.fromkeys(problems)), "notes": list(dict.fromkeys(notes))}
+    # A grouping problem costs structure only: the run proceeds and a retry fixes it. said= that
+    # draws words the user didn't write, or freezes their {{wildcard}}, garbles their words.
+    said_bad, said_cost = _said_problems(info, prompt, samples)
+    for m in said_bad:
+        block(m)
+    problems += said_cost
+    return {"info": info, "problems": list(dict.fromkeys(problems)), "notes": list(dict.fromkeys(notes)),
+            "blocking": list(dict.fromkeys(blocking))}
 
 
 def said_text(prompt: str) -> str:
@@ -1458,10 +1490,15 @@ def fix_said(source: str, prompt: str) -> Tuple[str, List[str]]:
     return source, notes
 
 
-def _said_problems(info: Dict[str, Any], prompt: str, samples: Sequence[RunResult]) -> List[str]:
+def _said_problems(info: Dict[str, Any], prompt: str, samples: Sequence[RunResult]) -> Tuple[List[str], List[str]]:
     """said= is the user's own words for the thing a pick stands for: an exact stretch of their
-    prompt, on a pick that isn't their list, wildcard or # line request, said once in the prompt."""
+    prompt, on a pick that isn't their list, wildcard or # line request, said once in the prompt.
+    Returns (blocking, costly): a said= on their {{wildcard}} (it would never vary) or that isn't
+    their words (every image would claim words they didn't write) loses or garbles what they
+    wrote, so prepare.py never keeps such a program; said= on a # line request or said twice
+    costs variety or polish only (fallback.py's first rung may run it)."""
     out: List[str] = []
+    cost: List[str] = []
     comments = _comment_lines(prompt)
     wild = smart_wildcards(prompt)
     for c in info["choices"]:
@@ -1472,7 +1509,7 @@ def _said_problems(info: Dict[str, Any], prompt: str, samples: Sequence[RunResul
         if any(is_wildcard_id(cid, n) for n in wild):
             out.append(f'pick("{cid}") is the user\'s smart wildcard, which they want varied: drop said=.')
         elif c.get("line") in comments:
-            out.append(f'pick("{cid}") is what line {c["line"]} asks to vary: drop said=, so it varies.')
+            cost.append(f'pick("{cid}") is what line {c["line"]} asks to vary: drop said=, so it varies.')
         elif not is_said_stretch(said, prompt):
             out.append(f'pick("{cid}") has said="{said}", but the user\'s prompt doesn\'t say "{said}". said= is the '
                        "user's own words for the thing this pick stands for, copied exactly from their prompt (for "
@@ -1481,9 +1518,9 @@ def _said_problems(info: Dict[str, Any], prompt: str, samples: Sequence[RunResul
         else:
             want = _bare(said)
             if any(realized_text(r.prompt).lower().count(want) > prompt.lower().count(want) for r in samples):
-                out.append(f'pick("{cid}") stands for the user\'s "{said}" and emits it where the pick stands, but the '
+                cost.append(f'pick("{cid}") stands for the user\'s "{said}" and emits it where the pick stands, but the '
                            f'fixed text says "{said}" too. Take it out of the fixed text, so it is said once.')
-    return out
+    return out, cost
 
 
 _PERSON_INDEX = re.compile(r"^([A-Za-z_]\w*)\[(\d+)\]\.")
@@ -1676,6 +1713,13 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         renarrow(cached, store, project_id)  # in the background; this run draws from it as it is
     if cached or cache_only:
         return cached
+    # It failed a moment ago: answer at once (the run goes ahead on its fallback) and let
+    # the background retry, rather than every run of a generate-forever lane waiting out
+    # another prepare. "Try again" (force) prepares now.
+    gone_wrong = None if force else _failures.get((str(store.root), key))
+    if gone_wrong is not None:
+        retry_failed((str(store.root), key))
+        raise gone_wrong.error
     # One prepare per key: concurrent runs and the editor share it instead of each
     # asking the model.
     # The key covers the writer context; the store root is the profile. A forced prepare
@@ -1736,20 +1780,168 @@ async def _writer_endpoint(project_id: Optional[int]) -> Tuple[Any, str]:
 
 
 async def _prepare(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
-    # The session keeps its own deadline (PREPARE_LIMIT_SECONDS, keeping the best program
-    # it has); this is only the backstop for a step that ignores it.
+    # The session keeps its own deadline (prepare_limit(), keeping the best program it
+    # has); this is only the backstop for a step that ignores it. A failure is remembered
+    # (see _Failure): runs of this prompt then go ahead on their fallback at once while it is
+    # retried in the background, instead of each waiting out another prepare.
+    flight = (str(args["store"].root), str(args["key"]))
+    t0 = time.monotonic()
     try:
-        return await asyncio.wait_for(_prepare_once(context=context, force=force, **args), PREPARE_LIMIT_SECONDS + 2)
+        entry = await asyncio.wait_for(_prepare_once(context=context, force=force, **args), prepare_limit() + 2)
     except asyncio.TimeoutError:
-        log.warning(f"[prompt-program] prepare {args.get('key')} gave up after {PREPARE_LIMIT_SECONDS:.0f}s")
-        raise PrepareTimeout(f"Preparing took longer than {PREPARE_LIMIT_SECONDS:.0f} seconds, so it stopped. "
-                             "The chat model may be busy or too slow for this prompt.") from None
+        log.warning(f"[prompt-program] prepare {args.get('key')} gave up after {prepare_limit():.0f}s")
+        error: Exception = PrepareTimeout(f"Preparing took longer than {prepare_limit():.0f} seconds, so it stopped. "
+                                          "The chat model may be busy or too slow for this prompt.")
+        _remember_failure(flight, error, context, args, time.monotonic() - t0)
+        raise error from None
     except Exception as e:
         failure = writer_failure(e)
+        if failure is None and not isinstance(e, (PrepareTimeout, PrepareFailed)):
+            raise
+        if failure is not None:
+            log.warning(f"[prompt-program] prepare {args.get('key')}: the chat model failed: {type(e).__name__}: {e}")
+        _remember_failure(flight, failure or e, context, args, time.monotonic() - t0)
         if failure is None:
             raise
-        log.warning(f"[prompt-program] prepare {args.get('key')}: the chat model failed: {type(e).__name__}: {e}")
         raise failure from e
+    if _failures.pop(flight, None) is not None:
+        log.info(f"[prompt-program] prepared {args.get('key')} after it had failed: later runs use it")
+    _note_text(args, entry)
+    return entry
+
+
+# --------------------------------------------------------------------------- after a failed prepare
+#
+# A prepare that fails never stops a run: the run goes ahead on a fallback (prompt_programs
+# .fallback) and the prepare is retried here, in the background, with a longer deadline.
+# Until one lands, ensure_program answers that prompt's runs with the remembered failure at
+# once (no second wait). A prompt edited away from (its editing context asked for another
+# program since) is never retried.
+
+RETRY_DELAYS = (15.0, 60.0, 180.0)   # one round of background tries after a failure
+RETRY_ROUND_SECONDS = 600.0          # after a round fails, a run of the prompt may start another this much later
+
+
+class _Failure:
+    def __init__(self, error: Exception, context: str, args: Dict[str, Any]):
+        self.error, self.context, self.args = error, context, args
+        self.tries = 0
+        self.task: Optional["asyncio.Task[None]"] = None
+        self.round_ended: Optional[float] = None
+
+
+_failures: Dict[Tuple[str, str], _Failure] = {}
+
+
+def _retryable(error: Exception) -> bool:
+    from llm_resolver import LLMNotConfiguredError
+    return not isinstance(error, (PromptTooLong, LLMNotConfiguredError))
+
+
+def _remember_failure(flight: Tuple[str, str], error: Exception, context: str, args: Dict[str, Any],
+                      seconds: float) -> None:
+    code = getattr(error, "code", None) or type(error).__name__
+    log.warning(f"[prompt-program] prepare {flight[1]} failed after {seconds:.1f}s ({code}): "
+                f"{str(getattr(error, 'problems', '') or error)[:300]}")
+    found = _failures.get(flight)
+    if found is not None:
+        found.error = error
+        return
+    if not _retryable(error):  # answered at once anyway, and set up again the run after
+        return
+    _failures[flight] = _Failure(error, context, args)
+    retry_failed(flight)
+
+
+def failed(store_root: str, key: str) -> Optional[Exception]:
+    """The remembered failure of this prompt's prepare (None once it is prepared)."""
+    found = _failures.get((store_root, key))
+    return found.error if found is not None else None
+
+
+def retry_failed(flight: Tuple[str, str]) -> Optional["asyncio.Task[None]"]:
+    """Start a round of background tries for a failed prepare, unless one is running, the
+    last round ended under RETRY_ROUND_SECONDS ago, or the failure can't be fixed by trying
+    again. Returns the task, or None."""
+    f = _failures.get(flight)
+    if f is None or not _retryable(f.error) or (f.task is not None and not f.task.done()):
+        return None
+    if f.round_ended is not None and time.monotonic() - f.round_ended < RETRY_ROUND_SECONDS:
+        return None
+    try:
+        f.task = asyncio.ensure_future(_retry_round(flight, f))
+    except RuntimeError:  # no event loop (a script): nothing retries
+        return None
+    return f.task
+
+
+async def _retry_round(flight: Tuple[str, str], f: _Failure) -> None:
+    key = flight[1]
+    store: ProgramStore = f.args["store"]
+    for delay in RETRY_DELAYS:
+        await asyncio.sleep(delay)
+        if _failures.get(flight) is not f:
+            return  # prepared meanwhile (Try again, or an edit and back)
+        if not is_current(key, f.context):
+            log.info(f"[prompt-program] {key}: the prompt changed, so it isn't retried")
+            _failures.pop(flight, None)
+            return
+        if store.get(key):
+            _failures.pop(flight, None)
+            return
+        f.tries += 1
+        log.info(f"[prompt-program] retrying the prepare of {key} in the background (try {f.tries})")
+        token = _LIMIT.set(BACKGROUND_LIMIT_SECONDS)
+        try:
+            running = _in_flight.get((str(store.root), key, False))
+            if running is None:  # registered, so option work gives way and a run joins it
+                running = asyncio.ensure_future(_prepare(context=f.context, force=False, **{**f.args, "base_key": None}))
+                _in_flight[(str(store.root), key, False)] = running
+                running.add_done_callback(lambda t, k=(str(store.root), key, False):
+                                          _in_flight.pop(k, None) if _in_flight.get(k) is t else None)
+            await asyncio.shield(running)
+            return  # _prepare forgot the failure
+        except Exception as e:  # remembered by _prepare when it is a prepare failure
+            log.info(f"[prompt-program] background prepare of {key} failed again: {type(e).__name__}")
+            if not _retryable(f.error):
+                break
+        finally:
+            _LIMIT.reset(token)
+    f.round_ended = time.monotonic()
+
+
+# --------------------------------------------------------------------------- the same words, prepared before
+
+def _text_key(tool_id: str, masked: str, exact: Optional[Dict[str, str]]) -> str:
+    return program_key({"tool": tool_id, "prompt": masked, "exact": exact or {}})
+
+
+def _note_text(args: Dict[str, Any], entry: Dict[str, Any]) -> None:
+    try:
+        args["store"].remember_text(_text_key(args["tool_id"], args["source_prompt"], args.get("exact")), entry["key"])
+    except Exception as e:  # an index for fallbacks: never fails a prepare
+        log.debug(f"[prompt-program] couldn't index {entry.get('key')} by its text: {e}")
+
+
+def previous_for_text(*, prompt: str, tool_id: str, profile_id: Optional[str],
+                      lora_items: Sequence[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The newest program prepared for exactly this prompt text and tool under other settings
+    (another Detail level, LoRA choice or instructions), for a run whose own prepare failed.
+    Never one that chooses among LoRAs the tool no longer has: it would turn them on."""
+    from prompt_pipeline import _profile_wildcards_and_segments
+    wildcards, segments = _profile_wildcards_and_segments(profile_id)
+    masked, exact = mask_exact(expand_named_lists(prompt, wildcards, segments).strip())
+    store = _store(profile_id)
+    have = {str(i.get("lora") or i.get("path") or i.get("name") or "") for i in lora_items or []}
+    for key in store.texts(_text_key(tool_id, masked, exact)):
+        entry = store.get(key)
+        if not entry or entry.get("prompt") != masked:
+            continue
+        chooses = {lo.get("path") for lo in entry.get("loras") or [] if isinstance(lo, dict)} if entry.get("lora_choices") else set()
+        if chooses - have:
+            continue
+        return entry
+    return None
 
 
 NARROW_RESERVE = 3.0   # seconds of the prepare deadline left for storing the entry after narrowing
@@ -1763,7 +1955,7 @@ async def _narrow(entry: Dict[str, Any], store: ProgramStore, project_id: Option
     unfinished that way isn't final: the entry records it (narrow_pending) and a later
     lookup of the program narrows it again in the background (renarrow)."""
     from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, mark_pending, narrow_entry
-    left = PREPARE_LIMIT_SECONDS - (time.monotonic() - started) - NARROW_RESERVE
+    left = prepare_limit() - (time.monotonic() - started) - NARROW_RESERVE
     if left < 2.0:
         if mark_pending(entry):
             log.info("[prompt-program] no time left to narrow the bound picks; they draw from their whole lists "
@@ -2300,7 +2492,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     repaired = False  # the current source came from a repair, not a write
     timed_out = False
     while True:
-        out_of_time = best is not None and time.monotonic() - started > PREPARE_SOFT_SECONDS
+        out_of_time = best is not None and time.monotonic() - started > prepare_soft()
         if source is None:  # write the program (again)
             if len(calls) >= MAX_ATTEMPTS or out_of_time:
                 break
@@ -2328,11 +2520,11 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
             problems = [_check_error(e)]
         else:
             problems = checked["problems"]
-            if best is None or len(problems) <= len(best[1]["problems"]):
+            if best is None or _rank(checked) <= _rank(best[1]):
                 best = (source, checked)
         if not problems or len(calls) >= MAX_ATTEMPTS:
             break
-        if best is not None and time.monotonic() - started > PREPARE_SOFT_SECONDS:
+        if best is not None and time.monotonic() - started > prepare_soft():
             log.info(f"[prompt-program] out of time after {len(calls)} call(s): keeping the best program")
             break
         last_error = "\n".join(problems)
@@ -2358,9 +2550,12 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
         calls.append({"kind": "repair", "seconds": round(time.monotonic() - t0, 2), "chars": len(reply or ""),
                       "applied": edited is not None})
         source, repaired = (drop_name_options(edited, source_prompt), True) if edited is not None else (None, False)
+    if best is not None and best[1].get("blocking"):  # it runs, but would lose or garble the user's words
+        log.info(f"[prompt-program] no program to keep after {len(calls)} call(s): {' '.join(best[1]['blocking'])[:300]}")
+        raise PrepareFailed("\n".join(best[1]["problems"]))
     if best is None:
         if timed_out:
-            raise PrepareTimeout(f"Preparing took longer than {PREPARE_LIMIT_SECONDS:.0f} seconds, so it stopped. "
+            raise PrepareTimeout(f"Preparing took longer than {prepare_limit():.0f} seconds, so it stopped. "
                                  "The chat model may be busy or too slow for this prompt.")
         raise PrepareFailed(last_error)
     if timed_out:
@@ -2370,6 +2565,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                    exact=exact, source=source, checked=checked, params=params, loras=loras)
     entry.update({
         "attempts": len(calls), "repairs": fixes,
+        "problems": list(checked["problems"]), "partial": bool(checked["problems"]),
         "lineage": (prev.get("lineage") or prev.get("key")) if prev else key,
         "seconds": round(time.monotonic() - began, 2), "upsample_seconds": round(upsampled_at - began, 2),
         "timing": {"enhance": round(upsampled_at - began, 2), "calls": calls},
@@ -2380,11 +2576,64 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     return entry
 
 
+_PICK_CALLS = ("pick", "pick_lora")
+
+
+def fix_order(source: str) -> Tuple[str, List[str]]:
+    """A top-level `name = pick(...)` written below a statement that already uses `name` (an
+    edit that adds the pick after the emit() it goes in) is moved up, to just before that
+    statement, when nothing it reads is assigned between there and where it was. Otherwise
+    the program stops with a NameError the writer often can't see past. Returns the source
+    and what moved."""
+    def loads(node: ast.AST) -> Set[str]:
+        return {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+
+    def stores(node: ast.AST) -> Set[str]:
+        return {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and isinstance(n.ctx, (ast.Store, ast.Del))}
+
+    notes: List[str] = []
+    for _ in range(32):  # one move per pass, re-parsed after each
+        try:
+            body = ast.parse(source).body
+        except SyntaxError:
+            return source, notes
+        move = None
+        for j, st in enumerate(body):
+            if not (isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name)
+                    and isinstance(st.value, ast.Call) and getattr(st.value.func, "id", None) in _PICK_CALLS):
+                continue
+            var = st.targets[0].id
+            first = next((i for i in range(j) if var in loads(body[i])), None)
+            if first is None or any(var in stores(body[i]) for i in range(j)):
+                continue
+            if loads(st.value) & set().union(*(stores(body[i]) for i in range(first, j))):
+                continue
+            move = (st, body[first], var)
+            break
+        if move is None:
+            return source, notes
+        st, before, var = move
+        lines = source.splitlines(keepends=True)
+        block = lines[st.lineno - 1: st.end_lineno]
+        if block and not block[-1].endswith("\n"):
+            block[-1] += "\n"
+        del lines[st.lineno - 1: st.end_lineno]
+        lines[before.lineno - 1: before.lineno - 1] = block
+        source = "".join(lines)
+        notes.append(f"{var} = pick(...) moved above line {before.lineno}, the first line that uses it")
+    return source, notes
+
+
+def _rank(checked: Dict[str, Any]) -> Tuple[int, int]:
+    """Fewer problems the program can't run with first, then fewer problems."""
+    return (len(checked.get("blocking") or []), len(checked.get("problems") or []))
+
+
 def fix_written(source: str, prompt: str, loras: Sequence[LoraInfo]) -> Tuple[str, List[str]]:
     """The fixes in code a written (or repaired) program gets before validation, in order.
     Returns the source and what changed."""
     notes: List[str] = []
-    for fix in (fix_quotes, lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
+    for fix in (fix_quotes, fix_order, lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, fix_unplaced, fix_brackets,
                 lambda x: fix_requested(x, prompt), lambda x: fix_duplicates(x, prompt),
                 lambda x: fix_trigger_words(x, loras, prompt), lambda x: fix_said(x, prompt)):
@@ -2398,7 +2647,7 @@ def fix_patched(source: str, prompt: str) -> Tuple[str, List[str]]:
     what the edit didn't touch was already fixed)."""
     source = drop_name_options(source, prompt)
     notes: List[str] = []
-    for fix in (lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
+    for fix in (fix_order, lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, lambda x: fix_requested(x, prompt),
                 lambda x: fix_said(x, prompt)):
         source, more = fix(source)

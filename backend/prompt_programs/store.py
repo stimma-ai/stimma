@@ -87,6 +87,32 @@ class ProgramStore:
             json.dump(keys, f)
         os.replace(tmp, p)
 
+    # ------------------------------------------------------------------ by prompt text
+
+    def _text_path(self, text_key: str) -> Path:
+        if not valid_key(text_key):
+            raise ValueError(f"not a text key: {text_key!r}")
+        return self.root / "texts" / f"{text_key}.json"
+
+    def texts(self, text_key: str) -> List[str]:
+        """Keys of the latest programs prepared for one prompt text (under any settings), newest first."""
+        if not valid_key(text_key):
+            return []
+        try:
+            keys = json.loads(self._text_path(text_key).read_text("utf-8"))
+        except (OSError, ValueError):
+            return []
+        return [k for k in keys if valid_key(k)] if isinstance(keys, list) else []
+
+    def remember_text(self, text_key: str, key: str) -> None:
+        keys = [key, *(k for k in self.texts(text_key) if k != key)][:RECENT]
+        p = self._text_path(text_key)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=p.parent, suffix=".tmp")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(keys, f)
+        os.replace(tmp, p)
+
     # ------------------------------------------------------------------ session nodes
 
     def _node_path(self, node_id: str) -> Path:

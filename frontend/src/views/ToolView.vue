@@ -2173,7 +2173,7 @@ function classifySubmissionError(err: any): string {
   // A program run that had to read its prompt itself and couldn't: the same plain words
   // as the editor's prepare (the server's own wording is for the agent and logs). The
   // per-image enhancer's errors keep their own messages.
-  if (promptProgram.status.value !== 'off' && isPrepareFailureCode(code)) return prepareFailure(code, PROMPT_BRAND).message
+  if (promptProgram.status.value !== 'off' && isPrepareFailureCode(code)) return fallbackNotice(code, PROMPT_BRAND).head
   if (typeof detail === 'string') return detail
   return detail?.message || 'Failed to submit job'
 }
@@ -3423,7 +3423,7 @@ import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptPro
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
-import { foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, prepareFailure, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
+import { fallbackNotice, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { judgeNotice, judgeWaitLabel, tellsUnjudged, unjudgedMessage, waitForJudge } from '../utils/fluentJudge'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
@@ -5547,25 +5547,6 @@ function unknownSmartNames(prompt: string): string[] {
   return [...new Set(names.filter(n => n && !known.has(n.toLowerCase())))]
 }
 
-/** A run couldn't read its prompt: say why, with the way out. Try again reads the prompt
-    again and, when it was Generate forever that stopped, starts forever again once it's read. */
-function showPrepareFailure(code: string | undefined, retry: ForeverSubmitOptions | 'forever') {
-  const failure = prepareFailure(code, PROMPT_BRAND)
-  submissionError.value = failure.message
-  submissionErrorCode.value = code || null  // the box's Add credits / Configure Chat Models
-  const concurrency = uiState.value.generateForeverConcurrency ?? 1
-  if (failure.action === 'none') { addToast(failure.message, 'error', 8000); return }
-  addToast(failure.message, 'error', 8000, failure.action === 'settings'
-    ? { label: 'Settings', onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) }
-    : { label: 'Try again', onClick: () => {
-        if (retry !== 'forever') { void submitJob(retry); return }
-        void promptProgram.prepare(true).then((ok) => {
-          if (ok) void startForeverMode(concurrency)
-          else showPrepareFailure(promptProgram.error.value?.code, 'forever')
-        })
-      } })
-}
-
 /** Before a Fluent run: wait while its fit check is still downloading, with the status on
     `tile` (the preparing tile, when there is one) or a tile of its own. False when the
     user cancelled the tile. A check that can't be had is said once per session (not
@@ -5639,7 +5620,8 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   // Generate forever never waits on, or prepares, a prompt you're still writing: it keeps
   // running the last prepared version, and moves to the new one once you leave the box
   // and it's prepared. Generate runs what's in the box. A prompt that couldn't be read
-  // stops forever with the reason, as Generate does: it never quietly keeps the old one.
+  // still runs, on its words as written (the server's fallback, while it tries again in
+  // the background); it never quietly keeps the old prompt.
   let failedRead = false
   if (options.foreverSessionId != null && options.programPrompt == null) {
     const slot = foreverSlot({
@@ -5648,7 +5630,7 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
       readyPrompt: promptProgram.readyPrompt(),
       editing: !!aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
     })
-    if (slot.kind === 'failed') failedRead = true
+    if (slot.kind === 'words') failedRead = true
     else if (slot.kind === 'previous') {
       if (slot.prepare) void promptProgram.prepare()
       options = { ...options, programPrompt: slot.prompt }
@@ -5680,26 +5662,15 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   if (preparingCancelled) return noSubmit(options, false)
   if (!ready) {
     const code = promptProgram.error.value?.code
-    const forever = options.foreverSessionId != null && isForeverSubmissionCurrent(options)
     // The chat model went away since this view last looked (removed in Settings, or on
     // another client): learn that, and the run goes Direct like any no-model setup.
     if (code === 'llm_not_configured' && !options.modelRechecked) {
       await checkAgentModels(null, true)
       if (llmUnconfigured.value) return submitJob({ ...options, modelRechecked: true })
     }
-    // Plain words by cause; the model's own complaint is for developers (Fluent's menu
-    // shows it in dev mode).
-    showPrepareFailure(code, forever ? 'forever' : { ...options, modelRechecked: false })
-    // Generate-forever would ask again for every free slot, each ask waiting on the
-    // same failing prepare: stop it, with the reason above.
-    if (forever) {
-      if (options.foreverBackendName && options.foreverReserved !== false) {
-        declineWorkRequest(options.foreverBackendName, options.foreverReservationId)
-      }
-      await stopForeverMode()
-      return { submitted: false, declineReservation: false }
-    }
-    return noSubmit(options)
+    // Otherwise the run goes ahead: the server runs this prompt on its words as written
+    // (or the same words' earlier program) and keeps trying to read it in the background.
+    // Fluent's chip says so, quietly; nothing stops, Generate forever included.
   }
 
   const count = options.foreverBackendName

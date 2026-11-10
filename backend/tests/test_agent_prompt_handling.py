@@ -243,18 +243,23 @@ class TestVary:
         await _vary()                       # a model with its own format, omitted: Medium
         assert seen == ["off", "off", "expand", "fill"]
 
-    async def test_no_chat_model_fails_plainly(self, prose_model, monkeypatch, tmp_path):
+    async def test_no_chat_model_runs_the_words_as_written_and_says_so(self, prose_model, monkeypatch, tmp_path):
         from llm_resolver import LLMNotConfiguredError
 
         async def unconfigured(**kw):
             raise LLMNotConfiguredError("No chat model is configured.")
 
         monkeypatch.setattr("prompt_programs.prepare.ensure_program", unconfigured)
+        monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
         monkeypatch.setattr(gen, "get_database_registry", lambda: type("R", (), {"get_database": lambda self, p: None})())
-        with pytest.raises(PromptHandlingError) as e:
-            await _vary()
-        assert str(e.value) == ("The prompt couldn't be prepared for varied choices: no chat model is set up "
-                                "in Settings. Nothing was generated. Try again, or generate without vary.")
+        out = await _vary()
+        record = out.params["prompt_program"]
+        assert record["fallback"]["rung"] == "words" and record["fallback"]["code"] == "llm_not_configured"
+        sent = out.params["prompt"]  # the Direct way: the list picks one, [brackets] unwrap, # lines drop
+        assert sent.split(" morning")[0] in [f"A woman waiting for a train on a {w}" for w in ("rainy", "foggy", "bright")]
+        assert "Shot on Portra 400" in sent and "[" not in sent and "#" not in sent
+        assert "words as written" in out.note and "no chat model is set up" in out.note
+        assert not out.choices
 
     async def test_models_that_cant_vary_write_each_prompt(self, lists, monkeypatch):
         monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {

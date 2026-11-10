@@ -241,6 +241,15 @@ class Candidate:
     source: str
     checked: Dict[str, Any]
     problems: List[str]
+    blocking: List[str] = field(default_factory=list)  # problems it can't run with (prepare.validate)
+
+    def rank(self) -> Tuple[int, int]:
+        return (len(self.blocking), len(self.problems))
+
+    @property
+    def runs(self) -> bool:
+        """It can stand in for a valid program: what's left costs variety, not the user's words."""
+        return not self.blocking
 
 
 @dataclass
@@ -298,8 +307,9 @@ class Turn:
             log.warning(f"[prompt-program] validating a written program failed: {type(e).__name__}: {e}")
             problems = [f"The program couldn't be run: {type(e).__name__}: {e}"]
         if checked is not None:
-            if self.best is None or len(problems) <= len(self.best.problems):
-                self.best = Candidate(source, checked, problems)
+            found = Candidate(source, checked, problems, list(checked.get("blocking") or []))
+            if self.best is None or found.rank() <= self.best.rank():
+                self.best = found
             if not problems:
                 self.accepted, self.accepted_by = self.best, how
         self.last_error = "\n".join(problems)
@@ -429,7 +439,7 @@ class Budget:
         return time.monotonic() - self.started
 
     def left(self) -> float:
-        return prep.PREPARE_LIMIT_SECONDS - self.elapsed()
+        return prep.prepare_limit() - self.elapsed()
 
 
 def estimate_tokens(messages: Sequence[Dict[str, Any]]) -> int:
@@ -466,7 +476,7 @@ async def _converse(cfg: Any, messages: List[Dict[str, Any]], added: List[Dict[s
     while not turn.done:
         if budget.calls >= MAX_CALLS:
             break
-        if turn.best is not None and budget.elapsed() > prep.PREPARE_SOFT_SECONDS:
+        if turn.best is not None and budget.elapsed() > prep.prepare_soft():
             stats["soft_stop"] = True
             break
         if budget.left() <= 0:
@@ -504,13 +514,23 @@ async def _converse(cfg: Any, messages: List[Dict[str, Any]], added: List[Dict[s
         wire: List[Dict[str, Any]] = []
         for i, call in enumerate(resp.tool_calls):
             cid = call.id or f"call_{budget.calls}_{i}"
+            raw = call.arguments or "{}"
             try:
-                args, err = json.loads(call.arguments or "{}"), None
+                args, err = json.loads(raw), None
             except ValueError as e:
                 args, err = None, e
+            if err is not None:
+                # Local models often put the program's line breaks (or tabs) into the JSON
+                # string as they are: read that leniently, and replay it re-encoded.
+                try:
+                    args, err = json.loads(raw, strict=False), None
+                    raw = json.dumps(args, ensure_ascii=False)
+                    stats["json_recovered"] = stats.get("json_recovered", 0) + 1
+                except ValueError:
+                    pass
             # Malformed arguments aren't replayed (servers re-parse them): the result says what happened.
             wire.append({"id": cid, "type": "function",
-                         "function": {"name": call.name, "arguments": call.arguments if err is None else "{}"}})
+                         "function": {"name": call.name, "arguments": raw if err is None else "{}"}})
             parsed.append((cid, call.name, args, err))
         push({"role": "assistant", "content": content, "tool_calls": wire})
         kinds = []
@@ -713,14 +733,19 @@ async def prepare_session(*, cfg: Any, base: Optional[Dict[str, Any]], context: 
         if turn.accepted is not None or turn.best is not None:
             node_id = node_for(None, added, (turn.accepted or turn.best).source)  # type: ignore[union-attr]
 
-    chosen = turn.accepted or turn.best
+    chosen = turn.accepted or (turn.best if turn.best is not None and turn.best.runs else None)
     if chosen is None:
+        if turn.best is not None:  # it runs, but would lose or garble the user's words
+            log.info(f"[prompt-program] no program to keep after {budget.calls} call(s): "
+                     f"{' '.join(turn.best.blocking)[:300]}")
+            raise prep.PrepareFailed("\n".join(turn.best.problems))
         if budget.timed_out:
-            raise prep.PrepareTimeout(f"Preparing took longer than {prep.PREPARE_LIMIT_SECONDS:.0f} seconds, so it "
+            raise prep.PrepareTimeout(f"Preparing took longer than {prep.prepare_limit():.0f} seconds, so it "
                                       "stopped. The chat model may be busy or too slow for this prompt.")
         raise prep.PrepareFailed(turn.last_error or "the writer wrote no program")
     if turn.accepted is None:
-        log.info(f"[prompt-program] no valid program after {budget.calls} call(s): keeping the best one")
+        log.info(f"[prompt-program] no valid program after {budget.calls} call(s): keeping the best one "
+                 f"({len(chosen.problems)} problem(s) left: {' '.join(chosen.problems)[:300]})")
     entry = prep._entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, level=level, prompt=prompt,
                         enhanced="" if elaborate else prep.plain_example(prompt), exact=exact, source=chosen.source,
                         checked=chosen.checked, params=params, loras=loras)
@@ -730,6 +755,9 @@ async def prepare_session(*, cfg: Any, base: Optional[Dict[str, Any]], context: 
         "seconds": round(time.monotonic() - started, 2), "upsample_seconds": round(styled_at - started, 2),
         "timing": {"enhance": round(styled_at - started, 2), "calls": calls_log},
         "session_stats": stats,
+        # A program kept with problems that cost variety only (prepare.validate's blocking
+        # ones never are): what's left, for the dev panel and the run's record.
+        "problems": list(chosen.problems), "partial": bool(chosen.problems),
     })
     if base is not None:
         entry.update({"patched_from": base.get("key"), "patch": patch_kind})

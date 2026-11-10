@@ -180,10 +180,14 @@ class TestTextProtocolDeadline:
     """Each text-protocol call gets only what's left of the prepare's deadline; a stall
     keeps the best program so far (as the session does)."""
     UNLISTED = 'emit("A woman waiting for a train on a rainy morning.")\n'  # the user's list isn't a pick
+    # a pick that never reaches the text: it costs variety, not the user's words, so it runs
+    UNUSED = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather", phase=1, line=1)\n'
+              'x = pick("light", ["soft light", "harsh light"], label="Light", phase=1, line=1)\n'
+              'emit("A woman waiting for a train on a", w, "morning.")\n')
 
     async def test_a_stalled_repair_keeps_the_candidate(self, slow_model, monkeypatch):
         monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", 0.5)
-        replies = [f"```python\n{self.UNLISTED}```"]
+        replies = [f"```python\n{self.UNUSED}```"]
 
         async def ask(messages, project_id, max_tokens=4096):
             if replies:
@@ -192,8 +196,22 @@ class TestTextProtocolDeadline:
 
         monkeypatch.setattr(prep, "_ask_model", ask)
         entry = await asyncio.wait_for(_ensure(), 5)
-        assert entry["program"] == self.UNLISTED and entry["attempts"] == 1
-        assert any("user list" in w for w in entry["warnings"])
+        assert entry["program"] == self.UNUSED and entry["attempts"] == 1
+        assert entry["partial"] and any("never appears" in p for p in entry["problems"])
+
+    async def test_a_stalled_repair_of_a_program_that_loses_the_users_list_fails(self, slow_model, monkeypatch):
+        monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", 0.5)
+        replies = [f"```python\n{self.UNLISTED}```"]
+
+        async def ask(messages, project_id, max_tokens=4096):
+            if replies:
+                return replies.pop(0)
+            await asyncio.sleep(30)
+
+        monkeypatch.setattr(prep, "_ask_model", ask)
+        with pytest.raises(prep.PrepareFailed) as e:
+            await asyncio.wait_for(_ensure(), 5)
+        assert "user list" in e.value.problems
 
     async def test_a_check_that_trips_is_a_problem_not_a_crash(self, slow_model, monkeypatch):
         good = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather", line=1)\n'

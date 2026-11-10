@@ -587,9 +587,15 @@ async def _run_prompt_program(
     """One generation's run of its prompt program. `hot_draws_for`: a forever-mode
     submit's generator instance, served a draw its pool made ahead when one is current."""
     from llm_resolver import LLMUnavailableError
+    from prompt_programs import fallback
     from prompt_programs.fix import prompt_view, realize_and_fix
-    from prompt_programs.prepare import PrepareTimeout, ProgramError, draw_seed, ensure_program, writer_failure
+    from prompt_programs.prepare import (PrepareTimeout, ProgramError, draw_seed, enhance_level, ensure_program,
+                                         writer_failure)
 
+    # A prompt that couldn't be prepared never stops the run (prompt_programs.fallback): it
+    # runs on a program prepared for the same words under other settings, or on the words as
+    # written, while the prepare is retried in the background.
+    rung: Optional[Dict[str, Any]] = None
     try:
         entry = await ensure_program(
             prompt=prompt, tool_id=tool_id, ctx=ctx,
@@ -597,6 +603,21 @@ async def _run_prompt_program(
             lora_items=program_opts.get("loras") or [], project_id=project_id, profile_id=profile_id,
             elaborate=elaborate, lora_notes=lora_notes, lora_triggers=lora_triggers, enhance=enhance,
         )
+    except Exception as e:
+        code = fallback.failure_code(e)
+        if code is None:
+            raise
+        message = str(writer_failure(e) or e)
+        entry = fallback.previous_program(prompt, tool_id=tool_id, profile_id=profile_id,
+                                          lora_items=program_opts.get("loras") or [], code=code)
+        log.info(f"[prompt-program] prepare failed ({code}): this run uses "
+                 f"{'an earlier program for the same words' if entry else 'the words as written'}")
+        if entry is None:
+            level = enhance_level(enhance, elaborate)
+            return fallback.words_record(code, level=level, message=message), fallback.words_as_written(prompt, profile_id)
+        rung = fallback.fallback_note("previous", code, message)
+        program_opts = {k: v for k, v in program_opts.items() if k not in ("revision", "fixed")}
+    try:
         # Independent of the image seed; an explicit draw_seed repeats the same draws.
         from prompt_programs.fluent import attach_filler
         attach_filler(entry, profile_id)
@@ -624,6 +645,11 @@ async def _run_prompt_program(
                 fixed=program_opts.get("fixed"), edits=program_opts.get("edits"), triggers=lora_triggers,
                 profile_id=profile_id, project_id=project_id, revision=program_opts.get("revision"))
     except Exception as e:
+        if rung is not None:  # the earlier program doesn't fit this run (its pins, kept choices): the words
+            log.info(f"[prompt-program] the earlier program didn't run ({type(e).__name__}): the words as written")
+            level = enhance_level(enhance, elaborate)
+            return (fallback.words_record(rung.get("code"), level=level, message=rung.get("message", "")),
+                    fallback.words_as_written(prompt, profile_id))
         # The chat model failing to answer (unreachable, a provider error) is a 424, never a
         # 500 with a crash report on every submit of a generate-forever lane. The code is the
         # one /prompt-programs/prepare answers with, so the client says it the same way.
@@ -636,6 +662,8 @@ async def _run_prompt_program(
                 code = "prepare_timeout"
         else:
             status, code = 424, getattr(failure, "code", "llm_unavailable")
+        # Said in the log too: a run that can't start is otherwise only a bare 422 there.
+        log.info(f"[prompt-program] run not started ({code}): {str(failure)[:200]}")
         raise HTTPException(status_code=status,
                             detail={"code": code, "message": f"Generation was not started: {failure}"}) from None
     by_name = {lo.get("name"): lo.get("path") for lo in entry.get("loras") or [] if isinstance(lo, dict)}
@@ -648,6 +676,10 @@ async def _run_prompt_program(
         record["fix"] = fix
     if not (fix or {}).get("rounds"):  # the fix record's rounds carry each roll's prompt
         record["view"] = prompt_view(result)
+    if rung is not None:
+        record["fallback"] = rung
+    elif entry.get("partial"):  # kept with problems that cost variety only
+        record["partial"] = True
     return record, result.prompt
 
 
