@@ -280,8 +280,15 @@ prompt_enhancement:
       and edit — but the user's explicit request and their Instructions win when they conflict.
 
     PROMPT-WRITING RULES (when you change the prompt text):
-    - Preserve [bracketed] verbatim segments and {a|b|c} wildcards unless the user asks to change
-      them. Keep '#' comment lines in place.
+    - Preserve [bracketed] verbatim segments, {a|b|c} wildcards and {{name}} choices unless the user
+      asks to change them. Keep '#' comment lines in place.
+    - The syntax: [text] is kept word for word; {a|b|c} picks one option per image; {{name}} is a saved
+      wildcard, or, when the prompt is read with mode 'vary', an open choice whose options are found
+      for it (e.g. {{hairstyle}}); a line starting with # is a note on how to choose that never reaches
+      the image model.
+    - With mode 'vary', state_context.prompt_choices lists what each image chooses (id, label, options,
+      limited_to). "Keep the outfit" or "only red or blue" is set_choice on that choice; "same choices,
+      new picture" is generate with the earlier draw_seed. To add an option, edit the prompt's list.
     - Good prompts read as natural prose, not keyword lists.
     - When changing a subject or setting, cascade the change through ALL related details so the
       prompt stays internally consistent — don't leave orphaned references to the old thing.

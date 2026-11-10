@@ -48,6 +48,21 @@ def test_notes_tools_present():
         assert name not in TOOL_NAMES
 
 
+def test_prompting_tools_mirror_the_prompt_menu():
+    # The person's controls: how the prompt is read, Detail level, a card's ticks. The
+    # old toggle (with its no-op vary_prompt) is gone, and no schema names the feature.
+    assert {"set_prompting", "set_choice"} <= TOOL_NAMES
+    assert "set_prompt_option" not in TOOL_NAMES
+    by_name = {t["function"]["name"]: t["function"] for t in TOOL_SCHEMAS}
+    props = by_name["set_prompting"]["parameters"]["properties"]
+    assert props["mode"]["enum"] == ["vary", "direct", "raw"]
+    assert props["detail"]["enum"] == ["yours", "medium", "high"]
+    assert "fluent" not in json.dumps(TOOL_SCHEMAS).lower()
+    from prompts import get_prompt
+    sp = get_prompt("prompt_enhancement", "agent_system_prompt")
+    assert "{{name}}" in sp and "set_choice" in sp and "prompt_choices" in sp
+
+
 def test_agent_system_prompt_has_notes_principle():
     from prompts import get_prompt
     sp = get_prompt("prompt_enhancement", "agent_system_prompt")
