@@ -110,8 +110,9 @@ export function shapePromptOptions(saved: any, c: PromptOptionsContext): any {
 export type ForeverSlot =
   /** Run the last prepared prompt (and maybe start preparing the new one). */
   | { kind: 'previous'; prompt: string; prepare: boolean }
-  /** Reading the prompt failed: stop, with the reason. Never keep running an old prompt. */
-  | { kind: 'failed' }
+  /** Reading this prompt failed: run it anyway, on its words as written, while the server
+      tries again in the background. Never the old prompt: it isn't what's in the box. */
+  | { kind: 'words' }
   /** Prepare first, like Generate. */
   | { kind: 'prepare' }
   /** Nothing to wait for. */
@@ -119,7 +120,7 @@ export type ForeverSlot =
 
 export function foreverSlot(o: { needsPrepare: boolean; status: ProgramStatus; readyPrompt: string | null; editing: boolean }): ForeverSlot {
   if (!o.needsPrepare) return { kind: 'ready' }
-  if (o.status === 'error') return { kind: 'failed' }
+  if (o.status === 'error') return { kind: 'words' }
   if (o.readyPrompt) return { kind: 'previous', prompt: o.readyPrompt, prepare: !o.editing && o.status === 'stale' }
   return { kind: 'prepare' }
 }
@@ -139,18 +140,19 @@ export function isPrepareFailureCode(code: string | null | undefined): boolean {
   return !!code && (PREPARE_CODES.has(code) || isInsufficientBalanceCode(code) || isLlmSetupCode(code))
 }
 
-/** Plain words by cause, for a run that couldn't read its prompt. `none`: trying again
-    the same way can't help, and the message says what will. */
-export function prepareFailure(code: string | undefined, brand: string): { message: string; action: 'settings' | 'retry' | 'none' } {
-  if (code === 'llm_not_configured' || isLlmSetupCode(code)) return { message: `${brand} needs a chat model, so nothing ran.`, action: 'settings' }
-  if (isInsufficientBalanceCode(code)) return { message: 'Your chat model has no balance left, so nothing ran.', action: 'settings' }
-  if (code === 'prompt_too_long') return { message: 'This prompt is too long to read, so nothing ran. Shorten it, or use Direct.', action: 'none' }
-  const message = code === 'llm_unavailable'
-    ? 'Can’t reach your chat model, so nothing ran.'
-    : code === 'prepare_timeout'
-      ? 'Your chat model took too long to read this prompt, so nothing ran.'
-      : `${brand} couldn’t read this prompt, so nothing ran.`
-  return { message, action: 'retry' }
+/** What the prompt's status place says while this prompt runs on its words as written,
+    by cause: something the user can fix says that, with its one action. Never "nothing ran":
+    the run goes ahead. */
+export interface FallbackNotice { head: string; body?: string; action: 'retry' | 'settings' | 'none' }
+
+export const WORDS_AS_WRITTEN = 'Using your words as written for now'
+
+export function fallbackNotice(code: string | null | undefined, brand: string): FallbackNotice {
+  if (code === 'llm_not_configured' || isLlmSetupCode(code)) return { head: `${brand} needs a chat model`, body: 'Using your words as written.', action: 'settings' }
+  if (isInsufficientBalanceCode(code)) return { head: 'Your chat model has no balance left', body: 'Using your words as written for now.', action: 'settings' }
+  if (code === 'prompt_too_long') return { head: 'This prompt is too long to read', body: 'Using your words as written. Shorten it for variety.', action: 'none' }
+  if (code === 'llm_unavailable') return { head: 'Can’t reach your chat model', body: 'Using your words as written for now.', action: 'retry' }
+  return { head: WORDS_AS_WRITTEN, action: 'retry' }
 }
 
 /** What Generation details may offer for an earlier image's draws. */
@@ -174,6 +176,10 @@ export function programRunActions(
     if (current.optionsOf(d.id)?.includes(value)) pins[d.id] = [value]
   }
   if (current.status === 'off') return { replay: false, reason: 'Not available with your current prompt settings.', pins }
+  // Made while the prompt couldn't be read: from the words as written there are no draws to
+  // repeat; from the same words' earlier settings, only its picks that still apply.
+  if (run?.fallback?.rung === 'words') return { replay: false, reason: 'Made from your words as written.', pins }
+  if (run?.fallback?.rung === 'previous') return { replay: false, reason: 'Made with this prompt’s earlier settings.', pins }
   if (!run?.key || current.status !== 'ready' || run.key !== current.key) {
     return { replay: false, reason: 'Your prompt has changed since this image was made.', pins }
   }

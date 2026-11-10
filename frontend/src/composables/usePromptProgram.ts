@@ -97,6 +97,9 @@ interface Options {
   setPromptOptions: (next: any) => void
 }
 
+/** How often the editor looks for a program the server prepared in the background after a failure. */
+const ERROR_POLL_MS = 15_000
+
 export function usePromptProgram(o: Options) {
   const program = ref<PreparedProgram | null>(null)
   const preparedSig = ref<string | null>(null)
@@ -196,6 +199,7 @@ export function usePromptProgram(o: Options) {
       if (!data?.key) { forget(sig); return }
       program.value = data
       preparedSig.value = sig
+      if (error.value?.sig === sig) error.value = null  // prepared since (the server's background try)
       markReady(sig)
     } catch {
       // Not prepared yet: the next run prepares.
@@ -272,10 +276,16 @@ export function usePromptProgram(o: Options) {
     return status.value !== 'off' && status.value !== 'ready'
   }
 
-  /** Before a run: prepare if out of date. Returns false if the run should not start. */
+  /** Before a run: prepare if out of date. Returns false when no program is ready, so the
+      run goes on its words as written: after a failure for this prompt it doesn't prepare
+      again here (the server is already trying again; Try again prepares now). */
   async function ensureReady(): Promise<boolean> {
     // "Ready" is what the editor last saw; confirm the server still has it (cheap, no model).
     if (status.value === 'ready') await lookup()
+    if (status.value === 'error') {
+      await lookup()  // the server's background try may have landed
+      if (status.value === 'error') return false
+    }
     // Re-check after each prepare: the prompt may have changed while it ran.
     for (let i = 0; i < 3 && needsPrepare(); i++) {
       if (!(await prepare())) return false
@@ -444,6 +454,14 @@ export function usePromptProgram(o: Options) {
   const onFocus = () => { void lookup() }
   window.addEventListener('focus', onFocus)
   onUnmounted(() => window.removeEventListener('focus', onFocus))
+  // While this prompt runs on its words as written, the server keeps trying to read it in
+  // the background: look now and then, so the editor (and the next run) pick it up.
+  let errorPoll: ReturnType<typeof setInterval> | null = null
+  watch(status, (s) => {
+    if (s === 'error' && !errorPoll) errorPoll = setInterval(() => { void lookup() }, ERROR_POLL_MS)
+    if (s !== 'error' && errorPoll) { clearInterval(errorPoll); errorPoll = null }
+  })
+  onUnmounted(() => { if (errorPoll) clearInterval(errorPoll) })
 
   return {
     program, status, error, unsupported, pins, edits, choices, sections, byId, openCard,

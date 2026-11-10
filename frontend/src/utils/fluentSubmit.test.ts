@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { effectiveWay, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, prepareBody, prepareErrorCode, prepareFailure, prepareSettingsSig, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
+import { effectiveWay, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
@@ -74,8 +74,9 @@ test('without the feature, newer settings are dropped and Enhance goes as saved'
   assert.equal(out.autoImprove.enabled, true, 'classic Enhance fails visibly with no model')
 })
 
-test('forever: a failed read stops instead of running the old prompt', () => {
-  assert.deepEqual(foreverSlot({ needsPrepare: true, status: 'error', readyPrompt: 'old prompt', editing: false }), { kind: 'failed' })
+test('forever: a failed read keeps running, on the words as written, never the old prompt', () => {
+  assert.deepEqual(foreverSlot({ needsPrepare: true, status: 'error', readyPrompt: 'old prompt', editing: false }), { kind: 'words' })
+  assert.deepEqual(foreverSlot({ needsPrepare: true, status: 'error', readyPrompt: null, editing: true }), { kind: 'words' })
 })
 
 test('forever: runs the previous prompt while the new one is written or prepared', () => {
@@ -92,9 +93,30 @@ test('prepare errors: only no response means the chat model is unreachable', () 
   assert.equal(prepareErrorCode({ response: { status: 502, data: {} } }), undefined)
   assert.equal(prepareErrorCode({ response: { status: 424, data: { detail: { code: 'llm_unavailable' } } } }), 'llm_unavailable')
   assert.equal(prepareErrorCode({ response: { status: 424, data: { detail: { code: 'llm_not_configured' } } } }), 'llm_not_configured')
-  assert.match(prepareFailure(undefined, 'Brand').message, /^Brand couldn’t read this prompt/)
-  assert.equal(prepareFailure('llm_not_configured', 'Brand').action, 'settings')
-  assert.equal(prepareFailure('llm_unavailable', 'Brand').action, 'retry')
+})
+
+test('a prompt that couldn’t be read says so quietly, by cause, with one action and never “nothing ran”', () => {
+  for (const code of [undefined, 'prepare_timeout', 'program_failed']) {
+    assert.deepEqual(fallbackNotice(code, 'Brand'), { head: WORDS_AS_WRITTEN, action: 'retry' })
+  }
+  assert.deepEqual(fallbackNotice('llm_unavailable', 'Brand'), { head: 'Can’t reach your chat model', body: 'Using your words as written for now.', action: 'retry' })
+  assert.deepEqual(fallbackNotice('llm_insufficient_balance', 'Brand'), { head: 'Your chat model has no balance left', body: 'Using your words as written for now.', action: 'settings' })
+  assert.deepEqual(fallbackNotice('prompt_too_long', 'Brand'), { head: 'This prompt is too long to read', body: 'Using your words as written. Shorten it for variety.', action: 'none' })
+  assert.equal(fallbackNotice('llm_not_configured', 'Brand').head, 'Brand needs a chat model')
+  for (const code of ['prepare_timeout', 'llm_unavailable', 'llm_insufficient_balance', 'prompt_too_long', 'llm_not_configured']) {
+    const n = fallbackNotice(code, 'Brand')
+    assert.ok(!/nothing ran|turn it off|Direct/.test(`${n.head} ${n.body ?? ''}`), code)
+  }
+})
+
+test('an image made while the prompt couldn’t be read offers no Same draws', () => {
+  const words = programRunActions({ key: null, draws: [], fallback: { rung: 'words', code: 'prepare_timeout' } },
+    { key: 'k1', status: 'ready', optionsOf: () => null })
+  assert.deepEqual(words, { replay: false, reason: 'Made from your words as written.', pins: {} })
+  const earlier = programRunActions({ key: 'k0', draws: [{ id: 'hair', value: 'bob' }], fallback: { rung: 'previous' } },
+    { key: 'k0', status: 'ready', optionsOf: (id) => (id === 'hair' ? ['bob'] : null) })
+  assert.equal(earlier.replay, false)
+  assert.deepEqual(earlier.pins, { hair: ['bob'] })  // Use these choices still offers what applies
 })
 
 const run = { key: 'k1', draws: [
@@ -153,11 +175,11 @@ test('switching Trigger words is a new program to prepare', () => {
 })
 
 test('a prompt too long or no balance says what to do, without mechanics', () => {
-  const long = prepareFailure('prompt_too_long', 'Brand')
+  const long = fallbackNotice('prompt_too_long', 'Brand')
   assert.equal(long.action, 'none')
-  assert.match(long.message, /too long/)
-  assert.doesNotMatch(long.message, /\d|character/)
-  assert.equal(prepareFailure('llm_insufficient_balance', 'Brand').action, 'settings')
+  assert.match(long.head, /too long/)
+  assert.doesNotMatch(`${long.head} ${long.body}`, /\d|character/)
+  assert.equal(fallbackNotice('llm_insufficient_balance', 'Brand').action, 'settings')
   assert.ok(isPrepareFailureCode('prompt_too_long') && isPrepareFailureCode('llm_unavailable'))
   assert.ok(!isPrepareFailureCode('job_failed') && !isPrepareFailureCode(null))
 })

@@ -22,7 +22,7 @@
       <WandSparklesIcon v-else class="w-3.5 h-3.5" />
       <span>{{ chipText }}</span>
       <LanguageIcon v-if="translating" class="w-3.5 h-3.5 opacity-70" :aria-label="`Translating to ${languageLabel}`" />
-      <span v-if="failed" class="w-[6px] h-[6px] rounded-full bg-red-400" aria-label="Couldn’t read this prompt" />
+      <span v-if="failed" class="w-[6px] h-[6px] rounded-full bg-content-tertiary" :aria-label="fallback.head" />
       <Caret :open="menuOpen" class="opacity-70" />
     </button>
 
@@ -246,7 +246,7 @@ import Caret from '../ui/Caret.vue'
 import FluentVocabularyBrowser from './FluentVocabularyBrowser.vue'
 import { PROMPT_BRAND as BRAND } from './promptBrand'
 import { PROMPT_LANGUAGES, promptLanguageByCode, DEFAULT_TRANSLATE_LANGUAGE } from './promptLanguages'
-import { effectiveWay, type PromptWay } from '../../utils/fluentSubmit'
+import { effectiveWay, fallbackNotice, type PromptWay } from '../../utils/fluentSubmit'
 
 const props = defineProps<{
   program: PromptProgram
@@ -336,12 +336,16 @@ const languageOptions = computed(() => [
 const detail = computed(() => props.enhance === 'expand' || props.program.unsupported.value)
 const on = computed(() => running.value === 'fluent')
 const busy = computed(() => on.value && props.program.status.value === 'busy')
+// The prompt couldn't be read: runs go ahead on its words as written while it's read again
+// in the background. Said quietly here, never as an error.
 const failed = computed(() => on.value && props.program.status.value === 'error')
+const fallback = computed(() => fallbackNotice(props.program.error.value?.code, BRAND))
 
 
 const chipText = computed(() => {
   if (running.value === 'raw') return 'Raw'
   if (running.value === 'direct') return 'Direct'
+  if (failed.value) return `${BRAND} · as written`
   return props.enhance === 'off' && !props.program.unsupported.value ? `${BRAND} · your words` : BRAND
 })
 const chipTitle = computed(() => {
@@ -354,13 +358,12 @@ const chipTitleBase = computed(() => {
     ? `Direct: ${BRAND} needs a chat model`
     : 'Direct: lists and saved wildcards filled in'
   if (busy.value) return `Preparing your prompt…${props.previousRunning ? ' Images use your previous prompt until it’s ready.' : ''}`
-  if (failed.value) return `${BRAND} couldn’t read this prompt`
+  if (failed.value) return [fallback.value.head, fallback.value.body].filter(Boolean).join('. ')
   return detail.value ? `${BRAND}, adding detail` : props.enhance === 'fill' ? `${BRAND}, adding a little detail` : `${BRAND}, in your own words`
 })
 
 type Action = { label: string; run: () => void }
 type Notice = { head: string; body?: string; detail?: string; tone?: 'bad'; actions?: Action[] }
-const useDirect: Action = { label: 'Use Direct', run: () => { menuOpen.value = false; emit('way', 'direct') } }
 const notice = computed<Notice | null>(() => {
   if (tab.value !== 'fluent') return null
   if (props.llmUnconfigured) return {
@@ -372,13 +375,13 @@ const notice = computed<Notice | null>(() => {
     body: props.previousRunning ? 'Images use your previous prompt until it’s ready.' : undefined,
   }
   if (failed.value) {
-    const unreachable = props.program.error.value?.code === 'llm_unavailable'
-    return {
-      head: unreachable ? 'Can’t reach your chat model' : 'Couldn’t read this prompt',
-      tone: 'bad',
-      detail: devModeRef.value ? props.program.error.value?.message : undefined,
-      actions: [{ label: 'Try again', run: () => { void props.program.prepare(true) } }, useDirect],
-    }
+    const f = fallback.value
+    const actions: Action[] = f.action === 'retry'
+      ? [{ label: 'Try again', run: () => { void props.program.prepare(true) } }]
+      : f.action === 'settings'
+        ? [{ label: 'Settings', run: () => { menuOpen.value = false; window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) } }]
+        : []
+    return { head: f.head, body: f.body, detail: devModeRef.value ? props.program.error.value?.message : undefined, actions }
   }
   return null
 })
