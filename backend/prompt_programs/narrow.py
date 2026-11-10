@@ -97,9 +97,17 @@ def read_messages(prompt: str, details: Sequence[Tuple[str, str]]) -> List[Dict[
             {"role": "user", "content": f"The prompt:\n{prompt}\n\nThe details:\n{lines}"}]
 
 
+def _outside_wildcards(prompt: str) -> str:
+    """The prompt with each {{wildcard}} cut out: a wildcard's words are its own pick's, never
+    another detail's ("{{a summer hat}}" isn't what he wears)."""
+    return re.sub(r"\{\{[^{}]*\}\}", " \u2026 ", prompt)
+
+
 def _read_value(value: Any, prompt: str) -> str:
     """A detail's answer: a stretch of the prompt or a list of them, joined. Empty when any
-    stretch isn't in the prompt as written (the answer is the model's, not the user's)."""
+    stretch isn't in the prompt as written (the answer is the model's, not the user's), or
+    lies inside a {{wildcard}}."""
+    prompt = _outside_wildcards(prompt)
     spans = value if isinstance(value, list) else [value]
     spans = [str(x).strip() for x in spans if isinstance(x, str) and x.strip()]
     if not spans or not all(_span(x, prompt) for x in spans):

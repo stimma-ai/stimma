@@ -367,6 +367,9 @@ class TestWhere:
         assert got == {"age": "young woman", "hair": "red hair", "outfit": "yoga outfit, Woman"}
         assert parse_read('{"outfit": ["yoga outfit", "pink leggings"]}', ["outfit"], prompt) == {}
         assert parse_read("no object", ["age"], prompt) is None
+        # a {{wildcard}}'s words are its own pick's: never another detail's reading
+        hat = "An elderly man wearing {{a summer hat}} on a pier"
+        assert parse_read('{"outfit": "a summer hat", "age": "elderly man"}', ["outfit", "age"], hat) == {"age": "elderly man"}
 
     async def test_a_bound_wildcard_narrows_by_its_own_words(self, tmp_path):
         entry = young_entry()
