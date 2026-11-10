@@ -1086,6 +1086,48 @@ HOGS = [
     DAG + 'x = "%s" % (L,)',
     DAG + 'x = "ok"\nemit(L)',
     DAG + 'x = "ok"\nemit("a", label=L)',
+    # a guarded method stored or passed keeps no guard, so it can't be (S1)
+    's = "x" * 1000\nf = s.replace\nx = f("", s)',
+    's = "x" * 1000\nf = str.replace\nx = f(s, "", s)',
+    's = "x" * 1000\nfs = [s.replace]\nx = fs[0]("", s)',
+    's = "x" * 1000\nj = s.join\nx = j([s] * 1000)',
+    'L = [1] * 100000\ne = L.extend\ne(L)\nx = len(L)',
+    # str() however it's called (S2)
+    'a = ["x" * 1000] * 1000\nx = str(object=a)',
+    'a = ["x" * 1000] * 1000\nx = str(**{"object": a})',
+    # copies count toward what a run makes
+    'a = ["x"] * 100000\nacc = []\nfor i in range(200):\n    acc.append(a[:])\nx = "ok"',
+    'a = ["x"] * 100000\nacc = []\nfor i in range(200):\n    acc.append(list(a))\nx = "ok"',
+]
+
+# Containers holding the same container over and over: comparing, hashing or sorting them
+# walks every repeat inside one C call, past the CPU budget's reach (S3).
+_TWINS = 'a = [0]\nb = [0]\nfor i in range({n}):\n    a = [a, a]\n    b = [b, b]\n'
+_TUPLES = 't = (0,)\nu = (0,)\nfor i in range(60):\n    t = (t, t)\n    u = (u, u)\n'
+WALKS = [
+    _TWINS.format(n=27) + 'x = str(a == b)',
+    _TWINS.format(n=40) + 'x = str(a == b)',
+    _TWINS.format(n=60) + 'x = str(a == b)',
+    _TWINS.format(n=60) + 'x = str(a != b)',
+    _TWINS.format(n=60) + 'x = str(a < b)',
+    _TWINS.format(n=60) + 'x = str(a in [b])',
+    _TWINS.format(n=60) + 'x = str([b].index(a))',
+    _TWINS.format(n=60) + 'x = str([b].count(a))',
+    _TWINS.format(n=60) + 'x = str(len(sorted([a, b])))',
+    _TWINS.format(n=60) + 'x = str(len(max(a, b)))',
+    _TWINS.format(n=60) + 'x = str(len(min([a, b])))',
+    _TUPLES + 'x = str(t == u)',
+    _TUPLES + 'd = {}\nd[t] = 1\nx = "ok"',
+    _TUPLES + 'x = str({}.get(t))',
+    _TUPLES + 'x = str(len({t}))',
+    _TUPLES + 'x = str(len({t: 1}))',
+    _TUPLES + 'x = str(len({k: 1 for k in [t]}))',
+    _TUPLES + 'x = str(len(set([t, u])))',
+    _TUPLES + 'x = str(len(dict([(t, 1)])))',
+    # built small and joined up afterwards: the walk is checked when it happens, not when built
+    'ps = []\nls = []\nfor i in range(60):\n    p = []\n    ps.append(p)\n    ls.append([p, p])\n'
+    'for i in range(59, 0, -1):\n    ps[i].append(ls[i - 1])\nx = str(ls[59] == ls[59][:])',
+    'a = [1]\na.append(a)\nb = [1]\nb.append(b)\nx = str(a == b)',
 ]
 
 
@@ -1098,6 +1140,15 @@ class TestResourceLimits:
             with pytest.raises(ProgramError):
                 go()
             assert time.monotonic() - started < 0.1
+
+    @pytest.mark.parametrize("body", WALKS)
+    def test_shared_containers_cannot_hog_a_comparison(self, body):
+        import time
+        for go in _both(body + "\nemit(x)"):
+            started = time.thread_time()
+            with pytest.raises(ProgramError, match="too big to compare|holds itself"):
+                go()
+            assert time.thread_time() - started < 0.1
 
     def test_cpu_budget(self):
         import time
@@ -1117,6 +1168,11 @@ class TestResourceLimits:
         ('x = str(sorted([3, 1, 2]))', "[1, 2, 3]"),
         ('x = " ".join(sorted(["b", "A", "c"], key=str.lower))', "A b c"),
         ('x = f"{100000 * 100000}"', "10000000000"),
+        ('x = str(era in ["1920s", "1970s"] and [1, [2]] == [1, [2]] and (1, 2) < (1, 3))', "true"),
+        ('x = str(sorted([[2], [1]])) + str(max([3, 1], key=abs)) + str(min(4, 2)) + str(max([], default=0))', "[[1], [2]]320"),
+        ('d = {("a", 1): "x"}\nd[("b", 2)] = "y"\nx = d[("a", 1)] + d.get(("b", 2)) + str(len({(1, 2), (1, 2)}))', "xy1"),
+        ('x = str(sorted(dict(zip(["b", "a"], [1, 2])))) + str(len(set("abca")))', "['a', 'b']3"),
+        ('x = str(object=era) + str(["a"].index("a")) + str(era[1:3])', "1920s092"),
     ])
     def test_ordinary_programs_are_unaffected(self, body, text):
         from prompt_programs.draws import draw

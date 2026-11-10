@@ -67,6 +67,10 @@ _SAFE_BUILTINS: Dict[str, Any] = {
     "zip": zip, "abs": abs, "any": any, "all": all, "True": True, "False": False, "None": None,
 }
 API_NAMES = {"pick", "pick_lora", "param", "group", "emit"}
+# Methods the sandbox checks at the call (they grow a value, or compare or hash their argument)
+_GROWING_METHODS = ("join", "replace", "extend")
+_COMPARING_METHODS = ("index", "count", "get")
+_CALLED_METHODS = frozenset(_GROWING_METHODS + _COMPARING_METHODS)
 
 
 def extract_code(text: str) -> str:
@@ -84,6 +88,9 @@ def check(source: str) -> ast.Module:
         tree = ast.parse(source)
     except SyntaxError as e:
         raise ProgramError(f"Syntax error on line {e.lineno}: {e.msg}") from None
+    # The guarded methods are checked where they're called (see _Guarded), so they may only
+    # be called where they're written: `f = s.replace` or `key=lst.index` would skip the check.
+    called = {id(n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)}
     for node in ast.walk(tree):
         if not isinstance(node, _ALLOWED_NODES):
             line = getattr(node, "lineno", "?")
@@ -91,6 +98,9 @@ def check(source: str) -> ast.Module:
         if isinstance(node, ast.Attribute):
             if node.attr.startswith("_") or node.attr not in _ALLOWED_METHODS:
                 raise ProgramError(f"Line {node.lineno}: .{node.attr} is not allowed.")
+            if node.attr in _CALLED_METHODS and id(node) not in called:
+                raise ProgramError(f"Line {node.lineno}: .{node.attr} can only be called where it's written, "
+                                   f"as in x.{node.attr}(...), not stored or passed along.")
         if isinstance(node, ast.Name) and node.id.startswith("__"):
             raise ProgramError(f"Line {node.lineno}: names starting with __ are not allowed.")
     return tree
@@ -543,8 +553,10 @@ def tidy_text(parts: List[str]) -> str:
 # The step budget counts the program's lines, but one line can still ask C code for a lot
 # of work: "a" * 10**9, s.replace("", s), f"{x:>999999999}", max(range(10**9)). Every
 # operation that can grow a value is checked before it runs (compile_program rewrites
-# +, *, % and the growing methods into calls to a _Guard), and a run's CPU time is
-# capped. Prompts are short: legitimate programs are far inside every limit.
+# +, *, % and the growing methods into calls to a _Guard; check() lets those methods be
+# called only where they're written, never stored or passed), what C code compares, hashes
+# or sorts is size-checked first (expanded_size), and a run's CPU time is capped. Prompts
+# are short: legitimate programs are far inside every limit.
 
 MAX_SIZE = 100_000          # characters of a string, or items of a list, one operation may make
 MAX_MADE = 5_000_000        # characters and items one run's operations may make in all
@@ -556,7 +568,6 @@ MAX_CPU_SECONDS = 1.0       # CPU time of one run (thread time: waiting for the 
 
 _SCALARS = (str, int, float, bool, type(None))
 _SEQS = (str, bytes, list, tuple)
-_GROWING_METHODS = ("join", "replace", "extend")
 _CONVERSIONS = {115: str, 114: repr, 97: ascii}
 
 
@@ -606,11 +617,118 @@ def measure(value: Any, limit: int = MAX_SIZE) -> int:
     return total
 
 
-def _text(value: Any) -> str:
-    """str(value), refused when the text would be too long."""
+def _text_ok(value: Any) -> None:
+    """Refuse a value whose text would be too long to make."""
     if type(value) is not str and not isinstance(value, _SCALARS) and measure(value) > MAX_SIZE:
         raise _limit(f"this value's text is too long (over {MAX_SIZE:,} characters).")
+
+
+def _text(value: Any) -> str:
+    """str(value), refused when the text would be too long."""
+    _text_ok(value)
     return str(value)
+
+
+# Comparing, hashing or sorting containers walks them in C, where neither the step nor the
+# CPU budget can stop it, and containers can hold the same container many times over:
+# twenty-seven rounds of `a = [a, a]` make a list that `==` walks 2**27 times while it
+# holds 28 lists. So a container is compared, hashed or sorted only when its EXPANDED size
+# (every element counted each time it is reached, shared ones included) is within MAX_SIZE.
+# The check is memoised by id, so it costs one visit per distinct container: a list of
+# scalars costs one C pass.
+
+_VIEWS = (type({}.keys()), type({}.values()), type({}.items()))
+_CONTAINERS = frozenset((list, tuple, dict, set, frozenset, *_VIEWS))
+_LEAVES = frozenset((str, int, float, bool, type(None), bytes, range))
+
+
+def _members(v: Any) -> Any:
+    return [*v.keys(), *v.values()] if type(v) is dict else v if type(v) not in _VIEWS else list(v)
+
+
+def expanded_size(value: Any, limit: int = MAX_SIZE) -> int:
+    """How many elements walking `value` reaches, every repeat counted, stopping (with a
+    ProgramError) past `limit` or at a container that holds itself."""
+    if type(value) not in _CONTAINERS:
+        return 1
+    sizes: Dict[int, Tuple[int, Any]] = {}   # id -> (size, the object, kept alive for the walk)
+    path: Set[int] = set()
+    stack: List[Tuple[Any, Any]] = [(value, None)]
+    while stack:
+        v, members = stack.pop()
+        i = id(v)
+        if members is not None:  # its members are all sized
+            n = 1 + sum(sizes[id(m)][0] if type(m) in _CONTAINERS else 1 for m in members)
+            if n > limit:
+                raise _limit(f"this value is too big to compare or sort (over {limit:,} items, "
+                             "counting each time a list holds the same list).")
+            sizes[i] = (n, v)
+            path.discard(i)
+            continue
+        if i in sizes:
+            continue
+        if i in path:
+            raise _limit("this value holds itself, so it can't be compared or sorted.")
+        members = _members(v)
+        if set(map(type, members)) <= _LEAVES:
+            if len(members) + 1 > limit:
+                raise _limit(f"this value is too big to compare or sort (over {limit:,} items).")
+            sizes[i] = (len(members) + 1, v)
+            continue
+        path.add(i)
+        stack.append((v, members))
+        stack.extend((m, None) for m in members if type(m) in _CONTAINERS and id(m) not in sizes)
+    return sizes[id(value)][0]
+
+
+def _compared(value: Any) -> Any:
+    """A value about to be compared or hashed (an operand of ==, <, in, a dict key, a set
+    member, an .index/.count/.get argument): refused when it's too big to walk."""
+    if type(value) in _CONTAINERS:
+        expanded_size(value)
+    return value
+
+
+def _sorted(iterable: Any, *, key: Any = None, reverse: Any = False) -> List[Any]:
+    items = list(iterable)
+    if key is None:
+        expanded_size(items)
+        return sorted(items, reverse=reverse)
+    keys = [key(x) for x in items]   # once each, as sorted() does
+    expanded_size(keys)
+    return [items[i] for i in sorted(range(len(items)), key=keys.__getitem__, reverse=reverse)]
+
+
+_NO_DEFAULT = object()
+
+
+def _extreme(fn: Callable[..., Any]) -> Callable[..., Any]:
+    def pick_one(*args: Any, key: Any = None, default: Any = _NO_DEFAULT) -> Any:
+        if not args:
+            return fn()  # min()/max()'s own error
+        items = list(args[0]) if len(args) == 1 else list(args)
+        if not items and default is not _NO_DEFAULT:
+            return default
+        if key is None:
+            expanded_size(items)
+            return fn(items)
+        keys = [key(x) for x in items]
+        expanded_size(keys)
+        return items[fn(range(len(items)), key=keys.__getitem__)] if items else fn(items)
+    pick_one.__name__ = fn.__name__
+    return pick_one
+
+
+def _hashed(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """set() and dict(): what they hash is checked first (an iterator is read into a list)."""
+    def make(*args: Any, **kw: Any) -> Any:
+        if args and type(args[0]) is not dict:
+            args = (list(args[0]), *args[1:])
+        for a in args:
+            expanded_size(a)
+        return fn(*args, **kw)
+    make.__name__ = fn.__name__
+    return make
 
 
 class _StrBuiltin:
@@ -619,8 +737,10 @@ class _StrBuiltin:
     __slots__ = ()
 
     def __call__(self, *args: Any, **kw: Any) -> str:
-        if len(args) == 1 and not kw:
-            return _text(args[0])
+        # str(x), str(object=x), str(b, encoding): whichever way it's called, the object's
+        # text is measured (bytes decode to no more characters than they hold).
+        if args or "object" in kw:
+            _text_ok(args[0] if args else kw["object"])
         return str(*args, **kw)
 
     def __getattr__(self, name: str) -> Any:
@@ -779,6 +899,47 @@ class _Guarded(ast.NodeTransformer):
         self.generic_visit(node)
         if isinstance(node.func, ast.Attribute) and node.func.attr in _GROWING_METHODS:
             return self._call("__pp_call", [node.func.value, ast.Constant(node.func.attr), *node.args], node, node.keywords)
+        if isinstance(node.func, ast.Attribute) and node.func.attr in _COMPARING_METHODS:
+            node.args = [self._compared(a) for a in node.args]
+            node.keywords = [ast.keyword(k.arg, self._compared(k.value)) for k in node.keywords]
+        return node
+
+    # Operands that C code compares or hashes go through __pp_cmp (_compared) first.
+    def _compared(self, value: ast.expr) -> ast.expr:
+        return self._call("__pp_cmp", [value], value)
+
+    def visit_Compare(self, node: ast.Compare) -> ast.AST:
+        self.generic_visit(node)
+        if not all(isinstance(op, (ast.Is, ast.IsNot)) for op in node.ops):
+            node.left = self._compared(node.left)
+            node.comparators = [self._compared(c) for c in node.comparators]
+        return node
+
+    def visit_Subscript(self, node: ast.Subscript) -> ast.AST:
+        self.generic_visit(node)
+        if isinstance(node.slice, ast.Slice):  # a slice copies: counted like any value made
+            return self._call("__pp_made", [node], node) if isinstance(node.ctx, ast.Load) else node
+        node.slice = self._compared(node.slice)  # a dict key is hashed
+        return node
+
+    def visit_Dict(self, node: ast.Dict) -> ast.AST:
+        self.generic_visit(node)
+        node.keys = [k if k is None else self._compared(k) for k in node.keys]
+        return node
+
+    def visit_Set(self, node: ast.Set) -> ast.AST:
+        self.generic_visit(node)
+        node.elts = [self._compared(e) for e in node.elts]
+        return node
+
+    def visit_DictComp(self, node: ast.DictComp) -> ast.AST:
+        self.generic_visit(node)
+        node.key = self._compared(node.key)
+        return node
+
+    def visit_SetComp(self, node: ast.SetComp) -> ast.AST:
+        self.generic_visit(node)
+        node.elt = self._compared(node.elt)
         return node
 
     def visit_FormattedValue(self, node: ast.FormattedValue) -> ast.AST:
@@ -799,7 +960,9 @@ def compile_program(tree: ast.Module) -> Any:
     return compile(tree, "<program>", "exec")
 
 
-_SANDBOX_BUILTINS: Dict[str, Any] = {**_SAFE_BUILTINS, "range": _range, "str": _StrBuiltin()}
+_SANDBOX_BUILTINS: Dict[str, Any] = {**_SAFE_BUILTINS, "range": _range, "str": _StrBuiltin(), "sorted": _sorted,
+                                      "min": _extreme(min), "max": _extreme(max), "set": _hashed(set),
+                                      "dict": _hashed(dict)}
 
 
 def _api_call(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -821,7 +984,8 @@ def execute(code: Any, api: Any, passthrough: Tuple[type, ...] = ()) -> None:
     guard = _Guard()
     env: Dict[str, Any] = {"__builtins__": dict(_SANDBOX_BUILTINS), "__pp_op": guard.op, "__pp_aug": guard.aug,
                            "__pp_aug_item": guard.aug_item, "__pp_call": guard.call, "__pp_fmt": guard.fmt,
-                           "__pp_fstr": guard.fstr}
+                           "__pp_fstr": guard.fstr, "__pp_made": guard._made, "__pp_cmp": _compared}
+    env["__builtins__"]["list"] = lambda *a: guard._made(list(*a))   # a copy counts as made
     for name in API_NAMES:
         env[name] = _api_call(getattr(api, name))
     steps = 0
