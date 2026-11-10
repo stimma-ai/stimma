@@ -31,6 +31,7 @@
         <template v-else>{{ piece.text }}</template>
       </template>
     </p>
+    <p v-if="unchecked" class="text-[11px] text-content-muted" data-program-unchecked>{{ unchecked }}</p>
   </div>
 </template>
 
@@ -39,7 +40,11 @@ import { computed } from 'vue'
 import Tooltip from '../ui/Tooltip.vue'
 import { devModeRef } from '../../appConfig'
 import { promptProgramRolls } from '../../utils/promptProgramRolls'
+import { unjudgedNote } from '../../utils/fluentJudge'
+import { PROMPT_BRAND } from './promptBrand'
 
 const props = defineProps<{ run: any }>()
 const rolls = computed(() => promptProgramRolls(props.run))
+// One quiet line when the fit check couldn't be had for this image.
+const unchecked = computed(() => unjudgedNote(props.run, PROMPT_BRAND))
 </script>

@@ -1054,6 +1054,12 @@ export function useGenerationJobs(options = {}) {
     pendingJobs.value = pendingJobs.value.filter(j => j.id !== pendingId)
   }
 
+  // A pending tile's status moves on (preparing, then getting Fluent ready… 62%).
+  function setPendingJobLabel(pendingId, label) {
+    const job = pendingJobs.value.find(j => j.id === pendingId)
+    if (job && job.pending_label !== label) job.pending_label = label
+  }
+
   function hasPendingJob(pendingId) {
     return pendingJobs.value.some(j => j.id === pendingId)
   }
@@ -1376,6 +1382,7 @@ export function useGenerationJobs(options = {}) {
     fetchGeneratedImages,
     refreshCompletedHistoryCount,
     addPendingJob,
+    setPendingJobLabel,
     removePendingJob,
     cancelPendingJob,
     hasPendingJob,
