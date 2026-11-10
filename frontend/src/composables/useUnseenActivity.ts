@@ -4,7 +4,7 @@ import { useAgentActivity } from './useAgentActivity'
 import { useWorkspaceTabs, toolRouteTabId } from './useWorkspaceTabs'
 import { instanceMatchesFeedScope, instanceMatchesTool } from './useGenerationStatus'
 import router from '../router'
-import { useChatDock } from './useChatDock'
+import { useChatDock, visibleOpen } from './useChatDock'
 
 // Singleton: "finished while you weren't looking" markers per workspace tab.
 // When a sidebar spinner stops (tool jobs drained, agent turn ended) and the
@@ -145,6 +145,8 @@ function init() {
     window.addEventListener('focus', () => {
       windowFocused.value = true
       clearActiveIfSeen()
+      // Dock windows on screen were seen too.
+      for (const id of visibleOpen.value) clearUnseen(`chat:${id}`)
     })
     window.addEventListener('blur', () => { windowFocused.value = false })
   }
