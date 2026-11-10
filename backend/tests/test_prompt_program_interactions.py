@@ -137,6 +137,22 @@ class TestOnePersonRule:
         for _, d in draws_of(e, tmp_path, range(40)):
             assert not adult & set(d["outfit"].options)
 
+    def test_a_said_age_nothing_narrowed_still_limits_its_person(self, tmp_path):
+        adult = {v.text for v in vocabulary().get("person.outfit.summer").eligible() if v.adult_only}
+        for said in ("8–10-year-old", "eight year old"):   # a list value, and words nothing read
+            src = (f'ga = pick("girl.age", cls="person.age_band", said="{said}", about="her age", label="Age", phase=1, line=1)\n'
+                   'o = pick("girl.outfit", cls="person.outfit.summer", about="what she wears", seed=["a swimsuit"], label="Outfit", phase=2, line=1)\n'
+                   's = pick("outfit", cls="person.outfit.summer", about="what they all wear", seed=["a swimsuit"], label="Outfit", phase=2, line=1, shared=True)\n'
+                   'emit("A", ga, "girl at the beach in", o, "beside friends in", s)')
+            e = entry_of(src, f"a {said} girl at the beach")   # no filters: narrowing never ran
+            assert dict(program_minors(e)).get("girl"), said
+            for _, d in draws_of(e, tmp_path / said.replace(" ", "_"), range(40)):
+                assert d["girl.age"].value == said
+                assert not adult & set(d["girl.outfit"].options) and not adult & set(d["outfit"].options)
+        # an adult age in the list's own words stays an adult
+        e = entry_of(src.replace(f'said="{said}"', 'said="35–39-year-old"'), "a 35-year-old woman at the beach")
+        assert not dict(program_minors(e))
+
     def test_a_shared_descent_gives_each_subject_context(self, tmp_path):
         src = ('eth = pick("ethnicity", cls="person.ethnicity", about="their descent", seed=["Korean"], label="Descent", phase=1, line=1, shared=True)\n'
                'a = pick("woman.eyes", cls="person.eye_color", about="her eyes", seed=["brown"], label="Eyes", phase=1, line=1)\n'

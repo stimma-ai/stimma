@@ -162,11 +162,22 @@ def program_minors(entry: Dict[str, Any]) -> Tuple[Tuple[str, Tuple[str, ...]], 
     vocab = vocabulary()
     out: Dict[str, List[str]] = {}
     filters = entry.get("filters") or {}
+    read = entry.get("ages") or {}
     for c in entry.get("choices") or []:
         leaf = vocab.resolve(c.get("cls")) if c.get("cls") else None
-        if leaf is None or leaf.id != AGE_LIST or not isinstance(filters.get(c.get("id")), list):
+        if leaf is None or leaf.id != AGE_LIST:
             continue
-        young = minor_ages(filters[c["id"]])
+        if isinstance(filters.get(c.get("id")), list):
+            young = minor_ages(filters[c["id"]])
+        elif c.get("said") and person_of(str(c["id"])) not in read:
+            # The age is the user's own words and always drawn (said=), and nothing narrowed or
+            # read it: one of the list's ages counts as itself; anything else isn't known to be
+            # an adult's, so the person's pools are a minor's until a reading says otherwise.
+            said = str(c["said"])
+            young = minor_ages([said]) if any(v.text == said for v in leaf.values) \
+                else tuple(v.text for v in leaf.values if v.minor)
+        else:
+            continue
         if young:
             out.setdefault(person_of(str(c["id"])), []).extend(young)
     for person, ages in (entry.get("ages") or {}).items():
