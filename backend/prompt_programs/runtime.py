@@ -317,8 +317,8 @@ class _Runner:
         seeds = _as_list(seed if seed is not None else [], f'pick("{cid}") seed')
         leaf = bound_leaf(cid, cls, source, options)
         written = list(options) if isinstance(options, (list, tuple)) else options
-        if leaf is not None:
-            written = [v.text for v in leaf.eligible()]
+        if leaf is not None:  # opt-in values (ages under 18) only when asked: never in a plain run
+            written = [v.text for v in leaf.eligible() if not v.opt_in]
         elif isinstance(written, dict) or written:
             if isinstance(written, dict):
                 written = {k: [*seeds, *(v or [])] for k, v in written.items()}

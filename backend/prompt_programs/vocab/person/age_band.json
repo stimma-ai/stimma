@@ -4,7 +4,7 @@
   "description": "A life stage expressed as a numbered age range.",
   "pos": "adjective",
   "frame": "a ___ person",
-  "notes": "An age range, in years, inclusive, as an adjective before the person: “a 20–24-year-old woman”. Covers babies, children, teens and adults; adult ranges are typical and younger ones plausible, since most images of a person show an adult when nothing says otherwise. Each value carries its age facet (child, teen, adult, elderly) so a context can narrow it.",
+  "notes": "An age range, in years, inclusive, as an adjective before the person: “a 20–24-year-old woman”. Covers babies, children, teens and adults. A person is drawn as an adult unless asked: the bands under 18 are opt_in, drawn only when the user's words narrow the list to them (where=) or the user picks one. Adult ranges are typical and the youngest and oldest adult ones plausible. Each value carries its age facet (child, teen, adult, elderly) so a context can narrow it.",
   "facets": [
     "age"
   ],
@@ -20,7 +20,8 @@
         "life_stage": [
           "baby"
         ]
-      }
+      },
+      "opt_in": true
     },
     {
       "text": "3–4-year-old",
@@ -32,7 +33,8 @@
         "life_stage": [
           "child"
         ]
-      }
+      },
+      "opt_in": true
     },
     {
       "text": "5–7-year-old",
@@ -44,7 +46,8 @@
         "life_stage": [
           "child"
         ]
-      }
+      },
+      "opt_in": true
     },
     {
       "text": "8–10-year-old",
@@ -56,7 +59,8 @@
         "life_stage": [
           "child"
         ]
-      }
+      },
+      "opt_in": true
     },
     {
       "text": "11–12-year-old",
@@ -68,7 +72,8 @@
         "life_stage": [
           "child"
         ]
-      }
+      },
+      "opt_in": true
     },
     {
       "text": "13–14-year-old",
@@ -80,7 +85,8 @@
         "life_stage": [
           "teen"
         ]
-      }
+      },
+      "opt_in": true
     },
     {
       "text": "15–17-year-old",
@@ -92,7 +98,8 @@
         "life_stage": [
           "teen"
         ]
-      }
+      },
+      "opt_in": true
     },
     {
       "text": "18–19-year-old",

@@ -1261,7 +1261,8 @@
         "presentation": [
           "feminine"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a {main} sheer chiffon floor-length robe over a {accent} lace camisole and matching briefs",
@@ -1288,7 +1289,8 @@
         "presentation": [
           "feminine"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a quilted {main} silk sleeping robe over a white linen tunic",
@@ -1350,7 +1352,8 @@
           "cyberpunk",
           "horror"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a short {main} cotton nightdress with narrow straps and a gathered neckline",

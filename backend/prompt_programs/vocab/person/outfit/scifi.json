@@ -1244,7 +1244,8 @@
         "presentation": [
           "feminine"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a cropped {main} mesh hoodie over a {accent} stretch bralette and {neutral} micro-pleated miniskirt",
@@ -1269,7 +1270,8 @@
         "climate": [
           "hot"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a sleeveless {main} polymer vest and {neutral} knee-length utility shorts with {accent} webbing panels",
@@ -1563,7 +1565,8 @@
         "climate": [
           "hot"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a {main} pleated ceremonial mantle over a {accent} bonded tunic and {neutral} seamless trousers",

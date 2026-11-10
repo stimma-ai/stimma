@@ -19,6 +19,15 @@ Facets filter values by context. A value's tags list the facet values it fits; a
 A pool uses the context defaults (genre realistic, era contemporary) unless the prompt
 narrows it: a pick's `where={facet: value}`, or the user's words read by narrow.py.
 
+Two markers on a value say who it is for:
+- `opt_in`: drawn only when asked for. The age list's baby, child and teen bands are opt-in:
+  a person is an adult unless the user's words (narrowing, a pick's where=) or their own
+  choice in the picker ask for a younger age. Unasked, such a value stays in its pool at
+  weight 0 ("standby"), so the picker can offer it and a pin of it draws.
+- `adult_only`: an adult-coded look (lingerie, sheer or boudoir wear, a sultry expression).
+  It leaves a person's bound pools when that person may be under 18 (see `minor_ages`).
+  The user's own lists and wildcards are never filtered.
+
 More roots can be added (a stimpack's vocabulary); ids must not collide.
 """
 
@@ -39,6 +48,8 @@ OPEN_SHARE = 0.5      # an open leaf's list values' share of its pool's weight o
 EXAMPLES = 10         # list values shown to the options generator for an open leaf
 CATALOGUE_ROOTS = ("person",)   # what the writer is shown; the rest waits for an open() tool
 TYPO_CUTOFF = 0.85    # difflib ratio above which an unknown id is read as a typo of a known one
+AGE_LIST = "person.age_band"     # the list a person's age is drawn from
+MINOR = ("child", "teen")        # the age facet's values under 18
 
 
 ROLES = ("main", "accent", "neutral")
@@ -87,10 +98,18 @@ class Value:
     tags: Dict[str, Any] = field(default_factory=dict)
     roles: Dict[str, str] = field(default_factory=dict)       # a palette's colours by role
     palette: Dict[str, Any] = field(default_factory=dict)     # a template's restriction on its palette
+    opt_in: bool = False       # drawn only when asked for (the module docstring)
+    adult_only: bool = False   # an adult-coded look: never in the pools of a person under 18
 
     @property
     def weight(self) -> float:
         return TIER_WEIGHTS.get(self.tier, TIER_WEIGHTS["plausible"])
+
+    @property
+    def minor(self) -> bool:
+        """An age under 18: its age tags are all child or teen (18–19 is tagged adult)."""
+        ages = self.tags.get("age")
+        return isinstance(ages, (list, tuple)) and bool(ages) and all(str(a) in MINOR for a in ages)
 
 
 @dataclass(frozen=True)
@@ -133,15 +152,28 @@ class Leaf:
             return out
         return [v for v in self.values if self.fits(v, dict(context or {}))]
 
+    def pool_values(self, allowed: Optional[Sequence[str]] = None, minor: bool = False,
+                    context: Optional[Dict[str, str]] = None) -> Tuple[List[Value], List[Value]]:
+        """(drawn, standby): the values a pick's pool draws from, and the opt-in values it
+        holds at weight 0 for the picker and pins. Narrowed (`allowed`, where=) a pool is
+        exactly its subset, opt-in values included: the words asked for them. For a person
+        who may be under 18 (`minor`), adult-only values leave both."""
+        vals = self.eligible(context)
+        if allowed is not None:
+            keep = set(allowed)
+            drawn, standby = [v for v in vals if v.text in keep], []
+        else:
+            drawn, standby = [v for v in vals if not v.opt_in], [v for v in vals if v.opt_in]
+        if minor:
+            drawn, standby = [v for v in drawn if not v.adult_only], [v for v in standby if not v.adult_only]
+        return drawn, standby
+
     def examples(self, key: str, context: Optional[Dict[str, str]] = None, n: int = EXAMPLES,
-                 only: Optional[Sequence[str]] = None) -> List[str]:
+                 only: Optional[Sequence[str]] = None, minor: bool = False) -> List[str]:
         """A spread of eligible values for the options generator: one per tier and tag
         combination first, then at random, seeded by `key` so a pool's examples are stable.
-        `only` keeps to a narrowed subset (where=)."""
-        vals = list(self.eligible(context))
-        if only is not None:
-            keep = set(only)
-            vals = [v for v in vals if v.text in keep]
+        `only` keeps to a narrowed subset (where=); `minor` leaves adult-only values out."""
+        vals = self.pool_values(only, minor, context)[0]
         random.Random(key).shuffle(vals)
         out: List[str] = []
         kinds = set()
@@ -221,7 +253,8 @@ class Vocabulary:
                 **({"local_facets": {k: list(v) for k, v in lf.local_facets.items()}} if lf.local_facets else {}),
                 **({"slots": lf.slots} if lf.slots else {}),
                 "values": [{"text": v.text, "tier": v.tier, **({"tags": v.tags} if v.tags else {}),
-                            **({"roles": v.roles} if v.roles else {}), **({"palette": v.palette} if v.palette else {})}
+                            **({"roles": v.roles} if v.roles else {}), **({"palette": v.palette} if v.palette else {}),
+                            **({"opt_in": True} if v.opt_in else {}), **({"adult_only": True} if v.adult_only else {})}
                            for v in lf.values],
             } for lf in sorted(self.leaves.values(), key=lambda lf: lf.id)],
         }
@@ -229,7 +262,8 @@ class Vocabulary:
 
 def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
     vals = tuple(Value(str(v["text"]), str(v.get("tier") or "plausible"), dict(v.get("tags") or {}),
-                       {str(k): str(x) for k, x in (v.get("roles") or {}).items()}, dict(v.get("palette") or {}))
+                       {str(k): str(x) for k, x in (v.get("roles") or {}).items()}, dict(v.get("palette") or {}),
+                       v.get("opt_in") is True, v.get("adult_only") is True)
                  for v in d.get("values") or [] if str(v.get("text") or "").strip())
     return Leaf(lid, str(d.get("label") or lid), str(d.get("description") or ""), str(d.get("pos") or ""),
                 str(d.get("frame") or ""), str(d.get("notes") or ""), tuple(d.get("facets") or ()),
@@ -274,4 +308,15 @@ def vocabulary() -> Vocabulary:
     return load()
 
 
-__all__ = ["Leaf", "Node", "Value", "Vocabulary", "load", "vocabulary", "TIER_WEIGHTS", "OPEN_SHARE"]
+def minor_ages(values: Sequence[str]) -> Tuple[str, ...]:
+    """The ages under 18 among `values` of the age list (a pick's subset, pins or kept
+    values): a person whose age may be one of them is drawn as a minor."""
+    leaf = vocabulary().get(AGE_LIST)
+    if leaf is None:
+        return ()
+    want = {str(x) for x in values}
+    return tuple(v.text for v in leaf.values if v.text in want and v.minor)
+
+
+__all__ = ["AGE_LIST", "Leaf", "Node", "Value", "Vocabulary", "load", "minor_ages", "vocabulary", "TIER_WEIGHTS",
+           "OPEN_SHARE"]

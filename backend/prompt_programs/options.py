@@ -35,9 +35,9 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
-from prompt_programs.draws import LiteralOptions, PickSpec, Pool, pool_key
+from prompt_programs.draws import LiteralOptions, PickSpec, Pool, person_of, pool_key
 from prompt_programs.runtime import RANK_DECAY
-from prompt_programs.vocab import OPEN_SHARE, Leaf, fill, tags_match, template_matches, vocabulary
+from prompt_programs.vocab import AGE_LIST, OPEN_SHARE, Leaf, fill, minor_ages, tags_match, template_matches, vocabulary
 
 log = get_logger(__name__)
 
@@ -106,6 +106,11 @@ class ProgramContext:
     # the program's editing context (prepare's context key): background work for a program
     # the user has since edited away from is dropped
     context_key: str = ""
+    # (person, ages under 18) for each person who may be a minor: an age pick narrowed to such
+    # ages, or the age the prompt states for a person with no age pick (narrow.py, entry["ages"])
+    minors: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()
+    # picks that are the user's own {{wildcards}}: never filtered by a person's age
+    wildcards: Tuple[str, ...] = ()
 
     @classmethod
     def of(cls, entry: Dict[str, Any]) -> "ProgramContext":
@@ -125,14 +130,38 @@ class ProgramContext:
                        if isinstance(c.get("where"), dict) and c["where"])
         return cls(str(entry.get("key") or ""), signature, template, str(entry.get("mode") or "prose"),
                    entry.get("elaborate") is not False, lists, str(entry.get("tool_id") or ""),
-                   str(entry.get("lineage") or ""), intents, filters, facets, str(entry.get("context_key") or ""))
+                   str(entry.get("lineage") or ""), intents, filters, facets, str(entry.get("context_key") or ""),
+                   minors=program_minors(entry),
+                   wildcards=tuple(str(c.get("id")) for c in entry.get("choices") or [] if c.get("wildcard")))
+
+
+def program_minors(entry: Dict[str, Any]) -> Tuple[Tuple[str, Tuple[str, ...]], ...]:
+    """Who in a prepared program may be under 18, and at which ages: a person whose age pick
+    was narrowed to ages under 18 (the user's words asked for them: where=, or narrowing), or
+    a person with no age pick whose stated age reads under 18 (narrow.py's entry["ages"]).
+    An age pick left unnarrowed draws adults, so its person is an adult."""
+    vocab = vocabulary()
+    out: Dict[str, List[str]] = {}
+    filters = entry.get("filters") or {}
+    for c in entry.get("choices") or []:
+        leaf = vocab.resolve(c.get("cls")) if c.get("cls") else None
+        if leaf is None or leaf.id != AGE_LIST or not isinstance(filters.get(c.get("id")), list):
+            continue
+        young = minor_ages(filters[c["id"]])
+        if young:
+            out.setdefault(person_of(str(c["id"])), []).extend(young)
+    for person, ages in (entry.get("ages") or {}).items():
+        young = minor_ages(ages if isinstance(ages, list) else [])
+        if young:
+            out.setdefault(str(person), []).extend(young)
+    return tuple((p, tuple(dict.fromkeys(a))) for p, a in sorted(out.items()))
 
 
 # --------------------------------------------------------------------------- the on-disk cache
 
 def gen_key(spec: PickSpec, context: Dict[str, Any], signature: str, mode: str, elaborate: bool,
             lists: Sequence[Tuple[str, str, Sequence[str]]] = (), version: str = OPTIONS_VERSION,
-            lineage: str = "", intent: str = "", cls: str = "") -> str:
+            lineage: str = "", intent: str = "", cls: str = "", minor: Sequence[str] = ()) -> str:
     """The generated pool's identity across prompts: what the pick is, the values of the
     picks it depends on, the context signature, the user's lists it is shown (those it
     doesn't depend on), and the style options are written in. `version` names an older
@@ -147,6 +176,7 @@ def gen_key(spec: PickSpec, context: Dict[str, Any], signature: str, mode: str, 
         **({"lineage": lineage} if lineage else {"context": _norm(signature)}),
         **({"intent": _norm(intent)} if intent else {}),
         **({"cls": cls} if cls else {}),   # a bound pick's generated options extend its list
+        **({"minor": sorted(minor)} if minor else {}),   # written for a person under 18
         "mode": mode, "elaborate": bool(elaborate), **({"lists": shown} if shown else {}),
     }, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
@@ -310,7 +340,16 @@ def generation_messages(job: OptionJob, count: int = BATCH_SIZE) -> List[Dict[st
                       "every option must be within it (\"1970s or 1980s cars\" means only cars from those two decades)."]
     if job.removed:
         lines += ["", "The user deleted these: never write them or any wording of them:", *[f"- {o}" for o in job.removed]]
+    if job.spec.minor:
+        lines += ["", f"This detail is for a person under 18 ({minor_words(job.spec.minor)}), as the prompt asks: "
+                      "every option must be what someone that age would ordinarily wear, do or look like."]
     return [{"role": "system", "content": system}, {"role": "user", "content": "\n".join(lines)}]
+
+
+def minor_words(ages: Sequence[str]) -> str:
+    """A minor person's possible ages, for the generator: "13–14 or 15–17 years old"."""
+    spans = [a[: -len("-year-old")] if a.endswith("-year-old") else a for a in ages]
+    return (", ".join(spans[:-1]) + " or " + spans[-1] if len(spans) > 1 else spans[0]) + " years old"
 
 
 _META = re.compile(r"\b(wait|let's|let me|actually|options?|the prompt|instructions?|here is|here are|i need|json)\b", re.I)
@@ -359,6 +398,8 @@ async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Seque
                     int(choice.get("phase") or 1), str(choice.get("source") or "text"), "pick",
                     seeds=[str(o) for o in (choice.get("options") or [])[:3]], cls=str(choice.get("cls") or ""))
     program = ProgramContext.of(entry)
+    if spec.cls != AGE_LIST and spec.id not in program.wildcards:
+        spec.minor = dict(program.minors).get(person_of(spec.id), ())
     job = OptionJob(key="", spec=spec, context={}, program=program, signature=program.signature, round=0,
                     existing=have, project_id=project_id)
     from prompt_programs.prepare import _ask_model
@@ -578,6 +619,8 @@ class GeneratedOptions:
         self.generate = generate and store is not None
         self.specific = set(store.specific(program.key)) if store is not None else set()
         self.filters = {k: v for k, v in program.filters}
+        self.minor_ages = dict(program.minors)    # read by the draw engine (draws._Engine._minors)
+        self.theirs = program.wildcards
         self._pools: Dict[str, Pool] = {}
         self.requests: List[Tuple[str, str]] = []
         self.queued: List[str] = []
@@ -635,9 +678,11 @@ class GeneratedOptions:
                                       dict(self.program.facets).get(spec.id, "")) if x)
         if spec.cls and spec.id in self.filters:  # narrowed by where= (an empty subset: drawn without the list)
             key += f" where {intent}"
+        if spec.minor:  # a person under 18: adult-only values out, options written for that age
+            key += " | under 18"
         lineage = "" if specific else self.program.lineage
         return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate,
-                            self.program.lists, self.version, lineage, intent, spec.cls), signature
+                            self.program.lists, self.version, lineage, intent, spec.cls, spec.minor), signature
 
     def get(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
         if not self._grows(spec) and self._leaf(spec) is None and not isinstance(self.limits.get(self._where(spec, context)[0]), list):
@@ -722,7 +767,9 @@ class GeneratedOptions:
                     out.append((o, w))
             return out
         allowed = self._allowed(spec)
-        values = [v for v in leaf.eligible() if allowed is None or v.text in allowed]
+        # Opt-in values (ages under 18) not asked for stand by at weight 0: the picker offers
+        # them and a pin draws them. A person under 18 has no adult-only values (vocab.py).
+        values, standby = leaf.pool_values(allowed, bool(spec.minor))
         if leaf.slots:  # a removal names the filled look a draw showed: it removes its template
             gone = [str(x) for x in edit.get("remove") or []]
             values = [v for v in values if not any(template_matches(v.text, g) for g in gone)]
@@ -740,7 +787,7 @@ class GeneratedOptions:
             lw, gw = sum(w for _, w in listed), sum(w for _, w in gen)
             listed = [(o, w * OPEN_SHARE / lw) for o, w in listed]
             gen = [(o, w * (1 - OPEN_SHARE) / gw) for o, w in gen]
-        kept = [*listed, *gen]
+        kept = [*listed, *gen, *unique([(v.text, 0.0) for v in standby])]
         roles = {v.text: dict(v.roles) for v in values if v.roles}
         pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, True, roles)
         rounds = self.store.rounds(skey) if self.store is not None and not leaf.closed else 0
@@ -749,7 +796,7 @@ class GeneratedOptions:
     def _examples(self, leaf: Leaf, spec: PickSpec, key: str) -> List[str]:
         """The generator's examples from a bound pick's list; templates are shown filled
         with a palette, so it writes whole looks, never slots."""
-        got = leaf.examples(key, only=self._allowed(spec))
+        got = leaf.examples(key, only=self._allowed(spec), minor=bool(spec.minor))
         palette = vocabulary().get(leaf.slots) if leaf.slots else None
         if palette is None or not palette.values:
             return got
@@ -831,5 +878,5 @@ def filler_for(profile_id: Optional[str]) -> OptionFiller:
 
 __all__ = [
     "GeneratedOptions", "OptionFiller", "OptionJob", "OptionStore", "ProgramContext", "filler_for", "gen_key",
-    "generated_pick", "generation_messages", "llm_generator", "parse_options", "store_for",
+    "generated_pick", "generation_messages", "llm_generator", "parse_options", "program_minors", "store_for",
 ]

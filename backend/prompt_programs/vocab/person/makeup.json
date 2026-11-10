@@ -17,7 +17,8 @@
     },
     {
       "text": "bold red lipstick",
-      "tier": "typical"
+      "tier": "typical",
+      "adult_only": true
     },
     {
       "text": "soft brown eyeshadow",
@@ -69,7 +70,8 @@
     },
     {
       "text": "a softly blended smoky eye",
-      "tier": "typical"
+      "tier": "typical",
+      "adult_only": true
     },
     {
       "text": "winged eyeliner",
@@ -105,7 +107,8 @@
     },
     {
       "text": "deep plum lipstick",
-      "tier": "plausible"
+      "tier": "plausible",
+      "adult_only": true
     },
     {
       "text": "black lipstick",
@@ -121,7 +124,8 @@
     },
     {
       "text": "a sharp cut crease",
-      "tier": "unusual"
+      "tier": "unusual",
+      "adult_only": true
     },
     {
       "text": "graphic white eyeliner",
@@ -137,7 +141,8 @@
     },
     {
       "text": "bronze contouring",
-      "tier": "plausible"
+      "tier": "plausible",
+      "adult_only": true
     },
     {
       "text": "two-tone lipstick",
@@ -190,7 +195,8 @@
           "contemporary",
           "future"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "neon pink blush swept to the temples",
