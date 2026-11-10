@@ -1044,6 +1044,21 @@ class TestFallbackRungs:
         record, _ = await _submit(program={"pins": {"weather": ["sunny"]}})  # nothing fits that pin
         assert record["fallback"]["rung"] == "words"
 
+    async def test_the_words_as_written_never_wait_for_the_judge(self, model, monkeypatch):
+        waited = []
+
+        async def await_judge(entry):
+            waited.append(entry.get("key"))
+        monkeypatch.setattr("prompt_programs.fix.await_judge", await_judge)
+        model.replies = [_down()]
+        record, _ = await _submit(EDITED)
+        assert record["fallback"]["rung"] == "words" and waited == []
+        model.replies = [reply(write(GOOD))]
+        await ensure(enhance="off")
+        model.replies = [_down()]
+        record, _ = await _submit(enhance="expand")   # the same words' earlier program draws: it waits
+        assert record["fallback"]["rung"] == "previous" and waited == [record["key"]]
+
     async def test_a_prompt_too_long_runs_its_words_and_says_why(self, model):
         long = PROMPT + " " + "a quiet platform. " * 600
         record, prompt = await _submit(long)

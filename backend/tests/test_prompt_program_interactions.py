@@ -158,3 +158,38 @@ class TestOnePersonRule:
         ask = Ask()
         await narrow_entry(e, NarrowCache(tmp_path), ask)
         assert not any("stated_age" in text for kind, text in ask.calls if kind == "read")
+
+
+# --------------------------------------------------------------------------- fallback x said / groups validation
+
+SAID_CAR = '''car = pick("car", said="{said}", about="the car", seed=["red lamborghini"], label="Car", phase=1, line=1)
+emit("{before}", car, "on a coastal road")
+'''
+
+
+def checked(src, prompt):
+    return written(src, prompt)[1]
+
+
+class TestWhatTheFirstRungTolerates:
+    def test_said_words_the_user_didnt_write_block(self):
+        got = checked(SAID_CAR.format(said="blue sports car", before="A cinematic shot of a"),
+                      "a cinematic shot of a yellow ferrari on a coastal road")
+        assert [p for p in got["blocking"] if "said=" in p]
+
+    def test_said_on_the_users_wildcard_blocks(self):
+        src = ('car = pick("car", said="ferrari", about="the car", seed=["a ferrari"], label="Car", phase=1, line=1)\n'
+               'emit("A cinematic shot of a", car, "on a coastal road")\n')
+        got = checked(src, "a cinematic shot of a {{car}} on a coastal road, a ferrari")
+        assert [p for p in got["blocking"] if "smart wildcard" in p]
+
+    def test_said_twice_costs_polish_only(self):
+        got = checked(SAID_CAR.format(said="yellow ferrari", before="A cinematic shot of a yellow ferrari:"),
+                      "a cinematic shot of a yellow ferrari on a coastal road")
+        assert [p for p in got["problems"] if "said once" in p]
+        assert not [p for p in got["blocking"] if "said" in p]
+
+    def test_a_grouping_problem_only_costs_structure(self):
+        src = hand(("woman1", [AGE, OUTFIT]), ("woman2", [AGE, OUTFIT]), extra_lines=[f"h = {bound('hairstyle', STYLE)}"])
+        got = checked(src, "two women at a cafe")
+        assert subject_problems(got) and not [p for p in got["blocking"] if "names no one" in p]
