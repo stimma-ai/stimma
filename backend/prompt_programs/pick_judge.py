@@ -38,6 +38,7 @@ log = get_logger(__name__)
 NAME = "pick-judge"
 CONTRACTS = (1,)        # JUDGE_IO contract versions this code implements
 RETRY_SECONDS = 600.0
+LOCAL_LOAD_WAIT = 5.0   # a draw waits this long at most for a load from disk already under way
 IDLE_SECONDS = idle_seconds("STIMMA_PICK_JUDGE_IDLE_SECONDS", 900.0)
 MANIFEST_PATH = Path(__file__).resolve().parent.parent / "model_manifests" / f"{NAME}.json"
 
@@ -198,6 +199,16 @@ def ready(threads: int = 0, *, start: bool = True) -> Any:
     if judge is not None:
         _touch()
         return judge
+    with _state.lock:
+        worker = _state.worker if _state.worker is not None and _state.worker.is_alive() else None
+    if worker is not None and model_cache.bundle_is_present(prefix(m), m):
+        worker.join(LOCAL_LOAD_WAIT)  # it's only loading the verified copy from disk
+        with _state.lock:
+            if _state.judge is not None and _state.threads == int(threads):
+                judge = _state.judge
+        if judge is not None:
+            _touch()
+            return judge
     with _state.lock:
         busy = _state.worker is not None and _state.worker.is_alive()
         if busy or _state.status == "error":

@@ -130,6 +130,16 @@ def test_a_cached_judge_loads_with_zero_network(release):
     assert rec["rerolls"] >= 1 and release.hits == hits
 
 
+def test_a_draw_right_after_prepare_waits_for_a_cached_load_not_the_network(release):
+    pick_judge.kick()
+    assert pick_judge.wait(20)
+    pick_judge.reset()  # restart: cached on disk
+    pick_judge.kick()   # prepare starts loading it on the background thread
+    entry = entry_for()
+    _, rec = realize_and_fix(entry, seed=moonlit(entry), cfg=DEFAULT)
+    assert rec["judge"] == pick_judge.version_of(release.manifest) and rec["rerolls"] >= 1
+
+
 def test_prepare_starts_the_download(release):
     from prompt_programs.fluent import start_options
     start_options(entry_for(), cfg=DEFAULT)
