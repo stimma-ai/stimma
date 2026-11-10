@@ -83,6 +83,20 @@ class PrepareFailed(ProgramError):
         self.problems = problems
 
 
+class PrepareDeclined(ProgramError):
+    """The writer declined the prompt: it answered in prose, twice, without writing anything
+    (session.py decides, by the shape of its replies, never their words). Not retried and
+    remembered on disk under the program's key: runs of this prompt go out as written, and
+    only an edited prompt, other settings or another chat model ask again. The message is
+    for the user; `reply` (the model's own words) is for logs only."""
+
+    code = "prepare_declined"
+
+    def __init__(self, reply: str = ""):
+        super().__init__("The chat model declined this prompt, so it is used as written.")
+        self.reply = reply
+
+
 class PromptTooLong(ProgramError):
     """A prompt (with its lists and segments expanded) or standing instructions too long to prepare."""
 
@@ -1799,6 +1813,11 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         renarrow(cached, store, project_id)  # in the background; this run draws from it as it is
     if cached or cache_only:
         return cached
+    # The chat model declined these exact inputs before: it would again, so don't ask.
+    # "Try again" (force) asks anyway.
+    declined = None if force else store.get_declined(key)
+    if declined is not None:
+        raise PrepareDeclined(str(declined.get("reply") or ""))
     # It failed a moment ago: answer at once (the run goes ahead on its fallback) and let
     # the background retry, rather than every run of a generate-forever lane waiting out
     # another prepare. "Try again" (force) prepares now.
@@ -1921,6 +1940,9 @@ async def _prepare(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
                                           "The chat model may be busy or too slow for this prompt.")
         _remember_failure(flight, error, context, args, time.monotonic() - t0)
         raise error from None
+    except PrepareDeclined as e:
+        _remember_declined(flight, e, args, time.monotonic() - t0)
+        raise
     except Exception as e:
         failure = writer_failure(e)
         if failure is None and not isinstance(e, (PrepareTimeout, PrepareFailed)):
@@ -1963,7 +1985,7 @@ _failures: Dict[Tuple[str, str], _Failure] = {}
 
 def _retryable(error: Exception) -> bool:
     from llm_resolver import LLMNotConfiguredError
-    return not isinstance(error, (PromptTooLong, LLMNotConfiguredError))
+    return not isinstance(error, (PromptTooLong, PrepareDeclined, LLMNotConfiguredError))
 
 
 def _remember_failure(flight: Tuple[str, str], error: Exception, context: str, args: Dict[str, Any],
@@ -1979,6 +2001,20 @@ def _remember_failure(flight: Tuple[str, str], error: Exception, context: str, a
         return
     _failures[flight] = _Failure(error, context, args)
     retry_failed(flight)
+
+
+def _remember_declined(flight: Tuple[str, str], error: PrepareDeclined, args: Dict[str, Any], seconds: float) -> None:
+    """A declined prompt is final for its key: stored (so a restart remembers it too), and
+    any background retry of an earlier failure stands down."""
+    log.warning(f"[prompt-program] prepare {flight[1]}: the chat model declined the prompt after {seconds:.1f}s; "
+                f"it runs as written. Its reply: {error.reply[:500]!r}")
+    _failures.pop(flight, None)
+    try:
+        args["store"].put_declined(flight[1], {"key": flight[1], "version": PREPARE_VERSION,
+                                               "tool_id": args.get("tool_id"), "reply": error.reply[:2000],
+                                               "created_at": time.time()})
+    except Exception as e:  # remembering is a saving, never a failure of its own
+        log.warning(f"[prompt-program] couldn't store that {flight[1]} was declined: {e}")
 
 
 def failed(store_root: str, key: str) -> Optional[Exception]:

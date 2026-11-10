@@ -473,6 +473,9 @@ async def _converse(cfg: Any, messages: List[Dict[str, Any]], added: List[Dict[s
         messages.append(message)
         added.append(message)
 
+    # Replies in prose before anything was written (see _prose_only), in a row.
+    declining: Optional[List[str]] = []
+
     while not turn.done:
         if budget.calls >= MAX_CALLS:
             break
@@ -504,12 +507,22 @@ async def _converse(cfg: Any, messages: List[Dict[str, Any]], added: List[Dict[s
         if not resp.tool_calls:
             if prep._PROTOCOL.get(endpoint) != "tools" and "```" in content and "emit(" in content:
                 raise ToolsUnsupported("it replied with the program as text")
+            if declining is not None and _prose_only(resp, content) and prep._PROTOCOL.get(endpoint) == "tools":
+                declining.append(content)
+                if len(declining) >= DECLINE_REPLIES:
+                    stats["no_tool"] += 1
+                    log.info(f"[prompt-program] the writer answered in prose {len(declining)} times without "
+                             "writing anything: it declined this prompt")
+                    raise prep.PrepareDeclined("\n---\n".join(declining))
+            else:
+                declining = None
             stats["no_tool"] += 1
             calls_log.append({**rec, "kind": "text", "chars": len(content)})
             push({"role": "assistant", "content": content or "(no reply)"})
             push({"role": "user", "content": _NUDGE_EDIT if turn.editing else _NUDGE_NEW})
             continue
         prep._PROTOCOL[endpoint] = "tools"
+        declining = None  # it took the task: whatever happens next is not a refusal
         parsed: List[Tuple[str, str, Any, Optional[ValueError]]] = []
         wire: List[Dict[str, Any]] = []
         for i, call in enumerate(resp.tool_calls):
@@ -566,6 +579,21 @@ async def _converse(cfg: Any, messages: List[Dict[str, Any]], added: List[Dict[s
             push({"role": "tool", "tool_call_id": cid, "name": name, "content": text})
         calls_log.append({**rec, "kind": ",".join(kinds), "problems": turn.last_error.count("\n") + 1
                           if turn.last_error else 0, "accepted": turn.accepted is not None})
+
+
+# A writer that answers the prompt in prose instead of a tool call, this many times in a row
+# before writing anything (its first reply, then once more after the nudge to use the tool),
+# declined the prompt (prep.PrepareDeclined). One prose reply is often a weak model talking
+# before it writes, and the nudge fixes it; twice in a row with nothing written is a refusal.
+# Read from the shape of the replies only, never their words.
+DECLINE_REPLIES = 2
+
+
+def _prose_only(resp: Any, content: str) -> bool:
+    """A reply that is only prose: some text, no tool call, no code block (a program written
+    as text is an attempt, not a refusal), and not cut off at the token cap."""
+    finish = getattr(resp, "finish_reason", None)
+    return bool(content) and not resp.tool_calls and "```" not in content and getattr(finish, "value", finish) != "length"
 
 
 # --------------------------------------------------------------------------- storage

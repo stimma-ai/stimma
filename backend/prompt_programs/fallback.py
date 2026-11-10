@@ -11,7 +11,7 @@ costs variety, never the run. The ladder, best first:
    (Detail level, LoRA choices, instructions), when the settings changed and the new
    prepare failed. Never a program for other words: an edited prompt is never run as the
    prompt it was;
-3. ``words``: the prompt as written, handled the Direct way (lists vary, saved wildcards
+3. ``words``: the prompt as written (and the only rung for a prompt the chat model declined), handled the Direct way (lists vary, saved wildcards
    and segments fill, [brackets] unwrap, # lines drop). A {{name}} that is no saved
    wildcard stands as its own words ("{{stormy sky}}" reads "stormy sky"): the closest
    thing to what the user asked that needs no model, while the prepare is retried in the
@@ -38,14 +38,14 @@ def failure_code(e: BaseException) -> Optional[str]:
     bug, or a run-time problem the user must fix, like a pinned value nothing fits)."""
     from llm_resolver import LLMNotConfiguredError, LLMUnavailableError
     from prompt_programs.draws import DrawAborted
-    from prompt_programs.prepare import PrepareFailed, PrepareTimeout, PromptTooLong, writer_failure
+    from prompt_programs.prepare import PrepareDeclined, PrepareFailed, PrepareTimeout, PromptTooLong, writer_failure
 
     if isinstance(e, DrawAborted):
         return None
     e = writer_failure(e) or e
     if isinstance(e, PrepareTimeout):
         return "prepare_timeout"
-    if isinstance(e, (PrepareFailed, PromptTooLong)):
+    if isinstance(e, (PrepareFailed, PrepareDeclined, PromptTooLong)):
         return e.code
     if isinstance(e, LLMNotConfiguredError):
         return "llm_not_configured"
@@ -85,8 +85,9 @@ def words_record(code: Optional[str], *, level: str, message: str = "") -> Dict[
 
 def previous_program(prompt: str, *, tool_id: str, profile_id: Optional[str],
                      lora_items: Sequence[Dict[str, Any]], code: Optional[str]) -> Optional[Dict[str, Any]]:
-    """Rung 2, or None. A prompt too long to read has no program under any settings."""
-    if code == "prompt_too_long":
+    """Rung 2, or None. A prompt too long to read has no program under any settings, and a
+    prompt the chat model declined runs as written (Direct), whatever was prepared before."""
+    if code in ("prompt_too_long", "prepare_declined"):
         return None
     from prompt_programs.prepare import previous_for_text
     try:
@@ -107,6 +108,9 @@ _AGENT_WHY = {
 
 
 def agent_note(note: Dict[str, Any]) -> str:
+    if note.get("code") == "prepare_declined":
+        return ("The chat model declined this prompt, so no choices were varied: it ran with its words as written "
+                "(its own {a|b} lists still vary). The same prompt gets the same answer; reword it to try again.")
     why = _AGENT_WHY.get(str(note.get("code")), "the chat model couldn't read it")
     if note.get("rung") == "previous":
         return (f"The prompt couldn't be read with these settings ({why}), so it ran with the choices it was read "

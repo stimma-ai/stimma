@@ -89,6 +89,32 @@ class ProgramStore:
             json.dump(keys, f)
         os.replace(tmp, p)
 
+    # ------------------------------------------------------------------ declined prompts
+    # Beside the entries, never in their place: every reader of an entry expects a program.
+
+    def _declined_path(self, key: str) -> Path:
+        if not valid_key(key):
+            raise ValueError(f"not a program key: {key!r}")
+        return self.root / "declined" / key[:2] / f"{key}.json"
+
+    def get_declined(self, key: str) -> Optional[Dict[str, Any]]:
+        """The record of the chat model declining these exact inputs, or None."""
+        if not valid_key(key):
+            return None
+        try:
+            record = json.loads(self._declined_path(key).read_text("utf-8"))
+        except (OSError, ValueError):
+            return None
+        return record if isinstance(record, dict) else None
+
+    def put_declined(self, key: str, record: Dict[str, Any]) -> None:
+        p = self._declined_path(key)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=p.parent, suffix=".tmp")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(record, f, ensure_ascii=False)
+        os.replace(tmp, p)
+
     # ------------------------------------------------------------------ by prompt text
 
     def _text_path(self, text_key: str) -> Path:
