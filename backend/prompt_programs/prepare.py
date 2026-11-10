@@ -26,7 +26,7 @@ from prompt_programs.runtime import (
 )
 from prompt_programs.draws import DrawAborted, analyze, draw, uses_draws
 from prompt_programs.store import ProgramStore, program_key
-from prompt_programs.vocab import vocabulary
+from prompt_programs.vocab import AGE_LIST, vocabulary
 
 log = get_logger(__name__)
 
@@ -896,15 +896,33 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
     # to lists of two or more kinds (a person's, an animal's), no prefix on two kinds, each kind's under one
     # prefix of its own; or one kind's under several (dog_breed, cat_coat) beside a kind whose one prefix
     # heads two or more details (man_age, man_outfit).
+    # Never a second subject of a kind the program already names one of (outfit_summer beside girl.age
+    # stays everyone's detail, so her age still limits it); never people split between several prefixes
+    # here (girl_age, outfit_summer); nor a person prefix that starts a part of each of its lists' names
+    # (outfit_summer on person.outfit.summer is a detail, not someone called "outfit").
     by_root: Dict[str, Set[str]] = {}
+    lists_of: Dict[str, List[str]] = {}
     for call, _, p, n, _ in bound_flat:
-        by_root.setdefault(vocabulary().resolve(_const(_kw(call, "cls"))).id.split(".")[0], set()).add(f"{p}{n or ''}".lower())
+        lid = vocabulary().resolve(_const(_kw(call, "cls"))).id
+        by_root.setdefault(lid.split(".")[0], set()).add(f"{p}{n or ''}".lower())
+        lists_of.setdefault(f"{p}{n or ''}".lower(), []).append(lid)
+    named_kinds = set()
+    for call in calls:
+        t, cls = text_of(id_node(call)), _const(_kw(call, "cls"))
+        if t and subject_of(t.replace("{}", "1")) and _individual_leaf(cls):
+            named_kinds.add(vocabulary().resolve(cls).id.split(".")[0])
+
+    def _a_detail(o: str) -> bool:
+        return all(any(part.lower().startswith(o) for part in lid.split(".")[1:]) for lid in lists_of[o])
+
+    aged = AGE_LIST.split(".")[0]   # the kind ages limit: its details are split between owners least readily
     owners = [o for v in by_root.values() for o in v]
-    several = [v for v in by_root.values() if len(v) > 1]
+    several = [k for k, v in by_root.items() if len(v) > 1]
     if (len(by_root) >= 2 and len(owners) == len(set(owners)) and len(bound_flat) == len(individual_plain)
-            and (not several or (len(several) == 1 and any(len(v) == 1 and count[next(iter(v))] >= 2
-                                                          for v in by_root.values())))):
-        known |= set(owners)
+            and (not several or (len(several) == 1 and several[0] != aged
+                                 and any(len(v) == 1 and count[next(iter(v))] >= 2 for v in by_root.values())))):
+        known |= {o for kind, v in by_root.items() if kind not in named_kinds for o in v
+                  if not (kind == aged and _a_detail(o))}
     # One owner beside subjects the program names (woman_age, woman_outfit beside cats[1].coat): every
     # flat per-individual pick under one prefix heading two or more, which isn't the start of each of its
     # lists' names (hair_color, hair_style on person.hair_color and person.hairstyle are details, not hers).
