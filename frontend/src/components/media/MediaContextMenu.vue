@@ -71,6 +71,18 @@
 
       <!-- Normal View Actions -->
       <template v-else>
+        <!-- A prompt aimed at what was right-clicked (pointer menus only; on a
+             phone the prompt lives in the selection's Ask). Typed, it replaces
+             the menu with what matches. -->
+        <MenuAskRow
+          v-if="!isCoarsePointer && targetMediaIds.length > 0"
+          v-model:active="askActive"
+          :media-ids="targetMediaIds"
+          :kind="askKind"
+          :project-id="currentProjectId ?? null"
+          @sent="onAskSent"
+        />
+        <template v-if="!askActive">
         <!-- Bare Media (for example a grid cell or chat working result) can be kept explicitly. -->
         <button
           v-if="targetAssetIds.length === 0 && targetMediaIds.length > 0"
@@ -900,6 +912,7 @@
           <TrashIcon class="w-4 h-4 flex-shrink-0" :stroke-width="1.75" />
           <span>{{ isMultiple ? `Move ${targetCount} to trash` : 'Move to trash' }}</span>
         </button>
+        </template>
       </template>
 
       <!-- Sheet only: the actions run past the bottom edge. The cue is its own
@@ -997,6 +1010,7 @@ import { assetIdOf, hasAssetIdentity, mediaIdOf } from '../../utils/assetIdentit
 import { useFlowsApi, type Flow } from '../../composables/useFlowsApi'
 import { flowMediaInputFields, fieldAcceptsDraggedType, type FlowMediaInputField } from '../../utils/flowMediaInputs'
 import { syncedStorage } from '../../utils/workspaceStore'
+import MenuAskRow from './MenuAskRow.vue'
 
 const { track: trackTelemetry } = useTelemetry()
 
@@ -1286,6 +1300,19 @@ const targetAssetIds = computed<number[]>(() => (
 const targetIds = computed(() => targetAssetIds.value.length > 0 ? targetAssetIds.value : targetMediaIds.value)
 const selectedItems = computed(() => contextMenu.state.value.selectedItems || [])
 const isMultiple = computed(() => targetIds.value.length > 1)
+
+// Ask: the prompt row at the top of the menu.
+const askActive = ref(false)
+const askKind = computed(() => {
+  const items = selectedItems.value.length ? selectedItems.value : (mediaItem.value ? [mediaItem.value] : [])
+  return items.some((item: any) => isVideoType(item)) ? 'video' : 'image'
+})
+watch(() => contextMenu.state.value.visible, () => { askActive.value = false })
+function onAskSent() {
+  contextMenu.hide()
+  activeSubmenu.value = null
+  activeGroup.value = null
+}
 const targetCount = computed(() => targetIds.value.length)
 
 // Computed properties from mediaItem (fetched from API)

@@ -15,12 +15,19 @@ export interface ToastAction {
   onClick: () => void
 }
 
+/** Pictures a toast carries (a chat's results): tap one to view it. */
+export interface ToastMedia {
+  mediaIds: number[]
+  onMedia: (mediaId: number, index: number) => void
+}
+
 export interface Toast {
   id: number
   message: string
   type: ToastType
   duration: number
   action?: ToastAction
+  media?: ToastMedia
 }
 
 // Global reactive state (shared across all components using this composable)
@@ -34,13 +41,13 @@ let nextId = 1
  * @param duration - Duration in ms before auto-dismiss (0 = no auto-dismiss)
  * @returns The toast id
  */
-function addToast(message: string, type: ToastType = 'info', duration: number = 4000, action?: ToastAction): number {
+function addToast(message: string, type: ToastType = 'info', duration: number = 4000, action?: ToastAction, media?: ToastMedia): number {
   // The same message already on screen (a repeated failure, a run retried in a loop)
   // shows once, not as a stack.
   const showing = toasts.value.find(t => t.message === message && t.type === type)
   if (showing) return showing.id
   const id = nextId++
-  const toast: Toast = { id, message, type, duration, action }
+  const toast: Toast = { id, message, type, duration, action, media }
 
   toasts.value.push(toast)
 

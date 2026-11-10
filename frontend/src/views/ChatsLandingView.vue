@@ -153,7 +153,17 @@
           </template>
 
           <template #date>
-            {{ chat.updated_at ? formatRelativeShort(chat.updated_at) : '' }}
+            <span class="group-hover:hidden compact:!inline">{{ chat.updated_at ? formatRelativeShort(chat.updated_at) : '' }}</span>
+            <Tooltip text="Open small" class="hidden group-hover:inline-flex compact:!hidden">
+              <button
+                type="button"
+                class="inline-flex h-5 w-5 items-center justify-center rounded text-content-tertiary hover:text-content"
+                aria-label="Open small"
+                @click.stop="chatDock.open(chat.id, { front: true })"
+              >
+                <ArrowsPointingInIcon class="h-icon-inline w-icon-inline" />
+              </button>
+            </Tooltip>
           </template>
         </CollectionRow>
       </div>
@@ -231,7 +241,9 @@ import EntitySelectionBar from '../components/EntitySelectionBar.vue'
 import PageHeader from '../components/ui/PageHeader.vue'
 import SearchField from '../components/ui/SearchField.vue'
 import Button from '../components/ui/Button.vue'
-import { PlusIcon } from '@heroicons/vue/24/outline'
+import { ArrowsPointingInIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import Tooltip from '../components/ui/Tooltip.vue'
+import { useChatDock } from '../composables/useChatDock'
 import CollectionRow from '../components/lists/CollectionRow.vue'
 import RowThumb from '../components/lists/RowThumb.vue'
 import { plainPreview } from '../components/lists/previewText'
@@ -248,6 +260,7 @@ const props = defineProps({
 })
 
 const router = useRouter()
+const chatDock = useChatDock()
 const { on } = useWebSocket()
 const entityContextMenu = useEntityContextMenu()
 const { isCompact, allowsAutofocus } = useViewport()

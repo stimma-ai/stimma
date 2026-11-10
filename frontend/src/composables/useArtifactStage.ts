@@ -7,7 +7,7 @@
  * staged for a given chat, which revision is being viewed, and open/closed
  * UI state — no new backend concepts.
  */
-import { ref, computed, watch, type Ref } from 'vue'
+import { ref, reactive, computed, watch, type Ref } from 'vue'
 import type { WorkspaceFile } from '../utils/fileRefs'
 import { useAssetApi } from './useAssetApi'
 import { makeStorageKey } from '../utils/storageKeys'
@@ -54,7 +54,16 @@ export function parseArtifactMeta(item: any): ArtifactMeta | null {
   }
 }
 
-export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref<any[]>) {
+// The artifact revision a chat is pinned to (the full view is showing an older
+// revision), held per chat rather than per view: the chat open small in the
+// dock has no stage, and a follow-up sent from there edits the same revision.
+export interface PinnedRevision { assetId: number; revisionId: number; revisionNumber: number | null }
+const pinnedRevisions = reactive(new Map<string, PinnedRevision>())
+export function pinnedRevisionFor(chatId: number | string | null): PinnedRevision | null {
+  return chatId == null ? null : pinnedRevisions.get(String(chatId)) ?? null
+}
+
+export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref<any[]>, options: { publishPin?: boolean } = {}) {
   const assetApi = useAssetApi()
 
   const stageOpen = ref(false)
@@ -362,6 +371,23 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     stopResize = onUp
+  }
+
+  // A stage that has room publishes its pin for the chat's other views.
+  if (options.publishPin) {
+    watch(
+      () => [chatId.value, stageOpen.value, workspaceFile.value, collectionItemId.value, onNewest.value, assetId.value, viewedRevisionId.value] as const,
+      ([id, open, file, collection, newest, asset, revision], prev) => {
+        const prevId = prev?.[0]
+        if (prevId != null && prevId !== id) pinnedRevisions.delete(String(prevId))
+        if (id == null) return
+        if (open && !file && collection == null && !newest && asset != null && revision != null) {
+          pinnedRevisions.set(String(id), { assetId: asset, revisionId: revision, revisionNumber: viewedRevision.value?.revision_number ?? null })
+        } else {
+          pinnedRevisions.delete(String(id))
+        }
+      },
+    )
   }
 
   return {

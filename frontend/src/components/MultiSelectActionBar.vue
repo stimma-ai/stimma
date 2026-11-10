@@ -1,6 +1,20 @@
 <template>
   <Transition name="slide-up">
     <div v-if="visible" class="multi-select-action-bar fixed bottom-6 left-1/2 -translate-x-1/2 z-chrome max-w-[800px] w-fit bg-surface backdrop-blur-xl border border-edge-subtle rounded-lg shadow-lg compact:left-3 compact:right-3 compact:translate-x-0 compact:w-auto compact:max-w-none compact:bottom-[calc(0.75rem+var(--safe-bottom))]">
+      <!-- Ask: a prompt aimed at the selection, above the bar; the bar's own
+           actions stay put while you type. -->
+      <div v-if="askOpen" class="absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 compact:left-0 compact:right-0 compact:translate-x-0">
+        <Transition name="menu" appear>
+          <QuickAskComposer
+            :media-ids="selectedMediaIds"
+            :kind="selectionKind"
+            :project-id="projectId ?? null"
+            :seed="askSeed"
+            @close="closeAsk"
+            @sent="onAskSent"
+          />
+        </Transition>
+      </div>
       <div class="action-bar-content flex items-center relative gap-4 px-5 py-3 compact:gap-2 compact:px-3 compact:py-2 compact:overflow-x-auto">
         <!-- Selection controls (left) -->
         <div class="selection-info flex-shrink-0 flex items-center gap-2">
@@ -117,6 +131,19 @@
 
           <!-- Normal browse view actions -->
           <template v-else>
+            <!-- Ask the agent about the selection -->
+            <button
+              type="button"
+              class="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors"
+              :class="askOpen ? 'bg-accent text-accent-on' : 'bg-accent/15 text-accent-hi hover:bg-accent/25'"
+              :aria-expanded="askOpen"
+              data-quick-ask-button
+              @click="askOpen ? closeAsk() : openAsk()"
+            >
+              <AgentIcon class="w-4 h-4" />Ask
+            </button>
+            <div class="divider w-px h-6 bg-edge-subtle mx-2 compact:mx-1" />
+
             <!-- Markers -->
             <div v-if="markers && markers.length > 0" class="action-group flex items-center gap-2">
               <Tooltip
@@ -233,11 +260,16 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
 import Tooltip from './ui/Tooltip.vue'
+import AgentIcon from './icons/AgentIcon.vue'
+import QuickAskComposer from './QuickAskComposer.vue'
+import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
+import { selectionBarUp } from '../composables/useChatDock'
+import { getMediaType } from '../utils/mediaTypes'
 
 const contextMenu = useMediaContextMenu()
 
@@ -318,6 +350,45 @@ const emit = defineEmits([
 // Computed: check if all items are selected (hides "All" button when true)
 const isAllSelected = computed(() => {
   return props.totalCount > 0 && props.selectedCount === props.totalCount
+})
+
+// ===== Ask =====
+const askOpen = ref(false)
+const askSeed = ref('')
+const selectedMediaIds = computed(() => props.selectedItems.map(item => mediaIdOf(item)).filter(id => id != null))
+const selectionKind = computed(() => props.selectedItems.some(item => getMediaType(item) === 'video') ? 'video' : 'image')
+function openAsk(seed = '') {
+  askSeed.value = seed
+  askOpen.value = true
+}
+function closeAsk() {
+  askOpen.value = false
+  askSeed.value = ''
+}
+// Sent: the chat waits in the dock, and the selection is done with.
+function onAskSent() {
+  closeAsk()
+  emit('clear')
+}
+watch(() => props.visible, (shown) => {
+  selectionBarUp.value = shown
+  if (!shown) closeAsk()
+}, { immediate: true })
+onUnmounted(() => { selectionBarUp.value = false })
+
+// With a selection, typing starts the ask with that key: printable keys
+// only, no modifiers, never while typing somewhere else or with a menu,
+// viewer or dialog on top (the shared shortcut gates).
+useGlobalKeyboardShortcuts({
+  isActive: () => props.visible && !props.isTrashView && !askOpen.value,
+  onKeydown: (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return
+    if (event.key.length !== 1 || !/\S/.test(event.key)) return
+    const el = document.activeElement
+    if (el && (el.isContentEditable || el.closest?.('[contenteditable="true"]'))) return
+    event.preventDefault()
+    openAsk(event.key)
+  },
 })
 
 // Show context menu from the "more actions" button

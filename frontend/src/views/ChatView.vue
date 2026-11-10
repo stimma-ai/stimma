@@ -5,8 +5,21 @@
       <ProjectPickerSubmenu v-if="moveProjectOpen" mode="move" :current-project-id="chat?.project_id" @select="moveToProject" />
     </Sheet>
     <RenameSheet :show="renameOpen" :name="chat?.name || ''" label="Rename chat" @close="renameOpen = false" @save="renameChatFromStrip" />
+    <ChatDockHeader
+      v-if="docked && chatId != null"
+      :chat-id="chatId"
+      :name="chat?.name || ''"
+      :win="dockWin || 'row'"
+      :presence="dockPresence"
+      @rename="renameChatFromStrip"
+      @clone="cloneChat"
+      @clear="clearChat"
+      @delete="confirmDelete"
+      @copy-raw-messages="copyAllRawMessages"
+      @settings="expandToFull({ kind: 'settings' })"
+    />
     <ChatControlStrip
-      v-if="!embedded && !isCompact"
+      v-if="!narrow && !isCompact"
       :chat-name="chat?.name || ''"
       :mcp-driven="!!chat?.generation_settings?.mcp_origin"
       :chat-id="chatId"
@@ -21,14 +34,17 @@
       @clear="clearChat"
       @copy-raw-messages="copyAllRawMessages"
       @rename="renameChatFromStrip"
+      @open-small="openSmall"
     />
 
-    <!-- Content area: artifact stage (standalone only) + chat column -->
-    <div class="flex flex-1 min-h-0 relative overflow-hidden">
+    <!-- Content area: artifact stage (standalone only) + chat column.
+         Docked as a row, the chat stays mounted (live status, attention, its
+         queue) but shows only the dock header. -->
+    <div v-show="!docked || dockWin === 'open'" class="flex flex-1 min-h-0 relative overflow-hidden">
     <div
       class="flex flex-1 flex-col min-h-0 min-w-0 transition-[flex-grow] duration-[180ms] ease-out"
       :class="artifactStage.resizing.value ? '!transition-none' : ''"
-      :style="(!embedded || artifactStage.workspaceFile.value) && !isCompact
+      :style="(!narrow || (embedded && artifactStage.workspaceFile.value)) && !isCompact
         ? { flex: `${stageSqueezesChat ? '0 0' : '1 1'} ${artifactStage.width.value}px` }
         : {}"
     >
@@ -934,7 +950,7 @@
                belonging to this chat's staged asset collapse to a compact
                version chip (Mock A/B) — clicking navigates the stage, or
                reopens it if the user closed it. -->
-          <FileChips v-else-if="item.item_type === 'file_display'" :files="sharedFiles(item)" :chat-id="chatId" :selected="artifactStage.stageOpen.value ? artifactStage.workspaceFile.value : null" @refreshed="refreshStagedFile" @preview="artifactStage.openFile" @attach="attachWorkspaceFile" @save="saveWorkspaceFile" />
+          <FileChips v-else-if="item.item_type === 'file_display'" :files="sharedFiles(item)" :chat-id="chatId" :selected="artifactStage.stageOpen.value ? artifactStage.workspaceFile.value : null" @refreshed="refreshStagedFile" @preview="previewWorkspaceFile" @attach="attachWorkspaceFile" @save="saveWorkspaceFile" />
           <div v-else-if="item.item_type === 'media_display'" class="flex justify-start" :class="{ 'w-full': !getStagedItemArtifact(item) && !getSheetItem(item) }">
             <ChatItemWrapper
               :class="getStagedItemArtifact(item) || getSheetItem(item) ? '' : 'w-full'"
@@ -949,7 +965,7 @@
                 :artifact="getSheetItem(item).artifact"
                 :media-id="getSheetItem(item).mediaId"
                 :latest="latestSheetItemIds.has(item.id)"
-                :in-panel="!embedded && artifactStage.stageOpen.value && !artifactStage.workspaceFile.value && artifactStage.assetId.value === getSheetItem(item).artifact.asset_id"
+                :in-panel="!narrow && artifactStage.stageOpen.value && !artifactStage.workspaceFile.value && artifactStage.assetId.value === getSheetItem(item).artifact.asset_id"
                 @click="openSheetFromChat(getSheetItem(item))"
               />
               <ArtifactVersionChip
@@ -958,7 +974,7 @@
                 :revision="artifactStage.findRevision(getStagedItemArtifact(item).revision_id)"
                 :is-current="!artifactStage.workspaceFile.value && artifactStage.viewedRevisionId.value === getStagedItemArtifact(item).revision_id"
                 :is-latest="artifactStage.latestRevisionId.value === getStagedItemArtifact(item).revision_id"
-                @click="artifactStage.selectFromChip(getStagedItemArtifact(item))"
+                @click="selectArtifactChip(getStagedItemArtifact(item))"
               />
               <MediaDisplay
                 v-else
@@ -1283,7 +1299,7 @@
 
         <!-- Settings Panel (toggle visibility from header) — suppressed when embedded -->
         <ChatSettingsPanel
-          v-if="chat && !embedded"
+          v-if="chat && !narrow"
           class="compact:absolute compact:inset-0 compact:z-chrome compact:border-l-0"
           :chat-id="chat.id"
           :visible="settingsPanelVisible"
@@ -1295,7 +1311,7 @@
            column is squeezed/released in step (transition on flex-grow, same
            duration). During the slide the stage is lifted out of the flex flow
            (see freezeStage*) so its width never changes mid-animation. -->
-      <template v-if="!embedded || artifactStage.workspaceFile.value">
+      <template v-if="!narrow || (embedded && artifactStage.workspaceFile.value)">
         <div
           v-if="artifactStage.stageOpen.value"
           class="w-1 border-l border-edge-subtle flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors compact:hidden"
@@ -1342,7 +1358,7 @@
       :item-labels="sheetSlideshow ? sheetSlideshowLabels : artifactSlideshow ? artifactSlideshowLabels : chatMediaLabels"
       :start-index="slideshowState.startIndex"
       :page-provider="slideshowState.pageProvider"
-      :inline="true"
+      :inline="!docked"
       @update:index="onSlideshowIndex"
       @close="closeSlideshow"
       @compare-with-source="handleCompareFromSlideshow"
@@ -1387,6 +1403,11 @@ import ChatInputAttachments from '../components/chat/ChatInputAttachments.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import SendButton from '../components/ui/SendButton.vue'
 import ChatMessageQueue, { type QueuedMessage } from '../components/chat/ChatMessageQueue.vue'
+import { useChatLiveState } from '../composables/useChatLiveState'
+import { useChatDock, chatOnScreen, setStageIntent, takeStageIntent } from '../composables/useChatDock'
+import { useUnseenActivity } from '../composables/useUnseenActivity'
+import ChatDockHeader from '../components/chat/ChatDockHeader.vue'
+import { turnOutputMediaIds, turnEndedWithReply, lastSentMediaIds } from '../utils/chatTurn'
 import SkillsMenuButton from '../components/chat/SkillsMenuButton.vue'
 import FlowRefChip from '../components/flow/FlowRefChip.vue'
 import { useFlowReferences, formatReferencesForMessage, parseMessageReferences, type FlowReference } from '../composables/useFlowReferences'
@@ -1419,7 +1440,7 @@ import SheetChatChip from '../components/sheets/SheetChatChip.vue'
 import SheetReviewMessage from '../components/sheets/SheetReviewMessage.vue'
 import SheetSlideshowReviewBar from '../components/sheets/SheetSlideshowReviewBar.vue'
 import { SHEET_SLIDESHOW } from '../components/sheets/useContactSheet'
-import { useArtifactStage, parseArtifactMeta } from '../composables/useArtifactStage'
+import { useArtifactStage, parseArtifactMeta, pinnedRevisionFor } from '../composables/useArtifactStage'
 import GridGenerationDisplay from '../components/chat/GridGenerationDisplay.vue'
 import ProgressDisplay from '../components/chat/ProgressDisplay.vue'
 import AnalysisResult from '../components/chat/AnalysisResult.vue'
@@ -1490,7 +1511,14 @@ const props = defineProps<{
   // embedded context. Settings panel toggle is also suppressed since its
   // affordance lives on the control strip.
   embedded?: boolean
+  // Shown small in the chat dock: the same chat, with the dock's header in
+  // place of the control strip. Things that need room (the artifact stage,
+  // settings panel) open the chat full size instead.
+  docked?: boolean
+  dockWin?: 'row' | 'open'
 }>()
+// Layout that has no room for side panels: a flow's sidebar or the dock.
+const narrow = computed(() => !!props.embedded || !!props.docked)
 
 const route = useRoute()
 const { isCompact } = useViewport()
@@ -1511,11 +1539,19 @@ const items = ref([])
 // Artifact stage: standalone chats only (see props.embedded guard in template
 // and sendMessage). Instantiated unconditionally — cheap when there's no
 // artifact in the chat — so embedded usage never has to special-case it.
-const artifactStage = useArtifactStage(chatId, items)
+const artifactStage = useArtifactStage(chatId, items, { publishPin: !props.embedded && !props.docked })
+// Small in the dock there's no stage; the chat's pinned revision (if the full
+// view is on an older one) is what chips show as current and what a
+// follow-up edits.
+const dockPinnedRevision = computed(() => (props.docked ? pinnedRevisionFor(chatId.value) : null))
+watch(dockPinnedRevision, (pin) => {
+  if (pin && pin.assetId === artifactStage.assetId.value) artifactStage.viewRevision(pin.revisionId)
+  else if (props.docked) artifactStage.jumpToNewest()
+})
 // The one transcript column: messages, media and composer share it. A chat
 // docked beside a tool or flow (embedded) gets the narrower variant.
-const chatColumnClass = computed(() => (props.embedded && !isCompact.value ? 'max-w-[640px]' : 'max-w-[880px]'))
-useBackOverride(() => artifactStage.stageOpen.value, artifactStage.close)
+const chatColumnClass = computed(() => (props.docked ? 'max-w-none' : props.embedded && !isCompact.value ? 'max-w-[640px]' : 'max-w-[880px]'))
+useBackOverride(() => !narrow.value && artifactStage.stageOpen.value, artifactStage.close)
 function refreshStagedFile(file: WorkspaceFile) {
   const staged = artifactStage.workspaceFile.value
   if (staged?.root === file.root && staged?.path === file.path) artifactStage.workspaceFile.value = file
@@ -1555,7 +1591,7 @@ const mediaCollections = useChatMediaCollections({
   attachments: inputAttachments,
   canAttach: () => !noUsableChatModels.value,
   compare: (leftMediaId, rightMediaId) => enterCompare({ leftMediaId, rightMediaId }),
-  panelAvailable: !props.embedded,
+  panelAvailable: !props.embedded && !props.docked,
   panelItemId: artifactStage.collectionItemId,
   openPanel: artifactStage.openCollection,
   closePanel: artifactStage.closeCollection,
@@ -1567,7 +1603,10 @@ const { resolvedTheme } = useTheme()
 const textRenderCache = createBoundedTextCache()
 watch(chatId, () => textRenderCache.clear())
 const itemIndex = computed(() => buildChatItemIndex(items.value))
-const sending = ref(false)
+// The queue and the sending flag belong to the chat, not this view: the same
+// chat can be open full size and small in the dock at once.
+const liveState = useChatLiveState(chatId)
+const sending = liveState.sending
 const messageHistory = ref([])  // History of sent messages
 const historyIndex = ref(-1)    // -1 = current input, 0+ = history position
 const savedCurrentInput = ref('') // Saves current input when browsing history
@@ -1629,7 +1668,7 @@ const selectedMediaIds = ref([]) // Media IDs selected for "that one" references
 const editingItemId = ref(null) // ID of item being edited, null if not editing
 const editingText = ref('') // Current text in inline editor
 const editingMinSize = ref({ width: 0, height: 0 }) // Original bubble size when editing started
-const messageQueue = ref<QueuedMessage[]>([]) // Messages sent while the agent is busy
+const messageQueue = liveState.messageQueue // Messages sent while the agent is busy (shared per chat)
 let lastSendStartedAt = 0 // When the last POST /items started (watchdog grace period)
 let queueBackoffUntil = 0 // Don't retry a failed queued send before this time
 let queueWatchdogTimer = null // Interval that reconciles state while messages are queued
@@ -1817,7 +1856,7 @@ async function openFromMediaDisplay(item, mediaId, slot) {
         }
       }
       if (assetId) {
-        await artifactStage.openOnAsset(assetId)
+        await openArtifact(assetId)
         return
       }
     }
@@ -1862,7 +1901,45 @@ function getSheetReview(item) {
 
 function openSheetFromChat(sheetItem) {
   if (props.embedded) return
-  artifactStage.openOnAsset(sheetItem.artifact.asset_id, sheetItem.artifact.revision_id)
+  openArtifact(sheetItem.artifact.asset_id, sheetItem.artifact.revision_id)
+}
+
+// The artifact stage needs room. Small in the dock, opening an artifact (or a
+// shared file) takes the chat full size, open at that artifact.
+function openArtifact(assetId, revisionId = null) {
+  if (props.docked) return expandToFull({ kind: 'asset', assetId, revisionId })
+  return artifactStage.openOnAsset(assetId, revisionId)
+}
+function selectArtifactChip(artifact) {
+  if (props.docked) return expandToFull({ kind: 'asset', assetId: artifact.asset_id, revisionId: artifact.revision_id })
+  artifactStage.selectFromChip(artifact)
+}
+function previewWorkspaceFile(file) {
+  if (props.docked) return expandToFull({ kind: 'file', file })
+  artifactStage.openFile(file)
+}
+// Open small: dock this chat, open, and go back to where you were. Its tab in
+// the sidebar is untouched.
+function openSmall() {
+  if (chatId.value == null) return
+  chatDock.open(chatId.value, { front: true })
+  if (window.history.state?.back) router.back()
+  else router.push({ name: 'browse' })
+}
+function expandToFull(intent = null) {
+  if (chatId.value == null) return
+  if (intent) setStageIntent(chatId.value, intent)
+  router.push({ name: 'chat', params: { id: chatId.value } })
+}
+// Opened full size from the dock at an artifact: show it.
+function applyStageIntent() {
+  if (props.docked || chatId.value == null) return
+  const intent = takeStageIntent(chatId.value)
+  if (!intent) return
+  if (intent.kind === 'settings') {
+    if (!settingsPanelVisible.value) toggleSettingsPanel()
+  } else if (intent.kind === 'file') artifactStage.openFile(intent.file)
+  else artifactStage.openOnAsset(intent.assetId, intent.revisionId)
 }
 
 function getStagedItemArtifact(item) {
@@ -3834,6 +3911,7 @@ function steerQueuedMessage(id: string) {
 // turn. Runs whenever a turn may be accepting steers, including the turn that
 // starts after Stop, so messages left pending by Stop all reach it.
 function pumpSteers() {
+  if (!liveState.isOwner.value) return
   if (!(agentRunning.value || agentPlanning.value) || hasActiveHITLRequest.value || sending.value) return
   for (const msg of messageQueue.value) {
     if (msg.mode === 'steer' && !msg.steering) postSteer(msg)
@@ -4138,7 +4216,13 @@ async function sendMessage(queuedMessage = null) {
         // Sent while pinned to an older artifact revision: tells the agent
         // which version the user means so an edit branches from there
         // instead of continuing off the latest.
-        artifact_context: (!props.embedded && !artifactStage.workspaceFile.value && artifactStage.stageOpen.value && artifactStage.collectionItemId.value == null && !artifactStage.onNewest.value && artifactStage.assetId.value != null)
+        artifact_context: dockPinnedRevision.value
+          ? {
+              asset_id: dockPinnedRevision.value.assetId,
+              revision_id: dockPinnedRevision.value.revisionId,
+              revision_number: dockPinnedRevision.value.revisionNumber,
+            }
+          : (!narrow.value && !artifactStage.workspaceFile.value && artifactStage.stageOpen.value && artifactStage.collectionItemId.value == null && !artifactStage.onNewest.value && artifactStage.assetId.value != null)
           ? {
               asset_id: artifactStage.assetId.value,
               revision_id: artifactStage.viewedRevisionId.value,
@@ -4193,6 +4277,8 @@ async function sendMessage(queuedMessage = null) {
 
 // Process the next queued message when idle
 function processNextQueuedMessage() {
+  // Only the view that owns this chat's queue drains it.
+  if (!liveState.isOwner.value) return
   if (sending.value || agentRunning.value || agentPlanning.value) return
   if (messageQueue.value.length === 0) return
   if (Date.now() < queueBackoffUntil) return
@@ -4214,6 +4300,13 @@ watch(
   }
 )
 
+// Ownership moving here (this view came into sight) may find work waiting.
+watch(() => liveState.isOwner.value, (owner) => {
+  if (!owner) return
+  processNextQueuedMessage()
+  pumpSteers()
+})
+
 // Queue watchdog: while messages are queued, periodically reconcile agent
 // state with the server and try to drain. The idle-watcher above only fires
 // on local state *changes* — if agentRunning is stale-true (a missed
@@ -4232,7 +4325,7 @@ watch(() => messageQueue.value.length, (len) => {
       // after the POST returns, and plan-status would briefly report idle —
       // reconciling in that window would double-send.
       if (Date.now() - lastSendStartedAt < 8000) return
-      if (sending.value) return
+      if (sending.value || !liveState.isOwner.value) return
       await syncAgentStatus()
       processNextQueuedMessage()
     }, 5000)
@@ -4242,6 +4335,95 @@ watch(() => messageQueue.value.length, (len) => {
   }
 })
 
+
+// ===== Dock: presence and attention =====
+// A docked chat reports what it's doing to its dock row, and decides when to
+// get the person's attention: it opens its window when something waits on
+// them (any HITL request or recovery card) or a turn ends in words; a turn
+// that ends with new media raises a toast carrying it instead, unless the
+// window is already in view.
+const chatDock = useChatDock()
+const { clearUnseen: clearUnseenDot } = useUnseenActivity()
+const turnMediaIds = computed(() => turnOutputMediaIds(items.value))
+const latestProgress = computed(() => {
+  for (let i = items.value.length - 1; i >= 0; i--) {
+    const item = items.value[i]
+    if (item.item_type === 'user_message') return null
+    if (item.item_type === 'progress_display') {
+      const data = parseProgressDisplayData(item)
+      return data.status === 'in_progress' && data.total > 0 ? data : null
+    }
+  }
+  return null
+})
+const dockBusy = computed(() => agentRunning.value || agentPlanning.value || sending.value)
+const dockNeedsYou = computed(() => {
+  if (hasActiveHITLRequest.value || chatInterrupted.value) return true
+  if (dockBusy.value) return false
+  return items.value[items.value.length - 1]?.item_type === 'error'
+})
+const dockPresence = computed(() => {
+  const progress = latestProgress.value
+  const made = turnMediaIds.value
+  let status = ''
+  if (dockNeedsYou.value) status = hasActiveHITLRequest.value ? 'Needs an answer' : 'Needs you'
+  else if (dockBusy.value) status = progress ? `${progress.title || 'Working'} · ${progress.current} of ${progress.total}` : 'Working…'
+  else if (made.length) status = `Done · ${made.length} new`
+  else if (turnEndedWithReply(items.value)) status = 'Replied'
+  return {
+    name: chat.value?.name || '',
+    busy: dockBusy.value,
+    needsYou: dockNeedsYou.value,
+    status,
+    progress: progress ? progress.current / progress.total : null,
+    peekMediaIds: (made.length ? made.slice(-3) : lastSentMediaIds(items.value).slice(0, 3)),
+    mcp: !!chat.value?.generation_settings?.mcp_origin,
+  }
+})
+watch(dockPresence, (p) => {
+  if (props.docked && chatId.value != null) chatDock.reportPresence(chatId.value, p)
+}, { immediate: true })
+
+function dockWindowSeen() {
+  return chatId.value != null && chatDock.isOpenInDock(chatId.value) && document.hasFocus()
+}
+watch(dockNeedsYou, (needs, was) => {
+  if (!props.docked || !needs || was || loading.value || chatId.value == null) return
+  if (chatOnScreen() === chatId.value) return
+  chatDock.open(chatId.value)
+})
+watch(dockBusy, (busy, wasBusy) => {
+  if (!props.docked || busy || !wasBusy || chatId.value == null) return
+  if (dockNeedsYou.value || chatOnScreen() === chatId.value) return
+  const id = chatId.value
+  const made = turnMediaIds.value
+  if (made.length) {
+    if (dockWindowSeen()) return
+    addToast(chat.value?.name || 'Chat finished', 'success', 8000, { label: 'Open', onClick: () => chatDock.open(id) }, {
+      mediaIds: made,
+      onMedia: (mediaId) => mediaDetailsModal.open(mediaId),
+    })
+  } else if (turnEndedWithReply(items.value)) {
+    chatDock.open(id)
+  }
+})
+// Seen in the dock: the sidebar's dot for this chat clears too.
+watch(() => props.docked && props.dockWin === 'open', (openNow) => {
+  if (openNow && chatId.value != null) clearUnseenDot(`chat:${chatId.value}`)
+  // Coming into sight takes this chat's queue; folding to a row steps back.
+  if (!props.docked) return
+  if (openNow) liveState.claim()
+  else liveState.stepBack()
+})
+// The dock's first message for a quick action, sent once the chat is up.
+function checkDockInitialMessage() {
+  if (!props.docked || chatId.value == null) return
+  const initial = chatDock.consumeInitial(chatId.value)
+  if (!initial) return
+  messageInput.value = initial.text
+  for (const id of initial.mediaIds) addAttachmentFromMediaId(id)
+  nextTick(() => sendMessage())
+}
 
 // ===== Input Attachments & Drag/Drop =====
 
@@ -5119,10 +5301,14 @@ async function deleteChat() {
     return
   }
 
-  if (projectId) {
-    router.push({ name: 'project-chats', params: { id: projectId } })
-  } else {
-    router.push({ name: 'chats' })
+  // Deleted from the dock: it leaves the dock and the screen underneath stays.
+  chatDock.undock(id)
+  if (!props.docked) {
+    if (projectId) {
+      router.push({ name: 'project-chats', params: { id: projectId } })
+    } else {
+      router.push({ name: 'chats' })
+    }
   }
 
   addToast('Deleted 1 chat', 'info', 5000, {
@@ -5150,8 +5336,9 @@ async function cloneChat() {
     if (response.ok) {
       const newChat = await response.json()
       console.log('Cloned chat:', newChat)
-      // Navigate to the cloned chat
-      router.push({ name: 'chat', params: { id: newChat.id } })
+      // Open the clone where this one is: small beside it, or full size.
+      if (props.docked) chatDock.dock(newChat.id, { open: true })
+      else router.push({ name: 'chat', params: { id: newChat.id } })
     } else {
       const errorText = await response.text()
       reportActionError("Couldn't clone chat.", errorText)
@@ -5169,7 +5356,9 @@ async function branchFromHere(itemId) {
 
     if (response.ok) {
       const newChat = await response.json()
-      router.push({ name: 'chat', params: { id: newChat.id } })
+      // In the dock, the branch opens small beside its source.
+      if (props.docked) chatDock.dock(newChat.id, { open: true })
+      else router.push({ name: 'chat', params: { id: newChat.id } })
     } else {
       const errorText = await response.text()
       console.error('Branch failed:', response.status, errorText)
@@ -6151,6 +6340,8 @@ function checkPendingMedia() {
 // both call this before the query clears, so the consumer sends it once.
 const consumeInitialMessage = createInitialMessageConsumer()
 function checkInitialMessage() {
+  // The route's first message belongs to the route's chat, not a docked one.
+  if (props.docked || props.chatId != null) return
   const initial = consumeInitialMessage(chatId.value, route.query)
   if (!initial) return
   router.replace({ query: {} })
@@ -6186,6 +6377,8 @@ function resolveChatIdSource(): number | null {
 
 onMounted(() => {
   chatId.value = resolveChatIdSource()
+  if (!props.docked || props.dockWin === 'open') liveState.claim()
+  else liveState.stepBack()
   loadChat()
   loadMarkers()
   loadEligibleSkills()
@@ -6198,6 +6391,8 @@ onMounted(() => {
     // Check for pending media after initial load
     checkPendingMedia()
     checkInitialMessage()
+    checkDockInitialMessage()
+    applyStageIntent()
   })
   // Intercept link clicks in chat messages to open in system browser
   if (messagesContainer.value) {
@@ -6207,6 +6402,7 @@ onMounted(() => {
 
 // Handle KeepAlive re-activation (component waking up from cache)
 onActivated(async () => {
+  liveState.claim()
   // Re-subscribe to WebSocket events when component becomes active again
   setupWebSocketSubscriptions()
   // Events broadcast while this view was cached were never received —
@@ -6218,12 +6414,14 @@ onActivated(async () => {
   await nextTick()
   checkPendingMedia()
   checkInitialMessage()
+  applyStageIntent()
 })
 
 // Handle KeepAlive deactivation (component going into cache)
 onDeactivated(() => {
   console.log('[onDeactivated] cleaning up WebSocket subscriptions')
   cleanupWebSocketSubscriptions()
+  liveState.stepBack()
 })
 
 onUnmounted(() => {
@@ -6249,6 +6447,8 @@ onUnmounted(() => {
 
 // Handle profile changes - redirect to chat list since current chat may not exist in new profile
 function handleProfileChanged() {
+  // A docked chat just goes: the dock reloads for the new profile.
+  if (props.docked) return
   console.log('Profile changed in ChatView, redirecting to chat list')
   router.push('/chats')
 }
@@ -6270,7 +6470,7 @@ watch(() => route.params.id, (newId) => {
     // The queue must not carry over — a message queued in the previous chat
     // would otherwise post to this one — so it goes back into that chat's
     // composer.
-    if (chatChanged) restoreQueueToComposer(chatId.value)
+    if (chatChanged && !liveState.heldElsewhere(chatId.value)) restoreQueueToComposer(chatId.value)
     // Update chatId - subscriptions filter by this value automatically
     chatId.value = parsed
     loading.value = true
@@ -6303,7 +6503,7 @@ watch(() => props.chatId, (newId) => {
   if (newId == null) return
   const n = resolveChatIdSource()
   if (n == null || n === chatId.value) return
-  restoreQueueToComposer(chatId.value)
+  if (!liveState.heldElsewhere(chatId.value)) restoreQueueToComposer(chatId.value)
   chatId.value = n
   loading.value = true
   items.value = []
@@ -6330,7 +6530,7 @@ watch(wsConnected, (connected, wasConnected) => {
 // Compact header title follows the chat name (cleared per route by App.vue).
 const renameOpen = ref(false)
 watch([() => route.query.rename, () => chat.value?.id], ([flag, id]) => {
-  if (props.embedded || flag !== '1' || !id) return
+  if (narrow.value || flag !== '1' || !id) return
   router.replace({ query: { ...route.query, rename: undefined } })
   if (isCompact.value) renameOpen.value = true
 }, { immediate: true })
@@ -6343,7 +6543,7 @@ async function moveToProject(projectId) {
   moveProjectOpen.value = false
 }
 function updateCompactHeader() {
-  if (props.embedded || route.name !== 'chat' || String(route.params.id) !== String(chat.value?.id)) return
+  if (narrow.value || route.name !== 'chat' || String(route.params.id) !== String(chat.value?.id)) return
   setCompactTitle(chat.value?.name || 'Name this chat…', '', () => { renameOpen.value = true })
   setCompactMenu([
     { label: 'Rename', run: () => { renameOpen.value = true } },

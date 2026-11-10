@@ -220,6 +220,7 @@
             <component :is="Component" :key="getComponentKey(route)" />
           </KeepAlive>
         </router-view>
+        <ChatDock />
       </div>
       </div>
     </div>
@@ -266,7 +267,8 @@
             <component :is="Component" :key="getComponentKey(route)" />
           </KeepAlive>
         </router-view>
-
+        <!-- Chats shown small: they follow you across the app -->
+        <ChatDock />
       </div>
     </div>
   </div>
@@ -310,6 +312,7 @@ import { belongsToContext, contextRoute, contextSection, projectIdFrom } from '.
 import TopBar from './components/TopBar.vue'
 import { dragPeek, focusSidebarOpen, setFocusSidebarOpen, installDragPeek } from './composables/useSidebarFocus'
 import ToastContainer from './components/ToastContainer.vue'
+import ChatDock from './components/chat/ChatDock.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import ShareDialog from './components/ShareDialog.vue'
 import ReadinessPanel from './components/ReadinessPanel.vue'

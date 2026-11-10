@@ -4,6 +4,7 @@ import { useAgentActivity } from './useAgentActivity'
 import { useWorkspaceTabs, toolRouteTabId } from './useWorkspaceTabs'
 import { instanceMatchesFeedScope, instanceMatchesTool } from './useGenerationStatus'
 import router from '../router'
+import { useChatDock } from './useChatDock'
 
 // Singleton: "finished while you weren't looking" markers per workspace tab.
 // When a sidebar spinner stops (tool jobs drained, agent turn ended) and the
@@ -38,10 +39,16 @@ function activeTabKey(): string | null {
   return null
 }
 
+// A chat open in the dock (not minimized) is being looked at too.
+function seenInDock(tabId: string): boolean {
+  const match = /^chat:(\d+)$/.exec(tabId)
+  return !!match && useChatDock().isOpenInDock(Number(match[1]))
+}
+
 function setUnseen(tabId: string, kind: UnseenKind) {
   // The tab the user is actively looking at never gets a dot; a tab that is
   // active but in an unfocused window does (matches how you juggle windows).
-  if (windowFocused.value && activeTabKey() === tabId) return
+  if (windowFocused.value && (activeTabKey() === tabId || seenInDock(tabId))) return
   // Error sticks until seen — a later clean finish doesn't downgrade it.
   if (unseen.value.get(tabId) === 'error') return
   unseen.value.set(tabId, kind)

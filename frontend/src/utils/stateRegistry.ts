@@ -67,6 +67,7 @@ export const STATE_REGISTRY = {
     'imageEditor:toolPrefs', 'imageEditor:colorPicker:recents', 'svg-viewer', 'media_picker', 'remix',
     'send-to-tool', 'generate-more', 'onboarding_completed', 'providerManager', 'dismissed_warning',
     'mask_editor:brush_size', 'mask_editor:expand_percent', 'folder_picker_recents', 'sprite-player', 'recent', 'ui', 'contact-sheet',
+    'chat_dock', 'quick_ask',
   ],
   /** Stays with this client. */
   device: [

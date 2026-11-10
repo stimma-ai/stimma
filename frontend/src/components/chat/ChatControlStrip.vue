@@ -32,6 +32,16 @@
     </template>
 
     <template #actions>
+      <!-- Open small: the same chat in the dock; you go back to where you were -->
+      <IconButton
+        size="lg"
+        title="Open small"
+        aria-label="Open small"
+        @click="$emit('open-small')"
+      >
+        <ArrowsPointingInIcon class="h-icon-nav w-icon-nav" />
+      </IconButton>
+
       <!-- Settings Panel Toggle -->
       <IconButton
         size="lg"
@@ -155,7 +165,7 @@ import PageHeader from '../ui/PageHeader.vue'
 import IconButton from '../ui/IconButton.vue'
 import OverflowButton from '../ui/OverflowButton.vue'
 import Button from '../ui/Button.vue'
-import { ArrowUturnLeftIcon, BugAntIcon, FolderOpenIcon } from '@heroicons/vue/24/outline'
+import { ArrowsPointingInIcon, ArrowUturnLeftIcon, BugAntIcon, FolderOpenIcon } from '@heroicons/vue/24/outline'
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { devModeRef } from '../../appConfig'
 
@@ -184,6 +194,7 @@ const emit = defineEmits<{
   (e: 'clear'): void
   (e: 'copy-raw-messages'): void
   (e: 'rename', name: string): void
+  (e: 'open-small'): void
 }>()
 
 // Open workspace folder in Finder

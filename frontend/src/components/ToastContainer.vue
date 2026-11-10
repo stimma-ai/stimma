@@ -1,5 +1,6 @@
 <template>
-  <div class="fixed bottom-4 right-4 z-toast flex flex-col gap-2 pointer-events-none">
+  <!-- Above the chat dock's rows when there are any (desktop). -->
+  <div class="fixed right-4 z-toast flex flex-col gap-2 pointer-events-none" :class="liftForDock ? 'bottom-16' : 'bottom-4'">
     <TransitionGroup name="toast">
       <div
         v-for="toast in toasts"
@@ -11,16 +12,31 @@
           <component :is="getIcon(toast.type)" class="w-icon-nav h-icon-nav" />
         </div>
 
-        <!-- Message + Action -->
-        <div class="flex-1 flex items-center gap-3">
-          <p class="text-sm">{{ toast.message }}</p>
-          <button
-            v-if="toast.action"
-            @click="handleAction(toast)"
-            class="text-sm font-medium underline underline-offset-2 hover:opacity-80 transition-opacity whitespace-nowrap"
-          >
-            {{ toast.action.label }}
-          </button>
+        <!-- Message + Action, and any pictures it carries -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-3">
+            <p class="text-sm min-w-0 truncate">{{ toast.message }}</p>
+            <button
+              v-if="toast.action"
+              @click="handleAction(toast)"
+              class="text-sm font-medium underline underline-offset-2 hover:opacity-80 transition-opacity whitespace-nowrap"
+            >
+              {{ toast.action.label }}
+            </button>
+          </div>
+          <div v-if="toast.media?.mediaIds.length" class="mt-2 flex items-center gap-1.5">
+            <button
+              v-for="(mediaId, index) in toast.media.mediaIds.slice(0, MEDIA_MAX)"
+              :key="mediaId"
+              type="button"
+              class="w-10 h-10 flex-none rounded-media overflow-hidden bg-matte hover:ring-2 hover:ring-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+              :aria-label="`View result ${index + 1}`"
+              @click="toast.media.onMedia(mediaId, index)"
+            >
+              <MediaImage :media-id="mediaId" :thumbnail="true" :thumbnail-size="128" container-class="w-full h-full" img-class="w-full h-full object-cover" />
+            </button>
+            <span v-if="toast.media.mediaIds.length > MEDIA_MAX" class="px-1 text-xs font-mono tabular-nums text-content-muted">+{{ toast.media.mediaIds.length - MEDIA_MAX }}</span>
+          </div>
         </div>
 
         <!-- Close button -->
@@ -38,8 +54,16 @@
 </template>
 
 <script setup lang="ts">
-import { h } from 'vue'
+import { computed, h } from 'vue'
 import { useToasts, type ToastType } from '../composables/useToasts'
+import { useChatDock } from '../composables/useChatDock'
+import { useViewport } from '../composables/useViewport'
+import { MediaImage } from './media'
+
+const MEDIA_MAX = 6
+const { entries: dockEntries } = useChatDock()
+const { isCompact } = useViewport()
+const liftForDock = computed(() => !isCompact.value && dockEntries.value.length > 0)
 import { textClass, type StatusBucket } from '../utils/statusColors'
 
 const { toasts, removeToast } = useToasts()
