@@ -357,6 +357,17 @@ class TestWhere:
         await narrow_entry(entry, NarrowCache(tmp_path), ask)
         assert "eyes" not in entry["filters"] and entry["filters"]["age"]  # age still narrowed by where=
 
+    def test_the_reading_keeps_only_stretches_of_the_prompt(self):
+        from prompt_programs.narrow import parse_read
+        prompt = "A Young  Woman with red hair, smiling, in a yoga outfit"
+        reply = ('{"age": "young woman", "hair": "red hair", "expr": "smiling woman", '
+                 '"outfit": ["yoga outfit", "Woman"], "eyes": null}')
+        got = parse_read(reply, ["age", "hair", "expr", "outfit", "eyes"], prompt)
+        # case and spacing aside, each is copied; "smiling woman" has every word in the prompt but isn't in it
+        assert got == {"age": "young woman", "hair": "red hair", "outfit": "yoga outfit, Woman"}
+        assert parse_read('{"outfit": ["yoga outfit", "pink leggings"]}', ["outfit"], prompt) == {}
+        assert parse_read("no object", ["age"], prompt) is None
+
     async def test_a_bound_wildcard_narrows_by_its_own_words(self, tmp_path):
         entry = young_entry()
         for c in entry["choices"]:
