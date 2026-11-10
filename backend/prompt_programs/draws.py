@@ -35,7 +35,8 @@ from typing import Any, Dict, FrozenSet, List, Optional, Protocol, Sequence, Set
 
 from prompt_programs.runtime import (
     RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _Runner, LoraName, _as_list,
-    _label_from_id, _lora_key, check, compile_program, execute, flatten_parts, lora_names, tidy_text,
+    _label_from_id, _lora_key, check, compile_program, execute, flatten_parts, holds_said, lora_names, said_value,
+    tidy_text,
 )
 from prompt_programs.vocab import AGE_LIST, fill, is_template, minor_ages, tags_match, template_matches, vocabulary
 
@@ -46,7 +47,7 @@ MAX_BATCHES = 3        # batches before a pick gives up
 MAX_POOLS = 32         # pools a generated pick may have: one per combination of the lists it names
 
 _PICK_PARAMS = ("id", "options", "label", "by", "source", "line", "exclude", "hidden", "added", "about", "phase", "seed",
-                "cls", "where")
+                "cls", "where", "said")
 _LORA_PARAMS = ("id", "names", "label", "source", "line", "phase")
 
 
@@ -574,6 +575,9 @@ class PickSpec:
     # out and generated options are written for that age. Empty for an adult, a user list, a
     # wildcard (the user's own words) and the age pick itself.
     minor: Tuple[str, ...] = ()
+    # The user's own words this pick stands for (runtime.said_value): first in its pool, and
+    # what it draws unless the user ticks others. Its other options are alternatives to them.
+    said: str = ""
 
 
 @dataclass
@@ -747,6 +751,12 @@ class _Exec(_Runner):
             seen.pin_ok = pin in names
             seen.value = pin
             return pin, True
+        if holds_said(cid, spec.said, names, eng.pins, eng.fixed):
+            # The user's own words, as a pin is: placed first, never rerolled. Its pool stays
+            # whole, so the picker shows the alternatives they may tick.
+            eng.held[cid] = spec.said
+            seen.value = spec.said
+            return spec.said, True
         v = eng.decided.get(cid)
         if v is not None and v in names:
             seen.value = v
@@ -775,11 +785,14 @@ class _Exec(_Runner):
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
              about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None, cls: Optional[str] = None,
-             where: Any = None, _site: int = -1) -> Optional[str]:
+             where: Any = None, said: Any = None, _site: int = -1) -> Optional[str]:
         cid = str(id)
         if added:
             source = "added"
         if source not in SOURCES:
+            source = "text"
+        said = said_value(said) if source != "list" else ""
+        if said:  # the user's words: a choice from their text, whatever else it was marked
             source = "text"
         follows = None
         if isinstance(options, dict):
@@ -801,9 +814,11 @@ class _Exec(_Runner):
         # A list the vocabulary no longer has keeps its id (a revision's recorded pool is found
         # by it) and otherwise draws as an unbound pick: seeds and generated options, never a failure.
         leaf = vocabulary().resolve(cls) if cls and source != "list" else None
+        seeds = _as_list(seed if seed is not None else [], f'pick("{cid}") seed')
         spec = PickSpec(cid, lbl, str(about or ""), site.phase, source, "pick",
-                        _as_list(seed if seed is not None else [], f'pick("{cid}") seed'), opts,
-                        leaf.id if leaf is not None else (str(cls).strip() if cls and source != "list" else ""))
+                        list(dict.fromkeys([said, *seeds])) if said else seeds, opts,
+                        leaf.id if leaf is not None else (str(cls).strip() if cls and source != "list" else ""),
+                        said=said)
         if source != "list" and spec.cls != AGE_LIST and cid not in self.eng.theirs:
             spec.minor = self._minor(cid, site)
         context = self._context(site)
@@ -820,7 +835,7 @@ class _Exec(_Runner):
         elif isinstance(value, str) and "{" in value:  # a replayed template whose list is gone: never show slots
             value = fill(value, None)
         d = Draw(cid, value, "pick", lbl, source, line, bool(hidden), pinned, [o for o, _ in eligible], follows)
-        d.phase, d.about, d.cls = site.phase, spec.about, spec.cls
+        d.phase, d.about, d.cls, d.said = site.phase, spec.about, spec.cls, said
         d.where = where if isinstance(where, dict) else (str(where).strip() if isinstance(where, str) else "")
         self._record(d)
         if colours is not None:
@@ -952,6 +967,7 @@ class _Engine:
         self.pool_roles: Dict[str, Dict[str, Dict[str, str]]] = {}   # a palette pick's schemes, as its pool had them
         self.param_values: Dict[str, Any] = {}
         self.kept: Set[str] = set()            # replayed (fixed) values: kept as they were
+        self.held: Dict[str, str] = {}         # said picks drawing the user's words (as a pin would)
         self.pools: Dict[str, Any] = {}   # pool key → its length, or for a vocabulary list the whole pool
         self.labels: Dict[str, str] = {}
         # Pins a pick could break: its site feeds the pinned pick's structure or exclude.
@@ -1036,7 +1052,7 @@ class _Engine:
                 if self.an.sites[s].phase < k:
                     continue
                 for cid in exe.site_ids.get(s, []):
-                    if cid in exe.by_id and cid not in self.single_pins:
+                    if cid in exe.by_id and cid not in self.single_pins and cid not in self.held:
                         hidden.append((cid, derived))
             if not hidden:
                 out.append(text)
@@ -1112,7 +1128,8 @@ class _Engine:
         proposals: Dict[str, str] = {}
         exe = self.execute(k, proposals)
         self.check_pins(exe, k)
-        order = [cid for cid in exe.order if exe.seen[cid].phase == k and cid not in self.single_pins]
+        order = [cid for cid in exe.order if exe.seen[cid].phase == k and cid not in self.single_pins
+                 and cid not in self.held]
         dirty = False
         for cid in order:
             if dirty:

@@ -283,7 +283,8 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     subset is empty loses its list. Picks whose narrowing didn't finish are recorded in
     `entry["narrow_pending"]` (see the module docstring). Returns notes for the log."""
     vocab = vocabulary()
-    bound = [c for c in entry.get("choices") or [] if vocab.get(c.get("cls")) is not None]
+    # A pick with said= is the user's own words, not a kind to narrow to: its list holds alternatives.
+    bound = [c for c in entry.get("choices") or [] if vocab.get(c.get("cls")) is not None and not c.get("said")]
     entry.pop("narrow_pending", None)
     if not bound:
         return []
@@ -464,7 +465,7 @@ def mark_pending(entry: Dict[str, Any]) -> bool:
     is nothing to narrow."""
     vocab = vocabulary()
     pending = {c["id"]: {"cls": c["cls"], "options": list(c.get("options") or [])}
-               for c in entry.get("choices") or [] if vocab.get(c.get("cls")) is not None}
+               for c in entry.get("choices") or [] if vocab.get(c.get("cls")) is not None and not c.get("said")}
     if pending:
         entry["narrow_pending"] = {**pending, **(entry.get("narrow_pending") or {})}
     return bool(pending)

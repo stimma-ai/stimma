@@ -124,6 +124,7 @@ class Draw:
     about: str = ""
     cls: str = ""                  # the vocabulary list the pick is bound to (see vocab.py)
     where: Any = ""                # the user's words, or {local facet: value}, narrowing that list (narrow.py)
+    said: str = ""                 # the user's own words this pick stands for (said_value): drawn unless they choose others
 
     def to_dict(self) -> Dict[str, Any]:
         d = {"id": self.id, "value": self.value, "kind": self.kind, "label": self.label, "source": self.source}
@@ -143,7 +144,26 @@ class Draw:
             d["cls"] = self.cls
         if self.where:
             d["where"] = self.where
+        if self.said:
+            d["said"] = self.said
         return d
+
+
+def said_value(said: Any) -> str:
+    """A pick's said= (the user's own words for the thing it stands for), or "" for none.
+
+    A pick with said= draws the user's words every time, exactly as written, until the user
+    ticks other options for it (pins, see draws.py): its other options are alternatives they
+    may switch to, never a replacement chosen for them. It is the user's choice, from their
+    text, whatever else the writer marked it."""
+    return re.sub(r"\s+", " ", said).strip() if isinstance(said, str) else ""
+
+
+def holds_said(cid: str, said: str, options: Sequence[str], pins: Dict[str, Any], fixed: Dict[str, Any]) -> bool:
+    """Whether a said pick draws the user's words this time: no pins of the user's own for it
+    (ticking other options is how they widen it), no value kept from an earlier draw (a
+    replay keeps what it drew), and their words still among its options (not deleted)."""
+    return bool(said) and cid not in pins and cid not in fixed and said in options
 
 
 @dataclass
@@ -279,11 +299,11 @@ class _Runner:
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
              about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None,
-             cls: Optional[str] = None, where: Any = None) -> Optional[str]:
+             cls: Optional[str] = None, where: Any = None, said: Any = None) -> Optional[str]:
         cid = str(id)
-        if about is not None or phase is not None or seed is not None or cls is not None:
+        if about is not None or phase is not None or seed is not None or cls is not None or said is not None:
             return self._spec_pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed, cls,
-                                   where)
+                                   where, said)
         if added:
             source = "added"
         if source not in SOURCES:
@@ -320,11 +340,15 @@ class _Runner:
 
     def _spec_pick(self, cid: str, options: Any, label: str, by: Any, source: str, line: Optional[int], exclude: Any,
                    hidden: bool, added: bool, about: Optional[str], phase: Optional[int], seed: Any,
-                   cls: Optional[str] = None, where: Any = None) -> Optional[str]:
+                   cls: Optional[str] = None, where: Any = None, said: Any = None) -> Optional[str]:
         """A pick with a spec (draws.py), run the plain way for discovery and validation:
         seeds stand in for options it doesn't list, and it is recorded even with none. A
-        pick bound to a vocabulary list (cls=) runs on the list's values instead."""
+        pick bound to a vocabulary list (cls=) runs on the list's values instead. A pick with
+        said= draws the user's words unless pinned (said_value)."""
         seeds = _as_list(seed if seed is not None else [], f'pick("{cid}") seed')
+        said = said_value(said) if source != "list" else ""
+        if said:
+            seeds, added, source = list(dict.fromkeys([said, *seeds])), False, "text"
         leaf = bound_leaf(cid, cls, source, options)
         written = list(options) if isinstance(options, (list, tuple)) else options
         if leaf is not None:  # opt-in values (ages under 18) only when asked: never in a plain run
@@ -336,8 +360,18 @@ class _Runner:
                 written = [*seeds, *written]
         else:
             written = seeds
+        if said and leaf is not None and said not in written:
+            written = [said, *written]
         n = len(self.draws)
-        value = self.pick(cid, written, label, by, source, line, exclude, hidden, added) if written else None
+        held = said and holds_said(cid, said, written if isinstance(written, list) else [], self.pins, self.fixed) and not [
+            x for x in (self.edits.get(cid) or {}).get("remove") or [] if str(x) == said]
+        if held:
+            self.pins[cid] = [said]
+        try:
+            value = self.pick(cid, written, label, by, source, line, exclude, hidden, added) if written else None
+        finally:
+            if held:
+                self.pins.pop(cid, None)
         if len(self.draws) == n:  # off, or nothing to draw: still a choice
             if (self.edits.get(cid) or {}).get("off"):
                 return None
@@ -347,6 +381,7 @@ class _Runner:
         d.phase, d.about = int(phase) if isinstance(phase, int) else None, str(about or "")
         d.cls = leaf.id if leaf is not None else ""
         d.where = where if isinstance(where, dict) else (str(where).strip() if isinstance(where, str) else "")
+        d.said = said
         if leaf is not None and leaf.slots and value is not None and "{" in str(value):
             value = self._palette(cid, d, leaf, value, source, line, hidden)
         elif isinstance(value, str) and "{" in value:
@@ -1063,6 +1098,7 @@ class Choice:
     deps: List[str] = field(default_factory=list)   # picks this one's structure depends on
     cls: Optional[str] = None                   # the vocabulary list it is bound to
     where: Any = None                           # the user's words, or {local facet: value}, narrowing that list
+    said: Optional[str] = None                  # the user's own words it stands for, drawn unless they choose others
     seen: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
@@ -1130,7 +1166,8 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
                 m = _GROUP_ID.match(d.id)
                 c = Choice(d.id, d.kind, d.label, d.source, d.line, [], d.hidden, d.follows,
                            group=m.group(1) if m else None, index=int(m.group(2)) if m else None, attr=m.group(3) if m else None,
-                           phase=d.phase, about=d.about or None, cls=d.cls or None, where=d.where or None)
+                           phase=d.phase, about=d.about or None, cls=d.cls or None, where=d.where or None,
+                           said=d.said or None)
                 choices[d.id] = c
                 order.append(d.id)
             c.seen += 1
