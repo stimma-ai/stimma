@@ -20,7 +20,7 @@ def P(cid, cls=None, about="a detail", seed="x", label="Detail", phase=1, extra=
 
 AGE, ETH, HAIR, STYLE, OUTFIT, DOG = ("person.age_band", "person.ethnicity", "person.hair_color", "person.hairstyle",
                                       "person.outfit.casual", "animal.dog_breed")
-SEEDS = {AGE: "25–29-year-old", ETH: "Korean", HAIR: "black", STYLE: "a low ponytail", OUTFIT: "a denim jacket",
+SEEDS = {"person.expression": "a frown", AGE: "25–29-year-old", ETH: "Korean", HAIR: "black", STYLE: "a low ponytail", OUTFIT: "a denim jacket",
          DOG: "French bulldog"}
 
 
@@ -202,6 +202,12 @@ class TestShapes:
         beside = hand(("woman1", [AGE]), ("woman2", [AGE]), extra_lines=[f"o = {bound('woman1_outfit', OUTFIT)}"])
         fixed, checked, _ = written(beside, "two women")
         assert '"woman1.outfit"' in fixed and not subject_problems(checked)
+        work = hand(extra_lines=[f"a = {P('chef_details', about='the chef', seed='a stained apron')}",
+                                 f"b = {bound('chef_expression', 'person.expression')}",
+                                 f"c = {P('waiter_details', about='the waiter', seed='a black vest')}",
+                                 f"d = {bound('waiter_expression', 'person.expression')}"])
+        fixed = written(work, "a chef and a waiter arguing")[0]
+        assert '"chef.expression"' in fixed and '"waiter.details"' in fixed
         indexed = loop("friends", 2, [AGE], extra_lines=[f"h = {bound('friends_2_hairstyle', STYLE)}", "emit(h)"])
         assert '"friends[2].hairstyle"' in written(indexed, "two friends")[0]
 

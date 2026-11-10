@@ -775,7 +775,7 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
       beside "mother.age", "friends_2_hair" beside group("friends", 3)) is that subject's:
       "mother.outfit", "friends[2].hair";
     - plain ids bound to the same per-individual list with the same detail but different
-      owners ("mother_age", "daughter_age"), each owner with at least two such details,
+      owners ("mother_age", "daughter_age"), each owner heading at least two details,
       name those owners: "mother.age", "daughter.age";
     - plain ids bound to one per-individual list that differ only by a number ("eth1",
       "eth2") are numbered subjects: the program's one group() ("couple[1].eth"), else the
@@ -845,10 +845,10 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
     count: Counter = Counter()
     for call, t, p, n, s in flat:
         cls = _const(_kw(call, "cls"))
+        key = f"{p}{n or ''}".lower()
+        count[key] += 1  # every detail it heads, bound or not (chef_details, chef_expr)
         if _individual_leaf(cls):
-            key = f"{p}{n or ''}".lower()
             by_detail.setdefault((str(vocabulary().resolve(cls).id), s.lower()), set()).add(key)
-            count[key] += 1
     for owners in by_detail.values():
         if len(owners) >= 2:
             known |= {o for o in owners if count[o] >= 2}
