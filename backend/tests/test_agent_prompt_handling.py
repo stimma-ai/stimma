@@ -187,6 +187,20 @@ class TestVary:
         line = ph.choices_line(out.choices, out.draw_seed)
         assert line.startswith("choices: ") and f"(draw_seed {out.draw_seed})" in line and "weather = " in line
 
+    async def test_unchecked_choices_are_mentioned_only_when_it_happened(self, writer, monkeypatch):
+        from prompt_programs import fix as fx
+        assert (await _vary()).note is None  # checked, or no check configured: nothing said
+        real = fx.realize_and_fix
+
+        def unjudged(*a, **k):  # the judge couldn't be had for this run
+            result, _ = real(*a, **k)
+            return result, {"judge": "pick-judge/v", "skipped": "unavailable"}
+
+        monkeypatch.setattr(fx, "realize_and_fix", unjudged)
+        out = await _vary()
+        assert out.params["prompt_program"]["fix"]["skipped"] == "unavailable"
+        assert out.note == ph.UNCHECKED_NOTE and out.choices
+
     async def test_one_prepare_for_many_calls(self, writer):
         import asyncio
         outs = await asyncio.gather(*[_vary() for _ in range(6)])

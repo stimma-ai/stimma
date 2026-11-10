@@ -3424,6 +3424,7 @@ import PromptProgramChoices from '../components/generation/PromptProgramChoices.
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
 import { foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, prepareFailure, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
+import { judgeNotice, judgeWaitLabel, tellsUnjudged, unjudgedMessage, waitForJudge } from '../utils/fluentJudge'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
@@ -5565,6 +5566,45 @@ function showPrepareFailure(code: string | undefined, retry: ForeverSubmitOption
       } })
 }
 
+/** Before a Fluent run: wait while its fit check is still downloading, with the status on
+    `tile` (the preparing tile, when there is one) or a tile of its own. False when the
+    user cancelled the tile. A check that can't be had is said once per session (not
+    under Privacy Lockdown), and the run goes ahead. */
+async function waitForFluentJudge(tile: string | null): Promise<boolean> {
+  let ownTile: string | null = null
+  let finishOwn: (() => void) | null = null
+  const id = () => tile ?? ownTile
+  const { outcome, state } = await waitForJudge({
+    fetch: async (start) => (await axios.get(`${getApiBase()}/prompt-programs/fix-judge`, { params: start ? { start: 1 } : {} })).data,
+    onWaiting: (st) => {
+      const label = judgeWaitLabel(st, PROMPT_BRAND)
+      if (!id()) {
+        ownTile = jobsManager.addPendingJob(globalPrefs.value.prompt, {
+          model_name: tool.value!.model,
+          generator_name: tool.value!.generator,
+          width: modelParams.width,
+          height: modelParams.height,
+        }, label)
+        finishOwn = beginInstanceWork(generatorInstanceId)
+      } else jobsManager.setPendingJobLabel(id(), label)
+    },
+    cancelled: () => !!id() && !jobsManager.hasPendingJob(id()),
+  })
+  if (ownTile) {
+    jobsManager.removePendingJob(ownTile)
+    finishOwn?.()
+  }
+  if (outcome === 'cancelled') return false
+  if (tellsUnjudged(state) && !judgeNotice.told) {
+    judgeNotice.told = true
+    addToast(unjudgedMessage(PROMPT_BRAND), 'info', 8000, {
+      label: 'Try again',
+      onClick: () => { void axios.get(`${getApiBase()}/prompt-programs/fix-judge`, { params: { retry: 1 } }).catch(() => {}) },
+    })
+  }
+  return true
+}
+
 async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobResult> {
   if (!tool.value || !canSubmit.value) return noSubmit(options)
   if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
@@ -5627,7 +5667,12 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     : null
   const finishPreparing = preparingId ? beginInstanceWork(generatorInstanceId) : null
   const ready = !failedRead && (options.programPrompt != null || await promptProgram.ensureReady())
-  const preparingCancelled = !!preparingId && !jobsManager.hasPendingJob(preparingId)
+  let preparingCancelled = !!preparingId && !jobsManager.hasPendingJob(preparingId)
+  // The fit check Fluent downloads at launch: a run that needs it waits for it, on the
+  // same tile, while the server says it's worth waiting (it ran alongside the prepare).
+  if (ready && !preparingCancelled && promptProgram.status.value !== 'off') {
+    preparingCancelled = !(await waitForFluentJudge(preparingId))
+  }
   if (preparingId) {
     jobsManager.removePendingJob(preparingId)
     finishPreparing?.()

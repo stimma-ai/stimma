@@ -22,6 +22,7 @@ fetches every file the manifest lists into `<cache>/models/<prefix>/`, checking
 each one's size and sha256 as it streams, and writes a `.verified` marker last.
 Once the marker matches, using the bundle touches no network at all.
 """
+import contextlib
 import hashlib
 import json
 import os
@@ -32,6 +33,8 @@ import time
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence
+
+from filelock import FileLock, Timeout as FileLockTimeout
 
 import app_dirs
 from core.logging import get_logger
@@ -110,16 +113,29 @@ def _adopt_legacy(dest: Path, legacy_paths: Sequence[Path]) -> bool:
     return False
 
 
-def _download(url: str, tmp: Path, on_chunk: Optional[Callable[[bytes], None]] = None) -> None:
+class RangeIgnored(OSError):
+    """A resumed download's server answered with the whole file instead of the rest."""
+
+
+def _download(url: str, tmp: Path, on_chunk: Optional[Callable[[bytes], None]] = None, offset: int = 0) -> None:
     """Stream `url` into `tmp`, calling `on_chunk` with each chunk written. The
     single network seam for this module; the test suite stubs it out so tests can
-    never download model weights. Fails after STALL_TIMEOUT seconds without data."""
-    req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
-    with urllib.request.urlopen(req, timeout=STALL_TIMEOUT) as resp, open(tmp, "wb") as f:
-        while chunk := resp.read(_CHUNK):
-            f.write(chunk)
-            if on_chunk is not None:
-                on_chunk(chunk)
+    never download model weights. Fails after STALL_TIMEOUT seconds without data.
+    `offset` > 0 resumes: it asks for the bytes from there on (HTTP Range) and appends
+    them to `tmp`; a server that sends the whole file instead raises RangeIgnored
+    before anything is written. Nothing is written until the server has answered."""
+    headers = {"User-Agent": _USER_AGENT}
+    if offset:
+        headers["Range"] = f"bytes={offset}-"
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=STALL_TIMEOUT) as resp:
+        if offset and getattr(resp, "status", 200) != 206:
+            raise RangeIgnored(f"{url} doesn't resume (HTTP {getattr(resp, 'status', '?')})")
+        with open(tmp, "ab" if offset else "wb") as f:
+            while chunk := resp.read(_CHUNK):
+                f.write(chunk)
+                if on_chunk is not None:
+                    on_chunk(chunk)
 
 
 def ensure_model(key: str, *, legacy_paths: Optional[Iterable[Path]] = None) -> Path:
@@ -183,6 +199,11 @@ Progress = Callable[[int, int], None]  # (bytes in place, bytes in the bundle)
 
 class BundleError(RuntimeError):
     """A bundle's manifest is malformed, or a file failed to arrive intact."""
+
+
+class Cancelled(Exception):
+    """Raised by a progress callback to stop ensure_bundle (shutdown). Never retried;
+    the bytes already fetched stay for the next attempt."""
 
 
 def _check_rel(path: str, what: str) -> str:
@@ -256,34 +277,85 @@ def _sweep_parts(d: Path) -> None:
             pass
 
 
+PARTIAL = ".partial"
+
+
 def _fetch_verified(url: str, dest: Path, size: int, sha: str, on_bytes: Callable[[int], None]) -> None:
     """Download one bundle file, hashing as it streams; os.replace it into place
-    only when its size and sha256 match. On any failure nothing is left behind."""
+    only when its size and sha256 match. The bytes collect in `<name>.partial`
+    (the bundle's file lock makes that name safe across processes): a dropped
+    connection keeps them, and the next attempt, or the next launch, asks the server
+    for the rest only. Bytes that turn out wrong (too many, a bad hash) are deleted."""
     dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_name(f"{dest.name}.{os.getpid()}.{threading.get_ident()}.part")
-    h = hashlib.sha256()
-    seen = 0
+    part = dest.with_name(dest.name + PARTIAL)
+    try:
+        offset = part.stat().st_size if part.is_file() else 0
+    except OSError:
+        offset = 0
+    if offset > size:
+        part.unlink(missing_ok=True)
+        offset = 0
+    seen = offset
+    if offset:
+        on_bytes(offset)
 
     def chunk(b: bytes) -> None:
         nonlocal seen
-        h.update(b)
         seen += len(b)
         if seen > size:
             raise BundleError(f"{dest.name} is larger than its manifest says ({size} bytes)")
         on_bytes(len(b))
 
     try:
-        _download(url, tmp, chunk)
-        got = tmp.stat().st_size
+        if offset < size:
+            try:
+                _download(url, part, chunk, offset=offset) if offset else _download(url, part, chunk)
+            except RangeIgnored:
+                on_bytes(-offset)
+                part.unlink(missing_ok=True)
+                seen = 0
+                _download(url, part, chunk)
+        got = part.stat().st_size
         if got != size:
-            raise BundleError(f"{dest.name} arrived as {got} bytes, expected {size}")
-        digest = h.hexdigest() if seen == got else sha256_file(tmp)
-        if digest != sha:
+            raise OSError(f"{dest.name} arrived as {got} of {size} bytes")
+        if sha256_file(part) != sha:
             raise BundleError(f"{dest.name} failed its sha256 check")
-        os.replace(tmp, dest)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
+        os.replace(part, dest)
+    except BundleError:
+        part.unlink(missing_ok=True)
         raise
+
+
+@contextlib.contextmanager
+def _bundle_file_lock(d: Path, files: Sequence[Dict[str, Any]], total: int, progress: Optional[Progress]):
+    """Hold `<bundle>.lock` so two processes sharing the cache (two sandboxes, a
+    second server) never write the same `.partial` file. While another process holds
+    it, progress reports the bytes it has on disk, once a second."""
+    d.parent.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(str(d.parent / f"{d.name}.lock"))
+    while True:
+        try:
+            lock.acquire(timeout=1.0)
+            break
+        except FileLockTimeout:
+            if progress:
+                progress(_bytes_on_disk(d, files), total)
+    try:
+        yield
+    finally:
+        lock.release()
+
+
+def _bytes_on_disk(d: Path, files: Sequence[Dict[str, Any]]) -> int:
+    n = 0
+    for f in files:
+        for p in (d / f["path"], d / (f["path"] + PARTIAL)):
+            try:
+                n += min(p.stat().st_size, f["size"])
+                break
+            except OSError:
+                continue
+    return n
 
 
 def ensure_bundle(prefix: str, manifest: Dict[str, Any], *, progress: Optional[Progress] = None,
@@ -294,11 +366,14 @@ def ensure_bundle(prefix: str, manifest: Dict[str, Any], *, progress: Optional[P
     Every file is fetched from `<base_url>/<prefix>/<path>`, hashed while it streams,
     and moved into place only when its size and sha256 match the manifest. A cached
     file of the wrong size (or, when the bundle isn't verified yet, the wrong hash) is
-    fetched again. When every file is in place the manifest is written next to them
-    and `.verified` (the manifest's digest) last. A verified bundle returns at once
+    fetched again. A file whose download broke off resumes where it stopped (HTTP
+    Range), in this process or the next. When every file is in place the manifest is
+    written next to them and `.verified` (the manifest's digest) last. A verified bundle returns at once
     with no network. Privacy lockdown blocks fetching from Stimma's hosts; a cached
     bundle still loads. Each file gets `tries` attempts with backoff; the error of the
-    last one is raised (URLError, TimeoutError, BundleError, PrivacyLockdownError)."""
+    last one is raised (URLError, TimeoutError, BundleError, PrivacyLockdownError).
+    `progress` may raise Cancelled to stop at once (no retry). Another process
+    fetching the same bundle is waited for (a file lock), not duplicated."""
     files = bundle_files(manifest)
     d = bundle_path(prefix)
     total = sum(f["size"] for f in files)
@@ -307,7 +382,7 @@ def ensure_bundle(prefix: str, manifest: Dict[str, Any], *, progress: Optional[P
             progress(total, total)
         return d
 
-    with _key_lock(f"bundle:{prefix}"):
+    with _key_lock(f"bundle:{prefix}"), _bundle_file_lock(d, files, total, progress):
         if bundle_is_present(prefix, manifest):
             if progress:
                 progress(total, total)
@@ -349,6 +424,8 @@ def ensure_bundle(prefix: str, manifest: Dict[str, Any], *, progress: Optional[P
                 try:
                     _fetch_verified(url, d / f["path"], f["size"], f["sha256"], on_bytes)
                     break
+                except Cancelled:
+                    raise
                 except Exception as e:
                     if attempt + 1 >= max(1, tries):
                         raise

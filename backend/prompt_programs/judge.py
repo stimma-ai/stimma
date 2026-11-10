@@ -3,7 +3,7 @@
     generate_options: true             STIMMA_FLUENT_GENERATE    (background option generation)
     fix_model: default                 STIMMA_FLUENT_FIX_MODEL   (the small ONNX judge that checks each finished
                                                                   draw and rerolls flagged picks: "default" is the
-                                                                  pinned pick judge, downloaded on first use
+                                                                  pinned pick judge, downloaded from launch
                                                                   (prompt_programs.pick_judge); "" or "off": off;
                                                                   anything else: a local model directory)
     fix_cut: 0 (the model's own)       STIMMA_FLUENT_FIX_CUT     (P(wrong) above this rerolls a pick)

@@ -59,6 +59,15 @@ ENHANCE_DOC = (
     "own; omit or false keeps your wording and adds none."
 )
 
+UNCHECKED_NOTE = (
+    "These choices weren't checked to fit together: that check isn't available right now "
+    "(it keeps downloading in the background). Later calls are checked once it's ready."
+)
+UNCHECKED_LOCKDOWN_NOTE = (
+    "These choices weren't checked to fit together: that check needs a download, and "
+    "Privacy Lockdown is on."
+)
+
 NO_CHOICES_NOTE = (
     "Fresh choices aren't available for this model, so each image's prompt was written "
     "separately and there are no choices to keep."
@@ -361,7 +370,16 @@ async def _vary(job_params: Dict[str, Any], prompt: str, *, ctx: Dict[str, Any],
     record = updated.get("prompt_program")
     updated["prompt_metadata"] = _prompt_metadata(prompt, level != "off")
     seed = record.get("draw_seed") if isinstance(record, dict) else None
-    return PreparedPrompt(updated, choices=choices_of(record), draw_seed=seed)
+    return PreparedPrompt(updated, note=unchecked_note(record), choices=choices_of(record), draw_seed=seed)
+
+
+def unchecked_note(record: Optional[Dict[str, Any]]) -> Optional[str]:
+    """A line for the result when the run's choices shipped without the fit check
+    (the judge couldn't be had); None when they were checked, or needed no check."""
+    fix = record.get("fix") if isinstance(record, dict) else None
+    if not isinstance(fix, dict) or not fix.get("skipped"):
+        return None
+    return UNCHECKED_LOCKDOWN_NOTE if fix["skipped"] == "lockdown" else UNCHECKED_NOTE
 
 
 async def source_prompt_for_vary(session, media_id: Any) -> Optional[Dict[str, Any]]:

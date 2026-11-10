@@ -824,11 +824,13 @@ class GenerationQueue:
     async def _refill_fluent_draws(self, generator_instance_id: str, intent: Dict[str, Any]) -> None:
         """Background task body: draw and judge what the pool is missing, all in one
         batch, until it's full or its intent has moved on (then the work is dropped)."""
-        from prompt_programs.fix import realize_and_fix_many
+        from prompt_programs.fix import await_judge, realize_and_fix_many
         from prompt_programs.fluent import attach_filler
         from prompt_programs.prepare import draw_seed
 
         spec = intent['spec']
+        # Its draws wait for the judge like a submit's (this task is cancelled with the pool).
+        await await_judge(spec['entry'])
         while self._prompt_warm_intent.get(generator_instance_id) is intent:
             missing = intent['concurrency'] - len(self._prompt_warm_ready.get(generator_instance_id, []))
             if missing <= 0:

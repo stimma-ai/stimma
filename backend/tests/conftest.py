@@ -85,8 +85,9 @@ def local_model_mirror(tmp_path, monkeypatch):
     `mirror.root` are served at `mirror.url`, STIMMA_MODELS_BASE_URL points at it,
     the model cache is a fresh temp dir, and the real `model_cache._download` runs
     for this mirror's URLs only (anything else still fails the suite guard).
-    `mirror.hits` lists the paths requested; `mirror.handler` can be replaced to
-    misbehave (truncate, stall, corrupt)."""
+    `mirror.hits` lists the paths requested and `mirror.ranges` the (path, first
+    byte) of each resumed request (HTTP Range, answered 206); `mirror.handler` can
+    be replaced to misbehave (truncate, stall, corrupt)."""
     import http.server
     import threading
     import model_cache
@@ -102,6 +103,7 @@ def local_model_mirror(tmp_path, monkeypatch):
     mirror = Mirror()
     mirror.root = root
     mirror.hits = []
+    mirror.ranges = []
     mirror.handler = None  # optional (handler, path) -> bool: True when it answered
 
     class Handler(http.server.BaseHTTPRequestHandler):
@@ -118,7 +120,18 @@ def local_model_mirror(tmp_path, monkeypatch):
                 self.send_error(404)
                 return
             data = f.read_bytes()
-            self.send_response(200)
+            want = self.headers.get("Range") or ""
+            if want.startswith("bytes=") and want.endswith("-") and want[6:-1].isdigit():
+                start = int(want[6:-1])
+                mirror.ranges.append((path, start))
+                if start >= len(data):
+                    self.send_error(416)
+                    return
+                self.send_response(206)
+                self.send_header("Content-Range", f"bytes {start}-{len(data) - 1}/{len(data)}")
+                data = data[start:]
+            else:
+                self.send_response(200)
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
@@ -130,10 +143,10 @@ def local_model_mirror(tmp_path, monkeypatch):
     real = _REAL_MODEL_DOWNLOAD[0]
     guard = model_cache._download
 
-    def download(url, tmp, on_chunk=None):
+    def download(url, tmp, on_chunk=None, offset=0):
         if not url.startswith(mirror.url + "/"):
             return guard(url, tmp, on_chunk)
-        return real(url, tmp, on_chunk)
+        return real(url, tmp, on_chunk, offset=offset)
 
     monkeypatch.setenv("STIMMA_MODELS_BASE_URL", mirror.url)
     monkeypatch.setattr(model_cache, "_download", download)
@@ -169,7 +182,7 @@ def no_model_downloads():
     import model_cache
     from clip_service import CLIP_EMBEDDING_DIM
 
-    def forbid_download(url: str, tmp: Path, on_chunk=None) -> None:
+    def forbid_download(url: str, tmp: Path, on_chunk=None, offset: int = 0) -> None:
         raise AssertionError(
             f"tests must not download models (attempted fetch of {url}); "
             "patch clip_service.get_clip_service / model_cache instead"

@@ -47,7 +47,7 @@ def test_downloads_verifies_and_then_never_touches_the_network(local_model_mirro
     assert local_model_mirror.hits == hits  # cached: zero requests
 
 
-def test_an_interrupted_download_leaves_nothing_and_the_retry_completes(local_model_mirror):
+def test_an_interrupted_download_resumes_where_it_stopped(local_model_mirror):
     m = publish(local_model_mirror, FILES)
     cuts = {"n": 0}
 
@@ -67,6 +67,91 @@ def test_an_interrupted_download_leaves_nothing_and_the_retry_completes(local_mo
     d = model_cache.ensure_bundle(PREFIX, m)
     assert cuts["n"] == 1 and (d / "model.onnx").read_bytes() == FILES["model.onnx"]
     assert local_model_mirror.hits.count(f"{PREFIX}/model.onnx") == 2
+    assert local_model_mirror.ranges == [(f"{PREFIX}/model.onnx", 1000)]  # only the rest was fetched
+    assert not list(d.glob("*" + model_cache.PARTIAL))
+
+
+def test_a_partial_file_left_by_an_earlier_launch_is_resumed(local_model_mirror):
+    m = publish(local_model_mirror, FILES)
+    d = model_cache.models_root() / PREFIX
+    d.mkdir(parents=True)
+    (d / ("model.onnx" + model_cache.PARTIAL)).write_bytes(FILES["model.onnx"][:5000])
+    seen = []
+    model_cache.ensure_bundle(PREFIX, m, progress=lambda done, total: seen.append(done))
+    assert (d / "model.onnx").read_bytes() == FILES["model.onnx"]
+    assert (f"{PREFIX}/model.onnx", 5000) in local_model_mirror.ranges
+    assert seen[0] == 0 and max(seen) == sum(len(v) for v in FILES.values())
+
+
+def test_a_server_that_ignores_range_sends_the_whole_file_again(local_model_mirror):
+    m = publish(local_model_mirror, FILES)
+    d = model_cache.models_root() / PREFIX
+    d.mkdir(parents=True)
+    (d / ("model.onnx" + model_cache.PARTIAL)).write_bytes(b"\0" * 5000)  # not even the right bytes
+
+    def no_ranges(h, path):
+        data = (local_model_mirror.root / path).read_bytes()
+        h.send_response(200)
+        h.send_header("Content-Length", str(len(data)))
+        h.end_headers()
+        h.wfile.write(data)
+        return True
+
+    local_model_mirror.handler = no_ranges
+    model_cache.ensure_bundle(PREFIX, m)
+    assert (d / "model.onnx").read_bytes() == FILES["model.onnx"]
+
+
+def test_a_corrupt_partial_file_is_dropped_and_fetched_fresh(local_model_mirror):
+    m = publish(local_model_mirror, FILES)
+    d = model_cache.models_root() / PREFIX
+    d.mkdir(parents=True)
+    (d / ("model.onnx" + model_cache.PARTIAL)).write_bytes(b"\0" * 5000)  # resumes onto bad bytes
+    model_cache.ensure_bundle(PREFIX, m)  # the first try fails its hash, the next starts over
+    assert (d / "model.onnx").read_bytes() == FILES["model.onnx"]
+    assert local_model_mirror.hits.count(f"{PREFIX}/model.onnx") == 2
+
+
+def test_cancelled_stops_at_once_and_keeps_the_bytes(local_model_mirror):
+    m = publish(local_model_mirror, FILES)
+
+    def progress(done, total):
+        if done > 1 << 20:
+            raise model_cache.Cancelled()
+
+    with pytest.raises(model_cache.Cancelled):
+        model_cache.ensure_bundle(PREFIX, m, progress=progress)
+    d = model_cache.models_root() / PREFIX
+    assert local_model_mirror.hits.count(f"{PREFIX}/model.onnx") == 1  # not retried
+    assert (d / ("model.onnx" + model_cache.PARTIAL)).stat().st_size > 0
+    model_cache.ensure_bundle(PREFIX, m)
+    assert (d / "model.onnx").read_bytes() == FILES["model.onnx"] and local_model_mirror.ranges
+
+
+def test_a_second_process_waits_for_the_first_and_reports_its_bytes(local_model_mirror, tmp_path):
+    """Another process holding the bundle's lock: this one waits, showing the bytes
+    on disk, then finds the bundle verified and fetches nothing."""
+    import subprocess
+    import sys
+    m = publish(local_model_mirror, FILES)
+    d = model_cache.models_root() / PREFIX
+    d.mkdir(parents=True)
+    lock = d.parent / f"{d.name}.lock"
+    script = (
+        "import sys, time\n"
+        "from filelock import FileLock\n"
+        "with FileLock(sys.argv[1]):\n"
+        "    print('held', flush=True)\n"
+        "    time.sleep(2.5)\n"
+    )
+    child = subprocess.Popen([sys.executable, "-c", script, str(lock)], stdout=subprocess.PIPE, text=True)
+    assert child.stdout.readline().strip() == "held"
+    (d / ("model.onnx" + model_cache.PARTIAL)).write_bytes(FILES["model.onnx"][:4096])
+    seen = []
+    model_cache.ensure_bundle(PREFIX, m, progress=lambda done, total: seen.append(done))
+    child.wait(10)
+    assert 4096 in seen  # the other process's bytes, while it held the lock
+    assert (d / "model.onnx").read_bytes() == FILES["model.onnx"]
 
 
 def test_a_download_that_keeps_failing_raises_and_leaves_no_partial_files(local_model_mirror):
@@ -76,6 +161,7 @@ def test_a_download_that_keeps_failing_raises_and_leaves_no_partial_files(local_
         model_cache.ensure_bundle(PREFIX, m)
     d = model_cache.models_root() / PREFIX
     assert not (d / ".verified").exists() and not (d / "model.onnx").exists() and not list(d.rglob("*.part"))
+    assert not list(d.glob("*" + model_cache.PARTIAL))  # a 404 writes nothing
     assert local_model_mirror.hits.count(f"{PREFIX}/model.onnx") == model_cache.BUNDLE_TRIES
     assert not model_cache.bundle_is_present(PREFIX, m)
 
