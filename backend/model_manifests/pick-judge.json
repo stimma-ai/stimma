@@ -1,6 +1,6 @@
 {
  "name": "pick-judge",
- "version": "2026-11-10.1",
+ "version": "2026-11-10.2",
  "contract": 1,
  "kind": "enc",
  "maxlen": 512,
@@ -11,13 +11,13 @@
   "wrong"
  ],
  "wrong": "wrong",
- "cut": 0.134405,
+ "cut": 0.7,
  "model": "model.int8.onnx",
  "files": [
   {
    "path": "model.int8.onnx",
    "size": 153847350,
-   "sha256": "0e79d3bdb9b9c4d09a6b6fbbd3da8dd29ca4998362be45f45de59109f873089b"
+   "sha256": "ace1a385011caa3e2f7ced76b9d5d06180ec1a12ae2f34e52eecb3907d915372"
   },
   {
    "path": "tokenizer.json",
@@ -31,8 +31,8 @@
   },
   {
    "path": "io.json",
-   "size": 143,
-   "sha256": "b8395756fa4a36eeeded23b0e384b3bb7cfc7eb5c94320c0cf9c645dd6fe90a7"
+   "size": 138,
+   "sha256": "2a5e477ba547f0c384814d05bd25524eaa872e665c504edeba1f1cec3f98213e"
   },
   {
    "path": "LICENSE",
@@ -43,7 +43,8 @@
  "base_model": "cross-encoder/ettin-reranker-150m-v1",
  "license": "Apache-2.0",
  "metrics": {
-  "dev_auroc": 0.876
+  "dev_auroc": 0.912,
+  "frozen_v2_auroc": 0.93
  },
  "selftest": {
   "items": [
@@ -91,12 +92,12 @@
    }
   ],
   "p_wrong": [
-   0.0054,
-   0.3207,
-   0.0041,
-   0.9951,
-   0.0032,
-   0.4128
+   0.0063,
+   0.5822,
+   0.0022,
+   0.9957,
+   0.0089,
+   0.4336
   ]
  }
 }
