@@ -364,9 +364,6 @@ class MediaIngestion:
             'vlm_caption': self.settings.captioning.parallelism,
         }
 
-        # Asset grouping engines, one per profile, kept warm between passes.
-        self._grouping_engines = {}
-
         # Semaphore to limit concurrent SQLite writes (SQLite only allows one writer at a time)
         # This prevents blocking when many VLM tasks try to update status simultaneously
         self._db_write_semaphore = asyncio.Semaphore(10)
@@ -1231,19 +1228,18 @@ class MediaIngestion:
             self._process_metadata(), return_exceptions=True
         )
         if await self._has_pending_metadata():
-            results = [metadata_result[0], 0, 0, 0, 0]
+            results = [metadata_result[0], 0, 0, 0]
         else:
             analysis_results = await asyncio.gather(
                 self._process_clip(),
                 self._process_face_detection(),
                 self._process_vlm_captions(),
-                self._process_grouping(),
                 return_exceptions=True,
             )
             results = [metadata_result[0], *analysis_results]
 
         # Count total processed and log any exceptions
-        phase_names = ['metadata', 'clip', 'face_detection', 'vlm_caption', 'grouping']
+        phase_names = ['metadata', 'clip', 'face_detection', 'vlm_caption']
         total_processed = 0
         phase_results = []
         for i, result in enumerate(results):
@@ -1647,39 +1643,6 @@ class MediaIngestion:
             total_processed += len(items)
 
         return total_processed
-
-    async def _process_grouping(self):
-        """Place ready Assets into browser groups, up to one batch per profile.
-
-        Grouping waits for an Asset's CLIP result (or its 10-minute cap), so
-        it runs beside the analysis phases. Each profile keeps its engine in
-        memory; an error drops it and the next pass warms up again.
-        """
-        from asset_grouping import run_grouping_pass
-        from core.profile_context import ProfileScope
-
-        total = 0
-        active = set()
-        for profile in self.settings.profiles:
-            active.add(profile.id)
-            try:
-                db = await self._get_profile_db(profile.id)
-            except ValueError:
-                continue
-            try:
-                with ProfileScope(profile.id):
-                    total += await run_grouping_pass(
-                        self._grouping_engines,
-                        profile.id,
-                        db,
-                        clip_enabled=self.settings.clip.enabled,
-                    )
-            except Exception as e:
-                log.error(f"GROUPING: pass failed for profile {profile.id}: {e}", exc_info=True)
-        for profile_id in list(self._grouping_engines):
-            if profile_id not in active:
-                self._grouping_engines.pop(profile_id, None)
-        return total
 
     async def _process_one_clip(self, profile_id: str, item_id: int):
         """Process a single CLIP embedding."""

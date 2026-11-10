@@ -103,19 +103,6 @@
       @move-down="$emit('move-view', 'down')"
     />
 
-    <!-- Group by, thumbnail size and view options: the second row under the
-         FilterBar (Assets browser, saved views and project assets; not trash) -->
-    <BrowseGroupBar
-      v-if="groupingEnabled"
-      v-model:tile-min="tileMin"
-      :group-by="groupBy"
-      :group-count="gridSections ? gridSections.length : null"
-      :unavailable-reason="groupingUnavailable"
-      @update:group-by="setGroupBy"
-      @expand-all="setAllFolds('open')"
-      @collapse-all="setAllFolds('folded')"
-    />
-
     <!-- Error state - show when we couldn't load data -->
     <ConnectionError
       v-if="loadError && !loading"
@@ -147,13 +134,6 @@
       :project-id="projectId"
       @empty-space-action="handleEmptySpaceAction"
       @items-removed="removeFromSelection"
-      :sections="gridSections"
-      :section-ids="groupIdCache"
-      :tile-min="groupingEnabled ? tileMin : null"
-      :resolve-range="gridSections ? resolveGroupedRange : null"
-      @toggle-section="toggleSection"
-      @select-group="handleSelectGroup"
-      @ref-click="openRefsSlideshow"
     />
 
     <!-- Empty trash state -->
@@ -288,7 +268,6 @@ import SaveViewModal from '../components/SaveViewModal.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import DeleteConfirmModal from '../components/DeleteConfirmModal.vue'
 import EmptyState from '../components/EmptyState.vue'
-import BrowseGroupBar from '../components/browse/BrowseGroupBar.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
 import { useAssetTrash } from '../composables/useAssetTrash'
@@ -305,13 +284,7 @@ import { usePrint } from '../composables/usePrint'
 import { useDeleteOperations } from '../composables/useDeleteOperations'
 import { addToast } from '../composables/useToasts'
 import { getCurrentProfileId } from '../composables/useProfile'
-import { makeProfileKey, makeStorageKey } from '../utils/storageKeys'
-import { useWorkingContext } from '../composables/useWorkingContext'
-import {
-  DEFAULT_GROUP_BY, TILE_MIN, clampTileMin, createGroupedReloadScheduler, groupingUnavailableReason,
-  isGroupBy, localTzOffset, parseFolds, rememberFolds, serializeFolds, toSections,
-} from '../utils/browseGrouping'
-import { resolveFlatRange } from '../utils/groupedRows'
+import { makeProfileKey } from '../utils/storageKeys'
 import { useMediaList } from '../composables/useMediaList'
 import { isSettingsLoaded } from '../appConfig'
 import { cloneDefaultBrowseFilters, normalizeBrowseFilters } from '../constants/browseFilters'
@@ -390,7 +363,6 @@ const {
 const {
   fetchAssets: fetchMedia,
   fetchAssetIds: fetchMediaIds,
-  fetchAssetGroups,
   getAssetBrowserItem,
   findAssetIndex: findMediaIndex,
   bulkMarker: bulkMarkerOperation,
@@ -768,157 +740,6 @@ if (useExternalFilters) {
   }, { deep: true })
 }
 
-// ---------- Group by (Timeline grouping) ----------
-// Device-scoped choices: how to group, the thumbnail size, and which groups
-// were folded or opened by hand. The server owns membership and order.
-const groupingEnabled = computed(() => !props.isTrashMode)
-const groupBy = ref(DEFAULT_GROUP_BY)
-const tileMin = ref(TILE_MIN.default)
-const folds = ref(new Map())
-const groupsResponse = ref(null)
-// Full id lists of groups whose checkbox was used, until the next sections load.
-const groupIdCache = ref(new Map())
-// A revisit's refs -> the key of the group they live in.
-
-// Fold defaults are judged against the time of the last sections load, so a
-// group doesn't fold itself while you look at it.
-const sectionsLoadedAt = ref(Date.now())
-let sectionsRequestId = 0
-const { projects: workingProjects } = useWorkingContext()
-
-const groupingUnavailable = computed(() => groupingUnavailableReason(filters, similarSearchActive.value))
-const groupingActive = computed(() => groupingEnabled.value && groupBy.value !== 'none' && !groupingUnavailable.value)
-
-function loadGroupingPrefs() {
-  const before = groupBy.value
-  try {
-    const savedGroupBy = localStorage.getItem(makeProfileKey('browse_group_by'))
-    groupBy.value = isGroupBy(savedGroupBy) ? savedGroupBy : DEFAULT_GROUP_BY
-    const savedTileMin = localStorage.getItem(makeProfileKey('browse_tile_min'))
-    tileMin.value = savedTileMin == null ? TILE_MIN.default : clampTileMin(savedTileMin)
-    folds.value = parseFolds(localStorage.getItem(makeStorageKey('browse_group_folds')))
-  } catch {
-    // Storage unavailable: keep the defaults.
-  }
-  return groupBy.value !== before
-}
-loadGroupingPrefs()
-
-function savePref(key, value) {
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    // Storage unavailable or full: the choice holds for this session.
-  }
-}
-
-function setGroupBy(value) {
-  if (!isGroupBy(value) || value === groupBy.value) return
-  groupBy.value = value
-  savePref(makeProfileKey('browse_group_by'), value)
-  void loadMedia()
-}
-
-watch(tileMin, (value) => savePref(makeProfileKey('browse_tile_min'), String(clampTileMin(value))))
-
-function setFolds(changes) {
-  if (!changes.length) return
-  folds.value = rememberFolds(folds.value, changes)
-  savePref(makeStorageKey('browse_group_folds'), serializeFolds(folds.value))
-}
-
-const gridSections = computed(() => {
-  const response = groupsResponse.value
-  if (!groupingActive.value || !response || response.grouped === false || !Array.isArray(response.groups)) return null
-  const names = new Map(workingProjects.value.map(project => [project.id, project.name]))
-  return toSections(response.groups, {
-    groupBy: groupBy.value,
-    folds: folds.value,
-    now: sectionsLoadedAt.value,
-    filtering: hasActiveFilterCriteria.value,
-    // Inside a project every group is that project's: no dot.
-    projectName: props.projectId == null ? (id => names.get(id) || null) : undefined,
-  })
-})
-
-function toggleSection(key) {
-  const section = gridSections.value?.find(candidate => candidate.key === key)
-  if (section) setFolds([[key, section.open ? 'folded' : 'open']])
-}
-
-function setAllFolds(state) {
-  setFolds((gridSections.value || []).map(section => [section.key, state]))
-}
-
-function groupedParams(extra = {}) {
-  return { ...buildFilterParams(), state: 'active', ...extra }
-}
-
-async function loadSections() {
-  const requestId = ++sectionsRequestId
-  if (!groupingActive.value) {
-    groupsResponse.value = null
-    groupIdCache.value = new Map()
-    return
-  }
-  try {
-    const params = groupedParams()
-    const response = await fetchAssetGroups(params)
-    if (requestId !== sectionsRequestId) return
-    sectionsLoadedAt.value = Date.now()
-    groupIdCache.value = new Map()
-    groupsResponse.value = response
-  } catch (error) {
-    if (requestId !== sectionsRequestId) return
-    // Keep the last sections on a live reload; a hard reload cleared them.
-    console.error('Failed to load asset groups:', error)
-  }
-}
-
-// The group checkbox: every member of the group (loaded or not) plus its
-// "Made from" frames.
-async function handleSelectGroup({ key, select, refIds = [] }) {
-  let ids = groupIdCache.value.get(key)
-  if (!ids) {
-    try {
-      const response = await fetchMediaIds(groupedParams({ group_key: key }))
-      ids = response.ids || []
-    } catch (error) {
-      console.error('Failed to load group members:', error)
-      addToast('Could not select that group', 'error')
-      return
-    }
-    const next = new Map(groupIdCache.value)
-    next.set(key, ids)
-    groupIdCache.value = next
-  }
-  handleShiftClickRange({ ids: [...ids, ...refIds], action: select ? 'select' : 'deselect' })
-}
-
-function resolveGroupedRange(start, end) {
-  return resolveFlatRange(async () => (await fetchMediaIds(groupedParams())).ids || [], start, end)
-}
-
-// A "Made from" frame opens a slideshow of the revisit's sources.
-function openRefsSlideshow({ item, refs }) {
-  const items = refs?.length ? refs : [item]
-  const startIndex = Math.max(0, items.findIndex(ref => assetIdOf(ref) === assetIdOf(item)))
-  enterSlideshow({
-    totalCount: items.length,
-    startIndex,
-    pageProvider: async (pageNumber, pageSize) => items.slice(pageNumber * pageSize, (pageNumber + 1) * pageSize),
-    randomized: false,
-    randomSeed: null
-  })
-}
-
-// Live updates in grouped mode: a new asset can pull an old group to the top
-// and grouping progress moves assets out of "New", so instead of prepending,
-// reload the sections and the pages together. [Sol S5]
-const groupedReloader = createGroupedReloadScheduler({
-  run: () => softReloadMedia({ force: true }),
-})
-
 const virtualGridRef = ref(null)
 const filterBarRef = ref(null)
 const gridStorageKey = computed(() => {
@@ -1090,11 +911,6 @@ function buildFilterParams() {
   if (filters.createdBefore) {
     params.created_before = filters.createdBefore
   }
-  // Grouped lists come back in group order; paging stays by flat index.
-  if (groupingActive.value) {
-    params.group_by = groupBy.value
-    params.tz_offset = localTzOffset()
-  }
   return params
 }
 
@@ -1244,16 +1060,12 @@ async function loadMedia(options = {}) {
 
     // Reset the shared media list with new filter params
     mediaList.reset(params)
-    groupsResponse.value = null
 
-    const [response] = await Promise.all([
-      fetchMediaForMode({
-        ...params,
-        page: 1,
-        page_size: 1
-      }),
-      loadSections(),
-    ])
+    const response = await fetchMediaForMode({
+      ...params,
+      page: 1,
+      page_size: 1
+    })
     if (requestId !== loadRequestId.value) return
     totalCount.value = response.total
 
@@ -1302,10 +1114,7 @@ async function reconcileRemoval(removedIds) {
     mediaList.removeFromCache(removedIds.map(id => parseInt(id)))
   }
   // silentReload sets the absolute server total and clears stale page tracking.
-  await Promise.all([
-    mediaList.silentReload(),
-    loadSections(),
-  ])
+  await mediaList.silentReload()
   totalCount.value = mediaList.totalCount.value
   // The virtual scroller doesn't recompute its geometry on a count shrink until
   // it sees a scroll event, so explicitly rebuild + reload the visible region.
@@ -1320,12 +1129,7 @@ async function handleProjectAssetsChanged(change) {
     { projectId: props.projectId, isTrashMode: props.isTrashMode, filters },
     change,
   )
-  if (effect === 'ignore') {
-    // The list's membership didn't change, but a grouped list can still
-    // reorder: Project headers, and the project dots on Auto and Theme.
-    if (groupingActive.value) await softReloadMedia({ force: true })
-    return
-  }
+  if (effect === 'ignore') return
   const assetIds = (change?.asset_ids || []).map(id => parseInt(id)).filter(Number.isFinite)
   if (effect === 'remove' && assetIds.length > 0) {
     removeFromSelection(assetIds)
@@ -1341,17 +1145,14 @@ function handleLocalProjectAssetsChanged(event) {
 
 // Soft reload - updates data without showing loading state or unmounting the grid
 // Used for live updates (websocket events) where we want seamless visual updates
-async function softReloadMedia({ force = false } = {}) {
+async function softReloadMedia() {
   // silentReload invalidates the media cache without blinking the grid. Keep
   // the view-level count in sync as well: it controls whether VirtualMediaGrid
   // is mounted at all, so leaving it at zero makes first-run Source imports
   // invisible until a hard reload even though mediaList has the new total.
-  // `force`: a grouped list can reorder with the same total (assets joining
-  // their groups), so the grouped live reload refreshes its pages regardless.
   await Promise.all([
-    mediaList?.silentReload({ force: force && groupingActive.value }),
+    mediaList?.silentReload(),
     loadImplicitMarkers(),
-    loadSections(),
   ])
   if (mediaList) {
     totalCount.value = mediaList.totalCount.value
@@ -2220,10 +2021,6 @@ onMounted(async () => {
 
   wsUnsubscribers.push(wsOn('asset_created', async (data) => {
     void loadImplicitMarkers()
-    if (groupingActive.value) {
-      groupedReloader.request('created')
-      return
-    }
     const count = data.count || 1
     if (count > 0) {
       // Check if we can do a soft update (prepend items in place)
@@ -2265,14 +2062,6 @@ onMounted(async () => {
         softReloadMedia()
       }
     }
-  }))
-
-  // Grouping progress (the ingestion worker assigned more assets).
-  wsUnsubscribers.push(wsOn('asset_groups_updated', (data) => {
-    if (data?.profile_id && data.profile_id !== getCurrentProfileId()) return
-    if (!groupingActive.value) return
-    if (data?.grouping_version && data.grouping_version === groupsResponse.value?.grouping_version) return
-    groupedReloader.request('groups')
   }))
 
   wsUnsubscribers.push(wsOn('asset_deleted', (data) => {
@@ -2361,9 +2150,7 @@ onMounted(async () => {
   }))
 
   wsUnsubscribers.push(wsOn('asset_current_revision_changed', () => {
-    // A revision can move an asset between groups (its date or project) with
-    // the same total and first item, so grouped pages reload too.
-    softReloadMedia({ force: true })
+    softReloadMedia()
   }))
 
   wsUnsubscribers.push(wsOn('assets_updated', (data) => {
@@ -2421,7 +2208,6 @@ async function handleSettingsLoaded() {
   if (useExternalFilters) return
 
   console.log('[BrowseGridView] Settings loaded, reloading filters with correct storage key')
-  const groupingChanged = loadGroupingPrefs()
   const savedFilters = loadSavedFilters()
   if (savedFilters) {
     // Check if any filters were actually loaded (not just defaults)
@@ -2439,10 +2225,8 @@ async function handleSettingsLoaded() {
       Object.assign(filters, savedFilters)
       // Reload media with the restored filters
       await loadMedia()
-      return
     }
   }
-  if (groupingChanged && !initializing.value) await loadMedia()
 }
 
 // Handle profile changes - reset filters to defaults for new profile and reload
@@ -2464,7 +2248,6 @@ async function handleProfileChanged() {
   // Load profile-specific saved filters (if any exist for this profile)
   const savedFilters = loadSavedFilters()
   Object.assign(filters, savedFilters)
-  loadGroupingPrefs()
 
   // Reload markers for new profile
   try {
@@ -2490,7 +2273,6 @@ async function handleSetCreated() {
 
 onUnmounted(() => {
   if (sourceIngestionReloadTimer) clearTimeout(sourceIngestionReloadTimer)
-  groupedReloader.cancel()
   wsUnsubscribers.forEach(unsubscribe => {
     try {
       unsubscribe()

@@ -19,12 +19,9 @@ export const MIN_COLUMNS = 3
 export type TileDensity = 'browse' | 'board'
 export const MIN_TILE_PX: Record<TileDensity, number> = { browse: 200, board: 220 }
 
-/**
- * `inner` is the width the tiles and their gutters share (outer padding excluded).
- * `minPx` overrides the density's minimum tile width (the browse size slider).
- */
-export function tileColumns(inner: number, density: TileDensity, minPx?: number | null): number {
-  const min = minPx != null && minPx > 0 ? minPx : MIN_TILE_PX[density]
+/** `inner` is the width the tiles and their gutters share (outer padding excluded). */
+export function tileColumns(inner: number, density: TileDensity): number {
+  const min = MIN_TILE_PX[density]
   return Math.max(MIN_COLUMNS, Math.floor((inner + TILE_GAP_PX) / (min + TILE_GAP_PX)))
 }
 

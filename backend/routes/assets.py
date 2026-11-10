@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import Integer, String, case, cast, func, literal, or_, select
+from sqlalchemy import Integer, case, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from asset_service import (
@@ -335,225 +335,6 @@ def _apply_asset_browser_sort(query, sort_by: str, random_seed: int | None):
     return query.order_by(MediaItem.created_date.desc().nulls_last(), Asset.id.desc())
 
 
-# ---------------------------------------------------------------------------
-# Browse matching set and grouping, shared by /browse, /browse/groups and
-# /browse/ids so the three always agree on membership and order.
-
-BROWSE_FILTERS = (
-    "caption_query", "prompt_query", "media_types", "excluded_media_types",
-    "resolutions", "excluded_resolutions", "keywords", "excluded_keywords",
-    "folders", "excluded_folders", "is_generated", "is_imported",
-    "marker_ids", "excluded_marker_ids", "tag_ids", "excluded_tag_ids",
-    "project_ids", "excluded_project_ids", "has_project", "tool_ids",
-    "excluded_tool_ids", "tool_id", "preset_id", "created_after",
-    "created_before", "show_expiring", "exclude_expiring", "is_unused",
-    "min_mp", "max_mp",
-)
-SIMILARITY_PARAMS = ("similar_to", "similar_face_to", "similar_to_text")
-GROUP_BY_PATTERN = "^(auto|theme|day|month|project|none)$"
-GROUPABLE_SORTS = ("created_desc", "created_asc", "indexed_desc", "edited_desc")
-PENDING_GROUP_KEY = "__pending"
-
-
-def _browse_matching_query(params: dict, *, with_filters: bool = True):
-    """The Asset browser's matching set: state, scope, project scope and filters.
-
-    ``with_filters=False`` keeps only the scope (state, ``scope``, ``project_id``)
-    so a group's size before filters can be counted from the same base.
-    """
-    state = params.get("state") or "active"
-    project_id = params.get("project_id")
-    filters = {name: params.get(name) for name in BROWSE_FILTERS} if with_filters else {}
-    filters["project_ids"] = ",".join(
-        part
-        for part in (filters.get("project_ids"), str(project_id) if project_id is not None else None)
-        if part
-    ) or None
-    query = _apply_asset_filters(_asset_browser_base(state), **filters, state=state)
-    query = _apply_asset_scope(query, params.get("scope"), project_id)
-    if filters.get("folders"):
-        query = query.where(StorageObject.kind == "external")
-    return query
-
-
-def _browse_has_filters(params: dict) -> bool:
-    return any(params.get(name) not in (None, "") for name in BROWSE_FILTERS)
-
-
-def _sort_timestamp(sort_by: str):
-    if sort_by in ("indexed_desc", "indexed_asc"):
-        return MediaItem.indexed_date
-    if sort_by == "edited_desc":
-        return func.coalesce(
-            case(
-                (
-                    media_has_implicit_marker(EDITED_MARKER_KEY, MediaItem.id),
-                    latest_edited_revision_at(Asset.id),
-                )
-            ),
-            MediaItem.indexed_date,
-        )
-    return MediaItem.created_date
-
-
-def browse_grouping(params: dict) -> str | None:
-    """The grouping a browse request gets, or None when it is answered flat.
-
-    Similarity (as a filter or the sort) and random sort turn grouping off,
-    as do the sorts grouping doesn't define (indexed_asc, trash sorts).
-    """
-    group_by = params.get("group_by")
-    if not isinstance(group_by, str) or group_by in ("", "none"):
-        return None
-    if any(params.get(name) is not None for name in SIMILARITY_PARAMS):
-        return None
-    if (params.get("sort_by") or "created_desc") not in GROUPABLE_SORTS:
-        return None
-    return group_by
-
-
-class GroupedBrowse:
-    """A grouped view of the matching set.
-
-    ``query`` selects (Asset, AssetRevision, MediaItem) like ``/browse``,
-    with the group-membership join applied; ``key`` is each row's group key,
-    ``ts`` its sort timestamp, and ``display`` its display time.
-    """
-
-    def __init__(self, query, key, ts, display, descending: bool, group_by: str):
-        self.query, self.key, self.ts, self.display = query, key, ts, display
-        self.descending, self.group_by = descending, group_by
-
-    def group_aggregate(self, *, window: bool):
-        agg = func.max(self.ts) if self.descending else func.min(self.ts)
-        return agg.over(partition_by=self.key) if window else agg
-
-    def ordered(self):
-        """Contiguous groups by their aggregate, then the stable key, then items."""
-        agg = self.group_aggregate(window=True)
-        if self.descending:
-            return self.query.order_by(
-                agg.desc().nulls_last(), self.key.asc(), self.ts.desc().nulls_last(), Asset.id.desc()
-            )
-        return self.query.order_by(
-            agg.asc().nulls_last(), self.key.asc(), self.ts.asc().nulls_last(), Asset.id.asc()
-        )
-
-
-def grouped_browse_query(params: dict, group_by: str, *, with_filters: bool = True) -> GroupedBrowse:
-    """Matching set plus group keys for ``group_by`` (auto|theme|day|month|project).
-
-    Auto and Theme LEFT JOIN the Asset's home; Assets the grouping pass hasn't
-    placed yet fall into ``__pending``. Day and Month bucket ``created_date``
-    (else ``indexed_date``) in local time, ``tz_offset`` minutes east of UTC.
-    Project is the Asset's earliest live project membership, ``p0`` for none.
-    """
-    from database import AssetGroupMember
-
-    sort_by = params.get("sort_by") or "created_desc"
-    query = _browse_matching_query(params, with_filters=with_filters)
-    display = func.coalesce(MediaItem.created_date, MediaItem.indexed_date)
-    if group_by in ("auto", "theme"):
-        query = query.outerjoin(
-            AssetGroupMember,
-            (AssetGroupMember.asset_id == Asset.id) & (AssetGroupMember.kind == group_by),
-        )
-        key = case(
-            (AssetGroupMember.group_id.is_(None), literal(PENDING_GROUP_KEY)),
-            else_=literal("g") + cast(AssetGroupMember.group_id, String),
-        )
-    elif group_by in ("day", "month"):
-        tz_offset = params.get("tz_offset")
-        tz_offset = int(tz_offset) if isinstance(tz_offset, int) else 0
-        fmt = "%Y-%m-%d" if group_by == "day" else "%Y-%m"
-        key = func.strftime(fmt, display, f"{tz_offset:+d} minutes")
-    elif group_by == "project":
-        first_project = (
-            select(ProjectAsset.project_id)
-            .join(Project, Project.id == ProjectAsset.project_id)
-            .where(
-                ProjectAsset.asset_id == Asset.id,
-                ProjectAsset.deleted_at.is_(None),
-                Project.deleted_at.is_(None),
-            )
-            .order_by(ProjectAsset.added_at, ProjectAsset.id)
-            .limit(1)
-            .correlate(Asset)
-            .scalar_subquery()
-        )
-        key = literal("p") + cast(func.coalesce(first_project, 0), String)
-    else:
-        raise HTTPException(status_code=422, detail="Unknown group_by")
-    return GroupedBrowse(
-        query, key, _sort_timestamp(sort_by), display,
-        descending=sort_by != "created_asc", group_by=group_by,
-    )
-
-
-async def _group_aggregates(session: AsyncSession, grouped: GroupedBrowse) -> list:
-    agg = grouped.group_aggregate(window=False).label("agg")
-    order = (agg.desc() if grouped.descending else agg.asc()).nulls_last()
-    return (
-        await session.execute(
-            grouped.query.with_only_columns(
-                grouped.key.label("key"),
-                func.count().label("count"),
-                func.min(grouped.display).label("first_at"),
-                func.max(grouped.display).label("last_at"),
-                agg,
-            )
-            .group_by(grouped.key)
-            .order_by(order, grouped.key.asc())
-        )
-    ).all()
-
-
-def _iso(value):
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return value.replace(" ", "T")
-    return value.isoformat()
-
-
-async def _group_ref_rows(session: AsyncSession, group_ids: list[int], *, limit: int | None):
-    """Active, available "Made from" refs of the given groups, oldest first."""
-    from database import AssetGroupRef
-
-    if not group_ids:
-        return {}
-    links = (
-        await session.execute(
-            select(AssetGroupRef.group_id, AssetGroupRef.asset_id).where(AssetGroupRef.group_id.in_(group_ids))
-        )
-    ).all()
-    if not links:
-        return {}
-    ref_ids = list({asset_id for _, asset_id in links})
-    shown = {}
-    for start in range(0, len(ref_ids), 900):
-        for asset, revision, media in (
-            await session.execute(_asset_browser_base("active").where(Asset.id.in_(ref_ids[start:start + 900])))
-        ).all():
-            shown[asset.id] = (asset, revision, media)
-
-    def when(asset_id):
-        media = shown[asset_id][2]
-        return (media.created_date or media.indexed_date or datetime.min, asset_id)
-
-    rows = [
-        (*shown[asset_id], group_id)
-        for group_id, asset_id in sorted(
-            (link for link in links if link[1] in shown), key=lambda link: (link[0], when(link[1]))
-        )
-    ]
-    by_group: dict[int, list] = defaultdict(list)
-    for asset, revision, media, group_id in rows:
-        if limit is None or len(by_group[group_id]) < limit:
-            by_group[group_id].append((asset, revision, media))
-    return by_group
-
-
 @router.get("")
 async def list_assets(
     limit: int = Query(100, ge=1, le=500),
@@ -636,23 +417,55 @@ async def browse_assets(
     ),
     random_seed: int | None = None,
     scope: str | None = None,
-    group_by: str | None = Query(None, pattern=GROUP_BY_PATTERN),
-    tz_offset: int = Query(0, ge=-840, le=840),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Asset browser projection; identity is Asset, payload fields are current Media.
 
     ``scope=unfiled`` (without ``project_id``) limits the browse to Assets in no
     live project; the default ``all`` includes everything.
-
-    ``group_by`` (auto, theme, day, month, project) orders items by group:
-    groups by the sort's aggregate (newest item for descending sorts, oldest
-    for ascending), then the group key, then the sort inside each group.
-    Paging stays by flat index. ``tz_offset`` is minutes east of UTC for Day
-    and Month. Similarity and random sort answer ungrouped.
     """
-    params = _browse_params(locals())
-    query = _browse_matching_query(params)
+    effective_projects = project_ids
+    if project_id is not None:
+        effective_projects = ",".join(
+            part for part in (project_ids, str(project_id)) if part
+        )
+    query = _apply_asset_filters(
+        _asset_browser_base(state),
+        caption_query=caption_query,
+        prompt_query=prompt_query,
+        media_types=media_types,
+        excluded_media_types=excluded_media_types,
+        resolutions=resolutions,
+        excluded_resolutions=excluded_resolutions,
+        keywords=keywords,
+        excluded_keywords=excluded_keywords,
+        folders=folders,
+        excluded_folders=excluded_folders,
+        is_generated=is_generated,
+        is_imported=is_imported,
+        marker_ids=marker_ids,
+        excluded_marker_ids=excluded_marker_ids,
+        tag_ids=tag_ids,
+        excluded_tag_ids=excluded_tag_ids,
+        project_ids=effective_projects,
+        excluded_project_ids=excluded_project_ids,
+        has_project=has_project,
+        tool_ids=tool_ids,
+        excluded_tool_ids=excluded_tool_ids,
+        tool_id=tool_id,
+        preset_id=preset_id,
+        created_after=created_after,
+        created_before=created_before,
+        show_expiring=show_expiring,
+        exclude_expiring=exclude_expiring,
+        is_unused=is_unused,
+        min_mp=min_mp,
+        max_mp=max_mp,
+        state=state,
+    )
+    query = _apply_asset_scope(query, scope, project_id)
+    if folders:
+        query = query.where(StorageObject.kind == "external")
 
     similarity_modes = sum(
         value is not None for value in (similar_to, similar_face_to, similar_to_text)
@@ -786,71 +599,26 @@ async def browse_assets(
         for item in items:
             if item["media_id"] in scores:
                 item["similarity_score"] = scores[item["media_id"]]
-        result = {
+        return {
             "items": items,
             "total": total,
             "page": page,
             "page_size": page_size,
             "reference_ids": reference_ids or None,
         }
-        if params["group_by"]:
-            result["grouped"] = False
-        return result
 
     total = await session.scalar(select(func.count()).select_from(query.subquery())) or 0
-    grouping = browse_grouping(params)
-    if grouping:
-        # Order ids only, then load the page: sorting whole rows through the
-        # window would drag every payload column through SQLite's sorter.
-        page_ids = list(
-            await session.scalars(
-                grouped_browse_query(params, grouping)
-                .ordered()
-                .with_only_columns(Asset.id)
-                .offset((page - 1) * page_size)
-                .limit(page_size)
-            )
-        )
-        by_id = {
-            row[0].id: row
-            for row in (
-                await session.execute(query.where(Asset.id.in_(page_ids or [0])))
-            ).all()
-        }
-        rows = [by_id[asset_id] for asset_id in page_ids if asset_id in by_id]
-    else:
-        query = _apply_asset_browser_sort(query, sort_by, random_seed)
-        rows = (
-            await session.execute(query.offset((page - 1) * page_size).limit(page_size))
-        ).all()
-    result = {
+    query = _apply_asset_browser_sort(query, sort_by, random_seed)
+
+    rows = (
+        await session.execute(query.offset((page - 1) * page_size).limit(page_size))
+    ).all()
+    return {
         "items": await _browser_projections(session, rows),
         "total": total,
         "page": page,
         "page_size": page_size,
     }
-    if params["group_by"]:
-        result["grouped"] = grouping is not None
-        result["group_by"] = grouping
-    return result
-
-
-def _browse_params(values: dict) -> dict:
-    """Route arguments as plain values (a direct Python call leaves Query defaults)."""
-    from fastapi.params import Param
-
-    params = {
-        name: (None if isinstance(value, Param) else value)
-        for name, value in values.items()
-        if name != "session"
-    }
-    group_by = params.get("group_by")
-    params["group_by"] = group_by if isinstance(group_by, str) and group_by not in ("", "none") else None
-    if not isinstance(params.get("tz_offset"), int):
-        params["tz_offset"] = 0
-    params["state"] = params.get("state") or "active"
-    params["sort_by"] = params.get("sort_by") or "created_desc"
-    return params
 
 
 # Search result groups, in display order: deliverables first, loose media after.
@@ -967,21 +735,9 @@ async def browse_asset_ids(
     sort_by: str = Query("created_desc"),
     random_seed: int | None = None,
     scope: str | None = None,
-    group_by: str | None = Query(None, pattern=GROUP_BY_PATTERN),
-    group_key: str | None = None,
-    tz_offset: int = Query(0, ge=-840, le=840),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Ordered Asset IDs for select-all; deliberately never returns Media IDs.
-
-    With ``group_by``, IDs come in the grouped order ``/browse`` pages in, so a
-    range resolves by flat index. ``group_key`` narrows to one group (for a
-    group checkbox); an Auto group's "Made from" refs come back as ``ref_ids``.
-    """
-    params = _browse_params(locals())
-    keyed = params["group_by"] if group_key else None
-    if group_key and not keyed:
-        raise HTTPException(status_code=422, detail="group_key requires group_by")
+    """Ordered Asset IDs for select-all; deliberately never returns Media IDs."""
     if any(value is not None for value in (similar_to, similar_face_to, similar_to_text)):
         # Keep select-all semantics exactly aligned with the projected browser.
         # This is an internal call, so the large page bypasses the HTTP page-size
@@ -1031,227 +787,51 @@ async def browse_asset_ids(
             scope=scope,
             session=session,
         )
-        ids = [item["asset_id"] for item in result["items"]]
-        if keyed:
-            grouped = grouped_browse_query(params, keyed)
-            members = set(
-                await session.scalars(
-                    grouped.query.with_only_columns(Asset.id).where(grouped.key == group_key)
-                )
-            )
-            ids = [asset_id for asset_id in ids if asset_id in members]
-            return {"ids": ids, "ref_ids": await _group_ref_ids(session, keyed, group_key)}
-        return {"ids": ids}
+        return {"ids": [item["asset_id"] for item in result["items"]]}
 
-    grouping = browse_grouping(params)
-    if keyed or grouping:
-        grouped = grouped_browse_query(params, keyed or grouping)
-        query = grouped.ordered() if grouping else _apply_asset_browser_sort(
-            grouped.query, sort_by, random_seed
-        )
-        if keyed:
-            query = query.where(grouped.key == group_key)
-        ids = list(await session.scalars(query.with_only_columns(Asset.id)))
-        if keyed:
-            return {"ids": ids, "ref_ids": await _group_ref_ids(session, keyed, group_key)}
-        return {"ids": ids}
-
-    query = _browse_matching_query(params).with_only_columns(Asset.id)
+    effective_projects = ",".join(
+        part for part in (project_ids, str(project_id) if project_id is not None else None) if part
+    ) or None
+    query = _apply_asset_filters(
+        _asset_browser_base(state),
+        caption_query=caption_query,
+        prompt_query=prompt_query,
+        media_types=media_types,
+        excluded_media_types=excluded_media_types,
+        resolutions=resolutions,
+        excluded_resolutions=excluded_resolutions,
+        keywords=keywords,
+        excluded_keywords=excluded_keywords,
+        folders=folders,
+        excluded_folders=excluded_folders,
+        is_generated=is_generated,
+        is_imported=is_imported,
+        marker_ids=marker_ids,
+        excluded_marker_ids=excluded_marker_ids,
+        tag_ids=tag_ids,
+        excluded_tag_ids=excluded_tag_ids,
+        project_ids=effective_projects,
+        excluded_project_ids=excluded_project_ids,
+        has_project=has_project,
+        tool_ids=tool_ids,
+        excluded_tool_ids=excluded_tool_ids,
+        tool_id=tool_id,
+        preset_id=preset_id,
+        created_after=created_after,
+        created_before=created_before,
+        show_expiring=show_expiring,
+        exclude_expiring=exclude_expiring,
+        is_unused=is_unused,
+        min_mp=min_mp,
+        max_mp=max_mp,
+        state=state,
+    )
+    query = _apply_asset_scope(query, scope, project_id)
+    if folders:
+        query = query.where(StorageObject.kind == "external")
+    query = query.with_only_columns(Asset.id)
     query = _apply_asset_browser_sort(query, sort_by, random_seed)
     return {"ids": list(await session.scalars(query))}
-
-
-@router.get("/browse/groups")
-async def browse_asset_groups(
-    state: str = Query("active", pattern="^(active|trashed)$"),
-    caption_query: str | None = None,
-    prompt_query: str | None = None,
-    media_types: str | None = None,
-    excluded_media_types: str | None = None,
-    resolutions: str | None = None,
-    excluded_resolutions: str | None = None,
-    keywords: str | None = None,
-    excluded_keywords: str | None = None,
-    folders: str | None = None,
-    excluded_folders: str | None = None,
-    similar_to: str | None = None,
-    similar_face_to: str | None = None,
-    similar_to_text: str | None = None,
-    similarity_threshold: float | None = None,
-    similarity_cutoff: str | None = Query(None, pattern="^(auto)$"),
-    is_generated: bool | None = None,
-    is_imported: bool | None = None,
-    marker_ids: str | None = None,
-    excluded_marker_ids: str | None = None,
-    tag_ids: str | None = None,
-    excluded_tag_ids: str | None = None,
-    project_id: int | None = None,
-    project_ids: str | None = None,
-    excluded_project_ids: str | None = None,
-    has_project: bool | None = None,
-    tool_ids: str | None = None,
-    excluded_tool_ids: str | None = None,
-    tool_id: str | None = None,
-    preset_id: int | None = None,
-    created_after: str | None = None,
-    created_before: str | None = None,
-    show_expiring: bool | None = None,
-    exclude_expiring: bool | None = None,
-    is_unused: bool | None = None,
-    min_mp: float | None = None,
-    max_mp: float | None = None,
-    sort_by: str = Query("created_desc"),
-    random_seed: int | None = None,
-    scope: str | None = None,
-    group_by: str | None = Query(None, pattern=GROUP_BY_PATTERN),
-    tz_offset: int = Query(0, ge=-840, le=840),
-    session: AsyncSession = Depends(get_db_session),
-):
-    """Group sections for the browse with the same params: one SQL aggregate.
-
-    Each group: ``key`` (``g<id>`` for Auto/Theme, ``YYYY-MM-DD`` / ``YYYY-MM``
-    for Day/Month, ``p<project id>`` or ``p0`` for Project, ``__pending`` for
-    Assets not placed yet), ``title`` (null for Day/Month; the client formats
-    those), ``project_id``, ``first_at``/``last_at`` (display span of the
-    matching items), ``count`` (matching items), ``total`` (group size before
-    filters), ``offset`` (start index in the flat list) and ``refs`` (up to 12
-    active "Made from" browser items). Empty groups are left out. ``grouped``
-    is false when the request is answered flat (no group_by, similarity,
-    random or another sort grouping doesn't define).
-    """
-    params = _browse_params(locals())
-    from asset_grouping import grouping_version
-    from database import AssetGroup, AssetGroupMember
-
-    version = await grouping_version(session)
-    grouping = browse_grouping(params)
-    if not grouping:
-        total = None
-        if not any(params.get(name) is not None for name in SIMILARITY_PARAMS):
-            query = _browse_matching_query(params)
-            total = await session.scalar(select(func.count()).select_from(query.subquery())) or 0
-        return {"groups": [], "total": total, "pending": 0, "grouping_version": version, "grouped": False}
-
-    rows = await _group_aggregates(session, grouped_browse_query(params, grouping))
-    totals = {row.key: row.count for row in rows}
-    if _browse_has_filters(params):
-        totals = {
-            row.key: row.count
-            for row in await _group_aggregates(
-                session, grouped_browse_query(params, grouping, with_filters=False)
-            )
-        }
-
-    group_ids = [
-        int(row.key[1:]) for row in rows
-        if grouping in ("auto", "theme") and row.key.startswith("g") and row.key[1:].isdigit()
-    ]
-    stored: dict[int, AssetGroup] = {}
-    dominant_project: dict[int, int] = {}
-    refs: dict[int, list[dict]] = {}
-    if group_ids:
-        for chunk_start in range(0, len(group_ids), 900):
-            chunk = group_ids[chunk_start:chunk_start + 900]
-            stored.update(
-                {g.id: g for g in await session.scalars(select(AssetGroup).where(AssetGroup.id.in_(chunk)))}
-            )
-            # The project most of a group's members live in; the earliest wins a tie.
-            counts = (
-                await session.execute(
-                    select(AssetGroupMember.group_id, ProjectAsset.project_id, func.count())
-                    .join(ProjectAsset, ProjectAsset.asset_id == AssetGroupMember.asset_id)
-                    .join(Project, Project.id == ProjectAsset.project_id)
-                    .where(
-                        AssetGroupMember.kind == grouping,
-                        AssetGroupMember.group_id.in_(chunk),
-                        ProjectAsset.deleted_at.is_(None),
-                        Project.deleted_at.is_(None),
-                    )
-                    .group_by(AssetGroupMember.group_id, ProjectAsset.project_id)
-                )
-            ).all()
-            best: dict[int, tuple[int, int]] = {}
-            for gid, pid, n in counts:
-                if gid not in best or (n, -pid) > (best[gid][0], -best[gid][1]):
-                    best[gid] = (n, pid)
-            dominant_project.update({gid: pid for gid, (_, pid) in best.items()})
-        if grouping == "auto":
-            ref_rows = {}
-            for chunk_start in range(0, len(group_ids), 900):
-                ref_rows.update(await _group_ref_rows(session, group_ids[chunk_start:chunk_start + 900], limit=12))
-            flat = [row for rows_ in ref_rows.values() for row in rows_]
-            projected = {item["asset_id"]: item for item in await _browser_projections(session, flat)} if flat else {}
-            # Each ref names its home group, for "in <group>, <date>".
-            homes = dict(
-                (await session.execute(
-                    select(AssetGroupMember.asset_id, AssetGroupMember.group_id).where(
-                        AssetGroupMember.kind == "auto", AssetGroupMember.asset_id.in_(list(projected))
-                    )
-                )).all()
-            ) if projected else {}
-            refs = {
-                gid: [
-                    {**projected[asset.id], "home_key": f"g{homes[asset.id]}" if asset.id in homes else None}
-                    for asset, _, _ in rows_ if asset.id in projected
-                ]
-                for gid, rows_ in ref_rows.items()
-            }
-
-    project_names = {}
-    if grouping == "project":
-        pids = [int(row.key[1:]) for row in rows if row.key[1:].isdigit() and row.key != "p0"]
-        if pids:
-            project_names = dict(
-                (await session.execute(select(Project.id, Project.name).where(Project.id.in_(pids)))).all()
-            )
-
-    groups = []
-    offset = 0
-    pending = 0
-    for row in rows:
-        key = row.key
-        title = None
-        project = None
-        group_refs: list[dict] = []
-        if key == PENDING_GROUP_KEY:
-            title = "New"
-            pending = row.count
-        elif grouping in ("auto", "theme") and key[1:].isdigit():
-            gid = int(key[1:])
-            group = stored.get(gid)
-            title = group.title if group is not None else None
-            project = dominant_project.get(gid, group.project_id if group is not None else None)
-            group_refs = refs.get(gid, [])
-        elif grouping == "project":
-            pid = int(key[1:]) if key[1:].isdigit() else 0
-            project = pid or None
-            title = project_names.get(pid) if pid else "No project"
-        groups.append({
-            "key": key,
-            "title": title,
-            "project_id": project,
-            "first_at": _iso(row.first_at),
-            "last_at": _iso(row.last_at),
-            "count": row.count,
-            "total": max(totals.get(key, row.count), row.count),
-            "offset": offset,
-            "refs": group_refs,
-        })
-        offset += row.count
-    return {
-        "groups": groups,
-        "total": offset,
-        "pending": pending,
-        "grouping_version": version,
-        "grouped": True,
-    }
-
-
-async def _group_ref_ids(session: AsyncSession, group_by: str, group_key: str) -> list[int]:
-    if group_by != "auto" or not group_key.startswith("g") or not group_key[1:].isdigit():
-        return []
-    refs = await _group_ref_rows(session, [int(group_key[1:])], limit=None)
-    return [asset.id for rows in refs.values() for asset, _, _ in rows]
 
 
 async def _similarity_media_ids_for_facets(
