@@ -29,7 +29,7 @@ from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-44"   # pp-44: judge, minors, words and agent branches merged
+PREPARE_VERSION = "pp-45"   # pp-45: a user list's ages under 18 are read (narrow.list_age_values)
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a

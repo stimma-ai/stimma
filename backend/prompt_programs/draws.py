@@ -717,6 +717,23 @@ class _Exec(_Runner):
                     ctx[cid] = self.by_id[cid].value
         return ctx
 
+    def _minor(self, cid: str, site: Site) -> Tuple[str, ...]:
+        """The ages under 18 this pick's person may be in this draw: the program's (_minors),
+        and those of the user's list values the person's age list drew (narrow.py read them).
+        A list not drawn before this pick (a later phase, or later in this one) may be any of
+        its values, so every age under 18 it holds counts."""
+        p = person_of(cid)
+        out = list(self.eng.minors.get(p, ()))
+        for lid, young in self.eng.list_ages.items():
+            if person_of(lid) != p or not young:
+                continue
+            d, seen = self.by_id.get(lid), self.seen.get(lid)
+            drawn = (d is not None and seen is not None and seen.phase <= min(site.phase, self.k)
+                     and not str(d.value).startswith("\x00"))
+            for v in ([str(d.value)] if drawn else list(young)):
+                out += young.get(v, ())
+        return tuple(dict.fromkeys(out))
+
     def _settle(self, cid: str, site: Site, spec: PickSpec, items: List[Tuple[str, float]],
                 context: Dict[str, Any]) -> Tuple[Any, bool]:
         eng, names = self.eng, [o for o, _ in items]
@@ -788,7 +805,7 @@ class _Exec(_Runner):
                         _as_list(seed if seed is not None else [], f'pick("{cid}") seed'), opts,
                         leaf.id if leaf is not None else (str(cls).strip() if cls and source != "list" else ""))
         if source != "list" and spec.cls != AGE_LIST and cid not in self.eng.theirs:
-            spec.minor = self.eng.minors.get(person_of(cid), ())
+            spec.minor = self._minor(cid, site)
         context = self._context(site)
         if leaf is not None and leaf.slots:
             self._unfill_kept(cid, leaf)
@@ -926,6 +943,7 @@ class _Engine:
         self.fixed, self.edits, self.options = fixed, edits, options
         self.theirs: Set[str] = set(getattr(options, "theirs", ()) or ())   # wildcard picks: the user's words
         self.minors = self._minors()
+        self.list_ages: Dict[str, Dict[str, Tuple[str, ...]]] = getattr(options, "list_ages", None) or {}
         self.more_coming: List[str] = []
         self.proposals = 0
         self.rejected = 0

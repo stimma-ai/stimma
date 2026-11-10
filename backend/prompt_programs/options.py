@@ -111,6 +111,9 @@ class ProgramContext:
     minors: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()
     # picks that are the user's own {{wildcards}}: never filtered by a person's age
     wildcards: Tuple[str, ...] = ()
+    # (list pick, ((value, ages under 18), ...)) for the user's list values that read as an age
+    # under 18 (narrow.py, entry["list_ages"]): a draw of one makes its person a minor
+    list_ages: Tuple[Tuple[str, Tuple[Tuple[str, Tuple[str, ...]], ...]], ...] = ()
 
     @classmethod
     def of(cls, entry: Dict[str, Any]) -> "ProgramContext":
@@ -132,7 +135,9 @@ class ProgramContext:
                    entry.get("elaborate") is not False, lists, str(entry.get("tool_id") or ""),
                    str(entry.get("lineage") or ""), intents, filters, facets, str(entry.get("context_key") or ""),
                    minors=program_minors(entry),
-                   wildcards=tuple(str(c.get("id")) for c in entry.get("choices") or [] if c.get("wildcard")))
+                   wildcards=tuple(str(c.get("id")) for c in entry.get("choices") or [] if c.get("wildcard")),
+                   list_ages=tuple((str(k), tuple((str(v), tuple(a)) for v, a in vals.items()))
+                                   for k, vals in (entry.get("list_ages") or {}).items() if isinstance(vals, dict)))
 
 
 def program_minors(entry: Dict[str, Any]) -> Tuple[Tuple[str, Tuple[str, ...]], ...]:
@@ -712,6 +717,7 @@ class GeneratedOptions:
         self.specific = set(store.specific(program.key)) if store is not None else set()
         self.filters = {k: v for k, v in program.filters}
         self.minor_ages = dict(program.minors)    # read by the draw engine (draws._Engine._minors)
+        self.list_ages = {k: dict(v) for k, v in program.list_ages}   # read by the draw engine too
         self.theirs = program.wildcards
         self._pools: Dict[str, Pool] = {}
         self.requests: List[Tuple[str, str]] = []

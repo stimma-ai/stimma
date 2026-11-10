@@ -382,5 +382,31 @@ class TestTheUsersOwn:
         assert mine in d["outfit"].options
 
 
+    async def test_an_age_from_the_users_list_limits_that_draw_only(self, tmp_path):
+        """The user's {13-year-old|30-year-old}: the list itself is theirs and draws both, but a
+        draw of the 13-year-old leaves her expression's adult-only values out; the 30-year-old
+        keeps them. Each of the list's values was read on the age list when it was prepared."""
+        src = ('age = pick("age", ["13-year-old", "30-year-old"], source="list", label="Age", phase=1, line=1)\n'
+               'expr = pick("expr", cls="person.expression", about="her expression", seed=["a smile"], label="Expression", phase=1, line=1)\n'
+               'emit("A", age, "girl with", expr, ".")')
+        e = entry_of(src, "a {13-year-old|30-year-old} girl")
+        ask = ModelAsk({"13-year-old": lambda v: start(v) == 13, "30-year-old": lambda v: start(v) == 30})
+        await narrow_entry(e, NarrowCache(tmp_path / "n"), ask)
+        assert e["list_ages"] == {"age": {"13-year-old": ["13–14-year-old"]}} and not program_minors(e)
+        seen = {}
+        for d in draws_of(e, tmp_path / "o", range(80)):
+            seen.setdefault(d["age"].value, set()).update(d["expr"].options)
+            if d["age"].value == "13-year-old":
+                assert not coded(d["expr"].value, "person.expression")
+        assert set(seen) == {"13-year-old", "30-year-old"}   # the user's list is never filtered
+        assert not set(adult_only("person.expression")) & seen["13-year-old"]
+        assert set(adult_only("person.expression")) <= seen["30-year-old"]
+        # drawn after her expression, the list's age isn't known yet: she may be 13 in every draw
+        late = entry_of(src.replace('label="Age", phase=1', 'label="Age", phase=2'), e["prompt"])
+        await narrow_entry(late, NarrowCache(tmp_path / "n"), ask)
+        for d in draws_of(late, tmp_path / "p", range(40)):
+            assert not set(adult_only("person.expression")) & set(d["expr"].options)
+
+
 def test_the_program_context_carries_no_minors_for_an_adult_program():
     assert ProgramContext.of(entry_of(ONE)).minors == ()

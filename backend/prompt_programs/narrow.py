@@ -32,6 +32,10 @@ pick of their own whose details are bound (an age the prompt states as fixed tex
 10-year-old at the beach") still gets their age read and narrowed, as `entry["ages"]`
 ({person: subset}, person as draws.person_of names them), so their pools know when they are
 under 18. Which words make someone a child is the models' reading, never matched here.
+The same goes for an age from the user's own list ("{13-year-old|30-year-old}"): each value of
+a user list of a person with bound details and no age pick is narrowed on the age list, and the values that
+read under 18 are recorded as `entry["list_ages"]` ({list pick: {value: ages}}), so a draw of
+one leaves that person's adult-only values out (draws.py); the list itself is never filtered.
 """
 
 from __future__ import annotations
@@ -47,7 +51,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tup
 
 from core.logging import get_logger
 from prompt_programs.draws import person_of
-from prompt_programs.vocab import AGE_LIST, Leaf, vocabulary
+from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
 log = get_logger(__name__)
 
@@ -334,7 +338,8 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             else:
                 c["where"] = phrase
             wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
-    for c in stated:  # a person's age the prompt states: narrowed like an age pick, recorded apart
+    listed = list_age_values(entry, bound)
+    for c in [*stated, *listed]:  # a stated age, or a user list's value: narrowed on ages, recorded apart
         phrase = phrase_of(c, read)
         if phrase:
             wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
@@ -390,11 +395,23 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         entry["ages"] = ages
     else:
         entry.pop("ages", None)
+    young: Dict[str, Dict[str, List[str]]] = {}
+    for c in listed:
+        under = minor_ages(words.get(c["id"]) or [])
+        if under:
+            young.setdefault(c["list_of"], {})[c["where"]] = list(under)
+    if young:
+        entry["list_ages"] = young
+    else:
+        entry.pop("list_ages", None)
     if unfinished:
         entry["narrow_pending"] = {cid: before[cid] for cid in before if cid in unfinished}
         for c in stated:  # the next try reads it again (reopen_pending passes it by: it isn't a choice)
             if c["id"] in unfinished:
                 entry["narrow_pending"][c["id"]] = {"cls": AGE_LIST, "options": [], "age_of": c["age_of"]}
+        for c in listed:
+            if c["id"] in unfinished:
+                entry["narrow_pending"][c["id"]] = {"cls": AGE_LIST, "options": [], "list_of": c["list_of"]}
     return notes
 
 
@@ -420,6 +437,26 @@ def stated_ages(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> List[
         out[p] = {"id": sid, "cls": AGE_LIST, "about": f"the age of {p.replace('_', ' ') if p else 'the person'}",
                   "age_of": p}
     return list(out.values())
+
+
+def list_age_values(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Each value of a user list of a person with bound details but no age pick (the people
+    stated_ages reads), as a detail narrowed on the age list: {"id", "cls", "where": the value,
+    "about", "list_of": the list pick}. Which values are an age under 18 is the narrowing
+    model's reading of each (cached by its words)."""
+    if vocabulary().get(AGE_LIST) is None:
+        return []
+    aged = {person_of(c["id"]) for c in bound if c.get("cls") == AGE_LIST}
+    people = {person_of(c["id"]) for c in bound if str(c.get("cls") or "").startswith("person.")} - aged
+    out: List[Dict[str, Any]] = []
+    for c in entry.get("choices") or []:
+        p = person_of(str(c.get("id")))
+        if c.get("source") != "list" or c.get("kind", "pick") != "pick" or c.get("cls") or p not in people:
+            continue
+        for v in dict.fromkeys(str(o) for o in c.get("options") or [] if str(o).strip()):
+            out.append({"id": f'{c["id"]}\x00{v}', "cls": AGE_LIST, "where": v,
+                        "about": f"the age of {p.replace('_', ' ') if p else 'the person'}", "list_of": str(c["id"])})
+    return out
 
 
 def mark_pending(entry: Dict[str, Any]) -> bool:
