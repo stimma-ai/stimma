@@ -40,10 +40,11 @@ const presence = reactive(new Map<number, DockPresence>())
 const foldedAt = reactive(new Map<number, number>())
 // Window sizes belong to this screen, not the workspace: kept on the device,
 // per chat, with the last size set used for windows that have none.
-interface StoredSizes { last: DockSize | null; chats: Record<string, DockSize> }
+// `chats` is in resize order, oldest first, so the oldest go first past the cap.
+interface StoredSizes { last: DockSize | null; chats: Array<{ id: number; w: number; h: number }> }
 const MAX_SIZED_CHATS = 40
 const sizeKey = () => makeProfileKey('dock_window_size')
-const sizes = ref<StoredSizes>({ last: null, chats: {} })
+const sizes = ref<StoredSizes>({ last: null, chats: [] })
 let sizesLoadedFor: string | null = null
 function validSize(s: any): DockSize | null {
   return s && Number.isFinite(s.w) && Number.isFinite(s.h) ? { w: s.w, h: s.h } : null
@@ -54,27 +55,28 @@ function loadSizes() {
   sizesLoadedFor = key
   try {
     const raw = JSON.parse(localStorage.getItem(key) || '{}')
-    const chats: Record<string, DockSize> = {}
-    for (const [id, s] of Object.entries(raw.chats || {})) {
-      const v = validSize(s)
-      if (v) chats[id] = v
-    }
+    const chats = (Array.isArray(raw.chats) ? raw.chats : [])
+      .filter((c: any) => Number.isFinite(c?.id) && validSize(c))
+      .map((c: any) => ({ id: c.id, w: c.w, h: c.h }))
     sizes.value = { last: validSize(raw.last), chats }
-  } catch { sizes.value = { last: null, chats: {} } }
+  } catch { sizes.value = { last: null, chats: [] } }
 }
-/** The size this chat's window was given, else the last size set, else null (the default). */
+/** The size this chat's window was given, else null (the default). */
 export function windowSizeFor(chatId: number): DockSize | null {
   loadSizes()
-  return sizes.value.chats[String(chatId)] ?? sizes.value.last
+  const own = sizes.value.chats.find(c => c.id === chatId)
+  return own ? { w: own.w, h: own.h } : null
+}
+// A window opening without a size of its own starts at the last size set,
+// and keeps it: resizing another window later doesn't move it.
+function adoptLastSize(chatId: number) {
+  loadSizes()
+  if (sizes.value.last && !sizes.value.chats.some(c => c.id === chatId)) setWindowSize(chatId, sizes.value.last, true)
 }
 /** Resize a window; `persist` on release, not while dragging. */
 export function setWindowSize(chatId: number, size: DockSize, persist = false) {
   loadSizes()
-  const chats = { ...sizes.value.chats }
-  delete chats[String(chatId)]
-  chats[String(chatId)] = size
-  const ids = Object.keys(chats)
-  for (const id of ids.slice(0, Math.max(0, ids.length - MAX_SIZED_CHATS))) delete chats[id]
+  const chats = [...sizes.value.chats.filter(c => c.id !== chatId), { id: chatId, w: size.w, h: size.h }].slice(-MAX_SIZED_CHATS)
   sizes.value = { last: size, chats }
   if (persist) {
     try { localStorage.setItem(sizeKey(), JSON.stringify(sizes.value)) } catch { /* size just won't stick */ }
@@ -164,7 +166,7 @@ export function useChatDock() {
     }
     if (options.initial) pendingInitial.set(chatId, options.initial)
     entries.value = [...entries.value, { chatId, win: options.open ? 'open' : 'row', at: Date.now() }]
-    if (options.open) foldExtras(chatId)
+    if (options.open) { adoptLastSize(chatId); foldExtras(chatId) }
     save()
   }
 
@@ -172,6 +174,7 @@ export function useChatDock() {
   function open(chatId: number, options: { front?: boolean } = {}) {
     if (!find(chatId)) return dock(chatId, { open: true })
     update(chatId, options.front ? { win: 'open', at: Date.now() } : { win: 'open' })
+    adoptLastSize(chatId)
     foldExtras(chatId)
     save()
   }

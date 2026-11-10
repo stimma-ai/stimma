@@ -58,6 +58,12 @@ const layout = computed(() => fitDock(
 const resizing = ref<number | null>(null)
 function startResize(event: PointerEvent, chatId: number, axis: 'both' | 'w' | 'h') {
   const start = openSize(chatId)
+  // Growing wider can't push this window, or one beside it, into "+N more":
+  // it may take what the others on screen leave.
+  const others = visible.value.filter(e => e.chatId !== chatId && shownIds.value.has(e.chatId))
+  const othersWidth = others.reduce((sum, e) => sum + (e.win === 'open' ? openSize(e.chatId).w : layout.value.rowWidth) + DOCK_SIZES.gap, 0)
+  const reserve = hidden.value.length ? DOCK_SIZES.more : 0
+  const limit = { w: Math.max(start.w, Math.min(room.value.w, width.value - DOCK_SIZES.edge * 2 - othersWidth - DOCK_SIZES.gap - reserve)), h: room.value.h }
   const x0 = event.clientX
   const y0 = event.clientY
   resizing.value = chatId
@@ -66,7 +72,7 @@ function startResize(event: PointerEvent, chatId: number, axis: 'both' | 'w' | '
   const sizeAt = (e: PointerEvent) => clampWindowSize({
     w: axis === 'h' ? start.w : start.w + (x0 - e.clientX),
     h: axis === 'w' ? start.h : start.h + (y0 - e.clientY),
-  }, room.value)
+  }, limit)
   const move = (e: PointerEvent) => setWindowSize(chatId, sizeAt(e))
   const up = (e: PointerEvent) => {
     setWindowSize(chatId, sizeAt(e), true)

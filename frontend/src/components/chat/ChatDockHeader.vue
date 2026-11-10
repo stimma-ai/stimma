@@ -2,11 +2,12 @@
 // A docked chat's header: the row it shows when minimized, and its window's
 // header when open. What you asked, what it's doing, a progress line while a
 // batch runs, and what it made. Minimize, full size and close are the
-// window's own; the chat's management lives on the full chat. Close only
-// takes the chat off the dock. Double-click the name to rename it.
+// window's own (clicking the header minimizes and restores); the chat's
+// management lives on the full chat. Close only takes the chat off the dock.
+// Double-click the name to rename it.
 import { computed, nextTick, ref, watch } from 'vue'
 import { CheckIcon } from '@heroicons/vue/20/solid'
-import { ArrowsPointingOutIcon, ChevronDownIcon, ChevronUpIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowsPointingOutIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useRouter } from 'vue-router'
 import IconButton from '../ui/IconButton.vue'
 import Spinner from '../ui/Spinner.vue'
@@ -114,16 +115,13 @@ const statusClass = computed(() => props.presence.needsYou ? textClass('awaiting
       />
     </div>
 
+    <!-- Clicking the header minimizes and restores. Open, full size shows;
+         close appears on hover. A row shows both on hover. -->
     <div class="flex flex-none items-center" :class="open ? '' : 'hidden group-hover:flex'" @click.stop>
-      <Tooltip :text="open ? 'Minimize' : 'Open'">
-        <IconButton :aria-label="open ? 'Minimize' : 'Open'" @click="toggle">
-          <ChevronDownIcon v-if="open" class="h-4 w-4" /><ChevronUpIcon v-else class="h-4 w-4" />
-        </IconButton>
-      </Tooltip>
       <Tooltip text="Full size">
         <IconButton aria-label="Full size" @click="fullSize"><ArrowsPointingOutIcon class="h-4 w-4" /></IconButton>
       </Tooltip>
-      <Tooltip text="Close">
+      <Tooltip text="Close" class="hidden group-hover:inline-flex">
         <IconButton aria-label="Close" @click="close"><XMarkIcon class="h-4 w-4" /></IconButton>
       </Tooltip>
     </div>
