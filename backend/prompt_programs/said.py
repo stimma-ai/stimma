@@ -49,13 +49,16 @@ Reply with only a JSON object mapping each part's id to the user's words or null
 
 
 def candidates(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """The picks to ask about: ones the writer added with a spec (not the user's lists, wildcards
-    or #-line requests), shown to the user, not bound to a list (narrowing reads those), not
-    marked said."""
+    """The picks to ask about: the writer's picks with a spec, whether it marked them added or
+    from the user's text, but not the user's lists, wildcards or #-line requests; shown to the
+    user, not bound to a list (narrowing reads those), not marked said."""
+    from prompt_programs.prepare import _comment_lines
     from prompt_programs.vocab import vocabulary
     vocab = vocabulary()
+    comments = _comment_lines(str(entry.get("prompt") or ""))
     return [c for c in entry.get("choices") or []
-            if c.get("kind", "pick") == "pick" and c.get("source") == "added" and not c.get("hidden")
+            if c.get("kind", "pick") == "pick" and c.get("source") != "list" and not c.get("hidden")
+            and not (c.get("source") != "added" and c.get("line") in comments)
             and not c.get("said") and not c.get("wildcard") and vocab.get(c.get("cls")) is None
             and str(c.get("about") or "").strip()]
 
@@ -65,7 +68,7 @@ def messages(prompt: str, template: str, parts: Sequence[Dict[str, Any]]) -> Lis
     for c in parts:
         examples = "; ".join(str(o) for o in (c.get("options") or [])[:3])
         what = str(c.get("about") or c.get("label") or c["id"])
-        lines.append(f'- {c["id"]} [{c.get("label") or c["id"]}]: {what}' + (f" (for example: {examples})" if examples else ""))
+        lines.append(f'- {c["id"]}, shown as [{c.get("label") or c["id"]}]: {what}' + (f" (for example: {examples})" if examples else ""))
     user = (f"The user's prompt:\n{prompt}\n\nThe program's version:\n{template}\n\nThe parts:\n" + "\n".join(lines))
     return [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": user}]
 
@@ -85,6 +88,8 @@ def parse(reply: str, ids: Sequence[str], prompt: str, template: str) -> Optiona
         return None
     if not isinstance(got, dict):
         return None
+    # Weak models key the answer as the part was listed ("car, shown as [Car]", "car [Car]").
+    got = {re.split(r",|\s\[|\s\(", str(k), maxsplit=1)[0].strip(): v for k, v in got.items()}
     fixed = re.sub(r"\[[^\[\]]*\]", " … ", template)  # the program's own words, picks left out
     out: Dict[str, str] = {}
     for cid in ids:

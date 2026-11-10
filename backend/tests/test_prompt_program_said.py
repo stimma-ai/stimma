@@ -216,6 +216,14 @@ class TestReading:
         assert parse('{"car": "desert"}', ids, USER, template) == {}  # the program still says it
         assert parse('{"car": "yellow ferrari", "sky": "yellow ferrari"}', ids, USER, template) == {}  # claimed twice
         assert parse("no", ids, USER, template) is None
+        # weak models key the answer as the part was listed
+        assert parse('{"car, shown as [Car]": "yellow ferrari", "sky [Sky]": null}', ids, USER, template) == {"car": "yellow ferrari"}
+
+    def test_picks_the_writer_marked_as_the_users_are_asked_about_too_but_not_a_line_asking_to_vary(self):
+        src = FORGOT.replace("added=True)\nsky", "line=1)\nsky")
+        assert [c["id"] for c in candidates(entry_for(src))] == ["car", "sky"]
+        src = FORGOT.replace("added=True)\nsky", "line=2)\nsky")
+        assert [c["id"] for c in candidates(entry_for(src, USER + "\n# vary the car"))] == ["sky"]
 
     def test_add_said_marks_constant_ids_only(self):
         src, done = add_said(FORGOT, {"car": "yellow ferrari"})
