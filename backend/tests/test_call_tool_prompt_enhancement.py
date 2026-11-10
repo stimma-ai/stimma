@@ -7,7 +7,16 @@ agent can force it on or off, and is told whenever its prompt was rewritten.
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from agent.v2.tools.call_tool import _coerce_enhance_flag, _enhance_prompt_for_tool, call_tool
+from agent.v2.prompt_handling import PromptRequest, prepare_prompt
+from agent.v2.tools.call_tool import _coerce_enhance_flag, call_tool
+
+
+async def _enhance_prompt_for_tool(params, *, tool_id, task_type, enhance_prompt, project_id):
+    """The agent path's prompt handling, as (params, note), minus the record it adds."""
+    out = await prepare_prompt(params, tool_id=tool_id, task_type=task_type,
+                               request=PromptRequest(enhance=enhance_prompt), project_id=project_id)
+    params = {k: v for k, v in out.params.items() if k != "prompt_metadata"}
+    return params, out.note
 
 
 @pytest.mark.parametrize(
@@ -51,11 +60,11 @@ async def test_auto_leaves_plain_prose_models_alone():
 
 
 @pytest.mark.asyncio
-async def test_explicit_false_and_internal_default_never_enhance():
-    for flag in (False, None):
-        params, note, enhance = await _run(flag, "Qwen-Image-2.1")
-        enhance.assert_not_awaited()
-        assert params["prompt"] == "a tea shop poster" and note is None
+async def test_explicit_false_never_enhances():
+    # Internal callers that pass no flag (flows) reach prepare_prompt as False.
+    params, note, enhance = await _run(False, "Qwen-Image-2.1")
+    enhance.assert_not_awaited()
+    assert params["prompt"] == "a tea shop poster" and note is None
 
 
 @pytest.mark.asyncio
@@ -64,7 +73,9 @@ async def test_h3_manual_prompt_can_still_bypass_enhancement():
         "integrated_multimodal_description: [Shot 1] A baker opens the shop.\n\n"
         "overall_soundscape: A bell rings.\n\nnon_diegetic_music: N/A"
     )
-    with patch("routes.generation.enhance_tool_prompt", new=AsyncMock()) as enhance:
+    h3 = {"model": "h3", "mode": "minimax-h3", "program_supported": False, "schema_props": {}, "enhance": {}}
+    with patch("routes.generation.enhance_tool_prompt", new=AsyncMock()) as enhance, \
+            patch("routes.generation.prompt_enhance_context", return_value=h3):
         params, note = await _enhance_prompt_for_tool(
             {"prompt": prompt}, tool_id="comfyui:minimax-h3-t2v",
             task_type="text-to-video", enhance_prompt=False, project_id=None,
@@ -93,7 +104,7 @@ async def test_sdk_keeps_enhancement_a_per_call_choice(tmp_path):
                 "comfyui:minimax-h3-t2v", _task_type="text-to-video",
                 prompt="An authored prompt", enhance_prompt=flag,
             )
-    assert [call.kwargs["enhance_prompt"] for call in execute.await_args_list] == [True, False, "auto"]
+    assert [call.kwargs["prompt_request"].enhance for call in execute.await_args_list] == [True, False, "auto"]
     assert all("enhance_prompt" not in call.kwargs["parameters"] for call in execute.await_args_list)
 
 

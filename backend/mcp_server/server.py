@@ -401,8 +401,22 @@ TOOLS["content_update"] = (
     True,
 )
 
+def _prompt_handling_properties():
+    # They describe how the prompt parameter is read, not a provider knob, so they sit
+    # beside parameters and apply to every batch item (never to chain steps).
+    from agent.v2.prompt_handling import DRAW_SEED_DOC, ENHANCE_DOC, KEEP_CHOICES_DOC, VARY_DOC
+
+    return {
+        "enhance_prompt": {"type": "boolean", "description": ENHANCE_DOC},
+        "vary": {"type": "boolean", "default": False, "description": VARY_DOC},
+        "keep_choices": {"type": "object", "description": KEEP_CHOICES_DOC},
+        "draw_seed": {"type": "integer", "minimum": 0, "description": DRAW_SEED_DOC},
+    }
+
+
 TOOLS["tools_run"][1]["properties"].update(
     {
+        **_prompt_handling_properties(),
         "batch": {**array({"type": "object"}, 200), "minItems": 1, "description": "Each item is a complete parameter object, not a patch. Omit parameters when using batch. Items execute sequentially; jobs_get returns completed outputs and counts while running."},
         "title": string("Name shown on the job chat.", maxLength=200),
         "batch_labels": {**array(string("Your label for this batch item, e.g. France.", maxLength=200), 200), "description": "Optional labels in the same order and number as batch. Returned on successes, failures and retries; labels are never sent to the generation tool."},

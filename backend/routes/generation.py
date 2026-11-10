@@ -600,6 +600,10 @@ async def _run_prompt_program(
         # Independent of the image seed; an explicit draw_seed repeats the same draws.
         from prompt_programs.fluent import attach_filler
         attach_filler(entry, profile_id)
+        # An agent's keep_choices: the same holds as pins, named as its results name them.
+        if program_opts.get("keep_choices"):
+            program_opts = {**program_opts, "pins": {**(program_opts.get("pins") or {}),
+                                                     **pins_for_kept_choices(entry, program_opts["keep_choices"])}}
         hot = None
         if hot_draws_for and program_opts.get("draw_seed") is None and not program_opts.get("revision"):
             hot = _take_hot_draw(hot_draws_for, entry, program_opts, triggers=lora_triggers,
@@ -639,6 +643,33 @@ async def _run_prompt_program(
     if not (fix or {}).get("rounds"):  # the fix record's rounds carry each roll's prompt
         record["view"] = prompt_view(result)
     return record, result.prompt
+
+
+class UnknownChoiceError(ValueError):
+    """keep_choices named a choice the prepared prompt doesn't have."""
+
+
+def pins_for_kept_choices(entry: Dict[str, Any], keep: Dict[str, Any]) -> Dict[str, List[str]]:
+    """keep_choices ({choice: value or [values]}) as pins on the prepared program's
+    choice ids. A choice is named by its id (as results report it) or its label."""
+    visible = [c for c in entry.get("choices") or [] if not c.get("hidden")]
+    by_name: Dict[str, str] = {}
+    for c in visible:
+        by_name.setdefault(str(c.get("id")), str(c.get("id")))
+    for c in visible:
+        by_name.setdefault(str(c.get("id")).lower(), str(c.get("id")))
+        if c.get("label"):
+            by_name.setdefault(str(c["label"]).strip().lower(), str(c.get("id")))
+    pins: Dict[str, List[str]] = {}
+    for name, value in (keep or {}).items():
+        cid = by_name.get(str(name)) or by_name.get(str(name).strip().lower())
+        if cid is None:
+            names = ", ".join(str(c.get("id")) for c in visible) or "none"
+            raise UnknownChoiceError(f'"{name}" isn\'t a choice in this prompt. Its choices are: {names}.')
+        values = [str(v) for v in (value if isinstance(value, (list, tuple)) else [value]) if v is not None and str(v) != ""]
+        if values:
+            pins[cid] = values
+    return pins
 
 
 def hot_draw_signature(entry: Dict[str, Any], program_opts: Dict[str, Any], *, triggers: bool,

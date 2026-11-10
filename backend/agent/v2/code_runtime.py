@@ -589,8 +589,12 @@ class ToolResult:
     task_type: str | None = None
     input_media_ids: list[int] = field(default_factory=list)
     prompt: str | None = None
-    # The prompt the model actually received, when enhancement rewrote it.
+    # The prompt the model actually received, when it differs from what was written
+    # (a rewrite, or {a|b} picks and saved lists filled in).
     sent_prompt: str | None = None
+    # With vary: what this image drew ({choice: value}) and the seed that repeats it.
+    choices: dict[str, Any] | None = None
+    draw_seed: int | None = None
 
     def open(self) -> Image.Image:
         from utils.image_ops import open_oriented
@@ -1828,6 +1832,13 @@ class StimmaSDK:
         # import them to library media IDs just like ordinary string paths.
         kwargs = _json_safe_pathlikes(kwargs)
 
+        # How the prompt goes out: enhance_prompt plus vary / keep_choices / draw_seed
+        # (prompt_handling.py). Not tool knobs, so they never reach the gate or the tool.
+        from .tools.call_tool import _coerce_enhance_flag
+        from .prompt_handling import request_from
+        explicit_enhance = kwargs.get("enhance_prompt")
+        prompt_request = request_from(kwargs, _coerce_enhance_flag(kwargs.pop("enhance_prompt", None)))
+
         # Permission gate: on first use of a tool in this chat, block on the user's
         # approval card before doing any work; a persisted/cached deny raises here.
         # In-process block (no turn replay) — see tool_permission_gate for why.
@@ -1848,6 +1859,7 @@ class StimmaSDK:
         # `params_from`: seed this call from a prior library item's recorded
         # generation parameters, then let anything the caller passed win.
         params_from = kwargs.pop("params_from", None)
+        explicit_keys = set(kwargs)
         if params_from is not None:
             from .tools.library import resolve_params_from
             # Every gather() branch reaches this at t=0, so use a fresh,
@@ -1857,6 +1869,16 @@ class StimmaSDK:
             params_db = get_database_registry().get_database(get_current_profile())
             async with params_db.async_session_maker() as params_session:
                 kwargs = await resolve_params_from(params_session, tool_id, params_from, kwargs)
+                # Varying an image that was itself varied starts from its prompt as
+                # written (and its detail level), so the rest of it really varies.
+                # Without vary, reproduction stays exact.
+                if prompt_request.vary and "prompt" not in explicit_keys:
+                    from .prompt_handling import source_prompt_for_vary
+                    source = await source_prompt_for_vary(params_session, params_from)
+                    if source:
+                        kwargs["prompt"] = source["prompt"]
+                        if explicit_enhance is None:
+                            prompt_request.enhance = source["enhance"]
 
         # Unwrap ControlNetInput objects in input_images
         raw_images = kwargs.get("input_images", [])
@@ -1889,8 +1911,6 @@ class StimmaSDK:
 
         # Single STP parameter namespace — hand the flat kwargs straight through.
         parameters = dict(kwargs)
-        from .tools.call_tool import _coerce_enhance_flag
-        enhance_prompt = _coerce_enhance_flag(parameters.pop("enhance_prompt", None))
         prompt_val = parameters.get("prompt")
         prompt_for_record = prompt_val if isinstance(prompt_val, str) else None
         try:
@@ -1903,7 +1923,7 @@ class StimmaSDK:
                 workspace_dir=self.workspace_dir,
                 interrupt_checker=self.interrupt_checker,
                 project_id=self.project_id,
-                enhance_prompt=enhance_prompt,
+                prompt_request=prompt_request,
             )
         except Exception as e:
             self._tool_failures.append({
@@ -1929,6 +1949,8 @@ class StimmaSDK:
             input_media_ids=list(result.get("input_media_ids") or []),
             prompt=prompt_for_record,
             sent_prompt=result.get("sent_prompt"),
+            choices=result.get("choices"),
+            draw_seed=result.get("draw_seed"),
         )
         if result.get("prompt_note"):
             # The SDK's own print goes to the server log; route it to the run's stdout.
@@ -2842,6 +2864,10 @@ def _format_run_code_receipt(
             # but ..."): reuse this result's recorded settings rather than
             # re-describing from scratch.
             line += f"  [iterate: params_from={r.media_id}; keep seed={r.seed} for a near-miss]"
+        from .prompt_handling import choices_line
+        drawn = choices_line(r.choices, r.draw_seed)
+        if drawn:
+            line += f"\n      {drawn}"
         return line
 
     lines: list[str] = []

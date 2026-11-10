@@ -1509,3 +1509,46 @@ async def test_mcp_responses_are_never_compressed_on_the_remote_listener(mcp_app
         assert "content-encoding" not in response.headers
         assert len(raw) >= 1400  # Large enough that it would otherwise have been compressed.
         assert "result" in json.loads(raw)
+
+
+async def test_tools_run_prompt_handling_applies_to_each_item_and_reports_choices(mcp_http, monkeypatch, tmp_path):
+    """vary / keep_choices / draw_seed / enhance_prompt sit beside parameters, reach each
+    batch item's dispatch (never the provider schema check), and the item reports what it
+    drew and what was sent."""
+    from types import SimpleNamespace
+    from PIL import Image
+    from agent.v2.code_runtime import StimmaSDK, ToolResult
+    from mcp_server import workspace
+    from mcp_server.access import access
+
+    descriptor = SimpleNamespace(parameter_schema={"type": "object", "properties": {"prompt": {"type": "string"}},
+                                                   "additionalProperties": False}, output_schema={}, metadata={})
+
+    async def descriptor_for(*args):
+        return "test:vary", None, descriptor
+    monkeypatch.setattr(workspace, "tool_descriptor", descriptor_for)
+    seen = []
+
+    async def dispatch(self, tool_id, **kwargs):
+        params = kwargs["_params_dict"]
+        seen.append(dict(params))
+        path = tmp_path / f"v{len(seen)}.png"
+        Image.new("RGB", (8, 8), "blue").save(path)
+        return ToolResult(path=path, tool_name=tool_id, parameters={}, prompt=params["prompt"],
+                          sent_prompt="a nun in a cloister", choices={"outfit": "a nun's habit"}, draw_seed=81723)
+    monkeypatch.setattr(StimmaSDK, "_dispatch_tool", dispatch)
+    caller = await access.authenticate("default", "test-credential-one")
+    result = await wait_job(mcp_http, body(await rpc(mcp_http, "tools_run", {
+        "tool_ref": access.ref(caller, "tool", "test:vary"), "schema_version": workspace.tool_version(descriptor),
+        "batch": [{"prompt": "a {{outfit}} in a cloister"}, {"prompt": "a {{outfit}} in a cloister"}],
+        "vary": True, "keep_choices": {"setting": "a cloister"}, "draw_seed": 5, "enhance_prompt": False,
+        "request_key": "vary-batch",
+    })))
+    assert result["state"] == "succeeded", result
+    assert len(seen) == 2
+    for params in seen:
+        assert params == {"prompt": "a {{outfit}} in a cloister", "vary": True,
+                          "keep_choices": {"setting": "a cloister"}, "draw_seed": 5, "enhance_prompt": False}
+    output = result["result"]["items"][0]["output"]
+    assert output["choices"] == {"outfit": "a nun's habit"} and output["draw_seed"] == 81723
+    assert output["sent_prompt"] == "a nun in a cloister"

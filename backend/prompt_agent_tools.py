@@ -353,15 +353,35 @@ _MARKER_TOOLS = [
     ),
 ]
 
-# --- G. Prompt options ------------------------------------------------------
+# --- G. Prompting (the prompt menu) and choices -----------------------------
+# The person's own controls: how the prompt is read, how much is added, and the ticks
+# on a choice's card. No feature name here: state_context.prompt_options carries the
+# names the user sees.
 _OPTION_TOOLS = [
     _fn(
-        "set_prompt_option",
-        "Toggle a prompt option: auto_improve (auto-enhance the prompt before generating) or "
-        "vary_prompt (vary the prompt across generations).",
-        {"option": {"type": "string", "enum": ["auto_improve", "vary_prompt"]},
-         "enabled": {"type": "boolean"}},
-        ["option", "enabled"],
+        "set_prompting",
+        "Set how the prompt is read when generating, like the prompt menu. Pass mode, detail, or both. "
+        "mode: 'vary' reads the prompt once and gives each image its own choices (listed in "
+        "state_context.prompt_choices); 'direct' sends the words as written ({a|b} picks one, saved "
+        "wildcards fill, [brackets] unwrap, # lines drop) with no chat model; 'raw' sends the text exactly "
+        "as typed. state_context.prompt_options.mode_names gives the name the user sees for each mode. "
+        "detail: how much is added when the prompt is read: 'yours' only the user's words, 'medium' what "
+        "this model needs to read them well, 'high' a full, rich prompt that may add choices of its own. "
+        "When state_context.prompt_options has no mode, only detail applies: 'yours' turns Enhance off, "
+        "'medium' or 'high' turn it on.",
+        {"mode": {"type": "string", "enum": ["vary", "direct", "raw"]},
+         "detail": {"type": "string", "enum": ["yours", "medium", "high"]}},
+    ),
+    _fn(
+        "set_choice",
+        "Hold one of the prompt's choices, like ticking options on its card: one value pins it for every "
+        "image, several limit each image to those, an empty list lets it vary freely again. choice is an "
+        "id from state_context.prompt_choices (or its label); values come from that choice's options. To "
+        "offer a new option, edit the prompt's {a|b|c} list instead.",
+        {"choice": {"type": "string", "description": "A choice id from state_context.prompt_choices."},
+         "values": {"type": "array", "items": {"type": "string"},
+                    "description": "Options to hold. Empty: draw from every option again."}},
+        ["choice", "values"],
     ),
 ]
 

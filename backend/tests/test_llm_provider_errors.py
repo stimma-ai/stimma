@@ -77,7 +77,7 @@ async def test_http_rejection_survives_prompt_enhancement_and_agent_tool(monkeyp
     """Exercise transport -> improve route -> agent-visible exception text."""
     import llm_http
     import routes.prompt_enhancement as pe
-    from agent.v2.tools.call_tool import _enhance_prompt_for_tool
+    from agent.v2.prompt_handling import PromptRequest, prepare_prompt
     from agent.v2.service import _format_raw_error
 
     responses = []
@@ -123,9 +123,9 @@ async def test_http_rejection_survives_prompt_enhancement_and_agent_tool(monkeyp
 
     monkeypatch.setattr("routes.generation.enhance_tool_prompt", enhance)
     with pytest.raises(ValueError) as agent_failure:
-        await _enhance_prompt_for_tool(
+        await prepare_prompt(
             {"prompt": "a landscape"}, tool_id="test:image", task_type="text-to-image",
-            enhance_prompt=True, project_id=None,
+            request=PromptRequest(enhance=True), project_id=None,
         )
     message = str(agent_failure.value)
     assert "Prompt enhancement failed" in message

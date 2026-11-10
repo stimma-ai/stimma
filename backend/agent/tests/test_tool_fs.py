@@ -343,6 +343,11 @@ def test_h3_reference_tracks_enhancer_source_and_is_pruned(tmp_path, monkeypatch
     assert ".stimma/prompt-formats/minimax-h3.md" in stub
     assert "requires its documented prompt format" in stub
     assert "enhance_prompt: bool | None = None" in stub
+    # How the prompt is read: one line each, plain words, no feature name.
+    from agent.v2.prompt_handling import VARY_DOC
+    assert "vary: bool = False" in stub and "keep_choices: dict | None = None" in stub
+    assert "draw_seed: int | None = None" in stub and f"vary: {VARY_DOC}" in stub
+    assert "fluent" not in stub.lower()
     assert "{h3_" not in text and "{protected_text_guidance}" not in text
     for task in ("T2VA", "I2VA", "FL2VA", "L2VA", "REF2VA"):
         assert task in text

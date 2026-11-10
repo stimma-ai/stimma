@@ -3937,6 +3937,8 @@ const enhanceLevel = computed<EnhanceLevel>(() => {
   const ai = globalPrefs.value.promptOptions?.autoImprove
   return !ai?.enabled ? 'off' : ai.level === 'fill' ? 'fill' : 'expand'
 })
+// The prompt bar's agent names Detail level as the menu does (Yours, Medium, High).
+const AGENT_DETAIL_NAMES: Record<EnhanceLevel, string> = { off: 'yours', fill: 'medium', expand: 'high' }
 const promptProgram = usePromptProgram({
   toolId: computed(() => fullToolIdFromProps || null),
   prompt: computed(() => globalPrefs.value.prompt || ''),
@@ -6499,10 +6501,15 @@ function getStateContext(): Record<string, any> {
 
   if (hasPrompt.value) {
     ctx.prompt = globalPrefs.value.prompt || ''
-    ctx.prompt_options = {
-      auto_improve: globalPrefs.value.promptOptions?.autoImprove?.enabled ?? false,
-      vary_prompt: globalPrefs.value.promptOptions?.varyPrompt?.enabled ?? false,
-    }
+    // The prompt menu, in set_prompting's words. Builds without it have Enhance only.
+    ctx.prompt_options = fluentOn.value
+      ? {
+          mode: rawMode.value ? 'raw' : directMode.value ? 'direct' : 'vary',
+          mode_names: { vary: PROMPT_BRAND, direct: 'Direct', raw: 'Raw' },
+          ...(llmUnconfigured.value && !rawMode.value ? { note: 'No chat model is set up, so every run is direct.' } : {}),
+          detail: AGENT_DETAIL_NAMES[enhanceLevel.value],
+        }
+      : { enhance: globalPrefs.value.promptOptions?.autoImprove?.enabled ?? false }
   }
 
   // Parameters: current values + schema.
@@ -6606,6 +6613,7 @@ function getStateContext(): Record<string, any> {
   // The prepared prompt's choices: what each image draws (see generate's draw_seed).
   if (promptProgram.status.value === 'ready' && promptProgram.choices.value.length) {
     ctx.prompt_choices = promptProgram.choices.value.filter(c => !c.hidden).map(c => ({
+      id: c.id,
       label: c.label,
       options: promptProgram.optionsOf(c).slice(0, 12),
       ...(promptProgram.pins.value[c.id]?.length ? { limited_to: promptProgram.pins.value[c.id] } : {}),
@@ -7080,22 +7088,45 @@ async function runTool(name: string, args: any): Promise<string> {
       return `New generations on this page will be auto-marked "${names.join('", "')}"${suffix}.`
     }
 
-    // ── Prompt options ──
-    case 'set_prompt_option': {
-      const enabled = !!args.enabled
-      const opts = JSON.parse(JSON.stringify(globalPrefs.value.promptOptions || {
-        autoImprove: { enabled: false, instructions: '' },
-        varyPrompt: { enabled: false, instructions: '' },
-      }))
-      if (args.option === 'auto_improve') {
-        opts.autoImprove = { ...opts.autoImprove, enabled }
-      } else if (args.option === 'vary_prompt') {
-        opts.varyPrompt = { ...opts.varyPrompt, enabled }
-      } else {
-        return `Unknown option "${args.option}". Use auto_improve or vary_prompt.`
+    // ── Prompting (the prompt menu) and choices ──
+    case 'set_prompting': {
+      const said: string[] = []
+      if (args.mode != null) {
+        if (!fluentOn.value) return 'This build has no prompting modes; only detail applies (Enhance on or off).'
+        const way = ({ vary: 'fluent', direct: 'direct', raw: 'raw' } as Record<string, string>)[String(args.mode)]
+        if (!way) return `Unknown mode "${args.mode}". Use vary, direct or raw.`
+        globalPrefs.value.promptOptions = { ...(globalPrefs.value.promptOptions || {}), raw: way === 'raw' || undefined, direct: way === 'direct' || undefined }
+        said.push(`${way === 'fluent' ? PROMPT_BRAND : way === 'raw' ? 'Raw' : 'Direct'}`)
       }
-      globalPrefs.value.promptOptions = opts
-      return `${args.option} ${enabled ? 'on' : 'off'}.`
+      if (args.detail != null) {
+        const level = (Object.entries(AGENT_DETAIL_NAMES).find(([, name]) => name === String(args.detail)) || [])[0] as EnhanceLevel | undefined
+        if (!level) return `Unknown detail "${args.detail}". Use yours, medium or high.`
+        if (fluentOn.value) setDetailLevel(level)
+        else {
+          const po = globalPrefs.value.promptOptions || {}
+          globalPrefs.value.promptOptions = { ...po, autoImprove: { ...(po.autoImprove || { instructions: '' }), enabled: level !== 'off' } }
+        }
+        said.push(fluentOn.value ? `detail ${args.detail}` : `Enhance ${level === 'off' ? 'off' : 'on'}`)
+      }
+      return said.length ? said.join(', ') : 'Pass mode, detail, or both.'
+    }
+    case 'set_choice': {
+      const visible = promptProgram.choices.value.filter(c => !c.hidden)
+      if (promptProgram.status.value !== 'ready' || !visible.length) {
+        return 'The prompt has no choices right now: it has none, or it is still being read.'
+      }
+      const key = String(args.choice ?? '').trim().toLowerCase()
+      const c = visible.find(x => x.id.toLowerCase() === key) || visible.find(x => (x.label || '').toLowerCase() === key)
+      if (!c) return `"${args.choice}" isn't a choice in this prompt. Its choices are: ${visible.map(x => x.id).join(', ')}.`
+      const wanted = (Array.isArray(args.values) ? args.values : args.values != null ? [args.values] : []).map((v: any) => String(v))
+      const opts = promptProgram.optionsOf(c)
+      // A number between a parameter's bounds is a value of its own; anything else is one of the options.
+      const stray = c.kind === 'param' ? wanted.filter((v: string) => Number.isNaN(Number(v))) : wanted.filter((v: string) => !opts.includes(v))
+      if (stray.length) {
+        return `"${stray[0]}" isn't one of ${c.label}'s options: ${opts.slice(0, 12).join(' | ')}. To offer it, add it to the prompt's list.`
+      }
+      promptProgram.setPins(c.id, c.kind === 'param' ? wanted : opts.filter(o => wanted.includes(o)))
+      return !wanted.length ? `${c.label} varies freely` : wanted.length === 1 ? `pinned ${c.label}` : `limited ${c.label}`
     }
 
     // ── Per-tool Instructions ──
