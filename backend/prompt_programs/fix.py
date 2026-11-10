@@ -42,6 +42,7 @@ judge.json keys (all optional):
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import math
@@ -472,9 +473,20 @@ Redraw = Callable[[int, Dict[str, Any], Dict[str, Any]], Any]
 Fixer = Generator[List[Item], List[float], Tuple[Any, Dict[str, Any]]]
 
 
+def _unmasked(result: Any, exact: Optional[Dict[str, str]]) -> Any:
+    """The draw with the user's [exact text] back in its prompt (a copy; the draw itself
+    keeps its [EXACT_n] tokens, which is all the judge ever reads)."""
+    if not exact:
+        return result
+    from prompt_programs.prepare import unmask_exact
+    return dataclasses.replace(result, prompt=unmask_exact(result.prompt, exact))
+
+
 def _fixer(result: Any, *, judge: Any, redraw: Redraw, seed: int, user_prompt: str, cut: float,
            rounds: int = DEFAULT_ROUNDS, fixed: Optional[Dict[str, Any]] = None,
-           edits: Optional[Dict[str, Any]] = None) -> Fixer:
+           edits: Optional[Dict[str, Any]] = None, exact: Optional[Dict[str, str]] = None) -> Fixer:
+    """`result`, `redraw` and `user_prompt` carry [exact text] masked; the rolls recorded
+    for the generation details show it unmasked (`exact`)."""
     from prompt_programs.runtime import ProgramError
     started = time.monotonic()
     user_fixed = {str(k): v for k, v in (fixed or {}).items()}
@@ -493,7 +505,7 @@ def _fixer(result: Any, *, judge: Any, redraw: Redraw, seed: int, user_prompt: s
         flagged = sorted(((p, cid) for cid, p in scores.items() if p is not None and p > cut), reverse=True)
         # Each roll's prompt and values: what the generation details show, row by row.
         step: Dict[str, Any] = {"scores": {cid: (None if p is None else round(p, 4)) for cid, p in scores.items()},
-                                **prompt_view(cur)}
+                                **prompt_view(_unmasked(cur, exact))}
         history.append(step)
         key = (len(flagged), flagged[0][0] if flagged else 0.0)
         if best is None or key < best[0]:
@@ -568,7 +580,8 @@ def fix_draw(result: Any, *, judge: Any, redraw: Redraw, seed: int, user_prompt:
              rounds: int = DEFAULT_ROUNDS, fixed: Optional[Dict[str, Any]] = None,
              edits: Optional[Dict[str, Any]] = None) -> Tuple[Any, Dict[str, Any]]:
     """Score a finished draw and reroll flagged picks. `redraw(seed, fixed, edits)` draws
-    the program again. Returns the draw to ship and what the fix did, for the run record."""
+    the program again. Returns the draw to ship and what the fix did, for the run record.
+    Pass the draw with [exact text] masked (see realize_and_fix_many)."""
     (out,) = _drive(judge, [_fixer(result, judge=judge, redraw=redraw, seed=seed, user_prompt=user_prompt, cut=cut,
                                    rounds=rounds, fixed=fixed, edits=edits)])
     if isinstance(out, Exception):
@@ -601,14 +614,25 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
                          cfg: Any = None, judge: Any = None) -> List[Any]:
     """realize_and_fix() for several seeds of one program, their fix loops sharing each
     judge pass. Per seed: (result, fix record or None), exactly what realize_and_fix
-    gives for that seed alone, or the exception its draw raised. Blocking."""
+    gives for that seed alone, or the exception its draw raised. Blocking.
+    The judge reads every draw with the user's [exact text] masked, as every other model
+    step does (entry["prompt"] is already masked); the shipped prompts have it back."""
     from prompt_programs.draws import uses_draws
     from prompt_programs.judge import settings
     from prompt_programs.prepare import realize
 
     def draw_once(s: int, fx: Optional[Dict[str, Any]], ed: Optional[Dict[str, Any]]) -> Any:
         return realize(entry, seed=s, pins=pins, fixed=fx, edits=ed, triggers=triggers, profile_id=profile_id,
-                       project_id=project_id)
+                       project_id=project_id, unmask=False)
+
+    exact = entry.get("exact") or {}
+
+    def shipped(r: Any) -> Any:  # the image model reads the user's [exact text]
+        if isinstance(r, Exception):
+            return r
+        if isinstance(r, tuple):
+            return (_unmasked(r[0], exact), r[1])
+        return (_unmasked(r, exact), None)
 
     out: List[Any] = []
     for s in seeds:
@@ -618,26 +642,26 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
             out.append(e)
     drawn = [i for i, r in enumerate(out) if not isinstance(r, Exception)]
     if not uses_draws(entry.get("program") or ""):
-        return [r if isinstance(r, Exception) else (r, None) for r in out]
+        return [shipped(r) for r in out]
     cfg = cfg or settings()
     if judge is None:
         if not cfg.fix_model:
-            return [r if isinstance(r, Exception) else (r, None) for r in out]
+            return [shipped(r) for r in out]
         try:
             judge = fix_judge(cfg.fix_model, cfg.fix_threads)
         except FixJudgeUnavailable as e:
-            return [r if isinstance(r, Exception) else (r, {"error": str(e)}) for r in out]
+            return [shipped(r if isinstance(r, Exception) else (r, {"error": str(e)})) for r in out]
     cut = float(cfg.fix_cut) if cfg.fix_cut else float(getattr(judge, "cut", DEFAULTS["cut"]))
     user_prompt = str(entry.get("prompt") or "")
     fixers = [_fixer(out[i], judge=judge, redraw=draw_once, seed=seeds[i], user_prompt=user_prompt, cut=cut,
-                     rounds=cfg.fix_rounds, fixed=fixed, edits=edits) for i in drawn]
+                     rounds=cfg.fix_rounds, fixed=fixed, edits=edits, exact=exact) for i in drawn]
     for i, res in zip(drawn, _drive(judge, fixers)):
         if isinstance(res, Exception):  # the judge failing must never cost the image: ship the draw as made
             log.warning(f"[fluent-fix] fix pass failed, keeping the draw as made: {res}")
             out[i] = (out[i], {"judge": getattr(judge, "version", ""), "error": f"the fix pass failed ({res})"})
         else:
             out[i] = res
-    return out
+    return [shipped(r) for r in out]
 
 
 __all__ = ["FixJudgeUnavailable", "Item", "OnnxJudge", "default_threads", "fix_draw", "fix_judge", "judged_picks",

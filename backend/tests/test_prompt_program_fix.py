@@ -341,6 +341,36 @@ class TestRealizeAndFix:
         assert rec["cut"] == 0.999999 and rec["rerolls"] == 0 and values(out)["light"] == "moonlight"
 
 
+class TestExactTextIsNeverJudged:
+    """[exact text] is the user's: the judge, like every model, reads only its token."""
+    SECRET = "zq7 velvet harbour"
+
+    def entry(self):
+        program = JOBS.replace('emit("A", job, "wearing", outfit, "under", light)',
+                               'emit("A", job, "wearing", outfit, "under", light, "[EXACT_1]")')
+        masked, exact = prep.mask_exact(f"{USER} [{self.SECRET}]")
+        assert self.SECRET not in masked and exact == {"EXACT_1": self.SECRET}
+        return entry_for(program, prompt=masked, exact=exact)
+
+    def test_no_judged_text_holds_the_exact_span(self):
+        entry = self.entry()
+        sc = Scorer(lambda it: 0.9 if it.value in ("moonlight", "noon sun") else 0.0)
+        s, _ = seed_where(entry, lambda v: v["light"] == "moonlight")
+        out, rec = realize_and_fix(entry, seed=s, cfg=FluentSettings(generate_options=False), judge=sc)
+        seen = [f for b in sc.batches for it in b for f in (it.state, it.label, it.about, it.value, it.user_prompt)]
+        assert seen and rec["rerolls"] >= 1
+        assert not any(self.SECRET in f for f in seen)
+        assert any("EXACT_1" in it.state for b in sc.batches for it in b)
+        # what ships and what the generation details show have the user's text back
+        assert self.SECRET in out.prompt and "EXACT_1" not in out.prompt
+        assert all(self.SECRET in r["text"] and "EXACT_1" not in r["text"] for r in rec["rounds"])
+
+    def test_without_a_judge_the_prompt_is_unmasked(self):
+        entry = self.entry()
+        out, rec = realize_and_fix(entry, seed=3, cfg=FluentSettings(generate_options=False))
+        assert rec is None and self.SECRET in out.prompt and "EXACT_1" not in out.prompt
+
+
 def test_settings_read_the_fix_fields(monkeypatch):
     from prompt_programs.judge import settings
     monkeypatch.setenv("STIMMA_FLUENT_FIX_MODEL", "/models/judge")
