@@ -2170,9 +2170,10 @@ function classifySubmissionError(err: any): string {
   if (err?.response?.status === 424) void checkAgentModels(null, true)
   const code = typeof detail === 'object' ? detail?.code : null
   submissionErrorCode.value = code || null
-  // A submit that had to read its prompt itself and couldn't: the same plain words as
-  // the editor's prepare (the server's own wording is for the agent and logs).
-  if (isPrepareFailureCode(code)) return prepareFailure(code, PROMPT_BRAND).message
+  // A program run that had to read its prompt itself and couldn't: the same plain words
+  // as the editor's prepare (the server's own wording is for the agent and logs). The
+  // per-image enhancer's errors keep their own messages.
+  if (promptProgram.status.value !== 'off' && isPrepareFailureCode(code)) return prepareFailure(code, PROMPT_BRAND).message
   if (typeof detail === 'string') return detail
   return detail?.message || 'Failed to submit job'
 }
