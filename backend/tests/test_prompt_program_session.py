@@ -877,6 +877,29 @@ class TestUnfinishedNarrowingIsRetried:
         prep._renarrow_after.clear()
         assert prep.renarrow({**entry, "narrow_tries": prep.RENARROW_MAX_TRIES}, model.store, None) is None
 
+    async def test_a_program_prepared_again_meanwhile_is_kept(self, model, monkeypatch):
+        import json as _json
+        behaviour = {"stall": True}
+        self._asks(monkeypatch, behaviour)
+        monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", 2.5)
+        model.replies = [reply(write(self.SRC))]
+        entry = await ensure()
+        gate = asyncio.Event()
+
+        async def gated(messages, project_id, max_tokens=4096):
+            await gate.wait()
+            if "find the words in it" in messages[0]["content"]:
+                return _json.dumps({"age": None})
+            return _json.dumps(self.YOUNG)
+        monkeypatch.setattr(prep, "_ask_model", gated)
+        task = prep.renarrow(model.store.get(entry["key"]), model.store, None)
+        await asyncio.sleep(0.05)
+        fresh = {**model.store.get(entry["key"]), "program": GOOD, "created_at": 1.0}  # "Try different choices"
+        model.store.put(entry["key"], fresh)
+        gate.set()
+        await task
+        assert model.store.get(entry["key"])["program"] == GOOD
+
     async def test_only_unfinished_narrowing_is_pending(self, tmp_path):
         import json as _json
         from prompt_programs.narrow import NarrowCache, narrow_entry

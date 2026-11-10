@@ -1500,6 +1500,9 @@ def renarrow(entry: Dict[str, Any], store: ProgramStore, project_id: Optional[in
         except Exception as e:
             log.warning(f"[prompt-program] narrowing {flight[1]} again failed: {e}")
             return
+        now = store.get(flight[1])
+        if not now or now.get("program") != current.get("program") or now.get("created_at") != current.get("created_at"):
+            return  # prepared again meanwhile ("Try different choices"): never put the old one back
         current["narrow_tries"] = tries
         current["warnings"] = list(dict.fromkeys(list(current.get("warnings") or []) + notes))
         store.put(flight[1], current)
