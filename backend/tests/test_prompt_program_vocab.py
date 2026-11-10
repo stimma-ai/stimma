@@ -473,6 +473,7 @@ class TestTemplates:
             if "tuxedo" in outfit.value:  # its palette restriction: dark schemes only
                 assert "dark" in colours.tags["tone"]
             assert got["outfit.colours"].cls == "person.palette"
+            assert got["outfit.colours"].label == "Colors"
 
     def test_discovery_lists_the_colours_and_the_example_reads_filled(self, dressed):
         info = discover(DRESSED)

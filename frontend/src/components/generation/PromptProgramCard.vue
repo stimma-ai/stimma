@@ -11,44 +11,9 @@
         :style="menuStyle"
         @click.stop
       >
-        <!-- One person's attribute, opened from the group grid -->
-        <template v-if="member">
-          <CardHeader :title="`${group?.label} ${member.index} · ${member.label}`" :back="group?.label" :choice="member" :program="program" @back="memberId = null" />
-          <PromptProgramOptions :choice="member" :program="program" :deletable="memberEditable" :addable="memberEditable" />
-        </template>
-
-        <!-- A group (People ×3): rows are attributes, columns are people -->
-        <template v-else-if="group">
-          <CardHeader :title="`${group.label} ×${group.count}`" />
-          <div class="px-3 pb-3 overflow-y-auto">
-            <table class="w-full border-collapse">
-              <tr>
-                <th />
-                <th v-for="i in group.count" :key="i" class="text-[11px] font-medium text-content-tertiary text-left px-1 pb-1">{{ i }}</th>
-              </tr>
-              <tr v-for="attr in groupAttrs" :key="attr">
-                <td class="pr-2 py-0.5 text-xs text-content-secondary whitespace-nowrap align-middle">
-                  <WandSparklesIcon v-if="attrLabel(attr)?.source === 'added'" class="inline w-2.5 h-2.5 mr-0.5 text-content-tertiary" />{{ attrLabel(attr)?.label }}
-                </td>
-                <td v-for="i in group.count" :key="i" class="px-0.5 py-0.5">
-                  <button
-                    v-if="attrChoice(attr, i)"
-                    type="button"
-                    :class="['w-full text-left px-2 py-1 text-xs rounded-md truncate max-w-[9rem] outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
-                      program.isPinned(attrChoice(attr, i)!) ? 'bg-selection/15 text-selection' : 'bg-overlay-subtle text-content-secondary hover:text-content']"
-                    @click="memberId = attrChoice(attr, i)!.id"
-                  >{{ program.valueText(attrChoice(attr, i)!) }}</button>
-                </td>
-              </tr>
-            </table>
-            <button v-if="groupLimited" type="button" class="mt-2 text-xs text-content-tertiary hover:text-content" @click="clearGroup">Use all options for everyone</button>
-          </div>
-        </template>
-
-        <!-- One choice -->
-        <template v-else-if="choice">
+        <template v-if="choice">
           <CardHeader
-            :title="choice.label"
+            :title="choiceTitle"
             :note="note"
             :added="choice.source === 'added'"
             :choice="choice.kind === 'param' ? undefined : choice"
@@ -90,8 +55,9 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, ref, watch } from 'vue'
-import { ArrowPathIcon, ChevronLeftIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
+import { programLabel, programSections } from '../../utils/programChoiceLayout'
 import { PROMPT_BRAND } from './promptBrand'
 import Spinner from '../ui/Spinner.vue'
 import PromptProgramOptions from './PromptProgramOptions.vue'
@@ -108,26 +74,22 @@ const anchorRect = computed(() => card.value?.anchor ?? null)
 const visible = computed(() => !!card.value)
 const { menuStyle } = useAnchoredMenuPosition(menuRef, anchorRect, visible, { gap: 6 })
 
-const memberId = ref<string | null>(null)
-watch(() => card.value?.id, () => { memberId.value = null; writeError.value = '' })
+watch(() => card.value?.id, () => { writeError.value = '' })
 
 const choice = computed(() => {
   const id = card.value?.id
-  return id && !id.startsWith('group:') ? props.program.byId.value[id] : null
+  return id ? props.program.byId.value[id] : null
 })
-const group = computed(() => {
-  const id = card.value?.id
-  if (!id?.startsWith('group:')) return null
-  const gid = id.slice(6)
-  return props.program.program.value?.groups.find(g => g.id === gid) || null
+const choiceTitle = computed(() => {
+  const c = choice.value
+  if (!c) return ''
+  const section = programSections(props.program.choices.value, props.program.program.value?.groups || [])
+    .find(s => s.label && s.choices.some(member => member.id === c.id))
+  return [section?.label, programLabel(c.label)].filter(Boolean).join(' · ')
 })
-const members = computed(() => group.value ? props.program.choices.value.filter(c => c.group === group.value!.id) : [])
-const groupAttrs = computed(() => [...new Set(members.value.map(m => m.attr || m.id))])
-const member = computed(() => memberId.value ? props.program.byId.value[memberId.value] : null)
-const groupLimited = computed(() => members.value.some(m => props.program.isPinned(m)))
 // Phrase-length options get a wider card so they wrap less.
 const wide = computed(() => {
-  const c = member.value || choice.value
+  const c = choice.value
   return !!c && props.program.optionsOf(c).some(o => o.length > 32)
 })
 
@@ -139,17 +101,6 @@ const bound = computed(() => !!choice.value && (!!choice.value.cls || !!props.pr
 // pick), and adds to an open list; a closed list is complete as it is. A whole new set
 // would throw the list away, so list-drawn picks only get More like these.
 const writable = computed(() => editable.value && !choice.value!.follows && !props.program.vocabOf(choice.value!)?.closed)
-const memberEditable = computed(() => !!member.value && member.value.source !== 'list' && member.value.kind === 'pick')
-
-/** The row's name: any member with that detail (person 1 may not have it). */
-function attrLabel(attr: string): ProgramChoice | undefined {
-  return members.value.find(m => (m.attr || m.id) === attr)
-}
-
-function attrChoice(attr: string, index: number): ProgramChoice | undefined {
-  return members.value.find(m => (m.attr || m.id) === attr && m.index === index)
-}
-
 const note = computed(() => {
   const c = choice.value
   if (!c) return ''
@@ -158,9 +109,9 @@ const note = computed(() => {
   if (c.kind === 'lora') parts.push('each turns on its LoRA')
   if (c.parent) {
     const p = props.program.byId.value[c.parent]
-    parts.push(`only when ${p?.label || c.parent} is ${(c.when || []).join(' or ')}`)
+    parts.push(`only when ${programLabel(p?.label || c.parent)} is ${(c.when || []).join(' or ')}`)
   }
-  if (c.follows) parts.push(`follows ${props.program.byId.value[c.follows]?.label || c.follows}`)
+  if (c.follows) parts.push(`follows ${programLabel(props.program.byId.value[c.follows]?.label || c.follows)}`)
   return parts.join(' · ')
 })
 
@@ -189,26 +140,15 @@ function removeChoice() {
   props.program.setPins(c.id, [])
   props.program.close()
 }
-function clearGroup() {
-  const next: Record<string, string[]> = {}
-  for (const m of members.value) next[m.id] = []
-  props.program.setManyPins(next)
-}
-
 // Header: the choice's name, and "Use all" once some options are ticked -------------
 const CardHeader = defineComponent({
-  props: { title: String, note: String, back: String, added: Boolean, choice: Object, program: Object },
-  emits: ['back'],
-  setup(p, { emit: e }) {
+  props: { title: String, note: String, added: Boolean, choice: Object, program: Object },
+  setup(p) {
     return () => {
       const prog = p.program as PromptProgram | undefined
       const c = p.choice as ProgramChoice | undefined
       const limited = !!(prog && c && (prog.pins.value[c.id] || []).some(v => prog.optionsOf(c).includes(v)))
       return h('div', { class: 'px-3 pt-2.5 pb-1.5 flex items-start gap-2' }, [
-        p.back ? h('button', {
-          type: 'button', class: 'mt-0.5 -ml-1 p-0.5 rounded text-content-tertiary hover:text-content', title: `Back to ${p.back}`,
-          onClick: () => e('back'),
-        }, [h(ChevronLeftIcon, { class: 'w-3.5 h-3.5' })]) : null,
         h('div', { class: 'min-w-0 flex-1' }, [
           h('div', { class: 'flex items-center gap-1 text-[13px] font-semibold text-content' }, [
             p.added ? h(WandSparklesIcon, { class: 'w-3 h-3 text-content-tertiary' }) : null, p.title,

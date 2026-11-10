@@ -3,6 +3,7 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import type { ChoiceVocab } from '../utils/programVocab'
 import { shownOption } from '../utils/programVocab'
+import { programSections } from '../utils/programChoiceLayout'
 
 export type { ChoiceVocab } from '../utils/programVocab'
 
@@ -385,23 +386,9 @@ export function usePromptProgram(o: Options) {
     return !p.length || p.some(v => (c.when || []).includes(v))
   }
 
-  /** Top-level rows: plain choices, and one row per group (People ×3). */
-  const rows = computed(() => {
-    const out: Array<{ kind: 'choice'; choice: ProgramChoice } | { kind: 'group'; group: ProgramGroup; members: ProgramChoice[] }> = []
-    const seenGroups = new Set<string>()
-    for (const c of choices.value) {
-      if (c.group) {
-        if (seenGroups.has(c.group)) continue
-        seenGroups.add(c.group)
-        const group = program.value?.groups.find(g => g.id === c.group)
-          || { id: c.group, count: 0, label: c.group, source: 'text' }
-        out.push({ kind: 'group', group, members: choices.value.filter(m => m.group === c.group) })
-      } else if (visible(c)) {
-        out.push({ kind: 'choice', choice: c })
-      }
-    }
-    return out
-  })
+  const sections = computed(() => programSections(
+    choices.value.filter(visible), program.value?.groups || [],
+  ))
 
   function valueText(c: ProgramChoice): string {
     if (c.kind === 'param') return `${c.options[0]}–${c.options[1]}`
@@ -460,7 +447,7 @@ export function usePromptProgram(o: Options) {
   onUnmounted(() => window.removeEventListener('focus', onFocus))
 
   return {
-    program, status, error, signature, elaborate: o.elaborate, unsupported, pins, edits, choices, rows, byId, openCard,
+    program, status, error, signature, elaborate: o.elaborate, unsupported, pins, edits, choices, sections, byId, openCard,
     prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, lookup, fetchProgramText, previewRuns, suggestOptions,
     setPins, setManyPins, setEdit, optionsOf, vocabOf, valueText, isPinned, visible,
     loraControl, paramControl, open, close,

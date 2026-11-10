@@ -130,3 +130,31 @@ test('a shift-click range starts from a ticked option the search would hide', as
   await option('shade 15').click({ modifiers: ['Shift'] })
   await expect.poll(() => page.evaluate(() => window.state().pins.color)).toEqual(['shade 3', 'shade 10', 'shade 11', 'shade 12', 'shade 13', 'shade 14', 'shade 15'])
 })
+
+
+test('friends have visible wrapping sections with their own colors and direct pickers', async t => {
+  const { page } = await open(t, 'mood')
+  await page.setViewportSize({ width: 320, height: 900 })
+  // Close the initial picker before exercising the property sections.
+  await page.evaluate(() => window.openChoice(null))
+  const sections = page.locator('[data-program-section]')
+  assert.deepEqual(await sections.evaluateAll(nodes => nodes.map(n => n.getAttribute('aria-label'))), ['General', 'Friend 1', 'Friend 2'])
+  for (const index of [1, 2]) {
+    const section = page.getByRole('region', { name: `Friend ${index}`, exact: true })
+    await expect(section.getByRole('heading', { name: `Friend ${index}`, exact: true })).toBeVisible()
+    await expect(section.getByRole('button', { name: 'Hair color', exact: true })).toBeVisible()
+    const colors = section.getByRole('button', { name: 'Colors', exact: true })
+    await expect(colors).toBeVisible()
+    const hairBox = await section.getByRole('button', { name: 'Age', exact: true }).boundingBox()
+    const colorBox = await colors.boundingBox()
+    assert.ok(colorBox.y > hairBox.y, 'controls wrap within the friend section')
+    await colors.click()
+    const card = page.locator('[data-program-card]')
+    await expect(card.getByText(`Friend ${index} · Colors`, { exact: true })).toBeVisible()
+    await card.locator('[data-option="navy and white"]').click()
+    await expect.poll(() => page.evaluate(i => window.state().pins[`friends[${i}].outfit.colours`], index)).toEqual(['navy and white'])
+    await page.evaluate(() => window.openChoice(null))
+  }
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
+  assert.equal(overflow, false)
+})

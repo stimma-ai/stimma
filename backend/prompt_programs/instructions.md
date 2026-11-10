@@ -308,3 +308,5 @@ emit("they laugh around an open pizza box under", light, ".")
 ```
 Four friends are four people: the loop gives each one their own age, descent and hair.
 "sharing a pizza" and "on a rooftop" are about all of them, so they are fixed text.
+
+Use US English for UI labels (for example, "Hair color" and "Colors").

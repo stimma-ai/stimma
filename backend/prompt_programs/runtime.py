@@ -355,7 +355,7 @@ class _Runner:
             values = [v for v in values if tags_match(v.tags, tv.palette)] or values
         ccid = f"{cid}.colours"
         n = len(self.draws)
-        chosen = self.pick(ccid, [v.text for v in values], "Colours", None, source, line, None, hidden)
+        chosen = self.pick(ccid, [v.text for v in values], "Colors", None, source, line, None, hidden)
         if len(self.draws) > n:
             c = self.draws[-1]
             c.phase, c.about, c.cls, c.follows = d.phase, f"the colours of {d.about or d.label}", palette.id, cid

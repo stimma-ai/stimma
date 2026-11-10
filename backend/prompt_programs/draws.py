@@ -898,14 +898,14 @@ class _Exec(_Runner):
         tv = leaf.value(str(template))
         restrict = tuple(sorted((str(f), tuple(str(x) for x in (w if isinstance(w, (list, tuple)) else [w])))
                                 for f, w in (tv.palette if tv is not None else {}).items()))
-        cspec = PickSpec(ccid, "Colours", f"the colours of {spec.about or spec.label}", site.phase, source, "pick",
+        cspec = PickSpec(ccid, "Colors", f"the colours of {spec.about or spec.label}", site.phase, source, "pick",
                          [], [], palette.id, restrict)
         eligible = self._eligible(ccid, cspec, {}, None)
         value, pinned = self._settle(ccid, site, cspec, eligible, {})
         pv = palette.value(str(value))
         recorded = self.eng.pool_roles.get(ccid, {}).get(str(value))  # a replay's colours, as they were drawn
         self.eng.roles[cid] = dict(recorded or (pv.roles if pv is not None else {}))
-        d = Draw(ccid, value, "pick", "Colours", source, line, bool(hidden), pinned, [o for o, _ in eligible], cid)
+        d = Draw(ccid, value, "pick", "Colors", source, line, bool(hidden), pinned, [o for o, _ in eligible], cid)
         d.phase, d.about, d.cls = site.phase, cspec.about, palette.id
         return d
 
