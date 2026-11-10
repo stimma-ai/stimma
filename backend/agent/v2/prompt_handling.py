@@ -361,6 +361,12 @@ async def _vary(job_params: Dict[str, Any], prompt: str, *, ctx: Dict[str, Any],
     record = updated.get("prompt_program")
     updated["prompt_metadata"] = _prompt_metadata(prompt, level != "off")
     seed = record.get("draw_seed") if isinstance(record, dict) else None
+    # The prompt couldn't be read: it ran anyway (prompt_programs.fallback), and the result says how.
+    rung = record.get("fallback") if isinstance(record, dict) else None
+    if isinstance(rung, dict):
+        from prompt_programs.fallback import agent_note
+        return PreparedPrompt(updated, note=agent_note(rung), choices=choices_of(record) or None,
+                              draw_seed=seed)
     return PreparedPrompt(updated, choices=choices_of(record), draw_seed=seed)
 
 
