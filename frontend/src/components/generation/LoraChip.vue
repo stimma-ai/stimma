@@ -32,7 +32,7 @@
           class="shrink-0 text-[9px] leading-none px-1 py-0.5 rounded bg-selection/15 text-selection font-mono uppercase"
           data-program-mark
           :title="`Your prompt decides when this is on (${programLabel})`"
-        >set by prompt</span>
+        >prompt</span>
       </div>
       <div v-if="showRaw" class="font-mono text-[10px] text-content-muted truncate mt-0.5">
         {{ item.lora }}
