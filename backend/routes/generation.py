@@ -601,7 +601,7 @@ async def _run_prompt_program(
             prompt=prompt, tool_id=tool_id, ctx=ctx,
             instructions=(((prompt_options or {}).get("autoImprove") or {}).get("instructions") or "").strip(),
             lora_items=program_opts.get("loras") or [], project_id=project_id, profile_id=profile_id,
-            elaborate=elaborate, lora_notes=lora_notes, lora_triggers=lora_triggers, enhance=enhance,
+            elaborate=elaborate, lora_notes=lora_notes, lora_triggers=lora_triggers, enhance=enhance, wait=True,
         )
     except Exception as e:
         code = fallback.failure_code(e)

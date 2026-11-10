@@ -322,11 +322,27 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     stated = stated_ages(entry, bound)
     stated_ctx = stated_context(entry, bound)
     readable = [c for c in bound if not c.get("wildcard")] + stated + stated_ctx
+    listed = list_age_values(entry, bound)
+    listed_ctx = list_context_values(entry, bound)
+    context_only = {id(c) for c in [*stated_ctx, *listed_ctx]}
+    # The narrowings whose words don't come from the reading (a wildcard's own name, a user list's
+    # value) start now, beside it: one wait fewer for a prompt with lists or wildcards.
+    early: Dict[Tuple[str, str, str], Tuple[str, str, "asyncio.Task[Optional[List[str]]]"]] = {}
+    for c in [c for c in bound if c.get("wildcard")] + listed + listed_ctx:
+        phrase = phrase_of(c)
+        k = (c["cls"], _norm(phrase), _norm(c.get("about") or ""))
+        if phrase and k not in early:
+            early[k] = (phrase, c.get("about") or "", asyncio.ensure_future(
+                subset(vocab.leaves[c["cls"]], phrase, cache, ask, project_id, c.get("about") or "")))
     try:
         read = await asyncio.wait_for(read_words(str(entry.get("prompt") or ""), readable, cache, ask, project_id),
                                       seconds)
     except asyncio.TimeoutError:
         read = None
+    except BaseException:
+        for *_, task in early.values():
+            task.cancel()
+        raise
     if read is None:  # not read: the words found later may narrow these picks
         unfinished |= {c["id"] for c in readable}
         read = {}
@@ -340,35 +356,39 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             else:
                 c["where"] = phrase
             wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
-    listed = list_age_values(entry, bound)
-    listed_ctx = list_context_values(entry, bound)
     # a stated age or context, or a user list's value: narrowed on its list, recorded apart
     for c in [*stated, *listed, *stated_ctx, *listed_ctx]:
         phrase = phrase_of(c, read)
         if phrase:
             wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
     words: Dict[str, List[str]] = {}
-    context_only = {id(c) for c in [*stated_ctx, *listed_ctx]}
-    # Context readings go second, in what time is left: they can't make the picks' own narrowing late.
+
+    def job(k: Tuple[str, str, str]) -> "asyncio.Future[Optional[List[str]]]":
+        phrase, about = phrase_of(wanted[k][0], read), wanted[k][0].get("about") or ""
+        started = early.pop(k, None)
+        if started is not None and (started[0], started[1]) == (phrase, about):
+            return started[2]
+        if started is not None:  # asked in other words than it is now: ask as it is
+            started[2].cancel()
+        return asyncio.ensure_future(subset(vocab.leaves[k[0]], phrase, cache, ask, project_id, about))
+
+    async def batch(keys: List[Tuple[str, str, str]]) -> List[Optional[List[str]]]:
+        jobs = [job(k) for k in keys]
+        try:
+            return list(await asyncio.wait_for(asyncio.gather(*jobs), seconds))
+        except asyncio.TimeoutError:
+            log.warning(f"[prompt-program] narrowing took longer than {seconds:.0f}s: those picks draw unbound for now")
+            return [None for _ in keys]
+
+    # The picks' own narrowing and the context readings, side by side, each within the time left.
     batches = [[k for k in wanted if not all(id(c) in context_only for c in wanted[k])],
                [k for k in wanted if all(id(c) in context_only for c in wanted[k])]]
-    t1 = asyncio.get_running_loop().time()
-    for i, keys in enumerate(batches):
-        if not keys:
-            continue
-        left = seconds - (asyncio.get_running_loop().time() - t1) if i else seconds
-        jobs = [subset(vocab.leaves[k[0]], phrase_of(wanted[k][0], read), cache, ask, project_id,
-                       wanted[k][0].get("about") or "") for k in keys]
-        try:
-            if left < 1.0:
-                raise asyncio.TimeoutError
-            results = await asyncio.wait_for(asyncio.gather(*jobs), left)
-        except asyncio.TimeoutError:
-            for j in jobs:
-                if asyncio.iscoroutine(j):
-                    j.close()
-            log.warning(f"[prompt-program] narrowing took longer than {seconds:.0f}s: those picks draw unbound for now")
-            results = [None for _ in keys]
+    try:
+        done = await asyncio.gather(*(batch(keys) for keys in batches))
+    finally:
+        for *_, task in early.values():  # started, then not wanted (its words weren't asked after all)
+            task.cancel()
+    for keys, results in zip(batches, done):
         for k, got in zip(keys, results):
             for c in wanted[k]:
                 words[c["id"]] = list(got or [])
