@@ -1320,7 +1320,12 @@ async function handleProjectAssetsChanged(change) {
     { projectId: props.projectId, isTrashMode: props.isTrashMode, filters },
     change,
   )
-  if (effect === 'ignore') return
+  if (effect === 'ignore') {
+    // The list's membership didn't change, but a grouped list can still
+    // reorder: Project headers, and the project dots on Auto and Theme.
+    if (groupingActive.value) await softReloadMedia({ force: true })
+    return
+  }
   const assetIds = (change?.asset_ids || []).map(id => parseInt(id)).filter(Number.isFinite)
   if (effect === 'remove' && assetIds.length > 0) {
     removeFromSelection(assetIds)
@@ -2356,7 +2361,9 @@ onMounted(async () => {
   }))
 
   wsUnsubscribers.push(wsOn('asset_current_revision_changed', () => {
-    softReloadMedia()
+    // A revision can move an asset between groups (its date or project) with
+    // the same total and first item, so grouped pages reload too.
+    softReloadMedia({ force: true })
   }))
 
   wsUnsubscribers.push(wsOn('assets_updated', (data) => {
