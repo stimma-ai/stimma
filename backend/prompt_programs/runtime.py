@@ -181,8 +181,8 @@ class LoraName(str):
 
 def lora_names(names: Sequence[str], loras: Dict[str, LoraInfo]) -> List[str]:
     """The list's names for what a program wrote: an exact name, or a short one the user
-    used ("flatchest") when every word of it is a word of exactly one listed name
-    ("KREA2 bodyshop flatchest v1"). Unknown or ambiguous names are dropped."""
+    used ("rainglass") when every word of it is a word of exactly one listed name
+    ("KREA2 studio rainglass v1"). Unknown or ambiguous names are dropped."""
     out: List[str] = []
     for n in names:
         info = loras.get(_lora_key(n))
