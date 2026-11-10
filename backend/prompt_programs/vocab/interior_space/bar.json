@@ -1,7 +1,7 @@
 {
   "id": "interior_space.bar",
   "label": "Bar",
-  "description": "Indoor pubs, taverns and bars arranged for drinking and socialising; choose cafe_restaurant for meal-led dining and shop for bottle retail.",
+  "description": "Indoor pubs, taverns and bars arranged for drinking and socializing; choose cafe_restaurant for meal-led dining and shop for bottle retail.",
   "pos": "noun phrase",
   "frame": "in ___",
   "notes": "Drink-led venues belong here; meal-led dining belongs to cafe_restaurant, home lounges to living_room, and bottle retail to shop. Size describes usable room scale; tidiness describes arrangement: tidy is orderly, lived-in is a space in regular use, and messy requires visible clutter. Wear and low budget alone do not imply mess.",

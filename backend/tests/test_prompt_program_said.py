@@ -20,7 +20,7 @@ from prompt_programs.vocab import vocabulary
 USER = "cinematic shot of a yellow ferrari car in a desert"
 FERRARI = '''
 car = pick("car", said="yellow ferrari", about="the car", seed=["red lamborghini", "silver porsche"], label="Car", phase=1, added=True)
-sky = pick("sky", about="the desert sky", seed=["clear blue", "dusty orange", "stormy grey"], label="Sky", phase=2, added=True)
+sky = pick("sky", about="the desert sky", seed=["clear blue", "dusty orange", "stormy gray"], label="Sky", phase=2, added=True)
 emit("Cinematic shot of a", car, "car in a desert under a", sky, "sky.")
 '''
 # The same program as a forgetful writer writes it: the car pick varies the user's car.

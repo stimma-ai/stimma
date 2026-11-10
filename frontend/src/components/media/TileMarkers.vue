@@ -2,7 +2,7 @@
   <!--
     Display-only state markers: small glyphs on the same black glass as TileChip
     (one 20px square each), so they hold contrast on any image. Each glyph is
-    drawn in its marker's own colour; white only when a marker has none.
+    drawn in its marker's own color; white only when a marker has none.
   -->
   <span v-if="markers.length" :title="names" class="inline-flex max-w-full shrink-0 items-center gap-1.5">
     <span

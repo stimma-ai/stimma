@@ -590,7 +590,7 @@ const SPRITE_FORMAT_HINTS = {
   gif: 'Animated GIF per animation (1-bit transparency).',
   webp: 'Animated lossless WebP per animation.',
   apng: 'Animated PNG per animation, alpha preserved.',
-  mp4: 'Preview clip per animation on a background colour. Needs FFmpeg.',
+  mp4: 'Preview clip per animation on a background color. Needs FFmpeg.',
 }
 
 const SPRITE_SCALES = [1, 2, 3, 4].map(n => ({ label: `${n}×`, value: n }))

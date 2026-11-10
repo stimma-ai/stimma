@@ -4,7 +4,7 @@
   "description": "Generic wheeled road transport across eras, from carts to modern cars and trucks.",
   "pos": "noun phrase",
   "frame": "a ___ parked on the street",
-  "notes": "Vehicle kinds and body forms only; makes, models, paint, pose and occupants are separate. Era tags cover ordinary use or recognisable surviving examples; antique vehicles tagged contemporary are heritage or collector sights. Genre is unrestricted, while era supplies the technology boundary.",
+  "notes": "Vehicle kinds and body forms only; makes, models, paint, pose and occupants are separate. Era tags cover ordinary use or recognizable surviving examples; antique vehicles tagged contemporary are heritage or collector sights. Genre is unrestricted, while era supplies the technology boundary.",
   "facets": [
     "era"
   ],

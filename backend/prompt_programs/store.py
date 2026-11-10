@@ -51,9 +51,11 @@ class ProgramStore:
             return None
         p = self._path(key)
         try:
-            return json.loads(p.read_text("utf-8"))
+            entry = json.loads(p.read_text("utf-8"))
         except (OSError, ValueError):
             return None
+        from prompt_programs.runtime import current_entry
+        return current_entry(entry)   # an older build's choice ids, read as today's
 
     def put(self, key: str, entry: Dict[str, Any]) -> None:
         p = self._path(key)

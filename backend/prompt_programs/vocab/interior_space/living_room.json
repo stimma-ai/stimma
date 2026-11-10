@@ -1,7 +1,7 @@
 {
   "id": "interior_space.living_room",
   "label": "Living Room",
-  "description": "Domestic lounges, parlours and sitting rooms arranged for relaxing and gathering; choose bedroom for sleeping and bar for public drinking venues.",
+  "description": "Domestic lounges, parlors and sitting rooms arranged for relaxing and gathering; choose bedroom for sleeping and bar for public drinking venues.",
   "pos": "noun phrase",
   "frame": "in ___",
   "notes": "Home gathering spaces belong here; sleeping rooms belong to bedroom, public lounges to any_room, and decorating modifiers to style. Size describes usable room scale; tidiness describes arrangement: tidy is orderly, lived-in is a space in regular use, and messy requires visible clutter. Wear and low budget alone do not imply mess.",

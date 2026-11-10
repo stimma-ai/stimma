@@ -1114,7 +1114,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                     "Perform the rewrite using different wording. For a sparse request, "
                     "add concrete visual or sensory details appropriate to the requested medium. "
                     "For a detailed prompt, rephrase its sentences while retaining every specific "
-                    "subject, colour, material, number, action, and spatial relationship. "
+                    "subject, color, material, number, action, and spatial relationship. "
                     "Preserve protected text and required model formatting. Return only the rewritten prompt."
                 )
                 original_user = original_messages[-1]["content"]

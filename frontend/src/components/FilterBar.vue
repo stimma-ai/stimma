@@ -22,7 +22,7 @@
              Exclude is the same set look plus a red "−" left of the glyph. -->
         <!-- One filter-chip grammar at every width: individual chips, each with
              its own include and exclude state. Rest: a bare tertiary glyph and
-             label, no fill. Included: backing plus the marker's own colour on
+             label, no fill. Included: backing plus the marker's own color on
              the glyph. Excluded: red backing, red minus, struck-through label.
              Spacing, not a group box, holds them together; labels drop on a
              phone and return once the window is roomy. -->

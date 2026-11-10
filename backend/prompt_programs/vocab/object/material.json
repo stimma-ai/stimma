@@ -4,7 +4,7 @@
   "description": "the substance or covering an object is made from",
   "pos": "adjective or noun-adjunct",
   "frame": "a ___ table",
-  "notes": "Materials and construction finishes, with coverings made explicit where needed for the frame. object.colour owns colour and object.pattern owns decorative motifs; material names may have an inherent hue.",
+  "notes": "Materials and construction finishes, with coverings made explicit where needed for the frame. object.color owns color and object.pattern owns decorative motifs; material names may have an inherent hue.",
   "facets": [],
   "closed": false,
   "local_facets": {
@@ -16,7 +16,7 @@
       "glass",
       "fabric",
       "plastic",
-      "natural fibre",
+      "natural fiber",
       "other"
     ]
   },
@@ -112,7 +112,7 @@
       }
     },
     {
-      "text": "polished aluminium",
+      "text": "polished aluminum",
       "tier": "typical",
       "tags": {
         "kind": [
@@ -301,7 +301,7 @@
       }
     },
     {
-      "text": "moulded plastic",
+      "text": "molded plastic",
       "tier": "typical",
       "tags": {
         "kind": [
@@ -319,7 +319,7 @@
       }
     },
     {
-      "text": "fibreglass",
+      "text": "fiberglass",
       "tier": "plausible",
       "tags": {
         "kind": [
@@ -341,7 +341,7 @@
       "tier": "plausible",
       "tags": {
         "kind": [
-          "natural fibre"
+          "natural fiber"
         ]
       }
     },
@@ -350,7 +350,7 @@
       "tier": "plausible",
       "tags": {
         "kind": [
-          "natural fibre"
+          "natural fiber"
         ]
       }
     },
@@ -359,7 +359,7 @@
       "tier": "plausible",
       "tags": {
         "kind": [
-          "natural fibre"
+          "natural fiber"
         ]
       }
     },
@@ -368,7 +368,7 @@
       "tier": "unusual",
       "tags": {
         "kind": [
-          "natural fibre"
+          "natural fiber"
         ]
       }
     },

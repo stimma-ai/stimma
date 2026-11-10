@@ -1,10 +1,10 @@
 {
   "id": "lighting.dramatic",
   "label": "Dramatic lighting",
-  "description": "Expressive light effects defined by contrast, colour, silhouette or projected patterns; choose for a cinematic effect rather than a named natural source or rig.",
+  "description": "Expressive light effects defined by contrast, color, silhouette or projected patterns; choose for a cinematic effect rather than a named natural source or rig.",
   "pos": "noun phrase",
   "frame": "lit by ___",
-  "notes": "Designed colour relationships, silhouettes and expressive light patterns belong here. Studio owns named photographic rigs and modifiers; indoor_practical owns ordinary in-scene fixtures; natural owns literal sun, sky and moon sources. Colour treatments can be used across depicted eras.",
+  "notes": "Designed color relationships, silhouettes and expressive light patterns belong here. Studio owns named photographic rigs and modifiers; indoor_practical owns ordinary in-scene fixtures; natural owns literal sun, sky and moon sources. Color treatments can be used across depicted eras.",
   "facets": [],
   "closed": false,
   "values": [
@@ -377,7 +377,7 @@
       }
     },
     {
-      "text": "a spiralling pattern of projected light",
+      "text": "a spiraling pattern of projected light",
       "tier": "unusual",
       "tags": {
         "mood": [

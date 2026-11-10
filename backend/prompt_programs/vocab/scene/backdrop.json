@@ -1,10 +1,10 @@
 {
   "id": "scene.backdrop",
   "label": "Backdrop",
-  "description": "Visual backgrounds behind a portrait or product: studio sweeps, plain colours, textured surfaces and softly blurred environments.",
+  "description": "Visual backgrounds behind a portrait or product: studio sweeps, plain colors, textured surfaces and softly blurred environments.",
   "pos": "noun phrase",
   "frame": "against ___",
-  "notes": "The visible background behind a subject, rather than a whole location. Exterior and interior space leaves own the surrounding scene; lighting leaves own illumination of the subject. Tone describes the background itself. Plain colours and timeless surfaces fit any era; era and genre tags mark specific exceptions.",
+  "notes": "The visible background behind a subject, rather than a whole location. Exterior and interior space leaves own the surrounding scene; lighting leaves own illumination of the subject. Tone describes the background itself. Plain colors and timeless surfaces fit any era; era and genre tags mark specific exceptions.",
   "facets": [
     "genre",
     "era"
@@ -20,13 +20,13 @@
     "tone": [
       "light",
       "dark",
-      "colourful"
+      "colorful"
     ]
   },
   "closed": false,
   "values": [
     {
-      "text": "a seamless mid-grey paper backdrop",
+      "text": "a seamless mid-gray paper backdrop",
       "tier": "typical",
       "tags": {
         "kind": [
@@ -83,7 +83,7 @@
       }
     },
     {
-      "text": "a softly graduated grey studio background",
+      "text": "a softly graduated gray studio background",
       "tier": "typical",
       "tags": {
         "kind": [
@@ -126,7 +126,7 @@
           "studio"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -158,19 +158,19 @@
         ],
         "tone": [
           "light",
-          "colourful"
+          "colorful"
         ]
       }
     },
     {
-      "text": "a studio backdrop crossed by bands of coloured light",
+      "text": "a studio backdrop crossed by bands of colored light",
       "tier": "unusual",
       "tags": {
         "kind": [
           "studio"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -207,7 +207,7 @@
         ],
         "tone": [
           "light",
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -220,7 +220,7 @@
         ],
         "tone": [
           "dark",
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -233,12 +233,12 @@
         ],
         "tone": [
           "dark",
-          "colourful"
+          "colorful"
         ]
       }
     },
     {
-      "text": "a warm sand-coloured background",
+      "text": "a warm sand-colored background",
       "tier": "typical",
       "tags": {
         "kind": [
@@ -257,7 +257,7 @@
           "plain"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -270,7 +270,7 @@
         ],
         "tone": [
           "light",
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -282,7 +282,7 @@
           "plain"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -294,7 +294,7 @@
           "plain"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -318,7 +318,7 @@
           "textured"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -335,7 +335,7 @@
       }
     },
     {
-      "text": "a wall of honey-coloured wooden boards",
+      "text": "a wall of honey-colored wooden boards",
       "tier": "typical",
       "tags": {
         "kind": [
@@ -347,7 +347,7 @@
       }
     },
     {
-      "text": "a mottled grey concrete wall",
+      "text": "a mottled gray concrete wall",
       "tier": "typical",
       "tags": {
         "kind": [
@@ -390,7 +390,7 @@
           "textured"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -426,7 +426,7 @@
           "textured"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -451,7 +451,7 @@
         ],
         "tone": [
           "dark",
-          "colourful"
+          "colorful"
         ],
         "era": [
           "1900s_1940s",
@@ -471,7 +471,7 @@
         ],
         "tone": [
           "light",
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -483,7 +483,7 @@
           "blurred environment"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -524,14 +524,14 @@
       }
     },
     {
-      "text": "a blurred woodland in autumn colours",
+      "text": "a blurred woodland in autumn colors",
       "tier": "typical",
       "tags": {
         "kind": [
           "blurred environment"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -555,7 +555,7 @@
           "blurred environment"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -568,7 +568,7 @@
         ],
         "tone": [
           "dark",
-          "colourful"
+          "colorful"
         ],
         "era": [
           "1900s_1940s",
@@ -600,7 +600,7 @@
         ],
         "tone": [
           "dark",
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -636,14 +636,14 @@
       }
     },
     {
-      "text": "a suspended arrangement of colourful fabric ribbons",
+      "text": "a suspended arrangement of colorful fabric ribbons",
       "tier": "plausible",
       "tags": {
         "kind": [
           "other"
         ],
         "tone": [
-          "colourful"
+          "colorful"
         ]
       }
     },
@@ -656,7 +656,7 @@
         ],
         "tone": [
           "dark",
-          "colourful"
+          "colorful"
         ],
         "genre": [
           "fantasy",
@@ -673,7 +673,7 @@
         ],
         "tone": [
           "dark",
-          "colourful"
+          "colorful"
         ],
         "genre": [
           "scifi",

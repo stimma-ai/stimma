@@ -131,7 +131,7 @@ async def build(b: Build) -> None:
             suggested = ink.neutral_ground(ink.ink_color(avatar_img))
             b.fail(
                 "social avatars are a solid square with the mark on it, and the ground is a "
-                "decision nobody has made. Ask which colour the avatars should sit on — show "
+                "decision nobody has made. Ask which color the avatars should sit on — show "
                 "the mark on a few candidates and let the person pick — then pass it as "
                 f"avatar_background. A neutral that would read is {suggested}."
             )

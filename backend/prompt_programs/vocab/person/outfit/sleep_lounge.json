@@ -4,7 +4,7 @@
   "description": "Sleepwear and soft indoor leisure outfits described as complete garment combinations.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete pyjamas, nightdresses, robes over underlayers, and relaxed home clothes. Casual owns everyday streetwear; athletic owns workout kit; summer owns swimwear. Excludes underwear-only looks, bedclothes, props, locations, and body descriptions. Palette roles coordinate garment colours; white and undyed historical shifts retain intrinsic colours. Coverage describes garment extent. Historical dyed looks use muted, earthy or light schemes.",
+  "notes": "Complete pajamas, nightdresses, robes over underlayers, and relaxed home clothes. Casual owns everyday streetwear; athletic owns workout kit; summer owns swimwear. Excludes underwear-only looks, bedclothes, props, locations, and body descriptions. Palette roles coordinate garment colors; white and undyed historical shifts retain intrinsic colors. Coverage describes garment extent. Historical dyed looks use muted, earthy or light schemes.",
   "facets": [
     "presentation",
     "age",
@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a {main} cotton pyjama shirt and matching loose trousers",
+      "text": "a {main} cotton pajama shirt and matching loose trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -47,7 +47,7 @@
           "future"
         ],
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "full"
@@ -118,7 +118,7 @@
       }
     },
     {
-      "text": "a {main} flannel pyjama shirt and trousers with {main} and {accent} checks",
+      "text": "a {main} flannel pajama shirt and trousers with {main} and {accent} checks",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -139,7 +139,7 @@
           "future"
         ],
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "full"
@@ -190,7 +190,7 @@
       }
     },
     {
-      "text": "a {main} satin pyjama shirt and matching wide-leg trousers",
+      "text": "a {main} satin pajama shirt and matching wide-leg trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -211,7 +211,7 @@
           "future"
         ],
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "full"
@@ -246,7 +246,7 @@
           "future"
         ],
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "light"
@@ -280,7 +280,7 @@
       }
     },
     {
-      "text": "a {main} cotton robe over pyjamas with {accent} and {neutral} stripes",
+      "text": "a {main} cotton robe over pajamas with {accent} and {neutral} stripes",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -551,7 +551,7 @@
       }
     },
     {
-      "text": "a {main} cotton pyjama top and matching capri trousers",
+      "text": "a {main} cotton pajama top and matching capri trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -570,7 +570,7 @@
           "horror"
         ],
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "moderate"
@@ -635,7 +635,7 @@
       }
     },
     {
-      "text": "a {main} silk camisole and matching loose pyjama trousers",
+      "text": "a {main} silk camisole and matching loose pajama trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -657,7 +657,7 @@
           "future"
         ],
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "light"
@@ -696,7 +696,7 @@
       }
     },
     {
-      "text": "a {main} cotton kurta and loose {neutral} pyjama trousers",
+      "text": "a {main} cotton kurta and loose {neutral} pajama trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -722,7 +722,7 @@
           "future"
         ],
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "full"
@@ -760,7 +760,7 @@
           "future"
         ],
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "light"
@@ -768,7 +768,7 @@
       }
     },
     {
-      "text": "a {main} quilted robe over {neutral} thermal pyjamas",
+      "text": "a {main} quilted robe over {neutral} thermal pajamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -974,7 +974,7 @@
           "future"
         ],
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "light"
@@ -982,7 +982,7 @@
       }
     },
     {
-      "text": "a {main} fleece dressing gown over {neutral} jersey pyjamas",
+      "text": "a {main} fleece dressing gown over {neutral} jersey pajamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1058,7 +1058,7 @@
           "future"
         ],
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "full"
@@ -1229,7 +1229,7 @@
           "contemporary"
         ],
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "moderate"
@@ -1329,7 +1329,7 @@
       "tier": "typical",
       "tags": {
         "kind": [
-          "pyjamas"
+          "pajamas"
         ],
         "coverage": [
           "light"
@@ -1389,7 +1389,7 @@
   "slots": "person.palette",
   "local_facets": {
     "kind": [
-      "pyjamas",
+      "pajamas",
       "nightdress",
       "robe",
       "loungewear",

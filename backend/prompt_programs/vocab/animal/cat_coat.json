@@ -1,10 +1,10 @@
 {
   "id": "animal.cat_coat",
   "label": "Cat coat",
-  "description": "Cat coat colours and patterns, ordered by everyday visual frequency.",
+  "description": "Cat coat colors and patterns, ordered by everyday visual frequency.",
   "pos": "adjective phrase",
   "frame": "a ___ cat",
-  "notes": "Coat appearance only, including combined colour-and-pattern names; breed, personality, pose and expression belong elsewhere. Broad tabby and colourpoint values coexist with more specific variants as useful prompt terms. The closed pool is a curated set of coat names rather than a genetic taxonomy.",
+  "notes": "Coat appearance only, including combined color-and-pattern names; breed, personality, pose and expression belong elsewhere. Broad tabby and colorpoint values coexist with more specific variants as useful prompt terms. The closed pool is a curated set of coat names rather than a genetic taxonomy.",
   "facets": [],
   "closed": true,
   "untagged": {},
@@ -22,7 +22,7 @@
       "tier": "typical"
     },
     {
-      "text": "grey tabby",
+      "text": "gray tabby",
       "tier": "typical"
     },
     {
@@ -66,7 +66,7 @@
       "tier": "plausible"
     },
     {
-      "text": "blue-grey",
+      "text": "blue-gray",
       "tier": "plausible"
     },
     {
@@ -78,11 +78,11 @@
       "tier": "plausible"
     },
     {
-      "text": "grey-and-white",
+      "text": "gray-and-white",
       "tier": "plausible"
     },
     {
-      "text": "colourpoint",
+      "text": "colorpoint",
       "tier": "plausible"
     },
     {

@@ -6,7 +6,7 @@
 young adult ranges. After a program is prepared, two steps find and apply such words:
 
 1. Read: one call per prompt asks which of the user's own words describe each bound
-   detail ("young woman" for age, "blonde" for hair colour, nothing for her outfit), as
+   detail ("young woman" for age, "blonde" for hair color, nothing for her outfit), as
    stretches copied from the prompt. An answer that isn't a stretch of the prompt as written
    (case and spacing aside) is dropped: code never judges which words "count". A bound smart wildcard uses its own name
    (`{{red or auburn hair}}`); the writer's `where=` is used when the reading finds
@@ -50,6 +50,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
+from prompt_programs.runtime import COLORS
 from prompt_programs.draws import owns, person_of
 from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
@@ -97,8 +98,8 @@ def phrase_of(choice: Dict[str, Any], read: Optional[Dict[str, str]] = None) -> 
 
 
 def _shown(text: str) -> str:
-    """A template as the narrowing model reads it: its colour slots say "(colour)"."""
-    return re.sub(r"\{(?:main|accent|neutral)\}", "(colour)", text)
+    """A template as the narrowing model reads it: its color slots say "(color)"."""
+    return re.sub(r"\{(?:main|accent|neutral)\}", "(color)", text)
 
 
 def _spaced(text: str) -> str:
@@ -294,7 +295,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     filters: Dict[str, List[str]] = dict(entry.get("filters") or {})
     notes: List[str] = []
     # where={...}: a filter on the list's local facets, applied in code (no model call). Facets
-    # of a template's palette ("colour_family") narrow its Colours pick. The pick's own words
+    # of a template's palette ("color_family") narrow its Colors pick. The pick's own words
     # are still read below and narrow within it ("a Victorian lady" with where={"status": ...}).
     facet: Dict[str, List[str]] = {}
     for c in bound:
@@ -306,7 +307,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         own = {f: v for f, v in w.items() if f in leaf.local_facets}
         theirs = {f: v for f, v in w.items() if palette is not None and f in palette.local_facets}
         targets = [(c, leaf, own)]
-        comp = by_id.get(f'{c["id"]}.colours')
+        comp = by_id.get(c["id"] + COLORS)
         if theirs and comp is not None:
             comp["where"] = theirs
             targets.append((comp, palette, theirs))
@@ -410,21 +411,21 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             notes.append(f'{cid}: nothing in {c["cls"]} fits {phrase_of(c)!r}; drawing it without the list')
             c.pop("cls", None)
             c["options"] = []
-    # A colour asked for a templated look holds only for templates whose main garment takes the
-    # palette: fixed-colour looks ("a white dinner jacket") and looks without {main} drop out.
+    # A color asked for a templated look holds only for templates whose main garment takes the
+    # palette: fixed-color looks ("a white dinner jacket") and looks without {main} drop out.
     for c in entry.get("choices") or []:
         cid = c["id"]
-        if not cid.endswith(".colours") or not filters.get(cid):
+        if not cid.endswith(COLORS) or not filters.get(cid):
             continue
-        parent = by_id.get(cid[: -len(".colours")])
+        parent = by_id.get(cid[: -len(COLORS)])
         leaf = vocab.get(parent.get("cls")) if parent is not None else None
         if leaf is None or not leaf.slots:
             continue
         base = filters.get(parent["id"]) or [v.text for v in leaf.eligible()]
-        coloured = [t for t in base if "{main}" in t]
-        if coloured:
-            filters[parent["id"]] = coloured
-            parent["options"] = coloured
+        colored = [t for t in base if "{main}" in t]
+        if colored:
+            filters[parent["id"]] = colored
+            parent["options"] = colored
     entry["filters"] = filters
     ages = {c["age_of"]: words[c["id"]] for c in stated if c["id"] in words and words[c["id"]]}
     if ages:

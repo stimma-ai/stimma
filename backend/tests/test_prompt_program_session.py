@@ -851,11 +851,11 @@ class TestUnfinishedNarrowingIsRetried:
            'emit("A young", age, "woman waiting for a train on a", w, "morning.")\n')
     YOUNG = ["20–24-year-old", "25–29-year-old"]
 
-    def _asks(self, monkeypatch, behaviour):
+    def _asks(self, monkeypatch, behavior):
         import json as _json
 
         async def ask(messages, project_id, max_tokens=4096):
-            if behaviour["stall"]:
+            if behavior["stall"]:
                 await asyncio.sleep(60)
             if "find the words in it" in messages[0]["content"]:
                 return _json.dumps({"age": None})
@@ -866,14 +866,14 @@ class TestUnfinishedNarrowingIsRetried:
 
     @pytest.mark.parametrize("limit", [2.5, 6.0])  # no time to try; a try that stalls
     async def test_a_later_lookup_narrows_it(self, model, monkeypatch, limit):
-        behaviour = {"stall": True}
-        self._asks(monkeypatch, behaviour)
+        behavior = {"stall": True}
+        self._asks(monkeypatch, behavior)
         monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", limit)
         model.replies = [reply(write(self.SRC))]
         entry = await ensure()
         stored = model.store.get(entry["key"])
         assert stored["narrow_pending"]["age"]["cls"] == "person.age_band"  # not final
-        behaviour["stall"] = False
+        behavior["stall"] = False
         again = await ensure(cache_only=True)  # the editor's lookup, or a submit: served at once
         assert not any((again.get("filters") or {}).values())
         await prep._renarrowing[(str(model.store.root), entry["key"])]
@@ -884,8 +884,8 @@ class TestUnfinishedNarrowingIsRetried:
         assert (await ensure())["filters"] == {"age": self.YOUNG}
 
     async def test_retries_back_off_and_stop(self, model, monkeypatch):
-        behaviour = {"stall": True}
-        self._asks(monkeypatch, behaviour)
+        behavior = {"stall": True}
+        self._asks(monkeypatch, behavior)
         monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", 2.5)
         model.replies = [reply(write(self.SRC))]
         entry = await ensure()
@@ -899,8 +899,8 @@ class TestUnfinishedNarrowingIsRetried:
 
     async def test_a_program_prepared_again_meanwhile_is_kept(self, model, monkeypatch):
         import json as _json
-        behaviour = {"stall": True}
-        self._asks(monkeypatch, behaviour)
+        behavior = {"stall": True}
+        self._asks(monkeypatch, behavior)
         monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", 2.5)
         model.replies = [reply(write(self.SRC))]
         entry = await ensure()
@@ -1068,8 +1068,8 @@ class TestFallbackRungs:
         monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments",
                             lambda profile_id: ([{"name": "weather", "values": ["rainy", "foggy"]}], []))
         model.replies = [_down()]
-        record, prompt = await _submit("A {{stormy sky}} over a {{weather}} harbour")
-        assert prompt == "A stormy sky over a {{weather}} harbour"  # the saved one fills in the pipeline
+        record, prompt = await _submit("A {{stormy sky}} over a {{weather}} harbor")
+        assert prompt == "A stormy sky over a {{weather}} harbor"  # the saved one fills in the pipeline
 
     async def test_no_balance_is_its_own_code(self, model):
         from llm_http import EntitlementError

@@ -4,7 +4,7 @@
   "description": "Everyday outfits built from relaxed garments and practical separates.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete everyday looks, including simple dresses and culturally specific daily garments. Smart owns tailored workwear; athletic owns exercise kit; summer owns beachwear; cold_weather owns outerwear-led looks. Excludes accessories, props, body descriptors, and grooming. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply garment colours; blue denim and undyed fabric may retain intrinsic colours. Coverage describes garment extent. Historical dyed looks use muted, earthy or monochrome schemes.",
+  "notes": "Complete everyday looks, including simple dresses and culturally specific daily garments. Smart owns tailored workwear; athletic owns exercise kit; summer owns beachwear; cold_weather owns outerwear-led looks. Excludes accessories, props, body descriptors, and grooming. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply garment colors; blue denim and undyed fabric may retain intrinsic colors. Coverage describes garment extent. Historical dyed looks use muted, earthy or monochrome schemes.",
   "facets": [
     "presentation",
     "age",
@@ -891,7 +891,7 @@
       }
     },
     {
-      "text": "an embroidered {main} kurta and loose {neutral} cotton pyjama trousers",
+      "text": "an embroidered {main} kurta and loose {neutral} cotton pajama trousers",
       "tier": "typical",
       "tags": {
         "formality": [

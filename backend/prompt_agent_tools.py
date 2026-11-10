@@ -43,7 +43,7 @@ _PROMPT_TOOLS = [
         "edit_prompt",
         "Change part of the prompt by exact string replacement. This is the normal way to edit: it "
         "applies instantly, while copying text you aren't changing makes the user wait. old_string is "
-        "ONLY the words that change, plus just enough neighbours to match once; new_string is what "
+        "ONLY the words that change, plus just enough neighbors to match once; new_string is what "
         "replaces them. To turn 'in a yellow oilskin coat climbing' into a red coat: old_string "
         "'yellow oilskin', new_string 'red oilskin'. To add something: old_string is a few words where "
         "it goes, new_string is those words plus the addition. Several separate changes are several "

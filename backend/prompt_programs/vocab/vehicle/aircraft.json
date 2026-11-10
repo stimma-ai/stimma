@@ -4,7 +4,7 @@
   "description": "Generic aircraft forms, from balloons and early planes to contemporary and speculative craft.",
   "pos": "noun phrase",
   "frame": "a ___ overhead",
-  "notes": "Aircraft kinds only, independent of manufacturer, model, livery, pilot or manoeuvre. Era tags mark use or surviving examples; explicit genre tags distinguish real technologies from speculative flight. Hang gliders and rigid-wing sailplanes are distinct forms of unpowered flight.",
+  "notes": "Aircraft kinds only, independent of manufacturer, model, livery, pilot or maneuver. Era tags mark use or surviving examples; explicit genre tags distinguish real technologies from speculative flight. Hang gliders and rigid-wing sailplanes are distinct forms of unpowered flight.",
   "facets": [
     "era",
     "genre"

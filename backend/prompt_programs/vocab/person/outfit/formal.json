@@ -4,7 +4,7 @@
   "description": "Evening, wedding, and ceremonial outfits made from concrete formal garments.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete formal looks across presentations and regions. Smart owns business tailoring; period owns deliberately historical dress; fantasy owns imaginary ceremonial clothing. Culturally specific dress is ordinary within its region, and bridal clothing is not restricted to a particular age beyond adulthood. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles colour garments as one coordinated look. Coverage describes garment extent. Historical fabrics use muted or earthy schemes.",
+  "notes": "Complete formal looks across presentations and regions. Smart owns business tailoring; period owns deliberately historical dress; fantasy owns imaginary ceremonial clothing. Culturally specific dress is ordinary within its region, and bridal clothing is not restricted to a particular age beyond adulthood. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles color garments as one coordinated look. Coverage describes garment extent. Historical fabrics use muted or earthy schemes.",
   "facets": [
     "presentation",
     "age",
@@ -177,7 +177,7 @@
       }
     },
     {
-      "text": "a {main} tailcoat, white waistcoat, and grey striped formal trousers",
+      "text": "a {main} tailcoat, white waistcoat, and gray striped formal trousers",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -2092,7 +2092,7 @@
       }
     },
     {
-      "text": "a {main} morning coat over a {accent} waistcoat with a white shirt and grey striped trousers",
+      "text": "a {main} morning coat over a {accent} waistcoat with a white shirt and gray striped trousers",
       "tier": "typical",
       "tags": {
         "formality": [

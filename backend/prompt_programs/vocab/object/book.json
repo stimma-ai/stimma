@@ -4,7 +4,7 @@
   "description": "books, journals and bound reading or writing volumes held as props",
   "pos": "noun phrase",
   "frame": "holding ___",
-  "notes": "Each value includes its own article and a complete book-like object. Bindings, wear and format belong here; no named authors, titles or fixed cover colours. Modern formats have era tags; historical and imagined exceptions have explicit context tags.",
+  "notes": "Each value includes its own article and a complete book-like object. Bindings, wear and format belong here; no named authors, titles or fixed cover colors. Modern formats have era tags; historical and imagined exceptions have explicit context tags.",
   "facets": [
     "era",
     "genre"

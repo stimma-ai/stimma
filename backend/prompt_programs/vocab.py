@@ -1,6 +1,6 @@
 """The vocabulary: curated lists a program binds picks to with `cls=`.
 
-    eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["hazel"], ...)
+    eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["hazel"], ...)
 
 The vocabulary is a tree. An inner node (`person`, `person.outfit`) has a one-line
 description; a leaf is a list of values of one part of speech, each with a typicality
@@ -9,7 +9,7 @@ tier and optional facet tags (genre, era, region...). The directory layout under
 each inner node has a `_node.json`.
 
 A bound pick draws from its leaf instead of from options a model wrote. A **closed** leaf
-(eye colour, skin tone, shot size) is the whole pool: small natural sets, where generated
+(eye color, skin tone, shot size) is the whole pool: small natural sets, where generated
 options go weird too often. An **open** leaf (expressions, outfits, places) is a backbone
 that generation extends: the options generator gets a spread of the leaf's values as its
 examples, so a finite list never becomes everyone's only choices.
@@ -45,7 +45,7 @@ The user's own lists, wildcards, pins and additions are never weighted (draws.py
 
 A list whose values share settings can declare them once as "groups" ({name: {about,
 tags, less_common}}); a value's "group" names one, and its own tags add to the group's.
-The descent list uses them, so every heritage's colouring is declared and reviewed by name.
+The descent list uses them, so every heritage's coloring is declared and reviewed by name.
 
 More roots can be added (a stimpack's vocabulary); ids must not collide.
 """
@@ -65,7 +65,7 @@ ROOT = Path(__file__).parent / "vocab"
 TIER_WEIGHTS = {"typical": 1.0, "plausible": 0.3, "unusual": 0.03}
 OPEN_SHARE = 0.5      # an open leaf's list values' share of its pool's weight once generated options exist
 EXAMPLES = 10         # list values shown to the options generator for an open leaf
-CATALOGUE_ROOTS = ("person", "animal")   # what the writer is shown; the rest waits for an open() tool
+CATALOG_ROOTS = ("person", "animal")   # what the writer is shown; the rest waits for an open() tool
 TYPO_CUTOFF = 0.85    # difflib ratio above which an unknown id is read as a typo of a known one
 AGE_LIST = "person.age_band"     # the list a person's age is drawn from
 MINOR = ("child", "teen")        # the age facet's values under 18
@@ -89,7 +89,7 @@ def is_template(text: str) -> bool:
 
 
 def template_matches(template: str, text: str) -> bool:
-    """Whether `text` is `template` filled with some colours (a removal or a kept value
+    """Whether `text` is `template` filled with some colors (a removal or a kept value
     that came from a draw names the filled text, not the template)."""
     if not is_template(template):
         return template == text
@@ -116,7 +116,7 @@ class Value:
     text: str
     tier: str
     tags: Dict[str, Any] = field(default_factory=dict)
-    roles: Dict[str, str] = field(default_factory=dict)       # a palette's colours by role
+    roles: Dict[str, str] = field(default_factory=dict)       # a palette's colors by role
     palette: Dict[str, Any] = field(default_factory=dict)     # a template's restriction on its palette
     opt_in: bool = False       # drawn only when asked for (the module docstring)
     adult_only: bool = False   # an adult-coded look: never in the pools of a person under 18
@@ -186,7 +186,7 @@ class Leaf:
         as less common (LESS-marked), this list's less_common factor for the facet (the mismatch
         factor if it declares none); the values tagged on the facet are scaled back
         to the share of the pool they had, so the context only moves weight among the values it
-        speaks to. Values with no tag on the facet (grey or dyed hair for descent), the facet's
+        speaks to. Values with no tag on the facet (gray or dyed hair for descent), the facet's
         neutral values and anything not in this list (a user's addition, a generated option) keep
         their weight. A mismatch that would leave the tagged values no weight is not applied."""
         out = list(items)
@@ -320,7 +320,7 @@ class Vocabulary:
             leaf = self.leaves[near[0]] if near else None
         return leaf
 
-    def catalogue(self, roots: Sequence[str] = CATALOGUE_ROOTS) -> str:
+    def catalog(self, roots: Sequence[str] = CATALOG_ROOTS) -> str:
         """The lists the writer may bind to, one line each: id, part of speech, where a
         value fits, what it's for. No sample values: a fixed sample shown to every writer
         ends up in every program's text."""
@@ -336,7 +336,7 @@ class Vocabulary:
             palette = self.leaves.get(leaf.slots) if leaf.slots else None
             if palette is not None:
                 parts += [f'{f} = {" | ".join(vals)}' for f, vals in palette.local_facets.items()]
-                line += " Colours vary separately."
+                line += " Colors vary separately."
             if parts:
                 line += " where: " + "; ".join(parts) + "."
             lines.append(line)

@@ -11,13 +11,13 @@ from tests.test_prompt_program_context import Ask, draws_of, entry_of, mismatche
 
 SAID_DESCENT = '''
 descent = pick("descent", cls="person.ethnicity", said="Japanese", about="her descent", label="Descent", phase=1, line=1)
-eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=1)
+eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=1)
 emit("A", descent, "woman with", eyes, "eyes")
 '''
 
 
 class TestSaidGivesContext:
-    def test_the_users_descent_weights_the_colouring(self, tmp_path):
+    def test_the_users_descent_weights_the_coloring(self, tmp_path):
         e = entry_of(SAID_DESCENT, "a Japanese woman")
         miss = 0
         for r, d in draws_of(e, tmp_path, range(200)):
@@ -42,7 +42,7 @@ class TestSaidGivesContext:
 
     def test_a_said_taker_is_never_weighted(self, tmp_path):
         src = ('descent = pick("descent", cls="person.ethnicity", about="her descent", seed=["Korean"], label="Descent", phase=1, line=1)\n'
-               'eyes = pick("eyes", cls="person.eye_color", said="green", about="her eye colour", label="Eyes", phase=2, line=1)\n'
+               'eyes = pick("eyes", cls="person.eye_color", said="green", about="her eye color", label="Eyes", phase=2, line=1)\n'
                'emit("A", descent, "woman with", eyes, "eyes")')
         e = entry_of(src, "a woman with green eyes")
         for r, d in draws_of(e, tmp_path, range(30), pins={"descent": ["Japanese"]}):
@@ -99,11 +99,11 @@ class TestSaidInsideASubject:
 
 class TestOnePersonRule:
     def test_person_of_follows_the_subject_the_id_names(self):
-        for cid in ("friends[2].age", "friends[2].outfit.colours", "friends[2].outfit.style", "woman1.hair",
-                    "mother.outfit", "mother.outfit.colours", "twin_2.hairstyle"):
+        for cid in ("friends[2].age", "friends[2].outfit.colors", "friends[2].outfit.style", "woman1.hair",
+                    "mother.outfit", "mother.outfit.colors", "twin_2.hairstyle"):
             s = subject_of(cid)
             assert s is not None and person_of(cid) and cid == person_of(cid) + "." + s[2], cid
-        for cid in ("outfit", "outfit.colours", "param.steps"):
+        for cid in ("outfit", "outfit.colors", "param.steps"):
             assert subject_of(cid) is None and person_of(cid) == "", cid
         assert person_of("friends[{}].age") == "friends[{}]"   # a loop's site: its member
 

@@ -1,7 +1,7 @@
 {
   "id": "camera.film_look",
   "label": "Film and digital look",
-  "description": "Grain, colour, contrast and optical texture of the finished image.",
+  "description": "Grain, color, contrast and optical texture of the finished image.",
   "pos": "noun phrase",
   "frame": "with ___",
   "notes": "Rendering and photographic surface texture belong here; camera.lens owns optical equipment, lighting leaves own illumination and scene.time_of_day owns the hour. Genre and era do not filter this leaf: they describe the depicted world, while any rendering process or period-inspired look can be applied to a scene set in any world or era.",
@@ -9,7 +9,7 @@
   "closed": false,
   "values": [
     {
-      "text": "fine 35mm film grain and muted colours",
+      "text": "fine 35mm film grain and muted colors",
       "tier": "typical"
     },
     {
@@ -21,19 +21,19 @@
       "tier": "typical"
     },
     {
-      "text": "soft highlight halation and warm colour grading",
+      "text": "soft highlight halation and warm color grading",
       "tier": "typical"
     },
     {
-      "text": "rich colour and deep clean shadows",
+      "text": "rich color and deep clean shadows",
       "tier": "typical"
     },
     {
-      "text": "gentle contrast and pastel colours",
+      "text": "gentle contrast and pastel colors",
       "tier": "typical"
     },
     {
-      "text": "neutral colour and smooth tonal gradients",
+      "text": "neutral color and smooth tonal gradients",
       "tier": "typical"
     },
     {
@@ -45,7 +45,7 @@
       "tier": "typical"
     },
     {
-      "text": "coarse grain and saturated primary colours",
+      "text": "coarse grain and saturated primary colors",
       "tier": "plausible"
     },
     {
@@ -81,7 +81,7 @@
       "tier": "plausible"
     },
     {
-      "text": "warm sepia toning and visible paper fibres",
+      "text": "warm sepia toning and visible paper fibers",
       "tier": "plausible"
     },
     {
@@ -93,15 +93,15 @@
       "tier": "unusual"
     },
     {
-      "text": "false-colour infrared tones and crimson foliage",
+      "text": "false-color infrared tones and crimson foliage",
       "tier": "unusual"
     },
     {
-      "text": "a solarised silver outline around high-contrast edges",
+      "text": "a solarized silver outline around high-contrast edges",
       "tier": "unusual"
     },
     {
-      "text": "a glossy instant-print finish and uneven colour development",
+      "text": "a glossy instant-print finish and uneven color development",
       "tier": "plausible"
     },
     {
@@ -117,15 +117,15 @@
       "tier": "plausible"
     },
     {
-      "text": "the brown-grey tones and irregular edges of a wet-plate portrait",
+      "text": "the brown-gray tones and irregular edges of a wet-plate portrait",
       "tier": "plausible"
     },
     {
-      "text": "the hand-tinted colours of an early postcard photograph",
+      "text": "the hand-tinted colors of an early postcard photograph",
       "tier": "plausible"
     },
     {
-      "text": "the bold dye colours of a mid-century colour transparency",
+      "text": "the bold dye colors of a mid-century color transparency",
       "tier": "plausible"
     },
     {
@@ -133,7 +133,7 @@
       "tier": "plausible"
     },
     {
-      "text": "the harsh colour noise and scan lines of an analogue video still",
+      "text": "the harsh color noise and scan lines of an analog video still",
       "tier": "unusual"
     },
     {

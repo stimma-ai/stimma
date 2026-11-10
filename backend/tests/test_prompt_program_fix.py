@@ -15,7 +15,7 @@ from prompt_programs.runtime import ProgramError
 JOBS = '''
 job = pick("job", ["nun", "lifeguard", "surgeon"], label="Job", source="list", phase=1)
 outfit = pick("outfit", by=job, label="Outfit", about="what she wears", phase=2, options={
-    "nun": ["a black habit", "a grey habit"],
+    "nun": ["a black habit", "a gray habit"],
     "lifeguard": ["a red swimsuit", "collection shorts"],
     "surgeon": ["green scrubs", "blue scrubs"]})
 light = pick("light", ["dawn light", "noon sun", "moonlight", "candlelight"], label="Light", phase=1)
@@ -137,7 +137,7 @@ class TestFixLoop:
         out, rec = fix_draw(r, judge=Scorer(lambda it: 0.99 if it.value == "lifeguard" else 0.0), redraw=redraw_for(entry),
                             seed=s, user_prompt=USER, cut=0.5)
         v = values(out)
-        pools = {"nun": {"a black habit", "a grey habit"}, "surgeon": {"green scrubs", "blue scrubs"}}
+        pools = {"nun": {"a black habit", "a gray habit"}, "surgeon": {"green scrubs", "blue scrubs"}}
         assert v["job"] in pools and v["outfit"] in pools[v["job"]]
         assert values(r)["light"] == v["light"] and rec["rerolls"] == 1
 
@@ -343,7 +343,7 @@ class TestRealizeAndFix:
 
 class TestExactTextIsNeverJudged:
     """[exact text] is the user's: the judge, like every model, reads only its token."""
-    SECRET = "zq7 velvet harbour"
+    SECRET = "zq7 velvet harbor"
 
     def entry(self):
         program = JOBS.replace('emit("A", job, "wearing", outfit, "under", light)',

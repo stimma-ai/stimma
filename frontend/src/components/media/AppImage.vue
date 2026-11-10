@@ -74,7 +74,7 @@
     />
 
     <!-- Unavailable: a neutral tile with the same geometry as a loaded one.
-         Quiet outline glyph (no cross, no alarm colour) and a muted label that
+         Quiet outline glyph (no cross, no alarm color) and a muted label that
          only shows where the tile is wide enough to hold it. -->
     <div
       v-if="error"

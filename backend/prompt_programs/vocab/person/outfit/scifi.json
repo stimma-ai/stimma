@@ -4,7 +4,7 @@
   "description": "Technical future clothing, cyberpunk streetwear, and salvaged post-apocalyptic outfits.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete speculative looks with concrete garments and materials, all genre-tagged. Fantasy owns magical wardrobes; athletic owns ordinary performance clothing; casual owns contemporary streetwear. Excludes weapons, carried technology, body modifications, logos, and environmental effects. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply coordinated garment colours; metallic materials and white laboratory coats may retain intrinsic colours. Corporate tailoring uses dark or monochrome schemes; salvaged rustic looks use muted, earthy or monochrome schemes. Coverage describes garment extent.",
+  "notes": "Complete speculative looks with concrete garments and materials, all genre-tagged. Fantasy owns magical wardrobes; athletic owns ordinary performance clothing; casual owns contemporary streetwear. Excludes weapons, carried technology, body modifications, logos, and environmental effects. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply coordinated garment colors; metallic materials and white laboratory coats may retain intrinsic colors. Corporate tailoring uses dark or monochrome schemes; salvaged rustic looks use muted, earthy or monochrome schemes. Coverage describes garment extent.",
   "facets": [
     "presentation",
     "age",
@@ -116,7 +116,7 @@
       }
     },
     {
-      "text": "a {main} polymer-panelled jacket and {neutral} fitted trousers",
+      "text": "a {main} polymer-paneled jacket and {neutral} fitted trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -136,7 +136,7 @@
       }
     },
     {
-      "text": "a {neutral} ribbed undersuit beneath {main} segmented body armour",
+      "text": "a {neutral} ribbed undersuit beneath {main} segmented body armor",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -163,7 +163,7 @@
       }
     },
     {
-      "text": "a {main} woven-fibre robe over {neutral} tailored trousers",
+      "text": "a {main} woven-fiber robe over {neutral} tailored trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -466,7 +466,7 @@
       }
     },
     {
-      "text": "a {main} oversized technical hoodie and {neutral} panelled leggings",
+      "text": "a {main} oversized technical hoodie and {neutral} paneled leggings",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -732,7 +732,7 @@
       }
     },
     {
-      "text": "a {main} rubberised rain cape and reinforced {neutral} trousers",
+      "text": "a {main} rubberized rain cape and reinforced {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -890,7 +890,7 @@
       }
     },
     {
-      "text": "a {main} ceramic-plated combat coat over a {neutral} flexible armoured bodysuit",
+      "text": "a {main} ceramic-plated combat coat over a {neutral} flexible armored bodysuit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1007,7 +1007,7 @@
       }
     },
     {
-      "text": "a {main} rubberised maintenance suit with {accent} seam welds and {neutral} integrated boots",
+      "text": "a {main} rubberized maintenance suit with {accent} seam welds and {neutral} integrated boots",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1445,7 +1445,7 @@
       }
     },
     {
-      "text": "a sleeveless {main} woven-fibre wrap dress with {accent} laser-cut pleats and {neutral} flat shoes",
+      "text": "a sleeveless {main} woven-fiber wrap dress with {accent} laser-cut pleats and {neutral} flat shoes",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1527,7 +1527,7 @@
       }
     },
     {
-      "text": "a polished aluminium pressure shell with articulated bellows joints and gold thermal-film panels",
+      "text": "a polished aluminum pressure shell with articulated bellows joints and gold thermal-film panels",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1546,7 +1546,7 @@
       }
     },
     {
-      "text": "a {main} translucent polymer tunic with {accent} fibre-optic seams over {neutral} stretch briefs",
+      "text": "a {main} translucent polymer tunic with {accent} fiber-optic seams over {neutral} stretch briefs",
       "tier": "plausible",
       "tags": {
         "genre": [

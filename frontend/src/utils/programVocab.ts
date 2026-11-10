@@ -30,8 +30,8 @@ export const TIER_LABEL: Record<VocabTier, string> = {
 }
 
 /** Case-insensitive; every word in the query must appear somewhere in the option. */
-/** A list value as the picker shows it: a template's colour slots ({main}, {accent},
- *  {neutral}) read as "…", since its colours come from the Colours choice. */
+/** A list value as the picker shows it: a template's color slots ({main}, {accent},
+ *  {neutral}) read as "…", since its colors come from the Colors choice. */
 export function shownOption(text: string): string {
   return text.replace(/\{(?:main|accent|neutral)\}/g, '…').replace(/\s{2,}/g, ' ').trim()
 }

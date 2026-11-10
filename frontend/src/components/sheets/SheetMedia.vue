@@ -47,7 +47,7 @@
       <span v-else-if="picked" class="pointer-events-none absolute inset-0 z-chrome rounded-media ring-2 ring-inset ring-accent" />
 
       <!-- Markers: the profile's own, drawn as OutputImage draws them. Icon and
-           colour only; the name is the tooltip. Unset ones wait for hover. -->
+           color only; the name is the tooltip. Unset ones wait for hover. -->
       <div v-if="!small && availableMarkers.length && !sheet.readonly.value" class="absolute bottom-2 left-2 z-chrome flex gap-0.5">
         <button
           v-for="marker in availableMarkers"

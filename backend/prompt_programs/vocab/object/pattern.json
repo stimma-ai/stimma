@@ -4,7 +4,7 @@
   "description": "repeating motifs, prints and decorative surface arrangements on an object",
   "pos": "adjective or noun-adjunct",
   "frame": "a ___ scarf",
-  "notes": "Surface designs only, with no fixed colours or fibre requirements. Named culturally specific designs carry region tags; generic motifs remain untagged. object.material owns the physical substance.",
+  "notes": "Surface designs only, with no fixed colors or fiber requirements. Named culturally specific designs carry region tags; generic motifs remain untagged. object.material owns the physical substance.",
   "facets": [
     "region"
   ],

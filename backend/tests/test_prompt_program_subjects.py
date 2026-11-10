@@ -108,9 +108,9 @@ class TestSubjectIds:
         ("woman1.hair", ("woman", 1, "hair")),
         ("woman_2.hair", ("woman", 2, "hair")),
         ("mother.outfit", ("mother", None, "outfit")),
-        ("friends[2].outfit.colours", ("friends", 2, "outfit.colours")),
+        ("friends[2].outfit.colors", ("friends", 2, "outfit.colors")),
         ("team2[1].age", ("team2", 1, "age")),
-        ("outfit", None), ("outfit.colours", None), ("param.steps", None),
+        ("outfit", None), ("outfit.colors", None), ("param.steps", None),
     ])
     def test_whose_detail_an_id_names(self, cid, want):
         assert subject_of(cid) == want
@@ -126,7 +126,7 @@ class TestShapes:
         assert not subject_problems(checked)
         assert sections(info) == [("woman", 1), ("woman", 2)]
         assert by_id(info)["woman2.hairstyle"]["attr"] == "hairstyle"
-        assert by_id(info)["woman1.outfit.colours"]["group"] == "woman"  # a look's colours stay with its wearer
+        assert by_id(info)["woman1.outfit.colors"]["group"] == "woman"  # a look's colors stay with its wearer
         assert "group" not in by_id(info)["place"]  # the scene is no one's
         assert {g["id"]: g["label"] for g in info["groups"]}["woman"] == "Woman"
 
@@ -343,9 +343,9 @@ class TestChoicesRoute:
             ("woman.hairstyle", "woman", None, "hairstyle", None),
             ("man.hairstyle", "man", None, "hairstyle", None),
             ("man.outfit", "man", None, "outfit", None),
-            ("man.outfit.colours", "man", None, "outfit.colours", None),
+            ("man.outfit.colors", "man", None, "outfit.colors", None),
             ("outfit", None, None, None, True),
-            ("outfit.colours", None, None, None, None),
+            ("outfit.colors", None, None, None, None),
             ("place", None, None, None, None),
         ]
         assert [(g["id"], g["label"]) for g in body["groups"]] == [("woman", "Woman"), ("man", "Man")]

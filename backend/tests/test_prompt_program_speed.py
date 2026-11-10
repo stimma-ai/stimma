@@ -43,7 +43,7 @@ class TimedAsk:
         return [c for c in self.calls if c[1] == phrase]
 
 
-EYES = ('eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=1)\n'
+EYES = ('eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=1)\n'
         'emit("A Japanese woman with", eyes, "eyes")')
 
 
@@ -61,7 +61,7 @@ class TestReadingsSideBySide:
 
     async def test_a_users_list_values_are_narrowed_while_the_prompt_is_read(self, tmp_path):
         src = ('who = pick("who", ["Japanese", "in a red coat"], source="list", label="Who", phase=1, line=1)\n'
-               'eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=2)\n'
+               'eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=2)\n'
                'emit("A", who, "woman with", eyes, "eyes")')
         e = entry_of(src, "a {Japanese|in a red coat} woman")
         ask = TimedAsk(keep={"Japanese": ["Japanese"]})

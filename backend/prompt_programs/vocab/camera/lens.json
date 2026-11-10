@@ -4,7 +4,7 @@
   "description": "Generic photographic optics, focal lengths and aperture choices.",
   "pos": "noun phrase",
   "frame": "shot on ___",
-  "notes": "Optical capture choices belong here, including projection, focus behaviour and lens movement. camera.shot_size owns framing, camera.angle owns viewpoint and camera.film_look owns grain and colour rendering. Lens choices describe capture rather than the depicted era; focal-length effects assume a full-frame reference.",
+  "notes": "Optical capture choices belong here, including projection, focus behavior and lens movement. camera.shot_size owns framing, camera.angle owns viewpoint and camera.film_look owns grain and color rendering. Lens choices describe capture rather than the depicted era; focal-length effects assume a full-frame reference.",
   "facets": [],
   "closed": true,
   "values": [

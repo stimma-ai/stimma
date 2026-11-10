@@ -744,7 +744,7 @@ select option {
    Resting is a hairline outline on the band, never a grey fill: a fill reads
    as disabled on the light paper matte. Hover takes one overlay step;
    disabled drops to 40% with no hover. `data-on` is the set state of a marker
-   toggle (the marker colours its own border and glyph inline). */
+   toggle (the marker colors its own border and glyph inline). */
 .result-action {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   height: 32px; min-width: 32px; border-radius: 6px;

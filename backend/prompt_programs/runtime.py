@@ -241,6 +241,63 @@ def _as_list(options: Any, where: str) -> List[str]:
     raise ProgramError(f"{where}: options must be a list of strings.")
 
 
+# --------------------------------------------------------------------------- the Colors id
+
+# A template look's Colors pick is the look's id plus COLORS: "outfit.colors". Builds before the
+# US spelling named it ".colours", and what they recorded still does: prepared programs (their
+# choices and filters), revisions (their pool keys), and the pins, kept values and edits a client
+# or an agent holds. Those are read under the current id (current_*); nothing else is renamed.
+COLORS = ".colors"
+OLD_COLORS = ".colours"
+# The Colors pick's about, as the pick judge reads it ("Colors (the colours of her outfit)"). The
+# judge was trained on this wording, so it keeps the old spelling until the judge is retrained.
+COLORS_ABOUT = "the colours of {}"
+_OLD_COLORS_IN_KEY = re.compile(r"(^|\| )([^\s:|=]+)\.colours(?=: |=| \||$)")
+
+
+def current_id(cid: str) -> str:
+    """A choice id as this build names it: a ".colours" id recorded by an older build is ".colors"."""
+    cid = str(cid)
+    return cid[: -len(OLD_COLORS)] + COLORS if cid.endswith(OLD_COLORS) else cid
+
+
+def current_keys(d: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """A dict keyed by choice id (pins, kept values, edits, filters) with old ids read as current."""
+    if not d or not any(str(k).endswith(OLD_COLORS) for k in d):
+        return d
+    return {current_id(k): v for k, v in d.items()}
+
+
+def current_revision(rev: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """A recorded revision whose pool keys name its picks ("outfit.colours: …", "… | outfit.colours=…")
+    by their current ids, so an older build's revision still finds its pools."""
+    pools = rev.get("pools") if isinstance(rev, dict) else None
+    if not isinstance(pools, dict) or not any(OLD_COLORS in str(k) for k in pools):
+        return rev
+    return {**rev, "pools": {_OLD_COLORS_IN_KEY.sub(lambda m: m.group(1) + m.group(2) + COLORS, str(k)): v
+                             for k, v in pools.items()}}
+
+
+def current_entry(entry: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """A prepared program from an older build with its choices and filters under current ids."""
+    if not isinstance(entry, dict):
+        return entry
+    choices = entry.get("choices")
+    old = isinstance(choices, list) and any(
+        isinstance(c, dict) and any(str(c.get(k) or "").endswith(OLD_COLORS) for k in ("id", "follows", "parent"))
+        for c in choices)
+    filters = entry.get("filters")
+    if not old and not (isinstance(filters, dict) and current_keys(filters) is not filters):
+        return entry
+    out = dict(entry)
+    if old:
+        out["choices"] = [{**c, **{k: current_id(c[k]) for k in ("id", "follows", "parent") if c.get(k)}}
+                          if isinstance(c, dict) else c for c in choices]
+    if isinstance(filters, dict):
+        out["filters"] = current_keys(filters)
+    return out
+
+
 _GROUP_ID = re.compile(r"^([a-z_][a-z0-9_]*)\[(\d+)\]\.([a-z_][a-z0-9_]*)$")
 _SUBJECT_ID = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*?)(?:_?(?P<num>\d+))?(?:\[(?P<index>\d+)\])?\.(?P<attr>[A-Za-z_].*)$")
 
@@ -248,11 +305,11 @@ _SUBJECT_ID = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*?)(?:_?(?P<num>\d+))?
 def subject_of(cid: str) -> Optional[Tuple[str, Optional[int], str]]:
     """Whose detail a pick is, from its id, as (subject, number, detail): `friends[2].age` is
     ("friends", 2, "age"), `woman1.hair` ("woman", 1, "hair"), `mother.outfit` ("mother",
-    None, "outfit"), `friends[2].outfit.colours` ("friends", 2, "outfit.colours"). A plain id
-    (`weather`, `outfit.colours`) is no subject's: None. Display structure only; whose detail
+    None, "outfit"), `friends[2].outfit.colors` ("friends", 2, "outfit.colors"). A plain id
+    (`weather`, `outfit.colors`) is no subject's: None. Display structure only; whose detail
     it is for draws is draws.person_of (the id before its last part)."""
     cid = str(cid)
-    if cid.startswith("param.") or (cid.endswith(".colours") and cid.count(".") == 1):
+    if cid.startswith("param.") or (cid.endswith(COLORS) and cid.count(".") == 1):
         return None
     m = _SUBJECT_ID.match(cid)
     if not m:
@@ -419,7 +476,7 @@ class _Runner:
 
     def _palette(self, cid: str, d: "Draw", leaf: Any, template: str, source: str, line: Optional[int],
                  hidden: bool) -> str:
-        """A template pick's colours (see draws._Exec._palette), the plain way: a palette
+        """A template pick's colors (see draws._Exec._palette), the plain way: a palette
         pick recorded right after the template, and the template filled with it."""
         from prompt_programs.vocab import fill, tags_match, vocabulary
         palette = vocabulary().get(leaf.slots)
@@ -429,12 +486,12 @@ class _Runner:
         values = palette.eligible()
         if tv is not None and tv.palette:
             values = [v for v in values if tags_match(v.tags, tv.palette)] or values
-        ccid = f"{cid}.colours"
+        ccid = cid + COLORS
         n = len(self.draws)
         chosen = self.pick(ccid, [v.text for v in values], "Colors", None, source, line, None, hidden)
         if len(self.draws) > n:
             c = self.draws[-1]
-            c.phase, c.about, c.cls, c.follows = d.phase, f"the colours of {d.about or d.label}", palette.id, cid
+            c.phase, c.about, c.cls, c.follows = d.phase, COLORS_ABOUT.format(d.about or d.label), palette.id, cid
         pv = palette.value(str(chosen)) if chosen is not None else None
         filled = fill(str(template), pv.roles if pv is not None else None)
         d.value = filled
@@ -697,7 +754,7 @@ def _text(value: Any) -> str:
 # twenty-seven rounds of `a = [a, a]` make a list that `==` walks 2**27 times while it
 # holds 28 lists. So a container is compared, hashed or sorted only when its EXPANDED size
 # (every element counted each time it is reached, shared ones included) is within MAX_SIZE.
-# The check is memoised by id, so it costs one visit per distinct container: a list of
+# The check is memoized by id, so it costs one visit per distinct container: a list of
 # scalars costs one C pass.
 
 _VIEWS = (type({}.keys()), type({}.values()), type({}.items()))
@@ -1195,8 +1252,8 @@ def _scope_subjects(choices: Dict[str, "Choice"], order: List[str], groups: Dict
     # bride[1] with no group() and no bride[2]: one subject, shown as "Bride", not "Bride 1"
     lone = {k for k, _ in subjects if int((groups.get(k) or {}).get("count") or 1) < 2
             and {i for n, i in subjects if n == k} == {1}}
-    labelled = {c.group for c in choices.values() if c.group and subject_of(c.id) is None}  # "Girl 1 Hair" labels
-    many = len(subjects) + len({(c.group, c.index) for c in choices.values() if c.group in labelled}) >= 2 or declared
+    labeled = {c.group for c in choices.values() if c.group and subject_of(c.id) is None}  # "Girl 1 Hair" labels
+    many = len(subjects) + len({(c.group, c.index) for c in choices.values() if c.group in labeled}) >= 2 or declared
     for cid in order:
         c = choices[cid]
         s = subject_of(cid) if c.kind != "param" else None
@@ -1213,7 +1270,7 @@ def _scope_subjects(choices: Dict[str, "Choice"], order: List[str], groups: Dict
             groups[name] = {"id": name, "count": n, "label": name.replace("_", " ").strip().capitalize(),
                             "source": c.source, "line": c.line, "from_ids": True}
     if not many:
-        for gid in [g for g in groups if g in labelled]:
+        for gid in [g for g in groups if g in labeled]:
             del groups[gid]
 
 
@@ -1251,8 +1308,8 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
     # A choice that only appears in some runs: find the earlier pick whose value explains it.
     for i, cid in enumerate(order):
         c = choices[cid]
-        if all(presence[cid]) or cid.endswith(".colours"):
-            continue  # a look's Colours shows with its outfit: present whenever the look has colour slots
+        if all(presence[cid]) or cid.endswith(COLORS):
+            continue  # a look's Colors shows with its outfit: present whenever the look has color slots
         for pid in order[:i]:
             if choices[pid].kind != "pick":
                 continue

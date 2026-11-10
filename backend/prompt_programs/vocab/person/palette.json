@@ -1,14 +1,14 @@
 {
   "id": "person.palette",
   "label": "Colors",
-  "description": "a coordinated colour scheme for what a person wears",
-  "pos": "colour scheme",
+  "description": "a coordinated color scheme for what a person wears",
+  "pos": "color scheme",
   "frame": "in ___",
-  "notes": "One scheme supplies main, accent and neutral colour adjectives to an outfit template. The colour family describes the main colour; tones describe the scheme as a whole.",
+  "notes": "One scheme supplies main, accent and neutral color adjectives to an outfit template. The color family describes the main color; tones describe the scheme as a whole.",
   "facets": [],
   "closed": true,
   "local_facets": {
-    "colour_family": [
+    "color_family": [
       "red",
       "orange",
       "yellow",
@@ -21,7 +21,7 @@
       "beige",
       "black",
       "white",
-      "grey"
+      "gray"
     ],
     "tone": [
       "dark",
@@ -44,7 +44,7 @@
         "neutral": "charcoal"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "red"
         ],
         "tone": [
@@ -62,7 +62,7 @@
         "neutral": "cream"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "red"
         ],
         "tone": [
@@ -80,7 +80,7 @@
         "neutral": "white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "red"
         ],
         "tone": [
@@ -97,7 +97,7 @@
         "neutral": "black"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "red"
         ],
         "tone": [
@@ -114,7 +114,7 @@
         "neutral": "cream"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "orange"
         ],
         "tone": [
@@ -132,7 +132,7 @@
         "neutral": "off-white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "orange"
         ],
         "tone": [
@@ -150,7 +150,7 @@
         "neutral": "white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "orange"
         ],
         "tone": [
@@ -167,7 +167,7 @@
         "neutral": "charcoal"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "orange"
         ],
         "tone": [
@@ -184,7 +184,7 @@
         "neutral": "beige"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "yellow"
         ],
         "tone": [
@@ -202,7 +202,7 @@
         "neutral": "cream"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "yellow"
         ],
         "tone": [
@@ -220,7 +220,7 @@
         "neutral": "white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "yellow"
         ],
         "tone": [
@@ -237,7 +237,7 @@
         "neutral": "black"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "yellow"
         ],
         "tone": [
@@ -254,7 +254,7 @@
         "neutral": "cream"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "green"
         ],
         "tone": [
@@ -272,7 +272,7 @@
         "neutral": "charcoal"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "green"
         ],
         "tone": [
@@ -290,7 +290,7 @@
         "neutral": "off-white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "green"
         ],
         "tone": [
@@ -308,7 +308,7 @@
         "neutral": "black"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "green"
         ],
         "tone": [
@@ -325,7 +325,7 @@
         "neutral": "cream"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "teal"
         ],
         "tone": [
@@ -343,7 +343,7 @@
         "neutral": "off-white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "teal"
         ],
         "tone": [
@@ -361,7 +361,7 @@
         "neutral": "white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "teal"
         ],
         "tone": [
@@ -378,7 +378,7 @@
         "neutral": "charcoal"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "teal"
         ],
         "tone": [
@@ -388,15 +388,15 @@
       }
     },
     {
-      "text": "navy, white and heather grey",
+      "text": "navy, white and heather gray",
       "tier": "typical",
       "roles": {
         "main": "navy",
         "accent": "white",
-        "neutral": "heather grey"
+        "neutral": "heather gray"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "blue"
         ],
         "tone": [
@@ -414,7 +414,7 @@
         "neutral": "cream"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "blue"
         ],
         "tone": [
@@ -432,7 +432,7 @@
         "neutral": "white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "blue"
         ],
         "tone": [
@@ -441,15 +441,15 @@
       }
     },
     {
-      "text": "slate blue, powder blue and blue-grey",
+      "text": "slate blue, powder blue and blue-gray",
       "tier": "plausible",
       "roles": {
         "main": "slate blue",
         "accent": "powder blue",
-        "neutral": "blue-grey"
+        "neutral": "blue-gray"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "blue"
         ],
         "tone": [
@@ -467,7 +467,7 @@
         "neutral": "charcoal"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "purple"
         ],
         "tone": [
@@ -485,7 +485,7 @@
         "neutral": "off-white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "purple"
         ],
         "tone": [
@@ -503,7 +503,7 @@
         "neutral": "white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "purple"
         ],
         "tone": [
@@ -512,15 +512,15 @@
       }
     },
     {
-      "text": "aubergine, mauve and grey",
+      "text": "aubergine, mauve and gray",
       "tier": "plausible",
       "roles": {
         "main": "aubergine",
         "accent": "mauve",
-        "neutral": "grey"
+        "neutral": "gray"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "purple"
         ],
         "tone": [
@@ -538,7 +538,7 @@
         "neutral": "cream"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "pink"
         ],
         "tone": [
@@ -555,7 +555,7 @@
         "neutral": "off-white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "pink"
         ],
         "tone": [
@@ -573,7 +573,7 @@
         "neutral": "black"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "pink"
         ],
         "tone": [
@@ -590,7 +590,7 @@
         "neutral": "charcoal"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "pink"
         ],
         "tone": [
@@ -607,7 +607,7 @@
         "neutral": "cream"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "brown"
         ],
         "tone": [
@@ -625,7 +625,7 @@
         "neutral": "beige"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "brown"
         ],
         "tone": [
@@ -643,7 +643,7 @@
         "neutral": "off-white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "brown"
         ],
         "tone": [
@@ -660,7 +660,7 @@
         "neutral": "tan"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "brown"
         ],
         "tone": [
@@ -679,7 +679,7 @@
         "neutral": "white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "beige"
         ],
         "tone": [
@@ -698,7 +698,7 @@
         "neutral": "cream"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "beige"
         ],
         "tone": [
@@ -717,7 +717,7 @@
         "neutral": "cream"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "beige"
         ],
         "tone": [
@@ -735,7 +735,7 @@
         "neutral": "off-white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "beige"
         ],
         "tone": [
@@ -745,15 +745,15 @@
       }
     },
     {
-      "text": "black, white and heather grey",
+      "text": "black, white and heather gray",
       "tier": "typical",
       "roles": {
         "main": "black",
         "accent": "white",
-        "neutral": "heather grey"
+        "neutral": "heather gray"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "black"
         ],
         "tone": [
@@ -770,7 +770,7 @@
         "neutral": "charcoal"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "black"
         ],
         "tone": [
@@ -780,15 +780,15 @@
       }
     },
     {
-      "text": "jet black, charcoal and slate grey",
+      "text": "jet black, charcoal and slate gray",
       "tier": "typical",
       "roles": {
         "main": "jet black",
         "accent": "charcoal",
-        "neutral": "slate grey"
+        "neutral": "slate gray"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "black"
         ],
         "tone": [
@@ -798,15 +798,15 @@
       }
     },
     {
-      "text": "black, neon green and grey",
+      "text": "black, neon green and gray",
       "tier": "unusual",
       "roles": {
         "main": "black",
         "accent": "neon green",
-        "neutral": "grey"
+        "neutral": "gray"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "black"
         ],
         "tone": [
@@ -815,15 +815,15 @@
       }
     },
     {
-      "text": "white, navy and grey",
+      "text": "white, navy and gray",
       "tier": "typical",
       "roles": {
         "main": "white",
         "accent": "navy",
-        "neutral": "grey"
+        "neutral": "gray"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "white"
         ],
         "tone": [
@@ -840,7 +840,7 @@
         "neutral": "off-white"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "white"
         ],
         "tone": [
@@ -858,7 +858,7 @@
         "neutral": "beige"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "white"
         ],
         "tone": [
@@ -876,7 +876,7 @@
         "neutral": "charcoal"
       },
       "tags": {
-        "colour_family": [
+        "color_family": [
           "white"
         ],
         "tone": [
@@ -885,16 +885,16 @@
       }
     },
     {
-      "text": "charcoal, white and heather grey",
+      "text": "charcoal, white and heather gray",
       "tier": "typical",
       "roles": {
         "main": "charcoal",
         "accent": "white",
-        "neutral": "heather grey"
+        "neutral": "heather gray"
       },
       "tags": {
-        "colour_family": [
-          "grey"
+        "color_family": [
+          "gray"
         ],
         "tone": [
           "dark",
@@ -904,16 +904,16 @@
       }
     },
     {
-      "text": "pearl grey, pale blue and off-white",
+      "text": "pearl gray, pale blue and off-white",
       "tier": "typical",
       "roles": {
-        "main": "pearl grey",
+        "main": "pearl gray",
         "accent": "pale blue",
         "neutral": "off-white"
       },
       "tags": {
-        "colour_family": [
-          "grey"
+        "color_family": [
+          "gray"
         ],
         "tone": [
           "light",
@@ -922,16 +922,16 @@
       }
     },
     {
-      "text": "slate grey, rust and cream",
+      "text": "slate gray, rust and cream",
       "tier": "typical",
       "roles": {
-        "main": "slate grey",
+        "main": "slate gray",
         "accent": "rust",
         "neutral": "cream"
       },
       "tags": {
-        "colour_family": [
-          "grey"
+        "color_family": [
+          "gray"
         ],
         "tone": [
           "muted",
@@ -940,16 +940,16 @@
       }
     },
     {
-      "text": "heather grey, silver grey and charcoal",
+      "text": "heather gray, silver gray and charcoal",
       "tier": "typical",
       "roles": {
-        "main": "heather grey",
-        "accent": "silver grey",
+        "main": "heather gray",
+        "accent": "silver gray",
         "neutral": "charcoal"
       },
       "tags": {
-        "colour_family": [
-          "grey"
+        "color_family": [
+          "gray"
         ],
         "tone": [
           "muted",

@@ -4,7 +4,7 @@
   "description": "Light emitted by fixtures inside the depicted scene: lamps, flames, screens and signs, indoors or outdoors; choose for a visible practical source.",
   "pos": "noun phrase",
   "frame": "lit by ___",
-  "notes": "Real fixtures, flames and screens belong here, including outdoor practicals such as street lamps. Natural owns sunlight and moonlight; studio owns photographic rigs; dramatic owns stylised colour and contrast effects rather than ordinary fixtures. Era tags describe source availability. Untagged values fit realistic contemporary sources. Flame sources span genres and eras; electric fixtures require electrical worlds, and gas and kerosene begin in the nineteenth century. Magical and speculative emitters are tagged by world.",
+  "notes": "Real fixtures, flames and screens belong here, including outdoor practicals such as street lamps. Natural owns sunlight and moonlight; studio owns photographic rigs; dramatic owns stylized color and contrast effects rather than ordinary fixtures. Era tags describe source availability. Untagged values fit realistic contemporary sources. Flame sources span genres and eras; electric fixtures require electrical worlds, and gas and kerosene begin in the nineteenth century. Magical and speculative emitters are tagged by world.",
   "facets": [
     "space",
     "era",

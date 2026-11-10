@@ -4,13 +4,13 @@
   "description": "The material or image-making process used to depict a scene.",
   "pos": "noun phrase",
   "frame": "rendered as ___",
-  "notes": "Media and physical making processes only; camera.film_look owns photographic grain and colour treatment, and interior style belongs to place leaves. Sculpture and craft values depict the scene as a made object. A cyanotype here means the actual print process rather than a simulated film look. Media do not constrain the era or genre of the depicted scene; no artist or studio names.",
+  "notes": "Media and physical making processes only; camera.film_look owns photographic grain and color treatment, and interior style belongs to place leaves. Sculpture and craft values depict the scene as a made object. A cyanotype here means the actual print process rather than a simulated film look. Media do not constrain the era or genre of the depicted scene; no artist or studio names.",
   "facets": [],
   "closed": false,
   "untagged": {},
   "values": [
     {
-      "text": "a watercolour painting",
+      "text": "a watercolor painting",
       "tier": "typical"
     },
     {
@@ -50,7 +50,7 @@
       "tier": "typical"
     },
     {
-      "text": "a coloured-pencil drawing",
+      "text": "a colored-pencil drawing",
       "tier": "typical"
     },
     {

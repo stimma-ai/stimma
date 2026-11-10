@@ -175,7 +175,7 @@ class TestDependencyRule:
         # derived text through a subscript only reaches the prompt: no pick depends on it
         'w = pick("w", ["rain", "sun"], phase=1)\nground = {"rain": "wet", "sun": "dry"}[w]\nemit(ground, w)\n',
         # a lookup that feeds a later phase's options
-        'w = pick("w", ["rain", "sun"], phase=1)\nL = {"rain": ["grey"], "sun": ["gold"]}\n'
+        'w = pick("w", ["rain", "sun"], phase=1)\nL = {"rain": ["gray"], "sun": ["gold"]}\n'
         'light = pick("light", L[w], phase=2)\nemit(w, light)\n',
         # a count from an earlier phase
         'n = pick("n", ["1", "2"], phase=1)\nfor i in range(group("p", int(n))):\n'
@@ -189,7 +189,7 @@ class TestDependencyRule:
          'uses pick\\("era"\\) \\(phase 1\\) in its by='),
         ('w = pick("weather", ["rain", "sun"], phase=2)\nif w == "rain":\n    u = pick("umbrella", ["a", "b"], phase=2)\nemit(w)\n',
          "in an if test above it"),
-        ('w = pick("weather", ["rain", "sun"], phase=1)\nL = {"rain": ["grey"], "sun": ["gold"]}\n'
+        ('w = pick("weather", ["rain", "sun"], phase=1)\nL = {"rain": ["gray"], "sun": ["gold"]}\n'
          'light = pick("light", L[w], phase=1)\nemit(w, light)\n', "in its options"),
         ('n = pick("n", ["1", "2"], phase=1)\nfor i in range(group("p", int(n))):\n'
          '    pick(f"p[{i+1}].hat", ["a cap", "a hat"], phase=1)\nemit("x", n)\n', "the loop around it"),
@@ -202,7 +202,7 @@ class TestDependencyRule:
         ('n = 1\nemit(pick("a", ["x"], phase=n))\n', "phase= must be a whole number"),
         ('emit(pick("a", ["x"], phase=1), pick("b", ["y"]))\n', 'pick\\("b"\\) needs phase='),
         ('emit(pick("a", about="her mood", phase=1))\n', "has no options"),
-        ('emit(pick("a", ["x"], phase=1, colour=1))\n', 'no argument "colour"'),
+        ('emit(pick("a", ["x"], phase=1, color=1))\n', 'no argument "color"'),
     ])
     def test_rejects(self, src, msg):
         with pytest.raises(ProgramError, match=msg):
@@ -282,12 +282,12 @@ class TestMasking:
             assert era not in text and ground not in text  # derived text is masked with its source
 
     def test_a_pick_inside_an_f_string_is_masked_in_place(self):
-        src = ('a = pick("animal", ["cat", "dog"], phase=1)\nc = pick("colour", ["red", "blue"], phase=2)\n'
+        src = ('a = pick("animal", ["cat", "dog"], phase=1)\nc = pick("color", ["red", "blue"], phase=2)\n'
                'emit(f"A {c} collar on a sleeping {a}.")\n')
-        assert fixed_text(src) == "A [Colour] collar on a sleeping [Animal]."
+        assert fixed_text(src) == "A [Color] collar on a sleeping [Animal]."
 
     def test_a_list_passed_to_emit_is_masked_once(self):
-        src = ('a = pick("animal", ["cat", "dog"], phase=1)\nc = pick("colour", ["red", "blue"], phase=2)\n'
+        src = ('a = pick("animal", ["cat", "dog"], phase=1)\nc = pick("color", ["red", "blue"], phase=2)\n'
                'emit("A", [a, c], "collar.")\n')
         text = fixed_text(src)  # no candidate leaks; the list is masked conservatively
         assert all(v not in text for v in ("cat", "dog", "red", "blue")) and text.startswith("A [Animal]")

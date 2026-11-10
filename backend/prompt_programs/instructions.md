@@ -81,7 +81,7 @@ phases drew; picks in the same phase are drawn without seeing each other.
   hairstyle after age, the dish after the city, the outfit after the season.
 - Picks that can't conflict share a phase.
 - **A pick that must fit a user list names it in its `about`**, with an f-string:
-  `about=f"what a {job} wears at the harbour"`. Each of the list's values then gets
+  `about=f"what a {job} wears at the harbor"`. Each of the list's values then gets
   options written for it (a chef gets whites, a diver a wetsuit). Its seeds must fit
   every value of the list. Name only the one or two lists it must fit. Fixed text must fit
   every value of every list: a phrase that only fits one value (a woodworking studio for a
@@ -100,7 +100,7 @@ phases drew; picks in the same phase are drawn without seeing each other.
    for as one complete prompt, with the detail, length and format the style guide asks for
    (tags if it says tags, shots if it says shots), fleshing out what the user left open.
    The user's own words go in as fixed text: their subject, what it does, the place, the
-   objects, colours and style they named. "a girl running in central park" keeps "a girl",
+   objects, colors and style they named. "a girl running in central park" keeps "a girl",
    "running" and "central park" in every image; you add detail around them, never instead
    of them. The look is the user's too: the medium, palette, light, time of day, lens and mood
    they named stay as written, and the program adds none, as text or as a pick, unless the
@@ -130,17 +130,17 @@ phases drew; picks in the same phase are drawn without seeing each other.
 4. **Add variety.** Add a pick (`added=True`, with a label) for each detail the prompt
    leaves open that changes the image: her outfit, the setting, the pose, her
    hair, her expression. Fewer when the user's lists already vary a lot. Never add a `param`.
-   A detail of a person that has a list (see Vocabulary: age, hair colour, hairstyle, eyes,
+   A detail of a person that has a list (see Vocabulary: age, hair color, hairstyle, eyes,
    expression, outfit, pose…) is a pick bound to that list with `cls=`, one list per pick:
-   hair is a colour pick and a hairstyle pick, not one "hair" pick.
+   hair is a color pick and a hairstyle pick, not one "hair" pick.
    **What the user stated stays in every image**: the subject ("a girl", "a dog", "a
    knight"), what it does ("running", "waving"), the weather ("in a snowstorm"), a place, a
-   colour, a blue frock, an owl on her shoulder. Their words stay in the text, and never
+   color, a blue frock, an owl on her shoulder. Their words stay in the text, and never
    write a pick whose options would change or drop them: no `pick("girl", ...)` seeded "a
    young woman with auburn hair" for "a girl", no `pick("action", ...)` for "running". A
    pick stands beside their words: `emit("A girl with", hair, ", running through central
    park.")`. Only a pick with `said=` may stand in their words' place: a named thing (a breed,
-   a car, a dish, a garment, a place, a colour) they could want other choices for, emitted
+   a car, a dish, a garment, a place, a color) they could want other choices for, emitted
    where their words stood: `emit("A", dog, "on the beach")` with
    `dog = pick("dog", said="husky", about="the dog", seed=["border collie"], label="Dog", phase=1)`.
    When their words name a kind of a listed detail rather than one value ("young",
@@ -161,7 +161,7 @@ phases drew; picks in the same phase are drawn without seeing each other.
    character beside someone is a subject too, even with one detail (`dog.breed`, `cat.coat`,
    `horse.color`). A plain id (`street`,
    `weather`, `light`) is a detail of the whole scene. A detail of one person, their age,
-   descent, hair colour, hairstyle, build, expression, outfit, accessories and pose, is always
+   descent, hair color, hairstyle, build, expression, outfit, accessories and pose, is always
    drawn for each person on their own: a couple is two people, so `couple[1].ethnicity` and
    `couple[2].ethnicity`, never one `ethnicity` for both. Only when the user's words ask for
    the same for everyone ("identical twins", "matching outfits", "a team in the same uniform")
@@ -189,7 +189,7 @@ is emitted exactly as the user wrote it.
 Curated lists of options for details of people and animals. When a pick varies one of these details and
 the user said nothing specific about it, bind the pick to its list with `cls=`, and its
 options come from the list:
-`eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["hazel"], label="Eyes", phase=2, line=1)`.
+`eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["hazel"], label="Eyes", phase=2, line=1)`.
 Still write `about=` and a seed in the list's form.
 
 - Each list holds one kind of phrase, shown with where it fits. Write the words around it
@@ -197,20 +197,20 @@ Still write `about=` and a seed in the list's form.
   `emit("her", hair_length, hair_color, "hair in", hairstyle)`.
 - Bind only when the list covers the detail as the user means it. When the user was specific
   ("her grandmother's silver braid", "eyes like a winter sea"), write the pick without
-  `cls=`, or keep their words as fixed text. A list is a partial catalogue: most picks have
+  `cls=`, or keep their words as fixed text. A list is a partial catalog: most picks have
   no list, and that's fine.
 - A detail the user stated as one value stays fixed text: "a woman with emerald eyes and her
   hair in a braid" keeps "emerald eyes" and "in a braid" in every image, with no eye or
   hairstyle pick. A detail they stated as a kind, which leaves the list several values that
   fit, is a bound pick narrowed to their words, as below: "a young woman" gets an age pick
   drawn only from young ages; "in a yoga outfit" gets an outfit pick drawn only from yoga
-  looks; "long red hair" gets a hair colour pick drawn only from red shades.
+  looks; "long red hair" gets a hair color pick drawn only from red shades.
 - Some lists name their parts after "where:" in the list below. When the user's words narrow a
   listed detail and one of those parts says it, bind it with that part:
   `pick("age", cls="person.age_band", where={"life_stage": "young adult"}, ...)` for "a young
-  woman"; `where={"sport": "tennis", "colour_family": "red"}` on an outfit for "in red tennis
-  kit". An outfit's colours are drawn with it: never write a separate colour pick for an
-  outfit; a colour the user names goes in the outfit's `where=`.
+  woman"; `where={"sport": "tennis", "color_family": "red"}` on an outfit for "in red tennis
+  kit". An outfit's colors are drawn with it: never write a separate color pick for an
+  outfit; a color the user names goes in the outfit's `where=`.
 - When no named part says it, put the user's own words in `where=` instead, and only the
   list's values that fit them are drawn: "a woman in her late thirties" → `where="late
   thirties"` on her age; "a wistful girl" → `where="wistful"` on her expression. Their words stay in
@@ -286,7 +286,7 @@ Program:
 role = pick("role", ["knight", "pirate"], label="Role", source="list", phase=1, line=1)
 clothes = pick("clothes", ["armor", "greatcoat"], label="Clothes", source="list", phase=2, line=1)
 face = pick("face", about=f"the face of a {role} lost in a book", seed=[
-    "a weathered face with a short grey beard"], label="Face", phase=2, added=True)
+    "a weathered face with a short gray beard"], label="Face", phase=2, added=True)
 sill = pick("sill", about=f"what lies on the window sill beside a {role}", seed=[
     "a stack of worn books and a guttered candle"], label="Window sill", phase=2, added=True)
 emit("A", role, "in his", clothes, ", with", face, ", reading a book by a window. On the sill:", sill, ".")
@@ -301,7 +301,7 @@ Example. User's prompt:
 ```
 Program:
 ```python
-hair_color = pick("hair_color", cls="person.hair_color", about="the girl's hair colour", seed=["auburn"],
+hair_color = pick("hair_color", cls="person.hair_color", about="the girl's hair color", seed=["auburn"],
     label="Hair color", phase=1, added=True)
 hairstyle = pick("hairstyle", cls="person.hairstyle", about="the girl's hairstyle", seed=["a loose side braid"],
     label="Hairstyle", phase=1, added=True)
@@ -328,7 +328,7 @@ for i in range(friends):
         label="Age", phase=1, added=True)
     eth = pick(f"friends[{i+1}].ethnicity", cls="person.ethnicity", about="this friend's descent", seed=["Korean"],
         label="Ethnicity", phase=1, added=True)
-    hair = pick(f"friends[{i+1}].hair_color", cls="person.hair_color", about="this friend's hair colour", seed=["black"],
+    hair = pick(f"friends[{i+1}].hair_color", cls="person.hair_color", about="this friend's hair color", seed=["black"],
         label="Hair color", phase=2, added=True)
     emit("a", age, eth, "friend with", hair, "hair;")
 roof = pick("roof", about="what else is on a city rooftop", seed=["folding chairs and a water tower"],
@@ -347,7 +347,7 @@ Program:
 fisherman_beard = pick("fisherman.facial_hair", cls="person.facial_hair", about="the fisherman's beard",
     seed=["light stubble"], label="Beard", phase=1, added=True)
 fisherman_coat = pick("fisherman.outfit", cls="person.outfit.cold_weather", about="what the fisherman wears on the pier",
-    seed=["a yellow oilskin jacket over a grey sweater"], label="Outfit", phase=1, added=True)
+    seed=["a yellow oilskin jacket over a gray sweater"], label="Outfit", phase=1, added=True)
 dog_breed = pick("dog.breed", cls="animal.dog_breed", about="the fisherman's dog", seed=["Border Collie"],
     label="Breed", phase=1, added=True)
 dog_pose = pick("dog.pose", about="what the dog is doing on the pier", seed=["sitting at his feet"],
@@ -361,4 +361,5 @@ Two subjects: every pick of the fisherman's is `fisherman.…` and the dog's is 
 shows under its own name. "old" is the user's, so there is no age pick. The boats belong to the
 scene: a plain id.
 
-Use US English for UI labels (for example, "Hair color", and "Colors" for an outfit's colours).
+Use US English spelling everywhere: labels, abouts, seeds and text (for example, "Hair color", "gray",
+"Colors" for an outfit's colors).

@@ -29,6 +29,7 @@ test('cycles and missing dependencies stay shared; no empty subjects are invente
 test('UI labels use US color spelling without changing ids or option text', () => {
   assert.equal(programLabel('Hair colour'), 'Hair color')
   assert.equal(programLabel('Colours'), 'Colors')
+  assert.equal(programLabel('Colors'), 'Colors')
   const people = [{ id: 'people', label: 'People', count: 3, source: 'text' }]
   assert.deepEqual(programSections([pick('x', { group: 'people', index: 3 }), pick('y', { group: 'people', index: 1 })], people).map(s => s.label), ['Person 1', 'Person 3'])
 })
@@ -41,17 +42,17 @@ test('the payload decides: scene first, then shared, then each subject in declar
     pick('place'),
     pick('friends[2].age', { group: 'friends', index: 2 }),
     pick('outfit', { shared: true }),
-    pick('outfit.colours', { follows: 'outfit' }),
+    pick('outfit.colors', { follows: 'outfit' }),
     pick('friends[1].age', { group: 'friends', index: 1 }),
     pick('woman.outfit', { group: 'woman' }),
-    pick('woman.outfit.colours', { group: 'woman' }),
+    pick('woman.outfit.colors', { group: 'woman' }),
   ], [{ id: 'friends', label: 'Friends', count: 2, source: 'text' }, { id: 'woman', label: 'Woman', count: 1, source: 'added' }])
   assert.deepEqual(shape(sections), [
     ['scene', '', ['place']],
-    ['shared', 'Shared', ['outfit', 'outfit.colours']],
+    ['shared', 'Shared', ['outfit', 'outfit.colors']],
     ['subject', 'Friend 1', ['friends[1].age']],
     ['subject', 'Friend 2', ['friends[2].age']],
-    ['subject', 'Woman', ['woman.hairstyle', 'woman.outfit', 'woman.outfit.colours']],
+    ['subject', 'Woman', ['woman.hairstyle', 'woman.outfit', 'woman.outfit.colors']],
   ])
 })
 
@@ -69,13 +70,14 @@ test('a partly grouped program shows its plain details with the scene, never und
 
 test('programs prepared before choices carried subjects are grouped by their ids', () => {
   const sections = programSections([
-    pick('woman1.age'), pick('woman1.outfit'), pick('woman1.outfit.colours'), pick('woman2.age'), pick('cafe'), pick('outfit.colours'),
+    pick('woman1.age'), pick('woman1.outfit'), pick('woman1.outfit.colors'), pick('woman2.age'), pick('cafe'), pick('outfit.colors'),
   ], [])
-  assert.deepEqual(shape(sections), [['scene', '', ['cafe', 'outfit.colours']], ['subject', 'Woman 1', ['woman1.age', 'woman1.outfit', 'woman1.outfit.colours']], ['subject', 'Woman 2', ['woman2.age']]])
+  assert.deepEqual(shape(sections), [['scene', '', ['cafe', 'outfit.colors']], ['subject', 'Woman 1', ['woman1.age', 'woman1.outfit', 'woman1.outfit.colors']], ['subject', 'Woman 2', ['woman2.age']]])
   assert.deepEqual(subjectOfId('mother.outfit'), { group: 'mother' })
-  assert.deepEqual(subjectOfId('friends[2].outfit.colours'), { group: 'friends', index: 2 })
+  assert.deepEqual(subjectOfId('friends[2].outfit.colors'), { group: 'friends', index: 2 })
   assert.deepEqual(subjectOfId('woman_2.hair'), { group: 'woman', index: 2 })
-  assert.equal(subjectOfId('outfit.colours'), null)
+  assert.equal(subjectOfId('outfit.colors'), null)
+  assert.equal(subjectOfId('outfit.colours'), null)  // an id recorded before the US spelling
   assert.equal(subjectOfId('param.steps'), null)
   assert.equal(subjectOfId('weather'), null)
 })

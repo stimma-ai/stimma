@@ -1,7 +1,7 @@
 {
   "id": "person.facial_hair",
   "label": "Facial hair",
-  "description": "The shape and grooming of a beard, moustache or stubble.",
+  "description": "The shape and grooming of a beard, mustache or stubble.",
   "pos": "noun phrase",
   "frame": "a person with ___",
   "notes": "Facial hair only; scalp hair belongs to person.hair_color, person.hair_length_texture and person.hairstyle. Shapes may include density and grooming needed to distinguish them. Values do not imply descent. Age tags exclude children; lighter growth and some grooming styles also allow teens, while developed beards are limited to adults and elders. The masculine presentation default is a visual styling filter, not a restriction on gender identity; the writer may override the subject wording. Includes a clean-shaven face, so a bound facial-hair pick can draw no facial hair (children, teens, most adults).",
@@ -65,7 +65,7 @@
       }
     },
     {
-      "text": "a full moustache",
+      "text": "a full mustache",
       "tier": "typical",
       "tags": {
         "age": [
@@ -167,7 +167,7 @@
       }
     },
     {
-      "text": "a moustache and soul patch",
+      "text": "a mustache and soul patch",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -178,7 +178,7 @@
       }
     },
     {
-      "text": "a pencil moustache",
+      "text": "a pencil mustache",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -189,7 +189,7 @@
       }
     },
     {
-      "text": "a chevron moustache",
+      "text": "a chevron mustache",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -199,7 +199,7 @@
       }
     },
     {
-      "text": "a handlebar moustache",
+      "text": "a handlebar mustache",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -209,7 +209,7 @@
       }
     },
     {
-      "text": "a horseshoe moustache",
+      "text": "a horseshoe mustache",
       "tier": "plausible",
       "tags": {
         "age": [
@@ -219,7 +219,7 @@
       }
     },
     {
-      "text": "a walrus moustache",
+      "text": "a walrus mustache",
       "tier": "plausible",
       "tags": {
         "age": [

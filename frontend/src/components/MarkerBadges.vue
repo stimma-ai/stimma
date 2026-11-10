@@ -1,6 +1,6 @@
 <template>
   <!-- Display-only markers on a tile: the shared black-glass chip, each glyph
-       in its marker's colour (see TileMarkers). -->
+       in its marker's color (see TileMarkers). -->
   <TileMarkers :markers="markers" :class="small ? '!h-4 !px-1 !gap-1' : ''" />
 </template>
 

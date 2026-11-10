@@ -22,7 +22,8 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from core.logging import get_logger
 from prompt_programs.runtime import (
-    LoraInfo, ProgramError, RunResult, check, discover, extract_code, run, tidy_text,
+    COLORS, LoraInfo, ProgramError, RunResult, check, current_keys, current_revision, discover, extract_code, run,
+    tidy_text,
 )
 from prompt_programs.draws import DrawAborted, analyze, draw, uses_draws
 from prompt_programs.store import ProgramStore, program_key
@@ -112,10 +113,10 @@ def writer_failure(e: BaseException) -> Optional[Exception]:
     return None
 
 
-# The vocabulary's catalogue (the lists a pick may bind to with cls=) is part of the
+# The vocabulary's catalog (the lists a pick may bind to with cls=) is part of the
 # instructions; the key carries a hash of them (with the style note and the model's guide).
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8").replace(
-    "{vocabulary}", vocabulary().catalogue())
+    "{vocabulary}", vocabulary().catalog())
 
 
 
@@ -1337,7 +1338,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
                 block(f'Don\'t emit instruction lines ("{ln[:50]}"). They are for you, not the image model.')
                 break
     missing: Dict[str, str] = {}
-    # a palette pick (a template's Colours) reaches the prompt as the colours it fills in, never by its name
+    # a palette pick (a template's Colors) reaches the prompt as the colors it fills in, never by its name
     palettes = {lf.slots for lf in vocabulary().leaves.values() if lf.slots}
     for r in samples:  # a choice that never reaches the prompt does nothing
         text = r.prompt.lower()
@@ -1583,7 +1584,7 @@ def _shared_person_details(info: Dict[str, Any], source: str = "") -> List[str]:
     shared = [str(c["id"]) for c in choices
               if c.get("kind") == "pick" and getattr(vocab.get(c.get("cls")), "individual", False)
               and str(c.get("cls")) not in palettes and subject_of(str(c.get("id"))) is None
-              and not str(c.get("id")).endswith(".colours") and not c.get("shared")
+              and not str(c.get("id")).endswith(COLORS) and not c.get("shared")
               # the user's own words for one thing they named: never split per subject (said.py)
               and not c.get("said")]
     many = any(int(g.get("count") or 0) >= 2 for g in info.get("groups") or []) or len(subjects) >= 1
@@ -2777,6 +2778,8 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
     loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
     if not triggers:  # the prompt menu's "Trigger words" is off: a picked LoRA adds none
         loras = [LoraInfo(lo.name, lo.path, lo.weight, "") for lo in loras]
+    # what an older build recorded names a look's Colors ".colours": read under today's ids
+    pins, fixed, edits, revision = current_keys(pins), current_keys(fixed), current_keys(edits), current_revision(revision)
     clean_pins = {str(k): [str(x) for x in (v if isinstance(v, list) else [v])] for k, v in (pins or {}).items() if v}
     clean_edits = {str(k): v for k, v in (edits or {}).items() if isinstance(v, dict)}
     params = set(entry.get("params") or {}) or None

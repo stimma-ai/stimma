@@ -4,7 +4,7 @@
   "description": "Iris colors, with supernatural colors separated from realistic eyes.",
   "pos": "adjective",
   "frame": "___ eyes",
-  "notes": "Iris color only; expressions and eye shape belong to other person leaves. Common color variations stay realistic; crimson and luminous colors use genre filters. Bare silver means a fantastical metallic iris, while gray is realistic. Natural colours carry an eye_family; drawn after a person's descent, families the descent gives as less common are drawn less often (weight x0.25), and families outside both are rare (weight x0.03), never excluded. Genre colours are untagged and fit everyone.",
+  "notes": "Iris color only; expressions and eye shape belong to other person leaves. Common color variations stay realistic; crimson and luminous colors use genre filters. Bare silver means a fantastical metallic iris, while gray is realistic. Natural colors carry an eye_family; drawn after a person's descent, families the descent gives as less common are drawn less often (weight x0.25), and families outside both are rare (weight x0.03), never excluded. Genre colors are untagged and fit everyone.",
   "facets": [
     "genre"
   ],
@@ -75,7 +75,7 @@
       "tier": "plausible",
       "tags": {
         "shade": [
-          "grey"
+          "gray"
         ],
         "eye_family": [
           "light"
@@ -112,7 +112,7 @@
       "tags": {
         "shade": [
           "blue",
-          "grey"
+          "gray"
         ],
         "eye_family": [
           "light"
@@ -124,7 +124,7 @@
       "tier": "plausible",
       "tags": {
         "shade": [
-          "grey",
+          "gray",
           "green"
         ],
         "eye_family": [
@@ -289,7 +289,7 @@
       "hazel",
       "blue",
       "green",
-      "grey",
+      "gray",
       "amber",
       "unusual"
     ]

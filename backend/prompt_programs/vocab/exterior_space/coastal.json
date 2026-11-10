@@ -1,7 +1,7 @@
 {
   "id": "exterior_space.coastal",
   "label": "Coastal",
-  "description": "Sea edges, beaches, tidal shores, harbours and waterfronts; choose landscape for inland wilderness and urban_spot for an industrial urban quay.",
+  "description": "Sea edges, beaches, tidal shores, harbors and waterfronts; choose landscape for inland wilderness and urban_spot for an industrial urban quay.",
   "pos": "noun phrase",
   "frame": "the setting is ___",
   "notes": "Sea beaches, cliffs, tidal habitats, and coastal harbor edges belong here; inland lakes belong to landscape, urban canal infrastructure to urban_spot, and seaside village centers to countryside. Genre and era are unrestricted for untagged natural shorelines because they fit any world or period. Built harbor edges, bathing huts, concrete defenses, and speculative coasts carry explicit era and genre restrictions; historic infrastructure can survive into later eras. The noun-predicate frame accommodates valleys, shores, roads and platforms; choose an appropriate in/on/at preposition when composing a different sentence.",

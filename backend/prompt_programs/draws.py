@@ -14,7 +14,7 @@ above it, a subscript, a loop count, its options) must sit in a strictly earlier
 runs.
 
 Context (vocab.py): a bound pick whose list takes a context facet is drawn after the bound
-picks in its scope whose lists give it (a person's descent before their hair colour, the
+picks in its scope whose lists give it (a person's descent before their hair color, the
 time of day before the light). `analyze()` orders them from the vocabulary's declarations,
 moving a taker to a later phase when the writer put it before its giver; the writer never
 has to. Each taker's pool is then weighted by what its givers drew (`_Exec._given`).
@@ -40,7 +40,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, FrozenSet, List, Optional, Protocol, Sequence, Set, Tuple
 
 from prompt_programs.runtime import (
-    RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _Runner, LoraName, _as_list,
+    COLORS, COLORS_ABOUT, RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _Runner, LoraName, _as_list,
     _label_from_id, _lora_key, check, compile_program, execute, flatten_parts, holds_said, lora_names, said_value,
     subject_of, tidy_text,
 )
@@ -112,8 +112,8 @@ class Site:
 def person_of(cid: str) -> str:
     """Whose detail a pick is, as the id names its subject (runtime.subject_of, the one rule
     the choices row, validation, the age policy and context all read): `friends[2].age` and
-    `friends[2].outfit.colours` are friends[2]'s, `woman1.hair` woman1's, `man.outfit` the
-    man's. A plain id (`outfit`, `outfit.colours`) names no subject: "" — the image's one
+    `friends[2].outfit.colors` are friends[2]'s, `woman1.hair` woman1's, `man.outfit` the
+    man's. A plain id (`outfit`, `outfit.colors`) names no subject: "" — the image's one
     subject, or with several a detail shared by all of them (shared=True), so a person's
     policies read "" as theirs too (`owns`). A loop's id (`friends[{}].age`) names its member."""
     cid = str(cid)
@@ -675,7 +675,7 @@ class Pool:
     weights: List[float]
     more_coming: bool = False
     snapshot: bool = False       # a revision records the whole pool (vocabulary lists change between versions)
-    roles: Dict[str, Dict[str, str]] = field(default_factory=dict)   # a palette pool: each scheme's colours
+    roles: Dict[str, Dict[str, str]] = field(default_factory=dict)   # a palette pool: each scheme's colors
 
 
 def pool_key(spec: PickSpec, context: Dict[str, Any]) -> str:
@@ -694,7 +694,7 @@ class OptionsService(Protocol):
 class LiteralOptions:
     """Pools from the program itself: seeds first, then its option literals, then the
     user's edits (removals stay removed: an emptied pool is empty, never restored). A pick
-    the program writes no values for (a template's Colours, added by the engine) draws from
+    the program writes no values for (a template's Colors, added by the engine) draws from
     its list, restricted as the template says (opt-in values at weight 0, see vocab.py)."""
 
     def __init__(self, edits: Optional[Dict[str, Dict[str, Any]]] = None):
@@ -961,11 +961,11 @@ class _Exec(_Runner):
             self._unfill_kept(cid, leaf)
         eligible = self._eligible(cid, spec, context, exclude)
         value, pinned = self._settle(cid, site, spec, eligible, context)
-        colours = None
-        # Only a look with colour slots draws Colours: a fixed-colour template ("a white karate gi")
-        # or a generated option (written with its colours) has none to fill.
+        colors = None
+        # Only a look with color slots draws Colors: a fixed-color template ("a white karate gi")
+        # or a generated option (written with its colors) has none to fill.
         if leaf is not None and leaf.slots and vocabulary().get(leaf.slots) is not None and is_template(str(value)):
-            colours = self._palette(cid, site, spec, leaf, value, source, line, hidden)
+            colors = self._palette(cid, site, spec, leaf, value, source, line, hidden)
             value = fill(str(value), self.eng.roles.get(cid))  # the image model reads the filled look
         elif isinstance(value, str) and "{" in value:  # a replayed template whose list is gone: never show slots
             value = fill(value, None)
@@ -974,8 +974,8 @@ class _Exec(_Runner):
         d.where = where if isinstance(where, dict) else (str(where).strip() if isinstance(where, str) else "")
         d.shared = bool(shared)
         self._record(d)
-        if colours is not None:
-            self._record(colours)
+        if colors is not None:
+            self._record(colors)
         return value
 
     def _unfill_kept(self, cid: str, leaf: Any) -> None:
@@ -984,7 +984,7 @@ class _Exec(_Runner):
         from, read with the kept palette, or any template it fits."""
         names = {v.text for v in leaf.values}
         palette = vocabulary().get(leaf.slots)
-        ccid = f"{cid}.colours"
+        ccid = cid + COLORS
         for fixed in (self.eng.fixed, self.fixed):
             kept = fixed.get(cid)
             if kept is None or str(kept) in names:
@@ -1004,23 +1004,23 @@ class _Exec(_Runner):
 
     def _palette(self, cid: str, site: Site, spec: PickSpec, leaf: Any, template: Any, source: str,
                  line: Optional[int], hidden: bool) -> Optional[Draw]:
-        """A template pick's colours: an ordinary pick of the palette list, drawn right after
+        """A template pick's colors: an ordinary pick of the palette list, drawn right after
         the template (same site and phase), restricted to the palettes the template allows.
         Records the palette's roles for the template's fill and returns its Draw."""
         palette = vocabulary().get(leaf.slots)
-        ccid = f"{cid}.colours"
-        if (self.eng.edits.get(ccid) or {}).get("off"):  # colours turned off: the look reads without them
+        ccid = cid + COLORS
+        if (self.eng.edits.get(ccid) or {}).get("off"):  # colors turned off: the look reads without them
             self.eng.roles[cid] = {}
             return None
         tv = leaf.value(str(template))
         restrict = tuple(sorted((str(f), tuple(str(x) for x in (w if isinstance(w, (list, tuple)) else [w])))
                                 for f, w in (tv.palette if tv is not None else {}).items()))
-        cspec = PickSpec(ccid, "Colors", f"the colours of {spec.about or spec.label}", site.phase, source, "pick",
+        cspec = PickSpec(ccid, "Colors", COLORS_ABOUT.format(spec.about or spec.label), site.phase, source, "pick",
                          [], [], palette.id, restrict)
         eligible = self._eligible(ccid, cspec, {}, None)
         value, pinned = self._settle(ccid, site, cspec, eligible, {})
         pv = palette.value(str(value))
-        recorded = self.eng.pool_roles.get(ccid, {}).get(str(value))  # a replay's colours, as they were drawn
+        recorded = self.eng.pool_roles.get(ccid, {}).get(str(value))  # a replay's colors, as they were drawn
         self.eng.roles[cid] = dict(recorded or (pv.roles if pv is not None else {}))
         d = Draw(ccid, value, "pick", "Colors", source, line, bool(hidden), pinned, [o for o, _ in eligible], cid)
         d.phase, d.about, d.cls = site.phase, cspec.about, palette.id

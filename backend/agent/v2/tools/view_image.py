@@ -286,7 +286,7 @@ async def view_image(path: str = None, media_id: int = None, detail: str = None,
             "size": [w, h],
             "detail": detail,
             "media_type": "image/jpeg",
-            "note": "Transparent areas show as a grey checkerboard, not as artwork.",
+            "note": "Transparent areas show as a gray checkerboard, not as artwork.",
         }
         if workspace_svg:
             result_data["svg_source"] = workspace_svg

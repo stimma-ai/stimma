@@ -39,7 +39,7 @@ interface Props {
   breadcrumb?: string
   // `inline` — lives in a row's trailing action cluster alongside the rerun
   //   button. Always rendered.
-  // `row` — same slot as `inline`, drawn in the quiet tertiary colour at rest
+  // `row` — same slot as `inline`, drawn in the quiet tertiary color at rest
   //   and raised to full contrast on hover; an attached reference is filled.
   // `tile` — absolute-positioned corner button for iteration tiles. Hidden
   //   until the tile is hovered; filled-blue persists once attached.

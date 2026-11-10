@@ -181,7 +181,7 @@ const props = defineProps<{
       as a quiet small value that inherits the secondary/hover color instead
       of the bold bright settings-page treatment. */
   quiet?: boolean
-  /** Secondary-weight label for a toolbar value (a sort order): regular weight, secondary colour. */
+  /** Secondary-weight label for a toolbar value (a sort order): regular weight, secondary color. */
   secondary?: boolean
   hideTriggerDetails?: boolean
   /** Show a status dot: this value was set on this screen, not inherited. */

@@ -1,6 +1,6 @@
 {
   "id": "animal",
   "label": "Animals",
-  "description": "Animal kinds, cat coat patterns and dog breeds, independent of behaviour or pose.",
+  "description": "Animal kinds, cat coat patterns and dog breeds, independent of behavior or pose.",
   "individual": true
 }

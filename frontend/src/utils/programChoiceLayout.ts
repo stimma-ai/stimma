@@ -24,7 +24,8 @@ export interface ProgramSection {
 /** Whose detail an id names, the way the backend reads it (runtime.subject_of): for programs
  * prepared before choices carried their subject. friends[2].age, woman1.hair, mother.outfit. */
 export function subjectOfId(id: string): { group: string; index?: number } | null {
-  if (id.startsWith('param.') || (id.endsWith('.colours') && id.split('.').length === 2)) return null
+  // A look's Colors ('.colours' in records made before the US spelling)
+  if (id.startsWith('param.') || (/\.colou?rs$/.test(id) && id.split('.').length === 2)) return null
   const m = /^([A-Za-z_][A-Za-z0-9_]*?)(?:_?(\d+))?(?:\[(\d+)\])?\.[A-Za-z_]/.exec(id)
   if (!m) return null
   const [, name, num, index] = m
@@ -37,7 +38,7 @@ export function subjectOfId(id: string): { group: string; index?: number } | nul
  * The choices row's sections: the scene's details first (no header), then details every
  * subject shares ("Shared"), then one section per subject ("Friend 1", "Mother"), in the
  * order the program declares its groups and then meets its subjects, numbered ones by number.
- * Dependent controls (a look's colours) inherit their subject's section. With fewer than two
+ * Dependent controls (a look's colors) inherit their subject's section. With fewer than two
  * subjects there are no headers: everything is one plain section. Within a section, choices
  * that hold the user's own words (`said`) follow the ones that vary.
  */

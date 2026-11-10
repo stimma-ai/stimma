@@ -413,7 +413,7 @@ function buttonClass(active: boolean, enabled = true) {
          in the selection color and hands the pointer back on tap. -->
     <div class="flex items-center gap-1.5">
       <!-- The 44px target is the button; the chip inside is the quiet matte control. Selection
-           state alone wears the selection colour; viewing chips stay neutral. -->
+           state alone wears the selection color; viewing chips stay neutral. -->
       <button
         type="button"
         class="group flex min-h-11 min-w-11 items-center justify-start focus-visible:outline-none"

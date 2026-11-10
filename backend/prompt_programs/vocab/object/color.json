@@ -1,10 +1,10 @@
 {
-  "id": "object.colour",
-  "label": "Object colour",
-  "description": "the surface colour of an object, independent of its material or pattern",
+  "id": "object.color",
+  "label": "Object color",
+  "description": "the surface color of an object, independent of its material or pattern",
   "pos": "adjective",
   "frame": "a ___ mug",
-  "notes": "Colour adjectives only; metallic names specify colour, not construction. Modifiers keep every value grammatical after the frame’s fixed article. object.material owns substance and object.pattern owns motifs.",
+  "notes": "Color adjectives only; metallic names specify color, not construction. Modifiers keep every value grammatical after the frame’s fixed article. object.material owns substance and object.pattern owns motifs.",
   "facets": [],
   "closed": true,
   "local_facets": {
@@ -311,7 +311,7 @@
       }
     },
     {
-      "text": "grey",
+      "text": "gray",
       "tier": "typical",
       "tags": {
         "family": [
@@ -338,7 +338,7 @@
       }
     },
     {
-      "text": "charcoal grey",
+      "text": "charcoal gray",
       "tier": "plausible",
       "tags": {
         "family": [

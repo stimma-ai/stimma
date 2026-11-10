@@ -151,8 +151,8 @@ class TestTheMarkers:
         assert load((tmp_path / "v",)).version != vocabulary().version  # a marker change re-keys programs
 
     def test_person_of_scopes_a_pick_to_its_person(self):
-        assert person_of("friends[2].age") == "friends[2]" == person_of("friends[2].outfit.colours")
-        assert person_of("man.outfit") == "man" and person_of("outfit") == "" == person_of("outfit.colours")
+        assert person_of("friends[2].age") == "friends[2]" == person_of("friends[2].outfit.colors")
+        assert person_of("man.outfit") == "man" and person_of("outfit") == "" == person_of("outfit.colors")
 
 
 # --------------------------------------------------------------------------- rule 1: never unasked

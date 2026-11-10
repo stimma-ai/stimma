@@ -482,7 +482,7 @@ class TestFixInCode:
         src = ('people = group("people", 3, label="People", line=1)\n'
                'o1 = pick("o1", about="x", seed=["a coat"], phase=2, line=2, hidden=True)\n'
                'o2 = pick("o2", about="x", seed=["a dress"], phase=2,\n    line=2, added=True)\n'
-               'h = pick("h", about="x", seed=["grey hair"], phase=2, line=1, hidden=True)\n'
+               'h = pick("h", about="x", seed=["gray hair"], phase=2, line=1, hidden=True)\n'
                'emit("Three friends,", o1, o2, h)\n')
         out, notes = prep.fix_requested(src, "Three friends on a bench\n# vary their outfits")
         assert "group(" not in out and "hidden=True" in out.splitlines()[-2] and len(notes) == 3
@@ -525,7 +525,7 @@ class TestFixInCode:
     YOGA = (
         'ethnicity = pick("ethnicity", cls="person.ethnicity", about="the woman\'s ethnicity", seed=["Japanese"], label="Ethnicity", phase=1, line=1)\n'
         'age = pick("age", cls="person.age_band", where={"life_stage": "young adult"}, about="the woman\'s age", seed=["a young adult"], label="Age", phase=1, line=1)\n'
-        'hair_color = pick("hair_color", cls="person.hair_color", about="the woman\'s hair colour", seed=["black"], label="Hair colour", phase=1, added=True)\n'
+        'hair_color = pick("hair_color", cls="person.hair_color", about="the woman\'s hair color", seed=["black"], label="Hair color", phase=1, added=True)\n'
         'hair_style = pick("hair_style", cls="person.hairstyle", about="the woman\'s hairstyle", seed=["a sleek high ponytail"], label="Hairstyle", phase=1, added=True)\n'
         'expression = pick("expression", cls="person.expression", about="the woman\'s expression", seed=["a calm, focused expression"], label="Expression", phase=1, added=True)\n'
         'outfit = pick("outfit", cls="person.outfit.athletic", about="what she wears for yoga", seed=["a sage green ribbed yoga set"], label="Outfit", phase=2, line=1, where={"sport": "yoga"})\n'
@@ -539,10 +539,10 @@ class TestFixInCode:
         out, notes = prep.fix_written(self.YOGA, prompt, [])
         assert out == self.YOGA and notes == []
         checked = prep.validate(out, prompt, [], set(), "")
-        assert checked["problems"] == []  # the outfit's Colours fill its template: never "missing" by name
+        assert checked["problems"] == []  # the outfit's Colors fill its template: never "missing" by name
         info = checked["info"]
         assert {c["id"] for c in info["choices"]} == {"ethnicity", "age", "hair_color", "hair_style", "expression",
-                                                    "outfit", "outfit.colours", "pose", "setting"}
+                                                    "outfit", "outfit.colors", "pose", "setting"}
 
     def test_a_pick_the_writer_added_stays_added_whatever_the_prompt_says(self):
         prompt = "young woman in a yoga outfit"
@@ -577,8 +577,8 @@ class TestFixInCode:
                   .replace('    emit("a", eth,', '    eth = pick(f"couple[{i+1}].ethnicity", cls="person.ethnicity", about="this partner\'s descent", '
                            'seed=["Korean"], label="Ethnicity", phase=1, added=True)\n    emit("a", eth,')
         assert not any("no one, but" in p for p in prep.validate(own, "a couple dancing", [], set(), "")["problems"])
-        named = own.replace('couple = group', 'hair = pick("teacher.hair", cls="person.hair_color", about="the teacher\'s hair colour", '
-                            'seed=["black"], label="Hair colour", phase=1, added=True)\nemit("A teacher with", hair, "hair;")\ncouple = group')
+        named = own.replace('couple = group', 'hair = pick("teacher.hair", cls="person.hair_color", about="the teacher\'s hair color", '
+                            'seed=["black"], label="Hair color", phase=1, added=True)\nemit("A teacher with", hair, "hair;")\ncouple = group')
         assert not any("no one, but" in p for p in prep.validate(named, "a teacher and two students", [], set(), "")["problems"])
         assert not any("no one, but" in p for p in prep.validate(self.YOGA, "young woman in a yoga outfit", [], set(), "")["problems"])
         hand = ('eth = pick("eth", cls="person.ethnicity", about="their descent", seed=["Korean"], label="Ethnicity", phase=1, added=True)\n'

@@ -333,7 +333,7 @@ class TestPromptOwnsItsLoras:
         _apply_program_run(updated, record, {})
         assert [x["lora"] for x in updated["loras"]] == ["k/bobcut.safetensors"]
 
-    def test_records_without_the_list_keep_the_old_behaviour(self):
+    def test_records_without_the_list_keep_the_old_behavior(self):
         from routes.generation import _apply_program_run
         updated = {"prompt": "x", "loras": [{"lora": "k/bobcut.safetensors", "weight": 0.7}]}
         _apply_program_run(updated, {"key": "k", "loras": [{"path": "k/pixie.safetensors", "weight": 0.6}]}, {})

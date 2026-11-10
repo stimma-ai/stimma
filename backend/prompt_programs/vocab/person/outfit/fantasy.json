@@ -4,7 +4,7 @@
   "description": "Imaginary fantasy and fairy-tale wardrobes with concrete garment construction.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete invented outfits, including robes, dresses, layered travel clothes, and wearable armour. Period owns historical reconstruction; formal owns realistic ceremonial clothes; scifi owns technical speculative garments. Genre tags keep these out of realistic draws. Excludes weapons, carried gear, body traits, and scenery. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply dyed garment colours; metal armour, metallic threads and botanical materials retain intrinsic colours. Historical and rustic dyed looks use muted, earthy or monochrome schemes. Coverage describes garment extent.",
+  "notes": "Complete invented outfits, including robes, dresses, layered travel clothes, and wearable armor. Period owns historical reconstruction; formal owns realistic ceremonial clothes; scifi owns technical speculative garments. Genre tags keep these out of realistic draws. Excludes weapons, carried gear, body traits, and scenery. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply dyed garment colors; metal armor, metallic threads and botanical materials retain intrinsic colors. Historical and rustic dyed looks use muted, earthy or monochrome schemes. Coverage describes garment extent.",
   "facets": [
     "presentation",
     "age",
@@ -182,7 +182,7 @@
       }
     },
     {
-      "text": "a {main} leaf-panelled gown with a fitted {accent} linen bodice",
+      "text": "a {main} leaf-paneled gown with a fitted {accent} linen bodice",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -547,7 +547,7 @@
       }
     },
     {
-      "text": "a black feather-panelled mantle over a {main} ankle-length robe",
+      "text": "a black feather-paneled mantle over a {main} ankle-length robe",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1059,7 +1059,7 @@
       }
     },
     {
-      "text": "a suit of polished steel plate armour with articulated gauntlets and greaves",
+      "text": "a suit of polished steel plate armor with articulated gauntlets and greaves",
       "tier": "typical",
       "tags": {
         "genre": [

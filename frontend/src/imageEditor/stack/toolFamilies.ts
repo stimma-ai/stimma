@@ -272,7 +272,7 @@ export const SELECT_TOOLS: Array<{
     id: 'radial',
     label: 'Radial gradient',
     icon: 'gradientRadial',
-    hint: 'Radial gradient — drag out from the centre of the effect',
+    hint: 'Radial gradient — drag out from the center of the effect',
   },
 ]
 

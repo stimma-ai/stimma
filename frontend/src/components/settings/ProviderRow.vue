@@ -22,7 +22,7 @@ const props = withDefaults(defineProps<{
   dimmed?: boolean
   /** Ghost verb on the right ("Configure", "Sign in"). Wins over the status slot. */
   verb?: string
-  /** Colour class for the status slot's text. */
+  /** Color class for the status slot's text. */
   statusClass?: string
   /** The "Add" row: a medium-weight label, tertiary in the action hierarchy (neutral, never teal text). */
   accentIcon?: boolean

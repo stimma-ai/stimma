@@ -113,7 +113,7 @@ const menuOpen = ref(false)
 /** What the trigger calls the active server: a remote by name, the seat by role. */
 const activeLabel = computed(() => (isRemote.value ? activeDeviceName.value : THIS_MACHINE_LABEL))
 
-// Status colours are status-only per the design language: blue-500 is never
+// Status colors are status-only per the design language: blue-500 is never
 // an interactive accent, so it is the right token for "connected". Teal on
 // the local dot means "this install is serving", which is the one fact worth
 // showing without opening Settings.

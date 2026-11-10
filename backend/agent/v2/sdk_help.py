@@ -483,7 +483,7 @@ reference image itself is left out. ref is interpreted as in
 face_similarity.
 
 min_similarity defaults to the library's face-match setting (0.55 unless
-the user changed it), which favours precision. Pass about 0.35 to catch
+the user changed it), which favors precision. Pass about 0.35 to catch
 more varied shots of the person; different people rarely score above 0.2.
 If ref has no face the result has no matches and an "error".""",
         group="similarity",

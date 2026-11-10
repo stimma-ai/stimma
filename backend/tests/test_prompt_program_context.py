@@ -69,8 +69,8 @@ def shares(lid, facet, descent):
 
 
 ONE = '''
-hair = pick("hair", cls="person.hair_color", about="her hair colour", seed=["black"], label="Hair", phase=1, line=1)
-eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=2)
+hair = pick("hair", cls="person.hair_color", about="her hair color", seed=["black"], label="Hair", phase=1, line=1)
+eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=2)
 descent = pick("descent", cls="person.ethnicity", about="her descent", seed=["Korean"], label="Descent", phase=1, line=3)
 skin = pick("skin", cls="person.skin_tone", about="her skin", seed=["fair"], label="Skin", phase=1, line=4)
 emit("A", descent, "woman with", hair, "hair,", eyes, "eyes and", skin, "skin")
@@ -78,9 +78,9 @@ emit("A", descent, "woman with", hair, "hair,", eyes, "eyes and", skin, "skin")
 
 TWO = '''
 wd = pick("woman.descent", cls="person.ethnicity", about="her descent", seed=["Korean"], label="Descent", phase=1, line=1)
-wh = pick("woman.hair", cls="person.hair_color", about="her hair colour", seed=["black"], label="Hair", phase=2, line=2)
+wh = pick("woman.hair", cls="person.hair_color", about="her hair color", seed=["black"], label="Hair", phase=2, line=2)
 md = pick("man.descent", cls="person.ethnicity", about="his descent", seed=["Irish"], label="Descent", phase=1, line=3)
-mh = pick("man.hair", cls="person.hair_color", about="his hair colour", seed=["red"], label="Hair", phase=2, line=4)
+mh = pick("man.hair", cls="person.hair_color", about="his hair color", seed=["red"], label="Hair", phase=2, line=4)
 emit("A", wd, "woman with", wh, "hair and a", md, "man with", mh, "hair")
 '''
 
@@ -132,7 +132,7 @@ class TestTheData:
                     if less:   # a giver's less-common family needs every taker to say what it costs
                         assert f in lf.gives and all(f in t.less for t in v.leaves.values() if f in t.takes), f
 
-    def test_every_descent_has_colouring_families(self):
+    def test_every_descent_has_coloring_families(self):
         eth = V().get("person.ethnicity")
         assert set(eth.gives) == {"skin_family", "eye_family", "hair_family", "texture"} and eth.stated
         for x in eth.values:
@@ -141,8 +141,8 @@ class TestTheData:
             assert x.tags.get("region"), f"{x.text} has no region"
 
     def test_every_descent_is_in_a_declared_group_of_one_region(self):
-        """Colouring is declared per named group, and a group never lumps peoples of unrelated
-        regions together because their colouring coincides."""
+        """Coloring is declared per named group, and a group never lumps peoples of unrelated
+        regions together because their coloring coincides."""
         eth = V().get("person.ethnicity")
         members = collections.defaultdict(list)
         for x in eth.values:
@@ -163,7 +163,7 @@ class TestTheData:
         for d in ("Kazakh", "Uzbek", "Kyrgyz", "Turkmen", "Tajik"):
             assert eth.value(d).tags["region"] == ["central_asian"], d
 
-    def test_mixed_populations_favour_everything_on_purpose(self):
+    def test_mixed_populations_favor_everything_on_purpose(self):
         eth = V().get("person.ethnicity")
         for d in ("South African", "Brazilian"):
             x = eth.value(d)
@@ -173,7 +173,7 @@ class TestTheData:
 
 
 class TestTypicalLooks:
-    """A descent word means that heritage's typical look, with the range people would recognise."""
+    """A descent word means that heritage's typical look, with the range people would recognize."""
 
     def test_nordic_eyes_are_mostly_light_and_blonde_leads(self):
         for d in ("Swedish", "Norwegian", "Danish", "Finnish"):
@@ -198,14 +198,14 @@ class TestTypicalLooks:
 
     def test_red_hair_is_most_common_for_irish_scottish_welsh(self):
         eth = V().get("person.ethnicity")
-        base = shares("person.hair_color", "hair_family", "Brazilian")["red"]   # favours every family: the baseline
+        base = shares("person.hair_color", "hair_family", "Brazilian")["red"]   # favors every family: the baseline
         red = {x.text: shares("person.hair_color", "hair_family", x.text)["red"] for x in eth.values}
         for d in ("Irish", "Scottish", "Welsh"):
             assert base + 0.05 < red[d] < 0.5, (d, red[d], base)
             assert red[d] > max(r for o, r in red.items() if o not in ("Irish", "Scottish", "Welsh")), d
 
     def test_rare_keeps_every_mismatch_possible(self):
-        """Natural colouring is weighted, never excluded: each descent still draws some of
+        """Natural coloring is weighted, never excluded: each descent still draws some of
         every family, and no descent's mismatch share is above a few percent."""
         v, eth = V(), V().get("person.ethnicity")
         for lid, facet, cap in [("person.skin_tone", "skin_family", 0.03), ("person.eye_color", "eye_family", 0.05),
@@ -220,7 +220,7 @@ class TestTypicalLooks:
                 assert miss <= cap, (lid, d.text, miss)
 
     def test_untagged_values_keep_their_share(self):
-        """Grey, white and dyed hair are untagged: descent moves weight among natural shades only."""
+        """Gray, white and dyed hair are untagged: descent moves weight among natural shades only."""
         lf = V().get("person.hair_color")
         items = [(x.text, x.weight) for x in lf.pool_values()[0]]
         got = dict(lf.weigh(items, [("hair_family", ("black", "dark_brown"))]))
@@ -261,7 +261,7 @@ class TestOrdering:
 
 
 class TestWeighting:
-    def test_descent_weights_that_persons_colouring(self, tmp_path):
+    def test_descent_weights_that_persons_coloring(self, tmp_path):
         e = entry_of(ONE)
         miss = collections.Counter()
         n = 300
@@ -334,7 +334,7 @@ class TestTheUsersOwn:
 # --------------------------------------------------------------------------- stated and listed givers
 
 class TestStated:
-    def test_a_stated_descent_weights_the_colouring(self, tmp_path):
+    def test_a_stated_descent_weights_the_coloring(self, tmp_path):
         src = ONE.replace('descent = pick("descent", cls="person.ethnicity", about="her descent", seed=["Korean"], '
                           'label="Descent", phase=1, line=3)\n', '').replace('emit("A", descent,', 'emit("A Japanese",')
         e = entry_of(src, "a Japanese woman", stated_context=[{"of": "", "cls": "person.ethnicity", "values": ["Japanese"]}])
@@ -351,7 +351,7 @@ class TestStated:
 
     def test_a_users_list_value_gives_its_scope_context(self, tmp_path):
         src = ('descent = pick("descent", ["Japanese", "Irish"], source="list", label="Descent", phase=1, line=1)\n'
-               'eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=2)\n'
+               'eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=2)\n'
                'emit("A", descent, "woman with", eyes, "eyes")')
         e = entry_of(src, list_context={"descent": {"Japanese": {"person.ethnicity": ["Japanese"]},
                                                      "Irish": {"person.ethnicity": ["Irish"]}}})
@@ -387,7 +387,7 @@ class Ask:
 
 class TestNarrowing:
     async def test_the_prompts_descent_is_read_for_a_person_without_a_descent_pick(self, tmp_path):
-        src = ('eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=1)\n'
+        src = ('eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=1)\n'
                'emit("A Japanese woman with", eyes, "eyes")')
         e = entry_of(src, "a Japanese woman")
         ask = Ask(read={"stated_ethnicity": "Japanese woman"}, keep={"Japanese woman": ["Japanese"]})
@@ -396,7 +396,7 @@ class TestNarrowing:
         assert any(kind == "read" and "stated_ethnicity" in text for kind, text in ask.calls)
 
     async def test_words_that_keep_the_whole_list_say_nothing(self, tmp_path):
-        src = ('eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=1)\n'
+        src = ('eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=1)\n'
                'emit("A woman with", eyes, "eyes")')
         e = entry_of(src, "a woman")
         await narrow_entry(e, NarrowCache(tmp_path), Ask(read={"stated_ethnicity": "woman"}))
@@ -410,7 +410,7 @@ class TestNarrowing:
 
     async def test_a_users_list_values_are_read_on_the_descent_list(self, tmp_path):
         src = ('who = pick("who", ["Japanese", "in a red coat"], source="list", label="Who", phase=1, line=1)\n'
-               'eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["brown"], label="Eyes", phase=1, line=2)\n'
+               'eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=2)\n'
                'emit("A", who, "woman with", eyes, "eyes")')
         e = entry_of(src, "a {Japanese|in a red coat} woman")
         await narrow_entry(e, NarrowCache(tmp_path), Ask(keep={"Japanese": ["Japanese"]}))
@@ -471,7 +471,7 @@ class TestReplay:
             runtime_for(entry_of(ONE), store=OptionStore(tmp_path), cfg=OFF, revision={"context": "ctx-99", "pools": {}})
 
     def test_a_program_without_links_draws_as_before(self, tmp_path):
-        src = ('hair = pick("hair", cls="person.hair_color", about="her hair colour", seed=["black"], label="Hair", phase=1, line=1)\n'
+        src = ('hair = pick("hair", cls="person.hair_color", about="her hair color", seed=["black"], label="Hair", phase=1, line=1)\n'
                'emit("A woman with", hair, "hair")')
         e = entry_of(src)
         for seed in range(10):

@@ -4,7 +4,7 @@
   "description": "chairs, stools, benches and other single-person seating choices",
   "pos": "noun phrase",
   "frame": "sitting on ___",
-  "notes": "Complete seats with articles, spanning everyday utility, low-cost improvisation and ornate furniture. Enduring forms can appear as contemporary furniture; period-specific designs and speculative technology carry context tags. No fixed colours or designer names.",
+  "notes": "Complete seats with articles, spanning everyday utility, low-cost improvisation and ornate furniture. Enduring forms can appear as contemporary furniture; period-specific designs and speculative technology carry context tags. No fixed colors or designer names.",
   "facets": [
     "era",
     "genre",
@@ -42,7 +42,7 @@
       }
     },
     {
-      "text": "a moulded plastic chair",
+      "text": "a molded plastic chair",
       "tier": "typical",
       "tags": {
         "era": [

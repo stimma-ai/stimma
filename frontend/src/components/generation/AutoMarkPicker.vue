@@ -1,7 +1,7 @@
 <template>
   <div v-if="markers.length > 0" class="flex items-center gap-0.5">
     <!-- Quiet marker toggles (DESIGN.md §1.10): an outline glyph at rest; set =
-         the marker's own colour on the overlay backing, no outline. -->
+         the marker's own color on the overlay backing, no outline. -->
     <button
       v-for="marker in markers"
       :key="marker.id"

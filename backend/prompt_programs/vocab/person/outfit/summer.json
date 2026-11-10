@@ -4,7 +4,7 @@
   "description": "Lightweight hot-weather outfits, beach separates, and recreational swimwear.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete looks for heat, including swimwear described by garment construction. Casual owns year-round daily separates; athletic owns competitive swim and exercise clothing; sleep_lounge owns nightwear. Excludes bodies, tanning, props, and named locations. Palette roles coordinate garment colours; undyed linen and white thobes retain intrinsic colours. Coverage describes garment extent. Historical dyed looks use muted, earthy or light schemes.",
+  "notes": "Complete looks for heat, including swimwear described by garment construction. Casual owns year-round daily separates; athletic owns competitive swim and exercise clothing; sleep_lounge owns nightwear. Excludes bodies, tanning, props, and named locations. Palette roles coordinate garment colors; undyed linen and white thobes retain intrinsic colors. Coverage describes garment extent. Historical dyed looks use muted, earthy or light schemes.",
   "facets": [
     "presentation",
     "age",

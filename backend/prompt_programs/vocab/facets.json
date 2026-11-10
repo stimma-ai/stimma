@@ -143,7 +143,7 @@
      "hazel",
      "light"
     ],
-    "about": "broad natural eye-colour families: brown, hazel or amber, and light (blue, grey, green); on a descent value, the families typical of that heritage, for drawing"
+    "about": "broad natural eye-color families: brown, hazel or amber, and light (blue, gray, green); on a descent value, the families typical of that heritage, for drawing"
    },
    "hair_family": {
     "scope": "person",
@@ -154,7 +154,7 @@
      "blonde",
      "red"
     ],
-    "about": "broad natural hair-colour families; grey, white and dyed colours are untagged and fit everyone. On a descent value, the families typical of that heritage, for drawing"
+    "about": "broad natural hair-color families; gray, white and dyed colors are untagged and fit everyone. On a descent value, the families typical of that heritage, for drawing"
    },
    "texture": {
     "scope": "person",

@@ -1,5 +1,5 @@
 """Fluent vocabulary: curated lists picks bind to with cls=, their pools, the picker's
-view of them, the writer's catalogue, and article agreement in emitted text."""
+view of them, the writer's catalog, and article agreement in emitted text."""
 
 import pytest
 
@@ -15,7 +15,7 @@ from prompt_programs.vocab import OPEN_SHARE, TIER_WEIGHTS, load, vocabulary
 
 PORTRAIT = '''
 eth = pick("eth", cls="person.ethnicity", about="her ethnicity", seed=["Korean"], label="Ethnicity", phase=1, line=1)
-eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["hazel"], label="Eyes", phase=2, line=1)
+eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["hazel"], label="Eyes", phase=2, line=1)
 expr = pick("expr", cls="person.expression", about="her expression", seed=["a soft smile"], label="Expression", phase=2, line=1)
 emit("A portrait of a", eth, "woman with", eyes, "eyes and", expr, ".")
 '''
@@ -59,7 +59,7 @@ class TestTheVocabulary:
         leaf = vocabulary().get("person.eye_color")
         plain = {x.text for x in leaf.eligible()}
         fantasy = {x.text for x in leaf.eligible({"genre": "fantasy"})}
-        assert plain and fantasy - plain  # fantasy-only colours appear only in fantasy
+        assert plain and fantasy - plain  # fantasy-only colors appear only in fantasy
 
     def test_a_list_the_defaults_would_empty_keeps_its_own_world(self):
         v = vocabulary()
@@ -76,14 +76,14 @@ class TestTheVocabulary:
         a, b = leaf.examples("k"), leaf.examples("k")
         assert a == b and len(a) == 10 and len(set(a)) == 10 and leaf.examples("other") != a
 
-    def test_the_catalogue_lists_person_and_animal_ids_without_sample_values(self):
-        cat = vocabulary().catalogue()
+    def test_the_catalog_lists_person_and_animal_ids_without_sample_values(self):
+        cat = vocabulary().catalog()
         assert "- person.eye_color: adjective" in cat and "interior_space" not in cat
         assert "- animal.dog_breed: noun phrase" in cat and "- animal.cat_coat:" in cat
         assert "ginger tabby" not in cat
         assert "medium brown" not in cat  # no fixed samples (a shade name like "hazel" is a facet, not a sample)
 
-    def test_the_writer_reads_the_catalogue(self):
+    def test_the_writer_reads_the_catalog(self):
         assert "{vocabulary}" not in prep._INSTRUCTIONS and "person.eye_color" in prep._INSTRUCTIONS
 
     def test_a_leaf_defined_twice_is_an_error(self, tmp_path):
@@ -231,9 +231,9 @@ class TestBoundPools:
 
     def test_user_edits_apply(self, tmp_path):
         s = bound_spec("person.eye_color")
-        edits = {"x": {"remove": ["blue"], "add": ["silver-flecked grey"]}}
+        edits = {"x": {"remove": ["blue"], "add": ["silver-flecked gray"]}}
         pool = GeneratedOptions(OptionStore(tmp_path), program(), edits=edits).get(s, {})
-        assert "blue" not in pool.items and pool.items[-1] == "silver-flecked grey"
+        assert "blue" not in pool.items and pool.items[-1] == "silver-flecked gray"
 
 
 class TestThePicker:
@@ -278,7 +278,7 @@ from prompt_programs.narrow import NarrowCache, narrow_entry, parse_subset  # no
 
 YOUNG = '''
 age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24-year-old"], label="Age", phase=1, line=1)
-eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["hazel"], label="Eyes", phase=1, line=1)
+eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["hazel"], label="Eyes", phase=1, line=1)
 emit("A young", age, "woman with", eyes, "eyes.")
 '''
 
@@ -427,16 +427,16 @@ class TestWhere:
 
 from prompt_programs.vocab import _leaf, fill, tags_match, template_matches  # noqa: E402
 
-PALETTE = {"label": "Colours", "description": "a colour scheme", "pos": "colour scheme", "frame": "in ___",
+PALETTE = {"label": "Colors", "description": "a color scheme", "pos": "color scheme", "frame": "in ___",
            "facets": [], "closed": True,
-           "local_facets": {"colour_family": ["red", "blue", "black"], "tone": ["dark", "bright"]},
+           "local_facets": {"color_family": ["red", "blue", "black"], "tone": ["dark", "bright"]},
            "values": [
-               {"text": "red, white and grey", "tier": "typical", "roles": {"main": "red", "accent": "white", "neutral": "grey"},
-                "tags": {"colour_family": ["red"], "tone": ["bright"]}},
-               {"text": "navy, white and grey", "tier": "typical", "roles": {"main": "navy", "accent": "white", "neutral": "grey"},
-                "tags": {"colour_family": ["blue"], "tone": ["dark"]}},
-               {"text": "black, grey and white", "tier": "typical", "roles": {"main": "black", "accent": "grey", "neutral": "white"},
-                "tags": {"colour_family": ["black"], "tone": ["dark"]}}]}
+               {"text": "red, white and gray", "tier": "typical", "roles": {"main": "red", "accent": "white", "neutral": "gray"},
+                "tags": {"color_family": ["red"], "tone": ["bright"]}},
+               {"text": "navy, white and gray", "tier": "typical", "roles": {"main": "navy", "accent": "white", "neutral": "gray"},
+                "tags": {"color_family": ["blue"], "tone": ["dark"]}},
+               {"text": "black, gray and white", "tier": "typical", "roles": {"main": "black", "accent": "gray", "neutral": "white"},
+                "tags": {"color_family": ["black"], "tone": ["dark"]}}]}
 OUTFITS = {"label": "Test outfit", "description": "whole looks", "pos": "noun phrase", "frame": "wearing ___",
            "facets": [], "closed": True, "slots": "person.palette",
            "local_facets": {"sport": ["running", "formal"]},
@@ -492,21 +492,21 @@ class TestTemplates:
             got = {d.id: d for d in r.draws}
             outfit = got["outfit"]
             assert "{" not in r.prompt
-            if "karate gi" in outfit.value:  # a fixed-colour look draws no Colours
-                assert "outfit.colours" not in got
+            if "karate gi" in outfit.value:  # a fixed-color look draws no Colors
+                assert "outfit.colors" not in got
                 continue
-            colours = dressed.leaves["person.palette"].value(got["outfit.colours"].value)
+            colors = dressed.leaves["person.palette"].value(got["outfit.colors"].value)
             assert outfit.value in r.prompt and "{" not in outfit.value
             assert any(template_matches(t, outfit.value) for t in outfit.options)
             if "tuxedo" in outfit.value:  # its palette restriction: dark schemes only
-                assert "dark" in colours.tags["tone"]
-            assert got["outfit.colours"].cls == "person.palette"
-            assert got["outfit.colours"].label == "Colors"
+                assert "dark" in colors.tags["tone"]
+            assert got["outfit.colors"].cls == "person.palette"
+            assert got["outfit.colors"].label == "Colors"
 
-    def test_discovery_lists_the_colours_and_the_example_reads_filled(self, dressed):
+    def test_discovery_lists_the_colors_and_the_example_reads_filled(self, dressed):
         info = discover(DRESSED)
         by = {c["id"]: c for c in info["choices"]}
-        assert by["outfit"]["options"][0].startswith("a {main}") and by["outfit.colours"]["cls"] == "person.palette"
+        assert by["outfit"]["options"][0].startswith("a {main}") and by["outfit.colors"]["cls"] == "person.palette"
         assert "{" not in info["example"]
 
     def test_a_kept_filled_look_keeps_its_template_and_palette(self, dressed):
@@ -537,7 +537,7 @@ class TestTemplates:
         rt2 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision)
         assert draw(DRESSED, 5, None, [], None, None, None, options=rt2.options).prompt == first.prompt
 
-    def test_a_kept_look_alone_keeps_its_colours(self, dressed):
+    def test_a_kept_look_alone_keeps_its_colors(self, dressed):
         first = draw_dressed(4)
         look = next(d.value for d in first.draws if d.id == "outfit")
         for seed in range(6):
@@ -554,7 +554,7 @@ class TestTemplates:
         score_draw(spy, r, "a woman")
         assert "{" not in r.prompt and spy.items and not any("{" in it.state for it in spy.items)
 
-    def test_a_replay_keeps_its_colours_after_the_palette_changes(self, dressed, tmp_path, monkeypatch):
+    def test_a_replay_keeps_its_colors_after_the_palette_changes(self, dressed, tmp_path, monkeypatch):
         import dataclasses
         from prompt_programs.fluent import runtime_for
         entry = {"key": "d", "program": DRESSED, "loras": [], "params": {}, "mode": "prose",
@@ -562,24 +562,24 @@ class TestTemplates:
         rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
         first = draw(DRESSED, 5, None, [], None, None, None, options=rt.options)
         pal = dressed.leaves["person.palette"]
-        recoloured = tuple(dataclasses.replace(v, roles={k: "chartreuse" for k in v.roles}) for v in pal.values)
-        monkeypatch.setitem(dressed.leaves, "person.palette", dataclasses.replace(pal, values=recoloured))
+        recolored = tuple(dataclasses.replace(v, roles={k: "chartreuse" for k in v.roles}) for v in pal.values)
+        monkeypatch.setitem(dressed.leaves, "person.palette", dataclasses.replace(pal, values=recolored))
         rt2 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision)
         assert draw(DRESSED, 5, None, [], None, None, None, options=rt2.options).prompt == first.prompt
         monkeypatch.delitem(dressed.leaves, "person.outfit.test")  # the outfit list itself removed
         rt3 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision)
         assert "{" not in draw(DRESSED, 5, None, [], None, None, None, options=rt3.options).prompt
 
-    def test_colours_turned_off_leave_the_look_without_them(self, dressed):
-        edits = {"outfit.colours": {"off": True}}
+    def test_colors_turned_off_leave_the_look_without_them(self, dressed):
+        edits = {"outfit.colors": {"off": True}}
         for seed in range(6):
             r = draw_dressed(seed, edits=edits, options=GeneratedOptions(None, program(), edits=edits))
-            assert "{" not in r.prompt and not any(d.id == "outfit.colours" for d in r.draws)
+            assert "{" not in r.prompt and not any(d.id == "outfit.colors" for d in r.draws)
             assert not any(c in r.prompt for c in ("navy", "red ", "black,"))
 
-    def test_colours_show_whenever_the_outfit_does(self, dressed):
+    def test_colors_show_whenever_the_outfit_does(self, dressed):
         by = {c["id"]: c for c in discover(DRESSED)["choices"]}
-        assert "parent" not in by["outfit.colours"] and "when" not in by["outfit.colours"]
+        assert "parent" not in by["outfit.colors"] and "when" not in by["outfit.colors"]
 
     def test_facet_filters_keep_their_own_pools_and_old_keys(self, dressed):
         def entry_with(where):
@@ -595,10 +595,10 @@ class TestTemplates:
         assert a[0] != b[0] and a[1] != b[1]  # revision keys and generated pools stay apart
         assert a[0].endswith("where {'sport': 'running'}")  # the key revisions recorded before
 
-    def test_the_catalogue_shows_parts_and_hides_the_palette(self, dressed):
-        cat = dressed.catalogue()
+    def test_the_catalog_shows_parts_and_hides_the_palette(self, dressed):
+        cat = dressed.catalog()
         line = next(ln for ln in cat.splitlines() if ln.startswith("- person.outfit.test"))
-        assert "Colours vary separately" in line and "sport = running | formal" in line and "colour_family = red" in line
+        assert "Colors vary separately" in line and "sport = running | formal" in line and "color_family = red" in line
         assert "- person.palette" not in cat
 
 
@@ -624,17 +624,17 @@ class TestLocalFacetWhere:
                 if "tuxedo" in ex:
                     assert ex.split()[1] in ("navy", "black")  # dark schemes only
 
-    async def test_a_facet_filter_narrows_in_code_and_routes_colours(self, dressed, tmp_path):
-        src = DRESSED.replace('label="Outfit"', 'label="Outfit", where={"sport": "running", "colour_family": "blue"}')
+    async def test_a_facet_filter_narrows_in_code_and_routes_colors(self, dressed, tmp_path):
+        src = DRESSED.replace('label="Outfit"', 'label="Outfit", where={"sport": "running", "color_family": "blue"}')
         entry = {"key": "w", "program": src, "loras": [], "params": {}, "mode": "prose",
                  "choices": discover(src)["choices"], "prompt": "a woman in blue running kit"}
         ask = FakeAsk(lambda v: True)
         await narrow_entry(entry, NarrowCache(tmp_path), ask)
         assert not ask.calls  # no narrowing call: the tags decide
-        # running looks whose main garment takes the colour asked for: the white karate gi drops out
+        # running looks whose main garment takes the color asked for: the white karate gi drops out
         assert entry["filters"]["outfit"] == [v["text"] for v in OUTFITS["values"]
                                               if "running" in v["tags"]["sport"] and "{main}" in v["text"]]
-        assert entry["filters"]["outfit.colours"] == ["navy, white and grey"]
+        assert entry["filters"]["outfit.colors"] == ["navy, white and gray"]
         from prompt_programs.fluent import program_context
         opts = GeneratedOptions(None, program_context(entry))
         for seed in range(6):
@@ -645,7 +645,7 @@ class TestLocalFacetWhere:
 
 OLIVE = {**PALETTE, "values": [{"text": "olive, cream and tan", "tier": "typical",
                                 "roles": {"main": "olive", "accent": "cream", "neutral": "tan"},
-                                "tags": {"colour_family": ["red"], "tone": ["dark"]}}]}
+                                "tags": {"color_family": ["red"], "tone": ["dark"]}}]}
 COATS = {**OUTFITS, "values": [{"text": "a {main} trench coat over a {accent} sweater", "tier": "typical",
                                 "tags": {"sport": ["formal"]}}]}
 
@@ -688,3 +688,108 @@ class TestArticleTidy:
         view = prompt_view(r)
         (s, e, cid), = view["spans"]
         assert cid == "outfit" and text[s:e] == "an olive trench coat over a cream sweater"
+
+
+# --------------------------------------------------------------------------- the Colors id before US spelling
+
+class TestOldColorsIds:
+    """Builds before the US spelling named a look's Colors pick "<look>.colours". What they
+    recorded (prepared programs, revisions, pins, kept values, edits, an agent's keep_choices)
+    still loads and replays: those ids are read as ".colors"."""
+
+    def _entry(self):
+        return {"key": "d", "program": DRESSED, "loras": [], "params": {}, "mode": "prose", "prompt": "a woman",
+                "choices": discover(DRESSED)["choices"]}
+
+    @staticmethod
+    def _older(rev):
+        """A revision as an older build wrote it: its pool keys name the Colors pick ".colours"."""
+        pools = {k.replace("outfit.colors", "outfit.colours"): v for k, v in rev["pools"].items()}
+        assert pools != rev["pools"]
+        return {**rev, "pools": pools}
+
+    @pytest.fixture
+    def realize(self, dressed, tmp_path, monkeypatch):
+        """prep.realize as a run calls it (it builds its own runtime), drawing offline."""
+        import prompt_programs.fluent as fluent
+        monkeypatch.setattr(fluent, "settings", lambda: OFF)
+        monkeypatch.setattr(fluent, "_profile_store", lambda pid: OptionStore(tmp_path))
+        entry = self._entry()
+        return lambda **kw: prep.realize(entry, **kw)
+
+    def test_an_older_revision_replays_exactly(self, realize, dressed, monkeypatch):
+        import dataclasses
+        pal = dressed.leaves["person.palette"]
+        recolored = dataclasses.replace(
+            pal, values=tuple(dataclasses.replace(v, roles={k: "chartreuse" for k in v.roles}) for v in pal.values))
+        replayed = 0
+        for seed in range(8):
+            first = realize(seed=seed)
+            if "outfit.colors" not in {d.id for d in first.draws}:
+                continue
+            # the palette changes after the record: only the recorded pool gives the same colors
+            monkeypatch.setitem(dressed.leaves, "person.palette", recolored)
+            again = realize(seed=seed, revision=self._older(first.revision))
+            assert again.prompt == first.prompt and "chartreuse" not in again.prompt
+            monkeypatch.setitem(dressed.leaves, "person.palette", pal)
+            replayed += 1
+        assert replayed
+
+    def test_older_pins_kept_values_and_edits_still_hold(self, realize):
+        scheme = PALETTE["values"][1]["text"]
+        look = OUTFITS["values"][0]["text"]
+        for seed in range(6):
+            r = realize(seed=seed, pins={"outfit": [look], "outfit.colours": [scheme]})
+            assert next(d.value for d in r.draws if d.id == "outfit.colors") == scheme
+            assert "navy technical T-shirt" in r.prompt
+            off = realize(seed=seed, pins={"outfit": [look]}, edits={"outfit.colours": {"off": True}})
+            assert not any(d.id.endswith(".colors") for d in off.draws) and "{" not in off.prompt
+        kept = realize(seed=1, pins={"outfit": [look]}, fixed={"outfit.colours": scheme})
+        assert next(d.value for d in kept.draws if d.id == "outfit.colors") == scheme
+
+    def test_a_stored_older_program_loads_under_current_ids(self, tmp_path):
+        from prompt_programs.store import ProgramStore
+        store = ProgramStore(tmp_path)
+        old = {"key": "a" * 32, "program": DRESSED, "filters": {"outfit.colours": ["navy, white and gray"], "outfit": ["x"]},
+               "choices": [{"id": "outfit", "label": "Outfit"},
+                           {"id": "woman.outfit.colours", "label": "Colours", "follows": "woman.outfit"},
+                           {"id": "outfit.colours", "label": "Colors", "follows": "outfit"}]}
+        store.put("a" * 32, old)
+        got = store.get("a" * 32)
+        assert [c["id"] for c in got["choices"]] == ["outfit", "woman.outfit.colors", "outfit.colors"]
+        assert got["choices"][2]["follows"] == "outfit" and got["choices"][1]["follows"] == "woman.outfit"
+        assert got["filters"] == {"outfit.colors": ["navy, white and gray"], "outfit": ["x"]}
+        new = {**old, "filters": {"outfit": ["x"]}, "choices": [{"id": "outfit"}]}
+        store.put("b" * 32, new)
+        assert store.get("b" * 32) == new  # nothing old: read as stored
+
+    def test_an_agents_older_keep_choices_name_the_colors(self):
+        from routes.generation import pins_for_kept_choices
+        entry = {"choices": [{"id": "outfit", "label": "Outfit"}, {"id": "outfit.colors", "label": "Colors"}]}
+        assert pins_for_kept_choices(entry, {"outfit.colours": "navy, white and gray"}) == \
+            {"outfit.colors": ["navy, white and gray"]}
+
+    def test_revision_pool_keys_are_renamed_by_id_only(self):
+        rev = {"id": "r", "pools": {
+            "friends[2].outfit.colours: the colours of what she wears | outfit.colours=navy": 3,
+            "outfit: what she wears | colours=red": 2, "weather: the colours of the sky": 1}}
+        assert sorted(prep.current_revision(rev)["pools"]) == [
+            "friends[2].outfit.colors: the colours of what she wears | outfit.colors=navy",
+            "outfit: what she wears | colours=red", "weather: the colours of the sky"]
+        assert prep.current_revision({"pools": {"a": 1}}) == {"pools": {"a": 1}}
+
+    def test_an_older_program_with_old_facet_names_still_draws(self, tmp_path):
+        """A program written against the old vocabulary (where={"colour_family": ...}, a "grey"
+        shade) still draws: an unknown facet value matches nothing, so the whole list is used."""
+        from prompt_programs.fluent import runtime_for
+        src = ('outfit = pick("outfit", cls="person.outfit.casual", about="what she wears", seed=["a red T-shirt"], '
+               'label="Outfit", phase=1, line=1, where={"colour_family": "grey"})\n'
+               'hair = pick("hair", cls="person.hair_color", about="her hair colour", seed=["black"], label="Hair", '
+               'phase=1, line=2, where={"shade": "grey"})\n'
+               'emit("A woman with", hair, "hair wearing", outfit, ".")')
+        entry = {"key": "o", "program": src, "loras": [], "params": {}, "mode": "prose", "prompt": "a woman",
+                 "choices": discover(src)["choices"]}
+        for seed in range(6):
+            r = prep.realize(entry, seed=seed, runtime=runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF))
+            assert r.prompt and "{" not in r.prompt
+
