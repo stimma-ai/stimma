@@ -971,6 +971,13 @@ def realized_text(prompt: str) -> str:
     return re.sub(r"\s+", " ", _VERBATIM.sub(lambda m: m.group(1), prompt)).strip()
 
 
+def _emitted_in(value: str, text: str) -> bool:
+    """A drawn value is in the (lowercased) emitted prompt as written, or as the prompt's tidy
+    writes it: a filled "a {main} coat" reads "an olive coat" there (runtime.tidy_text)."""
+    v = value.lower()
+    return v in text or tidy_text([value]).lower() in text
+
+
 def _mentions(text: str, name: str) -> bool:
     return re.search(rf"(?i)(?<![\w]){re.escape(name)}(?![\w])", text) is not None
 
@@ -1102,7 +1109,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
         for d in r.draws:
             if d.kind == "pick" and getattr(d, "cls", None) in palettes:
                 continue
-            if d.kind == "pick" and not d.hidden and d.value and str(d.value).lower() not in text:
+            if d.kind == "pick" and not d.hidden and d.value and not _emitted_in(str(d.value), text):
                 missing.setdefault(d.id, str(d.value))
     # LoRAs work by being on. A listed LoRA's exact name in the text, when the user didn't write
     # it: while another LoRA (or none) is on, the text says what the image isn't (sent back);

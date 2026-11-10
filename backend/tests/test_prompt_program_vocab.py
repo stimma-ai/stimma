@@ -639,3 +639,39 @@ class TestLocalFacetWhere:
             r = draw(src, seed, None, [], None, None, None, options=opts)
             assert "tuxedo" not in r.prompt and "karate gi" not in r.prompt and "navy" in r.prompt
             opts.reset()
+
+
+OLIVE = {**PALETTE, "values": [{"text": "olive, cream and tan", "tier": "typical",
+                                "roles": {"main": "olive", "accent": "cream", "neutral": "tan"},
+                                "tags": {"colour_family": ["red"], "tone": ["dark"]}}]}
+COATS = {**OUTFITS, "values": [{"text": "a {main} trench coat over a {accent} sweater", "tier": "typical",
+                                "tags": {"sport": ["formal"]}}]}
+
+
+class TestArticleTidy:
+    """The emitted text's tidy writes "an olive trench coat" for a filled "a {main} trench
+    coat": validation reads the value as the tidy writes it, so it isn't sent back to the
+    writer as a value that "never appears" (it can't be repaired: the writer never wrote it)."""
+
+    @pytest.fixture
+    def olive(self, monkeypatch):
+        v = vocabulary()
+        monkeypatch.setitem(v.leaves, "person.palette", _leaf("person.palette", OLIVE))
+        monkeypatch.setitem(v.leaves, "person.outfit.test", _leaf("person.outfit.test", COATS))
+        return v
+
+    def test_a_filled_value_after_a_reads_as_emitted(self, olive):
+        from prompt_programs import prepare as prep
+        from prompt_programs.runtime import run
+        r = run(DRESSED, 11)
+        outfit = next(d for d in r.draws if d.id == "outfit")
+        assert outfit.value == "a olive trench coat over a cream sweater"
+        assert "an olive trench coat" in r.prompt and outfit.value not in r.prompt.lower()
+        out = prep.validate(DRESSED, "a woman in a coat", [], set())
+        assert not any("never appears" in p for p in out["problems"]), out["problems"]
+
+    def test_a_value_missing_from_the_prompt_is_still_sent_back(self, olive):
+        from prompt_programs import prepare as prep
+        src = DRESSED.replace('emit("A woman wearing", outfit, ".")', 'emit("A woman wearing a coat.")')
+        out = prep.validate(src, "a woman in a coat", [], set())
+        assert any('pick("outfit") drew' in p and "never appears" in p for p in out["problems"]), out["problems"]
