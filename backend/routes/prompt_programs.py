@@ -173,8 +173,10 @@ async def preview(req: PreviewRequest) -> Dict[str, Any]:
     if entry is None or entry.get("unsupported"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
     try:
+        from prompt_programs.fix import await_judge
         from prompt_programs.fluent import attach_filler
         attach_filler(entry, get_current_profile())
+        await await_judge(entry)
         # In a thread: a judge on CPU must not hold up the event loop.
         result, fix = await asyncio.to_thread(realize_and_fix, entry, seed=draw_seed(req.seed), pins=req.pins,
                                               edits=req.edits, profile_id=get_current_profile(),
@@ -212,10 +214,18 @@ def _fix_judge_status(model: str, threads: int) -> Dict[str, Any]:
 
 
 @router.get("/fix-judge")
-async def get_fix_judge() -> Dict[str, Any]:
+async def get_fix_judge(start: bool = False, retry: bool = False) -> Dict[str, Any]:
+    """The configured judge's state. `start` (Tool View, before a run): also start the
+    pinned judge's download or load if it isn't under way; `retry` (the user's Try
+    again): and end a pause between retries now. Neither ever waits."""
     import asyncio
     from prompt_programs.judge import settings
     s = settings()
+    if start or retry:
+        from prompt_programs.fix import fix_mode
+        if fix_mode(s.fix_model) == "default":
+            from prompt_programs import pick_judge
+            pick_judge.kick(s.fix_threads, retry=retry)
     return await asyncio.to_thread(_fix_judge_status, s.fix_model, s.fix_threads)
 
 

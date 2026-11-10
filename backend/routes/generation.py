@@ -604,6 +604,12 @@ async def _run_prompt_program(
         if program_opts.get("keep_choices"):
             program_opts = {**program_opts, "pins": {**(program_opts.get("pins") or {}),
                                                      **pins_for_kept_choices(entry, program_opts["keep_choices"])}}
+        # The judge is how the draws fit together: wait for it while it downloads
+        # (bounded by its progress), before a hot draw is taken, so the pool's
+        # signature sees it ready. An exact replay is never judged, so never waits.
+        if not program_opts.get("revision"):
+            from prompt_programs.fix import await_judge
+            await await_judge(entry)
         hot = None
         if hot_draws_for and program_opts.get("draw_seed") is None and not program_opts.get("revision"):
             hot = _take_hot_draw(hot_draws_for, entry, program_opts, triggers=lora_triggers,
@@ -688,7 +694,7 @@ def hot_draw_signature(entry: Dict[str, Any], program_opts: Dict[str, Any], *, t
         "entry": entry, "pins": program_opts.get("pins") or {}, "fixed": program_opts.get("fixed") or {},
         "edits": program_opts.get("edits") or {}, "triggers": bool(triggers), "profile_id": profile_id,
         "project_id": project_id, "settings": dataclasses.asdict(cfg),
-        # the judge's version and readiness: draws made unjudged while it downloaded
+        # the judge's version and readiness: draws made before it was ready
         # aren't served once it's ready, and a new judge version never serves old draws
         "judge": judge_identity(cfg),
     }

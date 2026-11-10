@@ -447,8 +447,9 @@ def fix_mode(model: Optional[str]) -> str:
 
 
 def kick_judge(cfg: Any = None) -> None:
-    """Start the pinned judge's first-use download in the background, if that's the
-    configured judge (prepare calls this, so it's ready by the first image). Never blocks."""
+    """Start the pinned judge's download (or its load from disk) in the background, if
+    that's the configured judge: at launch, and again at prepare in case it stopped.
+    Never blocks."""
     try:
         if cfg is None:
             from prompt_programs.judge import settings
@@ -458,6 +459,60 @@ def kick_judge(cfg: Any = None) -> None:
             pick_judge.kick(cfg.fix_threads)  # a cached copy loads on that thread too
     except Exception as e:
         log.debug(f"[fluent-fix] couldn't start the pick judge: {e}")
+
+
+# Release branches whose Tool View offers Fluent: frontend promptBrand.ts `fluentEnabled`
+# (widen both together).
+FLUENT_BRANCHES = ("dev", "canary")
+
+
+def preload_judge() -> None:
+    """At launch: start getting the pinned judge in any build that offers Fluent, so
+    it's ready, or well on its way, by the first image. Privacy Lockdown applies as to
+    every model download (nothing is fetched from Stimma's hosts). Never blocks."""
+    try:
+        from user_agent import get_app_branch
+        if get_app_branch() not in FLUENT_BRANCHES:
+            return
+    except Exception as e:
+        log.debug(f"[fluent-fix] no app branch, not preloading the pick judge: {e}")
+        return
+    kick_judge()
+
+
+def needs_judge(entry: Dict[str, Any], cfg: Any = None) -> bool:
+    """Whether drawing `entry` waits for the pinned judge: a program with draws, and the
+    pinned judge configured (off and a model directory never wait)."""
+    from prompt_programs.draws import uses_draws
+    if not uses_draws(entry.get("program") or ""):
+        return False
+    if cfg is None:
+        from prompt_programs.judge import settings
+        cfg = settings()
+    return fix_mode(cfg.fix_model) == "default"
+
+
+async def await_judge(entry: Dict[str, Any], cfg: Any = None) -> None:
+    """Before drawing `entry` in a worker thread: wait, on the event loop, while the
+    pinned judge it needs is downloading or loading and making progress, so the draw
+    is judged. Returns at once when it's ready, not needed, or can't be had (the draw
+    then ships unjudged and its record says why). Cancelling the awaiting task ends
+    the wait; the download carries on."""
+    import asyncio
+    try:
+        if cfg is None:
+            from prompt_programs.judge import settings
+            cfg = settings()
+        if not needs_judge(entry, cfg):
+            return
+        from prompt_programs import pick_judge
+        pick_judge.kick(cfg.fix_threads)
+        while pick_judge.waiting():
+            await asyncio.sleep(pick_judge.POLL_SECONDS)
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        log.debug(f"[fluent-fix] couldn't wait for the pick judge: {e}")
 
 
 def judge_identity(cfg: Any) -> str:
@@ -646,17 +701,20 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
                     fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
                     triggers: bool = True, profile_id: Optional[str] = None, project_id: Optional[int] = None,
                     revision: Optional[Dict[str, Any]] = None, cfg: Any = None,
-                    judge: Any = None) -> Tuple[Any, Optional[Dict[str, Any]]]:
+                    judge: Any = None, cancelled: Optional[Callable[[], bool]] = None
+                    ) -> Tuple[Any, Optional[Dict[str, Any]]]:
     """realize(), then the fix pass when a fix judge is set (fix_model) and the program
     has pick specs. An exact replay (`revision`) is never fixed. Returns the result and
-    the fix record (None when no fix ran; {"judge", "skipped"} when the pinned judge
-    isn't ready yet). Blocking (on the CPU, never on a download): run it in a worker thread."""
+    the fix record (None when no fix ran; {"judge", "skipped", "error"} when the pinned
+    judge can't be had). Blocking, and it waits for the pinned judge while it downloads
+    (pick_judge.get; bounded by progress): run it in a worker thread, after await_judge."""
     if revision:
         from prompt_programs.prepare import realize
         return realize(entry, seed=seed, pins=pins, fixed=fixed, edits=edits, triggers=triggers,
                        profile_id=profile_id, project_id=project_id, revision=revision), None
     out = realize_and_fix_many(entry, seeds=[seed], pins=pins, fixed=fixed, edits=edits, triggers=triggers,
-                               profile_id=profile_id, project_id=project_id, cfg=cfg, judge=judge)[0]
+                               profile_id=profile_id, project_id=project_id, cfg=cfg, judge=judge,
+                               cancelled=cancelled)[0]
     if isinstance(out, Exception):
         raise out
     return out
@@ -665,7 +723,8 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
 def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: Optional[Dict[str, Any]] = None,
                          fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
                          triggers: bool = True, profile_id: Optional[str] = None, project_id: Optional[int] = None,
-                         cfg: Any = None, judge: Any = None) -> List[Any]:
+                         cfg: Any = None, judge: Any = None,
+                         cancelled: Optional[Callable[[], bool]] = None) -> List[Any]:
     """realize_and_fix() for several seeds of one program, their fix loops sharing each
     judge pass. Per seed: (result, fix record or None), exactly what realize_and_fix
     gives for that seed alone, or the exception its draw raised. Blocking.
@@ -702,9 +761,9 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
         mode = fix_mode(cfg.fix_model)
         if mode == "off":
             return [shipped(r) for r in out]
-        if mode == "default":  # the pinned judge: never waits for its download
+        if mode == "default":  # the pinned judge: waits while its download makes progress
             from prompt_programs import pick_judge
-            judge = pick_judge.ready(cfg.fix_threads)
+            judge = pick_judge.get(cfg.fix_threads, cancelled=cancelled)
             if judge is None:
                 skipped = pick_judge.skip_record()
                 return [shipped(r if isinstance(r, Exception) else (r, dict(skipped))) for r in out]
@@ -727,4 +786,4 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
 
 
 __all__ = ["DEFAULT_JUDGE", "FixJudgeUnavailable", "Item", "OnnxJudge", "default_threads", "fix_draw", "fix_judge",
-           "fix_mode", "judge_identity", "judged_picks", "kick_judge", "locate", "mask", "prompt_view", "realize_and_fix", "realize_and_fix_many", "score_draw", "shown_picks"]
+           "fix_mode", "await_judge", "judge_identity", "judged_picks", "kick_judge", "needs_judge", "preload_judge", "locate", "mask", "prompt_view", "realize_and_fix", "realize_and_fix_many", "score_draw", "shown_picks"]

@@ -445,7 +445,7 @@ class FluentConfig(BaseModel):
     generate_options: bool = True
     # The fix judge: a small ONNX model that checks each finished draw and rerolls the
     # picks it flags (prompt_programs.fix). "default": the pinned pick judge, downloaded
-    # on first use; "" or "off": off; anything else: a local model directory (dev).
+    # from launch; "" or "off": off; anything else: a local model directory (dev).
     fix_model: str = "default"
     fix_cut: float = 0.0     # 0: the cut the model directory names
     fix_rounds: int = 4
