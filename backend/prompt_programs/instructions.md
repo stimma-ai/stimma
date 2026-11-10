@@ -186,7 +186,7 @@ is emitted exactly as the user wrote it.
 
 # Vocabulary
 
-Curated lists of options for details of people. When a pick varies one of these details and
+Curated lists of options for details of people and animals. When a pick varies one of these details and
 the user said nothing specific about it, bind the pick to its list with `cls=`, and its
 options come from the list:
 `eyes = pick("eyes", cls="person.eye_color", about="her eye colour", seed=["hazel"], label="Eyes", phase=2, line=1)`.
@@ -344,15 +344,18 @@ Example. User's prompt:
 ```
 Program:
 ```python
-beard = pick("fisherman.facial_hair", cls="person.facial_hair", about="the fisherman's beard", seed=["light stubble"],
-    label="Beard", phase=1, added=True)
-coat = pick("fisherman.outfit", cls="person.outfit.cold_weather", about="what the fisherman wears on the pier",
+fisherman_beard = pick("fisherman.facial_hair", cls="person.facial_hair", about="the fisherman's beard",
+    seed=["light stubble"], label="Beard", phase=1, added=True)
+fisherman_coat = pick("fisherman.outfit", cls="person.outfit.cold_weather", about="what the fisherman wears on the pier",
     seed=["a yellow oilskin jacket over a grey sweater"], label="Outfit", phase=1, added=True)
-breed = pick("dog.breed", about="the fisherman's dog", seed=["a black-and-white Border Collie"],
+dog_breed = pick("dog.breed", cls="animal.dog_breed", about="the fisherman's dog", seed=["Border Collie"],
     label="Breed", phase=1, added=True)
+dog_pose = pick("dog.pose", about="what the dog is doing on the pier", seed=["sitting at his feet"],
+    label="Pose", phase=1, added=True)
 boats = pick("boats", about="what is moored along the pier", seed=["two weathered rowing boats"],
     label="Boats", phase=1, added=True)
-emit("An old fisherman with", beard, ", in", coat, ", and his dog,", breed, ", on a pier at dawn beside", boats, ".")
+emit("An old fisherman with", fisherman_beard, ", in", fisherman_coat, ", and his", dog_breed, ",", dog_pose,
+    ", on a pier at dawn beside", boats, ".")
 ```
 Two subjects: every pick of the fisherman's is `fisherman.…` and the dog's is `dog.…`, so each
 shows under its own name. "old" is the user's, so there is no age pick. The boats belong to the

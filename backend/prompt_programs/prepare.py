@@ -30,7 +30,7 @@ from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-47"   # pp-47: the four Fluent branches together (said=, context, subjects, fallback) and one
+PREPARE_VERSION = "pp-48"   # pp-48: animal lists offered to the writer, person + animal ids grouped (fix_subjects). pp-47: the four Fluent branches together (said=, context, subjects, fallback) and one
 # rule for whose detail a pick is (draws.person_of). pp-46 (each branch on its own): said= keeps a thing the user
 # named (said.py); context facets: a stated descent, time or season and user list values read as context; every
 # subject's details name the subject, shared=True (fix_subjects); a program that loses the user's words is never
@@ -808,7 +808,13 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
       ("couple[1].eth"), else the list's namespace ("person[1].eth") or "subject[1]";
     - exactly two plain prefixes that each head two or more details and between them head
       every per-individual pick ("woman_age", "woman_outfit", "dog_breed", "dog_size") are
-      subjects: "woman.age", "dog.breed".
+      subjects: "woman.age", "dog.breed";
+    - per-individual picks bound to lists of two or more kinds, each kind's under one prefix of
+      its own ("woman_age", "woman_outfit" on person lists, "dog_breed" on an animal list): each
+      prefix is a subject, even one heading a single detail: "woman.age", "dog.breed";
+    - beside subjects the program names ("cats[1].coat"), one prefix heading every other
+      per-individual pick ("woman_age", "woman_outfit") is a subject too, unless it starts each
+      of its lists' names ("hair_color", "hair_style" are a detail's parts, not someone's).
     A smart wildcard's own id is the user's and stays. Anything else is left for validation."""
     from prompt_programs.runtime import subject_of
     try:
@@ -892,6 +898,28 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
     if (len(heads) == 2 and bound_flat and len(bound_flat) == len(individual_plain)
             and all(f"{p}{n or ''}".lower() in heads for _, _, p, n, _ in bound_flat)):
         known |= heads
+    # Owners by list kind (woman_age, woman_outfit beside dog_breed): the per-individual picks are bound
+    # to lists of two or more kinds (a person's, an animal's), no prefix on two kinds, each kind's under one
+    # prefix of its own; or one kind's under several (dog_breed, cat_coat) beside a kind whose one prefix
+    # heads two or more details (man_age, man_outfit).
+    by_root: Dict[str, Set[str]] = {}
+    for call, _, p, n, _ in bound_flat:
+        by_root.setdefault(vocabulary().resolve(_const(_kw(call, "cls"))).id.split(".")[0], set()).add(f"{p}{n or ''}".lower())
+    owners = [o for v in by_root.values() for o in v]
+    several = [v for v in by_root.values() if len(v) > 1]
+    if (len(by_root) >= 2 and len(owners) == len(set(owners)) and len(bound_flat) == len(individual_plain)
+            and (not several or (len(several) == 1 and any(len(v) == 1 and count[next(iter(v))] >= 2
+                                                          for v in by_root.values())))):
+        known |= set(owners)
+    # One owner beside subjects the program names (woman_age, woman_outfit beside cats[1].coat): every
+    # flat per-individual pick under one prefix heading two or more, which isn't the start of each of its
+    # lists' names (hair_color, hair_style on person.hair_color and person.hairstyle are details, not hers).
+    lone = {f"{p}{n or ''}".lower() for _, _, p, n, _ in bound_flat}
+    if written and len(lone) == 1 and len(bound_flat) == len(individual_plain) >= 2:
+        o = next(iter(lone))
+        if not all(vocabulary().resolve(_const(_kw(c, "cls"))).id.split(".")[-1].lower().startswith(o)
+                   for c, *_ in bound_flat):
+            known.add(o)
     numbered: Dict[str, Dict[int, ast.Call]] = {}  # eth1, eth2: one detail, numbered per subject
     for call in calls:
         t = _const(id_node(call))
