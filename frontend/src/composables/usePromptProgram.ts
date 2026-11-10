@@ -41,8 +41,9 @@ export interface ProgramGroup { id: string; count: number; label: string; source
 export interface ProgramLora { name: string; path: string; weight: number; trigger: string }
 
 export interface PreparedProgram {
-  /** false: prepared with Enhance off (the user's words kept). */
+  /** false: prepared with Enhance off or Fill in (the user's words kept). */
   elaborate?: boolean
+  enhance?: EnhanceLevel
   key: string
   choices: ProgramChoice[]
   groups: ProgramGroup[]
@@ -70,12 +71,17 @@ export interface ChoiceEdit { add?: string[]; remove?: string[]; off?: boolean }
 
 export type ProgramStatus = 'off' | 'ready' | 'stale' | 'busy' | 'error'
 
+/** Enhance: off keeps the user's words; fill adds only what the model needs; expand upsamples. */
+export type EnhanceLevel = 'off' | 'fill' | 'expand'
+
 interface Options {
   toolId: Ref<string | null>
   prompt: Ref<string>
   enabled: ComputedRef<boolean>
   /** Enhance on: the program elaborates. Off: it keeps the user's words. */
   elaborate: ComputedRef<boolean>
+  /** The Enhance level; when given it decides, and elaborate is what older servers read. */
+  enhance?: ComputedRef<EnhanceLevel>
   /** Tell the model the user's LoRA notes. */
   loraNotes: ComputedRef<boolean>
   loraItems: ComputedRef<Array<{ lora: string; weight: number; enabled?: boolean }>>
@@ -104,6 +110,7 @@ export function usePromptProgram(o: Options) {
     context: o.contextParams.value,
     instructions: o.instructions.value,
     elaborate: o.elaborate.value,
+    enhance: o.enhance?.value,
     loraNotes: o.loraNotes.value,
   }))
   const signature = computed(() => JSON.stringify({ prompt: (o.prompt.value || '').trim(), settings: settingsSig.value }))
@@ -168,6 +175,7 @@ export function usePromptProgram(o: Options) {
       parameters: o.contextParams.value,
       instructions: o.instructions.value || '',
       elaborate: o.elaborate.value,
+      enhance: o.enhance?.value,
       lora_notes: o.loraNotes.value,
       project_id: o.projectId.value ?? null,
       ...extra,

@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/prompt-programs", tags=["prompt-programs"])
 
 # What the editor needs from a prepared program (the program text itself stays server-side
 # unless asked for).
-_PUBLIC_KEYS = ("key", "mode", "elaborate", "choices", "groups", "params", "loras", "lora_choices", "example", "warnings",
+_PUBLIC_KEYS = ("key", "mode", "elaborate", "enhance", "choices", "groups", "params", "loras", "lora_choices", "example", "warnings",
                 "seconds", "upsample_seconds", "attempts")
 
 
@@ -34,6 +34,8 @@ class PrepareRequest(BaseModel):
     force: bool = False
     # elaborate: Enhance on (rich, per-model example). Off: keep the user's own words.
     elaborate: bool = True
+    # enhance: "off" | "fill" | "expand"; when set it decides (elaborate is for older clients).
+    enhance: Optional[str] = None
     # The prompt menu's "LoRA notes": whether the model is told the user's LoRA notes.
     lora_notes: bool = True
     # The program the editor showed before this prompt: an edit of it continues its writer session.
@@ -59,7 +61,7 @@ async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
             prompt=req.prompt, tool_id=req.tool_id, ctx=ctx, instructions=req.instructions.strip(),
             lora_items=req.loras, project_id=req.project_id, profile_id=get_current_profile(),
             cache_only=req.cache_only, force=req.force, elaborate=req.elaborate, lora_notes=req.lora_notes,
-            base_key=req.base_key,
+            base_key=req.base_key, enhance=req.enhance,
         )
     except PrepareTimeout as e:
         raise HTTPException(status_code=422, detail={"code": "prepare_timeout", "message": str(e)}) from None

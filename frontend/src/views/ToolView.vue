@@ -344,7 +344,7 @@
               :program="promptProgram"
               :raw="rawMode"
               :direct="directMode"
-              :elaborate="!!globalPrefs.promptOptions?.autoImprove?.enabled"
+              :enhance="enhanceLevel"
               :llm-unconfigured="llmUnconfigured"
               :model-name="tool?.name"
               :has-loras="hasLoras"
@@ -355,7 +355,7 @@
               @translate="(code) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, translate: { enabled: !!code, language: code ?? globalPrefs.promptOptions?.translate?.language ?? 'zh-Hans' } }"
               @lora="(key, on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, [key]: on ? undefined : false }"
               @way="(w) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined }"
-              @mode="(on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, autoImprove: { ...globalPrefs.promptOptions?.autoImprove, enabled: on } }"
+              @mode="(level) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, autoImprove: { ...globalPrefs.promptOptions?.autoImprove, enabled: level !== 'off', ...(level !== 'off' ? { level } : {}) } }"
               @help="(anchor) => openHelp(anchor)"
             /></template>
             <template #below-editor><PromptProgramChoices :program="promptProgram" /></template>
@@ -3411,7 +3411,7 @@ watch(() => videoImages.startImage, (newStart, oldStart) => {
 
 // LoRA state — ref that syncs bidirectionally with the composable pool
 import { useLoraPool } from '../composables/useLoraPool'
-import { usePromptProgram } from '../composables/usePromptProgram'
+import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptProgram'
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
@@ -3920,11 +3920,18 @@ const {
 const fluentOn = fluentEnabled
 const rawMode = computed(() => fluentOn.value && !!globalPrefs.value.promptOptions?.raw)
 const directMode = computed(() => fluentOn.value && !!globalPrefs.value.promptOptions?.direct)
+// Fluent's Enhance level: off, fill in, or expand (the setting predates the middle level,
+// so an enabled setting without one is expand).
+const enhanceLevel = computed<EnhanceLevel>(() => {
+  const ai = globalPrefs.value.promptOptions?.autoImprove
+  return !ai?.enabled ? 'off' : ai.level === 'fill' ? 'fill' : 'expand'
+})
 const promptProgram = usePromptProgram({
   toolId: computed(() => fullToolIdFromProps || null),
   prompt: computed(() => globalPrefs.value.prompt || ''),
   enabled: computed(() => fluentOn.value && !!hasPrompt.value && !llmUnconfigured.value && !rawMode.value && !directMode.value),
-  elaborate: computed(() => !!globalPrefs.value.promptOptions?.autoImprove?.enabled),
+  elaborate: computed(() => enhanceLevel.value === 'expand'),
+  enhance: enhanceLevel,
   loraNotes: computed(() => globalPrefs.value.promptOptions?.loraNotes !== false),
   loraItems: computed(() => hasLoras.value
     ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight, enabled: !!i.enabled }))
@@ -3956,7 +3963,7 @@ const promptProgram = usePromptProgram({
 })
 // Fluent's "nothing was run" is about the prompt as it was: once the prompt, its mode or
 // Fluent's state moves on, the message is no longer true.
-watch(() => [globalPrefs.value.prompt, globalPrefs.value.promptOptions?.raw, globalPrefs.value.promptOptions?.direct, globalPrefs.value.promptOptions?.autoImprove?.enabled],
+watch(() => [globalPrefs.value.prompt, globalPrefs.value.promptOptions?.raw, globalPrefs.value.promptOptions?.direct, enhanceLevel.value],
   () => { if (submissionError.value?.endsWith('so nothing ran.')) submissionError.value = null })
 
 function replayProgramRun(run: any) {

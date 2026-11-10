@@ -796,11 +796,14 @@ Guidelines:
 - For an already detailed prompt, refine its wording while retaining all specific choices
 - Output ONLY the improved prompt, no explanations or additional text"""
 
-async def style_guide(request: "ImprovePromptRequest", session) -> Tuple[str, List[Tuple[int, str]], str]:
+async def style_guide(request: "ImprovePromptRequest", session,
+                      fill: bool = False) -> Tuple[str, List[Tuple[int, str]], str]:
     """How to write a prompt for this request's image model: the per-model system prompt
     with this request's slots filled (images, canvas, audio, protected text, LoRAs), the
     source images the writer should see, and the mode. The enhancer rewrites one prompt
-    with it; Fluent's program writer uses it to write the program's text."""
+    with it; Fluent's program writer uses it to write the program's text.
+    fill: the Fill in guide (fill_*), which keeps the user's words and adds only what the
+    model needs to read them, instead of the full enhancer (improve_*)."""
     # Pick the enhancement style. Task drives video (cinematography) and edits
     # (input images on a natural-language model); model family drives the rest
     # (keyword / ideogram / prose). Falls back to prose for unknown families and
@@ -840,6 +843,10 @@ async def style_guide(request: "ImprovePromptRequest", session) -> Tuple[str, Li
         prompt_key = "improve_cinematography_image_system_prompt"
     elif source_images_b64 and mode == "ltx-2.5":
         prompt_key = "improve_ltx_25_image_system_prompt"
+    if fill:
+        prompt_key = "fill_" + prompt_key.removeprefix("improve_")
+        if not get_prompt("prompt_enhancement", prompt_key):
+            prompt_key = "fill_system_prompt"
     prompt_from_file = get_prompt("prompt_enhancement", prompt_key)
     if not prompt_from_file and prompt_key != "improve_system_prompt":
         # A family-specific prompt isn't configured — fall back to prose.

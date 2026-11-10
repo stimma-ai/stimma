@@ -66,13 +66,13 @@ phases drew; picks in the same phase are drawn without seeing each other.
 
 - Phase 1: what sets up the image. User lists (except one that must fit another), and,
   when they vary, who the subject is (species, job, age, gender, ethnicity), the place, the
-  era, the weather, the time of day.
+  era, the weather.
 - A user list that must fit another user list goes in a later phase than it: with
   `{knight|pirate|senator}` and `{armor|greatcoat|toga}`, the clothing list is phase 2, so it
   is drawn to fit who he is. It is still a user list pick with exactly the user's items:
   `clothes = pick("clothes", ["armor", "greatcoat", "toga"], source="list", phase=2, line=1)`.
 - A later phase for anything that must fit an earlier pick: outfit after job and weather,
-  hairstyle after age, the dish after the city, lighting after the time of day.
+  hairstyle after age, the dish after the city, the outfit after the season.
 - Picks that can't conflict share a phase.
 - **A pick that must fit a user list names it in its `about`**, with an f-string:
   `about=f"what a {job} wears at the harbour"`. Each of the list's values then gets
@@ -96,7 +96,10 @@ phases drew; picks in the same phase are drawn without seeing each other.
    The user's own words go in as fixed text: their subject, what it does, the place, the
    objects, colours and style they named. "a girl running in central park" keeps "a girl",
    "running" and "central park" in every image; you add detail around them, never instead
-   of them.
+   of them. The look is the user's too: the medium, palette, light, time of day, lens and mood
+   they named stay as written, and the program adds none, as text or as a pick, unless the
+   style guide's format calls for it. A setting, sky or weather you add describes the things
+   there, not the light on them.
 2. **Put a pick where each varying part stands:**
    - `{a|b|c}` → a user list pick, its variable in `emit()` where the list stood. Exactly
      those options, in that order. Never add to or replace them, and don't write a second
@@ -119,7 +122,7 @@ phases drew; picks in the same phase are drawn without seeing each other.
 3. **Make the things the user asked to vary into picks.** When a `#` line says "vary her
    expression", that is a pick: give it `line=` and no `added=True`, and never `hidden=True`.
 4. **Add variety.** Add a pick (`added=True`, with a label) for each detail the prompt
-   leaves open that changes the image: her outfit, the setting, the light, the pose, her
+   leaves open that changes the image: her outfit, the setting, the pose, her
    hair, her expression. Fewer when the user's lists already vary a lot. Never add a `param`.
    A detail of a person that has a list (see Vocabulary: age, hair colour, hairstyle, eyes,
    expression, outfit, pose…) is a pick bound to that list with `cls=`, one list per pick:
@@ -236,11 +239,10 @@ outfit = pick("outfit", about=f"what a {job} wears walking home on a snowy night
     "a heavy wool coat over his work clothes"], label="Outfit", phase=2, line=1)
 expression = pick("expression", cls="person.expression", about="his expression on the walk home", seed=[
     "a tired, contented half-smile"], label="Expression", phase=2, line=2)
-light = pick("light", about="the light on a snowy street at night", seed=[
-    "Warm light spills from shop windows onto the fresh snow"], label="Light", phase=1, added=True)
-emit("A candid street photograph of a", job, "in his fifties walking home down a snowy street at night, wearing",
-     outfit, ". Snow settles on his shoulders, and he has", expression, ".", light,
-     ", and his breath fogs in the cold air. Shot on 35mm film, natural color.")
+street = pick("street", about="what lines a snowy street at night", seed=[
+    "shuttered shops and cars buried under fresh snow"], label="Street", phase=1, added=True)
+emit("A", job, "in his fifties walking home down a snowy street at night, past", street, ", wearing",
+     outfit, ". Snow settles on his shoulders, he has", expression, ", and his breath fogs in the cold air.")
 ```
 "a snowy street" and "at night" are the user's: they stay fixed. "in his fifties" stays as
 written too: it already says his age closely, so there is no age pick. The outfit
@@ -257,10 +259,9 @@ role = pick("role", ["knight", "pirate"], label="Role", source="list", phase=1, 
 clothes = pick("clothes", ["armor", "greatcoat"], label="Clothes", source="list", phase=2, line=1)
 face = pick("face", about=f"the face of a {role} lost in a book", seed=[
     "a weathered face with a short grey beard"], label="Face", phase=2, added=True)
-light = pick("light", about="the light through the window", seed=[
-    "Soft morning light falls across the pages"], label="Light", phase=1, added=True)
-emit("A painterly portrait of a", role, "in his", clothes, ", with", face, ", reading a book by a window.",
-     light, ". Warm, quiet colours, fine brushwork.")
+sill = pick("sill", about=f"what lies on the window sill beside a {role}", seed=[
+    "a stack of worn books and a guttered candle"], label="Window sill", phase=2, added=True)
+emit("A", role, "in his", clothes, ", with", face, ", reading a book by a window. On the sill:", sill, ".")
 ```
 Both lists are emitted themselves, where the user wrote them. The clothes list is phase 2, so
 it is drawn to fit the role. "reading a book by a window" is the user's, so it is fixed text.
@@ -276,14 +277,14 @@ hair_color = pick("hair_color", cls="person.hair_color", about="the girl's hair 
     label="Hair colour", phase=1, added=True)
 hairstyle = pick("hairstyle", cls="person.hairstyle", about="the girl's hairstyle", seed=["a loose side braid"],
     label="Hairstyle", phase=1, added=True)
-sky = pick("sky", about="the sky over the beach", seed=[
-    "a stormy violet sky with a break of sunlight"], label="Sky", phase=1, added=True)
-emit("Digital art of a girl with", hair_color, "hair in", hairstyle, ", holding an umbrella on a beach under", sky,
-     ". Soft painterly shading, crisp linework.")
+outfit = pick("outfit", cls="person.outfit.casual", about="what the girl wears on the beach", seed=["a yellow raincoat over shorts"],
+    label="Outfit", phase=1, added=True)
+emit("Digital art of a girl with", hair_color, "hair in", hairstyle, ", wearing", outfit,
+     ", holding an umbrella on a beach.")
 ```
 "a girl", "holding an umbrella", "on a beach" and "digital art" are the user's, so every image
 says them. There is no pick for the girl, what she holds or the place: the picks add her hair
-and the sky, which the user left open. Her hair is two picks bound to their lists, with the
+and her outfit, which the user left open. The look is theirs: "digital art", and nothing added to it. Her hair is two picks bound to their lists, with the
 words around them ("hair in") written in `emit()`.
 
 Example. User's prompt:
@@ -293,7 +294,7 @@ Example. User's prompt:
 Program:
 ```python
 friends = group("friends", 4, label="Friends", line=1)
-emit("A candid photograph of four friends sharing a pizza on a rooftop at dusk:")
+emit("Four friends sharing a pizza on a rooftop:")
 for i in range(friends):
     age = pick(f"friends[{i+1}].age", cls="person.age_band", about="this friend's age", seed=["25–29-year-old"],
         label="Age", phase=1, added=True)
@@ -302,9 +303,9 @@ for i in range(friends):
     hair = pick(f"friends[{i+1}].hair_color", cls="person.hair_color", about="this friend's hair colour", seed=["black"],
         label="Hair colour", phase=2, added=True)
     emit("a", age, eth, "friend with", hair, "hair;")
-light = pick("light", about="the light on a rooftop at dusk", seed=["warm string lights against a violet sky"],
-    label="Light", phase=1, added=True)
-emit("they laugh around an open pizza box under", light, ".")
+roof = pick("roof", about="what else is on a city rooftop", seed=["folding chairs and a water tower"],
+    label="Rooftop", phase=1, added=True)
+emit("they laugh around an open pizza box among", roof, ".")
 ```
 Four friends are four people: the loop gives each one their own age, descent and hair.
 "sharing a pizza" and "on a rooftop" are about all of them, so they are fixed text.

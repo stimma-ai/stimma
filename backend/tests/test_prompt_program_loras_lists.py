@@ -373,7 +373,7 @@ class TestLorasShownToTheModels:
     async def test_style_guide_hears_only_about_loras_that_are_on_and_have_words_or_notes(self, monkeypatch, tmp_path):
         seen = {}
 
-        async def style(prompt, ctx, instructions, lora_context, project_id, profile_id):
+        async def style(prompt, ctx, instructions, lora_context, project_id, profile_id, level="expand"):
             seen["ctx"] = lora_context
             return "STYLE GUIDE", []
 

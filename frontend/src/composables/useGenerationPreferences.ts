@@ -43,6 +43,8 @@ const UI_DEFAULTS: ToolParams = {
 export interface PromptOptionSetting {
   enabled: boolean
   instructions: string
+  /** Fluent's Enhance level while enabled (absent: expand). */
+  level?: 'fill' | 'expand'
 }
 
 /** Translate the outgoing prompt into `language` at generate time (after improve). */

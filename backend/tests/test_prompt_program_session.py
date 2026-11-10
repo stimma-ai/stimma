@@ -613,3 +613,49 @@ class TestKeysAndFlights:
         gate.set()
         a, b = await first, await forced
         assert len(model.seen) == 2 and a["program"] != b["program"]
+
+
+# --------------------------------------------------------------------------- Enhance levels
+
+class TestEnhanceLevels:
+    def test_level_from_old_and_new_clients(self):
+        assert prep.enhance_level(None, True) == "expand"
+        assert prep.enhance_level(None, False) == "off"
+        assert prep.enhance_level("fill", True) == "fill"
+        assert prep.enhance_level("FILL", False) == "fill"
+        assert prep.enhance_level("bogus", False) == "off"
+
+    def test_fill_sends_the_fill_guide_and_keeps_the_users_words(self, model, monkeypatch):
+        levels = []
+
+        async def style(*a, **kw):
+            levels.append(a[6] if len(a) > 6 else kw.get("level"))
+            return "FILL GUIDE: quote in-image text.", []
+
+        monkeypatch.setattr(prep, "writer_style", style)
+        model.replies = [reply(write(GOOD))]
+        entry = asyncio.run(ensure(enhance="fill"))
+        assert levels == ["fill"]
+        system, user = model.seen[0][0]["content"], model.seen[0][1]["content"]
+        assert "FILL GUIDE: quote in-image text." in system
+        assert "keeping the user's words" in user and "only what the style guide says the model needs" in user
+        assert "complete and rich" not in user
+        # validated and seeded like Enhance off: the user's words, short seeds
+        assert entry["enhance"] == "fill" and entry["elaborate"] is False
+
+    def test_off_sends_no_guide(self, model, monkeypatch):
+        async def style(*a, **kw):
+            raise AssertionError("Enhance off has no style guide")
+
+        monkeypatch.setattr(prep, "writer_style", style)
+        model.replies = [reply(write(GOOD))]
+        entry = asyncio.run(ensure(enhance="off"))
+        assert "STYLE GUIDE" not in model.seen[0][0]["content"]
+        assert entry["enhance"] == "off"
+
+    def test_levels_are_separate_programs(self, model):
+        model.replies = [reply(write(GOOD)), reply(write(GOOD))]
+        expand = asyncio.run(ensure(enhance="expand"))
+        fill = asyncio.run(ensure(enhance="fill"))
+        assert expand["key"] != fill["key"]
+        assert expand["enhance"] == "expand" and expand["elaborate"] is True

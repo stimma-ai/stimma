@@ -75,13 +75,18 @@
               </div>
             </div>
             <div class="border-t border-edge-subtle" />
-            <label
+            <div
               v-if="!program.unsupported.value"
-              :class="['flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer', llmUnconfigured ? 'opacity-40 pointer-events-none' : '']"
+              :class="['flex items-center gap-3 px-3 py-2 coarse:py-3', llmUnconfigured ? 'opacity-40 pointer-events-none' : '']"
             >
               <span class="flex-1 text-[12px] coarse:text-[13px] text-content">Enhance prompt</span>
-              <Toggle :model-value="elaborate" label="Enhance prompt" @update:model-value="(v) => emit('mode', v)" />
-            </label>
+              <SegmentedControl
+                :model-value="enhance"
+                :options="[{ label: 'Off', value: 'off' }, { label: 'Fill in', value: 'fill' }, { label: 'Expand', value: 'expand' }]"
+                aria-label="Enhance prompt"
+                @update:model-value="(v) => emit('mode', v as EnhanceLevel)"
+              />
+            </div>
             <template v-if="hasLoras">
               <label class="flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer">
                 <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA trigger words</span>
@@ -223,7 +228,7 @@ import { CheckIcon, LanguageIcon } from '@heroicons/vue/24/solid'
 import { ArrowPathIcon, Bars3BottomLeftIcon, BookOpenIcon, CodeBracketIcon, CodeBracketSquareIcon, QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
 import SegmentedControl from '../ui/SegmentedControl.vue'
 import Toggle from '../ui/Toggle.vue'
-import type { PromptProgram } from '../../composables/usePromptProgram'
+import type { EnhanceLevel, PromptProgram } from '../../composables/usePromptProgram'
 import { devModeRef } from '../../appConfig'
 import ReadOnlyCode from '../viewers/ReadOnlyCode.vue'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
@@ -239,8 +244,8 @@ const props = defineProps<{
   raw: boolean
   /** Direct: lists and saved wildcards fill in, no model reads the prompt. */
   direct: boolean
-  /** Upsample prompt (true), or just your wording joined up (false). */
-  elaborate: boolean
+  /** Enhance: off (your wording joined up), fill (your wording plus what the model needs), expand (upsampled). */
+  enhance: EnhanceLevel
   /** No chat model is set up, so Fluent can't read prompts. */
   llmUnconfigured: boolean
   /** The image model's name, for the menu's one line of description. */
@@ -255,7 +260,7 @@ const props = defineProps<{
   translate?: { enabled: boolean; language: string }
 }>()
 const emit = defineEmits<{
-  (e: 'mode', elaborate: boolean): void
+  (e: 'mode', level: EnhanceLevel): void
   (e: 'way', way: Way): void
   (e: 'help', anchor: DOMRect | null): void
   (e: 'lora', key: 'loraTriggers' | 'loraNotes', on: boolean): void
@@ -299,8 +304,10 @@ const tagline = computed(() => {
   const model = props.modelName || 'the model'
   if (props.raw) return `Your prompt goes to ${model} exactly as you typed it.`
   if (props.direct) return 'Handles wildcards, comments and verbatim text without AI.'
-  return props.elaborate || props.program.unsupported.value
-    ? `AI fills in your wildcards, follows your comments, and expands your prompt into the detailed style ${model} works best with.`
+  if (props.enhance === 'expand' || props.program.unsupported.value)
+    return `AI fills in your wildcards, follows your comments, and expands your prompt into the detailed style ${model} works best with.`
+  return props.enhance === 'fill'
+    ? `AI fills in your wildcards and follows your comments, keeping your wording and adding only what ${model} needs.`
     : 'AI fills in your wildcards and follows your comments, keeping your wording.'
 })
 const translating = computed(() => !props.raw && !props.llmUnconfigured && !!props.translate?.enabled)
@@ -310,7 +317,7 @@ const languageOptions = computed(() => [
   { code: null as string | null, label: 'Off', english: '', picked: !translating.value },
   ...PROMPT_LANGUAGES.map(l => ({ code: l.code as string | null, label: l.label, english: l.english === l.label ? '' : l.english, picked: translating.value && languageCode.value === l.code })),
 ])
-const detail = computed(() => props.elaborate || props.program.unsupported.value)
+const detail = computed(() => props.enhance === 'expand' || props.program.unsupported.value)
 const on = computed(() => way.value === 'fluent' && !props.llmUnconfigured)
 const busy = computed(() => on.value && props.program.status.value === 'busy')
 const failed = computed(() => on.value && props.program.status.value === 'error')
@@ -320,7 +327,7 @@ const chipText = computed(() => {
   if (props.raw) return 'Raw'
   if (props.direct) return 'Direct'
   if (props.llmUnconfigured) return `${BRAND} · set up`
-  return detail.value ? BRAND : `${BRAND} · your words`
+  return detail.value ? BRAND : props.enhance === 'fill' ? `${BRAND} · fill in` : `${BRAND} · your words`
 })
 const chipTitle = computed(() => {
   const t = chipTitleBase.value
@@ -332,7 +339,7 @@ const chipTitleBase = computed(() => {
   if (props.llmUnconfigured) return `${BRAND} needs a chat model`
   if (busy.value) return `Preparing ${BRAND} prompt…${props.previousRunning ? ' Images use your previous prompt until it’s ready.' : ''}`
   if (failed.value) return `${BRAND} couldn’t read this prompt`
-  return detail.value ? `${BRAND}, enhancing the prompt` : `${BRAND}, in your own words`
+  return detail.value ? `${BRAND}, enhancing the prompt` : props.enhance === 'fill' ? `${BRAND}, filling in your words` : `${BRAND}, in your own words`
 })
 
 type Action = { label: string; run: () => void }

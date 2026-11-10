@@ -28,7 +28,7 @@ from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-40"
+PREPARE_VERSION = "pp-41"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -111,10 +111,14 @@ def _numbered(prompt: str) -> str:
 
 def build_user_message(prompt: str, model_name: Optional[str], mode: str,
                        params: Dict[str, Dict[str, Any]], loras: Sequence[LoraInfo], notes: Dict[str, str],
-                       elaborate: bool = True) -> str:
+                       elaborate: bool = True, level: str = "") -> str:
     parts = [f"User's prompt (lines numbered):\n{_numbered(prompt)}", ""]
     smart = smart_wildcards(prompt)
-    if elaborate:
+    if level == "fill":
+        parts.append("Write the program, keeping the user's words: emit their prompt as written, with only what the "
+                     "style guide says the model needs, joined into readable text. Seeds you write are short phrases "
+                     "(a few words) in the same register as the user's words. Add no extra picks (no added=True).")
+    elif elaborate:
         parts.append(f"Write the program. What it emits is the prompt {model_name or 'the image model'} reads: "
                      "write it the way the style guide says, complete and rich, with a pick wherever the "
                      "image should vary.")
@@ -278,7 +282,8 @@ apply: you reply with the program.
 
 
 async def writer_style(prompt: str, ctx: Dict[str, Any], instructions: str, lora_context: List[Dict[str, Any]],
-                       project_id: Optional[int], profile_id: Optional[str]) -> Tuple[str, List[Tuple[int, str]]]:
+                       project_id: Optional[int], profile_id: Optional[str],
+                       level: str = "expand") -> Tuple[str, List[Tuple[int, str]]]:
     """This model's prompt-style guide (the enhancer's per-model guidance, with this
     request's images, canvas, protected text and LoRAs filled in) and the source images it
     refers to. No model call."""
@@ -289,15 +294,15 @@ async def writer_style(prompt: str, ctx: Dict[str, Any], instructions: str, lora
                                    project_id=project_id, lora_context=lora_context or [], **(ctx.get("enhance") or {}))
     db = get_database_registry().get_database(profile_id)
     async with db.async_session_maker() as session:
-        guide, images, _mode = await style_guide(request, session)
+        guide, images, _mode = await style_guide(request, session, fill=(level == "fill"))
     return guide, images
 
 
 def writer_messages(prompt: str, guide: str, images: Sequence[Tuple[int, str]], model_name: Optional[str], mode: str,
                     params: Dict[str, Dict[str, Any]], loras: Sequence[LoraInfo], notes: Dict[str, str],
-                    elaborate: bool, instructions: str = "") -> List[Dict[str, Any]]:
-    system = _INSTRUCTIONS + (_STYLE_NOTE + guide.strip() if elaborate and guide else "")
-    user = build_user_message(prompt, model_name, mode, params, loras, notes, elaborate)
+                    elaborate: bool, instructions: str = "", level: str = "") -> List[Dict[str, Any]]:
+    system = _INSTRUCTIONS + (_STYLE_NOTE + guide.strip() if guide else "")
+    user = build_user_message(prompt, model_name, mode, params, loras, notes, elaborate, level)
     if instructions.strip():
         user += f"\n\nThe user's standing instructions for prompts: {instructions.strip()}"
     if images:
@@ -1296,15 +1301,28 @@ async def lora_candidates(tool_id: str, items: Sequence[Dict[str, Any]], profile
     return out, notes
 
 
+ENHANCE_LEVELS = ("off", "fill", "expand")
+
+
+def enhance_level(enhance: Optional[str], elaborate: bool = True) -> str:
+    """The Enhance level: "off", "fill" or "expand". Older callers send only elaborate."""
+    level = str(enhance or "").strip().lower()
+    return level if level in ENHANCE_LEVELS else ("expand" if elaborate else "off")
+
+
 async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], instructions: str,
                          lora_items: Sequence[Dict[str, Any]], project_id: Optional[int],
                          profile_id: Optional[str], cache_only: bool = False, force: bool = False,
                          elaborate: bool = True, lora_notes: bool = True,
-                         base_key: Optional[str] = None) -> Optional[Dict[str, Any]]:
+                         base_key: Optional[str] = None, enhance: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """The prepared program for these inputs, from cache or by asking the model.
-    elaborate (Enhance on): the per-model enhancer writes a rich example first and the
-    program keeps it. Off: the program keeps the user's own words. base_key: the program
-    the editor showed before this prompt (an edit continues from it when it fits)."""
+    enhance: "expand" (the per-model guide is part of the writer's instructions and the
+    program writes a complete, rich prompt with content picks), "fill" (a short per-model
+    guide: the user's words plus only what the model needs to read them, no added picks) or
+    "off" (the user's own words). Without it, elaborate picks expand or off. base_key: the
+    program the editor showed before this prompt (an edit continues from it when it fits)."""
+    level = enhance_level(enhance, elaborate)
+    elaborate = level == "expand"
     from prompt_pipeline import _profile_wildcards_and_segments
 
     wildcards, segments = _profile_wildcards_and_segments(profile_id)
@@ -1332,7 +1350,7 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         "params": sorted(params), "loras": [{k: v for k, v in vars(lo).items() if k != "on"} for lo in loras],
         "notes": lora_context,
         "lora_notes": {lo.name: notes[lo.name] for lo in loras if notes.get(lo.name)},  # what the writer reads
-        "elaborate": bool(elaborate),
+        "elaborate": level,
         "writer": await _writer_fingerprint(project_id),  # another writer model writes another program
     }
     key = program_key({**parts, "prompt": source_prompt})
@@ -1352,7 +1370,7 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     if running is None:
         args = dict(key=key, store=store, tool_id=tool_id, ctx=ctx, instructions=instructions, source_prompt=masked_prompt,
                     params=params, loras=loras, notes=notes, lora_context=lora_context, project_id=project_id,
-                    profile_id=profile_id, elaborate=bool(elaborate), exact=exact)
+                    profile_id=profile_id, elaborate=bool(elaborate), level=level, exact=exact)
         running = asyncio.ensure_future(_prepare(context=context, force=force, base_key=base_key, **args))
         _in_flight[flight] = running
         running.add_done_callback(lambda _t, k=flight: _in_flight.pop(k, None) if _in_flight.get(k) is _t else None)
@@ -1708,7 +1726,7 @@ async def _ask_patch(messages: List[Dict[str, Any]], project_id: Optional[int], 
 async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore, tool_id: str, ctx: Dict[str, Any],
                          instructions: str, source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo],
                          notes: Dict[str, str], lora_context: List[Dict[str, Any]], project_id: Optional[int],
-                         profile_id: Optional[str], elaborate: bool = True,
+                         profile_id: Optional[str], elaborate: bool = True, level: str = "",
                          exact: Optional[Dict[str, str]] = None) -> Optional[Dict[str, Any]]:
     """Carry a small prompt edit into the program it was prepared from: no enhancer, a
     short model call for a text edit (none for list items or [exact text]), and at most
@@ -1729,11 +1747,12 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
     if source is None:
         changes = prompt_changes(old, new)
         program = base["program"]
-        guide, images = (await writer_style(new, ctx, instructions, lora_context, project_id, profile_id)
-                         if elaborate else ("", []))
+        level = level or ("expand" if elaborate else "off")
+        guide, images = (await writer_style(new, ctx, instructions, lora_context, project_id, profile_id, level)
+                         if level != "off" else ("", []))
         messages = [
             *writer_messages(old, guide, images, ctx.get("model"), ctx.get("mode") or "prose",
-                             params, loras, notes, elaborate, instructions),
+                             params, loras, notes, elaborate, instructions, level),
             {"role": "assistant", "content": f"```python\n{program}```"},
             {"role": "user", "content": PATCH_NOTE.format(prompt=_numbered(new), changes=_describe_changes(changes),
                                                            numbered=_numbered_program(program))},
@@ -1773,7 +1792,7 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
         if edited is None or edited == source:
             return None
         source = edited
-    entry = _entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, prompt=new, enhanced=enhanced,
+    entry = _entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, level=level, prompt=new, enhanced=enhanced,
                    exact=exact, source=source, checked=checked, params=params, loras=loras)
     entry.update({
         "attempts": len(calls), "repairs": fixed, "patched_from": base.get("key"), "patch": kind,
@@ -1829,7 +1848,7 @@ def _repair_cap(source: str) -> int:
 async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict[str, Any], instructions: str,
                        source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo], notes: Dict[str, str],
                        lora_context: List[Dict[str, Any]], project_id: Optional[int],
-                       profile_id: Optional[str], elaborate: bool = True,
+                       profile_id: Optional[str], elaborate: bool = True, level: str = "",
                        exact: Optional[Dict[str, str]] = None, prev: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """source_prompt arrives with [exact text] already masked (see mask_exact). `prev`: the
     previous version of this prompt's program (a small edit whose patch didn't hold).
@@ -1841,13 +1860,14 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     started = time.monotonic()
     # One model call writes the program, its text already in this model's style: the
     # enhancer's per-model guide is the writer's own instructions, not a separate step.
-    guide, images = (await writer_style(source_prompt, ctx, instructions, lora_context, project_id, profile_id)
-                     if elaborate else ("", []))
+    level = level or ("expand" if elaborate else "off")
+    guide, images = (await writer_style(source_prompt, ctx, instructions, lora_context, project_id, profile_id, level)
+                     if level != "off" else ("", []))
     # What validation compares the program with: the user's own words (kept-words mode).
     enhanced = "" if elaborate else plain_example(source_prompt)
     upsampled_at = time.monotonic()
     base = writer_messages(source_prompt, guide, images, ctx.get("model"), ctx.get("mode") or "prose",
-                           params, loras, notes, elaborate, instructions)
+                           params, loras, notes, elaborate, instructions, level)
     if prev and prev.get("program"):
         base[-1] = {**base[-1], "content": _with_previous(base[-1]["content"], prev)}
     cap = _writer_cap(source_prompt)
@@ -1912,7 +1932,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     if best is None:
         raise ProgramError(f"Couldn't prepare this prompt: {last_error}")
     source, checked = best
-    entry = _entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, prompt=source_prompt, enhanced=enhanced,
+    entry = _entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, level=level, prompt=source_prompt, enhanced=enhanced,
                    exact=exact, source=source, checked=checked, params=params, loras=loras)
     entry.update({
         "attempts": len(calls), "repairs": fixes,
@@ -1951,14 +1971,15 @@ def fix_patched(source: str, prompt: str) -> Tuple[str, List[str]]:
     return source, notes
 
 
-def _entry(*, key: str, tool_id: str, ctx: Dict[str, Any], elaborate: bool, prompt: str, enhanced: str,
+def _entry(*, key: str, tool_id: str, ctx: Dict[str, Any], elaborate: bool, prompt: str, enhanced: str, level: str = "",
            exact: Optional[Dict[str, str]], source: str, checked: Dict[str, Any], params: Dict[str, Any],
            loras: Sequence[LoraInfo]) -> Dict[str, Any]:
     info = checked["info"]
     normalize_sources(info, prompt)
     return {
         "key": key, "version": PREPARE_VERSION, "prompt": prompt, "tool_id": tool_id,
-        "mode": ctx.get("mode"), "elaborate": bool(elaborate), "enhanced": enhanced, "exact": exact or {},
+        "mode": ctx.get("mode"), "elaborate": bool(elaborate),
+        "enhance": level or ("expand" if elaborate else "off"), "enhanced": enhanced, "exact": exact or {},
         "program": source, "choices": info["choices"], "groups": info["groups"],
         "params": {n: params[n] for n in info["params"] if n in params},
         "loras": [vars(lo) for lo in loras],

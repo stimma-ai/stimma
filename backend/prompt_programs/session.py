@@ -61,13 +61,13 @@ _STYLE_TEXT = "Its rules about how to reply don't\napply: you reply with the pro
 _STYLE_TOOLS = "Its rules about how to reply don't\napply: you write the program with the tools."
 
 
-def system_text(guide: str, elaborate: bool) -> str:
+def system_text(guide: str, elaborate: bool = True) -> str:
     """instructions.md and the style guide, with the text protocol's reply rules swapped for
     the tools'. Only the protocol differs from the text writer's system message."""
     text = prep._INSTRUCTIONS
     assert _TEXT_OUTPUT in text, "instructions.md lost its Output line"
     text = text.replace(_TEXT_OUTPUT, _TOOL_OUTPUT).replace("\nProgram:\n```python", "\nwrite_program source:\n```python")
-    if elaborate and guide:
+    if guide:  # Enhance off sends no guide
         assert _STYLE_TEXT in prep._STYLE_NOTE
         text += prep._STYLE_NOTE.replace(_STYLE_TEXT, _STYLE_TOOLS) + guide.strip()
     return text
@@ -618,14 +618,16 @@ async def prepare_session(*, cfg: Any, base: Optional[Dict[str, Any]], context: 
                           store: ProgramStore, tool_id: str, ctx: Dict[str, Any], instructions: str,
                           source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo], notes: Dict[str, str],
                           lora_context: List[Dict[str, Any]], project_id: Optional[int], profile_id: Optional[str],
-                          elaborate: bool = True, exact: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+                          elaborate: bool = True, level: str = "",
+                          exact: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """Prepare `source_prompt` ([exact text] already masked) as a session turn: an edit of
     `base` continues its log, anything else starts a new one. Stores the session node and
     returns the entry; the caller stores the entry (node before pointer)."""
     prompt = source_prompt
     mode = ctx.get("mode") or "prose"
-    guide, images = (await prep.writer_style(prompt, ctx, instructions, lora_context, project_id, profile_id)
-                     if elaborate else ("", []))
+    level = level or ("expand" if elaborate else "off")
+    guide, images = (await prep.writer_style(prompt, ctx, instructions, lora_context, project_id, profile_id, level)
+                     if level != "off" else ("", []))
     styled_at = time.monotonic()
     system = {"role": "system", "content": system_text(guide, elaborate)}
     sys_hash = _sha(system["content"])
@@ -638,7 +640,7 @@ async def prepare_session(*, cfg: Any, base: Optional[Dict[str, Any]], context: 
 
     def user_message(for_prompt: str) -> Dict[str, Any]:
         return prep.writer_messages(for_prompt, guide, images, ctx.get("model"), mode, params, loras, notes,
-                                    elaborate, instructions)[1]
+                                    elaborate, instructions, level)[1]
 
     def node_for(parent: Optional[str], turns: List[Dict[str, Any]], program: str) -> str:
         return store.put_node({"parent": parent, "root": parent is None, "system_hash": sys_hash, "images": manifest,
@@ -715,7 +717,7 @@ async def prepare_session(*, cfg: Any, base: Optional[Dict[str, Any]], context: 
         raise ProgramError(f"Couldn't prepare this prompt: {turn.last_error or 'the writer wrote no program'}")
     if turn.accepted is None:
         log.info(f"[prompt-program] no valid program after {budget.calls} call(s): keeping the best one")
-    entry = prep._entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, prompt=prompt,
+    entry = prep._entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, level=level, prompt=prompt,
                         enhanced="" if elaborate else prep.plain_example(prompt), exact=exact, source=chosen.source,
                         checked=chosen.checked, params=params, loras=loras)
     entry.update({

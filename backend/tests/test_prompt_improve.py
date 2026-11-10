@@ -653,3 +653,19 @@ def test_flux3_canvas_guidance_composes_without_naming_the_canvas():
     assert "a wide 1920x1088 frame" in _flux3_canvas_guidance(1920, 1088)
     assert "a tall 832x1248 frame" in _flux3_canvas_guidance(832, 1248)
     assert "never mention the ratio" in _flux3_canvas_guidance(1024, 1024)
+
+
+def test_fill_guide_mirrors_the_models_guide_and_falls_back_to_prose():
+    import asyncio
+    from routes.prompt_enhancement import ImprovePromptRequest, style_guide
+
+    async def guide(model, fill):
+        text, _images, mode = await style_guide(ImprovePromptRequest(prompt="a cat", model=model), None, fill=fill)
+        return text, mode
+
+    keyword_fill, mode = asyncio.run(guide("sdxl", True))
+    assert mode == "keyword" and "masterpiece, best quality" in keyword_fill and "Add no tags" in keyword_fill
+    prose_fill, _ = asyncio.run(guide(None, True))
+    assert prose_fill.startswith("You are completing a prompt for an image generation model")
+    prose_expand, _ = asyncio.run(guide(None, False))
+    assert prose_expand.startswith("You are writing the prompt an image generation model will read")

@@ -509,6 +509,9 @@ async def _apply_generation_prompt_pipeline(
     add_triggers = lora_choice is True
     lora_notes = (prompt_options or {}).get("loraNotes") is not False
     enhance_on = not raw and bool(((prompt_options or {}).get("autoImprove") or {}).get("enabled"))
+    # Fluent's Enhance level: an enabled setting without one (older clients) is expand.
+    enhance_level = (("fill" if ((prompt_options or {}).get("autoImprove") or {}).get("level") == "fill" else "expand")
+                     if enhance_on else "off")
     program_run = None
     program_opts = (prompt_options or {}).get("program")
     if not raw and isinstance(program_opts, dict) and program_opts.get("enabled") and ctx["program_supported"]:
@@ -516,7 +519,7 @@ async def _apply_generation_prompt_pipeline(
         # this generation runs it. No LLM call unless it isn't prepared yet.
         program_run, prompt = await _run_prompt_program(
             prompt, parameters, program_opts, ctx=ctx, tool_id=tool_id, prompt_options=prompt_options,
-            project_id=project_id, profile_id=profile_id, elaborate=enhance_on,
+            project_id=project_id, profile_id=profile_id, elaborate=enhance_on, enhance=enhance_level,
             lora_triggers=lora_triggers, lora_notes=lora_notes,
             hot_draws_for=generator_instance_id if forever else None,
         )
@@ -571,6 +574,7 @@ async def _run_prompt_program(
     project_id: Optional[int],
     profile_id: Optional[str],
     elaborate: bool = True,
+    enhance: Optional[str] = None,
     lora_triggers: bool = True,
     lora_notes: bool = True,
     hot_draws_for: Optional[str] = None,
@@ -586,7 +590,7 @@ async def _run_prompt_program(
             prompt=prompt, tool_id=tool_id, ctx=ctx,
             instructions=(((prompt_options or {}).get("autoImprove") or {}).get("instructions") or "").strip(),
             lora_items=program_opts.get("loras") or [], project_id=project_id, profile_id=profile_id,
-            elaborate=elaborate, lora_notes=lora_notes,
+            elaborate=elaborate, lora_notes=lora_notes, enhance=enhance,
         )
         # Independent of the image seed; an explicit draw_seed repeats the same draws.
         from prompt_programs.fluent import attach_filler
@@ -610,7 +614,8 @@ async def _run_prompt_program(
         raise HTTPException(status_code=424, detail=f"Generation was not started: {e}") from None
     by_name = {lo.get("name"): lo.get("path") for lo in entry.get("loras") or [] if isinstance(lo, dict)}
     controlled = sorted({by_name[n] for names in (entry.get("lora_choices") or {}).values() for n in names if by_name.get(n)})
-    record = {"key": entry["key"], "mode": entry.get("mode"), "elaborate": entry.get("elaborate", True), **result.to_dict(), "pins": program_opts.get("pins") or {},
+    record = {"key": entry["key"], "mode": entry.get("mode"), "elaborate": entry.get("elaborate", True),
+              "enhance": entry.get("enhance"), **result.to_dict(), "pins": program_opts.get("pins") or {},
               "lora_controlled": controlled,
               "choices": [c for c in entry.get("choices") or [] if not c.get("hidden")]}
     if fix is not None:
