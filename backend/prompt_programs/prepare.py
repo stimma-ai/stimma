@@ -43,6 +43,49 @@ class StartOver(Exception):
 
 class PrepareTimeout(ProgramError):
     """Preparing took longer than PREPARE_LIMIT_SECONDS."""
+
+
+class PrepareFailed(ProgramError):
+    """The writer wrote no program that runs. The message is for the user; `problems` (what
+    the checks told the writer) is for logs and the dev panel."""
+
+    code = "program_failed"
+
+    def __init__(self, problems: str = ""):
+        super().__init__("The chat model couldn't prepare this prompt. Try again, or simplify the prompt.")
+        self.problems = problems
+
+
+class PromptTooLong(ProgramError):
+    """A prompt (with its lists and segments expanded) or standing instructions too long to prepare."""
+
+    code = "prompt_too_long"
+
+
+# Inputs past these never reach the writer: a pasted essay would overflow its context, and
+# every check runs over the program it writes.
+MAX_PROMPT_CHARS = 8000
+MAX_INSTRUCTIONS_CHARS = 4000
+
+
+def writer_failure(e: BaseException) -> Optional[Exception]:
+    """The error to report when the chat model itself failed to answer (unreachable, a
+    provider rejection or 5xx, a broken stream, out of quota or balance), else None. Those
+    are the chat model being unavailable, not a bug: the client offers Try again or Direct."""
+    import httpx
+    from llm_http import (ContentFilteredError, EntitlementError, LLMConnectionError, LLMStreamError,
+                          QuotaExceededError)
+    from llm_resolver import LLMInsufficientBalanceError, LLMUnavailableError
+
+    if isinstance(e, ContentFilteredError):
+        return PrepareFailed(f"the provider's content filter declined: {e}"[:300])
+    if isinstance(e, EntitlementError):
+        return LLMInsufficientBalanceError(str(e)[:300] or "No balance left for the chat model.")
+    if isinstance(e, (LLMConnectionError, LLMStreamError, QuotaExceededError, httpx.HTTPError)):
+        return LLMUnavailableError(str(e)[:300] or "The chat model didn't answer.")
+    return None
+
+
 # The vocabulary's catalogue (the lists a pick may bind to with cls=) is part of the
 # instructions; a vocabulary change changes the instructions, and so PREPARE_VERSION's key.
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8").replace(
@@ -1238,6 +1281,12 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
 
     wildcards, segments = _profile_wildcards_and_segments(profile_id)
     source_prompt = expand_named_lists(prompt, wildcards, segments).strip()
+    if len(source_prompt) > MAX_PROMPT_CHARS:
+        raise PromptTooLong(f"This prompt is too long to prepare ({len(source_prompt):,} characters with its lists "
+                            f"and segments filled in; the limit is {MAX_PROMPT_CHARS:,}). Shorten it, or use Direct.")
+    if len(instructions or "") > MAX_INSTRUCTIONS_CHARS:
+        raise PromptTooLong(f"Your standing instructions for prompts are too long to prepare with "
+                            f"({len(instructions):,} characters; the limit is {MAX_INSTRUCTIONS_CHARS:,}).")
     # The models below only ever see tokens for [exact text]; the key keeps the real text.
     masked_prompt, exact = mask_exact(source_prompt)
     params = tool_param_specs(ctx.get("schema_props") or {})
@@ -1325,6 +1374,12 @@ async def _prepare(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
         log.warning(f"[prompt-program] prepare {args.get('key')} gave up after {PREPARE_LIMIT_SECONDS:.0f}s")
         raise PrepareTimeout(f"Preparing took longer than {PREPARE_LIMIT_SECONDS:.0f} seconds, so it stopped. "
                              "The chat model may be busy or too slow for this prompt.") from None
+    except Exception as e:
+        failure = writer_failure(e)
+        if failure is None:
+            raise
+        log.warning(f"[prompt-program] prepare {args.get('key')}: the chat model failed: {type(e).__name__}: {e}")
+        raise failure from e
 
 
 NARROW_RESERVE = 3.0   # seconds of the prepare deadline left for storing the entry after narrowing
@@ -1841,7 +1896,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                       "applied": edited is not None})
         source, repaired = (drop_name_options(edited, source_prompt), True) if edited is not None else (None, False)
     if best is None:
-        raise ProgramError(f"Couldn't prepare this prompt: {last_error}")
+        raise PrepareFailed(last_error)
     source, checked = best
     entry = _entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, level=level, prompt=source_prompt, enhanced=enhanced,
                    exact=exact, source=source, checked=checked, params=params, loras=loras)

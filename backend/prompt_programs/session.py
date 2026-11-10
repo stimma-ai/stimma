@@ -714,7 +714,7 @@ async def prepare_session(*, cfg: Any, base: Optional[Dict[str, Any]], context: 
         if budget.timed_out:
             raise prep.PrepareTimeout(f"Preparing took longer than {prep.PREPARE_LIMIT_SECONDS:.0f} seconds, so it "
                                       "stopped. The chat model may be busy or too slow for this prompt.")
-        raise ProgramError(f"Couldn't prepare this prompt: {turn.last_error or 'the writer wrote no program'}")
+        raise prep.PrepareFailed(turn.last_error or "the writer wrote no program")
     if turn.accepted is None:
         log.info(f"[prompt-program] no valid program after {budget.calls} call(s): keeping the best one")
     entry = prep._entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, level=level, prompt=prompt,

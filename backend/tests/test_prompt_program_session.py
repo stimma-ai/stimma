@@ -683,3 +683,86 @@ class TestCardsUseTheShownProgram:
         r = TestClient(app).post("/api/prompt-programs/options", json=body)
         assert r.status_code == 200 and r.json()["options"] == ["windy"]
         assert seen["key"] == entry["key"]
+
+
+# --------------------------------------------------------------------------- failures the user sees
+
+def _route_client(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from routes import prompt_programs as route
+    monkeypatch.setattr(route, "get_current_profile", lambda: "p")
+    app = FastAPI()
+    app.include_router(route.router)
+    return TestClient(app, raise_server_exceptions=False)
+
+
+class TestWriterDown:
+    """The chat model not answering is the designed "can't prepare" result, never a 500."""
+
+    def _down(self):
+        from llm_http import LLMConnectionError
+
+        async def refused():
+            raise LLMConnectionError("Could not reach the chat model at http://writer.test/v1.")
+        return refused
+
+    def test_ensure_reports_the_chat_model_unavailable(self, model):
+        from llm_resolver import LLMUnavailableError
+        model.replies = [self._down()]
+        with pytest.raises(LLMUnavailableError, match="Could not reach"):
+            asyncio.run(ensure())
+        assert not prep._in_flight
+
+    def test_a_provider_5xx_is_unavailable_too(self, model):
+        import httpx
+        from llm_http import LLMProviderHTTPError
+        from llm_resolver import LLMUnavailableError
+        req = httpx.Request("POST", "http://writer.test/v1/chat/completions")
+
+        async def bad_gateway():
+            raise LLMProviderHTTPError(httpx.Response(502, request=req, text="upstream down"))
+        model.replies = [bad_gateway]
+        with pytest.raises(LLMUnavailableError):
+            asyncio.run(ensure())
+
+    def test_the_prepare_route_answers_424(self, model, monkeypatch):
+        model.replies = [self._down()]
+        r = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PROMPT})
+        assert r.status_code == 424 and r.json()["detail"]["code"] == "llm_unavailable"
+
+    def test_a_submit_answers_424(self, model):
+        from fastapi import HTTPException
+        from routes.generation import _run_prompt_program
+        model.replies = [self._down()]
+        with pytest.raises(HTTPException) as e:
+            asyncio.run(_run_prompt_program(PROMPT, {}, {"enabled": True}, tool_id="t", prompt_options={},
+                                            ctx={"model": "m", "mode": "prose", "schema_props": {}, "enhance": {}},
+                                            project_id=None, profile_id="p"))
+        assert e.value.status_code == 424 and "Generation was not started" in e.value.detail
+
+
+class TestPlainFailures:
+    def test_no_program_says_so_plainly_and_keeps_the_problems_for_the_dev_panel(self, model, monkeypatch):
+        model.replies = [reply(write("emit(")) for _ in range(ses.MAX_CALLS)]
+        r = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PROMPT})
+        detail = r.json()["detail"]
+        assert r.status_code == 422 and detail["code"] == "program_failed"
+        assert detail["message"] == "The chat model couldn't prepare this prompt. Try again, or simplify the prompt."
+        assert "emit(" not in detail["message"] and detail["problems"]
+
+    def test_an_oversized_prompt_is_refused_before_the_writer(self, model, monkeypatch):
+        long = "A woman waiting for a train, " * 400
+        r = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": long})
+        assert r.status_code == 422 and r.json()["detail"]["code"] == "prompt_too_long" and not model.seen
+
+    def test_oversized_instructions_are_refused(self, model):
+        with pytest.raises(prep.PromptTooLong):
+            asyncio.run(prep.ensure_program(prompt=PROMPT, tool_id="t", ctx={"model": "m", "mode": "prose",
+                                            "schema_props": {}, "enhance": {}}, instructions="x" * 5000,
+                                            lora_items=[], project_id=None, profile_id="p"))
+
+    def test_the_options_route_caps_existing(self, model, monkeypatch):
+        body = {"tool_id": "t", "prompt": PROMPT, "choice_id": "weather", "existing": ["x"] * 500}
+        assert _route_client(monkeypatch).post("/api/prompt-programs/options", json=body).status_code == 422
+

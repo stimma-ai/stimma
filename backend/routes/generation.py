@@ -583,7 +583,7 @@ async def _run_prompt_program(
     submit's generator instance, served a draw its pool made ahead when one is current."""
     from llm_resolver import LLMUnavailableError
     from prompt_programs.fix import prompt_view, realize_and_fix
-    from prompt_programs.prepare import ProgramError, draw_seed, ensure_program
+    from prompt_programs.prepare import ProgramError, draw_seed, ensure_program, writer_failure
 
     try:
         entry = await ensure_program(
@@ -612,6 +612,14 @@ async def _run_prompt_program(
         raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
     except LLMUnavailableError as e:
         raise HTTPException(status_code=424, detail=f"Generation was not started: {e}") from None
+    except Exception as e:
+        # The chat model failing to answer (unreachable, a provider error) is a 424, never a
+        # 500 with a crash report on every submit of a generate-forever lane.
+        failure = writer_failure(e)
+        if failure is None:
+            raise
+        status = 422 if isinstance(failure, ProgramError) else 424
+        raise HTTPException(status_code=status, detail=f"Generation was not started: {failure}") from None
     by_name = {lo.get("name"): lo.get("path") for lo in entry.get("loras") or [] if isinstance(lo, dict)}
     controlled = sorted({by_name[n] for names in (entry.get("lora_choices") or {}).values() for n in names if by_name.get(n)})
     record = {"key": entry["key"], "mode": entry.get("mode"), "elaborate": entry.get("elaborate", True),
