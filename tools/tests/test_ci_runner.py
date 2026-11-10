@@ -39,6 +39,19 @@ class RunnerChecks(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'mount with exec'):
                 runner.check_runner(Path(tmp) / 'temp', Path(tmp) / 'cache')
 
+    def test_configured_tool_directories_are_checked_as_well_as_download_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            tools = root / 'persistent-uv-tools'
+            with patch.dict(os.environ, {'UV_TOOL_DIR': str(tools)}, clear=True):
+                runner.check_runner(root / 'temp', root / 'cache')
+                self.assertTrue(tools.is_dir())
+                self.assertEqual(list(tools.iterdir()), [])
+                tools.rmdir()
+                tools.write_text('invalid tool directory')
+                with self.assertRaises(FileExistsError):
+                    runner.check_runner(root / 'temp', root / 'cache')
+
     def test_scratch_cleanup_is_repeatable_but_refuses_unrelated_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

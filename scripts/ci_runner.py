@@ -37,9 +37,15 @@ def check_runner(temporary, cache):
             subprocess.run([str(executable)], check=True, timeout=5, capture_output=True)
         except PermissionError as error:
             raise RuntimeError('Runner temporary filesystem must allow execution (mount with exec)') from error
-    cache.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryFile(dir=cache) as probe:
-        probe.write(b'prepared-runner-check')
+    paths = {cache}
+    for key in ('RUNNER_TOOL_CACHE', 'UV_PYTHON_INSTALL_DIR', 'UV_TOOL_DIR',
+                'UV_TOOL_BIN_DIR', 'DENO_INSTALL', 'NPM_CONFIG_CACHE'):
+        if os.environ.get(key):
+            paths.add(Path(os.environ[key]))
+    for path in paths:
+        path.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryFile(dir=path) as probe:
+            probe.write(b'prepared-runner-check')
     return {'temporary_executables': True, 'cache_writable': True}
 
 
