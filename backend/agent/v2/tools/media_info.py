@@ -86,6 +86,17 @@ async def _describe(session: AsyncSession, item: MediaItem) -> Dict[str, Any]:
     entry["sidecars"] = await companions_for_media(session, item.id, get_current_profile(), include_paths=False)
     if gen.get("input_usage"):
         entry["input_usage"] = gen["input_usage"]
+    # What was written before the prompt was processed, and, for an image made with
+    # varied choices, what it drew: keep_choices / draw_seed take these as they are.
+    written = (gen.get("prompt_metadata") or {}).get("original_prompt") if isinstance(gen.get("prompt_metadata"), dict) else None
+    if isinstance(written, str) and written.strip() and written.strip() != (entry["prompt"] or "").strip():
+        entry["written_prompt"] = written
+    record = gen.get("prompt_program")
+    if isinstance(record, dict):
+        from ..prompt_handling import choices_of
+        entry["choices"] = choices_of(record) or {}
+        if record.get("draw_seed") is not None:
+            entry["draw_seed"] = record["draw_seed"]
     negative = gen.get("negative_prompt") or stored.get("negative_prompt")
     if negative:
         entry["negative_prompt"] = negative
@@ -150,7 +161,8 @@ async def build_media_info(session: AsyncSession, media_id: int) -> Dict[str, An
         "turning an asset into a reusable flow — the visible item is often the END of a "
         "chain (e.g. generate → restyle → outpaint), and replaying only its last step "
         "silently drops the upstream hops. In flows, pair with params_from=<media_id> to "
-        "inherit a hop's recorded knobs at runtime."
+        "inherit a hop's recorded knobs at runtime. An image made with varied choices also "
+        "lists its choices and draw_seed, to hold with keep_choices or repeat with draw_seed."
     ),
     parameters=[
         ToolParameter(
