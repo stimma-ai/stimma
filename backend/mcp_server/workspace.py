@@ -358,11 +358,15 @@ async def execute_tools(caller, args, session, chat, job):
     )
     if args.get("batch") and args.get("chain"):
         raise McpError("invalid_arguments", "Choose a batch or a chain.")
+    # How the prompt is read (enhance_prompt, vary, keep_choices, draw_seed) applies to
+    # each run of the tool, never to a chain's later steps.
+    prompt_handling = {k: args[k] for k in ("enhance_prompt", "vary", "keep_choices", "draw_seed") if k in args}
     steps = [
         {
             "tool_ref": args["tool_ref"],
             "schema_version": args["schema_version"],
             "parameters": p,
+            "prompt_handling": prompt_handling,
         }
         for p in (args.get("batch") or [args["parameters"]])
     ]
@@ -400,12 +404,22 @@ async def execute_tools(caller, args, session, chat, job):
                 )
             raw[field] = [previous] if schema.get("type") == "array" else previous
         parameters = await tool_parameters(caller, descriptor, raw, session)
+        parameters.update(step.get("prompt_handling") or {})
         try:
             output = await sdk._dispatch_tool(tool_id, _params_dict=parameters)
             if isinstance(output, ToolResult):
+                result = output
                 saved = await sdk.library.save(output)
                 previous = access.ref(caller, "media", saved["media_id"])
                 output = present(caller, saved, "asset")
+                # What was sent when it differs from what was written, and with vary,
+                # what this item drew (copy them into keep_choices / draw_seed).
+                if isinstance(output, dict):
+                    if result.sent_prompt:
+                        output["sent_prompt"] = result.sent_prompt
+                    if result.draw_seed is not None:
+                        output["choices"] = result.choices or {}
+                        output["draw_seed"] = result.draw_seed
             else:
                 output = present(caller, output)
             manifest["items"].append(
