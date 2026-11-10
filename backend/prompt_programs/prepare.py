@@ -87,9 +87,16 @@ def writer_failure(e: BaseException) -> Optional[Exception]:
 
 
 # The vocabulary's catalogue (the lists a pick may bind to with cls=) is part of the
-# instructions; a vocabulary change changes the instructions, and so PREPARE_VERSION's key.
+# instructions; the key carries a hash of them (with the style note and the model's guide).
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8").replace(
     "{vocabulary}", vocabulary().catalogue())
+
+
+
+def _text_hash(guide: str) -> str:
+    import hashlib
+    return hashlib.sha256("\0".join([_INSTRUCTIONS, _STYLE_NOTE, guide]).encode("utf-8")).hexdigest()[:16]
+
 
 # Schema parameters a program may vary when the user asks. Others (seed, sizes,
 # media inputs, prompts, LoRAs) are never program-controlled.
@@ -1308,7 +1315,7 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     # guide composes for it (Qwen-Image, FLUX.3 Klein): there the shape is part of the key, so
     # turning a landscape portrait won't reuse a program written "a wide landscape…"; for
     # every other model one program serves every size.
-    from routes.prompt_enhancement import canvas_shape, guide_uses_canvas
+    from routes.prompt_enhancement import canvas_shape, guide_template, guide_uses_canvas
     enhance = {k: v for k, v in (ctx.get("enhance") or {}).items() if k not in ("width", "height")}
     if level != "off" and guide_uses_canvas(str(ctx.get("mode") or ""), fill=(level == "fill")):
         enhance["canvas"] = canvas_shape((ctx.get("enhance") or {}).get("width"), (ctx.get("enhance") or {}).get("height"))
@@ -1322,6 +1329,9 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         "lora_notes": {lo.name: notes[lo.name] for lo in loras if notes.get(lo.name)},  # what the writer reads
         "elaborate": level,
         "writer": await _writer_fingerprint(project_id),  # another writer model writes another program
+        # what the writer is told: an edit to instructions.md, the vocabulary or this model's
+        # guide is a new program even if PREPARE_VERSION isn't bumped
+        "text": _text_hash(guide_template(str(ctx.get("mode") or ""), fill=(level == "fill")) if level != "off" else ""),
     }
     key = program_key({**parts, "prompt": source_prompt})
     context = program_key(parts)  # the same editing context, whatever the prompt says

@@ -200,6 +200,14 @@ class TestPrepare:
         assert wide["key"] == wider["key"]  # one program per shape, whatever the size
         assert tall["key"] != wide["key"] and len(calls) == 2
 
+    async def test_an_instructions_edit_is_a_new_program(self, stub, monkeypatch):
+        calls, replies = stub
+        replies += [f"```python\n{TRAIN_M}```"] * 2
+        before = await self._ensure()
+        monkeypatch.setattr(prep, "_INSTRUCTIONS", prep._INSTRUCTIONS + "\nOne more rule.")
+        after = await self._ensure()
+        assert before["key"] != after["key"] and len(calls) == 2
+
     def test_fluents_guide_names_the_canvas_shape_not_its_size(self):
         from routes.prompt_enhancement import _flux3_canvas_guidance, _qwen_canvas_guidance, guide_uses_canvas
         assert "1344x768" in _qwen_canvas_guidance(1344, 768)  # the per-image enhancer: exact

@@ -138,13 +138,22 @@ def canvas_shape(width: Optional[int], height: Optional[int]) -> Optional[str]:
 _CANVAS_SLOTS = ("{canvas_guidance}", "{flux3_canvas_guidance}")
 
 
-def guide_uses_canvas(mode: str, fill: bool = False) -> bool:
-    """Whether this mode's style guide composes for the canvas (Fluent keys its programs on
-    the canvas's shape only then)."""
+def guide_template(mode: str, fill: bool = False) -> str:
+    """The prompts.yaml text this mode's style guide is filled from (its image-led
+    cinematography variants aside), with style_guide's fallbacks."""
     key = _IMPROVE_PROMPT_BY_MODE.get(mode, "improve_system_prompt")
     if fill:
         key = "fill_" + key.removeprefix("improve_")
-    text = get_prompt("prompt_enhancement", key) or ""
+        if not get_prompt("prompt_enhancement", key):
+            key = "fill_system_prompt"
+    return (get_prompt("prompt_enhancement", key) or get_prompt("prompt_enhancement", "improve_system_prompt")
+            or DEFAULT_IMPROVE_SYSTEM_PROMPT)
+
+
+def guide_uses_canvas(mode: str, fill: bool = False) -> bool:
+    """Whether this mode's style guide composes for the canvas (Fluent keys its programs on
+    the canvas's shape only then)."""
+    text = guide_template(mode, fill)
     return any(slot in text for slot in _CANVAS_SLOTS)
 
 
