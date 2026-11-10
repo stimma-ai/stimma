@@ -804,3 +804,18 @@ class TestBackgroundWorkFollowsTheEditor:
         assert not prep.is_current(first["key"], first["context_key"]) and prep.is_current(second["key"], second["context_key"])
         # the editing context is a key, not words for the option writer
         assert program_context(first).signature != first["context_key"]
+
+
+class TestPrepareRouteStartsNothing:
+    def test_lookups_and_cache_hits_queue_no_background_work(self, model, monkeypatch):
+        import prompt_programs.fluent as fluent
+        started = []
+        monkeypatch.setattr(prep, "on_prepared", lambda entry, **kw: started.append(entry["key"]))
+        monkeypatch.setattr(fluent, "start_options", lambda entry, **kw: started.append("route"))
+        model.replies = [reply(write(GOOD))]
+        client = _route_client(monkeypatch)
+        body = {"tool_id": "t", "prompt": PROMPT}
+        first = client.post("/api/prompt-programs/prepare", json=body).json()
+        client.post("/api/prompt-programs/prepare", json={**body, "cache_only": True})
+        client.post("/api/prompt-programs/prepare", json=body)
+        assert started == [first["key"]]  # once, for the fresh prepare

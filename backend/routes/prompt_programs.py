@@ -103,8 +103,8 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
         return {"key": None}
     if entry.get("unsupported"):  # structured formats are still enhanced per image
         return {"key": None, "unsupported": entry["unsupported"]}
-    from prompt_programs.fluent import start_options
-    start_options(entry, profile_id=get_current_profile(), project_id=req.project_id)  # background, low priority
+    # A fresh prepare already started its option pools (prepare.on_prepared); a cached one's
+    # unfilled pools queue as draws reach them. Not here: the editor looks up on every Run.
     out = {k: entry.get(k) for k in _PUBLIC_KEYS}
     if req.include_program:
         out["program"] = entry["program"]
