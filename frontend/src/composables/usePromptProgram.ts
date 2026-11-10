@@ -303,7 +303,7 @@ export function usePromptProgram(o: Options) {
   async function suggestOptions(c: ProgramChoice, mode: 'more' | 'reroll', count = 6): Promise<void> {
     const current = optionsOf(c)
     const { data } = await axios.post(`${getApiBase()}/prompt-programs/options`, request({
-      cache_only: true, choice_id: c.id, existing: current, count,
+      cache_only: true, choice_id: c.id, existing: current, count, key: program.value?.key,
     }))
     const fresh: string[] = (data?.options || []).filter((x: string) => !current.includes(x))
     if (!fresh.length) return
@@ -360,7 +360,7 @@ export function usePromptProgram(o: Options) {
     const sig = signature.value
     const id = ++poolsId
     try {
-      const { data } = await axios.post<PoolsResponse>(`${getApiBase()}/prompt-programs/pools`, request({ pins: pins.value }))
+      const { data } = await axios.post<PoolsResponse>(`${getApiBase()}/prompt-programs/pools`, request({ pins: pins.value, key: program.value?.key }))
       if (id !== poolsId || sig !== signature.value) return
       pools.value = data?.options || {}
       vocab.value = data?.vocab || {}

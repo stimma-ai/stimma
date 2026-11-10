@@ -40,6 +40,9 @@ class PrepareRequest(BaseModel):
     lora_notes: bool = True
     # The program the editor showed before this prompt: an edit of it continues its writer session.
     base_key: Optional[str] = None
+    # The program the cards are showing. Options and pools work on it even while a newer
+    # version of the prompt is being prepared (choices that survive keep their edits).
+    key: Optional[str] = None
 
 
 class PreviewRequest(PrepareRequest):
@@ -96,12 +99,22 @@ class OptionsRequest(PrepareRequest):
     count: int = 6
 
 
+async def _shown(req: PrepareRequest) -> Optional[Dict[str, Any]]:
+    """The program the cards are showing (req.key), else the one prepared for these inputs."""
+    if req.key:
+        from prompt_programs.prepare import _store
+        entry = _store(get_current_profile()).get(req.key)
+        if entry:
+            return entry
+    return await _prepare(req.model_copy(update={"cache_only": True}))
+
+
 @router.post("/options")
 async def options(req: OptionsRequest) -> Dict[str, Any]:
     """New options for one choice (the card's More like these and Reroll all)."""
     from llm_resolver import LLMNotConfiguredError, LLMUnavailableError
     from prompt_programs.prepare import ProgramError, suggest_options
-    entry = await _prepare(req.model_copy(update={"cache_only": True}))
+    entry = await _shown(req)
     if entry is None or entry.get("unsupported"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
     try:
@@ -120,7 +133,7 @@ async def pools(req: PreviewRequest) -> Dict[str, Any]:
     """What each generated choice's picker shows: its seeds plus the options generated so far."""
     import asyncio
     from prompt_programs.fluent import attach_filler, pool_options
-    entry = await _prepare(req.model_copy(update={"cache_only": True}))
+    entry = await _shown(req)
     if entry is None or entry.get("unsupported"):
         return {"options": {}, "more": []}
     attach_filler(entry, get_current_profile())

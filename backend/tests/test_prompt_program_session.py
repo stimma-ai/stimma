@@ -659,3 +659,27 @@ class TestEnhanceLevels:
         fill = asyncio.run(ensure(enhance="fill"))
         assert expand["key"] != fill["key"]
         assert expand["enhance"] == "expand" and expand["elaborate"] is True
+
+
+class TestCardsUseTheShownProgram:
+    def test_options_and_pools_find_the_shown_program_while_a_new_one_prepares(self, model, monkeypatch):
+        from fastapi.testclient import TestClient
+        from fastapi import FastAPI
+        from routes import prompt_programs as route
+        model.replies = [reply(write(GOOD))]
+        entry = asyncio.run(ensure())
+        monkeypatch.setattr(route, "get_current_profile", lambda: "p")
+        seen = {}
+
+        async def suggest(e, choice_id, existing, count, project_id):
+            seen["key"] = e["key"]
+            return ["windy"]
+
+        monkeypatch.setattr(prep, "suggest_options", suggest)
+        app = FastAPI()
+        app.include_router(route.router)
+        # The prompt has moved on (being prepared); the cards still show the old program.
+        body = {"tool_id": "t", "prompt": EDITED, "choice_id": "weather", "key": entry["key"]}
+        r = TestClient(app).post("/api/prompt-programs/options", json=body)
+        assert r.status_code == 200 and r.json()["options"] == ["windy"]
+        assert seen["key"] == entry["key"]
