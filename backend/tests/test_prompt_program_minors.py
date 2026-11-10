@@ -190,6 +190,27 @@ class TestUnasked:
         assert r.draws[0].value in young[2:4]
 
 
+    def test_an_old_revision_pool_draws_no_unasked_age(self, tmp_path):
+        """A revision recorded before ages under 18 were opt-in holds them at a positive weight."""
+        e = entry_of(ONE)
+        first = draw(ONE, 1, None, [], None, None, None,
+                     options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF).options)
+        rev = json.loads(json.dumps(first.revision))
+        key = next(k for k in rev["pools"] if k.startswith("age:"))
+        rev["pools"][key] = [[v.text, 1.0] for v in ages().values]
+        got = []
+        rt = runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=rev)
+        for seed in range(150):
+            r = draw(ONE, seed, None, [], None, None, None, options=rt.options)
+            rt.options.reset()
+            got.append(next(d.value for d in r.draws if d.id == "age"))
+        assert not any(map(is_minor, got))
+        # an image that really had an age under 18 (the record keeps it) replays it exactly
+        r = draw(ONE, 3, None, [], None, {"age": "8–10-year-old"}, None,
+                 options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=rev).options)
+        assert next(d.value for d in r.draws if d.id == "age") == "8–10-year-old"
+
+
 # --------------------------------------------------------------------------- narrowing: asked, and "a girl"
 
 class TestNarrowing:

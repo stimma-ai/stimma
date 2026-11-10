@@ -819,7 +819,12 @@ class GeneratedOptions:
         recorded = self.limits.get(key)
         if isinstance(recorded, list):  # a revision's whole bound pool, even for a list since removed
             roles = {str(e[0]): dict(e[2]) for e in recorded if len(e) > 2 and isinstance(e[2], dict)}
-            return Pool(key, [str(e[0]) for e in recorded], [float(e[1]) for e in recorded], False, True, roles), [], 0
+            # Opt-in values not asked for now stand by at weight 0, as in a fresh pool (an old
+            # record held them at a positive weight); a kept or pinned value still draws.
+            leaf = self._leaf(spec)
+            standby = {v.text for v in leaf.pool_values(self._allowed(spec), bool(spec.minor))[1]} if leaf else set()
+            return Pool(key, [str(e[0]) for e in recorded],
+                        [0.0 if str(e[0]) in standby else float(e[1]) for e in recorded], False, True, roles), [], 0
         leaf = self._leaf(spec)
         if leaf is not None:
             return self._read_bound(spec, leaf, key, skey)
