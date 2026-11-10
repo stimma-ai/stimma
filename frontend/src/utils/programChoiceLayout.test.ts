@@ -31,3 +31,8 @@ test('UI labels use US color spelling without changing ids or option text', () =
   assert.equal(programLabel('Colours'), 'Colors')
   assert.equal(programSections([pick('x', { group: 'people', index: 3 })], [{ id: 'people', label: 'People', count: 3, source: 'text' }])[0].label, 'Person 3')
 })
+
+test("choices that hold the user's own words follow the ones that vary", () => {
+  const sections = programSections([pick('car', { said: 'yellow ferrari' }), pick('sky'), pick('light')], [])
+  assert.deepEqual(sections[0].choices.map(c => c.id), ['sky', 'light', 'car'])
+})

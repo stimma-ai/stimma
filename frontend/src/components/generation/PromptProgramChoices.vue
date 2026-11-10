@@ -18,8 +18,8 @@
         >
           <span v-if="choice.parent" class="text-content-muted -mr-0.5">↳</span>
           <WandSparklesIcon v-if="choice.source === 'added'" class="w-3 h-3 shrink-0 text-content-tertiary" />
-          <span :class="['truncate max-w-[10rem]', program.isPinned(choice) ? 'text-selection/80' : '']">{{ programLabel(choice.label) }}<template v-if="program.isPinned(choice)">:</template></span>
-          <span v-if="program.isPinned(choice)" class="truncate max-w-[16rem]">{{ program.valueText(choice) }}</span>
+          <span :class="['truncate max-w-[10rem]', program.isPinned(choice) ? 'text-selection/80' : '']">{{ programLabel(choice.label) }}<template v-if="program.showsValue(choice)">:</template></span>
+          <span v-if="program.showsValue(choice)" class="truncate max-w-[16rem]">{{ program.valueText(choice) }}</span>
         </button>
       </div>
     </section>
@@ -46,6 +46,7 @@ function pillClass(pinned: boolean, open: boolean) {
 }
 
 function pillTitle(c: ProgramChoice) {
+  if (c.said && !props.program.isPinned(c)) return `Every image uses “${c.said}”. Click to choose others.`
   const n = props.program.optionsOf(c).length
   const base = c.kind === 'param' ? 'Each image picks a value in this range. Click to see it.' : `Each image picks one of ${n}. Click to choose.`
   return c.source === 'added' ? `Added by ${PROMPT_BRAND}. ${base}` : base

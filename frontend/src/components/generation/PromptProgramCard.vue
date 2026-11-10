@@ -37,7 +37,7 @@
                   <Spinner v-if="writing === 'more'" size="sm" /><SparklesIcon v-else class="w-3.5 h-3.5" />
                   More like these
                 </button>
-                <button v-if="!bound" type="button" :class="footClass" :disabled="!!writing" title="Replace every option with a new set" @click="write('reroll')">
+                <button v-if="!bound && !choice.said" type="button" :class="footClass" :disabled="!!writing" title="Replace every option with a new set" @click="write('reroll')">
                   <Spinner v-if="writing === 'reroll'" size="sm" /><ArrowPathIcon v-else class="w-3.5 h-3.5" />
                   New set
                 </button>
@@ -65,6 +65,7 @@ import Spinner from '../ui/Spinner.vue'
 import PromptProgramOptions from './PromptProgramOptions.vue'
 import { useAnchoredMenuPosition } from '../../composables/useContextMenuPosition'
 import type { PromptProgram, ProgramChoice } from '../../composables/usePromptProgram'
+import { isLimited } from '../../utils/programTicks'
 
 const props = defineProps<{ program: PromptProgram }>()
 
@@ -177,14 +178,18 @@ function removeChoice() {
   props.program.setPins(c.id, [])
   props.program.close()
 }
-// Header: the choice's name, and "Use all" once some options are ticked -------------
+// Header: the choice's name, and "Use all" (or "Only mine") once some options are ticked ---
 const CardHeader = defineComponent({
   props: { title: String, note: String, added: Boolean, choice: Object, program: Object },
   setup(p) {
     return () => {
       const prog = p.program as PromptProgram | undefined
       const c = p.choice as ProgramChoice | undefined
-      const limited = !!(prog && c && (prog.pins.value[c.id] || []).some(v => prog.optionsOf(c).includes(v)))
+      const limited = !!(prog && c && isLimited(c, prog.pins.value[c.id], prog.optionsOf(c)))
+      // A choice that stands for the user's own words goes back to only those; any other, to every option.
+      const reset = c?.said
+        ? { label: 'Only mine', title: `Every image uses “${c.said}”` }
+        : { label: 'Use all', title: 'Draw from every option again' }
       return h('div', { class: 'px-3 pt-2.5 pb-1.5 flex items-start gap-2' }, [
         h('div', { class: 'min-w-0 flex-1' }, [
           h('div', { class: 'flex items-center gap-1 text-[13px] font-semibold text-content' }, [
@@ -194,8 +199,8 @@ const CardHeader = defineComponent({
         ]),
         limited ? h('button', {
           type: 'button', class: 'shrink-0 mt-0.5 text-[11px] text-content-tertiary hover:text-content',
-          title: 'Draw from every option again', onClick: () => prog!.setPins(c!.id, []),
-        }, 'Use all') : null,
+          title: reset.title, onClick: () => prog!.setPins(c!.id, []),
+        }, reset.label) : null,
       ])
     }
   },
