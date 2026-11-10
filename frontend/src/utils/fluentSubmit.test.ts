@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { effectiveWay, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
+import { DECLINED_CODE, DECLINED_NOTICE, wasDeclined, withDirect, effectiveWay, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
@@ -182,4 +182,30 @@ test('a prompt too long or no balance says what to do, without mechanics', () =>
   assert.equal(fallbackNotice('llm_insufficient_balance', 'Brand').action, 'settings')
   assert.ok(isPrepareFailureCode('prompt_too_long') && isPrepareFailureCode('llm_unavailable'))
   assert.ok(!isPrepareFailureCode('job_failed') && !isPrepareFailureCode(null))
+})
+
+test('a prompt the chat model declined switches the box to Direct, says so plainly, and offers nothing to retry', () => {
+  assert.ok(wasDeclined({ status: 'error', code: DECLINED_CODE }))
+  // Only this prompt's own outcome: an old error, or any other failure, keeps Fluent.
+  assert.ok(!wasDeclined({ status: 'stale', code: DECLINED_CODE }))
+  assert.ok(!wasDeclined({ status: 'ready', code: DECLINED_CODE }))
+  for (const code of ['prepare_timeout', 'program_failed', 'llm_unavailable', 'prompt_too_long', undefined]) {
+    assert.ok(!wasDeclined({ status: 'error', code }), String(code))
+  }
+  // The same switch as the remix's Use Exact Prompt; Detail level stays for coming back.
+  const saved = { raw: true, direct: false, autoImprove: { enabled: true, level: 'fill' }, programPins: { a: ['x'] } }
+  const next = withDirect(saved)
+  assert.equal(next.direct, true)
+  assert.equal(next.raw, undefined)
+  assert.deepEqual(next.autoImprove, saved.autoImprove)
+  assert.deepEqual(next.programPins, saved.programPins)
+  assert.equal(effectiveWay({ raw: !!next.raw, direct: next.direct, llmUnconfigured: false }), 'direct')
+  // Back in Fluent with the same prompt, the menu says the same, with no Try again.
+  const n = fallbackNotice(DECLINED_CODE, 'Brand')
+  assert.deepEqual(n, { head: 'Your chat model declined this prompt', body: 'It’s sent as written.', action: 'none' })
+  assert.ok(isPrepareFailureCode(DECLINED_CODE))
+  // In the user's words: no mechanics.
+  for (const text of [DECLINED_NOTICE, n.head, n.body ?? '']) {
+    assert.doesNotMatch(text, /prepar|writer|program|refus|Fluent|Brand/i)
+  }
 })

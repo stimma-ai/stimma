@@ -3423,7 +3423,7 @@ import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptPro
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
-import { fallbackNotice, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
+import { fallbackNotice, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, programRunActions, shapePromptOptions, switchDeclinedToDirect, wasDeclined } from '../utils/fluentSubmit'
 import { judgeNotice, judgeWaitLabel, tellsUnjudged, unjudgedMessage, waitForJudge } from '../utils/fluentJudge'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
@@ -5672,6 +5672,10 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     // (or the same words' earlier program) and keeps trying to read it in the background.
     // Fluent's chip says so, quietly; nothing stops, Generate forever included.
   }
+  // The chat model declined this prompt: this run still goes, on its words as written (the
+  // server's fallback reads a {{name}} that isn't saved as its words, which Direct can't),
+  // and then the prompt box switches to Direct, saying why.
+  const declined = wasDeclined({ status: promptProgram.status.value, code: promptProgram.error.value?.code })
 
   const count = options.foreverBackendName
     ? 1
@@ -5683,6 +5687,11 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     submitted = result.submitted || submitted
     declineReservation = result.declineReservation
   }
+  switchDeclinedToDirect({
+    declined, direct: directMode.value, promptOptions: globalPrefs.value.promptOptions,
+    set: (next) => { globalPrefs.value.promptOptions = next },
+    notify: (message) => addToast(message, 'info', 8000),
+  })
   return { submitted, declineReservation }
 }
 
