@@ -47,6 +47,8 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.ref }}
       - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.7'
       - uses: denoland/setup-deno@v2
       - run: tools/stimma test release-cleanup
       - run: tools/stimma test release-pipeline
@@ -98,6 +100,7 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
         with:
+          version: '0.13.7'
           enable-cache: ${{ runner.environment == 'github-hosted' }}
           cache-local-path: ~/.cache/uv
 
@@ -149,6 +152,7 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
         with:
+          version: '0.13.7'
           enable-cache: ${{ runner.environment == 'github-hosted' }}
           cache-local-path: ~/.cache/uv
       - name: Install backend deps
@@ -204,6 +208,7 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
         with:
+          version: '0.13.7'
           enable-cache: ${{ runner.environment == 'github-hosted' }}
           cache-local-path: ~/.cache/uv
 
