@@ -133,7 +133,8 @@
     },
     {
       "text": "glossy brown lipstick",
-      "tier": "plausible"
+      "tier": "plausible",
+      "adult_only": true
     },
     {
       "text": "shimmering cheek highlighter",

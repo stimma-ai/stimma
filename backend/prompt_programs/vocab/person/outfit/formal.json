@@ -2033,7 +2033,8 @@
         "presentation": [
           "feminine"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a {main} silk gown with waist cutouts and a gathered floor-length skirt",

@@ -116,7 +116,9 @@ class TestTheMarkers:
     def test_adult_coded_values_are_tagged_in_the_person_lists_only(self):
         v = vocabulary()
         tagged = {lid: [x.text for x in lf.values if x.adult_only] for lid, lf in v.leaves.items()}
-        assert sum(map(len, tagged.values())) == 24
+        assert sum(map(len, tagged.values())) == 26
+        assert "a {main} sequined crop top and a matching high-waisted mini skirt" in tagged["person.outfit.formal"]
+        assert "glossy brown lipstick" in tagged["person.makeup"]
         assert all(lid.startswith("person.") for lid, t in tagged.items() if t)
         assert "a {main} string bikini with a triangle top and tie-side bottoms" in tagged["person.outfit.summer"]
         assert "a sultry expression with heavy eyelids and softly parted lips" in tagged["person.expression"]
@@ -125,6 +127,13 @@ class TestTheMarkers:
             assert not v.get("person.outfit.summer").value(text).adult_only
         assert not any(x.adult_only for x in v.get("person.outfit.athletic").values)
         assert not any(x.opt_in for lid, lf in v.leaves.items() if lid != AGE_LIST for x in lf.values)
+
+    def test_the_newly_flagged_looks_leave_a_minors_pools(self):
+        for cls, text in (("person.outfit.formal", "a {main} sequined crop top and a matching high-waisted mini skirt"),
+                          ("person.makeup", "glossy brown lipstick")):
+            lf = vocabulary().get(cls)
+            assert text in {x.text for x in lf.pool_values()[0]}, text
+            assert text not in {x.text for vals in lf.pool_values(minor=True) for x in vals}, text
 
     def test_the_markers_reach_the_browser_and_the_content_hash(self, tmp_path):
         import shutil
