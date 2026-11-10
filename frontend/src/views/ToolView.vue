@@ -5688,7 +5688,10 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     declineReservation = result.declineReservation
   }
   switchDeclinedToDirect({
-    declined, direct: directMode.value, promptOptions: globalPrefs.value.promptOptions,
+    // still this prompt and these settings: submitting can wait on uploads, and an edit made
+    // meanwhile wasn't declined (the status is the current prompt's alone)
+    declined: declined && wasDeclined({ status: promptProgram.status.value, code: promptProgram.error.value?.code }),
+    direct: directMode.value, promptOptions: globalPrefs.value.promptOptions,
     set: (next) => { globalPrefs.value.promptOptions = next },
     notify: (message) => addToast(message, 'info', 8000),
   })
