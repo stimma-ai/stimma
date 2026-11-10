@@ -285,6 +285,11 @@ class TestShapes:
         split = hand(extra_lines=[f"a = {bound('girl_age', AGE)}", f"o = {bound('outfit_summer', summer)}",
                                   f"d = {bound('dog_breed', DOG)}", f"e = {P('dog_pose', about='its pose', seed='sitting')}"])
         assert '"outfit.summer"' not in prep.fix_subjects(split)[0]  # two person prefixes: not two people
+        for extra in ([], [f"d = {bound('dog_breed', DOG)}", f"e = {P('dog_coat', about='its coat', seed='short')}"]):
+            two = hand(("girl", [AGE]), extra_lines=[f"o = {bound('outfit_summer', summer)}",
+                                                     f"f = {bound('outfit_formal', 'person.outfit.formal')}", *extra])
+            fixed = prep.fix_subjects(two)[0]   # the lone-owner and prefix-only rules too
+            assert '"outfit.summer"' not in fixed and '"outfit.formal"' not in fixed, fixed
 
     def test_numbered_families_and_lone_indexes(self):
         lines = [f"{v} = {P(v, about='a detail', seed='x')}" for v in ("outfit1", "outfit2", "face1", "face2")]

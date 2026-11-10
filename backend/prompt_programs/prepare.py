@@ -939,6 +939,11 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
         if not all(vocabulary().resolve(_const(_kw(c, "cls"))).id.split(".")[-1].lower().startswith(o)
                    for c, *_ in bound_flat):
             known.add(o)
+    # Whatever rule read it: a person's flat details never become a second person beside one the program
+    # names, nor someone called after their own list ("outfit"), or that person's age would stop limiting them.
+    for o in known - set(written) - {g.lower() for g in gids}:
+        if any(lid.split(".")[0] == aged for lid in lists_of.get(o, ())) and (aged in named_kinds or _a_detail(o)):
+            known.discard(o)
     numbered: Dict[str, Dict[int, ast.Call]] = {}  # eth1, eth2: one detail, numbered per subject
     for call in calls:
         t = _const(id_node(call))
