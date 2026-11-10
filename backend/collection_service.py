@@ -89,7 +89,7 @@ def _live_media_condition():
 
 
 def collection_asset_count_column():
-    """Live Assets on a collection, for ``collection_summaries_query``."""
+    """Live Assets in a collection, for ``collection_summaries_query``."""
     return func.count(func.distinct(MediaItem.id)).label("asset_count")
 
 

@@ -33,7 +33,7 @@ INTERNAL_METADATA_SOURCES = frozenset({
 })
 
 # These origins create or privately ingest bytes.  Promotion-oriented origins
-# are intentionally absent: putting a watched file on a collection/tag/project does
+# are intentionally absent: putting a watched file in a collection, tag or project does
 # not make Stimma the owner of its payload.
 OWNED_ASSET_ORIGINS = frozenset({
     "editor_save_as_new",

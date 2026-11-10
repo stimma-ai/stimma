@@ -3069,7 +3069,7 @@ function closeSlideshow() {
   }
 }
 
-// Back from a slideshow opened on a collection: the collection shows the image
+// Back from a slideshow opened from a collection: the collection shows the image
 // the slideshow ended on (if it is one of the collection's), and has focus.
 function returnToCollection(itemId, row) {
   const find = () => document.querySelector(`[data-testid="media-collection"][data-collection-item="${itemId}"]`)

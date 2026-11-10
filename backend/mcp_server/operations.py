@@ -484,7 +484,7 @@ family(
 )
 family(
     "collections_update",
-    "Organize work on collections: create, rename, trash or restore a collection; create, rename, reorder or delete its sections; add assets to a collection or a section, move them between sections, or remove them. Removing from a collection never deletes the asset.",
+    "Organize work in collections: create, rename, trash or restore a collection; create, rename, reorder or delete its sections; add assets to a collection or a section, move them between sections, or remove them. Removing from a collection never deletes the asset.",
     "collections",
     "collection",
     writes=[

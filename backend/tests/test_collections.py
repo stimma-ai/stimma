@@ -198,7 +198,7 @@ class TestCollectionTrashInteractions:
         assert collection_data["asset_count"] == 1
 
     async def test_restored_media_reappears_on_collection(self, client, seeded_media):
-        """Restoring a trashed media item should make it visible on the collection again."""
+        """Restoring a trashed media item should make it visible in the collection again."""
         collection = (await client.post("/api/collections", json={"name": "Restore Test"})).json()
         collection_id = collection["id"]
 
