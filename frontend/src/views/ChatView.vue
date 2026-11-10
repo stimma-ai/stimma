@@ -4326,11 +4326,15 @@ async function reconcileQueueFromServer() {
     if (requestChatId !== chatId.value) return
     reconcileDeliveredSteers(data.items || [])
     await syncAgentStatus()
+    // The view may have moved to another chat while this ran: that chat's
+    // queue still needs its own check.
+    if (requestChatId !== chatId.value) return
     queueReconciled = true
   } catch (error) {
     console.warn('[queue] transcript check failed; will retry before sending', error)
   } finally {
     reconcilingQueue = false
+    if (requestChatId !== chatId.value && !queueReconciled) reconcileQueueFromServer()
   }
   if (queueReconciled && liveState.isOwner.value) {
     processNextQueuedMessage()
