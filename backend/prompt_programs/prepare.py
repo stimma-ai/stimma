@@ -368,7 +368,7 @@ def _smart_choice(info: Dict[str, Any], name: str) -> Optional[Dict[str, Any]]:
 def _smart_missing(name: str, info: Dict[str, Any]) -> str:
     """The repair note for a {{wildcard}} no pick's id names."""
     want = smart_id(name)
-    groups = [g.get("id") for g in info.get("groups") or [] if g.get("id")]
+    groups = [g.get("id") for g in info.get("groups") or [] if g.get("id") and not g.get("from_ids")]  # group() calls
     per_person = (f' Inside a loop over {groups[0]}, one per person: pick(f"{groups[0]}[{{i+1}}].{want}", ...).'
                   if groups else "")
     return (f'{{{{{name}}}}} is a smart wildcard, but no pick has the id "{want}". Write it as pick("{want}", '

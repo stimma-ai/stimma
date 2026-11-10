@@ -1172,7 +1172,7 @@ def _scope_subjects(choices: Dict[str, "Choice"], order: List[str], groups: Dict
         if name not in groups:
             n = max((i or 1) for k, i in subjects if k == name)
             groups[name] = {"id": name, "count": n, "label": name.replace("_", " ").strip().capitalize(),
-                            "source": c.source, "line": c.line}
+                            "source": c.source, "line": c.line, "from_ids": True}
     if not many:
         for gid in [g for g in groups if g in labelled]:
             del groups[gid]
