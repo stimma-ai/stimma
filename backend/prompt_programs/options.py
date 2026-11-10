@@ -344,6 +344,39 @@ def clean_option(o: Any) -> Optional[str]:
     return o
 
 
+async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Sequence[str], count: int,
+                          project_id: Optional[int]) -> List[str]:
+    """New options for one choice of a prepared program (the card's More like these and
+    Reroll all), written the way background generation writes them. Never during a run."""
+    from prompt_programs.runtime import ProgramError
+    choice = next((c for c in entry.get("choices") or [] if c.get("id") == choice_id), None)
+    if not choice or choice.get("kind") != "pick":
+        raise ProgramError(f"No choice {choice_id} to write options for.")
+    count = max(1, min(24, int(count)))
+    have = list(dict.fromkeys(str(x) for x in existing if str(x).strip()))
+    spec = PickSpec(str(choice_id), str(choice.get("label") or choice_id), str(choice.get("about") or ""),
+                    int(choice.get("phase") or 1), str(choice.get("source") or "text"), "pick",
+                    seeds=[str(o) for o in (choice.get("options") or [])[:3]], cls=str(choice.get("cls") or ""))
+    program = ProgramContext.of(entry)
+    job = OptionJob(key="", spec=spec, context={}, program=program, signature=program.signature, round=0,
+                    existing=have, project_id=project_id)
+    from prompt_programs.prepare import _ask_model
+    seen = {_norm(o) for o in have}
+    out: List[str] = []
+    for _ in range(2):  # one retry if the model repeats itself
+        reply = await _ask_model(generation_messages(job, count), project_id)
+        for o in parse_options(reply):
+            if _norm(o) not in seen and len(out) < count:
+                seen.add(_norm(o))
+                out.append(o)
+        if len(out) >= count:
+            break
+        job.existing = have + out
+    if not out:
+        raise ProgramError("The model didn't write any new options.")
+    return out
+
+
 async def llm_generator(job: OptionJob) -> Tuple[List[str], str]:
     """Options from the configured chat model (the same role and plumbing as prepare)."""
     from prompt_programs.prepare import _ask_model

@@ -113,7 +113,8 @@ async def _shown(req: PrepareRequest) -> Optional[Dict[str, Any]]:
 async def options(req: OptionsRequest) -> Dict[str, Any]:
     """New options for one choice (the card's More like these and Reroll all)."""
     from llm_resolver import LLMNotConfiguredError, LLMUnavailableError
-    from prompt_programs.prepare import ProgramError, suggest_options
+    from prompt_programs.options import suggest_options
+    from prompt_programs.prepare import ProgramError
     entry = await _shown(req)
     if entry is None or entry.get("unsupported"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})

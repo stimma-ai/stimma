@@ -675,7 +675,7 @@ class TestCardsUseTheShownProgram:
             seen["key"] = e["key"]
             return ["windy"]
 
-        monkeypatch.setattr(prep, "suggest_options", suggest)
+        monkeypatch.setattr("prompt_programs.options.suggest_options", suggest)
         app = FastAPI()
         app.include_router(route.router)
         # The prompt has moved on (being prepared); the cards still show the old program.

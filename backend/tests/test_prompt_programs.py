@@ -694,38 +694,45 @@ class TestDrawSeed:
 
 
 class TestSuggestOptions:
-    ENTRY = {"prompt": "a woman in {{stylish tank top}}", "example": "a woman in a silk tank top", "elaborate": False,
+    ENTRY = {"key": "k", "prompt": "a woman in {{stylish tank top}}", "example": "a woman in a silk tank top",
+             "elaborate": False, "mode": "prose",
+             "program": 't = pick("stylish_tank_top", about="a stylish tank top", seed=["a silk tank top"], '
+                        'label="Tank Top", phase=1)\nemit("a woman in", t)\n',
              "choices": [{"id": "stylish_tank_top", "kind": "pick", "label": "Tank Top", "wildcard": "stylish tank top",
-                          "options": ["a silk tank top", "a linen tank top"]},
+                          "about": "a stylish tank top", "options": ["a silk tank top", "a linen tank top"]},
                          {"id": "look", "kind": "lora", "label": "Look", "options": ["A"]}]}
 
     async def test_new_options_skip_existing_and_repeats(self, monkeypatch):
+        from prompt_programs import options as opts
         calls = []
 
-        async def fake_ask(messages, project_id):
+        async def fake_ask(messages, project_id, max_tokens=4096):
             calls.append(messages)
             return '```json\n["a silk tank top", "a ribbed cotton tank", "A ribbed cotton tank", "a sheer mesh tank"]\n```'
 
         monkeypatch.setattr(prep, "_ask_model", fake_ask)
-        out = await prep.suggest_options(self.ENTRY, "stylish_tank_top", ["a silk tank top", "a linen tank top"], 2, None)
+        out = await opts.suggest_options(self.ENTRY, "stylish_tank_top", ["a silk tank top", "a linen tank top"], 2, None)
         assert out == ["a ribbed cotton tank", "a sheer mesh tank"] and len(calls) == 1
         system, user = calls[0][0]["content"], calls[0][1]["content"]
-        assert "exactly 2 new options" in system and "{{stylish tank top}}" in system and "a few words" in system
-        assert "- a linen tank top" in user
+        # the same writer as background generation: its rules, the user's own words as a rule
+        assert "Write 2 options" in system and "a few words" in system and "most typical" in system
+        assert "- a linen tank top" in user and '"stylish tank top"' in user
 
     async def test_retries_once_when_short_and_parses_lines(self, monkeypatch):
+        from prompt_programs import options as opts
         replies = ["- a ribbed cotton tank", "1. a sheer mesh tank\n2. a crochet halter"]
 
-        async def fake_ask(messages, project_id):
+        async def fake_ask(messages, project_id, max_tokens=4096):
             return replies.pop(0)
 
         monkeypatch.setattr(prep, "_ask_model", fake_ask)
-        out = await prep.suggest_options(self.ENTRY, "stylish_tank_top", [], 3, None)
+        out = await opts.suggest_options(self.ENTRY, "stylish_tank_top", [], 3, None)
         assert out == ["a ribbed cotton tank", "a sheer mesh tank", "a crochet halter"]
 
     async def test_only_picks(self):
+        from prompt_programs import options as opts
         with pytest.raises(ProgramError):
-            await prep.suggest_options(self.ENTRY, "look", [], 3, None)
+            await opts.suggest_options(self.ENTRY, "look", [], 3, None)
 
 
 class TestRerollEdits:
