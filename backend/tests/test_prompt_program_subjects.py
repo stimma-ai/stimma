@@ -205,6 +205,19 @@ class TestShapes:
         indexed = loop("friends", 2, [AGE], extra_lines=[f"h = {bound('friends_2_hairstyle', STYLE)}", "emit(h)"])
         assert '"friends[2].hairstyle"' in written(indexed, "two friends")[0]
 
+    def test_numbered_plain_ids_are_numbered_subjects(self):
+        lines = [f"{v} = {bound(v, cls)}" for v, cls in (("eth1", ETH), ("eth2", ETH), ("age_1", AGE), ("age_2", AGE))]
+        couple = 'couple = group("couple", 2, label="Couple", line=1)\n' + "\n".join(lines) + \
+                 '\nfor i in range(couple):\n    emit("a partner")\nemit(eth1, eth2, age_1, age_2)\n'
+        fixed, checked, _ = written(couple, "a couple dancing")
+        assert '"couple[1].eth"' in fixed and '"couple[2].age"' in fixed and not subject_problems(checked)
+        assert sections(checked["info"]) == [("couple", 1), ("couple", 2)]
+        alone = "\n".join(lines) + "\nemit(eth1, eth2, age_1, age_2)\n"
+        assert '"person[2].eth"' in written(alone, "two women")[0]
+        shots = 'a = pick("shot1", about="a shot", seed=["wide"], label="Shot", phase=1, added=True)\n' \
+                'b = pick("shot2", about="a shot", seed=["close"], label="Shot", phase=1, added=True)\nemit(a, b)\n'
+        assert prep.fix_subjects(shots)[1] == []  # numbered scene details are no one's
+
     def test_one_detail_list_used_once_is_no_subject(self):
         src = hand(extra_lines=[f"a = {bound('hair_color', HAIR)}", f"b = {bound('top_outfit', OUTFIT)}"])
         fixed, _, notes = written(src, "a woman")

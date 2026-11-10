@@ -757,6 +757,9 @@ def fix_generated_refs(source: str) -> Tuple[str, List[str]]:
 _FLAT_SUBJECT = re.compile(r"^(?P<p>[A-Za-z][A-Za-z0-9]*?)(?:_?(?P<n>\d+))?_(?P<s>[A-Za-z][A-Za-z0-9_]*)$")
 
 
+_NUMBERED = re.compile(r"^(?P<stem>[A-Za-z][A-Za-z_]*?)_?(?P<n>\d{1,2})$")
+
+
 def _individual_leaf(cls: Any) -> bool:
     leaf = vocabulary().resolve(cls) if isinstance(cls, str) and cls.strip() else None
     return leaf is not None and leaf.individual and not any(lf.slots == leaf.id for lf in vocabulary().leaves.values())
@@ -773,7 +776,10 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
       "mother.outfit", "friends[2].hair";
     - plain ids bound to the same per-individual list with the same detail but different
       owners ("mother_age", "daughter_age"), each owner with at least two such details,
-      name those owners: "mother.age", "daughter.age".
+      name those owners: "mother.age", "daughter.age";
+    - plain ids bound to one per-individual list that differ only by a number ("eth1",
+      "eth2") are numbered subjects: the program's one group() ("couple[1].eth"), else the
+      list's namespace ("person[1].eth").
     A smart wildcard's own id is the user's and stays. Anything else is left for validation."""
     from prompt_programs.runtime import subject_of
     try:
@@ -846,6 +852,20 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
     for owners in by_detail.values():
         if len(owners) >= 2:
             known |= {o for o in owners if count[o] >= 2}
+    numbered: Dict[str, Dict[int, ast.Call]] = {}  # eth1, eth2: one detail, numbered per subject
+    for call in calls:
+        t = _const(id_node(call))
+        m = _NUMBERED.match(t) if isinstance(t, str) and t not in wild and id(call) not in loop_of else None
+        if m and _individual_leaf(_const(_kw(call, "cls"))):
+            numbered.setdefault(m.group("stem"), {})[int(m.group("n"))] = call
+    owner = next(iter(groups.values())) if len(set(groups.values())) == 1 else None
+    renamed: Dict[int, str] = {}
+    for stem, calls_by_n in numbered.items():
+        if len(calls_by_n) < 2:
+            continue
+        for n, call in calls_by_n.items():
+            root = vocabulary().resolve(_const(_kw(call, "cls"))).id.split(".")[0]
+            renamed[id(call)] = f"{owner or root}[{n}].{stem.rstrip('_')}"
     pos = _offsets(source)
     edits: List[Tuple[int, int, str]] = []
     notes: List[str] = []
@@ -854,8 +874,10 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
         t = text_of(node)
         if node is None or t is None or t in wild:
             continue
-        new = None
-        if id(call) in loop_of and subject_of(t.replace("{}", "1")) is None:
+        new = json.dumps(renamed[id(call)]) if id(call) in renamed else None
+        if new:
+            pass
+        elif id(call) in loop_of and subject_of(t.replace("{}", "1")) is None:
             var, g = loop_of[id(call)]
             detail = re.sub(r"[^a-z0-9]+", "_", re.sub(r"\{\}|\d+", "", t).lower()).strip("_")
             if detail.startswith(g.lower() + "_"):
