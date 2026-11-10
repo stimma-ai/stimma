@@ -522,6 +522,13 @@ class TestStructuredOptions:
         assert [t for _, t in calls] == [True, False] and "JSON list of strings" in calls[1][0][0]["content"]
         assert ("e", "m") in opts._TEXT_ONLY
 
+    async def test_a_broken_tool_call_is_asked_again_as_a_plain_list(self, monkeypatch):
+        from prompt_programs.options import write_options
+        # a tool-call parser that nests the list: never mined, asked again in the text form
+        calls = self.fake(monkeypatch, [("", '{"options": [{"options": ["\\"pin curls\\""]}]}'), ('["pin curls"]', None)])
+        assert await write_options(self.job()) == ["pin curls"]
+        assert [t for _, t in calls] == [True, False]
+
     async def test_an_endpoint_without_tools_falls_back_to_text(self, monkeypatch):
         from prompt_programs import prepare as prep
         from prompt_programs.options import write_options

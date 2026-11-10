@@ -368,7 +368,6 @@ def clean_option(o: Any) -> Optional[str]:
 
 _RETRY_TEXT = ("That reply wasn't a JSON list of strings, so none of it could be used. Reply with only the JSON "
                "list of the options, nothing before or after it.")
-_RETRY_TOOL = "Give the options by calling write_options, with each option as one string."
 
 # endpoints (api base, model) whose option calls made no tool call even when offered one: text from then on
 _TEXT_ONLY: set = set()
@@ -406,8 +405,9 @@ async def _endpoint(project_id: Optional[int]) -> Tuple[Tuple[str, str], bool]:
 
 async def write_options(job: OptionJob, count: int = BATCH_SIZE) -> List[str]:
     """Options for a job as structured output: the write_options tool where the endpoint
-    makes tool calls, else a reply that is exactly a JSON list of strings. At most two calls,
-    the second told what was wrong; [] if neither is readable."""
+    makes tool calls, else a reply that is exactly a JSON list of strings. At most two calls:
+    after a broken or missing tool call the second asks for the plain JSON list, after an
+    unreadable text reply it is told what was wrong. [] if neither is readable."""
     from prompt_programs import prepare as prep
     from prompt_programs.session import _no_tools_error
     endpoint, tool = await _endpoint(job.project_id)
@@ -433,9 +433,7 @@ async def write_options(job: OptionJob, count: int = BATCH_SIZE) -> List[str]:
         if got is not None:
             return [o for o in (clean_option(x) for x in got) if o][: 2 * count]
         log.info(f"[fluent-options] unreadable reply for {job.spec.label!r} (try {attempt + 1}): {content[:120]!r}")
-        if args is not None:
-            messages = messages + [{"role": "user", "content": _RETRY_TOOL}]
-        elif tool:
+        if args is not None or tool:  # a broken or missing tool call: the retry asks for the plain JSON list
             tool, messages = False, generation_messages(job, count, False)
         else:
             messages = messages + [{"role": "assistant", "content": content or "(no reply)"},
