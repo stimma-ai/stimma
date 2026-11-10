@@ -675,3 +675,14 @@ class TestArticleTidy:
         src = DRESSED.replace('emit("A woman wearing", outfit, ".")', 'emit("A woman wearing a coat.")')
         out = prep.validate(src, "a woman in a coat", [], set())
         assert any('pick("outfit") drew' in p and "never appears" in p for p in out["problems"]), out["problems"]
+
+    def test_the_judge_and_the_highlight_find_the_value_as_emitted(self, olive):
+        from prompt_programs.fix import mask, prompt_view
+        from prompt_programs.prepare import realized_text
+        from prompt_programs.runtime import run
+        r = run(DRESSED, 11)
+        text = realized_text(r.prompt)
+        assert mask(text, "a olive trench coat over a cream sweater", "Outfit") == "A woman wearing [Outfit]."
+        view = prompt_view(r)
+        (s, e, cid), = view["spans"]
+        assert cid == "outfit" and text[s:e] == "an olive trench coat over a cream sweater"

@@ -114,6 +114,8 @@ def mask(prompt: str, value: str, label: str, first: bool = False) -> Optional[s
     filled. None when the value's text isn't found exactly once. `first`: a user-list
     value that generated text repeats masks its first occurrence, where the user's
     template put it."""
+    from prompt_programs.prepare import emitted_as
+    value = emitted_as(value, prompt) or value  # "a olive coat" reads "an olive coat" once tidied
     i = locate(prompt, value, first)
     if i is None:
         return None
@@ -130,13 +132,13 @@ def prompt_view(result: Any) -> Dict[str, Any]:
     """A draw as the generation details show it: the prompt the image model read, where
     each visible pick's value stands in it ([start, end, id], in order, never
     overlapping), and each visible pick's value."""
-    from prompt_programs.prepare import realized_text
+    from prompt_programs.prepare import emitted_as, realized_text
     text = realized_text(result.prompt)
     found: List[Tuple[int, int, str]] = []
     picks = shown_picks(result)
     # longer values first, so one that contains another keeps its whole span
     for d in sorted(picks, key=lambda d: -len(str(d.value))):
-        v = str(d.value)
+        v = emitted_as(str(d.value), text) or str(d.value)
         i = locate(text, v, first=d.source == "list")
         if i is None or any(i < e and s < i + len(v) for s, e, _ in found):
             continue
