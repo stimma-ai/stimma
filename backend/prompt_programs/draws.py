@@ -31,13 +31,12 @@ import json
 import math
 import random
 import re
-import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, FrozenSet, List, Optional, Protocol, Sequence, Set, Tuple
 
 from prompt_programs.runtime import (
-    MAX_STEPS, RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _SAFE_BUILTINS, _Runner,
-    LoraName, _as_list, _label_from_id, _lora_key, check, lora_names, tidy_text,
+    RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _Runner, LoraName, _as_list,
+    _label_from_id, _lora_key, check, compile_program, execute, lora_names, tidy_text,
 )
 from prompt_programs.vocab import fill, is_template, tags_match, template_matches, vocabulary
 
@@ -550,7 +549,7 @@ def analyze(source: str, strict: bool = False) -> Analysis:
             elif id(node) in an.emit_of:
                 node.keywords.append(ast.keyword(arg="_site", value=ast.Constant(an.emit_of[id(node)])))
     ast.fix_missing_locations(tree)
-    code = compile(tree, "<program>", "exec")
+    code = compile_program(tree)
     return Analysis(phased, an.sites, an.emits, code, sorted({s.phase for s in an.sites}))
 
 
@@ -974,38 +973,6 @@ def _flatten(p: Any) -> List[str]:
     return [s] if s else []
 
 
-def _execute(code: Any, runner: _Exec) -> None:
-    env: Dict[str, Any] = {"__builtins__": dict(_SAFE_BUILTINS)}
-    for name in ("pick", "pick_lora", "param", "group", "emit"):
-        env[name] = getattr(runner, name)
-    steps = 0
-
-    def tracer(frame, event, arg):
-        nonlocal steps
-        if frame.f_code.co_filename == "<program>":
-            steps += 1
-            if steps > MAX_STEPS:
-                raise ProgramError("Program ran too long (it may loop forever).")
-            return tracer
-        return None
-
-    old = sys.gettrace()
-    sys.settrace(tracer)
-    try:
-        exec(code, env)  # noqa: S102 — checked AST, no builtins beyond _SAFE_BUILTINS
-    except (ProgramError, _Abort):
-        raise
-    except Exception as e:
-        tb, line = e.__traceback__, None
-        while tb is not None:
-            if tb.tb_frame.f_code.co_filename == "<program>":
-                line = tb.tb_lineno
-            tb = tb.tb_next
-        raise ProgramError(f"Line {line}: {type(e).__name__}: {e}") from None
-    finally:
-        sys.settrace(old)
-
-
 # --------------------------------------------------------------------------- the draw loop
 
 class _Engine:
@@ -1064,7 +1031,7 @@ class _Engine:
     def execute(self, k: float, proposals: Dict[str, str], probe: Optional[str] = None, record: bool = False) -> _Exec:
         runner = _Exec(self, k, proposals, probe, record)
         try:
-            _execute(self.an.code, runner)
+            execute(self.an.code, runner, (_Abort,))
         except _Abort as a:
             if probe is not None:
                 raise

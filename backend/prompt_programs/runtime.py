@@ -520,16 +520,19 @@ def tidy_text(parts: List[str]) -> str:
     return s.strip()
 
 
-def run(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None,
-        loras: Optional[Sequence[LoraInfo]] = None, tool_params: Optional[Set[str]] = None,
-        fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Dict[str, Any]]] = None) -> RunResult:
-    """Run a program once. Deterministic for a given (source, seed, pins, fixed)."""
-    tree = check(source)
-    runner = _Runner(seed, pins or {}, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params, fixed, edits)
+def compile_program(tree: ast.Module) -> Any:
+    """Compile a checked program for execute()."""
+    return compile(tree, "<program>", "exec")
+
+
+def execute(code: Any, api: Any, passthrough: Tuple[type, ...] = ()) -> None:
+    """Run compiled program code against an API object (its pick/pick_lora/param/group/
+    emit) in the sandbox: only _SAFE_BUILTINS, and a step budget. Errors become a
+    ProgramError naming the program's line; ProgramError and `passthrough` exceptions
+    propagate as they are."""
     env: Dict[str, Any] = {"__builtins__": dict(_SAFE_BUILTINS)}
     for name in API_NAMES:
-        env[name] = getattr(runner, name)
-    code = compile(tree, "<program>", "exec")
+        env[name] = getattr(api, name)
     steps = 0
 
     def tracer(frame, event, arg):  # step budget: a program must finish quickly
@@ -545,7 +548,7 @@ def run(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None,
     sys.settrace(tracer)
     try:
         exec(code, env)  # noqa: S102 — checked AST, no builtins beyond _SAFE_BUILTINS
-    except ProgramError:
+    except (ProgramError, *passthrough):
         raise
     except Exception as e:  # report like a traceback line the model can act on
         tb = e.__traceback__
@@ -557,6 +560,15 @@ def run(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None,
         raise ProgramError(f"Line {line}: {type(e).__name__}: {e}") from None
     finally:
         sys.settrace(old)
+
+
+def run(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None,
+        loras: Optional[Sequence[LoraInfo]] = None, tool_params: Optional[Set[str]] = None,
+        fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Dict[str, Any]]] = None) -> RunResult:
+    """Run a program once. Deterministic for a given (source, seed, pins, fixed)."""
+    tree = check(source)
+    runner = _Runner(seed, pins or {}, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params, fixed, edits)
+    execute(compile_program(tree), runner)
     prompt = tidy_text(runner.parts)
     if not prompt:
         raise ProgramError("The program emitted no prompt text. Call emit(...) with the finished prompt.")
