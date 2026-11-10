@@ -1674,6 +1674,7 @@ let lastSendStartedAt = 0 // When the last POST /items started (watchdog grace p
 let queueBackoffUntil = 0 // Don't retry a failed queued send before this time
 let queueWatchdogTimer = null // Interval that reconciles state while messages are queued
 let reconcilingQueue = false // A view that just took the queue is catching up; nothing drains meanwhile
+let queueReconciled = true // This view has read the transcript since taking the queue
 let steerRetryTimer = null // Retries steers the server refused because its run hadn't registered yet
 // uploadInput is now managed by ChatInputBox
 
@@ -3913,7 +3914,7 @@ function steerQueuedMessage(id: string) {
 // turn. Runs whenever a turn may be accepting steers, including the turn that
 // starts after Stop, so messages left pending by Stop all reach it.
 function pumpSteers() {
-  if (!liveState.isOwner.value || reconcilingQueue) return
+  if (!liveState.isOwner.value || reconcilingQueue || !queueReconciled) return
   if (!(agentRunning.value || agentPlanning.value) || hasActiveHITLRequest.value || sending.value) return
   for (const msg of messageQueue.value) {
     if (msg.mode === 'steer' && !msg.steering) postSteer(msg)
@@ -4283,6 +4284,7 @@ function processNextQueuedMessage() {
   // chat runs anywhere: this view's own flags may not have caught up yet (a
   // view that just came into sight), the app-wide running set has.
   if (!liveState.isOwner.value || reconcilingQueue) return
+  if (!queueReconciled) { reconcileQueueFromServer(); return }
   if (sending.value || agentRunning.value || agentPlanning.value) return
   if (chatId.value != null && isChatRunningAnywhere(chatId.value)) return
   if (messageQueue.value.length === 0) return
@@ -4307,27 +4309,38 @@ watch(
 
 // Ownership moving here (this view came into sight) may find work waiting;
 // learn the chat's real state first, so nothing already sent goes again.
-// The transcript first: it acknowledges steers delivered while this view
-// wasn't listening (they leave the queue), then the run state.
-watch(() => liveState.isOwner.value, async (owner) => {
-  if (!owner || !messageQueue.value.length) return
+// A view that takes the queue reads the transcript before anything drains:
+// it acknowledges steers delivered while this view wasn't listening (they
+// leave the queue). Until that read succeeds nothing drains or steers; a
+// failed read is retried by the next drain attempt (the watchdog runs while
+// messages wait).
+async function reconcileQueueFromServer() {
+  if (reconcilingQueue) return
+  const requestChatId = chatId.value
+  if (requestChatId == null) return
   reconcilingQueue = true
   try {
-    if (loading.value) {
-      // The first load reconciles delivered steers itself.
-      await new Promise<void>((resolve) => {
-        const stop = watch(loading, (busy) => { if (!busy) { stop(); resolve() } })
-      })
-    } else {
-      await resyncItems()
-    }
+    const response = await fetch(`/api/chats/${requestChatId}/items?${CHAT_WINDOW_QUERY}`)
+    if (!response.ok) throw new Error(`items ${response.status}`)
+    const data = await response.json()
+    if (requestChatId !== chatId.value) return
+    reconcileDeliveredSteers(data.items || [])
     await syncAgentStatus()
+    queueReconciled = true
+  } catch (error) {
+    console.warn('[queue] transcript check failed; will retry before sending', error)
   } finally {
     reconcilingQueue = false
   }
-  if (!liveState.isOwner.value) return
-  processNextQueuedMessage()
-  pumpSteers()
+  if (queueReconciled && liveState.isOwner.value) {
+    processNextQueuedMessage()
+    pumpSteers()
+  }
+}
+watch([() => liveState.isOwner.value, chatId], ([owner]) => {
+  if (!owner || !messageQueue.value.length) return
+  queueReconciled = false
+  reconcileQueueFromServer()
 })
 const { isChatGenerating: isChatRunningAnywhere } = useAgentActivity()
 
