@@ -819,3 +819,80 @@ class TestPrepareRouteStartsNothing:
         client.post("/api/prompt-programs/prepare", json={**body, "cache_only": True})
         client.post("/api/prompt-programs/prepare", json=body)
         assert started == [first["key"]]  # once, for the fresh prepare
+
+
+class TestUnfinishedNarrowingIsRetried:
+    """A narrowing skipped or cut short for time isn't cached as final: a later lookup narrows
+    it again in the background, and runs never wait for it."""
+    SRC = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather", phase=1, line=1)\n'
+           'age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24-year-old"], '
+           'label="Age", phase=1, added=True)\n'
+           'emit("A young", age, "woman waiting for a train on a", w, "morning.")\n')
+    YOUNG = ["20–24-year-old", "25–29-year-old"]
+
+    def _asks(self, monkeypatch, behaviour):
+        import json as _json
+
+        async def ask(messages, project_id, max_tokens=4096):
+            if behaviour["stall"]:
+                await asyncio.sleep(60)
+            if "find the words in it" in messages[0]["content"]:
+                return _json.dumps({"age": None})
+            return _json.dumps(self.YOUNG)
+        monkeypatch.setattr(prep, "_ask_model", ask)
+        monkeypatch.setattr(prep, "_renarrowing", {})
+        monkeypatch.setattr(prep, "_renarrow_after", {})
+
+    @pytest.mark.parametrize("limit", [2.5, 6.0])  # no time to try; a try that stalls
+    async def test_a_later_lookup_narrows_it(self, model, monkeypatch, limit):
+        behaviour = {"stall": True}
+        self._asks(monkeypatch, behaviour)
+        monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", limit)
+        model.replies = [reply(write(self.SRC))]
+        entry = await ensure()
+        stored = model.store.get(entry["key"])
+        assert stored["narrow_pending"]["age"]["cls"] == "person.age_band"  # not final
+        behaviour["stall"] = False
+        again = await ensure(cache_only=True)  # the editor's lookup, or a submit: served at once
+        assert not any((again.get("filters") or {}).values())
+        await prep._renarrowing[(str(model.store.root), entry["key"])]
+        done = model.store.get(entry["key"])
+        assert done["filters"] == {"age": self.YOUNG} and "narrow_pending" not in done
+        age = next(c for c in done["choices"] if c["id"] == "age")
+        assert age["cls"] == "person.age_band" and age["options"] == self.YOUNG
+        assert (await ensure())["filters"] == {"age": self.YOUNG}
+
+    async def test_retries_back_off_and_stop(self, model, monkeypatch):
+        behaviour = {"stall": True}
+        self._asks(monkeypatch, behaviour)
+        monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", 2.5)
+        model.replies = [reply(write(self.SRC))]
+        entry = await ensure()
+        task = prep.renarrow(entry, model.store, None)
+        assert task is not None
+        assert prep.renarrow(entry, model.store, None) is None  # one at a time, then a back-off
+        task.cancel()
+        prep._renarrowing.clear()
+        prep._renarrow_after.clear()
+        assert prep.renarrow({**entry, "narrow_tries": prep.RENARROW_MAX_TRIES}, model.store, None) is None
+
+    async def test_only_unfinished_narrowing_is_pending(self, tmp_path):
+        import json as _json
+        from prompt_programs.narrow import NarrowCache, narrow_entry
+        from prompt_programs.runtime import discover
+
+        def entry():
+            return {"key": "n", "program": self.SRC, "prompt": "A young woman waiting for a train.",
+                    "choices": discover(self.SRC)["choices"]}
+
+        def asker(read, subset):
+            async def ask(messages, project_id, max_tokens):
+                return read if "find the words in it" in messages[0]["content"] else subset
+            return ask
+        cases = [(_json.dumps({"age": "young woman"}), "[]", False),          # nothing fits: final, unbound
+                 (_json.dumps({"age": "young woman"}), "I can't tell.", True),  # unreadable: unbound for now
+                 ("no idea", _json.dumps(self.YOUNG), True)]                    # the reading failed
+        for i, (read, subset, pending) in enumerate(cases):
+            e = entry()
+            await narrow_entry(e, NarrowCache(tmp_path / str(i)), asker(read, subset))
+            assert ("age" in (e.get("narrow_pending") or {})) is pending, (read, subset)

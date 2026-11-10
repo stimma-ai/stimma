@@ -19,6 +19,10 @@ draws only from it; an open list starts from it, and its generated options are t
 words as a rule. When nothing fits, or the model's answer can't be read, the pick keeps
 no list at all (an empty subset): it draws as an unbound pick, generated options within
 the words, rather than from a list that ignores them.
+
+A narrowing that didn't finish (the reading or a subset call failed, timed out or came back
+unreadable, or there was no time to try) is not final: `entry["narrow_pending"]` holds each
+such pick's list and options as they were, and prepare.renarrow tries again later.
 """
 
 from __future__ import annotations
@@ -165,10 +169,10 @@ class NarrowCache:
 
 
 async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask,
-                 project_id: Optional[int] = None, about: str = "") -> List[str]:
+                 project_id: Optional[int] = None, about: str = "") -> Optional[List[str]]:
     """The values of `leaf` that fit `phrase` (said of `about`, the pick's own description:
     "young" said of "the woman's age" rules out children), from the cache or one model call.
-    An answer that can't be read is never cached and comes back empty (the pick goes unbound)."""
+    None when the call fails or its answer can't be read: never cached, worth asking again."""
     values = [v.text for v in leaf.eligible()]
     shown = [_shown(v) for v in values]
     key = NarrowCache.key(leaf, phrase, values, about)
@@ -180,21 +184,22 @@ async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask
         reply = await ask(messages_for(leaf, phrase, shown, about), project_id, 2000)
     except Exception as e:  # the writer's endpoint failing here must not fail the prepare
         log.warning(f"[prompt-program] narrowing {leaf.id} by {phrase!r} failed: {e}")
-        return []
+        return None
     named = parse_subset(reply, shown)
     got = None if named is None else [v for v, sh in zip(values, shown) if sh in set(named)]
     if got is None:
         log.info(f"[prompt-program] narrowing {leaf.id} by {phrase!r}: no list in the reply")
-        return []
+        return None
     if cache is not None:
         cache.put(key, got)
     return got
 
 
 async def read_words(prompt: str, choices: Sequence[Dict[str, Any]], cache: Optional[NarrowCache], ask: Ask,
-                     project_id: Optional[int] = None) -> Dict[str, str]:
+                     project_id: Optional[int] = None) -> Optional[Dict[str, str]]:
     """The user's own words about each bound choice's detail, from one call per prompt
-    (cached by the prompt and the details asked about). Empty when the call fails."""
+    (cached by the prompt and the details asked about). None when the call fails or its
+    answer can't be read (never cached)."""
     vocab = vocabulary()
     details = [(c["id"], f'{vocab.leaves[c["cls"]].label} ({c.get("about") or vocab.leaves[c["cls"]].description})')
                for c in choices]
@@ -209,10 +214,10 @@ async def read_words(prompt: str, choices: Sequence[Dict[str, Any]], cache: Opti
         reply = await ask(read_messages(prompt, details), project_id, 600)
     except Exception as e:
         log.warning(f"[prompt-program] reading the prompt's words for its lists failed: {e}")
-        return {}
+        return None
     got = parse_read(reply, [cid for cid, _ in details], prompt)
     if got is None:
-        return {}
+        return None
     if cache is not None:
         cache.put_raw(key, got)
     return got
@@ -222,11 +227,15 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
                        project_id: Optional[int] = None, seconds: float = NARROW_SECONDS) -> List[str]:
     """Narrow every bound choice to what the user's words allow, in place: `entry["filters"]`
     maps the choice id to its subset, the choice shows only those options, and a choice whose
-    subset is empty loses its list. Returns notes for the log."""
+    subset is empty loses its list. Picks whose narrowing didn't finish are recorded in
+    `entry["narrow_pending"]` (see the module docstring). Returns notes for the log."""
     vocab = vocabulary()
     bound = [c for c in entry.get("choices") or [] if vocab.get(c.get("cls")) is not None]
+    entry.pop("narrow_pending", None)
     if not bound:
         return []
+    before = {c["id"]: {"cls": c["cls"], "options": list(c.get("options") or [])} for c in bound}
+    unfinished: set = set()
     by_id = {c["id"]: c for c in entry.get("choices") or []}
     filters: Dict[str, List[str]] = dict(entry.get("filters") or {})
     notes: List[str] = []
@@ -256,10 +265,14 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             else:
                 notes.append(f'{ch["id"]}: nothing in {lf.id} has {want}; drawing from the whole list')
     t0 = asyncio.get_running_loop().time()
+    readable = [c for c in bound if not c.get("wildcard")]
     try:
-        read = await asyncio.wait_for(read_words(str(entry.get("prompt") or ""), [c for c in bound if not c.get("wildcard")],
-                                                 cache, ask, project_id), seconds)
+        read = await asyncio.wait_for(read_words(str(entry.get("prompt") or ""), readable, cache, ask, project_id),
+                                      seconds)
     except asyncio.TimeoutError:
+        read = None
+    if read is None:  # not read: the words found later may narrow these picks
+        unfinished |= {c["id"] for c in readable}
         read = {}
     seconds = max(1.0, seconds - (asyncio.get_running_loop().time() - t0))
     wanted: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}   # (list, words, about) → choices
@@ -279,11 +292,13 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         try:
             results = await asyncio.wait_for(asyncio.gather(*jobs), seconds)
         except asyncio.TimeoutError:
-            log.warning(f"[prompt-program] narrowing took longer than {seconds:.0f}s: those picks draw unbound")
-            results = [[] for _ in keys]
+            log.warning(f"[prompt-program] narrowing took longer than {seconds:.0f}s: those picks draw unbound for now")
+            results = [None for _ in keys]
         for k, got in zip(keys, results):
             for c in wanted[k]:
-                words[c["id"]] = list(got)
+                words[c["id"]] = list(got or [])
+                if got is None:
+                    unfinished.add(c["id"])
     for c in bound:
         cid = c["id"]
         if cid not in facet and cid not in words:
@@ -316,7 +331,34 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             filters[parent["id"]] = coloured
             parent["options"] = coloured
     entry["filters"] = filters
+    if unfinished:
+        entry["narrow_pending"] = {cid: before[cid] for cid in before if cid in unfinished}
     return notes
 
 
-__all__ = ["NarrowCache", "narrow_entry", "parse_read", "parse_subset", "phrase_of", "read_words", "subset", "messages_for"]
+def mark_pending(entry: Dict[str, Any]) -> bool:
+    """Record every bound pick as not yet narrowed (narrowing was skipped). False if there
+    is nothing to narrow."""
+    vocab = vocabulary()
+    pending = {c["id"]: {"cls": c["cls"], "options": list(c.get("options") or [])}
+               for c in entry.get("choices") or [] if vocab.get(c.get("cls")) is not None}
+    if pending:
+        entry["narrow_pending"] = {**pending, **(entry.get("narrow_pending") or {})}
+    return bool(pending)
+
+
+def reopen_pending(entry: Dict[str, Any]) -> None:
+    """Put the pending picks back as they were before their unfinished narrowing (their list,
+    options and no filter), so narrow_entry narrows them afresh."""
+    pending = entry.get("narrow_pending") or {}
+    filters = dict(entry.get("filters") or {})
+    for c in entry.get("choices") or []:
+        was = pending.get(c.get("id"))
+        if was:
+            c["cls"], c["options"] = was["cls"], list(was.get("options") or [])
+            filters.pop(c["id"], None)
+    entry["filters"] = filters
+
+
+__all__ = ["NarrowCache", "mark_pending", "narrow_entry", "parse_read", "parse_subset", "phrase_of", "read_words",
+           "reopen_pending", "subset", "messages_for"]

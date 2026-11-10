@@ -1358,6 +1358,8 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     cached = None if force else store.get(key)
     if cached and not cache_only and (store.recent(context) or [None])[0] != key:
         store.remember(context, key)  # back to this prompt: the next small edit patches it
+    if cached and cached.get("narrow_pending"):
+        renarrow(cached, store, project_id)  # in the background; this run draws from it as it is
     if cached or cache_only:
         return cached
     # One prepare per key: concurrent runs and the editor share it instead of each
@@ -1443,18 +1445,74 @@ async def _narrow(entry: Dict[str, Any], store: ProgramStore, project_id: Option
     """Bound picks narrowed by the user's words (where=, or a wildcard's own name): one
     cached model call per (list, words), see narrow.py. Never fails the prepare: it gets only
     what's left of the prepare's deadline, and with too little left the picks stay unnarrowed
-    rather than the prepared program being lost to the timeout."""
-    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, narrow_entry
+    rather than the prepared program being lost to the timeout. A narrowing skipped or left
+    unfinished that way isn't final: the entry records it (narrow_pending) and a later
+    lookup of the program narrows it again in the background (renarrow)."""
+    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, mark_pending, narrow_entry
     left = PREPARE_LIMIT_SECONDS - (time.monotonic() - started) - NARROW_RESERVE
     if left < 2.0:
-        log.info("[prompt-program] no time left to narrow the bound picks; they draw from their whole lists")
+        if mark_pending(entry):
+            log.info("[prompt-program] no time left to narrow the bound picks; they draw from their whole lists "
+                     "until a later lookup narrows them")
         return
     t0 = time.monotonic()
-    notes = await narrow_entry(entry, NarrowCache(store.root / "narrow"), _ask_model, project_id,
-                               seconds=min(NARROW_SECONDS, left))
+    try:
+        notes = await narrow_entry(entry, NarrowCache(store.root / "narrow"), _ask_model, project_id,
+                                   seconds=min(NARROW_SECONDS, left))
+    except Exception as e:  # never fails the prepare
+        log.warning(f"[prompt-program] narrowing {entry.get('key')} failed: {e}")
+        mark_pending(entry)
+        return
     if entry.get("filters"):
         entry.setdefault("timing", {})["narrow"] = round(time.monotonic() - t0, 2)
         entry["warnings"] = list(entry.get("warnings") or []) + notes
+
+
+RENARROW_BACKOFF_SECONDS = 30.0   # between tries for one program
+RENARROW_MAX_TRIES = 5            # then its picks keep the fallback for good (logged)
+_renarrowing: Dict[Tuple[str, str], "asyncio.Task[None]"] = {}
+_renarrow_after: Dict[Tuple[str, str], float] = {}
+
+
+def renarrow(entry: Dict[str, Any], store: ProgramStore, project_id: Optional[int]) -> Optional["asyncio.Task[None]"]:
+    """Narrow again, in the background, the picks of a stored program whose narrowing was
+    skipped or didn't finish; the stored entry is updated when it completes and later runs
+    draw from it. Never blocks: this run draws from the entry as it is. One try per program
+    at a time, at most every RENARROW_BACKOFF_SECONDS. Returns the task, or None."""
+    if not entry.get("narrow_pending") or int(entry.get("narrow_tries") or 0) >= RENARROW_MAX_TRIES:
+        return None
+    flight = (str(store.root), str(entry.get("key")))
+    if flight in _renarrowing or time.monotonic() < _renarrow_after.get(flight, 0.0):
+        return None
+    _renarrow_after[flight] = time.monotonic() + RENARROW_BACKOFF_SECONDS
+
+    async def run() -> None:
+        from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, narrow_entry, reopen_pending
+        current = store.get(flight[1])
+        if not current or not current.get("narrow_pending"):
+            return
+        tries = int(current.get("narrow_tries") or 0) + 1
+        reopen_pending(current)
+        try:
+            notes = await narrow_entry(current, NarrowCache(store.root / "narrow"), _ask_model, project_id,
+                                       seconds=NARROW_SECONDS)
+        except Exception as e:
+            log.warning(f"[prompt-program] narrowing {flight[1]} again failed: {e}")
+            return
+        current["narrow_tries"] = tries
+        current["warnings"] = list(dict.fromkeys(list(current.get("warnings") or []) + notes))
+        store.put(flight[1], current)
+        left = sorted(current.get("narrow_pending") or {})
+        if left and tries >= RENARROW_MAX_TRIES:
+            log.warning(f"[prompt-program] {flight[1]}: narrowing {left} didn't finish after {tries} tries; "
+                        "they keep their fallback")
+        else:
+            log.info(f"[prompt-program] {flight[1]} narrowed again (try {tries}){': still pending ' + str(left) if left else ''}")
+
+    task = asyncio.ensure_future(run())
+    _renarrowing[flight] = task
+    task.add_done_callback(lambda _t: _renarrowing.pop(flight, None))
+    return task
 
 
 async def _prepare_once(*, context: str, force: bool, base_key: Optional[str] = None, **args: Any) -> Dict[str, Any]:
