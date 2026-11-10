@@ -390,9 +390,9 @@ jobs:
           DOWNLOAD_SHA256="$(sha256sum "$APPIMAGE_FILE" | awk '{print $1}')"
           export APPIMAGE_BASENAME DOWNLOAD_URL DOWNLOAD_SIZE DOWNLOAD_SHA256 SIG_VALUE UPDATER_URL
 
-          uvx --python 3.11 --from awscli aws s3 cp "$APPIMAGE_FILE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${APPIMAGE_BASENAME}" --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$UPDATER_ARCHIVE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}" --content-type application/gzip --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$UPDATER_SIG" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}.sig" --content-type text/plain --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$APPIMAGE_FILE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${APPIMAGE_BASENAME}" --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$UPDATER_ARCHIVE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}" --content-type application/gzip --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$UPDATER_SIG" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}.sig" --content-type text/plain --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
 
           python3 - <<'PY'
           import json, os
@@ -417,7 +417,7 @@ jobs:
           EXISTING_LATEST="${RUNNER_TEMP}/existing-latest-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
           rm -f "$EXISTING_LATEST"
           set +e
-          uvx --python 3.11 --from awscli aws s3 cp "s3://${BUCKET}/${PREFIX}/latest.json" "$EXISTING_LATEST" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "s3://${BUCKET}/${PREFIX}/latest.json" "$EXISTING_LATEST" --endpoint-url "$R2_S3_ENDPOINT"
           existing_fetch_code=$?
           set -e
           if [ "$existing_fetch_code" -ne 0 ]; then
@@ -453,8 +453,8 @@ jobs:
             exit "$guard_code"
           fi
 
-          uvx --python 3.11 --from awscli aws s3 cp latest.json "s3://${BUCKET}/${PREFIX}/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$LATEST_LINUX_YML" "s3://${BUCKET}/${PREFIX}/latest${ELECTRON_MANIFEST_SUFFIX}.yml" --content-type application/yaml --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp latest.json "s3://${BUCKET}/${PREFIX}/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp "$LATEST_LINUX_YML" "s3://${BUCKET}/${PREFIX}/latest${ELECTRON_MANIFEST_SUFFIX}.yml" --content-type application/yaml --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
 
           python3 - <<'PY'
           import json, os
@@ -474,7 +474,7 @@ jobs:
               json.dump(manifest, fh, indent=2)
               fh.write("\n")
           PY
-          uvx --python 3.11 --from awscli aws s3 cp download.json "s3://${BUCKET}/${PREFIX}/download.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli==1.46.3 aws s3 cp download.json "s3://${BUCKET}/${PREFIX}/download.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
 
       - name: Purge Cloudflare cache for Linux manifests
         if: inputs.publish_updates == true

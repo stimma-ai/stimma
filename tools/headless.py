@@ -85,7 +85,7 @@ def publish():
         raise RuntimeError('R2 publication settings are required')
     with tempfile.TemporaryDirectory() as tmp:
         previous = Path(tmp) / 'latest.json'
-        existing = subprocess.run(['uvx', '--from', 'awscli', 'aws', 's3', 'cp',
+        existing = subprocess.run(['uvx', '--from', 'awscli==1.46.3', 'aws', 's3', 'cp',
             f's3://{bucket}/{prefix}/latest.json', str(previous), '--endpoint-url', endpoint],
             capture_output=True, text=True)
         if existing.returncode == 0:
@@ -100,7 +100,7 @@ def publish():
         (output / m['url'].rsplit('/', 1)[-1], f"{prefix}/{m['version']}/{m['url'].rsplit('/', 1)[-1]}", 'public,max-age=31536000,immutable'),
         (output / 'latest.json', f'{prefix}/latest.json', 'no-cache'),
     ):
-        run('uvx', '--from', 'awscli', 'aws', 's3', 'cp', str(file), f's3://{bucket}/{key}',
+        run('uvx', '--from', 'awscli==1.46.3', 'aws', 's3', 'cp', str(file), f's3://{bucket}/{key}',
             '--endpoint-url', endpoint, '--cache-control', cache)
 
 

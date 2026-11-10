@@ -161,7 +161,7 @@ optional workers are not required by any job, though an executing job can
 still fail if its host disappears and must be rerun.
 
 CI actions are pinned to resolved commits, and the Node, uv, Deno and Rust
-versions are explicit. Updating a tool pin requires the release-pipeline checks
+versions are explicit; R2 publication uses the tested AWS CLI 1.46.3. Updating a tool pin requires the release-pipeline checks
 and a real build; an unchanged source commit should not silently pick up a new
 compiler or setup action. Python tests use uv's repository `.python-version`
 instead of installing a second global interpreter.
