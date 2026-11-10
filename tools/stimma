@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")" >/dev/null 2>&1 && pwd)"
 
@@ -20,7 +20,11 @@ elif [[ -x "${DENO_INSTALL:-$HOME/.deno}/bin/deno" ]]; then
   DENO_BIN="${DENO_INSTALL:-$HOME/.deno}/bin/deno"
 else
   echo "Deno is not installed. Installing Deno..."
-  curl -fsSL https://deno.land/install.sh | sh
+  if [[ "${CI:-}" = true || "${STIMMA_PREPROVISIONED:-}" = 1 ]]; then
+    curl -fsSL https://deno.land/install.sh | sh -s -- v2.9.8
+  else
+    curl -fsSL https://deno.land/install.sh | sh
+  fi
   DENO_INSTALL="${DENO_INSTALL:-$HOME/.deno}"
   DENO_BIN="$DENO_INSTALL/bin/deno"
   export PATH="$DENO_INSTALL/bin:$PATH"

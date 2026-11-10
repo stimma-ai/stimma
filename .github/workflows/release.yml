@@ -96,11 +96,13 @@ jobs:
           echo "version=${ref_name#v}" >> "$GITHUB_OUTPUT"
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ steps.meta.outputs.ref }}
           fetch-depth: 0
-      - uses: denoland/setup-deno@v2
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: 'v2.9.8'
         if: ${{ steps.meta.outputs.automatic == 'true' }}
       - name: Plan release version without tagging
         id: version
@@ -138,11 +140,13 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       channel: ${{ needs.release-meta.outputs.channel }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ needs.release-meta.outputs.ref }}
           fetch-depth: 0
-      - uses: denoland/setup-deno@v2
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: 'v2.9.8'
         if: ${{ needs.release-meta.outputs.automatic == 'true' }}
       - name: Resolve release tag
         id: release
@@ -226,7 +230,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
           fetch-depth: 0

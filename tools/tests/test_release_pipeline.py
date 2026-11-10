@@ -86,6 +86,30 @@ class FFmpegSetupTests(unittest.TestCase):
 
 
 class PublicationTests(unittest.TestCase):
+    def test_ci_workflows_use_the_same_tested_tool_versions(self):
+        def walk(value):
+            if isinstance(value, dict):
+                if 'uses' in value:
+                    yield value
+                for child in value.values():
+                    yield from walk(child)
+            elif isinstance(value, list):
+                for child in value:
+                    yield from walk(child)
+
+        pins = {'astral-sh/setup-uv@': ('version', '0.13.7'),
+                'actions/setup-node@': ('node-version', '22.23.4'),
+                'dtolnay/rust-toolchain@': ('toolchain', '1.99.1'),
+                'denoland/setup-deno@': ('deno-version', 'v2.9.8')}
+        for path in (ROOT / '.github/workflows').glob('*.yml'):
+            for step in walk(workflow(path.name)):
+                if not step['uses'].startswith('./'):
+                    self.assertRegex(step['uses'], r'^[\w.-]+/[\w.-]+@[a-f0-9]{40}$')
+                for prefix, (key, version) in pins.items():
+                    if step['uses'].startswith(prefix):
+                        with self.subTest(workflow=path.name, action=prefix):
+                            self.assertEqual(step.get('with', {}).get(key), version)
+
     def test_every_quality_job_respects_the_trusted_pool_and_hosted_default(self):
         jobs = workflow('quality-gate.yml')['jobs']
         for name, config in jobs.items():
