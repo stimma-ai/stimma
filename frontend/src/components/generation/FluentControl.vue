@@ -1,24 +1,25 @@
 <template>
   <!-- Fluent: how Tool View sends a prompt to the image model. Fluent (the default)
        writes it the way this model understands it and varies it every image;
-       Direct fills in lists and saved wildcards with no model; Raw sends it exactly as typed. The chip says which, at rest. Status only
-       shows when there's something to wait for or fix. -->
+       Direct fills in lists and saved wildcards with no model; Raw sends it exactly as typed.
+       The chip says which, at rest; with no chat model set up, runs are Direct and the chip
+       says so. Status only shows when there's something to wait for or fix. -->
   <div class="relative flex items-center">
     <button
       ref="chip"
       type="button"
       data-fluent-chip
       :data-status="program.status.value"
+      aria-haspopup="dialog"
       :aria-expanded="menuOpen"
-      :class="['flex items-center gap-1.5 text-ctl transition-colors -mx-1.5 px-1.5 py-0.5 rounded-md outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
-        llmUnconfigured && way === 'fluent' ? 'text-content-muted hover:text-content-secondary' : 'text-content bg-overlay-subtle']"
+      class="flex items-center gap-1.5 text-ctl transition-colors -mx-1.5 px-1.5 py-0.5 rounded-md outline-none focus-visible:ring-1 focus-visible:ring-selection/60 text-content bg-overlay-subtle"
       :title="chipTitle"
       @click="toggle"
     >
       <Spinner v-if="busy" size="sm" />
-      <CodeBracketSquareIcon v-else-if="way === 'raw'" class="w-3.5 h-3.5" />
-      <Bars3BottomLeftIcon v-else-if="way === 'direct'" class="w-3.5 h-3.5" />
-      <WandSparklesIcon v-else :class="['w-3.5 h-3.5', llmUnconfigured ? 'opacity-60' : '']" />
+      <CodeBracketSquareIcon v-else-if="running === 'raw'" class="w-3.5 h-3.5" />
+      <Bars3BottomLeftIcon v-else-if="running === 'direct'" class="w-3.5 h-3.5" />
+      <WandSparklesIcon v-else class="w-3.5 h-3.5" />
       <span>{{ chipText }}</span>
       <LanguageIcon v-if="translating" class="w-3.5 h-3.5 opacity-70" :aria-label="`Translating to ${languageLabel}`" />
       <span v-if="failed" class="w-[6px] h-[6px] rounded-full bg-red-400" aria-label="Couldn’t read this prompt" />
@@ -28,10 +29,12 @@
     <Teleport to="body">
       <div v-if="menuOpen" class="fixed inset-0 z-menu" @click="menuOpen = false">
         <div
+          ref="menuEl"
           class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-80 max-w-[calc(100vw-16px)] overflow-y-auto"
           :style="menuStyle"
           data-fluent-menu
-          role="menu"
+          role="dialog"
+          aria-label="Prompting"
           @click.stop="languagesOpen = false"
         >
           <!-- What this menu is, and its two tools. -->
@@ -55,7 +58,7 @@
           <div class="px-3">
             <SegmentedControl
               class="!flex !w-full [&>button]:flex-1 [&>button]:justify-center"
-              :model-value="way"
+              :model-value="tab"
               :options="[{ label: BRAND, value: 'fluent', icon: WandSparklesIcon }, { label: 'Direct', value: 'direct', icon: Bars3BottomLeftIcon }, { label: 'Raw', value: 'raw', icon: CodeBracketSquareIcon }]"
               aria-label="How the prompt is sent"
               @update:model-value="(v) => pickWay(v as Way)"
@@ -63,7 +66,7 @@
           </div>
           <div class="px-3 pt-2.5 pb-2.5 text-[12px] leading-snug text-content-secondary">{{ tagline }}</div>
 
-          <template v-if="way === 'fluent'">
+          <template v-if="tab === 'fluent'">
             <div v-if="notice" :class="['mx-3 mb-2 rounded-md px-2.5 py-2 text-[12px] leading-snug', notice.tone === 'bad' ? 'bg-red-500/10 text-red-400' : 'bg-overlay-subtle text-content-secondary']">
               <div class="flex items-center gap-1.5 font-medium">
                 <Spinner v-if="busy" size="sm" />{{ notice.head }}
@@ -75,15 +78,18 @@
               </div>
             </div>
             <div class="border-t border-edge-subtle" />
+            <!-- No chat model: Fluent's own settings can't apply, so they can't be reached either. -->
             <div
               v-if="!program.unsupported.value"
-              :class="['flex items-center gap-3 px-3 py-2 coarse:py-3', llmUnconfigured ? 'opacity-40 pointer-events-none' : '']"
+              :inert="llmUnconfigured || undefined"
+              :aria-disabled="llmUnconfigured || undefined"
+              :class="['flex items-center gap-3 px-3 py-2 coarse:py-3', llmUnconfigured ? 'opacity-40' : '']"
             >
-              <span class="flex-1 text-[12px] coarse:text-[13px] text-content">Detail Level</span>
+              <span class="flex-1 text-[12px] coarse:text-[13px] text-content">Detail level</span>
               <SegmentedControl
                 :model-value="enhance"
                 :options="[{ label: 'Yours', value: 'off' }, { label: 'Medium', value: 'fill' }, { label: 'High', value: 'expand' }]"
-                aria-label="Detail Level"
+                aria-label="Detail level"
                 @update:model-value="(v) => emit('mode', v as EnhanceLevel)"
               />
             </div>
@@ -92,14 +98,18 @@
                 <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA trigger words</span>
                 <Toggle :model-value="!!loraTriggers" label="LoRA trigger words" @update:model-value="(v) => emit('lora', 'loraTriggers', v)" />
               </label>
-              <label :class="['flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer', llmUnconfigured ? 'opacity-40 pointer-events-none' : '']">
+              <label
+                :inert="llmUnconfigured || undefined"
+                :aria-disabled="llmUnconfigured || undefined"
+                :class="['flex items-center gap-3 px-3 py-2 coarse:py-3', llmUnconfigured ? 'opacity-40' : 'hover:bg-overlay-subtle cursor-pointer']"
+              >
                 <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA notes</span>
                 <Toggle :model-value="!!loraNotes" label="LoRA notes" @update:model-value="(v) => emit('lora', 'loraNotes', v)" />
               </label>
             </template>
           </template>
           <!-- Direct has no model, so only the trigger words apply. -->
-          <template v-else-if="way === 'direct'">
+          <template v-else-if="tab === 'direct'">
             <div class="border-t border-edge-subtle" />
             <label v-if="hasLoras" class="flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer">
               <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA trigger words</span>
@@ -108,7 +118,7 @@
           </template>
           <!-- Translate: Raw sends the prompt as typed, so it applies to the other two.
                The row shows the language; the list opens in place. -->
-          <template v-if="way !== 'raw'">
+          <template v-if="tab !== 'raw'">
             <button
               ref="translateRow"
               type="button"
@@ -125,9 +135,8 @@
             </button>
           </template>
           <button
-            v-if="way === 'fluent' && retake"
+            v-if="tab === 'fluent' && retake"
             type="button"
-            role="menuitem"
             class="w-full text-left flex items-center gap-2 px-3 py-2 coarse:py-3 text-[12px] coarse:text-[13px] text-content hover:bg-overlay-subtle"
             @click="menuOpen = false; program.rethink()"
           >
@@ -179,7 +188,7 @@
           </div>
           <div v-if="programText === ''" class="mx-4 mb-4 rounded-md border border-edge-subtle bg-surface-overlay px-3 py-6 text-[12px] text-content-secondary flex items-center justify-center gap-2">
             <template v-if="showError"><span class="text-red-400">{{ showError }}</span></template>
-            <template v-else><span class="w-3 h-3 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" /> Preparing {{ BRAND }} prompt…</template>
+            <template v-else><span class="w-3 h-3 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" /> Preparing your prompt…</template>
           </div>
           <template v-else>
           <div v-if="program.program.value?.warnings?.length" class="mx-4 mb-2 rounded-md bg-amber-500/10 px-3 py-2 text-[12px] text-amber-600 dark:text-amber-400">
@@ -223,7 +232,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon, LanguageIcon } from '@heroicons/vue/24/solid'
 import { ArrowPathIcon, Bars3BottomLeftIcon, BookOpenIcon, CodeBracketIcon, CodeBracketSquareIcon, QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
 import SegmentedControl from '../ui/SegmentedControl.vue'
@@ -237,6 +246,7 @@ import Caret from '../ui/Caret.vue'
 import FluentVocabularyBrowser from './FluentVocabularyBrowser.vue'
 import { PROMPT_BRAND as BRAND } from './promptBrand'
 import { PROMPT_LANGUAGES, promptLanguageByCode, DEFAULT_TRANSLATE_LANGUAGE } from './promptLanguages'
+import { effectiveWay, type PromptWay } from '../../utils/fluentSubmit'
 
 const props = defineProps<{
   program: PromptProgram
@@ -244,7 +254,7 @@ const props = defineProps<{
   raw: boolean
   /** Direct: lists and saved wildcards fill in, no model reads the prompt. */
   direct: boolean
-  /** Enhance: off (your wording joined up), fill (your wording plus what the model needs), expand (upsampled). */
+  /** Detail level: off is Yours (your wording joined up), fill is Medium (plus what the model needs), expand is High. */
   enhance: EnhanceLevel
   /** No chat model is set up, so Fluent can't read prompts. */
   llmUnconfigured: boolean
@@ -269,8 +279,7 @@ const emit = defineEmits<{
 }>()
 
 const chip = ref<HTMLElement | null>(null)
-// Literal {{ }} for templates (a mustache can't contain one).
-const BRACES = '{' + '{ }' + '}'
+const menuEl = ref<HTMLElement | null>(null)
 const menuOpen = ref(false)
 const programText = ref<string | null>(null)
 const vocabOpen = ref(false)
@@ -295,15 +304,22 @@ function toggleLanguages() {
   languagesOpen.value = true
 }
 
-type Way = 'fluent' | 'direct' | 'raw'
+type Way = PromptWay
+// What's chosen, what runs (no chat model: Direct), and the tab the menu shows. With no
+// chat model, choosing the brand's tab shows why it can't run, and keeps it as the choice
+// for when a model is set up.
 const way = computed<Way>(() => (props.raw ? 'raw' : props.direct ? 'direct' : 'fluent'))
+const running = computed<Way>(() => effectiveWay({ raw: props.raw, direct: props.direct, llmUnconfigured: props.llmUnconfigured }))
+const peek = ref<Way | null>(null)
+const tab = computed<Way>(() => peek.value ?? running.value)
+watch([menuOpen, () => props.llmUnconfigured], () => { peek.value = null })
 // What Fluent honestly does with the current setting: fresh choices always; the
 // model's own style only when it upsamples.
 const tagline = computed(() => {
   // Name the features plainly; don't explain them.
   const model = props.modelName || 'the model'
-  if (props.raw) return `Your prompt goes to ${model} exactly as you typed it.`
-  if (props.direct) return 'Handles wildcards, comments and verbatim text without AI.'
+  if (tab.value === 'raw') return `Your prompt goes to ${model} exactly as you typed it.`
+  if (tab.value === 'direct') return 'Fills in your lists and saved wildcards.'
   if (props.enhance === 'expand' || props.program.unsupported.value)
     return `AI fills in your wildcards, follows your comments, and expands your prompt into the detailed style ${model} works best with.`
   return props.enhance === 'fill'
@@ -318,15 +334,14 @@ const languageOptions = computed(() => [
   ...PROMPT_LANGUAGES.map(l => ({ code: l.code as string | null, label: l.label, english: l.english === l.label ? '' : l.english, picked: translating.value && languageCode.value === l.code })),
 ])
 const detail = computed(() => props.enhance === 'expand' || props.program.unsupported.value)
-const on = computed(() => way.value === 'fluent' && !props.llmUnconfigured)
+const on = computed(() => running.value === 'fluent')
 const busy = computed(() => on.value && props.program.status.value === 'busy')
 const failed = computed(() => on.value && props.program.status.value === 'error')
 
 
 const chipText = computed(() => {
-  if (props.raw) return 'Raw'
-  if (props.direct) return 'Direct'
-  if (props.llmUnconfigured) return `${BRAND} · set up`
+  if (running.value === 'raw') return 'Raw'
+  if (running.value === 'direct') return 'Direct'
   return props.enhance === 'off' && !props.program.unsupported.value ? `${BRAND} · your words` : BRAND
 })
 const chipTitle = computed(() => {
@@ -334,10 +349,11 @@ const chipTitle = computed(() => {
   return translating.value ? `${t} · translated to ${promptLanguageByCode(languageCode.value)?.english ?? languageLabel.value}` : t
 })
 const chipTitleBase = computed(() => {
-  if (props.raw) return 'Raw: sent exactly as typed'
-  if (props.direct) return 'Direct: lists and saved wildcards filled in'
-  if (props.llmUnconfigured) return `${BRAND} needs a chat model`
-  if (busy.value) return `Preparing ${BRAND} prompt…${props.previousRunning ? ' Images use your previous prompt until it’s ready.' : ''}`
+  if (running.value === 'raw') return 'Raw: sent exactly as typed'
+  if (running.value === 'direct') return props.llmUnconfigured && way.value === 'fluent'
+    ? `Direct: ${BRAND} needs a chat model`
+    : 'Direct: lists and saved wildcards filled in'
+  if (busy.value) return `Preparing your prompt…${props.previousRunning ? ' Images use your previous prompt until it’s ready.' : ''}`
   if (failed.value) return `${BRAND} couldn’t read this prompt`
   return detail.value ? `${BRAND}, adding detail` : props.enhance === 'fill' ? `${BRAND}, adding a little detail` : `${BRAND}, in your own words`
 })
@@ -346,13 +362,13 @@ type Action = { label: string; run: () => void }
 type Notice = { head: string; body?: string; detail?: string; tone?: 'bad'; actions?: Action[] }
 const useDirect: Action = { label: 'Use Direct', run: () => { menuOpen.value = false; emit('way', 'direct') } }
 const notice = computed<Notice | null>(() => {
-  if (way.value !== 'fluent') return null
+  if (tab.value !== 'fluent') return null
   if (props.llmUnconfigured) return {
     head: 'Needs a chat model',
     actions: [{ label: 'Set one up', run: () => { menuOpen.value = false; window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) } }],
   }
   if (busy.value) return {
-    head: `Preparing ${BRAND} prompt…`,
+    head: 'Preparing your prompt…',
     body: props.previousRunning ? 'Images use your previous prompt until it’s ready.' : undefined,
   }
   if (failed.value) {
@@ -367,13 +383,8 @@ const notice = computed<Notice | null>(() => {
   return null
 })
 
-// "Rewrite …": a fresh take on exactly what Fluent wrote (the choices' options and,
-// when upsampling, the wording), named so it's clear what changes and what doesn't.
-function listNames(names: string[]) {
-  if (names.length <= 1) return names[0] || ''
-  if (names.length === 2) return `${names[0]} and ${names[1]}`
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
-}
+// "Try different …": a fresh take on exactly what was written (the choices' options and,
+// at High, the wording), named for what changes.
 const retake = computed(() => {
   if (!on.value || props.program.status.value !== 'ready') return null
   const names = props.program.choices.value.filter(c => !c.hidden && c.kind === 'pick' && c.source !== 'list').map(c => c.label)
@@ -381,17 +392,17 @@ const retake = computed(() => {
   if (!names.length && !words) return null
   // Phrased as why you'd want it: you don't like what you got.
   const label = names.length && words ? 'Try different choices and wording' : names.length ? 'Try different choices' : 'Try different wording'
-  const what = [names.length ? `new options for ${listNames(names.slice(0, 4))}${names.length > 4 ? ' and more' : ''}` : '', words ? 'new wording' : '']
-    .filter(Boolean).join(', and ')
-  return { label, hint: `${what[0].toUpperCase()}${what.slice(1)}. Options you ticked or added stay, and so does your prompt.` }
+  return { label }
 })
 
 function pickWay(id: Way) {
-  // The menu stays open: choosing Fluent shows its settings right under it.
+  // The menu stays open: choosing a tab shows its settings right under it.
+  peek.value = id === 'fluent' && props.llmUnconfigured ? 'fluent' : null
   if (id !== way.value) emit('way', id)
 }
 
 const menuStyle = ref<Record<string, string>>({})
+const MENU_W = 320  // w-80
 function toggle() {
   if (!menuOpen.value) {
     const r = chip.value?.getBoundingClientRect()
@@ -400,7 +411,7 @@ function toggle() {
       const above = r.top - 12
       const down = below >= 380 || below >= above
       menuStyle.value = {
-        left: `${Math.max(8, Math.min(window.innerWidth - 296, r.left - 6))}px`,
+        left: `${Math.max(8, Math.min(window.innerWidth - MENU_W - 8, r.left - 6))}px`,
         maxHeight: `${Math.max(200, down ? below : above)}px`,
         ...(down ? { top: `${r.bottom + 4}px` } : { bottom: `${window.innerHeight - r.top + 4}px` }),
       }
@@ -409,8 +420,28 @@ function toggle() {
   menuOpen.value = !menuOpen.value
 }
 
+// Teleported to the end of the page, so focus moves in when the menu opens, Tab stays
+// inside it, and focus goes back to the chip when it closes.
+watch(menuOpen, (open) => {
+  if (open) void nextTick(() => focusables()[0]?.focus())
+  else if (!menuEl.value || menuEl.value.contains(document.activeElement) || document.activeElement === document.body) chip.value?.focus()
+}, { flush: 'pre' })
+function focusables(): HTMLElement[] {
+  return [...(menuEl.value?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])]
+    .filter(el => !el.closest('[inert]'))
+}
+function trapTab(e: KeyboardEvent) {
+  const all = focusables()
+  if (!all.length) return
+  const i = all.indexOf(document.activeElement as HTMLElement)
+  const next = e.shiftKey ? (i <= 0 ? all.length - 1 : i - 1) : (i === -1 || i === all.length - 1 ? 0 : i + 1)
+  all[next].focus()
+  e.preventDefault()
+}
+
 // Escape closes the dialog, then the menu. Both are teleported, so listen on the window.
 function onKey(e: KeyboardEvent) {
+  if (e.key === 'Tab' && menuOpen.value && programText.value === null && !languagesOpen.value) { trapTab(e); return }
   if (e.key !== 'Escape') return
   if (programText.value !== null) programText.value = null
   else if (languagesOpen.value) languagesOpen.value = false

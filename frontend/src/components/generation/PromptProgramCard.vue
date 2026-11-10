@@ -7,6 +7,8 @@
         ref="menuRef"
         data-escape-layer
         data-program-card
+        role="dialog"
+        :aria-label="choiceTitle || undefined"
         :class="['fixed z-menu bg-surface border border-edge-subtle rounded-lg shadow-lg max-w-[calc(100vw-16px)] flex flex-col max-h-[70vh]', wide ? 'w-[420px]' : 'w-[340px]']"
         :style="menuStyle"
         @click.stop
@@ -54,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, ref, watch } from 'vue'
+import { computed, defineComponent, h, nextTick, onUnmounted, ref, watch } from 'vue'
 import { ArrowPathIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import { programLabel, programSections } from '../../utils/programChoiceLayout'
@@ -75,6 +77,41 @@ const visible = computed(() => !!card.value)
 const { menuStyle } = useAnchoredMenuPosition(menuRef, anchorRect, visible, { gap: 6 })
 
 watch(() => card.value?.id, () => { writeError.value = '' })
+
+// Keyboard: the card is teleported to the end of the page, so focus moves into it when
+// it opens, Tab stays inside, Escape closes it, and focus goes back to what opened it.
+// Escape listens on the window in the bubble phase, so a search or draft that clears
+// itself on Escape (and stops it) keeps that one.
+let returnTo: HTMLElement | null = null
+function focusables(): HTMLElement[] {
+  return [...(menuRef.value?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])]
+}
+function onKey(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    props.program.close()
+  } else if (e.key === 'Tab') {
+    const all = focusables()
+    if (!all.length) return
+    const i = all.indexOf(document.activeElement as HTMLElement)
+    const next = e.shiftKey ? (i <= 0 ? all.length - 1 : i - 1) : (i === -1 || i === all.length - 1 ? 0 : i + 1)
+    all[next].focus()
+    e.preventDefault()
+  }
+}
+watch(visible, (open) => {
+  if (open) {
+    returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    window.addEventListener('keydown', onKey)
+    void nextTick(() => { if (!menuRef.value?.contains(document.activeElement)) focusables()[0]?.focus() })
+  } else {
+    window.removeEventListener('keydown', onKey)
+    const back = returnTo
+    returnTo = null
+    if (back?.isConnected) back.focus()
+  }
+})
+onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 const choice = computed(() => {
   const id = card.value?.id
