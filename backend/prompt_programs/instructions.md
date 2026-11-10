@@ -150,13 +150,16 @@ phases drew; picks in the same phase are drawn without seeing each other.
    own picks; subjects the prompt names one by one are written out by hand. Every pick of a
    subject has an id that names them, the same way for all their picks: `friends[2].age`,
    `girl[1].hair` and `girl[2].hair`, `mother.outfit` and `daughter.age`, `knight.armor` and
-   `dragon.scales`, never `mother_outfit` or a plain `hairstyle`. A plain id (`street`,
+   `dragon.scales`, never `mother_outfit` or a plain `hairstyle`. An animal, a creature or a
+   character beside someone is a subject too, even with one detail (`dog.breed`, `cat.coat`,
+   `horse.color`). A plain id (`street`,
    `weather`, `light`) is a detail of the whole scene. A detail of one person, their age,
    descent, hair colour, hairstyle, build, expression, outfit, accessories and pose, is always
    drawn for each person on their own: a couple is two people, so `couple[1].ethnicity` and
    `couple[2].ethnicity`, never one `ethnicity` for both. Only when the user's words ask for
    the same for everyone ("identical twins", "matching outfits", "a team in the same uniform")
-   is that detail one pick with a plain id and `shared=True`. What the user said of all of them
+   is that detail one pick with a plain id and `shared=True`; they are still several people, so
+   whatever their words leave free (their expressions, their poses) is each one's own. What the user said of all of them
    stays fixed text ("sharing a pizza", "in scrubs"). With one subject, ids are plain
    (`hairstyle`) and there is no `group()`.
 
