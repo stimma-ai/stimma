@@ -407,6 +407,9 @@ def _prompt_preload_for_batch_index(request, idx: int) -> Optional[Dict[str, Any
     return preload if isinstance(preload, dict) else None
 
 
+_PROGRAM_UNSUPPORTED_MODES = ("minimax-h3", "ideogram", "audio", "edit", "qwen-image-2.1-edit", "flux3-klein-edit")
+
+
 def prompt_enhance_context(
     parameters: Dict[str, Any],
     tool_id: str,
@@ -441,8 +444,10 @@ def prompt_enhance_context(
         "schema_props": schema_props,
         "mode": mode,
         # Structured formats (MiniMax H3's Context-IR, Ideogram JSON) are still enhanced
-        # per image; programs write prose-like formats only for now.
-        "program_supported": mode not in ("minimax-h3", "ideogram"),
+        # per image; programs write prose-like formats only for now. Image edits and audio
+        # too: the writer's instructions add variety to describe a still image, which an
+        # edit instruction ("remove the man on the left") or a sound must not get.
+        "program_supported": mode not in _PROGRAM_UNSUPPORTED_MODES,
         "enhance": {
             "is_video": is_video,
             "is_audio": is_audio,

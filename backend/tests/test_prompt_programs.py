@@ -695,6 +695,20 @@ class TestFastPrepare:
         assert prep.edit_kind("a woman", "a dog on a skateboard in the city at dusk with fireworks") is None
 
 
+class TestProgramSupport:
+    @pytest.mark.parametrize("model,task,images,supported", [
+        ("Qwen-Image-2.1", "text-to-image", 0, True), ("Qwen-Image-2.1", "image-to-image", 1, False),
+        ("FLUX.3 Klein", "image-to-image", 1, False), ("sdxl", "text-to-image", 0, True),
+        ("some model", "image-to-image", 1, False), ("some model", "text-to-audio", 0, False),
+        ("some model", "text-to-video", 0, True),
+    ])
+    def test_edits_and_audio_keep_the_per_image_enhancer(self, monkeypatch, model, task, images, supported):
+        import routes.generation as gen
+        monkeypatch.setattr(gen, "_prompt_pipeline_context", lambda *a: (model, None, task, {}))
+        monkeypatch.setattr(gen, "_prompt_input_image_count", lambda *a: images)
+        assert gen.prompt_enhance_context({}, "t", task, None)["program_supported"] is supported
+
+
 class TestApplyRun:
     def test_adds_loras_params_and_record(self):
         from routes.generation import _apply_program_run
