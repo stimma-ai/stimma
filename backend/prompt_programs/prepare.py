@@ -29,7 +29,7 @@ from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-42"
+PREPARE_VERSION = "pp-43"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -190,6 +190,8 @@ def build_user_message(prompt: str, model_name: Optional[str], mode: str,
         for n in smart:
             parts.append(f'- {{{{{n}}}}}: {smart_id(n)} = pick("{smart_id(n)}", about="{n}", seed=[<1 to 3 examples>], '
                          f'label=<one or two words>, phase=<N>, line={line_of("{{" + n)})')
+        parts.append('Each wildcard\'s pick has exactly the id shown; one drawn per person ends with it '
+                     '(f"friends[{i+1}].<id>").')
         parts.append("")
     lists = list(dict.fromkeys(m.group(1) for m in _INLINE_LIST.finditer(prompt)))
     if lists:
@@ -342,32 +344,48 @@ def smart_id(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "choice"
 
 
-def _smart_choice(info: Dict[str, Any], name: str) -> Optional[Dict[str, Any]]:
+_PERSON_DETAIL = re.compile(r"^[A-Za-z_]\w*\[\d+\]\.(.+)$")
+
+
+def is_wildcard_id(pick_id: str, name: str) -> bool:
+    """A pick holds the smart wildcard {{name}} when its id says so: exactly smart_id(name),
+    or, one per person, a person's detail of that id (friends[2].winter_hat). Nothing else
+    (its label or about) decides it."""
     want = smart_id(name)
-    for c in info["choices"]:
-        if c["kind"] == "pick" and (c["id"] == want or smart_id(c["label"]) == want):
-            return c
-    words = set(want.split("_"))  # a pick that says it is this wildcard: about="the local street food"
-    for c in info["choices"]:
-        if c["kind"] == "pick" and c.get("source") != "list" and c.get("about") and words <= _words(c["about"]):
-            return c
-    head = [w for w in want.split("_") if len(w) > 2][-1:]  # {{happy expression}} → a pick about her expression
-    for c in info["choices"]:
-        if (head and c["kind"] == "pick" and c.get("source") != "list"
-                and head[0] in _words(" ".join([c["id"].replace("_", " "), c.get("label") or "", c.get("about") or ""]))):
-            return c
-    return None
+    m = _PERSON_DETAIL.match(str(pick_id))
+    return str(pick_id) == want or (m is not None and m.group(1) == want)
+
+
+def _smart_choices(info: Dict[str, Any], name: str) -> List[Dict[str, Any]]:
+    return [c for c in info["choices"] if c["kind"] == "pick" and is_wildcard_id(c["id"], name)]
+
+
+def _smart_choice(info: Dict[str, Any], name: str) -> Optional[Dict[str, Any]]:
+    got = _smart_choices(info, name)
+    return got[0] if got else None
+
+
+def _smart_missing(name: str, info: Dict[str, Any]) -> str:
+    """The repair note for a {{wildcard}} no pick's id names."""
+    want = smart_id(name)
+    groups = [g.get("id") for g in info.get("groups") or [] if g.get("id")]
+    per_person = (f' Inside a loop over {groups[0]}, one per person: pick(f"{groups[0]}[{{i+1}}].{want}", ...).'
+                  if groups else "")
+    return (f'{{{{{name}}}}} is a smart wildcard, but no pick has the id "{want}". Write it as pick("{want}", '
+            f'about=..., seed=[1 to 3 examples], label=<one or two words>, phase=..., line=...) with exactly that id, '
+            f"and emit its value where {{{{{name}}}}} stands. If a pick of yours already stands for it under another id, "
+            f'rename that pick to "{want}".' + per_person)
 
 
 def _bare(text: str) -> str:
-    """A phrase without its article, case or trailing punctuation: "A brand." is the
+    """A phrase without case, extra spaces or surrounding punctuation: "Brand." is the
     wildcard {{brand}}'s own name, not an example of it."""
-    t = re.sub(r"\s+", " ", str(text).strip().lower()).strip(" .,;:!\"'")
-    t = re.sub(r"^(?:a|an|the|some|any)\s+", "", t)
-    return re.sub(r"(?<=[a-z])s$", "", t) if len(t) > 3 else t
+    return re.sub(r"\s+", " ", str(text).strip().lower()).strip(" .,;:!\"'")
 
 
 def is_name_of(option: str, name: str) -> bool:
+    """The option is the wildcard's own name, as written (case, spacing and surrounding
+    punctuation aside)."""
     return _bare(option) == _bare(name)
 
 
@@ -909,8 +927,8 @@ def fix_one_item_lists(source: str, prompt: str = "") -> Tuple[str, List[str]]:
         if not (isinstance(opts, ast.List) and len(opts.elts) == 1 and isinstance(opts.elts[0], ast.Constant)
                 and isinstance(opts.elts[0].value, str)) or _kw(node, "about") is not None or _kw(node, "seed") is not None:
             continue
-        names = {smart_id(str(_const(node.args[0]) or "")), smart_id(str(_const(_kw(node, "label")) or ""))}
-        if names & set(wild) or any(is_name_of(opts.elts[0].value, n) for n in wild.values()):
+        pid = str(_const(node.args[0]) or "")
+        if any(is_wildcard_id(pid, n) for n in wild.values()) or any(is_name_of(opts.elts[0].value, n) for n in wild.values()):
             continue
         edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset),
                       json.dumps(opts.elts[0].value, ensure_ascii=False)))
@@ -951,18 +969,6 @@ def _verbatim_segments(prompt: str) -> List[str]:
 def realized_text(prompt: str) -> str:
     """What the image model would see (protected text unwrapped)."""
     return re.sub(r"\s+", " ", _VERBATIM.sub(lambda m: m.group(1), prompt)).strip()
-
-
-# Words that only ever name models or LoRA kinds. Not ones that are also ordinary words
-# ("XL" shirts, "pony", "in flux"): a LoRA named only that is left alone.
-_MODEL_WORDS = {"krea", "sdxl", "lora", "loras", "qwen", "hunyuan", "ltx", "hidream", "lycoris", "locon"}
-
-
-def _name_like(name: str) -> bool:
-    """A LoRA name that can't be ordinary prompt text ("ultra real krea2", "XYZ 000003000",
-    "studio krea"), unlike one that is ("Dress", "Curtain bangs"): only these are cut or flagged."""
-    words = re.findall(r"[A-Za-z0-9_.]+", name)
-    return any(re.search(r"\d|_", w) or w.lower() in _MODEL_WORDS for w in words)
 
 
 def _mentions(text: str, name: str) -> bool:
@@ -1020,17 +1026,33 @@ def fix_trigger_words(source: str, loras: Sequence[LoraInfo], prompt: str) -> Tu
     return source, [f'trigger words "{t}" cut: they are added with the LoRA' for t in dict.fromkeys(cut)]
 
 
-def _lora_marks(names: Sequence[str]) -> Set[str]:
-    """The word that tells each LoRA of a set apart ("curly" in "KREA2 hairshop curly v1"),
-    with the words they all share left out."""
-    words = [_words(n) for n in names]
-    common = set.intersection(*words) if words else set()
-    marks: Set[str] = set()
-    for w in words:
-        rest = w - common
-        if len(rest) == 1:
-            marks |= rest
-    return marks
+def _names_lora_set(options: Sequence[str], names: Sequence[str]) -> bool:
+    """A pick's options are the LoRAs' own names (each equal to one, case, spacing and
+    surrounding punctuation aside), at least two of them: the same choice as the LoRA pick."""
+    opts = {_bare(o) for o in options if _bare(o)}
+    return len(opts) >= 2 and opts <= {_bare(n) for n in names}
+
+
+def _formats_lora(source: str) -> bool:
+    """The program turns a pick_lora value (the LoRA's name) into text: an f-string, + or str()."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False
+    names = {n.targets[0].id for n in ast.walk(tree)
+             if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name)
+             and isinstance(n.value, ast.Call) and getattr(n.value.func, "id", None) == "pick_lora"}
+
+    def is_lora(x: ast.AST) -> bool:
+        return isinstance(x, ast.Name) and x.id in names
+    for n in ast.walk(tree):
+        if isinstance(n, ast.FormattedValue) and is_lora(n.value):
+            return True
+        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Add) and (is_lora(n.left) or is_lora(n.right)):
+            return True
+        if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "str" and any(is_lora(a) for a in n.args):
+            return True
+    return False
 
 
 def _listed_picks(source: str) -> Set[str]:
@@ -1049,6 +1071,8 @@ def _listed_picks(source: str) -> Set[str]:
 
 def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[str],
              enhanced: str = "", elaborate: bool = True) -> Dict[str, Any]:
+    """The written program's problems (sent back to the writer) and notes (logged). `enhanced`
+    and `elaborate` are accepted for callers' sake; no check reads them."""
     if uses_draws(source):  # phases and dependencies, checked on the code (raises ProgramError)
         analyze(source, strict=True)
         draw(source, 11, None, loras, params)  # and the draw path runs it
@@ -1056,14 +1080,6 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
     samples = [run(source, s, None, loras, params) for s in (11, 23, 37, 51)]
     problems: List[str] = []   # broken or visibly wrong: one repair, as line edits
     notes: List[str] = []      # quality hints: logged and shown in dev mode, never a retry
-    if enhanced and not elaborate:  # kept words: every word of the example outside the picks survives
-        in_options = set().union(*(_words(o) for c in info["choices"] for o in c.get("options") or []), set())
-        fixed = _words(re.sub(r"\[\{.*?\}\]", " ", enhanced)) - in_options
-        emitted = set().union(*(_words(r.prompt) for r in samples))
-        lost = sorted(fixed - emitted)
-        if lost:
-            notes.append("Keep the user's words: these are missing from what you emit: "
-                         + ", ".join(f'"{w}"' for w in lost) + ". Copy the prompt's text into emit() as written.")
     if any(re.search(r"<<<|>>>|^\s*[\"']{3}", r.prompt) for r in samples):
         problems.append("Emit only the prompt text itself, with no quote marks or <<< >>> around it.")
     if any(re.search(r"\{[^{}]*\|[^{}]*\}", r.prompt) or "[{" in r.prompt for r in samples):
@@ -1088,14 +1104,31 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
                 continue
             if d.kind == "pick" and not d.hidden and d.value and str(d.value).lower() not in text:
                 missing.setdefault(d.id, str(d.value))
-    for r in samples:  # LoRAs work by being on; a name in the text is noise to the image model
+    # LoRAs work by being on. A listed LoRA's exact name in the text, when the user didn't write
+    # it: while another LoRA (or none) is on, the text says what the image isn't (sent back);
+    # while that LoRA is on, it is only noise (noted). A name that is a LoRA's own trigger word
+    # is added with that LoRA, never by the program.
+    triggers = {_bare(t) for lo in loras for t in (lo.trigger or "").split(",") if t.strip()}
+    for r in samples:
         text = r.prompt.lower()
+        on = {lu.name for lu in r.loras}
         named = [n for n in dict.fromkeys([lu.name for lu in r.loras] + [lo.name for lo in loras])
-                 if _name_like(n) and _mentions(text, n) and not _mentions(prompt, n)]
-        if named:
-            problems.append(f'Don\'t write LoRA names into the prompt ("{named[0]}"). pick_lora() already turns the LoRA on; '
-                            "emit only words that describe the image.")
+                 if _bare(n) not in triggers and _mentions(text, n) and not _mentions(prompt, n)]
+        off = [n for n in named if n not in on]
+        if off:
+            problems.append(f'The prompt you emit says "{off[0]}", the name of a LoRA that isn\'t on in that image, so '
+                            "the text contradicts the image. pick_lora() turns a LoRA on and its trigger words are "
+                            "added for you: leave LoRA names out of emit() and the seeds, or put words for a LoRA in a "
+                            "lookup on the name pick_lora returns, so they appear only when that LoRA is on.")
             break
+        if named and _formats_lora(source):
+            problems.append(f'The prompt you emit says "{named[0]}": the value pick_lora() returns is the LoRA\'s name, '
+                            "for comparing or looking up, never text. Don't put it into a string (f\"{...}\", + or "
+                            "str()); emit only words that describe the image.")
+            break
+        if named:
+            notes.append(f'The prompt names the LoRA "{named[0]}" while it is on. A LoRA works by being on; its name '
+                         "in the text tells the image model nothing.")
     lora_sets = [(c["id"], set(c.get("options") or [])) for c in info["choices"] if c.get("kind") == "lora"]
     stacked: Set[Tuple[str, str]] = set()
     # a LoRA applies to the whole image: two picks over one set in one run stack. With more
@@ -1112,14 +1145,10 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
                                     "Use one pick_lora for them.")
     named: Set[str] = set()
     for cid, names in lora_sets:  # the LoRA carries its trait; text that names it can disagree with it
-        marks = _lora_marks(names)
         for c in info["choices"]:
             if c["id"] in named:
                 continue
-            opts = {o.lower().strip() for o in c.get("options") or []}
-            # a list made of the LoRAs' own names (curly, pixie, braids…), not one that
-            # happens to share a word or two with them ("long", "short")
-            if c.get("kind") == "pick" and len(opts) >= 3 and opts <= marks:
+            if c.get("kind") == "pick" and _names_lora_set(c.get("options") or [], sorted(names)):
                 named.add(c["id"])
                 notes.append(f'pick("{c["id"]}") names the same things as pick_lora("{cid}") ({", ".join(c["options"][:3])}…), '
                                 "so the text can disagree with the LoRA that's on. The LoRA alone carries it: remove that pick "
@@ -1155,7 +1184,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
                             "emit(...) where its subject stands, and drop any other pick or fixed text that says the same thing.")
     for name in smart_wildcards(prompt):
         if not _smart_choice(info, name):
-            problems.append(f'{{{{{name}}}}} is a smart wildcard: make it pick("{smart_id(name)}", about=..., seed=[1 to 3 examples], label=<one or two words>, phase=..., line=...) and emit its value where {{{{{name}}}}} stands.')
+            problems.append(_smart_missing(name, info))
     if uses_draws(source):  # older programs write options as lists
         user_lists = [[o.strip() for o in m.group(1).split("|")] for m in _INLINE_LIST.finditer(prompt)]
         listed = _listed_picks(source)
@@ -1172,8 +1201,8 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
             problems.append(f'pick("{c["id"]}") has source="list", but the user\'s prompt has no list {{{items}}}: '
                             'source="list" is only for the user\'s own {a|b|c} lists, with exactly their items.' + hint)
         for name in smart:
-            c = _smart_choice(info, name)
-            if c and c["id"] in listed:
+            c = next((x for x in _smart_choices(info, name) if x["id"] in listed), None)
+            if c:
                 problems.append(f'{{{{{name}}}}} is a smart wildcard, not a list: write pick("{c["id"]}", about=..., '
                                 "seed=[1 to 3 examples], label=..., phase=..., line=...) with no list of options. Its "
                                 "options are written later from about= and the seeds.")
@@ -1239,8 +1268,7 @@ def normalize_sources(info: Dict[str, Any], prompt: str) -> None:
     the writer marked it. Every other choice keeps the source the writer gave it."""
     lines = [ln.lower() for ln in prompt.splitlines()]
     for name in smart_wildcards(prompt):  # the user's own {{name}}: from their text, on its line
-        c = _smart_choice(info, name)
-        if c:
+        for c in _smart_choices(info, name):
             c["source"], c["wildcard"] = "text", name
             c["line"] = next((i + 1 for i, ln in enumerate(lines) if "{{" + name.lower() in ln.replace("{{ ", "{{")), c.get("line"))
 
@@ -1690,28 +1718,25 @@ def edit_kind(old: str, new: str) -> Optional[str]:
     """How a prompt edit can be applied to the old prompt's program:
     "same" (only [exact text] changed: the program is unchanged), "lists" (only the items
     of {a|b} lists changed: rewritten in code), "text" (a small edit the writer patches),
-    or None (prepare anew)."""
+    or None (prepare anew: the new prompt is empty). Whether a text change is an edit of
+    this prompt or a different prompt is the writer's call: it answers START OVER (or calls
+    start_over) for a different prompt. Code never judges it from the words."""
     if old == new:
         return "same"
     f0, l0 = _lists_and_frame(old)
     f1, l1 = _lists_and_frame(new)
     if f0 == f1 and len(l0) == len(l1):
         return "lists"
-    # Whether a text change is an edit of this prompt or a different prompt is the patch
-    # writer's call (it can answer START OVER). Here only prompts that share nothing much
-    # are ruled out, so an unrelated prompt never costs a patch call.
-    changes = prompt_changes(old, new)
-    a, b = set(_prompt_words(old)), set(_prompt_words(new))
-    if changes and a and b and len(a & b) / len(a | b) >= 0.3:
-        return "text"
-    return None
+    if not old.strip() or not new.strip():
+        return None
+    return "text"
 
 
 def _patch_base(store: ProgramStore, context: str, prompt: str, base_key: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """The program this prompt is an edit of. The one the editor says it showed (base_key)
-    when it was prepared in this context and this prompt is an edit of it; otherwise the
-    recent program in this context whose prompt is closest to this one (a guess: it can
-    pick a sibling the user wasn't looking at)."""
+    """The program this prompt may be an edit of (the writer decides whether it is). The one
+    the editor says it showed (base_key) when it was prepared in this context; otherwise the
+    recent program in this context with the fewest changed words to this prompt (a guess: it
+    can pick a sibling the user wasn't looking at)."""
     if base_key:
         e = store.get(base_key)
         if (e and e.get("context_key") == context and e.get("version") == PREPARE_VERSION and e.get("program")

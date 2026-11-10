@@ -204,7 +204,7 @@ class TestNarrowing:
 
     def test_the_reader_quotes_the_kind_of_person_for_their_age(self):
         from prompt_programs.narrow import _READ_SYSTEM
-        assert '"two kids"' in _READ_SYSTEM and "quote it for their age" in _READ_SYSTEM
+        assert '"two kids"' in _READ_SYSTEM and "copy it for their age" in _READ_SYSTEM
 
     def test_the_writer_is_told_too(self):
         from prompt_programs import prepare as prep

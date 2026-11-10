@@ -301,11 +301,25 @@ Write {count} options for {what}. Order them from the most typical for this prom
 - Each is a concrete, visual phrase that reads naturally in place of [{label}]{style}.
 - Each differs for real from the others and from the existing options (no synonyms).
 - Say what to show, never what to leave out (no "no", "not", "without").
+- Each string is the option itself, exactly as it goes in the prompt: no numbering, notes or
+  remarks.
 
-Reply with only a JSON list of strings."""
+{reply}"""
+
+_REPLY_TEXT = "Reply with only a JSON list of strings, like [\"a first option\", \"a second option\"]."
+_REPLY_TOOL = "Give the options with the write_options tool."
+
+# Option generation's structured reply: a tool call where the endpoint makes tool calls, else a
+# reply that must be exactly a JSON list of strings. Nothing is picked out of free text.
+OPTIONS_TOOL = {"type": "function", "function": {
+    "name": "write_options", "description": "Give the options for the detail.",
+    "parameters": {"type": "object", "properties": {"options": {
+        "type": "array", "description": "The options, most typical first.",
+        "items": {"type": "string", "description": "One option, exactly as it goes in the prompt."}}},
+        "required": ["options"]}}}
 
 
-def generation_messages(job: OptionJob, count: int = BATCH_SIZE) -> List[Dict[str, str]]:
+def generation_messages(job: OptionJob, count: int = BATCH_SIZE, tool: bool = False) -> List[Dict[str, str]]:
     spec, prog = job.spec, job.program
     what = f'"{spec.label}" ({spec.about})' if spec.about and _norm(spec.about) != _norm(spec.label) else f'"{spec.label}"'
     given = ""
@@ -313,7 +327,8 @@ def generation_messages(job: OptionJob, count: int = BATCH_SIZE) -> List[Dict[st
         given = " or these details already chosen: " + "; ".join(f"{k} = {v}" for k, v in job.context.items())
     style = "; tags, a few words each" if prog.mode == "keyword" else (
         "; short, a few words, like the user's own wording" if not prog.elaborate else "; match the examples' length and style")
-    system = _GEN_SYSTEM.format(count=count, what=what, given=given, label=spec.label, style=style)
+    system = _GEN_SYSTEM.format(count=count, what=what, given=given, label=spec.label, style=style,
+                                reply=_REPLY_TOOL if tool else _REPLY_TEXT)
     lines = [f"The prompt, with the details that vary shown as [Label]:\n{prog.template or job.signature}"]
     if job.signature and job.signature != prog.template:
         lines += ["", f"In short: {job.signature}"]
@@ -352,36 +367,117 @@ def minor_words(ages: Sequence[str]) -> str:
     return (", ".join(spans[:-1]) + " or " + spans[-1] if len(spans) > 1 else spans[0]) + " years old"
 
 
-_META = re.compile(r"\b(wait|let's|let me|actually|options?|the prompt|instructions?|here is|here are|i need|json)\b", re.I)
-_NOTE = re.compile(r"\s*\((?:[^()]*\b(?:expected|typical|default|common|unusual|rare|alternative)\b[^()]*)\)\s*$", re.I)
+def read_options(reply: str) -> Optional[List[str]]:
+    """The options in a text reply that is exactly a JSON list of strings (or an object with
+    an "options" list), optionally in one code fence. None for anything else: a reply with
+    text around its list, or a list of anything but strings, is asked again, never mined."""
+    text = (reply or "").strip()
+    fenced = re.fullmatch(r"```[A-Za-z]*\s*(.*?)\s*```", text, re.S)
+    if fenced:
+        text = fenced.group(1)
+    try:
+        got = json.loads(text)
+    except ValueError:
+        return None
+    return _string_list(got)
+
+
+def _string_list(got: Any) -> Optional[List[str]]:
+    if isinstance(got, dict):
+        got = got.get("options")
+    if isinstance(got, list) and all(isinstance(x, str) for x in got):
+        return list(got)
+    return None
 
 
 def parse_options(reply: str, limit: int = 2 * BATCH_SIZE) -> List[str]:
-    """The options in a model's reply: the first JSON list of strings in it, else one
-    per line. Reasoning the model leaked, notes like "(expected)", stray brackets and
-    over-long lines are dropped, never kept as options."""
-    text = reply or ""
-    items: List[str] = []
-    for m in re.finditer(r"\[[^\[\]]*\]", text, re.S):
-        try:
-            got = json.loads(m.group(0))
-        except ValueError:
-            continue
-        if isinstance(got, list) and got and all(isinstance(x, str) for x in got):
-            items = got
-            break
-    if not items:
-        items = [re.sub(r"^\s*(?:[-*\u2022]|\d+[.)])\s*", "", ln).strip().strip('",') for ln in text.splitlines()]
-    return [o for o in (clean_option(x) for x in items) if o][:limit]
+    """The usable options of a text reply (see read_options); [] when it isn't a JSON list."""
+    return [o for o in (clean_option(x) for x in read_options(reply) or []) if o][:limit]
 
 
 def clean_option(o: Any) -> Optional[str]:
-    """One option as it goes in a pool, or None when it isn't one."""
-    o = _NOTE.sub("", str(o)).strip().strip('"').strip()
+    """One option as it goes in a pool, or None when it can't be one: empty, longer than a
+    phrase, no letters, or code-like (brackets, a trailing colon or question mark)."""
+    o = str(o).strip().strip('"').strip()
     if (not o or len(o) > 120 or len(o.split()) > 16 or not re.search(r"[^\W\d_]", o)
-            or _META.search(o) or o.startswith(("`", "[", "{")) or o.endswith((":", "?"))):
+            or o.startswith(("`", "[", "{")) or o.endswith((":", "?"))):
         return None
     return o
+
+
+_RETRY_TEXT = ("That reply wasn't a JSON list of strings, so none of it could be used. Reply with only the JSON "
+               "list of the options, nothing before or after it.")
+
+# endpoints (api base, model) whose option calls made no tool call even when offered one: text from then on
+_TEXT_ONLY: set = set()
+
+
+async def _ask_options(messages: List[Dict[str, Any]], project_id: Optional[int],
+                       tool: bool) -> Tuple[str, Optional[str]]:
+    """One option-writing call: (text content, the write_options call's arguments or None).
+    With tool=False, a plain completion (the writer's _ask_model). Raises what the call raises."""
+    from prompt_programs import prepare as prep
+    if not tool:
+        return await prep._ask_model(messages, project_id, max_tokens=2000), None
+    from agent.v2.llm_options import agent_llm_options
+    from llm import llm_completion
+    from llm_correlation import llm_correlation_context
+    cfg, _ = await prep._writer_endpoint(project_id)
+    with llm_correlation_context("prompt-program"):
+        resp = await llm_completion(cfg, messages, tools=[OPTIONS_TOOL], max_tokens=2000, temperature=0.3,
+                                    **agent_llm_options(enable_thinking=False))
+    call = next((c for c in resp.tool_calls or [] if c.name == "write_options"), None)
+    return resp.content or "", (call.arguments if call is not None else None)
+
+
+async def _endpoint(project_id: Optional[int]) -> Tuple[Tuple[str, str], bool]:
+    """(endpoint id, whether to offer the write_options tool): unless the writer's endpoint is
+    known to speak text only (prepare's protocol) or ignored the tool before."""
+    from prompt_programs import prepare as prep
+    try:
+        cfg, protocol = await prep._writer_endpoint(project_id)
+        endpoint = prep._endpoint_id(cfg)
+    except Exception:  # no config to look at: plain text
+        return ("", ""), False
+    return endpoint, protocol == "tools" and endpoint not in _TEXT_ONLY
+
+
+async def write_options(job: OptionJob, count: int = BATCH_SIZE) -> List[str]:
+    """Options for a job as structured output: the write_options tool where the endpoint
+    makes tool calls, else a reply that is exactly a JSON list of strings. At most two calls:
+    after a broken or missing tool call the second asks for the plain JSON list, after an
+    unreadable text reply it is told what was wrong. [] if neither is readable."""
+    from prompt_programs import prepare as prep
+    from prompt_programs.session import _no_tools_error
+    endpoint, tool = await _endpoint(job.project_id)
+    messages: List[Dict[str, Any]] = generation_messages(job, count, tool)
+    for attempt in range(2):
+        try:
+            content, args = await _ask_options(messages, job.project_id, tool)
+        except Exception as e:
+            if not (tool and _no_tools_error(e)):
+                raise
+            prep._PROTOCOL[endpoint] = "text"  # the endpoint takes no tools: text from now on
+            tool, messages = False, generation_messages(job, count, False)
+            content, args = await _ask_options(messages, job.project_id, False)
+        if args is not None:
+            try:
+                got = _string_list(json.loads(args) if isinstance(args, str) else args)
+            except ValueError:
+                got = None
+        else:
+            got = read_options(content)
+            if tool:  # offered the tool and answered in text: this endpoint gets the text form
+                _TEXT_ONLY.add(endpoint)
+        if got is not None:
+            return [o for o in (clean_option(x) for x in got) if o][: 2 * count]
+        log.info(f"[fluent-options] unreadable reply for {job.spec.label!r} (try {attempt + 1}): {content[:120]!r}")
+        if args is not None or tool:  # a broken or missing tool call: the retry asks for the plain JSON list
+            tool, messages = False, generation_messages(job, count, False)
+        else:
+            messages = messages + [{"role": "assistant", "content": content or "(no reply)"},
+                                   {"role": "user", "content": _RETRY_TEXT}]
+    return []
 
 
 async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Sequence[str], count: int,
@@ -402,12 +498,10 @@ async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Seque
         spec.minor = dict(program.minors).get(person_of(spec.id), ())
     job = OptionJob(key="", spec=spec, context={}, program=program, signature=program.signature, round=0,
                     existing=have, project_id=project_id)
-    from prompt_programs.prepare import _ask_model
     seen = {_norm(o) for o in have}
     out: List[str] = []
     for _ in range(2):  # one retry if the model repeats itself
-        reply = await _ask_model(generation_messages(job, count), project_id)
-        for o in parse_options(reply):
+        for o in await write_options(job, count):
             if _norm(o) not in seen and len(out) < count:
                 seen.add(_norm(o))
                 out.append(o)
@@ -421,9 +515,7 @@ async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Seque
 
 async def llm_generator(job: OptionJob) -> Tuple[List[str], str]:
     """Options from the configured chat model (the same role and plumbing as prepare)."""
-    from prompt_programs.prepare import _ask_model
-    reply = await _ask_model(generation_messages(job), job.project_id)
-    return parse_options(reply), "tool_assistant"
+    return await write_options(job), "tool_assistant"
 
 
 YIELD_POLL = 0.25   # seconds between looks while the filler gives way to a prepare
@@ -878,5 +970,6 @@ def filler_for(profile_id: Optional[str]) -> OptionFiller:
 
 __all__ = [
     "GeneratedOptions", "OptionFiller", "OptionJob", "OptionStore", "ProgramContext", "filler_for", "gen_key",
-    "generated_pick", "generation_messages", "llm_generator", "parse_options", "program_minors", "store_for",
+    "generated_pick", "generation_messages", "llm_generator", "parse_options", "program_minors", "read_options",
+    "store_for", "write_options",
 ]

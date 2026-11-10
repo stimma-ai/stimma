@@ -410,6 +410,15 @@ class TestEdits:
         await ensure("A woman waiting for a train on a {rainy|foggy|snowy} evening.")
         assert '"snowy"' in model.seen[-1][-1]["content"]
 
+    async def test_a_prompt_sharing_no_words_is_still_the_writers_call(self, model):
+        await self._base(model)
+        other = "Ramen, overhead shot."
+        model.replies = [reply({"name": "start_over", "arguments": '{"reason": "ramen"}', "id": "s"}),
+                         reply(write('emit("A bowl of ramen, overhead shot.")\n'))]
+        entry = await ensure(other)
+        assert "It now reads" in model.seen[-2][-1]["content"]   # offered as an edit, never ruled out by its words
+        assert entry["session_stats"]["start_over"] == "ramen" and "patched_from" not in entry
+
     async def test_start_over_writes_fresh_within_the_same_allowance(self, model):
         await self._base(model)
         new = "A red sports car waiting at a train crossing on a {rainy|foggy} morning."

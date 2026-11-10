@@ -6,8 +6,9 @@
 young adult ranges. After a program is prepared, two steps find and apply such words:
 
 1. Read: one call per prompt asks which of the user's own words describe each bound
-   detail ("young woman" for age, "blonde" for hair colour, nothing for her outfit). Words
-   not in the prompt are dropped. A bound smart wildcard uses its own name
+   detail ("young woman" for age, "blonde" for hair colour, nothing for her outfit), as
+   stretches copied from the prompt. An answer that isn't a stretch of the prompt as written
+   (case and spacing aside) is dropped: code never judges which words "count". A bound smart wildcard uses its own name
    (`{{red or auburn hair}}`); the writer's `where=` is used when the reading finds
    nothing. Writers forget `where=` about half the time, so the reading is what counts.
 2. Narrow: each distinct (list, words) pair is resolved once, by asking which of the
@@ -71,12 +72,16 @@ words make them a child or a teenager. A "teenage boy" is 13 to 19."""
 
 _READ_SYSTEM = """You read an image prompt and find the words in it that describe certain details.
 
-For each detail, quote the prompt's own words about that detail, exactly as written, with the
-person or thing they describe ("young woman", "his dark hair", "a smiling girl"), or null when
-the prompt says nothing about it. Don't guess and don't infer: only words the prompt contains.
+For each detail, copy the prompt's own words about that detail: a stretch of the prompt copied
+character for character, with the person or thing they describe ("young woman", "his dark hair",
+"a smiling girl"). When those words stand apart in the prompt, give a list of the stretches. Give
+null when the prompt says nothing about the detail. Don't guess, infer or reword: every stretch
+must appear in the prompt exactly as you copy it.
 The word that says what kind of person someone is speaks to their age too ("two kids", "a
-toddler", "a teenage boy", "a woman", "her young daughter", "a girl"): quote it for their age.
-Reply with only a JSON object mapping each detail's id to those words or null."""
+toddler", "a teenage boy", "a woman", "her young daughter", "a girl"): copy it for their age.
+Reply with only a JSON object mapping each detail's id to a stretch, a list of stretches, or null."""
+
+READ_VERSION = "read-3"   # read-3: exact stretches, and the kind-of-person word copied for an age
 
 
 def phrase_of(choice: Dict[str, Any], read: Optional[Dict[str, str]] = None) -> str:
@@ -92,11 +97,15 @@ def _shown(text: str) -> str:
     return re.sub(r"\{(?:main|accent|neutral)\}", "(colour)", text)
 
 
-def _in_prompt(words: str, prompt: str) -> bool:
-    """Every word of `words` is in the prompt: the reading quotes, it doesn't invent."""
-    have = set(re.findall(r"[a-z0-9]+", prompt.lower()))
-    want = re.findall(r"[a-z0-9]+", words.lower())
-    return bool(want) and all(w in have for w in want)
+def _spaced(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text)).strip().lower()
+
+
+def _span(words: str, prompt: str) -> bool:
+    """`words` is a stretch of the prompt as written (case and runs of spaces aside): the
+    reading copies, it doesn't invent or reword."""
+    want = _spaced(words)
+    return bool(want) and want in _spaced(prompt)
 
 
 def read_messages(prompt: str, details: Sequence[Tuple[str, str]]) -> List[Dict[str, str]]:
@@ -105,9 +114,27 @@ def read_messages(prompt: str, details: Sequence[Tuple[str, str]]) -> List[Dict[
             {"role": "user", "content": f"The prompt:\n{prompt}\n\nThe details:\n{lines}"}]
 
 
+def _outside_wildcards(prompt: str) -> str:
+    """The prompt with each {{wildcard}} cut out: a wildcard's words are its own pick's, never
+    another detail's ("{{a summer hat}}" isn't what he wears)."""
+    return re.sub(r"\{\{[^{}]*\}\}", " \u2026 ", prompt)
+
+
+def _read_value(value: Any, prompt: str) -> str:
+    """A detail's answer: a stretch of the prompt or a list of them, joined. Empty when any
+    stretch isn't in the prompt as written (the answer is the model's, not the user's), or
+    lies inside a {{wildcard}}."""
+    prompt = _outside_wildcards(prompt)
+    spans = value if isinstance(value, list) else [value]
+    spans = [str(x).strip() for x in spans if isinstance(x, str) and x.strip()]
+    if not spans or not all(_span(x, prompt) for x in spans):
+        return ""
+    return ", ".join(dict.fromkeys(spans))
+
+
 def parse_read(reply: str, ids: Sequence[str], prompt: str) -> Optional[Dict[str, str]]:
-    """{id: words} from the reply's JSON object, keeping only words the prompt contains;
-    None when the reply holds no JSON object."""
+    """{id: words} from the reply's JSON object, keeping only answers that are stretches of
+    the prompt as written; None when the reply holds no JSON object."""
     m = re.search(r"\{.*\}", reply or "", re.S)
     if not m:
         return None
@@ -117,8 +144,8 @@ def parse_read(reply: str, ids: Sequence[str], prompt: str) -> Optional[Dict[str
         return None
     if not isinstance(got, dict):
         return None
-    return {cid: str(got[cid]).strip() for cid in ids
-            if isinstance(got.get(cid), str) and got[cid].strip() and _in_prompt(got[cid], prompt)}
+    out = {cid: _read_value(got.get(cid), prompt) for cid in ids}
+    return {cid: words for cid, words in out.items() if words}
 
 
 def _norm(s: str) -> str:
@@ -227,7 +254,7 @@ async def read_words(prompt: str, choices: Sequence[Dict[str, Any]], cache: Opti
                for c in choices]
     if not details or not prompt.strip():
         return {}
-    key = hashlib.sha256(json.dumps(["read", NARROW_VERSION, prompt, details], ensure_ascii=False).encode()).hexdigest()[:32]
+    key = hashlib.sha256(json.dumps(["read", NARROW_VERSION, READ_VERSION, prompt, details], ensure_ascii=False).encode()).hexdigest()[:32]
     if cache is not None:
         hit = cache.get_raw(key)
         if isinstance(hit, dict):
@@ -419,5 +446,5 @@ def reopen_pending(entry: Dict[str, Any]) -> None:
     entry["filters"] = filters
 
 
-__all__ = ["NarrowCache", "mark_pending", "narrow_entry", "parse_read", "parse_subset", "phrase_of", "read_words",
+__all__ = ["NarrowCache", "READ_VERSION", "mark_pending", "narrow_entry", "parse_read", "parse_subset", "phrase_of", "read_words",
            "reopen_pending", "subset", "messages_for"]
