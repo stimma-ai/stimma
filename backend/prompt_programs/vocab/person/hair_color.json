@@ -4,7 +4,7 @@
   "description": "The color of scalp hair, including natural shades, dye and fantastical effects.",
   "pos": "adjective",
   "frame": "her ___ hair",
-  "notes": "Color only; person.hair_length_texture owns length, density and texture, and person.hairstyle owns cuts and arrangements. Dyed colors remain eligible in realistic scenes; luminous or physically impossible effects require a genre tag. Shades do not imply descent or age. Natural shades carry a hair_family; drawn after a person's descent, families outside that descent's typical ones are rare (weight x0.04: hair is often dyed), never excluded. Grey, white, highlighted and dyed colours are untagged and fit everyone.",
+  "notes": "Color only; person.hair_length_texture owns length, density and texture, and person.hairstyle owns cuts and arrangements. Dyed colors remain eligible in realistic scenes; luminous or physically impossible effects require a genre tag. Shades do not imply descent or age. Natural shades carry a hair_family; drawn after a person's descent, families the descent gives as less common are drawn less often (weight x0.3), and families outside both are rare (weight x0.04: hair is often dyed), never excluded. Grey, white, highlighted and dyed colours are untagged and fit everyone.",
   "facets": [
     "era",
     "genre"
@@ -475,7 +475,8 @@
     "takes": {
       "hair_family": {
         "mismatch": "rare",
-        "factor": 0.04
+        "factor": 0.04,
+        "less_common": 0.3
       }
     }
   }

@@ -18,7 +18,7 @@ from prompt_programs.judge import FluentSettings
 from prompt_programs.narrow import NarrowCache, narrow_entry
 from prompt_programs.options import GeneratedOptions, OptionStore, ProgramContext
 from prompt_programs.runtime import ProgramError, discover
-from prompt_programs.vocab import given_families, vocabulary
+from prompt_programs.vocab import LESS, given_families, vocabulary
 
 OFF = FluentSettings(generate_options=False)
 
@@ -42,13 +42,30 @@ def draws_of(entry, tmp_path, seeds, pins=None, context=True, edits=None):
 
 
 def family(cls, facet, text):
-    return set(V().get(cls).context_tags(text, facet) or ())
+    """A value's typical families on a facet (less-common ones left out)."""
+    return {f for f in V().get(cls).context_tags(text, facet) or () if not f.startswith(LESS)}
+
+
+def less_common(cls, facet, text):
+    return {f[len(LESS):] for f in V().get(cls).context_tags(text, facet) or () if f.startswith(LESS)}
 
 
 def mismatched(cls, facet, text, descent):
-    """A drawn value tagged on the facet with no family the descent's tag lists."""
+    """A drawn value tagged on the facet with no family the descent gives, typical or less common."""
     tags = family(cls, facet, text)
-    return bool(tags) and not tags & family("person.ethnicity", facet, descent)
+    return bool(tags) and not tags & (family("person.ethnicity", facet, descent) |
+                                      less_common("person.ethnicity", facet, descent))
+
+
+def shares(lid, facet, descent):
+    """Each family's share of a list's natural (tagged) weight for a person of this descent."""
+    lf, eth = V().get(lid), V().get("person.ethnicity")
+    items = [(x.text, x.weight) for x in lf.pool_values()[0]]
+    got = [(o, w) for o, w in lf.weigh(items, [(facet, eth.context_tags(descent, facet))])
+           if lf.context_tags(o, facet)]
+    total = sum(w for _, w in got)
+    return {f: sum(w for o, w in got if f in lf.context_tags(o, facet)) / total
+            for f in V().context[facet]["values"]}
 
 
 ONE = '''
@@ -97,6 +114,8 @@ class TestTheData:
             assert not set(lf.gives) & set(lf.takes), f"{lf.id} gives and takes the same facet"
             for f, (mode, factor) in lf.takes.items():
                 assert mode in ("rare", "never") and (mode == "never" or 0 < factor < 1), (lf.id, f)
+                if f in lf.less:   # the middle level sits between kept and the mismatch
+                    assert factor < lf.less[f] < 1, (lf.id, f)
             if lf.stated:
                 assert lf.gives and len({v.scope(f) for f in lf.gives}) == 1, lf.id
             for f in {*lf.gives, *lf.takes}:
@@ -105,7 +124,13 @@ class TestTheData:
                 allowed |= set(spec.get("neutral") or ())
                 assert allowed, f
                 for x in lf.values:
-                    assert set(lf.context_tags(x.text, f) or ()) <= allowed, (lf.id, x.text, f)
+                    tags = lf.context_tags(x.text, f) or ()
+                    typical = {t for t in tags if not t.startswith(LESS)}
+                    less = {t[len(LESS):] for t in tags if t.startswith(LESS)}
+                    assert typical | less <= allowed, (lf.id, x.text, f)
+                    assert not typical & less, f"{x.text}: {f} both typical and less common"
+                    if less:   # a giver's less-common family needs every taker to say what it costs
+                        assert f in lf.gives and all(f in t.less for t in v.leaves.values() if f in t.takes), f
 
     def test_every_descent_has_colouring_families(self):
         eth = V().get("person.ethnicity")
@@ -114,6 +139,70 @@ class TestTheData:
             for f in eth.gives:
                 assert eth.context_tags(x.text, f), f"{x.text} has no {f}"
             assert x.tags.get("region"), f"{x.text} has no region"
+
+    def test_every_descent_is_in_a_declared_group_of_one_region(self):
+        """Colouring is declared per named group, and a group never lumps peoples of unrelated
+        regions together because their colouring coincides."""
+        eth = V().get("person.ethnicity")
+        members = collections.defaultdict(list)
+        for x in eth.values:
+            assert x.group in eth.groups, f"{x.text} has no declared group"
+            members[x.group].append(x)
+        assert set(members) == set(eth.groups), "a declared group with no member"
+        for name, xs in members.items():
+            assert eth.groups[name].get("about"), name
+            assert set.intersection(*[set(x.tags["region"]) for x in xs]), (name, [x.text for x in xs])
+
+    def test_native_american_descents_have_their_own_group(self):
+        eth = V().get("person.ethnicity")
+        assert {x.text for x in eth.values if x.group == eth.value("Navajo").group} == {"Navajo", "Cherokee"}
+        assert eth.value("Navajo").group != eth.value("Vietnamese").group
+
+    def test_central_asian_descents_are_tagged_central_asian(self):
+        eth = V().get("person.ethnicity")
+        for d in ("Kazakh", "Uzbek", "Kyrgyz", "Turkmen", "Tajik"):
+            assert eth.value(d).tags["region"] == ["central_asian"], d
+
+    def test_mixed_populations_favour_everything_on_purpose(self):
+        eth = V().get("person.ethnicity")
+        for d in ("South African", "Brazilian"):
+            x = eth.value(d)
+            assert "deliberately wide" in eth.groups[x.group]["about"], d
+            for f in eth.gives:
+                assert family("person.ethnicity", f, d) == set(V().context[f]["values"]), (d, f)
+
+
+class TestTypicalLooks:
+    """A descent word means that heritage's typical look, with the range people would recognise."""
+
+    def test_nordic_eyes_are_mostly_light_and_blonde_leads(self):
+        for d in ("Swedish", "Norwegian", "Danish", "Finnish"):
+            eyes, hair = shares("person.eye_color", "eye_family", d), shares("person.hair_color", "hair_family", d)
+            assert eyes["light"] > 0.6 and 0.1 < eyes["brown"] < 0.3, (d, eyes)
+            assert max(hair, key=hair.get) == "blonde" and hair["blonde"] > 0.45, (d, hair)
+            assert hair["brown"] > 0.25 and hair["dark_brown"] < 0.1 and hair["black"] < 0.03, (d, hair)
+
+    def test_southern_europeans_are_mostly_brown_eyed(self):
+        for d in ("Italian", "Spanish", "Portuguese", "Greek", "Chilean", "Argentinian", "Afghan"):
+            eyes = shares("person.eye_color", "eye_family", d)
+            assert eyes["brown"] > 0.5 and 0.08 < eyes["light"] < 0.25, (d, eyes)
+
+    def test_irish_lean_light_eyed_with_brown_present(self):
+        for d in ("Irish", "Scottish", "Welsh", "English"):
+            eyes = shares("person.eye_color", "eye_family", d)
+            assert eyes["light"] > 0.5 and eyes["brown"] > 0.1, (d, eyes)
+
+    def test_french_eyes_sit_between_south_and_north(self):
+        light = {d: shares("person.eye_color", "eye_family", d)["light"] for d in ("Italian", "French", "Irish", "Swedish")}
+        assert light["Italian"] < light["French"] < light["Irish"] < light["Swedish"], light
+
+    def test_red_hair_is_most_common_for_irish_scottish_welsh(self):
+        eth = V().get("person.ethnicity")
+        base = shares("person.hair_color", "hair_family", "Brazilian")["red"]   # favours every family: the baseline
+        red = {x.text: shares("person.hair_color", "hair_family", x.text)["red"] for x in eth.values}
+        for d in ("Irish", "Scottish", "Welsh"):
+            assert base + 0.05 < red[d] < 0.5, (d, red[d], base)
+            assert red[d] > max(r for o, r in red.items() if o not in ("Irish", "Scottish", "Welsh")), d
 
     def test_rare_keeps_every_mismatch_possible(self):
         """Natural colouring is weighted, never excluded: each descent still draws some of
@@ -192,8 +281,8 @@ class TestWeighting:
             wh[bool(family("person.hair_color", "hair_family", d["woman.hair"].value) & {"blonde", "red"})] += 1
             mh[bool(family("person.hair_color", "hair_family", d["man.hair"].value) & {"blonde", "red"})] += 1
             pool = next(k for k in r.revision["pools"] if k.startswith("man.hair:"))
-            assert "hair_family=blonde,brown,dark_brown,red" in pool
-        assert wh[True] < 20 and mh[True] > 60, (wh, mh)
+            assert "hair_family=brown,dark_brown,red,~blonde" in pool
+        assert wh[True] < 20 and mh[True] > 40, (wh, mh)
 
     def test_never_filters_and_the_scene_scope_reaches_every_pick(self, tmp_path):
         e = entry_of(SCENE)
@@ -258,7 +347,7 @@ class TestStated:
     def test_a_drawn_descent_wins_over_the_stated_one(self, tmp_path):
         e = entry_of(ONE, stated_context=[{"of": "", "cls": "person.ethnicity", "values": ["Japanese"]}])
         r, d = next(draws_of(e, tmp_path, range(1), pins={"descent": ["Irish"]}))
-        assert any("hair_family=blonde,brown,dark_brown,red" in k for k in r.revision["pools"])
+        assert any("hair_family=brown,dark_brown,red,~blonde" in k for k in r.revision["pools"])
 
     def test_a_users_list_value_gives_its_scope_context(self, tmp_path):
         src = ('descent = pick("descent", ["Japanese", "Irish"], source="list", label="Descent", phase=1, line=1)\n'
@@ -364,6 +453,18 @@ class TestReplay:
             again = draw(ONE, seed, None, [], None, None, None,
                          options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=old.revision).options)
             assert again.prompt == old.prompt and again.revision == old.revision
+
+    def test_a_ctx_1_revision_still_replays_exactly(self, tmp_path):
+        """ctx-1 drew before less-common families; its weighted pools are recorded, so it replays as drawn."""
+        e = entry_of(ONE)
+        for seed in range(10):
+            first = draw(ONE, seed, None, [], None, None, None,
+                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF).options)
+            old = json.loads(json.dumps(first.revision))
+            old["context"] = "ctx-1"
+            again = draw(ONE, seed, None, [], None, None, None,
+                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=old).options)
+            assert again.prompt == first.prompt and again.revision["context"] == "ctx-1"
 
     def test_an_unknown_context_version_is_refused(self, tmp_path):
         with pytest.raises(ProgramError):

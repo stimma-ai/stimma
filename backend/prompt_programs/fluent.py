@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from core.logging import get_logger
-from prompt_programs.draws import CONTEXT_VERSION, draw, fixed_text, uses_draws
+from prompt_programs.draws import CONTEXT_VERSIONS, draw, fixed_text, uses_draws
 from prompt_programs.judge import FluentSettings, settings
 from prompt_programs.options import (
     FIRST_OPTIONS_VERSION, OPTIONS_VERSIONS, GeneratedOptions, OptionFiller, OptionStore, ProgramContext, filler_for,
@@ -76,10 +76,10 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
         raise ProgramError(f"This prompt was drawn from options version {version}, which this version of Stimma "
                            "can't read, so it can't be replayed exactly.")
     # A revision drawn before context (vocab.py) replays without it; one drawn with it records its version.
-    if rev.get("context") not in (None, CONTEXT_VERSION):
+    if rev.get("context") not in (None, *CONTEXT_VERSIONS):
         raise ProgramError(f"This prompt was drawn with context rules {rev.get('context')}, which this version of "
                            "Stimma doesn't have, so it can't be replayed exactly.")
-    context = not rev or rev.get("context") == CONTEXT_VERSION
+    context = not rev or rev.get("context") in CONTEXT_VERSIONS
     pools = rev.get("pools")
     # A pool's recorded length, or a vocabulary list's whole pool ([[value, weight], ...]).
     limits = ({str(k): (int(v) if not isinstance(v, list) else v) for k, v in pools.items()
@@ -88,6 +88,8 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
     options = GeneratedOptions(store, program_context(entry), edits=edits, filler=filler,
                                limits=limits, project_id=project_id,
                                generate=cfg.generate_options, version=version, context=context)
+    if rev.get("context"):   # a replay records the context version it was drawn with
+        options.context_version = str(rev["context"])
     return Runtime(options)
 
 

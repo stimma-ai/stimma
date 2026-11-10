@@ -49,8 +49,10 @@ from prompt_programs.vocab import AGE_LIST, fill, is_template, minor_ages, tags_
 DRAW_VERSION = "draws-2"
 # Recorded on a revision whose program has context links (a giver and a taker in one scope, or
 # a stated context): its draws ran in context order with weighted pools. A revision without it
-# drew without context and replays that way.
-CONTEXT_VERSION = "ctx-1"
+# drew without context and replays that way. ctx-2 added less-common families (vocab.py); a ctx-1
+# revision recorded its weighted vocabulary pools, so it still replays exactly.
+CONTEXT_VERSION = "ctx-2"
+CONTEXT_VERSIONS = ("ctx-1", CONTEXT_VERSION)   # what a replay can read
 SPEC_ARGS = ("about", "phase", "seed", "cls")
 BATCH = 16             # proposals per re-proposal batch, when a value breaks a pin
 MAX_BATCHES = 3        # batches before a pick gives up
@@ -1326,7 +1328,7 @@ class _Engine:
         if options_version:  # the generated pools' version: replay reads those, not today's
             rev["options"] = options_version
         if self.context_on and (self.an.context_links or self.stated or self.list_context):
-            rev["context"] = CONTEXT_VERSION
+            rev["context"] = getattr(self.options, "context_version", None) or CONTEXT_VERSION
         rev["id"] = hashlib.sha256(json.dumps(rev, sort_keys=True).encode()).hexdigest()[:16]
         return rev
 
@@ -1375,6 +1377,6 @@ def fixed_text(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_par
 
 
 __all__ = [
-    "CONTEXT_VERSION", "Analysis", "DrawAborted", "DrawResult", "LiteralOptions", "OptionsService", "PickSpec", "Pool",
+    "CONTEXT_VERSION", "CONTEXT_VERSIONS", "Analysis", "DrawAborted", "DrawResult", "LiteralOptions", "OptionsService", "PickSpec", "Pool",
     "analyze", "context_links", "context_suffix", "draw", "fixed_text", "owns", "person_of", "pool_key", "uses_draws",
 ]

@@ -115,7 +115,8 @@
     "european",
     "latin_american",
     "north_american",
-    "oceanian"
+    "oceanian",
+    "central_asian"
    ],
    "default": null,
    "about": "a cultural region, only for values that are culturally specific (a tatami room, a sari)"

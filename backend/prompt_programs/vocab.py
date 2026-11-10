@@ -37,8 +37,15 @@ costs: "rare" multiplies the value's weight by a factor, "never" sets it to 0). 
 pick's leaf takes a facet, the tags on that facet of the values drawn before it in its
 scope (its person's, or the image's) weight its pool: a value whose tag shares a family
 with the context keeps its weight, one that shares none pays the mismatch, an untagged one
-fits every context. All of the knowledge is data; the engine only matches tag sets.
+fits every context. A giving value can also name families it gives as "less_common"
+("mostly light eyes, sometimes brown"): a value in one of those (and in no typical one)
+is multiplied by the taking list's own "less_common" factor, between kept and rare.
+All of the knowledge is data; the engine only matches tag sets.
 The user's own lists, wildcards, pins and additions are never weighted (draws.py).
+
+A list whose values share settings can declare them once as "groups" ({name: {about,
+tags, less_common}}); a value's "group" names one, and its own tags add to the group's.
+The descent list uses them, so every heritage's colouring is declared and reviewed by name.
 
 More roots can be added (a stimpack's vocabulary); ids must not collide.
 """
@@ -62,6 +69,7 @@ CATALOGUE_ROOTS = ("person",)   # what the writer is shown; the rest waits for a
 TYPO_CUTOFF = 0.85    # difflib ratio above which an unknown id is read as a typo of a known one
 AGE_LIST = "person.age_band"     # the list a person's age is drawn from
 MINOR = ("child", "teen")        # the age facet's values under 18
+LESS = "~"   # marks a less-common family in a context ("~brown"); the families a value gives typically are bare
 
 
 ROLES = ("main", "accent", "neutral")
@@ -112,6 +120,8 @@ class Value:
     palette: Dict[str, Any] = field(default_factory=dict)     # a template's restriction on its palette
     opt_in: bool = False       # drawn only when asked for (the module docstring)
     adult_only: bool = False   # an adult-coded look: never in the pools of a person under 18
+    group: str = ""            # the leaf's declared group it takes its shared tags from
+    less_common: Dict[str, Any] = field(default_factory=dict)   # context facet -> families it gives as less common
 
     @property
     def weight(self) -> float:
@@ -142,6 +152,8 @@ class Leaf:
     takes: Dict[str, Tuple[str, float]] = field(default_factory=dict)   # facet -> (rare | never, factor)
     stated: bool = False       # a person's or scene's stated value of this list is read as context (narrow.py)
     individual: bool = False   # a detail of one subject (a node above says "individual": see Node)
+    groups: Dict[str, Any] = field(default_factory=dict)   # declared groups of shared tags (module docstring)
+    less: Dict[str, float] = field(default_factory=dict)   # facet -> factor for a less-common family (module docstring)
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
@@ -155,20 +167,24 @@ class Leaf:
 
     def context_tags(self, text: str, facet: str) -> Optional[Tuple[str, ...]]:
         """A value's tags on a context facet (the leaf's `untagged` default when it has none),
-        or None when it has neither or isn't a value of this list."""
+        then the families it gives as less common, marked (LESS + family); None when it has
+        no tag or isn't a value of this list."""
         v = self.value(text)
         if v is None:
             return None
         got = v.tags.get(facet, self.untagged.get(facet))
         if got is None or got == "any":
             return None
-        return tuple(str(x) for x in (got if isinstance(got, (list, tuple)) else [got]))
+        less = v.less_common.get(facet) or ()
+        return tuple(str(x) for x in (got if isinstance(got, (list, tuple)) else [got])) + tuple(LESS + str(x) for x in less)
 
     def weigh(self, items: Sequence[Tuple[str, float]],
               context: Sequence[Tuple[str, Sequence[str]]]) -> List[Tuple[str, float]]:
         """A pool's (value, weight) pairs weighted by the context it is drawn in: for each facet
         this list takes, a value tagged on it that shares no family with the context pays the
-        mismatch (rare: × factor; never: × 0), and the values tagged on the facet are scaled back
+        mismatch (rare: × factor; never: × 0), or, when it shares only a family the context gives
+        as less common (LESS-marked), this list's less_common factor for the facet (the mismatch
+        factor if it declares none); the values tagged on the facet are scaled back
         to the share of the pool they had, so the context only moves weight among the values it
         speaks to. Values with no tag on the facet (grey or dyed hair for descent), the facet's
         neutral values and anything not in this list (a user's addition, a generated option) keep
@@ -179,12 +195,18 @@ class Leaf:
             mode = self.takes.get(facet)
             if mode is None or not families:
                 continue
-            want, keep = set(families), set(neutral.get(facet, ()))
+            want = {f for f in families if not f.startswith(LESS)}
+            less = {f[len(LESS):] for f in families if f.startswith(LESS)} - want
+            keep = set(neutral.get(facet, ()))
             factor = 0.0 if mode[0] == "never" else mode[1]
+            less_factor = self.less.get(facet, factor)
+
+            def cost(t: Optional[Tuple[str, ...]]) -> float:
+                fams = set(t or ())
+                return 1.0 if fams & want else less_factor if fams & less else factor
             tagged = [self.context_tags(o, facet) for o, _ in out]
             spoken = [t is not None and not set(t) & keep for t in tagged]
-            nxt = [(o, w * factor) if s and not set(t or ()) & want else (o, w)
-                   for (o, w), t, s in zip(out, tagged, spoken)]
+            nxt = [(o, w * cost(t)) if s else (o, w) for (o, w), t, s in zip(out, tagged, spoken)]
             before = sum(w for (_, w), s in zip(out, spoken) if s)
             after = sum(w for (_, w), s in zip(nxt, spoken) if s)
             if before > 0 and after <= 0:
@@ -332,9 +354,12 @@ class Vocabulary:
                 **({"local_facets": {k: list(v) for k, v in lf.local_facets.items()}} if lf.local_facets else {}),
                 **({"slots": lf.slots} if lf.slots else {}),
                 **({"context": _context_dict(lf)} if lf.gives or lf.takes else {}),
+                **({"groups": lf.groups} if lf.groups else {}),
                 "values": [{"text": v.text, "tier": v.tier, **({"tags": v.tags} if v.tags else {}),
                             **({"roles": v.roles} if v.roles else {}), **({"palette": v.palette} if v.palette else {}),
-                            **({"opt_in": True} if v.opt_in else {}), **({"adult_only": True} if v.adult_only else {})}
+                            **({"opt_in": True} if v.opt_in else {}), **({"adult_only": True} if v.adult_only else {}),
+                            **({"group": v.group} if v.group else {}),
+                            **({"less_common": v.less_common} if v.less_common else {})}
                            for v in lf.values],
             } for lf in sorted(self.leaves.values(), key=lambda lf: lf.id)],
         }
@@ -342,30 +367,43 @@ class Vocabulary:
 
 def _context_dict(lf: Leaf) -> Dict[str, Any]:
     return {**({"gives": list(lf.gives)} if lf.gives else {}), **({"stated": True} if lf.stated else {}),
-            **({"takes": {f: ({"mismatch": m} if m == "never" else {"mismatch": m, "factor": x})
+            **({"takes": {f: {**({"mismatch": m} if m == "never" else {"mismatch": m, "factor": x}),
+                              **({"less_common": lf.less[f]} if f in lf.less else {})}
                           for f, (m, x) in lf.takes.items()}} if lf.takes else {})}
 
 
-def _leaf_context(d: Dict[str, Any]) -> Tuple[Tuple[str, ...], Dict[str, Tuple[str, float]], bool]:
+def _leaf_context(d: Dict[str, Any]) -> Tuple[Tuple[str, ...], Dict[str, Tuple[str, float]], bool, Dict[str, float]]:
     ctx = d.get("context") or {}
-    takes = {}
+    takes, less = {}, {}
     for f, spec in (ctx.get("takes") or {}).items():
         mode = str((spec or {}).get("mismatch") or "rare")
         takes[str(f)] = ("never", 0.0) if mode == "never" else ("rare", float((spec or {}).get("factor", 0.1)))
-    return tuple(str(f) for f in ctx.get("gives") or ()), takes, ctx.get("stated") is True
+        if (spec or {}).get("less_common") is not None:
+            less[str(f)] = float(spec["less_common"])
+    return tuple(str(f) for f in ctx.get("gives") or ()), takes, ctx.get("stated") is True, less
+
+
+def _value(lid: str, v: Dict[str, Any], groups: Dict[str, Any]) -> Value:
+    """A value with its group's shared tags and less-common families under its own."""
+    name = str(v.get("group") or "")
+    if name and name not in groups:
+        raise ValueError(f"vocabulary: {lid} value {v.get('text')!r} names unknown group {name!r}")
+    g = groups.get(name) or {}
+    return Value(str(v["text"]), str(v.get("tier") or "plausible"), {**(g.get("tags") or {}), **(v.get("tags") or {})},
+                 {str(k): str(x) for k, x in (v.get("roles") or {}).items()}, dict(v.get("palette") or {}),
+                 v.get("opt_in") is True, v.get("adult_only") is True, name,
+                 {**(g.get("less_common") or {}), **(v.get("less_common") or {})})
 
 
 def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
-    gives, takes, stated = _leaf_context(d)
-    vals = tuple(Value(str(v["text"]), str(v.get("tier") or "plausible"), dict(v.get("tags") or {}),
-                       {str(k): str(x) for k, x in (v.get("roles") or {}).items()}, dict(v.get("palette") or {}),
-                       v.get("opt_in") is True, v.get("adult_only") is True)
-                 for v in d.get("values") or [] if str(v.get("text") or "").strip())
+    gives, takes, stated, less = _leaf_context(d)
+    groups = dict(d.get("groups") or {})
+    vals = tuple(_value(lid, v, groups) for v in d.get("values") or [] if str(v.get("text") or "").strip())
     return Leaf(lid, str(d.get("label") or lid), str(d.get("description") or ""), str(d.get("pos") or ""),
                 str(d.get("frame") or ""), str(d.get("notes") or ""), tuple(d.get("facets") or ()),
                 bool(d.get("closed")), {k: tuple(v) for k, v in (d.get("untagged") or {}).items()}, vals,
                 {k: tuple(v) for k, v in (d.get("local_facets") or {}).items()}, str(d.get("slots") or ""),
-                gives, takes, stated)
+                gives, takes, stated, less=less, groups=groups)
 
 
 def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
@@ -438,5 +476,5 @@ def minor_ages(values: Sequence[str]) -> Tuple[str, ...]:
     return tuple(v.text for v in leaf.values if v.text in want and v.minor)
 
 
-__all__ = ["AGE_LIST", "Leaf", "Node", "Value", "Vocabulary", "given_families", "load", "minor_ages", "vocabulary",
+__all__ = ["AGE_LIST", "LESS", "Leaf", "Node", "Value", "Vocabulary", "given_families", "load", "minor_ages", "vocabulary",
            "TIER_WEIGHTS", "OPEN_SHARE"]
