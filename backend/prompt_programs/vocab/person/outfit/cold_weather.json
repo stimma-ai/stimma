@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a {main} wool peacoat over a {accent} sweater and {neutral} trousers",
+      "text": "a {main} wool peacoat over a {accent} sweater and {neutral} pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -79,7 +79,7 @@
       }
     },
     {
-      "text": "a {main} wool overcoat and {neutral} tailored trousers",
+      "text": "a {main} wool overcoat and {neutral} tailored pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -133,7 +133,7 @@
       }
     },
     {
-      "text": "a {main} duffle coat and {neutral} wool trousers",
+      "text": "a {main} duffle coat and {neutral} wool pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -187,7 +187,7 @@
       }
     },
     {
-      "text": "a {main} fleece jacket and {neutral} insulated trousers",
+      "text": "a {main} fleece jacket and {neutral} insulated pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -333,7 +333,7 @@
       }
     },
     {
-      "text": "a {main} belted wool coat and {neutral} wide-leg trousers",
+      "text": "a {main} belted wool coat and {neutral} wide-leg pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -385,7 +385,7 @@
       }
     },
     {
-      "text": "a {main} waxed-cotton jacket and {neutral} wool trousers",
+      "text": "a {main} waxed-cotton jacket and {neutral} wool pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -413,7 +413,7 @@
       }
     },
     {
-      "text": "a {main} wool poncho over a {accent} knit top and {neutral} trousers",
+      "text": "a {main} wool poncho over a {accent} knit top and {neutral} pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -451,7 +451,7 @@
       }
     },
     {
-      "text": "a {main} padded hanfu jacket and thick {neutral} trousers",
+      "text": "a {main} padded hanfu jacket and thick {neutral} pants",
       "tier": "plausible",
       "tags": {
         "climate": [
@@ -484,7 +484,7 @@
       }
     },
     {
-      "text": "a {main} quilted hanten over a {accent} sweater and {neutral} trousers",
+      "text": "a {main} quilted hanten over a {accent} sweater and {neutral} pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -513,7 +513,7 @@
       }
     },
     {
-      "text": "a {main} wool pheran over loose {neutral} trousers",
+      "text": "a {main} wool pheran over loose {neutral} pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -554,7 +554,7 @@
       }
     },
     {
-      "text": "a {main} wool djellaba over a {accent} shirt and {neutral} trousers",
+      "text": "a {main} wool djellaba over a {accent} shirt and {neutral} pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -659,7 +659,7 @@
       }
     },
     {
-      "text": "a {main} waterproof shell over a {accent} fleece and {neutral} insulated trousers",
+      "text": "a {main} waterproof shell over a {accent} fleece and {neutral} insulated pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -683,7 +683,7 @@
       }
     },
     {
-      "text": "a patched {main} wool coat and faded {neutral} trousers",
+      "text": "a patched {main} wool coat and faded {neutral} pants",
       "tier": "plausible",
       "tags": {
         "climate": [
@@ -716,7 +716,7 @@
       }
     },
     {
-      "text": "a {main} cropped cocoon coat with balloon sleeves over a {accent} wool sweater and {neutral} tapered trousers",
+      "text": "a {main} cropped cocoon coat with balloon sleeves over a {accent} wool sweater and {neutral} tapered pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -803,7 +803,7 @@
       }
     },
     {
-      "text": "a fur-lined {main} wool robe over a {accent} linen tunic and {neutral} trousers",
+      "text": "a fur-lined {main} wool robe over a {accent} linen tunic and {neutral} pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -869,7 +869,7 @@
       }
     },
     {
-      "text": "a {main} long quilted down coat over a {accent} ribbed turtleneck and {neutral} corduroy trousers",
+      "text": "a {main} long quilted down coat over a {accent} ribbed turtleneck and {neutral} corduroy pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -884,7 +884,7 @@
       }
     },
     {
-      "text": "a {main} shearling-lined aviator jacket over a {accent} cable-knit sweater and {neutral} wool trousers",
+      "text": "a {main} shearling-lined aviator jacket over a {accent} cable-knit sweater and {neutral} wool pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -947,7 +947,7 @@
       }
     },
     {
-      "text": "a {main} quilted liner jacket over a {accent} turtleneck and {neutral} brushed-cotton trousers",
+      "text": "a {main} quilted liner jacket over a {accent} turtleneck and {neutral} brushed-cotton pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -983,7 +983,7 @@
       }
     },
     {
-      "text": "a {main} wool shirt jacket over a {accent} thermal henley and {neutral} corduroy trousers",
+      "text": "a {main} wool shirt jacket over a {accent} thermal henley and {neutral} corduroy pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -998,7 +998,7 @@
       }
     },
     {
-      "text": "a {main} belted padded wrap coat over a {accent} merino tunic and {neutral} wide-leg trousers",
+      "text": "a {main} belted padded wrap coat over a {accent} merino tunic and {neutral} wide-leg pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1013,7 +1013,7 @@
       }
     },
     {
-      "text": "a {main} funnel-neck wool coat over a {accent} cable-knit sweater and {neutral} checked trousers",
+      "text": "a {main} funnel-neck wool coat over a {accent} cable-knit sweater and {neutral} checked pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1028,7 +1028,7 @@
       }
     },
     {
-      "text": "a {main} insulated seated-cut parka with a shortened back over {neutral} fleece-lined side-opening trousers",
+      "text": "a {main} insulated seated-cut parka with a shortened back over {neutral} fleece-lined side-opening pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1043,7 +1043,7 @@
       }
     },
     {
-      "text": "a {main} side-fastening padded cape over a {accent} wool sweater and {neutral} insulated trousers",
+      "text": "a {main} side-fastening padded cape over a {accent} wool sweater and {neutral} insulated pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1058,7 +1058,7 @@
       }
     },
     {
-      "text": "a {main} chunky wool cardigan over a {accent} flannel shirt and {neutral} lined canvas trousers",
+      "text": "a {main} chunky wool cardigan over a {accent} flannel shirt and {neutral} lined canvas pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1088,7 +1088,7 @@
       }
     },
     {
-      "text": "a {main} long padded vest over a {accent} wool coat and {neutral} straight trousers",
+      "text": "a {main} long padded vest over a {accent} wool coat and {neutral} straight pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1103,7 +1103,7 @@
       }
     },
     {
-      "text": "a {main} wool greatcoat with a shoulder cape over a {accent} linen shirt and {neutral} high-waisted wool trousers",
+      "text": "a {main} wool greatcoat with a shoulder cape over a {accent} linen shirt and {neutral} high-waisted wool pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1138,7 +1138,7 @@
       }
     },
     {
-      "text": "a {main} quilted cotton jacket over a {accent} long-sleeved tunic and {neutral} padded trousers",
+      "text": "a {main} quilted cotton jacket over a {accent} long-sleeved tunic and {neutral} padded pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1153,7 +1153,7 @@
       }
     },
     {
-      "text": "a {main} insulated parka with a {accent} chest panel and {neutral} fleece-lined trousers",
+      "text": "a {main} insulated parka with a {accent} chest panel and {neutral} fleece-lined pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1213,7 +1213,7 @@
       }
     },
     {
-      "text": "a thick {main} wool turtleneck sweater and {neutral} fleece-lined corduroy trousers",
+      "text": "a thick {main} wool turtleneck sweater and {neutral} fleece-lined corduroy pants",
       "tier": "typical",
       "tags": {
         "formality": [

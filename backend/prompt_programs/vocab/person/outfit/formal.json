@@ -105,7 +105,7 @@
       }
     },
     {
-      "text": "a white dinner jacket and black tailored trousers",
+      "text": "a white dinner jacket and black tailored pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -177,7 +177,7 @@
       }
     },
     {
-      "text": "a {main} tailcoat, white vest, and gray striped formal trousers",
+      "text": "a {main} tailcoat, white vest, and gray striped formal pants",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -691,7 +691,7 @@
       }
     },
     {
-      "text": "a {main} embroidered trouser suit with a {accent} satin shell",
+      "text": "a {main} embroidered pantsuit with a {accent} satin shell",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -800,7 +800,7 @@
       }
     },
     {
-      "text": "a {main} sherwani and {accent} silk churidar trousers",
+      "text": "a {main} sherwani and {accent} silk churidar pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -995,7 +995,7 @@
       }
     },
     {
-      "text": "a {main} agbada over a matching tunic and trousers",
+      "text": "a {main} agbada over a matching tunic and pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1302,7 +1302,7 @@
       }
     },
     {
-      "text": "a {main} embroidered ao dai over {neutral} silk trousers",
+      "text": "a {main} embroidered ao dai over {neutral} silk pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1337,7 +1337,7 @@
       }
     },
     {
-      "text": "a cream silk barong Tagalog and {neutral} dress trousers",
+      "text": "a cream silk barong Tagalog and {neutral} dress pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1450,7 +1450,7 @@
       }
     },
     {
-      "text": "a {main} baju Melayu with matching trousers and a woven {accent} sampin",
+      "text": "a {main} baju Melayu with matching pants and a woven {accent} sampin",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1610,7 +1610,7 @@
       }
     },
     {
-      "text": "a {main} charro suit with silver embroidery and matching trousers",
+      "text": "a {main} charro suit with silver embroidery and matching pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1858,7 +1858,7 @@
       }
     },
     {
-      "text": "a {main} collarless silk tunic with a broad {accent} sash and matching wide palazzo trousers",
+      "text": "a {main} collarless silk tunic with a broad {accent} sash and matching wide palazzo pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2092,7 +2092,7 @@
       }
     },
     {
-      "text": "a {main} morning coat over a {accent} vest with a white shirt and gray striped trousers",
+      "text": "a {main} morning coat over a {accent} vest with a white shirt and gray striped pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2116,7 +2116,7 @@
       }
     },
     {
-      "text": "a {main} velvet smoking jacket with a quilted {accent} shawl collar over a white dress shirt and black straight trousers",
+      "text": "a {main} velvet smoking jacket with a quilted {accent} shawl collar over a white dress shirt and black straight pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2208,7 +2208,7 @@
       }
     },
     {
-      "text": "a {main} seated-cut tuxedo jacket with matching side-opening trousers and a white dress shirt",
+      "text": "a {main} seated-cut tuxedo jacket with matching side-opening pants and a white dress shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2272,7 +2272,7 @@
       }
     },
     {
-      "text": "a {main} high-collared silk blouse with bishop sleeves and {neutral} flowing satin trousers",
+      "text": "a {main} high-collared silk blouse with bishop sleeves and {neutral} flowing satin pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2291,7 +2291,7 @@
       }
     },
     {
-      "text": "a {main} asymmetric satin top with a single sleeve and {neutral} flared evening trousers",
+      "text": "a {main} asymmetric satin top with a single sleeve and {neutral} flared evening pants",
       "tier": "typical",
       "tags": {
         "formality": [

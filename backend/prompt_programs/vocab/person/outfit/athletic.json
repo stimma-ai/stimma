@@ -52,7 +52,7 @@
       }
     },
     {
-      "text": "a long-sleeved {main} moisture-wicking top and {neutral} track trousers",
+      "text": "a long-sleeved {main} moisture-wicking top and {neutral} track pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -159,7 +159,7 @@
       }
     },
     {
-      "text": "a {main} hooded tracksuit with tapered trousers",
+      "text": "a {main} hooded tracksuit with tapered pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -276,7 +276,7 @@
       }
     },
     {
-      "text": "a white cotton karate gi with matching trousers",
+      "text": "a white cotton karate gi with matching pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -333,7 +333,7 @@
       }
     },
     {
-      "text": "a {main} cotton yoga tank and {neutral} stretch trousers",
+      "text": "a {main} cotton yoga tank and {neutral} stretch pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -472,7 +472,7 @@
       }
     },
     {
-      "text": "a white cricket shirt and matching straight trousers",
+      "text": "a white cricket shirt and matching straight pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -501,7 +501,7 @@
       }
     },
     {
-      "text": "a button-front {main} baseball jersey and {neutral} trousers with {accent} piping",
+      "text": "a button-front {main} baseball jersey and {neutral} pants with {accent} piping",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -612,7 +612,7 @@
       }
     },
     {
-      "text": "a {main} hiking shirt and {neutral} stretch cargo trousers",
+      "text": "a {main} hiking shirt and {neutral} stretch cargo pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -639,7 +639,7 @@
       }
     },
     {
-      "text": "a {main} sleeveless climbing top and reinforced {neutral} climbing trousers",
+      "text": "a {main} sleeveless climbing top and reinforced {neutral} climbing pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -694,7 +694,7 @@
       }
     },
     {
-      "text": "a {main} seated-cut training jacket and matching stretch trousers",
+      "text": "a {main} seated-cut training jacket and matching stretch pants",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -777,7 +777,7 @@
       }
     },
     {
-      "text": "a {main} cross-country ski jacket and {neutral} fitted trousers",
+      "text": "a {main} cross-country ski jacket and {neutral} fitted pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -947,7 +947,7 @@
       }
     },
     {
-      "text": "a {main} cotton wrestling jacket and loose {neutral} woven drawstring trousers",
+      "text": "a {main} cotton wrestling jacket and loose {neutral} woven drawstring pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -980,7 +980,7 @@
       }
     },
     {
-      "text": "a {main} wool rowing jersey and high-waisted {neutral} flannel trousers",
+      "text": "a {main} wool rowing jersey and high-waisted {neutral} flannel slacks",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1234,7 +1234,7 @@
       }
     },
     {
-      "text": "a {main} long-sleeved bamboo jersey top and {accent} flared yoga trousers",
+      "text": "a {main} long-sleeved bamboo jersey top and {accent} flared yoga pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1341,7 +1341,7 @@
       }
     },
     {
-      "text": "a {main} tennis warm-up jacket and {neutral} straight track trousers",
+      "text": "a {main} tennis warm-up jacket and {neutral} straight track pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1525,7 +1525,7 @@
       }
     },
     {
-      "text": "a {main} fleece zip jacket over a {accent} technical shirt and {neutral} hiking trousers",
+      "text": "a {main} fleece zip jacket over a {accent} technical shirt and {neutral} hiking pants",
       "tier": "typical",
       "tags": {
         "formality": [
