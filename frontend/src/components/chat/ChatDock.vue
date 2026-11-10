@@ -63,7 +63,8 @@ function startResize(event: PointerEvent, chatId: number, axis: 'both' | 'w' | '
   const others = visible.value.filter(e => e.chatId !== chatId && shownIds.value.has(e.chatId))
   const othersWidth = others.reduce((sum, e) => sum + (e.win === 'open' ? openSize(e.chatId).w : layout.value.rowWidth) + DOCK_SIZES.gap, 0)
   const reserve = hidden.value.length ? DOCK_SIZES.more : 0
-  const limit = { w: Math.max(start.w, Math.min(room.value.w, width.value - DOCK_SIZES.edge * 2 - othersWidth - DOCK_SIZES.gap - reserve)), h: room.value.h }
+  // Floored: sizes are whole pixels, and rounding up could overflow the row.
+  const limit = { w: Math.max(start.w, Math.floor(Math.min(room.value.w, width.value - DOCK_SIZES.edge * 2 - othersWidth - DOCK_SIZES.gap - reserve))), h: Math.floor(room.value.h) }
   const x0 = event.clientX
   const y0 = event.clientY
   resizing.value = chatId
