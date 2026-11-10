@@ -290,6 +290,13 @@ class TestShapes:
                                                      f"f = {bound('outfit_formal', 'person.outfit.formal')}", *extra])
             fixed = prep.fix_subjects(two)[0]   # the lone-owner and prefix-only rules too
             assert '"outfit.summer"' not in fixed and '"outfit.formal"' not in fixed, fixed
+        # numbered ids, and a loop's plain ids, beside her age: no rename takes them from under it
+        numbered = hand(("girl", [AGE]), extra_lines=[f"o = {bound('outfit1', summer)}",
+                                                      f"f = {bound('outfit2', 'person.outfit.formal')}"])
+        assert prep.fix_subjects(numbered) == (numbered, [])
+        loop = hand(("girl", [AGE]), extra_lines=['looks = group("looks", 2)', "for i in range(looks):",
+                                                  f"    o = {bound('outfit', OUTFIT)}"])
+        assert prep.fix_subjects(loop) == (loop, [])
 
     def test_numbered_families_and_lone_indexes(self):
         lines = [f"{v} = {P(v, about='a detail', seed='x')}" for v in ("outfit1", "outfit2", "face1", "face2")]

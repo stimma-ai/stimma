@@ -965,6 +965,7 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
     pos = _offsets(source)
     edits: List[Tuple[int, int, str]] = []
     notes: List[str] = []
+    to: Dict[int, str] = {}   # pick call -> the id it is renamed to
     for call in calls:
         node = id_node(call)
         t = text_of(node)
@@ -991,12 +992,31 @@ def fix_subjects(source: str, prompt: str = "") -> Tuple[str, List[str]]:
         if new:
             edits.append((pos(node.lineno, node.col_offset), pos(node.end_lineno, node.end_col_offset), new))
             notes.append(f"pick id {t!r} names its subject: {new.lstrip('f')}")
+            to[id(call)] = new
     def shape(t: Optional[str]) -> str:
         return re.sub(r"\{[^{}]*\}", "{}", t or "")
 
     taken = {shape(text_of(id_node(c))) for c in calls}
     if any(shape(json.loads(e[2].lstrip("f"))) in taken for e in edits):
         return source, []  # a new id another pick already has: leave it for validation
+    # Whatever renamed them (a prefix, a number, a loop): a person's detail that the age of a subject the
+    # program names spoke for must still have an age that does, or that age would stop limiting it.
+    # Otherwise leave it all for validation.
+    from prompt_programs.draws import owns, person_of
+
+    def whose(call: ast.Call, after: bool) -> str:
+        new = to.get(id(call)) if after else None
+        who = person_of(shape(json.loads(new.lstrip("f")) if new else text_of(id_node(call))))
+        return re.sub(r"\[\d+\]", "[{}]", who)   # friends[2] is one of the loop's friends[{}]
+
+    people = [(c, vocabulary().resolve(_const(_kw(c, "cls"))).id) for c in calls
+              if _individual_leaf(_const(_kw(c, "cls"))) and text_of(id_node(c)) is not None]
+    ages = [c for c, lid in people if lid == AGE_LIST]
+    for c, lid in people:
+        if lid != AGE_LIST and lid.split(".")[0] == aged \
+                and any(whose(a, False) and owns(whose(a, False), whose(c, False)) for a in ages) \
+                and not any(owns(whose(a, True), whose(c, True)) for a in ages):
+            return source, []
     for start, end, text in sorted(edits, reverse=True):
         source = source[:start] + text + source[end:]
     return source, notes
