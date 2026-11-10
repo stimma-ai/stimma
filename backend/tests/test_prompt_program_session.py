@@ -791,3 +791,16 @@ class TestTriggerWordsToggle:
         assert heard[1] == [{"name": "Noted", "trigger_words": [], "notes": "soft light"}]  # notes still go
         assert on["key"] != off["key"]
         assert "wolfcut" not in json.dumps(model.seen[1]) and "notedz" not in json.dumps(model.seen[1])
+
+
+class TestBackgroundWorkFollowsTheEditor:
+    def test_an_edit_makes_the_older_program_stale_and_no_hash_reaches_the_option_writer(self, model):
+        from prompt_programs.fluent import program_context
+        model.replies = [reply(write(GOOD)), reply(edit([{"line": 2, "text": GOOD_EVENING.splitlines()[1]}]))]
+        first = asyncio.run(ensure())
+        assert prep.is_current(first["key"], first["context_key"])
+        second = asyncio.run(ensure(EDITED))
+        assert second["context_key"] == first["context_key"]
+        assert not prep.is_current(first["key"], first["context_key"]) and prep.is_current(second["key"], second["context_key"])
+        # the editing context is a key, not words for the option writer
+        assert program_context(first).signature != first["context_key"]

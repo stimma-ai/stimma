@@ -104,6 +104,9 @@ class ProgramContext:
     # a pick's facet filter (where={...}), as text, by pick id: part of its pools' identity, never
     # shown to the generator
     facets: Tuple[Tuple[str, str], ...] = ()
+    # the program's editing context (prepare's context key): background work for a program
+    # the user has since edited away from is dropped
+    context_key: str = ""
 
     @classmethod
     def of(cls, entry: Dict[str, Any]) -> "ProgramContext":
@@ -123,7 +126,7 @@ class ProgramContext:
                        if isinstance(c.get("where"), dict) and c["where"])
         return cls(str(entry.get("key") or ""), signature, template, str(entry.get("mode") or "prose"),
                    entry.get("elaborate") is not False, lists, str(entry.get("tool_id") or ""),
-                   str(entry.get("lineage") or ""), intents, filters, facets)
+                   str(entry.get("lineage") or ""), intents, filters, facets, str(entry.get("context_key") or ""))
 
 
 # --------------------------------------------------------------------------- the on-disk cache
@@ -384,13 +387,25 @@ async def llm_generator(job: OptionJob) -> Tuple[List[str], str]:
     return parse_options(reply), "tool_assistant"
 
 
+YIELD_POLL = 0.25   # seconds between looks while the filler gives way to a prepare
+
+
 class OptionFiller:
     """Background generation: a priority queue worked on the event loop, high first.
     `submit()` is safe from any thread (realize() may run in a worker thread). A pool
-    has at most one job queued or running; asking again at high priority promotes it."""
+    has at most one job queued or running; asking again at high priority promotes it.
 
-    def __init__(self, store: OptionStore, generator: Generator = llm_generator, workers: int = 2):
+    It is background work on the same chat model a prepare waits on: while `paused()` (a
+    prepare in flight) no job starts, and a queued low-priority job whose program isn't
+    `current()` (the user has edited the prompt since) is dropped; a later draw of that
+    program queues its pools again."""
+
+    def __init__(self, store: OptionStore, generator: Generator = llm_generator, workers: int = 2,
+                 paused: Optional[Callable[[], bool]] = None, current: Optional[Callable[[OptionJob], bool]] = None):
         self.store, self.generator, self.workers = store, generator, workers
+        self.paused = paused or (lambda: False)
+        self.current = current or (lambda job: True)
+        self.dropped = 0
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self._heap: List[Tuple[int, int, str]] = []
         self._jobs: Dict[str, Tuple[int, OptionJob]] = {}
@@ -462,13 +477,31 @@ class OptionFiller:
                 if have is None or have[0] != rank:
                     continue  # promoted or already taken
                 del self._jobs[key]
+                if rank == PRIORITY["low"] and not self._is_current(have[1]):
+                    self.dropped += 1
+                    continue
                 self._running[key] = have[1]
                 return have[1]
         return None
 
+    def _is_current(self, job: OptionJob) -> bool:
+        try:
+            return bool(self.current(job))
+        except Exception:
+            return True
+
+    def _paused(self) -> bool:
+        try:
+            return bool(self.paused())
+        except Exception:
+            return False
+
     async def _worker(self) -> None:
         assert self._wake is not None
         while True:
+            if self._paused():  # a prepare is waiting on the same chat model: let it go first
+                await asyncio.sleep(YIELD_POLL)
+                continue
             job = self._next()
             if job is None:
                 self._wake.clear()
@@ -799,7 +832,9 @@ def filler_for(profile_id: Optional[str]) -> OptionFiller:
     store = store_for(profile_id)
     f = _fillers.get(str(store.root))
     if f is None:
-        f = _fillers[str(store.root)] = OptionFiller(store)
+        from prompt_programs.prepare import is_current, preparing
+        f = _fillers[str(store.root)] = OptionFiller(
+            store, paused=preparing, current=lambda job: is_current(job.program.key, job.program.context_key))
     try:
         f.attach()
     except RuntimeError:

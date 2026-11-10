@@ -1353,6 +1353,7 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     }
     key = program_key({**parts, "prompt": source_prompt})
     context = program_key(parts)  # the same editing context, whatever the prompt says
+    _latest[context] = key
     store = _store(profile_id)
     cached = None if force else store.get(key)
     if cached and not cache_only and (store.recent(context) or [None])[0] != key:
@@ -1376,6 +1377,21 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
 
 
 _in_flight: Dict[Tuple[str, str, bool], "asyncio.Future[Dict[str, Any]]"] = {}
+
+# The program each editing context asked for last (context key → program key), so background
+# option generation can drop queued work for prompts the user has edited away from.
+_latest: Dict[str, str] = {}
+
+
+def preparing() -> bool:
+    """Whether any prepare is in flight (background option generation gives way to it)."""
+    return bool(_in_flight)
+
+
+def is_current(program_key: str, context_key: str) -> bool:
+    """Whether a program is the one its editing context asked for last (or nothing says otherwise)."""
+    latest = _latest.get(context_key) if context_key else None
+    return latest is None or latest == program_key
 
 
 async def _writer_fingerprint(project_id: Optional[int]) -> Optional[str]:
@@ -1457,7 +1473,7 @@ async def _prepare_once(*, context: str, force: bool, base_key: Optional[str] = 
             _PROTOCOL[_endpoint_id(cfg)] = "text"
             log.warning(f"[prompt-program] {_endpoint_id(cfg)[1]} makes no tool calls ({e}): using the text protocol")
         else:
-            entry["context"] = context
+            entry["context_key"] = context
             await _narrow(entry, store, args["project_id"], started)
             store.put(entry["key"], entry)
             store.remember(context, entry["key"])
@@ -1485,7 +1501,7 @@ async def _prepare_text(*, context: str, base: Optional[Dict[str, Any]], started
         # A small edit whose patch didn't hold is still the same prompt's next version: the
         # writer sees the old program and keeps what didn't change, and its options stay.
         entry = await _prepare_new(prev=base, started=started, **args)
-    entry["context"] = context
+    entry["context_key"] = context
     await _narrow(entry, store, args["project_id"], started)
     store.put(entry["key"], entry)
     store.remember(context, entry["key"])
@@ -1636,7 +1652,7 @@ def _patch_base(store: ProgramStore, context: str, prompt: str, base_key: Option
     pick a sibling the user wasn't looking at)."""
     if base_key:
         e = store.get(base_key)
-        if (e and e.get("context") == context and e.get("version") == PREPARE_VERSION and e.get("program")
+        if (e and e.get("context_key") == context and e.get("version") == PREPARE_VERSION and e.get("program")
                 and edit_kind(e["prompt"], prompt) is not None):
             return e
     best: Optional[Tuple[int, Dict[str, Any]]] = None
