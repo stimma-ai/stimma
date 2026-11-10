@@ -434,7 +434,8 @@ def render_tool_stub(
         keys_note = f" ({', '.join(output_keys)})" if output_keys else ""
         lines.append(f"#   returns a plain dict of results{keys_note} — no media is generated")
     else:
-        lines.append("#   the returned ToolResult has: .media_id .path .seed .width .height")
+        lines.append("#   the returned ToolResult has: .media_id .path .seed .width .height"
+                     + (" .sent_prompt .choices .draw_seed" if supports_params_from else ""))
     lines.append("")
 
     # Signature
@@ -451,6 +452,9 @@ def render_tool_stub(
     if supports_params_from:
         lines.append("    params_from: int | None = None,")
         lines.append("    enhance_prompt: bool | None = None,")
+        lines.append("    vary: bool = False,")
+        lines.append("    keep_choices: dict | None = None,")
+        lines.append("    draw_seed: int | None = None,")
     lines.append(") -> dict:" if metadata_only else ") -> ToolResult:")
 
     # Docstring
@@ -527,6 +531,13 @@ def render_tool_stub(
                 "enhance_prompt: omit to send your prompt as written; True rewrites it into "
                 "this model's preferred style first."
             )
+        from .prompt_handling import DRAW_SEED_DOC, KEEP_CHOICES_DOC, VARY_DOC
+        doc.append("")
+        doc.append("Prompt syntax: {a|b|c} picks one option, [exact text] is kept word for word, "
+                   "# lines are notes that never reach the model, {{name}} fills a saved list.")
+        doc.append(f"    vary: {VARY_DOC}")
+        doc.append(f"    keep_choices: {KEEP_CHOICES_DOC}")
+        doc.append(f"    draw_seed: {DRAW_SEED_DOC}")
 
     if lora_notes_file:
         doc.append("")

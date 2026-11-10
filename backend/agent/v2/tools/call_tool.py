@@ -338,60 +338,6 @@ async def _execute_metadata_only_tool(
     }
 
 
-async def _enhance_prompt_for_tool(
-    job_params: Dict[str, Any],
-    *,
-    tool_id: str,
-    task_type: Optional[str],
-    enhance_prompt: Any,
-    project_id: Optional[int],
-) -> tuple[Dict[str, Any], Optional[str]]:
-    """Apply prompt enhancement to an agent tool call.
-
-    ``enhance_prompt`` is True (always), False/None (never — the default for
-    internal callers that already ran the prompt pipeline), or "auto": enhance
-    only for models with their own prompt format, which a general-purpose
-    writer gets wrong. Returns the params to submit and a note for the agent
-    when enhancement ran (None when it didn't apply). Failure blocks the tool.
-    """
-    prompt = job_params.get("prompt")
-    if not enhance_prompt or not isinstance(prompt, str) or not prompt.strip():
-        return job_params, None
-
-    from routes.generation import enhance_tool_prompt, native_prompt_format
-
-    prompt_format = native_prompt_format(tool_id, task_type)
-    if enhance_prompt == "auto" and prompt_format is None:
-        return job_params, None
-
-    try:
-        enhanced = await enhance_tool_prompt(
-            job_params, tool_id=tool_id, task_type=task_type, project_id=project_id
-        )
-    except Exception as e:
-        log.warning(f"[call_tool_v2] Prompt enhancement failed for {tool_id}: {e}")
-        detail = getattr(e, "detail", None)
-        message = detail.get("message") if isinstance(detail, dict) else detail
-        if isinstance(detail, dict) and detail.get("code") == "llm_provider_error":
-            # run_code returns exception text to the agent. Keep the structured
-            # provider fields visible there as well as in the HTTP response.
-            metadata = detail.get("upstream_metadata") or {}
-            if metadata:
-                message = f"{message} Provider error fields: {json.dumps(metadata, ensure_ascii=False)}"
-        raise ValueError(
-            f"Prompt enhancement failed: {message or str(e)}. No generation was started."
-        ) from e
-
-    if enhanced.get("prompt") == prompt:
-        return enhanced, None
-    target = prompt_format or "this model"
-    return enhanced, (
-        f"Your prompt was rewritten for {target} before generating. "
-        "The result includes the exact prompt sent."
-    )
-
-
-
 async def _resolve_input_media_ref(img: Any, label: str, kwargs: dict, metadata_only: bool):
     """Resolve one media input reference to `(value_to_send, library_media_id | None)`.
 
@@ -533,6 +479,14 @@ async def execute_call_tool(
     # width/height, seed, loras and every tool-specific knob live together in one
     # dict keyed by name (matching the tool's parameter_schema).
     params: Dict[str, Any] = _json_safe_pathlikes(dict(parameters or {}))
+    # Prompt handling rides beside the tool's knobs (a flow's tool() passes them in
+    # the same bag); never a tool parameter. Absent, there's no rewrite.
+    from ..prompt_handling import request_from
+    flag = kwargs.get("enhance_prompt")
+    nested = params.pop("enhance_prompt", None)
+    if flag is None and nested is not None:
+        flag = _coerce_enhance_flag(nested)
+    prompt_request_for = request_from(params, flag if flag is not None else False)
     # A single image reference is an unambiguous one-item batch. Normalize it
     # before task routing and lineage resolution, both of which consume lists.
     if isinstance(params.get("input_images"), (str, int)) and not isinstance(params["input_images"], bool):
@@ -814,13 +768,19 @@ async def execute_call_tool(
 
     _check_failure_block(kwargs.get("workspace_dir"), tool_id, task_type)
 
-    job_params, prompt_note = await _enhance_prompt_for_tool(
+    # How the prompt goes out (prompt_handling.py): the person's Direct handling by
+    # default, a rewrite per enhance_prompt, or fresh choices with vary. Internal callers
+    # that pass no flag (flows) get Direct with no rewrite.
+    from ..prompt_handling import prepare_prompt
+    prompt_request = kwargs.get("prompt_request") or prompt_request_for
+    prepared = await prepare_prompt(
         job_params,
         tool_id=tool_id,
         task_type=task_type,
-        enhance_prompt=kwargs.get("enhance_prompt"),
+        request=prompt_request,
         project_id=kwargs.get("project_id"),
     )
+    job_params, prompt_note = prepared.params, prepared.note
 
     queue = get_generation_queue()
     chat_id = kwargs.get("chat_id")
@@ -964,6 +924,9 @@ async def execute_call_tool(
         # What the tool actually received when enhancement rewrote the prompt.
         "sent_prompt": job_params.get("prompt") if job_params.get("prompt") != prompt else None,
         "prompt_note": prompt_note,
+        # With vary: what this image drew, and the seed that repeats it.
+        "choices": prepared.choices,
+        "draw_seed": prepared.draw_seed,
     }
 
 
@@ -1002,8 +965,9 @@ async def execute_call_tool(
             description=(
                 "Rewrite the prompt for the selected model before generating. "
                 "Omit for the default: on for models with their own prompt format (get_schema "
-                "reports it as prompt_format), off otherwise. Pass false to send your prompt "
-                "exactly as written, true to enhance for any model. A model's required "
+                "reports it as prompt_format), off otherwise. Pass false to keep your wording, "
+                "with the prompt syntax applied ({a|b} picks one, [brackets] unwrap, # lines drop), "
+                "true to enhance for any model. A model's required "
                 "input format still applies when enhancement is off; see prompt_format_requirements."
             ),
             required=False,
