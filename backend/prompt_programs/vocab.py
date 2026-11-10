@@ -16,8 +16,8 @@ examples, so a finite list never becomes everyone's only choices.
 
 Facets filter values by context. A value's tags list the facet values it fits; a leaf's
 `untagged` says what a value with no tag fits; facets without either fit everything.
-Programs don't set facets yet, so every pool uses the context defaults (genre realistic,
-era contemporary).
+A pool uses the context defaults (genre realistic, era contemporary) unless the prompt
+narrows it: a pick's `where={facet: value}`, or the user's words read by narrow.py.
 
 More roots can be added (a stimpack's vocabulary); ids must not collide.
 """
@@ -37,8 +37,8 @@ ROOT = Path(__file__).parent / "vocab"
 TIER_WEIGHTS = {"typical": 1.0, "plausible": 0.3, "unusual": 0.03}
 OPEN_SHARE = 0.5      # an open leaf's list values' share of its pool's weight once generated options exist
 EXAMPLES = 10         # list values shown to the options generator for an open leaf
-CATALOGUE_ROOTS = ("person",)
-TYPO_CUTOFF = 0.85    # difflib ratio above which an unknown id is read as a typo of a known one   # what the writer is shown; the rest waits for an open() tool
+CATALOGUE_ROOTS = ("person",)   # what the writer is shown; the rest waits for an open() tool
+TYPO_CUTOFF = 0.85    # difflib ratio above which an unknown id is read as a typo of a known one
 
 
 ROLES = ("main", "accent", "neutral")
