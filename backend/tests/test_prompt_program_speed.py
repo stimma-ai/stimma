@@ -6,8 +6,12 @@ import asyncio
 import json
 import re
 
+import pytest
+
+from prompt_programs import prepare as prep
 from prompt_programs.narrow import NarrowCache, narrow_entry
 from prompt_programs.runtime import discover
+from tests.test_prompt_program_session import GOOD, PROMPT, _submit, ensure, model, reply, write  # noqa: F401
 
 
 def entry_of(src, prompt):
@@ -73,3 +77,63 @@ class TestReadingsSideBySide:
         e = entry_of(EYES, "a Japanese woman with brown eyes")
         await narrow_entry(e, NarrowCache(tmp_path), slow, seconds=0.2)
         assert "eyes" in e["narrow_pending"] and "stated_context" not in e
+
+
+# --------------------------------------------------------------------------- how long a run waits
+
+@pytest.fixture
+def fresh(monkeypatch):
+    monkeypatch.setattr(prep, "_took", {})
+    monkeypatch.setattr(prep, "_overdue", set())
+    monkeypatch.setattr(prep, "RETRY_DELAYS", (60.0,))  # not during these tests
+
+
+class TestRunWait:
+    def test_the_wait_follows_the_writers_recent_prepares(self, fresh):
+        assert prep.run_wait("w") == prep.RUN_WAIT_SECONDS  # no history yet
+        for s in (2.0, 3.0, 2.5, 4.0, 3.5):
+            prep._note_took("w", s)
+        assert prep.run_wait("w") == prep.RUN_WAIT_MIN_SECONDS  # a fast writer: the floor
+        for s in (32.0,) * 5:
+            prep._note_took("slow", s)
+        assert prep.run_wait("slow") == prep.prepare_limit()  # a slow one keeps the whole deadline
+        for s in (12.0, 14.0, 13.0, 16.0, 15.0):
+            prep._note_took("mid", s)
+        assert prep.run_wait("mid") == pytest.approx(24.0)
+        for _ in range(30):
+            prep._note_took("w", 2.0)
+        assert len(prep._took["w"]) == prep._TOOK_KEPT
+
+    async def test_a_run_goes_ahead_and_the_prepare_lands_for_the_next(self, model, fresh, monkeypatch):
+        monkeypatch.setattr(prep, "RUN_WAIT_SECONDS", 0.2)
+        gate = asyncio.Event()
+
+        async def slow():
+            await gate.wait()
+            return reply(write(GOOD))
+        model.replies = [slow]
+        first, prompt = await _submit()
+        assert first["fallback"]["rung"] == "words" and first["fallback"]["code"] == "prepare_timeout"
+        assert prompt == PROMPT
+        second, _ = await _submit()  # a lane's next image: no second wait on the same prepare
+        assert second["fallback"]["rung"] == "words"
+        assert len(model.seen) == 1  # one prepare, still running
+        gate.set()
+        for _ in range(100):
+            if not prep._in_flight:
+                break
+            await asyncio.sleep(0.01)
+        assert not prep._overdue and not prep._failures
+        third, _ = await _submit()
+        assert "fallback" not in third and third["draws"]
+        assert len(model.seen) == 1
+        assert list(prep._took.values()) and all(len(v) == 1 for v in prep._took.values())
+
+    async def test_the_editor_waits_the_whole_prepare(self, model, fresh, monkeypatch):
+        monkeypatch.setattr(prep, "RUN_WAIT_SECONDS", 0.05)
+
+        async def slow():
+            await asyncio.sleep(0.2)
+            return reply(write(GOOD))
+        model.replies = [slow]
+        assert (await ensure())["program"] == GOOD

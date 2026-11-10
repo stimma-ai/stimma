@@ -44,6 +44,12 @@ PREPARE_LIMIT_SECONDS = 45.0
 # A prepare retried in the background after one failed: nothing waits on it (the run went
 # ahead on its fallback), so a slow local writer gets twice the time.
 BACKGROUND_LIMIT_SECONDS = 90.0
+# A run waits at most this long for its prepare, then goes ahead on its fallback (fallback.py)
+# while the prepare keeps going to its own deadline: runs after it lands use its program. Once
+# a writer has a few successful prepares behind it, the wait is a margin over their slow end
+# (run_wait), so a slow local writer isn't given up on where a fast cloud one would be.
+RUN_WAIT_SECONDS = 20.0
+RUN_WAIT_MIN_SECONDS = 10.0
 _LIMIT: "contextvars.ContextVar[Optional[float]]" = contextvars.ContextVar("prepare_limit", default=None)
 
 
@@ -1645,7 +1651,8 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
                          lora_items: Sequence[Dict[str, Any]], project_id: Optional[int],
                          profile_id: Optional[str], cache_only: bool = False, force: bool = False,
                          elaborate: bool = True, lora_notes: bool = True, lora_triggers: bool = True,
-                         base_key: Optional[str] = None, enhance: Optional[str] = None) -> Optional[Dict[str, Any]]:
+                         base_key: Optional[str] = None, enhance: Optional[str] = None,
+                         wait: bool = False) -> Optional[Dict[str, Any]]:
     """The prepared program for these inputs, from cache or by asking the model.
     enhance: "expand" (the per-model guide is part of the writer's instructions and the
     program writes a complete, rich prompt with content picks), "fill" (a short per-model
@@ -1653,7 +1660,9 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     "off" (the user's own words). Without it, elaborate picks expand or off. base_key: the
     program the editor showed before this prompt (an edit continues from it when it fits).
     lora_triggers: the prompt menu's "Trigger words"; off, the writer isn't told the on
-    LoRAs' trigger words (so it never writes them), as the classic enhancer isn't."""
+    LoRAs' trigger words (so it never writes them), as the classic enhancer isn't.
+    wait: a run's lookup: past run_wait() it raises PrepareTimeout (the run goes ahead on its
+    fallback) while the prepare carries on; later runs of the prompt don't wait on it again."""
     level = enhance_level(enhance, elaborate)
     elaborate = level == "expand"
     from prompt_pipeline import _profile_wildcards_and_segments
@@ -1734,7 +1743,48 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         running = asyncio.ensure_future(_prepare(context=context, force=force, base_key=base_key, **args))
         _in_flight[flight] = running
         running.add_done_callback(lambda _t, k=flight: _in_flight.pop(k, None) if _in_flight.get(k) is _t else None)
-    return await asyncio.shield(running)
+    if not wait:
+        return await asyncio.shield(running)
+    limit = run_wait(parts["writer"])
+    if flight in _overdue:  # a run already gave up on this prepare: don't wait on it again
+        raise _run_timeout(limit)
+    try:
+        return await asyncio.wait_for(asyncio.shield(running), limit)
+    except asyncio.TimeoutError:
+        if not running.done():
+            _overdue.add(flight)
+            running.add_done_callback(lambda _t, k=flight: _overdue.discard(k))
+        log.info(f"[prompt-program] prepare {key} still running after {limit:.0f}s: this run goes ahead on its fallback")
+        raise _run_timeout(limit) from None
+
+
+def _run_timeout(limit: float) -> "PrepareTimeout":
+    return PrepareTimeout(f"Preparing took longer than {limit:.0f} seconds, so this run went ahead without it. "
+                          "It is still being prepared; later runs use it.")
+
+
+# The prepares a run stopped waiting on (still running), and each writer's recent successful
+# prepare times (seconds), which set how long a run waits.
+_overdue: Set[Tuple[str, str, bool]] = set()
+_took: Dict[str, List[float]] = {}
+_TOOK_KEPT = 20
+
+
+def run_wait(writer: Optional[str]) -> float:
+    """How long a run waits for its prepare: RUN_WAIT_SECONDS until this writer has five
+    successful prepares, then 1.5 times the slowest tenth of its recent ones, at least
+    RUN_WAIT_MIN_SECONDS and never past the prepare's own deadline."""
+    seen = sorted(_took.get(str(writer), []))
+    if len(seen) < 5:
+        return min(RUN_WAIT_SECONDS, prepare_limit())
+    slow = seen[min(len(seen) - 1, int(0.9 * len(seen)))]
+    return min(prepare_limit(), max(RUN_WAIT_MIN_SECONDS, 1.5 * slow))
+
+
+def _note_took(writer: Optional[str], seconds: float) -> None:
+    kept = _took.setdefault(str(writer), [])
+    kept.append(seconds)
+    del kept[:-_TOOK_KEPT]
 
 
 _in_flight: Dict[Tuple[str, str, bool], "asyncio.Future[Dict[str, Any]]"] = {}
@@ -1807,6 +1857,7 @@ async def _prepare(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
         raise failure from e
     if _failures.pop(flight, None) is not None:
         log.info(f"[prompt-program] prepared {args.get('key')} after it had failed: later runs use it")
+    _note_took(await _writer_fingerprint(args["project_id"]), time.monotonic() - t0)
     _note_text(args, entry)
     return entry
 
