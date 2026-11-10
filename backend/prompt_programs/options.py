@@ -257,7 +257,6 @@ class OptionJob:
     project_id: Optional[int] = None
     removed: List[str] = field(default_factory=list)  # what the user deleted from this choice
     examples: List[str] = field(default_factory=list)  # a bound pick's list values shown as examples (vocab.py)
-    check: Optional[Callable[["OptionJob"], Awaitable[None]]] = None  # run after the fill lands
 
 
 Generator = Callable[[OptionJob], Awaitable[Tuple[List[str], str]]]
@@ -415,7 +414,6 @@ class OptionFiller:
         self._tasks: List[asyncio.Task] = []
         self.calls = 0
         self.failures = 0
-        self.checks: List[Dict[str, Any]] = []   # bad-pool check results, newest last
 
     # -- state the options service reads
     def busy(self, key: str) -> bool:
@@ -536,12 +534,8 @@ class OptionFiller:
                            "signature": job.signature, "mode": job.program.mode, "elaborate": job.program.elaborate,
                            "seeds": job.spec.seeds, "avoid": job.avoid},
             })
-        with self._lock:  # the pool is filled: a check may queue its next round
+        with self._lock:
             self._release(job)
-        if job.check is not None:
-            result = await job.check(job)
-            if result:
-                self.checks.append(result)
         return self.store.options(job.key)
 
     async def drain(self) -> None:
@@ -571,7 +565,6 @@ class GeneratedOptions:
                  edits: Optional[Dict[str, Dict[str, Any]]] = None, filler: Optional[OptionFiller] = None,
                  limits: Optional[Dict[str, Any]] = None,
                  project_id: Optional[int] = None, generate: bool = True,
-                 checker: Optional[Callable[[OptionJob, "GeneratedOptions"], Awaitable[Any]]] = None,
                  version: Optional[str] = None):
         self.store, self.program, self.filler = store, program, filler
         # The pools' options version: a replay reads the version its revision drew from,
@@ -585,7 +578,6 @@ class GeneratedOptions:
         self.generate = generate and store is not None
         self.specific = set(store.specific(program.key)) if store is not None else set()
         self.filters = {k: v for k, v in program.filters}
-        self.checker = checker
         self._pools: Dict[str, Pool] = {}
         self.requests: List[Tuple[str, str]] = []
         self.queued: List[str] = []
@@ -793,9 +785,6 @@ class GeneratedOptions:
                         list(existing), list(avoid), self.project_id,
                         removed=[str(x) for x in (self.edits.get(spec.id) or {}).get("remove") or []],
                         examples=self._examples(leaf, spec, f"{skey}:{round_}") if leaf is not None else [])
-        if self.checker is not None and round_ == 0:
-            checker = self.checker
-            job.check = lambda j, _self=self: checker(j, _self)
         if self.filler.submit(job, priority):
             self.queued.append(skey)
 
