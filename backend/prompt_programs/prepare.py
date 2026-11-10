@@ -299,9 +299,27 @@ def writer_messages(prompt: str, guide: str, images: Sequence[Tuple[int, str]], 
     return [{"role": "system", "content": system}, {"role": "user", "content": content}]
 
 
-async def _ask_repair(messages: List[Dict[str, str]], project_id: Optional[int], max_tokens: int = 1024) -> str:
-    """Edits that fix a program in place (its own name so timing can tell it apart)."""
-    return await _ask_model(messages, project_id, max_tokens=max_tokens)
+async def _ask_in_time(messages: List[Dict[str, Any]], project_id: Optional[int], started: float,
+                       max_tokens: int = 4096) -> str:
+    """A text-protocol writer call bounded by what's left of the prepare's deadline. Raises
+    asyncio.TimeoutError when it runs out, so the caller can keep the best program it has
+    (the outer wait_for in _prepare would throw it away)."""
+    left = PREPARE_LIMIT_SECONDS - (time.monotonic() - started)
+    if left <= 0:
+        raise asyncio.TimeoutError
+    return await asyncio.wait_for(_ask_model(messages, project_id, max_tokens=max_tokens), left)
+
+
+# What checking a written program can trip on besides ProgramError (a program the checks
+# themselves fail on): a problem to report, never a crash. As the session's Turn.settle.
+_CHECK_ERRORS = (ProgramError, RecursionError, ValueError, TypeError, KeyError, IndexError)
+
+
+def _check_error(e: BaseException) -> str:
+    if isinstance(e, ProgramError):
+        return str(e)
+    log.warning(f"[prompt-program] validating a written program failed: {type(e).__name__}: {e}")
+    return f"The program couldn't be run: {type(e).__name__}: {e}"
 
 
 # --------------------------------------------------------------------------- validation
@@ -1453,10 +1471,11 @@ async def _prepare_text(*, context: str, base: Optional[Dict[str, Any]], started
     """The text protocol: the program comes back in a ```python block, edits as numbered
     lines in plain text, and nothing persists between calls but the program."""
     store: ProgramStore = args["store"]
+    started = started if started is not None else time.monotonic()
     entry = None
     if base is not None:
         try:
-            entry = await _prepare_patch(base=base, **args)
+            entry = await _prepare_patch(base=base, started=started, **args)
         except StartOver as e:
             log.info(f"[prompt-program] starting over: {e}")
             base = None  # a new prompt: its own program, lineage and options
@@ -1465,9 +1484,9 @@ async def _prepare_text(*, context: str, base: Optional[Dict[str, Any]], started
     if entry is None:
         # A small edit whose patch didn't hold is still the same prompt's next version: the
         # writer sees the old program and keeps what didn't change, and its options stay.
-        entry = await _prepare_new(prev=base, **args)
+        entry = await _prepare_new(prev=base, started=started, **args)
     entry["context"] = context
-    await _narrow(entry, store, args["project_id"], started if started is not None else time.monotonic())
+    await _narrow(entry, store, args["project_id"], started)
     store.put(entry["key"], entry)
     store.remember(context, entry["key"])
     _notify_prepared(entry, args["project_id"], args["profile_id"])
@@ -1704,20 +1723,18 @@ def _describe_changes(changes: Sequence[Tuple[str, str]]) -> str:
     return "; ".join(out)
 
 
-async def _ask_patch(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int = 1024) -> str:
-    """Edits that carry a prompt edit into its program (its own name for timing)."""
-    return await _ask_model(messages, project_id, max_tokens=max_tokens)
-
-
 async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore, tool_id: str, ctx: Dict[str, Any],
                          instructions: str, source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo],
                          notes: Dict[str, str], lora_context: List[Dict[str, Any]], project_id: Optional[int],
                          profile_id: Optional[str], elaborate: bool = True, level: str = "",
-                         exact: Optional[Dict[str, str]] = None) -> Optional[Dict[str, Any]]:
+                         exact: Optional[Dict[str, str]] = None,
+                         started: Optional[float] = None) -> Optional[Dict[str, Any]]:
     """Carry a small prompt edit into the program it was prepared from: no enhancer, a
     short model call for a text edit (none for list items or [exact text]), and at most
-    one repair. None (prepare anew) when the patch doesn't validate."""
-    started = time.monotonic()
+    one repair. None (prepare anew) when the patch doesn't validate or runs out of time.
+    started: when the prepare began (its deadline covers every call)."""
+    began = time.monotonic()
+    started = started if started is not None else began
     old, new = base["prompt"], source_prompt
     kind = edit_kind(old, new)
     enhanced = base.get("enhanced") or ""
@@ -1744,7 +1761,11 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
                                                            numbered=_numbered_program(program))},
         ]
         t0 = time.monotonic()
-        reply = await _ask_patch(messages, project_id, max_tokens=_repair_cap(program))
+        try:
+            reply = await _ask_in_time(messages, project_id, started, max_tokens=_repair_cap(program))
+        except asyncio.TimeoutError:
+            log.info(f"[prompt-program] patch of {base.get('key')} ran out of time")
+            return None
         if re.match(r"\s*\**\s*START OVER", reply or "", re.I):
             raise StartOver(f"the writer judged {key} a different prompt from {base.get('key')}")
         source = apply_line_edits(program, reply)
@@ -1759,8 +1780,11 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
     for round_ in range(2):  # the patch, then at most one repair of it
         source, more = fix_patched(source, new)
         fixed += more
-        check(source)
-        checked = validate(source, new, loras, set(params), enhanced if elaborate else plain_example(new), elaborate)
+        try:
+            check(source)
+            checked = validate(source, new, loras, set(params), enhanced if elaborate else plain_example(new), elaborate)
+        except _CHECK_ERRORS as e:
+            raise ProgramError(_check_error(e)) from None
         problems = checked["problems"]
         if not problems:
             break
@@ -1771,7 +1795,11 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
                      {"role": "user", "content": REPAIR_NOTE.format(problems="\n".join(problems),
                                                                      numbered=_numbered_program(source))}]
         t0 = time.monotonic()
-        reply = await _ask_repair(messages, project_id, max_tokens=_repair_cap(source))
+        try:
+            reply = await _ask_in_time(messages, project_id, started, max_tokens=_repair_cap(source))
+        except asyncio.TimeoutError:
+            log.info(f"[prompt-program] repair of the patch of {base.get('key')} ran out of time")
+            return None
         edited = apply_line_edits(source, reply)
         calls.append({"kind": "repair", "seconds": round(time.monotonic() - t0, 2), "chars": len(reply or ""),
                       "applied": edited is not None and edited != source})
@@ -1783,7 +1811,7 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
     entry.update({
         "attempts": len(calls), "repairs": fixed, "patched_from": base.get("key"), "patch": kind,
         "lineage": base.get("lineage") or base.get("key"),
-        "seconds": round(time.monotonic() - started, 2), "upsample_seconds": 0.0,
+        "seconds": round(time.monotonic() - began, 2), "upsample_seconds": 0.0,
         "timing": {"enhance": 0.0, "calls": calls},
     })
     log.info(f"[prompt-program] patched {base.get('key')} → {key} ({kind}) in {entry['seconds']}s")
@@ -1835,15 +1863,19 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                        source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo], notes: Dict[str, str],
                        lora_context: List[Dict[str, Any]], project_id: Optional[int],
                        profile_id: Optional[str], elaborate: bool = True, level: str = "",
-                       exact: Optional[Dict[str, str]] = None, prev: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                       exact: Optional[Dict[str, str]] = None, prev: Optional[Dict[str, Any]] = None,
+                       started: Optional[float] = None) -> Dict[str, Any]:
     """source_prompt arrives with [exact text] already masked (see mask_exact). `prev`: the
     previous version of this prompt's program (a small edit whose patch didn't hold).
 
     One write, then fixes in place: phases and doubled phrases are fixed in code, and
     other problems go back as numbered-line edits instead of a full rewrite. If a repair
     doesn't settle it, the writer rewrites, told what was wrong. At most MAX_ATTEMPTS
-    model calls."""
-    started = time.monotonic()
+    model calls, each within the prepare's deadline (started: when the prepare began, so a
+    patch tried first or a session given up on counts against it); one that runs out keeps
+    the best program so far."""
+    began = time.monotonic()
+    started = started if started is not None else began
     # One model call writes the program, its text already in this model's style: the
     # enhancer's per-model guide is the writer's own instructions, not a separate step.
     level = level or ("expand" if elaborate else "off")
@@ -1864,6 +1896,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     best: Optional[Tuple[str, Dict[str, Any]]] = None
     last_error = ""
     repaired = False  # the current source came from a repair, not a write
+    timed_out = False
     while True:
         out_of_time = best is not None and time.monotonic() - started > PREPARE_SOFT_SECONDS
         if source is None:  # write the program (again)
@@ -1872,7 +1905,11 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
             t0 = time.monotonic()
             msgs = base + ([{"role": "assistant", "content": retry[0]}, {"role": "user", "content": retry[1]}]
                            if retry else [])
-            reply = await _ask_model(msgs, project_id, max_tokens=cap)
+            try:
+                reply = await _ask_in_time(msgs, project_id, started, max_tokens=cap)
+            except asyncio.TimeoutError:
+                timed_out = True
+                break
             calls.append({"kind": "write", "seconds": round(time.monotonic() - t0, 2), "chars": len(reply or "")})
             if _truncated(reply):
                 last_error = "The reply was cut off: it was far too long."
@@ -1885,8 +1922,8 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
         try:
             check(source)
             checked = validate(source, source_prompt, loras, set(params), enhanced, elaborate)
-        except ProgramError as e:
-            problems = [str(e)]
+        except _CHECK_ERRORS as e:
+            problems = [_check_error(e)]
         else:
             problems = checked["problems"]
             if best is None or len(problems) <= len(best[1]["problems"]):
@@ -1903,10 +1940,14 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
             source = None
             continue
         t0 = time.monotonic()
-        reply = await _ask_repair(base + [{"role": "assistant", "content": f"```python\n{source}```"},
-                                          {"role": "user", "content": REPAIR_NOTE.format(
-                                              problems=last_error, numbered=_numbered_program(source))}],
-                                  project_id, max_tokens=_repair_cap(source))
+        try:
+            reply = await _ask_in_time(base + [{"role": "assistant", "content": f"```python\n{source}```"},
+                                               {"role": "user", "content": REPAIR_NOTE.format(
+                                                   problems=last_error, numbered=_numbered_program(source))}],
+                                       project_id, started, max_tokens=_repair_cap(source))
+        except asyncio.TimeoutError:
+            timed_out = True
+            break
         edited = apply_line_edits(source, reply)
         if edited is None and "```" in (reply or "") and "emit(" in reply and not _LINE_EDIT.search(reply):
             edited = extract_code(reply)  # it wrote the whole program instead: take it
@@ -1916,15 +1957,20 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                       "applied": edited is not None})
         source, repaired = (drop_name_options(edited, source_prompt), True) if edited is not None else (None, False)
     if best is None:
+        if timed_out:
+            raise PrepareTimeout(f"Preparing took longer than {PREPARE_LIMIT_SECONDS:.0f} seconds, so it stopped. "
+                                 "The chat model may be busy or too slow for this prompt.")
         raise PrepareFailed(last_error)
+    if timed_out:
+        log.info(f"[prompt-program] out of time after {len(calls)} call(s): keeping the best program")
     source, checked = best
     entry = _entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, level=level, prompt=source_prompt, enhanced=enhanced,
                    exact=exact, source=source, checked=checked, params=params, loras=loras)
     entry.update({
         "attempts": len(calls), "repairs": fixes,
         "lineage": (prev.get("lineage") or prev.get("key")) if prev else key,
-        "seconds": round(time.monotonic() - started, 2), "upsample_seconds": round(upsampled_at - started, 2),
-        "timing": {"enhance": round(upsampled_at - started, 2), "calls": calls},
+        "seconds": round(time.monotonic() - began, 2), "upsample_seconds": round(upsampled_at - began, 2),
+        "timing": {"enhance": round(upsampled_at - began, 2), "calls": calls},
     })
     log.info(f"[prompt-program] prepared {key} ({entry['mode']}) in {entry['seconds']}s "
              f"(upsample {entry['upsample_seconds']}s, model calls {[c['kind'] for c in calls]}, "

@@ -176,6 +176,61 @@ class TestPrepareLimit:
         assert len(calls) == 1 and entry["attempts"] == 1
 
 
+class TestTextProtocolDeadline:
+    """Each text-protocol call gets only what's left of the prepare's deadline; a stall
+    keeps the best program so far (as the session does)."""
+    UNLISTED = 'emit("A woman waiting for a train on a rainy morning.")\n'  # the user's list isn't a pick
+
+    async def test_a_stalled_repair_keeps_the_candidate(self, slow_model, monkeypatch):
+        monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", 0.5)
+        replies = [f"```python\n{self.UNLISTED}```"]
+
+        async def ask(messages, project_id, max_tokens=4096):
+            if replies:
+                return replies.pop(0)
+            await asyncio.sleep(30)  # the repair stalls
+
+        monkeypatch.setattr(prep, "_ask_model", ask)
+        entry = await asyncio.wait_for(_ensure(), 5)
+        assert entry["program"] == self.UNLISTED and entry["attempts"] == 1
+        assert any("user list" in w for w in entry["warnings"])
+
+    async def test_a_check_that_trips_is_a_problem_not_a_crash(self, slow_model, monkeypatch):
+        good = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather", line=1)\n'
+                'emit("A woman waiting for a train on a", w, "morning.")\n')
+        replies = [f"```python\n{good}```"] * 3
+        real, tripped = prep.validate, []
+
+        def validate(*a, **kw):
+            if not tripped:
+                tripped.append(1)
+                raise KeyError("label")
+            return real(*a, **kw)
+
+        async def ask(messages, project_id, max_tokens=4096):
+            return replies.pop(0)
+
+        monkeypatch.setattr(prep, "validate", validate)
+        monkeypatch.setattr(prep, "_ask_model", ask)
+        entry = await _ensure()
+        assert entry["program"] == good and tripped
+
+    async def test_the_fallback_counts_time_from_the_start_of_the_prepare(self, slow_model, monkeypatch):
+        import time
+        monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", 1.0)
+
+        async def ask(messages, project_id, max_tokens=4096):
+            await asyncio.sleep(30)
+
+        monkeypatch.setattr(prep, "_ask_model", ask)
+        # a session that took most of the deadline before finding the endpoint makes no tool calls
+        with pytest.raises(prep.PrepareTimeout):
+            await asyncio.wait_for(prep._prepare_new(
+                key="k", store=None, tool_id="t", ctx={"model": "m", "mode": "prose", "enhance": {}}, instructions="",
+                source_prompt="A cat.", params={}, loras=[], notes={}, lora_context=[], project_id=None,
+                profile_id="p", level="off", started=time.monotonic() - 0.9), 0.5)
+
+
 class TestListReviewFixes:
     def test_the_same_list_written_twice_draws_freely(self):
         prompt = "A {red|blue} car next to a {red|blue} bicycle."
