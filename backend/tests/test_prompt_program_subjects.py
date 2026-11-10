@@ -21,7 +21,7 @@ def P(cid, cls=None, about="a detail", seed="x", label="Detail", phase=1, extra=
 AGE, ETH, HAIR, STYLE, OUTFIT, DOG = ("person.age_band", "person.ethnicity", "person.hair_color", "person.hairstyle",
                                       "person.outfit.casual", "animal.dog_breed")
 SEEDS = {"person.expression": "a frown", "person.outfit.formal": "a navy suit", AGE: "25–29-year-old", ETH: "Korean", HAIR: "black", STYLE: "a low ponytail", OUTFIT: "a denim jacket",
-         DOG: "French bulldog", "animal.cat_coat": "ginger tabby", "person.eye_color": "hazel"}
+         DOG: "French bulldog", "person.outfit.summer": "a swimsuit", "animal.cat_coat": "ginger tabby", "person.eye_color": "hazel"}
 
 
 def detail(cls):
@@ -271,6 +271,20 @@ class TestShapes:
         assert '"hair_color"' in written(hair, "a woman and her dog")[0]  # her hair's details, not a "hair" subject
         alone = hand(extra_lines=[f"a = {bound('dog_breed', DOG)}", f"b = {P('dog_pose', about='its pose', seed='sitting')}"])
         assert prep.fix_subjects(alone)[1] == []  # one subject: plain ids stay
+
+    def test_a_flat_person_detail_beside_a_named_person_is_never_a_second_subject(self):
+        # her age limits what she wears (draws.person_of): "outfit" must not become someone else
+        summer = "person.outfit.summer"
+        src = hand(("girl", [AGE]), extra_lines=[f"o = {bound('outfit_summer', summer)}", f"d = {bound('dog_breed', DOG)}"])
+        fixed, _ = prep.fix_subjects(src)
+        assert '"outfit.summer"' not in fixed and '"outfit_summer"' in fixed
+        other = hand(("girl", [AGE]), extra_lines=[f"o = {bound('kid_outfit', summer)}", f"d = {bound('dog_breed', DOG)}"])
+        assert '"kid.outfit"' not in prep.fix_subjects(other)[0]   # the program already names its person
+        flat = hand(extra_lines=[f"o = {bound('outfit_summer', summer)}", f"d = {bound('dog_breed', DOG)}"])
+        assert '"outfit.summer"' not in prep.fix_subjects(flat)[0]  # a list's own name is a detail, not an owner
+        split = hand(extra_lines=[f"a = {bound('girl_age', AGE)}", f"o = {bound('outfit_summer', summer)}",
+                                  f"d = {bound('dog_breed', DOG)}", f"e = {P('dog_pose', about='its pose', seed='sitting')}"])
+        assert '"outfit.summer"' not in prep.fix_subjects(split)[0]  # two person prefixes: not two people
 
     def test_numbered_families_and_lone_indexes(self):
         lines = [f"{v} = {P(v, about='a detail', seed='x')}" for v in ("outfit1", "outfit2", "face1", "face2")]
