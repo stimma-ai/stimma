@@ -1,5 +1,5 @@
 <template>
-  <div class="hitl-container bg-surface-raised shadow rounded-lg p-4 min-w-[420px]">
+  <div class="hitl-container bg-surface-raised shadow rounded-lg p-4" :class="fit ? 'w-full min-w-0' : 'min-w-[420px]'">
     <!-- Render appropriate component based on action type -->
     <RetryPrompt
       v-if="action.type === 'retry'"
@@ -64,6 +64,11 @@ const props = defineProps({
   chatId: {
     type: Number,
     required: true
+  },
+  // Take the width it's given (a chat small in the dock) instead of a minimum.
+  fit: {
+    type: Boolean,
+    default: false
   },
   action: {
     type: Object,

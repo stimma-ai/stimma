@@ -14,11 +14,11 @@ import { ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/vue/24/outline'
 import ChatView from '../../views/ChatView.vue'
 import Spinner from '../ui/Spinner.vue'
 import StatusDot from '../ui/StatusDot.vue'
-import { useChatDock, selectionBarUp, visibleOpen } from '../../composables/useChatDock'
+import { useChatDock, selectionBarUp, visibleOpen, windowSizeFor, setWindowSize } from '../../composables/useChatDock'
 import { useViewport } from '../../composables/useViewport'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { textClass } from '../../utils/statusColors'
-import { DOCK_SIZES, fitDock } from '../../utils/chatDockState'
+import { DOCK_SIZES, clampWindowSize, fitDock } from '../../utils/chatDockState'
 
 const dock = useChatDock()
 const route = useRoute()
@@ -27,11 +27,12 @@ const { isCompact } = useViewport()
 
 const root = ref<HTMLElement | null>(null)
 const width = ref(1200)
+const height = ref(800)
 let ro: ResizeObserver | null = null
 onMounted(() => {
   const host = root.value?.parentElement
   if (!host) return
-  ro = new ResizeObserver(([e]) => { width.value = e.contentRect.width })
+  ro = new ResizeObserver(([e]) => { width.value = e.contentRect.width; height.value = e.contentRect.height })
   ro.observe(host)
 })
 onBeforeUnmount(() => ro?.disconnect())
@@ -40,7 +41,44 @@ const onScreenId = computed(() => (route.name === 'chat' ? Number(route.params.i
 // What can show here: everything docked except the chat on screen full size.
 const visible = computed(() => dock.docked.value.filter(e => e.chatId !== onScreenId.value))
 
-const layout = computed(() => fitDock(visible.value, width.value))
+// Open windows take the size they were given (a drag on their top or left
+// edge), kept inside the page.
+const room = computed(() => ({ w: Math.min(900, width.value - DOCK_SIZES.edge * 2), h: height.value - 16 }))
+function openSize(chatId: number) {
+  const stored = windowSizeFor(chatId)
+  const fallback = { w: DOCK_SIZES.open, h: Math.min(560, Math.round(height.value * 0.7)) }
+  return clampWindowSize(stored ?? fallback, room.value)
+}
+const layout = computed(() => fitDock(
+  visible.value.map(e => ({ chatId: e.chatId, win: e.win, width: e.win === 'open' ? openSize(e.chatId).w : undefined })),
+  width.value,
+))
+
+// Dragging grows the window up and to the left: it's anchored bottom right.
+const resizing = ref<number | null>(null)
+function startResize(event: PointerEvent, chatId: number, axis: 'both' | 'w' | 'h') {
+  const start = openSize(chatId)
+  const x0 = event.clientX
+  const y0 = event.clientY
+  resizing.value = chatId
+  const target = event.currentTarget as HTMLElement
+  target.setPointerCapture?.(event.pointerId)
+  const sizeAt = (e: PointerEvent) => clampWindowSize({
+    w: axis === 'h' ? start.w : start.w + (x0 - e.clientX),
+    h: axis === 'w' ? start.h : start.h + (y0 - e.clientY),
+  }, room.value)
+  const move = (e: PointerEvent) => setWindowSize(chatId, sizeAt(e))
+  const up = (e: PointerEvent) => {
+    setWindowSize(chatId, sizeAt(e), true)
+    resizing.value = null
+    target.removeEventListener('pointermove', move)
+    target.removeEventListener('pointerup', up)
+    target.removeEventListener('pointercancel', up)
+  }
+  target.addEventListener('pointermove', move)
+  target.addEventListener('pointerup', up)
+  target.addEventListener('pointercancel', up)
+}
 const shownIds = computed(() => new Set(layout.value.shown))
 const hidden = computed(() => visible.value.filter(e => !shownIds.value.has(e.chatId)))
 // Seen means an open window actually on screen; on a phone there are none.
@@ -50,8 +88,8 @@ watchEffect(() => {
     : new Set(visible.value.filter(e => e.win === 'open' && shownIds.value.has(e.chatId)).map(e => e.chatId))
 })
 onBeforeUnmount(() => { visibleOpen.value = new Set() })
-function widthOf(win: 'row' | 'open') {
-  return `${win === 'open' ? DOCK_SIZES.open : layout.value.rowWidth}px`
+function widthOf(entry: { chatId: number; win: 'row' | 'open' }) {
+  return `${entry.win === 'open' ? openSize(entry.chatId).w : layout.value.rowWidth}px`
 }
 
 // "+N more": the hidden docked chats, wherever they belong.
@@ -101,14 +139,20 @@ function openFromButton() {
         v-for="entry in dock.docked.value"
         v-show="shownIds.has(entry.chatId)"
         :key="entry.chatId"
-        class="pointer-events-auto flex flex-col overflow-hidden rounded-t-lg border border-b-0 bg-surface shadow-lg transition-[width,border-color] duration-200"
+        class="pointer-events-auto relative flex flex-col overflow-hidden rounded-t-lg border border-b-0 bg-surface shadow-lg"
         :class="[
-          entry.win === 'open' ? 'h-[min(560px,70vh)]' : '',
+          resizing === entry.chatId ? 'select-none' : 'transition-[width,border-color] duration-200',
           dock.presence.get(entry.chatId)?.needsYou && entry.win === 'row' ? 'border-accent/60' : 'border-edge-subtle',
         ]"
-        :style="{ width: widthOf(entry.win) }"
+        :style="{ width: widthOf(entry), height: entry.win === 'open' ? `${openSize(entry.chatId).h}px` : undefined }"
         :data-dock-chat="entry.chatId"
       >
+        <!-- Resize from the top and left edges (it grows up and to the left) -->
+        <template v-if="entry.win === 'open'">
+          <div class="absolute left-0 top-0 z-10 h-3 w-3 cursor-nwse-resize" data-dock-resize="both" @pointerdown.stop.prevent="startResize($event, entry.chatId, 'both')" @click.stop />
+          <div class="absolute left-3 right-0 top-0 z-10 h-1.5 cursor-ns-resize" data-dock-resize="h" @pointerdown.stop.prevent="startResize($event, entry.chatId, 'h')" @click.stop />
+          <div class="absolute bottom-0 left-0 top-3 z-10 w-1.5 cursor-ew-resize" data-dock-resize="w" @pointerdown.stop.prevent="startResize($event, entry.chatId, 'w')" @click.stop />
+        </template>
         <ChatView :chat-id="entry.chatId" docked :dock-win="entry.win" />
       </div>
 

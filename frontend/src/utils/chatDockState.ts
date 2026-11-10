@@ -53,20 +53,34 @@ export interface DockLayout {
 
 export const DOCK_SIZES = { row: 264, narrowRow: 196, open: 380, gap: 8, edge: 16, more: 88 }
 
+export interface DockSize { w: number; h: number }
+export const WINDOW_MIN = { w: 320, h: 300 }
+
+/** A window size kept inside the space the dock has (`room`). */
+export function clampWindowSize(size: DockSize, room: DockSize): DockSize {
+  const maxW = Math.max(WINDOW_MIN.w, room.w)
+  const maxH = Math.max(WINDOW_MIN.h, room.h)
+  return {
+    w: Math.round(Math.min(maxW, Math.max(WINDOW_MIN.w, size.w))),
+    h: Math.round(Math.min(maxH, Math.max(WINDOW_MIN.h, size.h))),
+  }
+}
+
 /**
  * Fit docked chats (newest first) along `width`: open windows at full width,
  * rows at full width if there's room for all of them, else narrower; only
  * then does the rest fold into "+N more".
  */
-export function fitDock(visible: Pick<DockEntry, 'chatId' | 'win'>[], width: number, sizes = DOCK_SIZES): DockLayout {
-  const opens = visible.filter(e => e.win === 'open').length
-  const rows = visible.length - opens
-  const room = width - sizes.edge * 2 - opens * (sizes.open + sizes.gap)
+export function fitDock(visible: (Pick<DockEntry, 'chatId' | 'win'> & { width?: number })[], width: number, sizes = DOCK_SIZES): DockLayout {
+  const openWidth = (e: { width?: number }) => e.width ?? sizes.open
+  const opens = visible.filter(e => e.win === 'open')
+  const rows = visible.length - opens.length
+  const room = width - sizes.edge * 2 - opens.reduce((sum, e) => sum + openWidth(e) + sizes.gap, 0)
   const rowWidth = rows && room < rows * (sizes.row + sizes.gap) ? sizes.narrowRow : sizes.row
   const shown: number[] = []
   let used = sizes.edge * 2
   for (const [i, e] of visible.entries()) {
-    const w = (e.win === 'open' ? sizes.open : rowWidth) + sizes.gap
+    const w = (e.win === 'open' ? openWidth(e) : rowWidth) + sizes.gap
     const reserve = i + 1 < visible.length ? sizes.more : 0
     if (shown.length && used + w + reserve > width) break
     shown.push(e.chatId)
