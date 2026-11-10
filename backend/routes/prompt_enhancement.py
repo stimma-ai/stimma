@@ -127,19 +127,46 @@ def _qwen_image_refs_phrase(n: int) -> str:
     return f"{len(tags)} input images, {listed}"
 
 
-def _qwen_canvas_guidance(width: Optional[int], height: Optional[int]) -> str:
-    """Tell the Qwen-Image-2.1 rewriter the frame it is composing for."""
-    if not width or not height:
-        return ""
+def canvas_shape(width: Optional[int], height: Optional[int]) -> Optional[str]:
+    """"landscape", "portrait" or "square" (within 15%), or None without a canvas."""
+    if not width or not height or width <= 0 or height <= 0:
+        return None
     ratio = width / height
-    if ratio > 1.15:
-        shape = "wide (landscape)"
-    elif ratio < 1 / 1.15:
-        shape = "vertical (portrait)"
-    else:
-        shape = "square"
+    return "landscape" if ratio > 1.15 else "portrait" if ratio < 1 / 1.15 else "square"
+
+
+_CANVAS_SLOTS = ("{canvas_guidance}", "{flux3_canvas_guidance}")
+
+
+def guide_template(mode: str, fill: bool = False) -> str:
+    """The prompts.yaml text this mode's style guide is filled from (its image-led
+    cinematography variants aside), with style_guide's fallbacks."""
+    key = _IMPROVE_PROMPT_BY_MODE.get(mode, "improve_system_prompt")
+    if fill:
+        key = "fill_" + key.removeprefix("improve_")
+        if not get_prompt("prompt_enhancement", key):
+            key = "fill_system_prompt"
+    return (get_prompt("prompt_enhancement", key) or get_prompt("prompt_enhancement", "improve_system_prompt")
+            or DEFAULT_IMPROVE_SYSTEM_PROMPT)
+
+
+def guide_uses_canvas(mode: str, fill: bool = False) -> bool:
+    """Whether this mode's style guide composes for the canvas (Fluent keys its programs on
+    the canvas's shape only then)."""
+    text = guide_template(mode, fill)
+    return any(slot in text for slot in _CANVAS_SLOTS)
+
+
+def _qwen_canvas_guidance(width: Optional[int], height: Optional[int], exact: bool = True) -> str:
+    """Tell the Qwen-Image-2.1 rewriter the frame it is composing for. exact=False names
+    only its shape (a Fluent program serves every size of that shape)."""
+    shape = {"landscape": "wide (landscape)", "portrait": "vertical (portrait)", "square": "square"}.get(
+        canvas_shape(width, height) or "")
+    if not shape:
+        return ""
+    frame = f"already fixed at {width}x{height}, a {shape} frame" if exact else f"already fixed as a {shape} frame"
     return (
-        f"The canvas is already fixed at {width}x{height}, a {shape} frame. Compose for that "
+        f"The canvas is {frame}. Compose for that "
         "orientation and name it in the opening sentence, but never write the ratio or size "
         "into the description."
     )
@@ -162,15 +189,15 @@ def _flux3_image_refs_phrase(n: int) -> str:
     return f"{n} reference images in order: " + ", ".join(names[:-1]) + f" and {names[-1]}"
 
 
-def _flux3_canvas_guidance(width: Optional[int], height: Optional[int]) -> str:
+def _flux3_canvas_guidance(width: Optional[int], height: Optional[int], exact: bool = True) -> str:
     """FLUX.3 Klein's upsampler takes the canvas as a "TARGET CANVAS: W:H" line
-    and composes for it without ever naming it."""
-    if not width or not height:
+    and composes for it without ever naming it. exact=False names only its shape."""
+    shape = {"landscape": "wide", "portrait": "tall", "square": "square"}.get(canvas_shape(width, height) or "")
+    if not shape:
         return ""
-    ratio = width / height
-    shape = "wide" if ratio > 1.15 else "tall" if ratio < 1 / 1.15 else "square"
+    frame = f"a {shape} {width}x{height} frame" if exact else f"a {shape} frame"
     return (
-        f"The canvas is a {shape} {width}x{height} frame: compose for it (a wide canvas spreads "
+        f"The canvas is {frame}: compose for it (a wide canvas spreads "
         "content sideways, a tall one stacks it) and never mention the ratio or the canvas."
     )
 
@@ -797,13 +824,15 @@ Guidelines:
 - Output ONLY the improved prompt, no explanations or additional text"""
 
 async def style_guide(request: "ImprovePromptRequest", session,
-                      fill: bool = False) -> Tuple[str, List[Tuple[int, str]], str]:
+                      fill: bool = False, exact_canvas: bool = True) -> Tuple[str, List[Tuple[int, str]], str]:
     """How to write a prompt for this request's image model: the per-model system prompt
     with this request's slots filled (images, canvas, audio, protected text, LoRAs), the
     source images the writer should see, and the mode. The enhancer rewrites one prompt
     with it; Fluent's program writer uses it to write the program's text.
     fill: the Fill in guide (fill_*), which keeps the user's words and adds only what the
-    model needs to read them, instead of the full enhancer (improve_*)."""
+    model needs to read them, instead of the full enhancer (improve_*).
+    exact_canvas=False: the canvas by its shape alone, not its size (Fluent's programs are
+    keyed on the shape, see guide_uses_canvas)."""
     # Pick the enhancement style. Task drives video (cinematography) and edits
     # (input images on a natural-language model); model family drives the rest
     # (keyword / ideogram / prose). Falls back to prose for unknown families and
@@ -862,13 +891,13 @@ async def style_guide(request: "ImprovePromptRequest", session,
         "{qwen_image_refs}", _qwen_image_refs_phrase(request.input_image_count)
     )
     system_prompt = system_prompt.replace(
-        "{canvas_guidance}", _qwen_canvas_guidance(request.width, request.height)
+        "{canvas_guidance}", _qwen_canvas_guidance(request.width, request.height, exact_canvas)
     )
     system_prompt = system_prompt.replace(
         "{flux3_image_refs}", _flux3_image_refs_phrase(request.input_image_count)
     )
     system_prompt = system_prompt.replace(
-        "{flux3_canvas_guidance}", _flux3_canvas_guidance(request.width, request.height)
+        "{flux3_canvas_guidance}", _flux3_canvas_guidance(request.width, request.height, exact_canvas)
     )
     system_prompt = system_prompt.replace(
         "{audio_guidance}",

@@ -308,6 +308,43 @@ class TestOptionFiller:
         for task in f._tasks:
             task.cancel()
 
+    async def test_it_gives_way_while_a_prepare_is_in_flight(self, tmp_path, monkeypatch):
+        import prompt_programs.options as opts
+        monkeypatch.setattr(opts, "YIELD_POLL", 0.01)
+        store, gen, preparing = OptionStore(tmp_path), FakeGen(), {"on": True}
+        f = OptionFiller(store, gen, paused=lambda: preparing["on"])
+        f.attach()
+        job = self._job(store, "a", "thing a")
+        f.submit(job, "high")
+        await asyncio.sleep(0.1)
+        assert not gen.calls and f.busy(job.key)  # queued, not started
+        preparing["on"] = False
+        for _ in range(100):
+            if store.options(job.key):
+                break
+            await asyncio.sleep(0.01)
+        assert store.options(job.key) and len(gen.calls) == 1
+        for task in f._tasks:
+            task.cancel()
+
+    async def test_queued_low_work_for_an_edited_away_prompt_is_dropped(self, tmp_path):
+        store, gen = OptionStore(tmp_path), FakeGen()
+        f = OptionFiller(store, gen, current=lambda job: job.spec.id != "old")
+        old, new, thin = self._job(store, "old", "thing a"), self._job(store, "b", "thing b"), self._job(store, "old", "thing c")
+        f.submit(old, "low")
+        f.submit(new, "low")
+        f.submit(thin, "high")  # a draw asked for it now: kept
+        await f.drain()
+        assert sorted(j.spec.about for j in gen.calls) == ["thing b", "thing c"] and f.dropped == 1
+        assert not f.busy(old.key)
+
+    def test_prepare_tracks_the_latest_program_per_context(self, monkeypatch):
+        monkeypatch.setattr(prep, "_latest", {})
+        assert prep.is_current("k1", "ctx") and prep.is_current("k1", "")
+        prep._latest["ctx"] = "k2"
+        assert not prep.is_current("k1", "ctx") and prep.is_current("k2", "ctx")
+        assert ProgramContext.of({"key": "k1", "program": 'emit("x")', "context_key": "ctx"}).context_key == "ctx"
+
 
 # --------------------------------------------------------------------------- realize
 

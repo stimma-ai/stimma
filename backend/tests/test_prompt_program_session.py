@@ -675,7 +675,7 @@ class TestCardsUseTheShownProgram:
             seen["key"] = e["key"]
             return ["windy"]
 
-        monkeypatch.setattr(prep, "suggest_options", suggest)
+        monkeypatch.setattr("prompt_programs.options.suggest_options", suggest)
         app = FastAPI()
         app.include_router(route.router)
         # The prompt has moved on (being prepared); the cards still show the old program.
@@ -683,3 +683,232 @@ class TestCardsUseTheShownProgram:
         r = TestClient(app).post("/api/prompt-programs/options", json=body)
         assert r.status_code == 200 and r.json()["options"] == ["windy"]
         assert seen["key"] == entry["key"]
+
+
+# --------------------------------------------------------------------------- failures the user sees
+
+def _route_client(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from routes import prompt_programs as route
+    monkeypatch.setattr(route, "get_current_profile", lambda: "p")
+    app = FastAPI()
+    app.include_router(route.router)
+    return TestClient(app, raise_server_exceptions=False)
+
+
+class TestWriterDown:
+    """The chat model not answering is the designed "can't prepare" result, never a 500."""
+
+    def _down(self):
+        from llm_http import LLMConnectionError
+
+        async def refused():
+            raise LLMConnectionError("Could not reach the chat model at http://writer.test/v1.")
+        return refused
+
+    def test_ensure_reports_the_chat_model_unavailable(self, model):
+        from llm_resolver import LLMUnavailableError
+        model.replies = [self._down()]
+        with pytest.raises(LLMUnavailableError, match="Could not reach"):
+            asyncio.run(ensure())
+        assert not prep._in_flight
+
+    def test_a_provider_5xx_is_unavailable_too(self, model):
+        import httpx
+        from llm_http import LLMProviderHTTPError
+        from llm_resolver import LLMUnavailableError
+        req = httpx.Request("POST", "http://writer.test/v1/chat/completions")
+
+        async def bad_gateway():
+            raise LLMProviderHTTPError(httpx.Response(502, request=req, text="upstream down"))
+        model.replies = [bad_gateway]
+        with pytest.raises(LLMUnavailableError):
+            asyncio.run(ensure())
+
+    def test_the_prepare_route_answers_424(self, model, monkeypatch):
+        model.replies = [self._down()]
+        r = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PROMPT})
+        assert r.status_code == 424 and r.json()["detail"]["code"] == "llm_unavailable"
+
+    def test_a_submit_answers_424(self, model):
+        from fastapi import HTTPException
+        from routes.generation import _run_prompt_program
+        model.replies = [self._down()]
+        with pytest.raises(HTTPException) as e:
+            asyncio.run(_run_prompt_program(PROMPT, {}, {"enabled": True}, tool_id="t", prompt_options={},
+                                            ctx={"model": "m", "mode": "prose", "schema_props": {}, "enhance": {}},
+                                            project_id=None, profile_id="p"))
+        assert e.value.status_code == 424 and "Generation was not started" in e.value.detail
+
+
+class TestPlainFailures:
+    def test_no_program_says_so_plainly_and_keeps_the_problems_for_the_dev_panel(self, model, monkeypatch):
+        model.replies = [reply(write("emit(")) for _ in range(ses.MAX_CALLS)]
+        r = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PROMPT})
+        detail = r.json()["detail"]
+        assert r.status_code == 422 and detail["code"] == "program_failed"
+        assert detail["message"] == "The chat model couldn't prepare this prompt. Try again, or simplify the prompt."
+        assert "emit(" not in detail["message"] and detail["problems"]
+
+    def test_an_oversized_prompt_is_refused_before_the_writer(self, model, monkeypatch):
+        long = "A woman waiting for a train, " * 400
+        r = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": long})
+        assert r.status_code == 422 and r.json()["detail"]["code"] == "prompt_too_long" and not model.seen
+
+    def test_oversized_instructions_are_refused(self, model):
+        with pytest.raises(prep.PromptTooLong):
+            asyncio.run(prep.ensure_program(prompt=PROMPT, tool_id="t", ctx={"model": "m", "mode": "prose",
+                                            "schema_props": {}, "enhance": {}}, instructions="x" * 5000,
+                                            lora_items=[], project_id=None, profile_id="p"))
+
+    def test_the_options_route_caps_existing(self, model, monkeypatch):
+        body = {"tool_id": "t", "prompt": PROMPT, "choice_id": "weather", "existing": ["x"] * 500}
+        assert _route_client(monkeypatch).post("/api/prompt-programs/options", json=body).status_code == 422
+
+
+class TestTriggerWordsToggle:
+    """With "Trigger words" off the writer never hears the on LoRAs' trigger words."""
+
+    def test_off_keeps_trigger_words_from_the_writer(self, model, monkeypatch):
+        from prompt_programs.runtime import LoraInfo
+        heard = []
+
+        async def style(prompt, ctx, instructions, lora_context, *a, **kw):
+            heard.append(lora_context)
+            return "STYLE GUIDE", []
+
+        async def on_lora(tool_id, items, profile_id):
+            return [LoraInfo("Wolf cut", "k/w", 0.9, "wolfcut", on=True),
+                    LoraInfo("Noted", "k/n", 0.9, "notedz", on=True)], {"Noted": "soft light"}
+
+        monkeypatch.setattr(prep, "writer_style", style)
+        monkeypatch.setattr(prep, "lora_candidates", on_lora)
+        model.replies = [reply(write(GOOD)), reply(write(GOOD))]
+        on = asyncio.run(ensure())
+        off = asyncio.run(ensure(lora_triggers=False))
+        assert [c["trigger_words"] for c in heard[0]] == [["wolfcut"], ["notedz"]]
+        assert heard[1] == [{"name": "Noted", "trigger_words": [], "notes": "soft light"}]  # notes still go
+        assert on["key"] != off["key"]
+        assert "wolfcut" not in json.dumps(model.seen[1]) and "notedz" not in json.dumps(model.seen[1])
+
+
+class TestBackgroundWorkFollowsTheEditor:
+    def test_an_edit_makes_the_older_program_stale_and_no_hash_reaches_the_option_writer(self, model):
+        from prompt_programs.fluent import program_context
+        model.replies = [reply(write(GOOD)), reply(edit([{"line": 2, "text": GOOD_EVENING.splitlines()[1]}]))]
+        first = asyncio.run(ensure())
+        assert prep.is_current(first["key"], first["context_key"])
+        second = asyncio.run(ensure(EDITED))
+        assert second["context_key"] == first["context_key"]
+        assert not prep.is_current(first["key"], first["context_key"]) and prep.is_current(second["key"], second["context_key"])
+        # the editing context is a key, not words for the option writer
+        assert program_context(first).signature != first["context_key"]
+
+
+class TestPrepareRouteStartsNothing:
+    def test_lookups_and_cache_hits_queue_no_background_work(self, model, monkeypatch):
+        import prompt_programs.fluent as fluent
+        started = []
+        monkeypatch.setattr(prep, "on_prepared", lambda entry, **kw: started.append(entry["key"]))
+        monkeypatch.setattr(fluent, "start_options", lambda entry, **kw: started.append("route"))
+        model.replies = [reply(write(GOOD))]
+        client = _route_client(monkeypatch)
+        body = {"tool_id": "t", "prompt": PROMPT}
+        first = client.post("/api/prompt-programs/prepare", json=body).json()
+        client.post("/api/prompt-programs/prepare", json={**body, "cache_only": True})
+        client.post("/api/prompt-programs/prepare", json=body)
+        assert started == [first["key"]]  # once, for the fresh prepare
+
+
+class TestUnfinishedNarrowingIsRetried:
+    """A narrowing skipped or cut short for time isn't cached as final: a later lookup narrows
+    it again in the background, and runs never wait for it."""
+    SRC = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather", phase=1, line=1)\n'
+           'age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24-year-old"], '
+           'label="Age", phase=1, added=True)\n'
+           'emit("A young", age, "woman waiting for a train on a", w, "morning.")\n')
+    YOUNG = ["20–24-year-old", "25–29-year-old"]
+
+    def _asks(self, monkeypatch, behaviour):
+        import json as _json
+
+        async def ask(messages, project_id, max_tokens=4096):
+            if behaviour["stall"]:
+                await asyncio.sleep(60)
+            if "find the words in it" in messages[0]["content"]:
+                return _json.dumps({"age": None})
+            return _json.dumps(self.YOUNG)
+        monkeypatch.setattr(prep, "_ask_model", ask)
+        monkeypatch.setattr(prep, "_renarrowing", {})
+        monkeypatch.setattr(prep, "_renarrow_after", {})
+
+    @pytest.mark.parametrize("limit", [2.5, 6.0])  # no time to try; a try that stalls
+    async def test_a_later_lookup_narrows_it(self, model, monkeypatch, limit):
+        behaviour = {"stall": True}
+        self._asks(monkeypatch, behaviour)
+        monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", limit)
+        model.replies = [reply(write(self.SRC))]
+        entry = await ensure()
+        stored = model.store.get(entry["key"])
+        assert stored["narrow_pending"]["age"]["cls"] == "person.age_band"  # not final
+        behaviour["stall"] = False
+        again = await ensure(cache_only=True)  # the editor's lookup, or a submit: served at once
+        assert not any((again.get("filters") or {}).values())
+        await prep._renarrowing[(str(model.store.root), entry["key"])]
+        done = model.store.get(entry["key"])
+        assert done["filters"] == {"age": self.YOUNG} and "narrow_pending" not in done
+        age = next(c for c in done["choices"] if c["id"] == "age")
+        assert age["cls"] == "person.age_band" and age["options"] == self.YOUNG
+        assert (await ensure())["filters"] == {"age": self.YOUNG}
+
+    async def test_retries_back_off_and_stop(self, model, monkeypatch):
+        behaviour = {"stall": True}
+        self._asks(monkeypatch, behaviour)
+        monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", 2.5)
+        model.replies = [reply(write(self.SRC))]
+        entry = await ensure()
+        task = prep.renarrow(entry, model.store, None)
+        assert task is not None
+        assert prep.renarrow(entry, model.store, None) is None  # one at a time, then a back-off
+        task.cancel()
+        prep._renarrowing.clear()
+        prep._renarrow_after.clear()
+        assert prep.renarrow({**entry, "narrow_tries": prep.RENARROW_MAX_TRIES}, model.store, None) is None
+
+    async def test_only_unfinished_narrowing_is_pending(self, tmp_path):
+        import json as _json
+        from prompt_programs.narrow import NarrowCache, narrow_entry
+        from prompt_programs.runtime import discover
+
+        def entry():
+            return {"key": "n", "program": self.SRC, "prompt": "A young woman waiting for a train.",
+                    "choices": discover(self.SRC)["choices"]}
+
+        def asker(read, subset):
+            async def ask(messages, project_id, max_tokens):
+                return read if "find the words in it" in messages[0]["content"] else subset
+            return ask
+        cases = [(_json.dumps({"age": "young woman"}), "[]", False),          # nothing fits: final, unbound
+                 (_json.dumps({"age": "young woman"}), "I can't tell.", True),  # unreadable: unbound for now
+                 ("no idea", _json.dumps(self.YOUNG), True)]                    # the reading failed
+        for i, (read, subset, pending) in enumerate(cases):
+            e = entry()
+            await narrow_entry(e, NarrowCache(tmp_path / str(i)), asker(read, subset))
+            assert ("age" in (e.get("narrow_pending") or {})) is pending, (read, subset)
+
+
+class TestEditorAndSubmitShareAKey:
+    def test_a_submit_after_the_editors_prepare_is_a_cache_hit(self, model, monkeypatch):
+        from routes.generation import _run_prompt_program, prompt_enhance_context
+        model.replies = [reply(write(GOOD))]
+        params = {"prompt": PROMPT, "width": 1344, "height": 768}
+        body = {"tool_id": "t", "prompt": PROMPT, "parameters": params, "enhance": "expand", "lora_triggers": False}
+        prepared = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json=body).json()
+        prompt_options = {"autoImprove": {"enabled": True, "level": "expand"}, "loraTriggers": False,
+                          "program": {"enabled": True}}
+        record, _ = asyncio.run(_run_prompt_program(
+            PROMPT, params, {"enabled": True}, ctx=prompt_enhance_context(params, "t", None, prompt_options),
+            tool_id="t", prompt_options=prompt_options, project_id=None, profile_id="p", elaborate=True,
+            enhance="expand", lora_triggers=False))
+        assert record["key"] == prepared["key"] and len(model.seen) == 1

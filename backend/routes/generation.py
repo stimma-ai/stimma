@@ -407,6 +407,9 @@ def _prompt_preload_for_batch_index(request, idx: int) -> Optional[Dict[str, Any
     return preload if isinstance(preload, dict) else None
 
 
+_PROGRAM_UNSUPPORTED_MODES = ("minimax-h3", "ideogram", "audio", "edit", "qwen-image-2.1-edit", "flux3-klein-edit")
+
+
 def prompt_enhance_context(
     parameters: Dict[str, Any],
     tool_id: str,
@@ -441,8 +444,10 @@ def prompt_enhance_context(
         "schema_props": schema_props,
         "mode": mode,
         # Structured formats (MiniMax H3's Context-IR, Ideogram JSON) are still enhanced
-        # per image; programs write prose-like formats only for now.
-        "program_supported": mode not in ("minimax-h3", "ideogram"),
+        # per image; programs write prose-like formats only for now. Image edits and audio
+        # too: the writer's instructions add variety to describe a still image, which an
+        # edit instruction ("remove the man on the left") or a sound must not get.
+        "program_supported": mode not in _PROGRAM_UNSUPPORTED_MODES,
         "enhance": {
             "is_video": is_video,
             "is_audio": is_audio,
@@ -583,14 +588,14 @@ async def _run_prompt_program(
     submit's generator instance, served a draw its pool made ahead when one is current."""
     from llm_resolver import LLMUnavailableError
     from prompt_programs.fix import prompt_view, realize_and_fix
-    from prompt_programs.prepare import ProgramError, draw_seed, ensure_program
+    from prompt_programs.prepare import ProgramError, draw_seed, ensure_program, writer_failure
 
     try:
         entry = await ensure_program(
             prompt=prompt, tool_id=tool_id, ctx=ctx,
             instructions=(((prompt_options or {}).get("autoImprove") or {}).get("instructions") or "").strip(),
             lora_items=program_opts.get("loras") or [], project_id=project_id, profile_id=profile_id,
-            elaborate=elaborate, lora_notes=lora_notes, enhance=enhance,
+            elaborate=elaborate, lora_notes=lora_notes, lora_triggers=lora_triggers, enhance=enhance,
         )
         # Independent of the image seed; an explicit draw_seed repeats the same draws.
         from prompt_programs.fluent import attach_filler
@@ -612,6 +617,14 @@ async def _run_prompt_program(
         raise HTTPException(status_code=422, detail=f"Generation was not started: {e}") from None
     except LLMUnavailableError as e:
         raise HTTPException(status_code=424, detail=f"Generation was not started: {e}") from None
+    except Exception as e:
+        # The chat model failing to answer (unreachable, a provider error) is a 424, never a
+        # 500 with a crash report on every submit of a generate-forever lane.
+        failure = writer_failure(e)
+        if failure is None:
+            raise
+        status = 422 if isinstance(failure, ProgramError) else 424
+        raise HTTPException(status_code=status, detail=f"Generation was not started: {failure}") from None
     by_name = {lo.get("name"): lo.get("path") for lo in entry.get("loras") or [] if isinstance(lo, dict)}
     controlled = sorted({by_name[n] for names in (entry.get("lora_choices") or {}).values() for n in names if by_name.get(n)})
     record = {"key": entry["key"], "mode": entry.get("mode"), "elaborate": entry.get("elaborate", True),

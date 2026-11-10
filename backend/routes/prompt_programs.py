@@ -21,7 +21,7 @@ _PUBLIC_KEYS = ("key", "mode", "elaborate", "enhance", "choices", "groups", "par
 class PrepareRequest(BaseModel):
     tool_id: str
     prompt: str
-    loras: List[Dict[str, Any]] = Field(default_factory=list)
+    loras: List[Dict[str, Any]] = Field(default_factory=list, max_length=200)
     # The generation's parameters (inputs, size): the enhancer's style depends on them.
     parameters: Dict[str, Any] = Field(default_factory=dict)
     task_type: Optional[str] = None
@@ -38,6 +38,8 @@ class PrepareRequest(BaseModel):
     enhance: Optional[str] = None
     # The prompt menu's "LoRA notes": whether the model is told the user's LoRA notes.
     lora_notes: bool = True
+    # The prompt menu's "Trigger words": whether the writer is told the on LoRAs' trigger words.
+    lora_triggers: bool = True
     # The program the editor showed before this prompt: an edit of it continues its writer session.
     base_key: Optional[str] = None
     # The program the cards are showing. Options and pools work on it even while a newer
@@ -51,9 +53,30 @@ class PreviewRequest(PrepareRequest):
     seed: Optional[int] = None
 
 
-async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
+def program_http_error(e: Exception, failed: str = "program_failed") -> Optional[HTTPException]:
+    """The HTTP error for a prepare or option-writing failure, or None for a real bug (left
+    to the app's handler). The chat model failing to answer is a 424 the client offers Try
+    again or Direct for, never a 500 with a crash report."""
     from llm_resolver import LLMNotConfiguredError, LLMUnavailableError
-    from prompt_programs.prepare import PrepareTimeout, ProgramError, ensure_program
+    from prompt_programs.prepare import PrepareTimeout, ProgramError, writer_failure
+
+    e = writer_failure(e) or e
+    if isinstance(e, PrepareTimeout):
+        return HTTPException(status_code=422, detail={"code": "prepare_timeout", "message": str(e)})
+    if isinstance(e, ProgramError):
+        detail = {"code": getattr(e, "code", failed), "message": str(e)}
+        if getattr(e, "problems", ""):
+            detail["problems"] = e.problems  # what the writer was told: for the dev panel
+        return HTTPException(status_code=422, detail=detail)
+    if isinstance(e, LLMNotConfiguredError):
+        return HTTPException(status_code=424, detail={"code": "llm_not_configured", "message": str(e)})
+    if isinstance(e, LLMUnavailableError):
+        return HTTPException(status_code=424, detail={"code": "llm_unavailable", "message": str(e)})
+    return None
+
+
+async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
+    from prompt_programs.prepare import ensure_program
     from routes.generation import prompt_enhance_context
 
     ctx = prompt_enhance_context(req.parameters, req.tool_id, req.task_type, None)
@@ -64,16 +87,13 @@ async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
             prompt=req.prompt, tool_id=req.tool_id, ctx=ctx, instructions=req.instructions.strip(),
             lora_items=req.loras, project_id=req.project_id, profile_id=get_current_profile(),
             cache_only=req.cache_only, force=req.force, elaborate=req.elaborate, lora_notes=req.lora_notes,
-            base_key=req.base_key, enhance=req.enhance,
+            lora_triggers=req.lora_triggers, base_key=req.base_key, enhance=req.enhance,
         )
-    except PrepareTimeout as e:
-        raise HTTPException(status_code=422, detail={"code": "prepare_timeout", "message": str(e)}) from None
-    except ProgramError as e:
-        raise HTTPException(status_code=422, detail={"code": "program_failed", "message": str(e)}) from None
-    except LLMNotConfiguredError as e:
-        raise HTTPException(status_code=424, detail={"code": "llm_not_configured", "message": str(e)}) from None
-    except LLMUnavailableError as e:
-        raise HTTPException(status_code=424, detail={"code": "llm_unavailable", "message": str(e)}) from None
+    except Exception as e:
+        http = program_http_error(e)
+        if http is None:
+            raise
+        raise http from None
 
 
 @router.post("/prepare")
@@ -83,8 +103,8 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
         return {"key": None}
     if entry.get("unsupported"):  # structured formats are still enhanced per image
         return {"key": None, "unsupported": entry["unsupported"]}
-    from prompt_programs.fluent import start_options
-    start_options(entry, profile_id=get_current_profile(), project_id=req.project_id)  # background, low priority
+    # A fresh prepare already started its option pools (prepare.on_prepared); a cached one's
+    # unfilled pools queue as draws reach them. Not here: the editor looks up on every Run.
     out = {k: entry.get(k) for k in _PUBLIC_KEYS}
     if req.include_program:
         out["program"] = entry["program"]
@@ -95,7 +115,7 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
 class OptionsRequest(PrepareRequest):
     choice_id: str
     # The options the card shows now (after the user's edits), so new ones differ.
-    existing: List[str] = Field(default_factory=list)
+    existing: List[str] = Field(default_factory=list, max_length=200)
     count: int = 6
 
 
@@ -112,19 +132,17 @@ async def _shown(req: PrepareRequest) -> Optional[Dict[str, Any]]:
 @router.post("/options")
 async def options(req: OptionsRequest) -> Dict[str, Any]:
     """New options for one choice (the card's More like these and Reroll all)."""
-    from llm_resolver import LLMNotConfiguredError, LLMUnavailableError
-    from prompt_programs.prepare import ProgramError, suggest_options
+    from prompt_programs.options import suggest_options
     entry = await _shown(req)
     if entry is None or entry.get("unsupported"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
     try:
         out = await suggest_options(entry, req.choice_id, req.existing, req.count, req.project_id)
-    except ProgramError as e:
-        raise HTTPException(status_code=422, detail={"code": "options_failed", "message": str(e)}) from None
-    except LLMNotConfiguredError as e:
-        raise HTTPException(status_code=424, detail={"code": "llm_not_configured", "message": str(e)}) from None
-    except LLMUnavailableError as e:
-        raise HTTPException(status_code=424, detail={"code": "llm_unavailable", "message": str(e)}) from None
+    except Exception as e:
+        http = program_http_error(e, failed="options_failed")
+        if http is None:
+            raise
+        raise http from None
     return {"options": out}
 
 

@@ -1,4 +1,5 @@
-"""Prepare: turn a prompt into a program with one LLM call, then cache it.
+"""Prepare: turn a prompt into a program with the chat model (a write, and a repair or two
+when the checks find problems), narrow its bound picks, then cache it.
 
 Everything that shapes the program is part of its cache key, so asking again with the
 same prompt, tool, LoRAs and parameters never calls the model. Realizing (running the
@@ -28,7 +29,7 @@ from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-41"
+PREPARE_VERSION = "pp-42"
 MAX_ATTEMPTS = 3
 # A prepare that can't finish soon fails, so runs (and generate-forever lanes) waiting on
 # it don't sit for minutes. Past the soft budget no new model call starts while a
@@ -43,10 +44,60 @@ class StartOver(Exception):
 
 class PrepareTimeout(ProgramError):
     """Preparing took longer than PREPARE_LIMIT_SECONDS."""
+
+
+class PrepareFailed(ProgramError):
+    """The writer wrote no program that runs. The message is for the user; `problems` (what
+    the checks told the writer) is for logs and the dev panel."""
+
+    code = "program_failed"
+
+    def __init__(self, problems: str = ""):
+        super().__init__("The chat model couldn't prepare this prompt. Try again, or simplify the prompt.")
+        self.problems = problems
+
+
+class PromptTooLong(ProgramError):
+    """A prompt (with its lists and segments expanded) or standing instructions too long to prepare."""
+
+    code = "prompt_too_long"
+
+
+# Inputs past these never reach the writer: a pasted essay would overflow its context, and
+# every check runs over the program it writes.
+MAX_PROMPT_CHARS = 8000
+MAX_INSTRUCTIONS_CHARS = 4000
+
+
+def writer_failure(e: BaseException) -> Optional[Exception]:
+    """The error to report when the chat model itself failed to answer (unreachable, a
+    provider rejection or 5xx, a broken stream, out of quota or balance), else None. Those
+    are the chat model being unavailable, not a bug: the client offers Try again or Direct."""
+    import httpx
+    from llm_http import (ContentFilteredError, EntitlementError, LLMConnectionError, LLMStreamError,
+                          QuotaExceededError)
+    from llm_resolver import LLMInsufficientBalanceError, LLMUnavailableError
+
+    if isinstance(e, ContentFilteredError):
+        return PrepareFailed(f"the provider's content filter declined: {e}"[:300])
+    if isinstance(e, EntitlementError):
+        return LLMInsufficientBalanceError(str(e)[:300] or "No balance left for the chat model.")
+    if isinstance(e, (LLMConnectionError, LLMStreamError, QuotaExceededError, httpx.HTTPError)):
+        return LLMUnavailableError(str(e)[:300] or "The chat model didn't answer.")
+    return None
+
+
 # The vocabulary's catalogue (the lists a pick may bind to with cls=) is part of the
-# instructions; a vocabulary change changes the instructions, and so PREPARE_VERSION's key.
+# instructions; the key carries a hash of them (with the style note and the model's guide).
 _INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text("utf-8").replace(
     "{vocabulary}", vocabulary().catalogue())
+
+
+
+def _text_hash(guide: str) -> str:
+    import hashlib
+    return hashlib.sha256("\0".join([_INSTRUCTIONS, _STYLE_NOTE, guide]).encode("utf-8")).hexdigest()[:16]
+
 
 # Schema parameters a program may vary when the user asks. Others (seed, sizes,
 # media inputs, prompts, LoRAs) are never program-controlled.
@@ -180,59 +231,10 @@ def build_user_message(prompt: str, model_name: Optional[str], mode: str,
     return "\n".join(parts)
 
 
-_PLACEHOLDER_NOTE = (
-    "This prompt will become a template: some details vary from image to image. Keep every "
-    "[...] placeholder exactly where it belongs in the sentence. Words in angle brackets, like "
-    "\u27e8hairstyle\u27e9, name something that changes from image to image: write one concrete, "
-    "vivid example of each in its place, without the brackets, and describe it only there. "
-    "Where the prompt asks for something to vary, write one concrete example of it. Add no "
-    "placeholders or brackets of your own: write everything else out in full."
-)
-
-
-def _needs_placeholder_note(prompt: str) -> bool:
-    """Only prompts with placeholders or # lines need the note; without any, it invites
-    the enhancer to invent placeholders ("[location]") of its own."""
-    return bool(re.search(r"[\[{\u27e8]", prompt)) or any(ln.lstrip().startswith("#") for ln in prompt.splitlines())
-
-
-def _for_enhancer(prompt: str) -> str:
-    """{{name}} becomes \u27e8name\u27e9 for the enhancer, which writes one example of it in place.
-    Weak enhancers asked to keep a {{name}} placeholder also describe it, then dump the
-    placeholders at the end; writing the example is what they do well."""
-    return re.sub(r"\{\{([^{}]+)\}\}", lambda m: "\u27e8" + m.group(1).strip() + "\u27e9", prompt)
-
-
 def plain_example(prompt: str) -> str:
     """The user's text without its # lines, with the varying spots protected."""
     lines = [ln for ln in prompt.splitlines() if not ln.lstrip().startswith("#")]
     return protect_variable_spots("\n".join(lines).strip())
-
-
-_KEEP_WORDS = """Rewrite an image prompt so it reads naturally, keeping the user's words.
-
-- Keep every word the user wrote and their order where you can. Add only the small words a
-  reader needs: "a", "and", "wearing", "with", commas. Add no description, detail, style or mood.
-- Words in angle brackets, like \u27e8hairstyle\u27e9, name something that changes from image to
-  image. Replace each with one short, concrete example of it (a few words), in its place.
-- Keep every [{a|b}] and [text] placeholder exactly as written, brackets included.
-- Lines starting with # are instructions for you: follow them, and leave them out.
-{format}
-Reply with only the rewritten prompt."""
-
-_KEEP_FORMAT = {
-    "keyword": "- This model reads comma-separated tags, not sentences: write the prompt as tags.",
-}
-
-
-async def keep_words(prompt: str, mode: str, project_id: Optional[int]) -> str:
-    """Enhance off, step one: the user's own words as one readable example, with an
-    example written for each smart wildcard. Nothing is added beyond joining words."""
-    system = _KEEP_WORDS.replace("{format}", _KEEP_FORMAT.get(mode, "- Write it as plain sentences."))
-    reply = await _ask_model([{"role": "system", "content": system},
-                              {"role": "user", "content": protect_variable_spots(_for_enhancer(prompt))}], project_id)
-    out = re.sub(r"^```\w*\s*|\s*```$", "", (reply or "").strip()).strip().strip('"')
-    return out.replace("\u27e8", "").replace("\u27e9", "") or plain_example(prompt)
 
 
 def protect_variable_spots(prompt: str) -> str:
@@ -240,23 +242,6 @@ def protect_variable_spots(prompt: str) -> str:
     rich text around them and leaves them where they are."""
     s = re.sub(r"\{\{([^{}]+)\}\}", lambda m: "[{{" + m.group(1) + "}}]", prompt)
     return re.sub(r"(?<![\[{])\{([^{}]+\|[^{}]+)\}(?![}\]])", lambda m: "[{" + m.group(1) + "}]", s)
-
-
-async def upsample(prompt: str, ctx: Dict[str, Any], instructions: str, lora_context: List[Dict[str, Any]],
-                   project_id: Optional[int], profile_id: Optional[str]) -> str:
-    """Step one: the regular per-model enhancer (same style, checks and context as the
-    per-image path) writes one rich example of the prompt."""
-    from database_registry import get_database_registry
-    from prompt_pipeline import _improve_with_verbatim_protection
-
-    db = get_database_registry().get_database(profile_id)
-    note = _PLACEHOLDER_NOTE if _needs_placeholder_note(prompt) else ""
-    out = await _improve_with_verbatim_protection(
-        db, protect_variable_spots(_for_enhancer(prompt)),
-        instructions="\n".join(x for x in (instructions, note) if x),
-        model=ctx.get("model"), project_id=project_id, lora_context=lora_context, **ctx["enhance"],
-    )
-    return out.replace("\u27e8", "").replace("\u27e9", "")
 
 
 async def _ask_model(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int = 4096) -> str:
@@ -294,7 +279,7 @@ async def writer_style(prompt: str, ctx: Dict[str, Any], instructions: str, lora
                                    project_id=project_id, lora_context=lora_context or [], **(ctx.get("enhance") or {}))
     db = get_database_registry().get_database(profile_id)
     async with db.async_session_maker() as session:
-        guide, images, _mode = await style_guide(request, session, fill=(level == "fill"))
+        guide, images, _mode = await style_guide(request, session, fill=(level == "fill"), exact_canvas=False)
     return guide, images
 
 
@@ -315,9 +300,27 @@ def writer_messages(prompt: str, guide: str, images: Sequence[Tuple[int, str]], 
     return [{"role": "system", "content": system}, {"role": "user", "content": content}]
 
 
-async def _ask_repair(messages: List[Dict[str, str]], project_id: Optional[int], max_tokens: int = 1024) -> str:
-    """Edits that fix a program in place (its own name so timing can tell it apart)."""
-    return await _ask_model(messages, project_id, max_tokens=max_tokens)
+async def _ask_in_time(messages: List[Dict[str, Any]], project_id: Optional[int], started: float,
+                       max_tokens: int = 4096) -> str:
+    """A text-protocol writer call bounded by what's left of the prepare's deadline. Raises
+    asyncio.TimeoutError when it runs out, so the caller can keep the best program it has
+    (the outer wait_for in _prepare would throw it away)."""
+    left = PREPARE_LIMIT_SECONDS - (time.monotonic() - started)
+    if left <= 0:
+        raise asyncio.TimeoutError
+    return await asyncio.wait_for(_ask_model(messages, project_id, max_tokens=max_tokens), left)
+
+
+# What checking a written program can trip on besides ProgramError (a program the checks
+# themselves fail on): a problem to report, never a crash. As the session's Turn.settle.
+_CHECK_ERRORS = (ProgramError, RecursionError, ValueError, TypeError, KeyError, IndexError)
+
+
+def _check_error(e: BaseException) -> str:
+    if isinstance(e, ProgramError):
+        return str(e)
+    log.warning(f"[prompt-program] validating a written program failed: {type(e).__name__}: {e}")
+    return f"The program couldn't be run: {type(e).__name__}: {e}"
 
 
 # --------------------------------------------------------------------------- validation
@@ -950,37 +953,20 @@ def realized_text(prompt: str) -> str:
     return re.sub(r"\s+", " ", _VERBATIM.sub(lambda m: m.group(1), prompt)).strip()
 
 
-def _word_count(text: str) -> int:
-    return len(re.findall(r"[\w'-]+", re.sub(r"\[\{.*?\}\]", " x ", text)))
-
-
 # Words that only ever name models or LoRA kinds. Not ones that are also ordinary words
 # ("XL" shirts, "pony", "in flux"): a LoRA named only that is left alone.
 _MODEL_WORDS = {"krea", "sdxl", "lora", "loras", "qwen", "hunyuan", "ltx", "hidream", "lycoris", "locon"}
 
 
 def _name_like(name: str) -> bool:
-    """A LoRA name that can't be ordinary prompt text ("ultra real krea2", "KNP 000003000",
-    "facial krea"), unlike one that is ("Dress", "Curtain bangs"): only these are cut or flagged."""
+    """A LoRA name that can't be ordinary prompt text ("ultra real krea2", "XYZ 000003000",
+    "studio krea"), unlike one that is ("Dress", "Curtain bangs"): only these are cut or flagged."""
     words = re.findall(r"[A-Za-z0-9_.]+", name)
     return any(re.search(r"\d|_", w) or w.lower() in _MODEL_WORDS for w in words)
 
 
 def _mentions(text: str, name: str) -> bool:
     return re.search(rf"(?i)(?<![\w]){re.escape(name)}(?![\w])", text) is not None
-
-
-def drop_lora_names(text: str, loras: Sequence[LoraInfo], prompt: str) -> str:
-    """LoRA names the example text picked up, cut out (unless the user wrote them): the
-    writer copies that text, and every image would carry them."""
-    for lo in sorted(loras, key=lambda x: -len(x.name)):
-        if _name_like(lo.name) and not _mentions(prompt, lo.name):
-            text = re.sub(rf"(?i)(?<![\w]){re.escape(lo.name)}(?![\w])", "", text)
-    text = re.sub(r"\s*,(\s*,)+", ",", text)   # ", ," left where a name stood
-    text = re.sub(r"\s+([,.])", r"\1", text)
-    text = re.sub(r",([.;:!?])", r"\1", text)
-    text = re.sub(r"^\s*,\s*", "", text)
-    return re.sub(r"[ \t]{2,}", " ", text).strip()
 
 
 def _tidy_cut(text: str) -> str:
@@ -1035,7 +1021,7 @@ def fix_trigger_words(source: str, loras: Sequence[LoraInfo], prompt: str) -> Tu
 
 
 def _lora_marks(names: Sequence[str]) -> Set[str]:
-    """The word that tells each LoRA of a set apart ("acups" in "KREA2 bodyshop acups v1"),
+    """The word that tells each LoRA of a set apart ("curly" in "KREA2 hairshop curly v1"),
     with the words they all share left out."""
     words = [_words(n) for n in names]
     common = set.intersection(*words) if words else set()
@@ -1070,20 +1056,14 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
     samples = [run(source, s, None, loras, params) for s in (11, 23, 37, 51)]
     problems: List[str] = []   # broken or visibly wrong: one repair, as line edits
     notes: List[str] = []      # quality hints: logged and shown in dev mode, never a retry
-    if enhanced:
-        want = _word_count(enhanced)
-        got = min(_word_count(realized_text(r.prompt)) for r in samples)
-        if elaborate and want >= 20 and got < 0.6 * want:
-            notes.append(f"The prompts your program emits are too short ({got} words; the enhanced prompt has {want}). "
-                            "Copy the enhanced prompt's full text into emit() and only swap the parts that vary.")
-        if not elaborate:  # kept words: every word of the example outside the picks survives
-            in_options = set().union(*(_words(o) for c in info["choices"] for o in c.get("options") or []), set())
-            fixed = _words(re.sub(r"\[\{.*?\}\]", " ", enhanced)) - in_options
-            emitted = set().union(*(_words(r.prompt) for r in samples))
-            lost = sorted(fixed - emitted)
-            if lost:
-                notes.append("Keep the user's words: these are missing from what you emit: "
-                                + ", ".join(f'"{w}"' for w in lost) + ". Copy the prompt's text into emit() as written.")
+    if enhanced and not elaborate:  # kept words: every word of the example outside the picks survives
+        in_options = set().union(*(_words(o) for c in info["choices"] for o in c.get("options") or []), set())
+        fixed = _words(re.sub(r"\[\{.*?\}\]", " ", enhanced)) - in_options
+        emitted = set().union(*(_words(r.prompt) for r in samples))
+        lost = sorted(fixed - emitted)
+        if lost:
+            notes.append("Keep the user's words: these are missing from what you emit: "
+                         + ", ".join(f'"{w}"' for w in lost) + ". Copy the prompt's text into emit() as written.")
     if any(re.search(r"<<<|>>>|^\s*[\"']{3}", r.prompt) for r in samples):
         problems.append("Emit only the prompt text itself, with no quote marks or <<< >>> around it.")
     if any(re.search(r"\{[^{}]*\|[^{}]*\}", r.prompt) or "[{" in r.prompt for r in samples):
@@ -1137,7 +1117,7 @@ def validate(source: str, prompt: str, loras: Sequence[LoraInfo], params: Set[st
             if c["id"] in named:
                 continue
             opts = {o.lower().strip() for o in c.get("options") or []}
-            # a list made of the LoRAs' own names (acups, torpedo, tuberous…), not one that
+            # a list made of the LoRAs' own names (curly, pixie, braids…), not one that
             # happens to share a word or two with them ("long", "short")
             if c.get("kind") == "pick" and len(opts) >= 3 and opts <= marks:
                 named.add(c["id"])
@@ -1313,20 +1293,28 @@ def enhance_level(enhance: Optional[str], elaborate: bool = True) -> str:
 async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], instructions: str,
                          lora_items: Sequence[Dict[str, Any]], project_id: Optional[int],
                          profile_id: Optional[str], cache_only: bool = False, force: bool = False,
-                         elaborate: bool = True, lora_notes: bool = True,
+                         elaborate: bool = True, lora_notes: bool = True, lora_triggers: bool = True,
                          base_key: Optional[str] = None, enhance: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """The prepared program for these inputs, from cache or by asking the model.
     enhance: "expand" (the per-model guide is part of the writer's instructions and the
     program writes a complete, rich prompt with content picks), "fill" (a short per-model
     guide: the user's words plus only what the model needs to read them, no added picks) or
     "off" (the user's own words). Without it, elaborate picks expand or off. base_key: the
-    program the editor showed before this prompt (an edit continues from it when it fits)."""
+    program the editor showed before this prompt (an edit continues from it when it fits).
+    lora_triggers: the prompt menu's "Trigger words"; off, the writer isn't told the on
+    LoRAs' trigger words (so it never writes them), as the classic enhancer isn't."""
     level = enhance_level(enhance, elaborate)
     elaborate = level == "expand"
     from prompt_pipeline import _profile_wildcards_and_segments
 
     wildcards, segments = _profile_wildcards_and_segments(profile_id)
     source_prompt = expand_named_lists(prompt, wildcards, segments).strip()
+    if len(source_prompt) > MAX_PROMPT_CHARS:
+        raise PromptTooLong(f"This prompt is too long to prepare ({len(source_prompt):,} characters with its lists "
+                            f"and segments filled in; the limit is {MAX_PROMPT_CHARS:,}). Shorten it, or use Direct.")
+    if len(instructions or "") > MAX_INSTRUCTIONS_CHARS:
+        raise PromptTooLong(f"Your standing instructions for prompts are too long to prepare with "
+                            f"({len(instructions):,} characters; the limit is {MAX_INSTRUCTIONS_CHARS:,}).")
     # The models below only ever see tokens for [exact text]; the key keeps the real text.
     masked_prompt, exact = mask_exact(source_prompt)
     params = tool_param_specs(ctx.get("schema_props") or {})
@@ -1337,11 +1325,19 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     # prompt asks to choose LoRAs). The enhancer is told only about the LoRAs switched on,
     # for their trigger words and notes; choosing isn't its job, and names aren't prompt text.
     loras = match_loras(source_prompt, candidates)
-    lora_context = [{"name": lo.name, "trigger_words": [t.strip() for t in lo.trigger.split(",") if t.strip()],
-                     "notes": notes.get(lo.name, "")} for lo in candidates if lo.on and (lo.trigger or notes.get(lo.name))]
-    # The canvas only matters to layout formats (Ideogram), which have no programs;
-    # leaving it out keeps a prepared program valid across sizes.
+    # With "Trigger words" off they reach neither the writer nor the key: only the notes do.
+    lora_context = [{"name": lo.name,
+                     "trigger_words": [t.strip() for t in lo.trigger.split(",") if t.strip()] if lora_triggers else [],
+                     "notes": notes.get(lo.name, "")}
+                    for lo in candidates if lo.on and ((lo.trigger and lora_triggers) or notes.get(lo.name))]
+    # The canvas's size never reaches the writer, only its shape, and only for models whose
+    # guide composes for it (Qwen-Image, FLUX.3 Klein): there the shape is part of the key, so
+    # turning a landscape portrait won't reuse a program written "a wide landscape…"; for
+    # every other model one program serves every size.
+    from routes.prompt_enhancement import canvas_shape, guide_template, guide_uses_canvas
     enhance = {k: v for k, v in (ctx.get("enhance") or {}).items() if k not in ("width", "height")}
+    if level != "off" and guide_uses_canvas(str(ctx.get("mode") or ""), fill=(level == "fill")):
+        enhance["canvas"] = canvas_shape((ctx.get("enhance") or {}).get("width"), (ctx.get("enhance") or {}).get("height"))
     parts = {
         "v": PREPARE_VERSION, "vocab": vocabulary().version, "tool": tool_id, "model": ctx.get("model"),
         "mode": ctx.get("mode"), "enhance": enhance, "instructions": instructions,
@@ -1352,13 +1348,19 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         "lora_notes": {lo.name: notes[lo.name] for lo in loras if notes.get(lo.name)},  # what the writer reads
         "elaborate": level,
         "writer": await _writer_fingerprint(project_id),  # another writer model writes another program
+        # what the writer is told: an edit to instructions.md, the vocabulary or this model's
+        # guide is a new program even if PREPARE_VERSION isn't bumped
+        "text": _text_hash(guide_template(str(ctx.get("mode") or ""), fill=(level == "fill")) if level != "off" else ""),
     }
     key = program_key({**parts, "prompt": source_prompt})
     context = program_key(parts)  # the same editing context, whatever the prompt says
+    _latest[context] = key
     store = _store(profile_id)
     cached = None if force else store.get(key)
     if cached and not cache_only and (store.recent(context) or [None])[0] != key:
         store.remember(context, key)  # back to this prompt: the next small edit patches it
+    if cached and cached.get("narrow_pending"):
+        renarrow(cached, store, project_id)  # in the background; this run draws from it as it is
     if cached or cache_only:
         return cached
     # One prepare per key: concurrent runs and the editor share it instead of each
@@ -1378,6 +1380,21 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
 
 
 _in_flight: Dict[Tuple[str, str, bool], "asyncio.Future[Dict[str, Any]]"] = {}
+
+# The program each editing context asked for last (context key → program key), so background
+# option generation can drop queued work for prompts the user has edited away from.
+_latest: Dict[str, str] = {}
+
+
+def preparing() -> bool:
+    """Whether any prepare is in flight (background option generation gives way to it)."""
+    return bool(_in_flight)
+
+
+def is_current(program_key: str, context_key: str) -> bool:
+    """Whether a program is the one its editing context asked for last (or nothing says otherwise)."""
+    latest = _latest.get(context_key) if context_key else None
+    return latest is None or latest == program_key
 
 
 async def _writer_fingerprint(project_id: Optional[int]) -> Optional[str]:
@@ -1414,6 +1431,12 @@ async def _prepare(*, context: str, force: bool, **args: Any) -> Dict[str, Any]:
         log.warning(f"[prompt-program] prepare {args.get('key')} gave up after {PREPARE_LIMIT_SECONDS:.0f}s")
         raise PrepareTimeout(f"Preparing took longer than {PREPARE_LIMIT_SECONDS:.0f} seconds, so it stopped. "
                              "The chat model may be busy or too slow for this prompt.") from None
+    except Exception as e:
+        failure = writer_failure(e)
+        if failure is None:
+            raise
+        log.warning(f"[prompt-program] prepare {args.get('key')}: the chat model failed: {type(e).__name__}: {e}")
+        raise failure from e
 
 
 NARROW_RESERVE = 3.0   # seconds of the prepare deadline left for storing the entry after narrowing
@@ -1423,18 +1446,74 @@ async def _narrow(entry: Dict[str, Any], store: ProgramStore, project_id: Option
     """Bound picks narrowed by the user's words (where=, or a wildcard's own name): one
     cached model call per (list, words), see narrow.py. Never fails the prepare: it gets only
     what's left of the prepare's deadline, and with too little left the picks stay unnarrowed
-    rather than the prepared program being lost to the timeout."""
-    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, narrow_entry
+    rather than the prepared program being lost to the timeout. A narrowing skipped or left
+    unfinished that way isn't final: the entry records it (narrow_pending) and a later
+    lookup of the program narrows it again in the background (renarrow)."""
+    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, mark_pending, narrow_entry
     left = PREPARE_LIMIT_SECONDS - (time.monotonic() - started) - NARROW_RESERVE
     if left < 2.0:
-        log.info("[prompt-program] no time left to narrow the bound picks; they draw from their whole lists")
+        if mark_pending(entry):
+            log.info("[prompt-program] no time left to narrow the bound picks; they draw from their whole lists "
+                     "until a later lookup narrows them")
         return
     t0 = time.monotonic()
-    notes = await narrow_entry(entry, NarrowCache(store.root / "narrow"), _ask_model, project_id,
-                               seconds=min(NARROW_SECONDS, left))
+    try:
+        notes = await narrow_entry(entry, NarrowCache(store.root / "narrow"), _ask_model, project_id,
+                                   seconds=min(NARROW_SECONDS, left))
+    except Exception as e:  # never fails the prepare
+        log.warning(f"[prompt-program] narrowing {entry.get('key')} failed: {e}")
+        mark_pending(entry)
+        return
     if entry.get("filters"):
         entry.setdefault("timing", {})["narrow"] = round(time.monotonic() - t0, 2)
         entry["warnings"] = list(entry.get("warnings") or []) + notes
+
+
+RENARROW_BACKOFF_SECONDS = 30.0   # between tries for one program
+RENARROW_MAX_TRIES = 5            # then its picks keep the fallback for good (logged)
+_renarrowing: Dict[Tuple[str, str], "asyncio.Task[None]"] = {}
+_renarrow_after: Dict[Tuple[str, str], float] = {}
+
+
+def renarrow(entry: Dict[str, Any], store: ProgramStore, project_id: Optional[int]) -> Optional["asyncio.Task[None]"]:
+    """Narrow again, in the background, the picks of a stored program whose narrowing was
+    skipped or didn't finish; the stored entry is updated when it completes and later runs
+    draw from it. Never blocks: this run draws from the entry as it is. One try per program
+    at a time, at most every RENARROW_BACKOFF_SECONDS. Returns the task, or None."""
+    if not entry.get("narrow_pending") or int(entry.get("narrow_tries") or 0) >= RENARROW_MAX_TRIES:
+        return None
+    flight = (str(store.root), str(entry.get("key")))
+    if flight in _renarrowing or time.monotonic() < _renarrow_after.get(flight, 0.0):
+        return None
+    _renarrow_after[flight] = time.monotonic() + RENARROW_BACKOFF_SECONDS
+
+    async def run() -> None:
+        from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, narrow_entry, reopen_pending
+        current = store.get(flight[1])
+        if not current or not current.get("narrow_pending"):
+            return
+        tries = int(current.get("narrow_tries") or 0) + 1
+        reopen_pending(current)
+        try:
+            notes = await narrow_entry(current, NarrowCache(store.root / "narrow"), _ask_model, project_id,
+                                       seconds=NARROW_SECONDS)
+        except Exception as e:
+            log.warning(f"[prompt-program] narrowing {flight[1]} again failed: {e}")
+            return
+        current["narrow_tries"] = tries
+        current["warnings"] = list(dict.fromkeys(list(current.get("warnings") or []) + notes))
+        store.put(flight[1], current)
+        left = sorted(current.get("narrow_pending") or {})
+        if left and tries >= RENARROW_MAX_TRIES:
+            log.warning(f"[prompt-program] {flight[1]}: narrowing {left} didn't finish after {tries} tries; "
+                        "they keep their fallback")
+        else:
+            log.info(f"[prompt-program] {flight[1]} narrowed again (try {tries}){': still pending ' + str(left) if left else ''}")
+
+    task = asyncio.ensure_future(run())
+    _renarrowing[flight] = task
+    task.add_done_callback(lambda _t: _renarrowing.pop(flight, None))
+    return task
 
 
 async def _prepare_once(*, context: str, force: bool, base_key: Optional[str] = None, **args: Any) -> Dict[str, Any]:
@@ -1453,7 +1532,7 @@ async def _prepare_once(*, context: str, force: bool, base_key: Optional[str] = 
             _PROTOCOL[_endpoint_id(cfg)] = "text"
             log.warning(f"[prompt-program] {_endpoint_id(cfg)[1]} makes no tool calls ({e}): using the text protocol")
         else:
-            entry["context"] = context
+            entry["context_key"] = context
             await _narrow(entry, store, args["project_id"], started)
             store.put(entry["key"], entry)
             store.remember(context, entry["key"])
@@ -1467,10 +1546,11 @@ async def _prepare_text(*, context: str, base: Optional[Dict[str, Any]], started
     """The text protocol: the program comes back in a ```python block, edits as numbered
     lines in plain text, and nothing persists between calls but the program."""
     store: ProgramStore = args["store"]
+    started = started if started is not None else time.monotonic()
     entry = None
     if base is not None:
         try:
-            entry = await _prepare_patch(base=base, **args)
+            entry = await _prepare_patch(base=base, started=started, **args)
         except StartOver as e:
             log.info(f"[prompt-program] starting over: {e}")
             base = None  # a new prompt: its own program, lineage and options
@@ -1479,9 +1559,9 @@ async def _prepare_text(*, context: str, base: Optional[Dict[str, Any]], started
     if entry is None:
         # A small edit whose patch didn't hold is still the same prompt's next version: the
         # writer sees the old program and keeps what didn't change, and its options stay.
-        entry = await _prepare_new(prev=base, **args)
-    entry["context"] = context
-    await _narrow(entry, store, args["project_id"], started if started is not None else time.monotonic())
+        entry = await _prepare_new(prev=base, started=started, **args)
+    entry["context_key"] = context
+    await _narrow(entry, store, args["project_id"], started)
     store.put(entry["key"], entry)
     store.remember(context, entry["key"])
     _notify_prepared(entry, args["project_id"], args["profile_id"])
@@ -1631,7 +1711,7 @@ def _patch_base(store: ProgramStore, context: str, prompt: str, base_key: Option
     pick a sibling the user wasn't looking at)."""
     if base_key:
         e = store.get(base_key)
-        if (e and e.get("context") == context and e.get("version") == PREPARE_VERSION and e.get("program")
+        if (e and e.get("context_key") == context and e.get("version") == PREPARE_VERSION and e.get("program")
                 and edit_kind(e["prompt"], prompt) is not None):
             return e
     best: Optional[Tuple[int, Dict[str, Any]]] = None
@@ -1718,20 +1798,18 @@ def _describe_changes(changes: Sequence[Tuple[str, str]]) -> str:
     return "; ".join(out)
 
 
-async def _ask_patch(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int = 1024) -> str:
-    """Edits that carry a prompt edit into its program (its own name for timing)."""
-    return await _ask_model(messages, project_id, max_tokens=max_tokens)
-
-
 async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore, tool_id: str, ctx: Dict[str, Any],
                          instructions: str, source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo],
                          notes: Dict[str, str], lora_context: List[Dict[str, Any]], project_id: Optional[int],
                          profile_id: Optional[str], elaborate: bool = True, level: str = "",
-                         exact: Optional[Dict[str, str]] = None) -> Optional[Dict[str, Any]]:
+                         exact: Optional[Dict[str, str]] = None,
+                         started: Optional[float] = None) -> Optional[Dict[str, Any]]:
     """Carry a small prompt edit into the program it was prepared from: no enhancer, a
     short model call for a text edit (none for list items or [exact text]), and at most
-    one repair. None (prepare anew) when the patch doesn't validate."""
-    started = time.monotonic()
+    one repair. None (prepare anew) when the patch doesn't validate or runs out of time.
+    started: when the prepare began (its deadline covers every call)."""
+    began = time.monotonic()
+    started = started if started is not None else began
     old, new = base["prompt"], source_prompt
     kind = edit_kind(old, new)
     enhanced = base.get("enhanced") or ""
@@ -1758,7 +1836,11 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
                                                            numbered=_numbered_program(program))},
         ]
         t0 = time.monotonic()
-        reply = await _ask_patch(messages, project_id, max_tokens=_repair_cap(program))
+        try:
+            reply = await _ask_in_time(messages, project_id, started, max_tokens=_repair_cap(program))
+        except asyncio.TimeoutError:
+            log.info(f"[prompt-program] patch of {base.get('key')} ran out of time")
+            return None
         if re.match(r"\s*\**\s*START OVER", reply or "", re.I):
             raise StartOver(f"the writer judged {key} a different prompt from {base.get('key')}")
         source = apply_line_edits(program, reply)
@@ -1773,8 +1855,11 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
     for round_ in range(2):  # the patch, then at most one repair of it
         source, more = fix_patched(source, new)
         fixed += more
-        check(source)
-        checked = validate(source, new, loras, set(params), enhanced if elaborate else plain_example(new), elaborate)
+        try:
+            check(source)
+            checked = validate(source, new, loras, set(params), enhanced if elaborate else plain_example(new), elaborate)
+        except _CHECK_ERRORS as e:
+            raise ProgramError(_check_error(e)) from None
         problems = checked["problems"]
         if not problems:
             break
@@ -1785,7 +1870,11 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
                      {"role": "user", "content": REPAIR_NOTE.format(problems="\n".join(problems),
                                                                      numbered=_numbered_program(source))}]
         t0 = time.monotonic()
-        reply = await _ask_repair(messages, project_id, max_tokens=_repair_cap(source))
+        try:
+            reply = await _ask_in_time(messages, project_id, started, max_tokens=_repair_cap(source))
+        except asyncio.TimeoutError:
+            log.info(f"[prompt-program] repair of the patch of {base.get('key')} ran out of time")
+            return None
         edited = apply_line_edits(source, reply)
         calls.append({"kind": "repair", "seconds": round(time.monotonic() - t0, 2), "chars": len(reply or ""),
                       "applied": edited is not None and edited != source})
@@ -1797,7 +1886,7 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
     entry.update({
         "attempts": len(calls), "repairs": fixed, "patched_from": base.get("key"), "patch": kind,
         "lineage": base.get("lineage") or base.get("key"),
-        "seconds": round(time.monotonic() - started, 2), "upsample_seconds": 0.0,
+        "seconds": round(time.monotonic() - began, 2), "upsample_seconds": 0.0,
         "timing": {"enhance": 0.0, "calls": calls},
     })
     log.info(f"[prompt-program] patched {base.get('key')} → {key} ({kind}) in {entry['seconds']}s")
@@ -1849,15 +1938,19 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                        source_prompt: str, params: Dict[str, Any], loras: List[LoraInfo], notes: Dict[str, str],
                        lora_context: List[Dict[str, Any]], project_id: Optional[int],
                        profile_id: Optional[str], elaborate: bool = True, level: str = "",
-                       exact: Optional[Dict[str, str]] = None, prev: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                       exact: Optional[Dict[str, str]] = None, prev: Optional[Dict[str, Any]] = None,
+                       started: Optional[float] = None) -> Dict[str, Any]:
     """source_prompt arrives with [exact text] already masked (see mask_exact). `prev`: the
     previous version of this prompt's program (a small edit whose patch didn't hold).
 
     One write, then fixes in place: phases and doubled phrases are fixed in code, and
     other problems go back as numbered-line edits instead of a full rewrite. If a repair
     doesn't settle it, the writer rewrites, told what was wrong. At most MAX_ATTEMPTS
-    model calls."""
-    started = time.monotonic()
+    model calls, each within the prepare's deadline (started: when the prepare began, so a
+    patch tried first or a session given up on counts against it); one that runs out keeps
+    the best program so far."""
+    began = time.monotonic()
+    started = started if started is not None else began
     # One model call writes the program, its text already in this model's style: the
     # enhancer's per-model guide is the writer's own instructions, not a separate step.
     level = level or ("expand" if elaborate else "off")
@@ -1878,6 +1971,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
     best: Optional[Tuple[str, Dict[str, Any]]] = None
     last_error = ""
     repaired = False  # the current source came from a repair, not a write
+    timed_out = False
     while True:
         out_of_time = best is not None and time.monotonic() - started > PREPARE_SOFT_SECONDS
         if source is None:  # write the program (again)
@@ -1886,7 +1980,11 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
             t0 = time.monotonic()
             msgs = base + ([{"role": "assistant", "content": retry[0]}, {"role": "user", "content": retry[1]}]
                            if retry else [])
-            reply = await _ask_model(msgs, project_id, max_tokens=cap)
+            try:
+                reply = await _ask_in_time(msgs, project_id, started, max_tokens=cap)
+            except asyncio.TimeoutError:
+                timed_out = True
+                break
             calls.append({"kind": "write", "seconds": round(time.monotonic() - t0, 2), "chars": len(reply or "")})
             if _truncated(reply):
                 last_error = "The reply was cut off: it was far too long."
@@ -1899,8 +1997,8 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
         try:
             check(source)
             checked = validate(source, source_prompt, loras, set(params), enhanced, elaborate)
-        except ProgramError as e:
-            problems = [str(e)]
+        except _CHECK_ERRORS as e:
+            problems = [_check_error(e)]
         else:
             problems = checked["problems"]
             if best is None or len(problems) <= len(best[1]["problems"]):
@@ -1917,10 +2015,14 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
             source = None
             continue
         t0 = time.monotonic()
-        reply = await _ask_repair(base + [{"role": "assistant", "content": f"```python\n{source}```"},
-                                          {"role": "user", "content": REPAIR_NOTE.format(
-                                              problems=last_error, numbered=_numbered_program(source))}],
-                                  project_id, max_tokens=_repair_cap(source))
+        try:
+            reply = await _ask_in_time(base + [{"role": "assistant", "content": f"```python\n{source}```"},
+                                               {"role": "user", "content": REPAIR_NOTE.format(
+                                                   problems=last_error, numbered=_numbered_program(source))}],
+                                       project_id, started, max_tokens=_repair_cap(source))
+        except asyncio.TimeoutError:
+            timed_out = True
+            break
         edited = apply_line_edits(source, reply)
         if edited is None and "```" in (reply or "") and "emit(" in reply and not _LINE_EDIT.search(reply):
             edited = extract_code(reply)  # it wrote the whole program instead: take it
@@ -1930,15 +2032,20 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                       "applied": edited is not None})
         source, repaired = (drop_name_options(edited, source_prompt), True) if edited is not None else (None, False)
     if best is None:
-        raise ProgramError(f"Couldn't prepare this prompt: {last_error}")
+        if timed_out:
+            raise PrepareTimeout(f"Preparing took longer than {PREPARE_LIMIT_SECONDS:.0f} seconds, so it stopped. "
+                                 "The chat model may be busy or too slow for this prompt.")
+        raise PrepareFailed(last_error)
+    if timed_out:
+        log.info(f"[prompt-program] out of time after {len(calls)} call(s): keeping the best program")
     source, checked = best
     entry = _entry(key=key, tool_id=tool_id, ctx=ctx, elaborate=elaborate, level=level, prompt=source_prompt, enhanced=enhanced,
                    exact=exact, source=source, checked=checked, params=params, loras=loras)
     entry.update({
         "attempts": len(calls), "repairs": fixes,
         "lineage": (prev.get("lineage") or prev.get("key")) if prev else key,
-        "seconds": round(time.monotonic() - started, 2), "upsample_seconds": round(upsampled_at - started, 2),
-        "timing": {"enhance": round(upsampled_at - started, 2), "calls": calls},
+        "seconds": round(time.monotonic() - began, 2), "upsample_seconds": round(upsampled_at - began, 2),
+        "timing": {"enhance": round(upsampled_at - began, 2), "calls": calls},
     })
     log.info(f"[prompt-program] prepared {key} ({entry['mode']}) in {entry['seconds']}s "
              f"(upsample {entry['upsample_seconds']}s, model calls {[c['kind'] for c in calls]}, "
@@ -2029,69 +2136,5 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
     return result
 
 
-_OPTIONS_PROMPT = """You write options for one choice in an image prompt. Each image draws one option and
-puts it in the prompt where the choice stands.
-
-Write exactly {count} new options for "{label}"{about}. Each option:
-- is a concrete, visual phrase that reads naturally in place of the example below,
-- matches the existing options in style and length{keep},
-- differs for real from every other option and from the existing ones (no synonyms),
-- fits the rest of the prompt,
-- says what to show, never what to leave out (no "no", "not", "without").
-
-Reply with only a JSON list of strings."""
-
-
-def _parse_options(reply: str) -> List[str]:
-    import json
-    text = re.sub(r"^```\w*\s*|\s*```$", "", (reply or "").strip())
-    m = re.search(r"\[.*\]", text, re.S)
-    try:
-        items = json.loads(m.group(0)) if m else []
-    except ValueError:
-        items = []
-    if not items:  # one per line, bullets or numbers stripped
-        items = [re.sub(r"^\s*(?:[-*\u2022]|\d+[.)])\s*", "", ln).strip().strip('",') for ln in text.splitlines()]
-    return [str(x).strip() for x in items if isinstance(x, (str, int, float)) and str(x).strip()]
-
-
-async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Sequence[str], count: int,
-                          project_id: Optional[int]) -> List[str]:
-    """New options for one choice of a prepared program, in the style of its others.
-    Called by the choice card (More like these, Reroll all); never during a run."""
-    choice = next((c for c in entry.get("choices") or [] if c.get("id") == choice_id), None)
-    if not choice or choice.get("kind") != "pick":
-        raise ProgramError(f"No choice {choice_id} to write options for.")
-    count = max(1, min(24, int(count)))
-    wildcard = choice.get("wildcard")
-    system = _OPTIONS_PROMPT.format(
-        count=count, label=choice.get("label") or choice_id,
-        about=f' (the user wrote {{{{{wildcard}}}}})' if wildcard and wildcard.lower() != str(choice.get("label", "")).lower() else "",
-        keep="; short, a few words, like the user's own wording" if entry.get("elaborate") is False else "",
-    )
-    have = list(dict.fromkeys(str(x) for x in existing if str(x).strip()))
-    user = "\n".join([
-        f"User's prompt:\n{entry.get('prompt', '')}",
-        "",
-        f"Example prompt:\n{entry.get('example') or entry.get('enhanced') or ''}",
-        "",
-        "Existing options (don't repeat these):",
-        *[f"- {o}" for o in have],
-    ])
-    seen = {o.lower() for o in have}
-    out: List[str] = []
-    for _ in range(2):  # one retry if the model repeats itself
-        reply = await _ask_model([{"role": "system", "content": system}, {"role": "user", "content": user}], project_id)
-        for o in _parse_options(reply):
-            if o.lower() not in seen and len(out) < count:
-                seen.add(o.lower())
-                out.append(o)
-        if len(out) >= count:
-            break
-    if not out:
-        raise ProgramError("The model didn't write any new options.")
-    return out
-
-
-__all__ = ["ensure_program", "realize", "draw_seed", "realized_text", "tidy_text", "suggest_options", "ProgramError",
+__all__ = ["ensure_program", "realize", "draw_seed", "realized_text", "tidy_text", "ProgramError",
            "DrawAborted"]

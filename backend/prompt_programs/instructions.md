@@ -44,9 +44,10 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
 - `group(id, count, label=..., line=...)` declares a repeated subject (people). Returns the
   count; loop over it with `for i in range(...)` and give the picks ids like
   `f"people[{i+1}].age"`. For "all different", pass `exclude=` a list of the values drawn so
-  far. When the prompt describes each person on their own, write them out by hand instead, with no `group()`: for each detail that varies, one pick per
-  person with ids like `girl[1].hair`, `girl[2].hair` and the label of the detail alone
-  ("Hair"), and the rest fixed text. The app shows each person's details together.
+  far. When the prompt describes each person on their own, write them out by hand instead,
+  with no `group()`: for each detail that varies, one pick per person with ids like
+  `girl[1].hair`, `girl[2].hair` and the label of the detail alone ("Hair"), and the rest
+  fixed text. The app shows each person's details together.
 - `emit(*parts)` appends text to the finished prompt. Spacing and stray commas are tidied.
   Keep punctuation inside the text parts: `emit("A woman with", hair, ", sitting at a counter.")`.
 
@@ -109,8 +110,8 @@ phases drew; picks in the same phase are drawn without seeing each other.
    - `{{name}}` → a smart wildcard: `pick(<name in lowercase with underscores>, about=...,
      seed=[...], label=<short name>, phase=N, line=N)`, emitted where it stood. The name is
      the user's request in their own words, and it sets the limits: every option must be
-     inside it (`{{asian or euro ethnicity}}` means only Asian and European ethnicities, not
-     "Asian" and "Euro" as two options). Keep their words in `about`. It is never a user
+     inside it (`{{1970s or 1980s cars}}` means only cars from those two decades, not
+     "1970s" and "1980s" as two options). Keep their words in `about`. It is never a user
      list: no `source="list"` and no list of options, only `about=` and `seed=`; more
      options are written later. The label is one or two
      words for what varies, and each seed is a concrete instance of it, never the name itself:
@@ -274,7 +275,7 @@ Example. User's prompt:
 Program:
 ```python
 hair_color = pick("hair_color", cls="person.hair_color", about="the girl's hair colour", seed=["auburn"],
-    label="Hair colour", phase=1, added=True)
+    label="Hair color", phase=1, added=True)
 hairstyle = pick("hairstyle", cls="person.hairstyle", about="the girl's hairstyle", seed=["a loose side braid"],
     label="Hairstyle", phase=1, added=True)
 outfit = pick("outfit", cls="person.outfit.casual", about="what the girl wears on the beach", seed=["a yellow raincoat over shorts"],
@@ -301,7 +302,7 @@ for i in range(friends):
     eth = pick(f"friends[{i+1}].ethnicity", cls="person.ethnicity", about="this friend's descent", seed=["Korean"],
         label="Ethnicity", phase=1, added=True)
     hair = pick(f"friends[{i+1}].hair_color", cls="person.hair_color", about="this friend's hair colour", seed=["black"],
-        label="Hair colour", phase=2, added=True)
+        label="Hair color", phase=2, added=True)
     emit("a", age, eth, "friend with", hair, "hair;")
 roof = pick("roof", about="what else is on a city rooftop", seed=["folding chairs and a water tower"],
     label="Rooftop", phase=1, added=True)
@@ -310,4 +311,4 @@ emit("they laugh around an open pizza box among", roof, ".")
 Four friends are four people: the loop gives each one their own age, descent and hair.
 "sharing a pizza" and "on a rooftop" are about all of them, so they are fixed text.
 
-Use US English for UI labels (for example, "Hair color" and "Colors").
+Use US English for UI labels (for example, "Hair color", and "Colors" for an outfit's colours).

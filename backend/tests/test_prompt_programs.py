@@ -140,24 +140,13 @@ def stub(monkeypatch, tmp_path):
         return list(LORAS), {}
 
     replies = []
-    enhanced = {"text": "A woman waiting for a train on a [{rainy|foggy|bright}] morning. [EXACT_1]"}
-
-    async def fake_upsample(prompt, ctx, instructions, lora_context, project_id, profile_id):
-        calls.append([{"role": "upsample", "content": prompt}])
-        return enhanced["text"]
-
-    monkeypatch.setattr(prep, "upsample", fake_upsample)
     monkeypatch.setattr(prep, "writer_style", fake_style)
     monkeypatch.setattr(prep, "_ask_model", fake_ask)
     monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
     monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
     monkeypatch.setattr(prep, "_writer_endpoint", text_endpoint)  # these fake the text protocol's _ask_model
     monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
-    stub_state["enhanced"] = enhanced
     return calls, replies
-
-
-stub_state = {}
 
 
 def ctx(schema):
@@ -197,6 +186,37 @@ class TestPrepare:
         a = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=sized, instructions="", lora_items=[], project_id=None, profile_id="p")
         b = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=unsized, instructions="", lora_items=[], project_id=None, profile_id="p")
         assert a["key"] == b["key"] and len(calls) == 1
+
+    async def test_canvas_shape_is_in_the_key_where_the_guide_composes_for_it(self, stub):
+        calls, replies = stub
+        replies += [f"```python\n{TRAIN_M}```"] * 2
+
+        def sized(w, h):
+            return {**ctx(SCHEMA), "mode": "qwen-image-2.1", "enhance": {"is_video": False, "width": w, "height": h}}
+
+        async def at(w, h):
+            return await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=sized(w, h), instructions="",
+                                             lora_items=[], project_id=None, profile_id="p")
+        wide, wider, tall = await at(1344, 768), await at(1600, 900), await at(768, 1344)
+        assert wide["key"] == wider["key"]  # one program per shape, whatever the size
+        assert tall["key"] != wide["key"] and len(calls) == 2
+
+    async def test_an_instructions_edit_is_a_new_program(self, stub, monkeypatch):
+        calls, replies = stub
+        replies += [f"```python\n{TRAIN_M}```"] * 2
+        before = await self._ensure()
+        monkeypatch.setattr(prep, "_INSTRUCTIONS", prep._INSTRUCTIONS + "\nOne more rule.")
+        after = await self._ensure()
+        assert before["key"] != after["key"] and len(calls) == 2
+
+    def test_fluents_guide_names_the_canvas_shape_not_its_size(self):
+        from routes.prompt_enhancement import _flux3_canvas_guidance, _qwen_canvas_guidance, guide_uses_canvas
+        assert "1344x768" in _qwen_canvas_guidance(1344, 768)  # the per-image enhancer: exact
+        assert "1344" not in _qwen_canvas_guidance(1344, 768, exact=False)
+        assert _qwen_canvas_guidance(1344, 768, exact=False) == _qwen_canvas_guidance(1600, 900, exact=False)
+        assert "tall frame" in _flux3_canvas_guidance(768, 1344, exact=False)
+        assert guide_uses_canvas("qwen-image-2.1") and guide_uses_canvas("flux3-klein")
+        assert not guide_uses_canvas("prose") and not guide_uses_canvas("qwen-image-2.1", fill=True)
 
     async def test_retries_with_the_problem(self, stub):
         calls, replies = stub
@@ -263,9 +283,6 @@ class TestPrepare:
         replies.append(f"```python\n{TRAIN_M}```")
         entry = await self._ensure()
         assert entry["attempts"] == 1 and any('pick("clothing") appears more than once' in w for w in entry["warnings"])
-
-    def test_the_enhancer_writes_examples_for_smart_wildcards(self):
-        assert prep._for_enhancer("a woman with {{hair style}} on a {red|blue} wall") == "a woman with \u27e8hair style\u27e9 on a {red|blue} wall"
 
     def test_plain_example_drops_instruction_lines(self):
         assert prep.plain_example("a {{hair}} woman\n# vary her mood\non a {red|blue} wall") == "a [{{hair}}] woman\non a [{red|blue}] wall"
@@ -673,16 +690,24 @@ class TestFastPrepare:
         patched = await self._ensure(PROMPT.replace("{rainy|foggy|bright}", "{rainy|bright}"))
         assert heard == [first["key"], patched["key"]]
 
-    def test_the_placeholder_note_is_only_for_prompts_with_placeholders(self):
-        assert not prep._needs_placeholder_note("A lifeguard sitting in a chair")
-        assert prep._needs_placeholder_note("A {red|blue} car")
-        assert prep._needs_placeholder_note("A sign that says [EXACT_1]")
-        assert prep._needs_placeholder_note("A chef\n# vary her age")
-
     def test_edit_kinds(self):
         assert prep.edit_kind("a {red|blue} car", "a {red|blue|green} car") == "lists"
         assert prep.edit_kind("a woman in a red coat at night", "a man in a red coat at night") == "text"
         assert prep.edit_kind("a woman", "a dog on a skateboard in the city at dusk with fireworks") is None
+
+
+class TestProgramSupport:
+    @pytest.mark.parametrize("model,task,images,supported", [
+        ("Qwen-Image-2.1", "text-to-image", 0, True), ("Qwen-Image-2.1", "image-to-image", 1, False),
+        ("FLUX.3 Klein", "image-to-image", 1, False), ("sdxl", "text-to-image", 0, True),
+        ("some model", "image-to-image", 1, False), ("some model", "text-to-audio", 0, False),
+        ("some model", "text-to-video", 0, True),
+    ])
+    def test_edits_and_audio_keep_the_per_image_enhancer(self, monkeypatch, model, task, images, supported):
+        import routes.generation as gen
+        monkeypatch.setattr(gen, "_prompt_pipeline_context", lambda *a: (model, None, task, {}))
+        monkeypatch.setattr(gen, "_prompt_input_image_count", lambda *a: images)
+        assert gen.prompt_enhance_context({}, "t", task, None)["program_supported"] is supported
 
 
 class TestApplyRun:
@@ -715,38 +740,45 @@ class TestDrawSeed:
 
 
 class TestSuggestOptions:
-    ENTRY = {"prompt": "a woman in {{stylish tank top}}", "example": "a woman in a silk tank top", "elaborate": False,
+    ENTRY = {"key": "k", "prompt": "a woman in {{stylish tank top}}", "example": "a woman in a silk tank top",
+             "elaborate": False, "mode": "prose",
+             "program": 't = pick("stylish_tank_top", about="a stylish tank top", seed=["a silk tank top"], '
+                        'label="Tank Top", phase=1)\nemit("a woman in", t)\n',
              "choices": [{"id": "stylish_tank_top", "kind": "pick", "label": "Tank Top", "wildcard": "stylish tank top",
-                          "options": ["a silk tank top", "a linen tank top"]},
+                          "about": "a stylish tank top", "options": ["a silk tank top", "a linen tank top"]},
                          {"id": "look", "kind": "lora", "label": "Look", "options": ["A"]}]}
 
     async def test_new_options_skip_existing_and_repeats(self, monkeypatch):
+        from prompt_programs import options as opts
         calls = []
 
-        async def fake_ask(messages, project_id):
+        async def fake_ask(messages, project_id, max_tokens=4096):
             calls.append(messages)
             return '```json\n["a silk tank top", "a ribbed cotton tank", "A ribbed cotton tank", "a sheer mesh tank"]\n```'
 
         monkeypatch.setattr(prep, "_ask_model", fake_ask)
-        out = await prep.suggest_options(self.ENTRY, "stylish_tank_top", ["a silk tank top", "a linen tank top"], 2, None)
+        out = await opts.suggest_options(self.ENTRY, "stylish_tank_top", ["a silk tank top", "a linen tank top"], 2, None)
         assert out == ["a ribbed cotton tank", "a sheer mesh tank"] and len(calls) == 1
         system, user = calls[0][0]["content"], calls[0][1]["content"]
-        assert "exactly 2 new options" in system and "{{stylish tank top}}" in system and "a few words" in system
-        assert "- a linen tank top" in user
+        # the same writer as background generation: its rules, the user's own words as a rule
+        assert "Write 2 options" in system and "a few words" in system and "most typical" in system
+        assert "- a linen tank top" in user and '"stylish tank top"' in user
 
     async def test_retries_once_when_short_and_parses_lines(self, monkeypatch):
+        from prompt_programs import options as opts
         replies = ["- a ribbed cotton tank", "1. a sheer mesh tank\n2. a crochet halter"]
 
-        async def fake_ask(messages, project_id):
+        async def fake_ask(messages, project_id, max_tokens=4096):
             return replies.pop(0)
 
         monkeypatch.setattr(prep, "_ask_model", fake_ask)
-        out = await prep.suggest_options(self.ENTRY, "stylish_tank_top", [], 3, None)
+        out = await opts.suggest_options(self.ENTRY, "stylish_tank_top", [], 3, None)
         assert out == ["a ribbed cotton tank", "a sheer mesh tank", "a crochet halter"]
 
     async def test_only_picks(self):
+        from prompt_programs import options as opts
         with pytest.raises(ProgramError):
-            await prep.suggest_options(self.ENTRY, "look", [], 3, None)
+            await opts.suggest_options(self.ENTRY, "look", [], 3, None)
 
 
 class TestRerollEdits:
@@ -887,11 +919,11 @@ def test_a_smart_wildcard_written_as_a_list_is_a_problem():
     problems = prep.validate(src, "A girl on a bicycle, {{season}}", [], set())["problems"]
     assert any('has source="list", but the user\'s prompt has no list {spring|summer}' in p
                and "{{season}} is a smart wildcard" in p for p in problems)
-    src = ('e = pick("ethnicity", ["asian or euro ethnicity"], source="list", phase=1, line=1)\n'
-           'hair = pick("hair", about=f"the hair of a {e} woman", seed=["dark hair"], phase=2, added=True)\n'
-           'emit("A portrait of a young woman,", e, ",", hair)\n')
-    problems = prep.validate(src, "Portrait of a young woman, {{asian or euro ethnicity}}", [], set())["problems"]
-    assert any('pick("ethnicity") has source="list"' in p for p in problems)
+    src = ('e = pick("cars", ["1970s or 1980s cars"], source="list", phase=1, line=1)\n'
+           'street = pick("street", about=f"the street where {e} are parked", seed=["a quiet suburb"], phase=2, added=True)\n'
+           'emit("A photo of a street,", e, ",", street)\n')
+    problems = prep.validate(src, "Photo of a street, {{1970s or 1980s cars}}", [], set())["problems"]
+    assert any('pick("cars") has source="list"' in p for p in problems)
     listed = 'season = pick("season", ["spring", "summer"], label="Season", phase=1, line=1)\nemit("A girl,", season)\n'
     assert any("{{season}} is a smart wildcard, not a list" in p
                for p in prep.validate(listed, "A girl, {{season}}", [], set())["problems"])
@@ -906,8 +938,8 @@ def test_a_one_item_list_is_fixed_text():
     out, notes = prep.fix_one_item_lists(src)
     assert out.startswith('flower = "lilacs"\n') and "light = pick(" in out and len(notes) == 1
     assert not prep.validate(out, "A vase of lilacs", [], set())["problems"]
-    wild = 'e = pick("ethnicity", ["asian or euro ethnicity"], source="list", phase=1, line=1)\nemit("A woman,", e)\n'
-    assert prep.fix_one_item_lists(wild, "A woman, {{asian or euro ethnicity}}") == (wild, [])
+    wild = 'e = pick("cars", ["1970s or 1980s cars"], source="list", phase=1, line=1)\nemit("A street of", e)\n'
+    assert prep.fix_one_item_lists(wild, "A street of {{1970s or 1980s cars}}") == (wild, [])
 
 
 # --------------------------------------------------------------------------- the sandbox
