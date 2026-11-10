@@ -1,5 +1,5 @@
-"""Fluent draws: pick specs, the static dependency rule, the options and judge
-interfaces, the phased draw loop, and parity of the compatibility path."""
+"""Fluent draws: pick specs, the static dependency rule, the options interface, the
+phased draw loop, and parity of the path for programs without specs."""
 
 import hashlib
 import json
@@ -106,7 +106,7 @@ import pytest  # noqa: E402
 
 from prompt_programs import prepare as prep  # noqa: E402
 from prompt_programs.draws import (  # noqa: E402
-    DrawAborted, DrawResult, LiteralOptions, NullJudge, analyze, draw, keep_rate, uses_draws,
+    DrawAborted, DrawResult, LiteralOptions, analyze, draw, fixed_text, uses_draws,
 )
 from prompt_programs.runtime import ProgramError  # noqa: E402
 
@@ -140,22 +140,6 @@ HAIRS = HAIR_ERAS = {"1920s": {"finger waves", "a sleek bob"}, "1970s": {"feathe
                      "1990s": {"a pixie cut", "a messy bun"}}
 
 
-class FakeJudge:
-    """Scores (pick, value) pairs from a table; everything else is typical. Records
-    every pass so tests can read the state the judge saw."""
-    version = "fake-1"
-
-    def __init__(self, tiers=None):
-        self.tiers = tiers or {}
-        self.calls = []
-
-    def judge(self, state, questions):
-        self.calls.append((state, list(questions)))
-        return [self.tiers.get((q.pick_id, q.value)) or self.tiers.get((None, q.value)) or {"typical": 1.0}
-                for q in questions]
-
-
-WRONG = {"wrong": 1.0}
 
 
 def by_id(result):
@@ -253,40 +237,33 @@ class TestDispatch:
 
     def test_programs_with_specs_take_the_draw_path(self):
         got = prep.realize(self._entry(PORTRAIT), seed=4)
-        assert isinstance(got, DrawResult) and got.to_dict()["draw_revision"]["judge"] == "null"
+        assert isinstance(got, DrawResult) and got.to_dict()["draw_revision"]["engine"] == "draws-2"
 
 
 class TestDrawLoop:
-    def test_null_judge_draws_from_the_pools(self):
+    def test_draws_come_from_the_pools(self):
         prompts = set()
         for seed in range(40):
             r = draw(PORTRAIT, seed)
             d = by_id(r)
             assert d["hair"].value in HAIR_ERAS[d["era"].value]
             assert d["hair"].phase == 2 and d["role"].about == "the woman's job"
-            assert not r.unresolved
             prompts.add(r.prompt)
         assert len(prompts) > 8
 
-    def test_null_judge_calls_nothing(self):
-        class Loud(NullJudge):
-            def judge(self, state, questions):
-                raise AssertionError("the null judge must not be called")
-        draw(PORTRAIT, 1, judge=Loud())
-
     def test_same_revision_seed_and_pins_give_the_same_prompt(self):
-        a = draw(PORTRAIT, 9, pins={"light": ["neon light"]}, judge=FakeJudge({("role", "pilot"): {"unusual": 1.0}}))
-        b = draw(PORTRAIT, 9, pins={"light": ["neon light"]}, judge=FakeJudge({("role", "pilot"): {"unusual": 1.0}}))
+        a = draw(PORTRAIT, 9, pins={"light": ["neon light"]})
+        b = draw(PORTRAIT, 9, pins={"light": ["neon light"]})
         assert a.to_dict() == b.to_dict()
         rev = a.revision
-        assert rev["engine"] and rev["program"] and rev["judge"] == "fake-1" and rev["rarity"] == 0.3
+        assert rev["engine"] and rev["program"] and "judge" not in rev and "rarity" not in rev
         assert rev["pools"]["role: the woman's job"] == 3
         edited = draw(PORTRAIT, 9, pins={"light": ["neon light"]}, edits={"role": {"add": ["a chemist"]}})
         assert edited.revision["id"] != rev["id"] and edited.revision["pools"]["role: the woman's job"] == 4
 
     def test_draws_do_not_depend_on_hash_order(self):
         code = ("import json\nfrom prompt_programs.draws import draw\nimport tests.test_prompt_program_draws as t\n"
-                "print(json.dumps([draw(t.PORTRAIT, s, judge=t.FakeJudge({('role', 'nurse'): {'unusual': 1.0}})).to_dict()"
+                "print(json.dumps([draw(t.PORTRAIT, s, pins={'light': ['neon light']}).to_dict()"
                 " for s in range(6)] + [draw(t.FRIENDS, s).to_dict() for s in range(6)], sort_keys=True))")
         outs = set()
         for hs in ("1", "2"):
@@ -295,66 +272,25 @@ class TestDrawLoop:
                                     check=True, cwd=os.path.dirname(os.path.dirname(__file__))).stdout)
         assert len(outs) == 1
 
-    def test_judge_rejects_are_rerolled(self):
-        judge = FakeJudge({("role", "jazz singer"): WRONG, ("role", "nurse"): WRONG})
-        for seed in range(20):
-            assert by_id(draw(PORTRAIT, seed, judge=judge))["role"].value == "pilot"
-
-    def test_unusual_values_follow_the_rarity_knob(self):
-        src = 'hair = pick("hair", ["brown hair", "grey hair"], source="list", phase=1)\nemit("A woman with", hair)\n'
-        judge = FakeJudge({("hair", "grey hair"): {"unusual": 1.0}})
-        grey = sum(by_id(draw(src, s, judge=judge, rarity=0.25))["hair"].value == "grey hair" for s in range(600))
-        assert 0.13 < grey / 600 < 0.27  # r/(1+r) = 0.2 with one typical and one unusual at equal weight
-        assert keep_rate({"wrong": 0.6, "typical": 0.4}) == 0 and keep_rate({"unusual": 1.0}, rarity=0.25) == 0.25
-
-
 class TestMasking:
-    def test_the_judge_sees_earlier_phases_and_pins_never_peers_or_later_picks(self):
-        judge = FakeJudge()
-        r = draw(PORTRAIT, 5, pins={"light": ["neon light"]}, judge=judge)
-        d = by_id(r)
-        assert len(judge.calls) == 2 and r.judge_passes == 2  # one pass per phase
-        state1, q1 = judge.calls[0]
-        assert {q.pick_id for q in q1} == {"era", "role"}
-        assert "[Era]" in state1 and "[Role]" in state1 and "[Hairstyle]" in state1
-        assert "neon light" in state1  # pinned: authoritative context for every phase
+    """fixed_text(): the program's text with every pick masked, for the option writer."""
+
+    def test_every_pick_and_the_text_derived_from_it_is_masked(self):
+        text = fixed_text(PORTRAIT)
+        assert "[Era]" in text and "[Role]" in text and "[Hairstyle]" in text
         for era, ground in (("1920s", "smoky club"), ("1970s", "disco"), ("1990s", "grunge bar")):
-            assert era not in state1 and ground not in state1  # derived text is masked with its source
-        state2, q2 = judge.calls[1]
-        assert {q.pick_id for q in q2} == {"hair"}  # light is pinned: never judged
-        assert d["era"].value in state2 and d["role"].value in state2 and "[Hairstyle]" in state2
-        assert d["hair"].pinned is False and d["light"].pinned is True
+            assert era not in text and ground not in text  # derived text is masked with its source
 
     def test_a_pick_inside_an_f_string_is_masked_in_place(self):
         src = ('a = pick("animal", ["cat", "dog"], phase=1)\nc = pick("colour", ["red", "blue"], phase=2)\n'
                'emit(f"A {c} collar on a sleeping {a}.")\n')
-        judge = FakeJudge()
-        draw(src, 1, judge=judge)
-        assert judge.calls[0][0] == "A [Colour] collar on a sleeping [Animal]."
-        assert judge.calls[1][0].startswith("A [Colour] collar on a sleeping ")
-
+        assert fixed_text(src) == "A [Colour] collar on a sleeping [Animal]."
 
     def test_a_list_passed_to_emit_is_masked_once(self):
         src = ('a = pick("animal", ["cat", "dog"], phase=1)\nc = pick("colour", ["red", "blue"], phase=2)\n'
                'emit("A", [a, c], "collar.")\n')
-        judge = FakeJudge()
-        draw(src, 1, judge=judge)
-        state = judge.calls[0][0]  # no candidate leaks; the list is masked conservatively
-        assert all(v not in state for v in ("cat", "dog", "red", "blue")) and state.startswith("A [Animal]")
-
-    def test_a_pin_in_a_branch_not_yet_taken_is_still_context(self):
-        judge = FakeJudge()
-        draw(RAIN, 3, pins={"umbrella": ["a clear umbrella"]}, judge=judge)
-        state1, q1 = judge.calls[0]
-        assert {q.pick_id for q in q1} == {"weather"}
-        assert "a clear umbrella" in state1
-
-    def test_a_pin_is_listed_even_when_its_text_appears_elsewhere(self):
-        src = ('a = pick("animal", ["cat", "dog"], phase=1)\nc = pick("colour", ["red", "blue"], phase=1)\n'
-               'emit("A hundred", [a, c])\n')
-        judge = FakeJudge()
-        draw(src, 1, pins={"colour": ["red"]}, judge=judge)
-        assert "Colour: red" in judge.calls[0][0]
+        text = fixed_text(src)  # no candidate leaks; the list is masked conservatively
+        assert all(v not in text for v in ("cat", "dog", "red", "blue")) and text.startswith("A [Animal]")
 
 
 class TestPins:
@@ -389,13 +325,6 @@ class TestPins:
 
 
 class TestExclude:
-    def test_a_redrawn_value_makes_later_peers_redraw(self):
-        judge = FakeJudge({("people[1].age", "20s"): WRONG, ("people[1].age", "40s"): WRONG})
-        for seed in range(40):
-            d = by_id(draw(FRIENDS, seed, judge=judge))
-            vals = [d[f"people[{i}].age"].value for i in (1, 2, 3)]
-            assert vals[0] in ("70s", "teens") and len(set(vals)) == 3
-
     def test_replayed_values_respect_exclude(self):
         r = draw(FRIENDS, 3, fixed={"people[1].age": "40s", "people[2].age": "40s"})
         d = by_id(r)
@@ -403,7 +332,7 @@ class TestExclude:
         assert not d["people[1].age"].pinned  # preserved, not the user's pin
 
 
-class TestEmptyPoolAndUnresolved:
+class TestEmptyPool:
     def test_an_emptied_user_list_aborts_before_its_value_is_used(self):
         src = 'era = pick("era", ["1920s", "1970s"], label="Era", source="list", phase=1)\nemit(era.upper())\n'
         with pytest.raises(DrawAborted) as e:
@@ -428,21 +357,6 @@ class TestEmptyPoolAndUnresolved:
         entry = {"key": "k", "program": PORTRAIT, "loras": [], "params": {}}
         with pytest.raises(DrawAborted):
             prep.realize(entry, seed=1, edits={"era": {"remove": ["1920s", "1970s", "1990s"]}})
-
-    def test_no_accepted_value_ships_the_best_and_counts_as_unresolved(self):
-        judge = FakeJudge({("role", "jazz singer"): {"wrong": 0.9, "typical": 0.1},
-                           ("role", "nurse"): {"wrong": 0.95, "typical": 0.05},
-                           ("role", "pilot"): {"wrong": 0.7, "typical": 0.3}})
-        r = draw(PORTRAIT, 2, judge=judge)
-        assert by_id(r)["role"].value == "pilot"
-        assert r.unresolved == [{"id": "role", "label": "Role", "reason": "no_accepted_value"}]
-        assert r.to_dict()["unresolved"] == r.unresolved
-
-    def test_the_fallback_only_takes_values_that_keep_the_pins(self):
-        judge = FakeJudge({("era", "1970s"): WRONG})
-        r = draw(PORTRAIT, 2, pins={"hair": ["an afro"]}, judge=judge)
-        assert by_id(r)["era"].value == "1970s" and r.unresolved[0]["id"] == "era"
-
 
 class TestLorasAndParams:
     def test_loras_and_params_draw_once_and_hold(self):

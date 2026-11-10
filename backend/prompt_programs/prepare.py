@@ -22,7 +22,7 @@ from core.logging import get_logger
 from prompt_programs.runtime import (
     LoraInfo, ProgramError, RunResult, check, discover, extract_code, run, tidy_text,
 )
-from prompt_programs.draws import DrawAborted, analyze, draw, legacy_program, uses_draws
+from prompt_programs.draws import DrawAborted, analyze, draw, uses_draws
 from prompt_programs.store import ProgramStore, program_key
 from prompt_programs.vocab import vocabulary
 
@@ -2006,9 +2006,8 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
             triggers: bool = True, profile_id: Optional[str] = None, project_id: Optional[int] = None,
             revision: Optional[Dict[str, Any]] = None, runtime: Any = None) -> RunResult:
     """One generation's prompt from a prepared program. Programs with pick specs draw
-    with generated options and the configured judge (prompt_programs.fluent); pass a
-    recorded `revision` to replay its pools and knobs, or a `runtime` to draw with a
-    given options service and judge (evaluations, tests)."""
+    with generated options (prompt_programs.fluent); pass a recorded `revision` to replay
+    its pools, or a `runtime` to draw with a given options service (evaluations, tests)."""
     loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
     if not triggers:  # the prompt menu's "Trigger words" is off: a picked LoRA adds none
         loras = [LoraInfo(lo.name, lo.path, lo.weight, "") for lo in loras]
@@ -2019,25 +2018,10 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
     # run exactly as they always have.
     if uses_draws(entry["program"]):
         from prompt_programs.fluent import runtime_for
-        from prompt_programs.judge import JudgeUnavailable
         rt = runtime or runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
                                     revision=revision)
-
-        def _draw(rt: Any) -> RunResult:
-            return draw(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None,
-                        options=rt.options, judge=rt.judge, rarity=rt.rarity, wrong_cut=rt.wrong_cut,
-                        keep=getattr(rt, "keep", "cut"), legacy=legacy_program(entry))
-        try:
-            result = _draw(rt)
-        except JudgeUnavailable as e:
-            if revision or runtime is not None:  # an exact replay or an evaluation: say so
-                raise ProgramError(str(e)) from None
-            # The judge went away mid-session: this image draws without one, and its
-            # revision records the null judge.
-            log.warning(f"[prompt-program] {e}; drawing without the judge")
-            from prompt_programs.draws import NullJudge
-            result = _draw(runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
-                                       judge=NullJudge()))
+        result = draw(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None,
+                      options=rt.options)
     else:
         result = run(entry["program"], seed, clean_pins, loras, params, fixed or None, clean_edits or None)
     if entry.get("exact"):  # the user's [exact text], straight to the image model

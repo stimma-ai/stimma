@@ -1,7 +1,7 @@
-"""Phased, judged draws for programs whose picks carry specs.
+"""Phased draws for programs whose picks carry specs.
 
-A program that gives its picks `about=`, `phase=` or `seed=` is drawn here instead of
-by `runtime.run()`, which stays the path for programs written before specs existed.
+A program that gives its picks `about=`, `phase=`, `seed=` or `cls=` is drawn here
+instead of by `runtime.run()`, which runs programs without specs.
 
     era  = pick("era", ["1920s", "1970s"], source="list", phase=1, line=1)
     role = pick("role", about="the woman's job", phase=1, seed=["jazz singer"])
@@ -14,12 +14,11 @@ above it, a subscript, a loop count, its options) must sit in a strictly earlier
 runs.
 
 Per image, phase by phase: the program runs with concrete values (earlier phases
-final, this phase proposed, later phases placeholders); the judge reads the text with
-this phase and later ones masked as `[Label]` and scores each proposal; a Bernoulli coin
-against the keep rate accepts it or a batch of new proposals is tried. Pins are placed
-first and are never judged. Options come from an `OptionsService` (here: the program's
-own literals, seeds and the user's edits) and judgments from a `Judge` (here: the null
-judge, which keeps everything and calls nothing).
+final, this phase proposed, later phases placeholders), and each proposal is kept unless
+it would leave a pin unsatisfiable, in which case new proposals are tried. Pins are
+placed first. Options come from an `OptionsService` (here: the program's own literals,
+seeds and the user's edits; prompt_programs.options generates more). Whether a finished
+draw hangs together is checked afterwards, by the fix pass (prompt_programs.fix).
 """
 
 from __future__ import annotations
@@ -42,19 +41,9 @@ from prompt_programs.vocab import fill, is_template, tags_match, template_matche
 
 DRAW_VERSION = "draws-2"
 SPEC_ARGS = ("about", "phase", "seed", "cls")
-TIERS = ("typical", "plausible", "unusual", "wrong")
-DEFAULT_RARITY = 0.3   # keep rate of an *unusual* value (the rarity knob)
-WRONG_CUT = 0.5        # P(wrong) above this keeps nothing (tuned on train data later)
-BATCH = 16             # proposals per re-proposal batch
+BATCH = 16             # proposals per re-proposal batch, when a value breaks a pin
+MAX_BATCHES = 3        # batches before a pick gives up
 MAX_POOLS = 32         # pools a generated pick may have: one per combination of the lists it names
-LEGACY_BEFORE = 21     # programs prepared before pp-21 key a pool by generated picks' values too
-
-
-def legacy_program(entry: Dict[str, Any]) -> bool:
-    """A prepared program from before pp-21: it draws (and replays) as it did then."""
-    m = re.fullmatch(r"pp-(\d+)", str(entry.get("version") or ""))
-    return bool(m) and int(m.group(1)) < LEGACY_BEFORE
-MAX_BATCHES = 3        # batches before a pick falls back and counts as unresolved
 
 _PICK_PARAMS = ("id", "options", "label", "by", "source", "line", "exclude", "hidden", "added", "about", "phase", "seed",
                 "cls", "where")
@@ -625,64 +614,6 @@ class LiteralOptions:
         self.requests.append((pool_key(spec, context), priority))
 
 
-# --------------------------------------------------------------------------- judge
-
-@dataclass(frozen=True)
-class Question:
-    pick_id: str
-    label: str
-    about: str
-    value: str
-
-
-class Judge(Protocol):
-    """Reads a state (the description so far, later picks masked) and one question per
-    candidate; returns a probability per tier (typical/plausible/unusual/wrong)."""
-    version: str
-
-    def judge(self, state: str, questions: Sequence[Question]) -> List[Dict[str, float]]: ...
-
-
-class NullJudge:
-    """Keeps everything and calls nothing: the same-inputs baseline."""
-    version = "null"
-    null = True
-
-    def judge(self, state: str, questions: Sequence[Question]) -> List[Dict[str, float]]:
-        return [{"typical": 1.0} for _ in questions]
-
-
-def _tier_rates(rarity: float) -> Dict[str, float]:
-    return {"typical": 1.0, "plausible": 1.0, "unusual": rarity, "wrong": 0.0}
-
-
-def tier_score(probs: Dict[str, float], rarity: float = DEFAULT_RARITY) -> float:
-    """Σ P(tier) × rate(tier), with no cut: how good a candidate is, for ranking."""
-    rates = _tier_rates(rarity)
-    return sum(float(probs.get(t, 0.0)) * rates[t] for t in TIERS)
-
-
-KEEP_MODES = ("tiers", "cut")
-
-
-def keep_rate(probs: Dict[str, float], rarity: float = DEFAULT_RARITY, wrong_cut: float = WRONG_CUT,
-              mode: str = "tiers") -> float:
-    """0 when P(wrong) is above the cut. Otherwise, in "tiers" mode, Σ P(tier) × rate(tier)
-    (the rarity knob scales unusual values); in "cut" mode, 1: only the wrong cut acts,
-    for judges whose lower tiers aren't calibrated yet. Applied once per candidate per
-    context, as the chance a Bernoulli coin keeps it."""
-    if float(probs.get("wrong", 0.0)) > wrong_cut:
-        return 0.0
-    if mode == "cut":
-        return 1.0
-    return max(0.0, min(1.0, tier_score(probs, rarity)))
-
-
-def candidate_score(probs: Dict[str, float], rarity: float = DEFAULT_RARITY, mode: str = "tiers") -> float:
-    """How good a candidate is, for ranking fallbacks."""
-    return 1.0 - float(probs.get("wrong", 0.0)) if mode == "cut" else tier_score(probs, rarity)
-
-
 # --------------------------------------------------------------------------- results
 
 class DrawAborted(ProgramError):
@@ -707,16 +638,12 @@ class DrawAborted(ProgramError):
 @dataclass
 class DrawResult(RunResult):
     revision: Dict[str, Any] = field(default_factory=dict)
-    unresolved: List[Dict[str, Any]] = field(default_factory=list)
-    judge_passes: int = 0
     more_coming: List[str] = field(default_factory=list)   # choices whose pools are still filling
-    stats: Dict[str, Any] = field(default_factory=dict)    # proposals, rejections, judge passes
+    stats: Dict[str, Any] = field(default_factory=dict)    # proposals and rejections
 
     def to_dict(self) -> Dict[str, Any]:
         d = super().to_dict()
         d["draw_revision"] = self.revision
-        if self.unresolved:
-            d["unresolved"] = list(self.unresolved)
         if self.more_coming:
             d["more_coming"] = list(self.more_coming)
         return d
@@ -759,12 +686,10 @@ class _Exec(_Runner):
 
     def _context(self, site: Site) -> Dict[str, Any]:
         """The values a pick's pool is keyed by: the fixed-list picks it depends on.
-        A generated pick's value never keys a pool (each would need its own options);
-        the judge checks the pick against it instead. Programs prepared before that rule
-        (`legacy`) key by every pick they depend on, as they drew then."""
+        A generated pick's value never keys a pool (each would need its own options)."""
         ctx: Dict[str, Any] = {}
         for d in sorted(site.deps):
-            if self.eng.an.sites[d].generated and not self.eng.legacy:
+            if self.eng.an.sites[d].generated:
                 continue
             for cid in self.site_ids.get(d, []):
                 if cid in self.by_id:
@@ -780,7 +705,7 @@ class _Exec(_Runner):
         eng.labels[cid] = spec.label
         self.order.append(cid)
         self.site_ids.setdefault(site.index, []).append(cid)
-        if pin is not None:  # authoritative: placed first, never judged or rerolled
+        if pin is not None:  # authoritative: placed first, never rerolled
             seen.pin_ok = pin in names
             seen.value = pin
             return pin, True
@@ -804,7 +729,7 @@ class _Exec(_Runner):
                 self.proposals[cid] = v
             seen.value = v
             return v, False
-        seen.value = names[0] if names else f"[{spec.label}]"  # placeholder; masked, never judged
+        seen.value = names[0] if names else f"[{spec.label}]"  # placeholder; masked
         return seen.value, False
 
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
@@ -966,19 +891,14 @@ class _Exec(_Runner):
 class _Engine:
     def __init__(self, an: Analysis, seed: int, pins: Dict[str, Sequence[str]], loras: Dict[str, LoraInfo],
                  tool_params: Optional[Set[str]], fixed: Dict[str, Any], edits: Dict[str, Dict[str, Any]],
-                 options: OptionsService, judge: Judge, rarity: float, wrong_cut: float = WRONG_CUT,
-                 keep: str = "tiers", prefetch: int = 0, legacy: bool = False):
+                 options: OptionsService):
         self.an, self.rng, self.seed = an, random.Random(seed), seed
-        self.legacy = legacy
         self.loras, self.tool_params = loras, tool_params
         # A choice the user turned off has no value to pin.
         self.pins = {str(k): {str(v) for v in vs} for k, vs in pins.items()
                      if vs and not (edits.get(str(k)) or {}).get("off")}
         self.single_pins = {k: next(iter(vs)) for k, vs in self.pins.items() if len(vs) == 1}
-        self.fixed, self.edits, self.options, self.judge, self.rarity = fixed, edits, options, judge, rarity
-        self.wrong_cut = wrong_cut
-        self.keep = keep if keep in KEEP_MODES else "tiers"
-        self.prefetch = max(0, int(prefetch))   # also judge up to this many pool options per pick
+        self.fixed, self.edits, self.options = fixed, edits, options
         self.more_coming: List[str] = []
         self.proposals = 0
         self.rejected = 0
@@ -986,12 +906,9 @@ class _Engine:
         self.roles: Dict[str, Dict[str, str]] = {}   # a template pick's palette roles in the current run
         self.pool_roles: Dict[str, Dict[str, Dict[str, str]]] = {}   # a palette pick's schemes, as its pool had them
         self.param_values: Dict[str, Any] = {}
-        self.kept: Set[str] = set()            # replayed (fixed) values: kept, not judged
+        self.kept: Set[str] = set()            # replayed (fixed) values: kept as they were
         self.pools: Dict[str, Any] = {}   # pool key → its length, or for a vocabulary list the whole pool
-        self.judged: Dict[Tuple[str, str, str, str], Dict[str, float]] = {}
-        self.unresolved: List[Dict[str, Any]] = []
         self.labels: Dict[str, str] = {}
-        self.judge_passes = 0
         # Pins a pick could break: its site feeds the pinned pick's structure or exclude.
         self.pin_watch: Dict[int, List[Tuple[str, Site]]] = {}
         for cid in sorted(self.single_pins):
@@ -1026,49 +943,15 @@ class _Engine:
             raise DrawAborted(*a.args_) from None
         return runner
 
-    # -- judging
-    def probs(self, state: str, seen: _Seen, values: Sequence[str]) -> List[Dict[str, float]]:
-        if getattr(self.judge, "null", False):
-            return [{"typical": 1.0} for _ in values]
-        keys = [(seen.id, seen.spec.about, self.shown(seen.id, v), state) for v in values]
-        todo = list(dict.fromkeys(k for k in keys if k not in self.judged))
-        if todo:
-            self.judge_passes += 1
-            got = self.judge.judge(state, [Question(seen.id, seen.spec.label, seen.spec.about, k[2]) for k in todo])
-            for k, p in zip(todo, got):
-                self.judged[k] = dict(p)
-        return [self.judged[k] for k in keys]
-
+    # -- masking
     def shown(self, cid: str, value: Any) -> str:
         """A value as the image model reads it: a template filled with its palette."""
         roles = self.roles.get(cid)
         return fill(str(value), roles) if roles is not None else str(value)
 
-    def prejudge(self, state: str, exe: _Exec, ids: Sequence[str]) -> None:
-        """One pass for a phase's first proposals: one question per pick."""
-        if getattr(self.judge, "null", False):
-            return
-        qs, keys = [], []
-        for cid in ids:
-            s = exe.seen[cid]
-            if cid in self.kept:
-                continue
-            # Prefetch: the rest of the pool rides along, judged in the state this pick
-            # is judged in, so later draws find it cached. It changes no draw.
-            values = [str(s.value)] + [o for o, _ in s.items[: self.prefetch]]
-            for v in dict.fromkeys(self.shown(cid, x) for x in values):
-                k = (cid, s.spec.about, v, state)
-                if k not in self.judged:
-                    qs.append(Question(cid, s.spec.label, s.spec.about, v))
-                    keys.append(k)
-        if qs:
-            self.judge_passes += 1
-            for k, p in zip(keys, self.judge.judge(state, qs)):
-                self.judged[k] = dict(p)
-
     def state(self, exe: _Exec, k: float) -> str:
-        """The text so far for the judge: pins and earlier phases in the clear, this
-        phase and later ones masked as [Label]."""
+        """The text so far: pins and earlier phases in the clear, this phase and later
+        ones masked as [Label] (fixed_text() masks every phase)."""
         out: List[str] = []
         for text, taint in exe.spans:
             hidden: List[Tuple[str, bool]] = []
@@ -1120,7 +1003,7 @@ class _Engine:
         except (_Abort, ProgramError):
             return False
         for pid, s in watch:
-            # Structure that still hangs on undrawn picks can't be judged yet; it is
+            # Structure that still hangs on undrawn picks can't be checked yet; it is
             # checked again when those are drawn. (Exclusions need no wait: a probe's
             # undecided peers hold no value.)
             undecided = any(
@@ -1153,8 +1036,6 @@ class _Engine:
         exe = self.execute(k, proposals)
         self.check_pins(exe, k)
         order = [cid for cid in exe.order if exe.seen[cid].phase == k and cid not in self.single_pins]
-        state = self.state(exe, k)
-        self.prejudge(state, exe, order)
         dirty = False
         for cid in order:
             if dirty:
@@ -1163,13 +1044,15 @@ class _Engine:
             seen = exe.seen.get(cid)
             if seen is None:
                 continue
-            chosen = self.decide(cid, seen, str(seen.value), state, k, proposals)
+            chosen = self.decide(cid, seen, str(seen.value), k, proposals)
             self.decided[cid] = chosen
             if proposals.get(cid) != chosen:
                 proposals[cid] = chosen
                 dirty = True
 
-    def decide(self, cid: str, seen: _Seen, first: str, state: str, k: int, proposals: Dict[str, str]) -> str:
+    def decide(self, cid: str, seen: _Seen, first: str, k: int, proposals: Dict[str, str]) -> str:
+        """The first proposal, unless it would leave a pin unsatisfiable: then batches of
+        new proposals from the pool, and a DrawAborted when none fits."""
         hard: Dict[str, bool] = {}
 
         def is_hard_ok(v: str) -> bool:
@@ -1179,32 +1062,20 @@ class _Engine:
 
         if cid in self.kept and first == str(self.fixed.get(cid)) and is_hard_ok(first):
             return first  # a replayed value: kept as it was
-        tried: List[Tuple[str, float]] = []
         for batch in range(MAX_BATCHES + 1):
-            cands = [first] if batch == 0 else [self._weighted(seen.items) for _ in range(BATCH)]
-            for v, p in zip(cands, self.probs(state, seen, cands)):
+            for v in [first] if batch == 0 else [self._weighted(seen.items) for _ in range(BATCH)]:
                 self.proposals += 1
-                tried.append((v, candidate_score(p, self.rarity, self.keep)))
-                keep = keep_rate(p, self.rarity, self.wrong_cut, self.keep)
-                if keep <= 0 or not is_hard_ok(v):
-                    self.rejected += 1
-                    continue
-                if keep >= 1 or self.rng.random() < keep:
+                if is_hard_ok(v):
                     return v
                 self.rejected += 1
-        # Nothing accepted: the pool is thin for this context. Ask for more now, so the
-        # next run has better options (a user list is never expanded).
+        # Nothing fits: the pool is thin for this context. Ask for more now, so the next
+        # run has better options (a user list is never expanded).
         if seen.spec.kind == "pick" and seen.spec.source != "list":
             self.options.request_more(seen.spec, seen.context, "high")
-        ok = [(v, s) for v, s in tried if is_hard_ok(v)]
-        if not ok:
-            pinned = next((pid for pid, _ in self.pin_watch.get(seen.site, []) if pid != cid), None)
-            if pinned is not None:
-                raise DrawAborted(pinned, self.labels.get(pinned, _label_from_id(pinned)), "pin", self.single_pins[pinned])
-            raise DrawAborted(cid, seen.spec.label, "unresolved")
-        best = max(range(len(ok)), key=lambda i: (ok[i][1], -i))
-        self.unresolved.append({"id": cid, "label": seen.spec.label, "reason": "no_accepted_value"})
-        return ok[best][0]
+        pinned = next((pid for pid, _ in self.pin_watch.get(seen.site, []) if pid != cid), None)
+        if pinned is not None:
+            raise DrawAborted(pinned, self.labels.get(pinned, _label_from_id(pinned)), "pin", self.single_pins[pinned])
+        raise DrawAborted(cid, seen.spec.label, "unresolved")
 
     def revision(self, source: str) -> Dict[str, Any]:
         rev = {
@@ -1213,16 +1084,10 @@ class _Engine:
             "pools": dict(sorted(self.pools.items())),
             "edits": hashlib.sha256(json.dumps(self.edits, sort_keys=True, default=str).encode()).hexdigest()[:16]
             if self.edits else None,
-            "rarity": self.rarity,
-            "judge": getattr(self.judge, "version", type(self.judge).__name__),
         }
         options_version = getattr(self.options, "revision_version", None)
         if options_version:  # the generated pools' version: replay reads those, not today's
             rev["options"] = options_version
-        if self.wrong_cut != WRONG_CUT:
-            rev["wrong_cut"] = self.wrong_cut
-        if self.keep != "tiers":
-            rev["keep"] = self.keep
         rev["id"] = hashlib.sha256(json.dumps(rev, sort_keys=True).encode()).hexdigest()[:16]
         return rev
 
@@ -1230,18 +1095,14 @@ class _Engine:
 def draw(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None,
          loras: Optional[Sequence[LoraInfo]] = None, tool_params: Optional[Set[str]] = None,
          fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Dict[str, Any]]] = None, *,
-         options: Optional[OptionsService] = None, judge: Optional[Judge] = None,
-         rarity: float = DEFAULT_RARITY, wrong_cut: float = WRONG_CUT, keep: str = "tiers",
-         prefetch: int = 0, legacy: bool = False) -> DrawResult:
+         options: Optional[OptionsService] = None) -> DrawResult:
     """Draw one prompt from a program with pick specs. Deterministic for a given
     revision, seed and pins. Raises DrawAborted when a pick has nothing left to draw
-    or a pin can't be satisfied, and ProgramError for a broken program. `legacy` draws
-    a program prepared before generated picks stopped keying pools (see LEGACY_BEFORE)."""
+    or a pin can't be satisfied, and ProgramError for a broken program."""
     an = analyze(source)
     edits = edits or {}
     eng = _Engine(an, seed, pins or {}, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params,
-                  dict(fixed or {}), edits, options or LiteralOptions(edits), judge or NullJudge(), rarity, wrong_cut, keep, prefetch,
-                  legacy)
+                  dict(fixed or {}), edits, options or LiteralOptions(edits))
     for k in an.phases:
         eng.run_phase(k)
     final = eng.execute(math.inf, {}, record=True)
@@ -1252,9 +1113,9 @@ def draw(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None
     for lu in final.lora_uses:
         if lu.trigger and lu.trigger.lower() not in prompt.lower():
             prompt = f"{lu.trigger}, {prompt}"
-    stats = {"proposals": eng.proposals, "rejected": eng.rejected, "judge_passes": eng.judge_passes}
+    stats = {"proposals": eng.proposals, "rejected": eng.rejected}
     return DrawResult(prompt, final.draws, final.lora_uses, final.params, final.groups, seed,
-                      revision=eng.revision(source), unresolved=eng.unresolved, judge_passes=eng.judge_passes,
+                      revision=eng.revision(source),
                       more_coming=list(dict.fromkeys(eng.more_coming)), stats=stats)
 
 
@@ -1263,7 +1124,7 @@ def _fixed_text(source: str, loras: Tuple[Tuple[str, str, float, str], ...], too
     an = analyze(source)
     infos = [LoraInfo(*lo) for lo in loras]
     eng = _Engine(an, 0, {}, {_lora_key(lo.name): lo for lo in infos}, set(tool_params) if tool_params else None,
-                  {}, {}, LiteralOptions(), NullJudge(), DEFAULT_RARITY)
+                  {}, {}, LiteralOptions())
     return eng.state(eng.execute(0, {}), 0)
 
 
@@ -1275,7 +1136,6 @@ def fixed_text(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_par
 
 
 __all__ = [
-    "Analysis", "DrawAborted", "DrawResult", "Judge", "LiteralOptions", "NullJudge", "OptionsService", "PickSpec",
-    "KEEP_MODES", "Pool", "Question", "TIERS", "WRONG_CUT", "candidate_score", "analyze", "draw", "fixed_text", "keep_rate", "legacy_program", "pool_key", "tier_score",
-    "uses_draws",
+    "Analysis", "DrawAborted", "DrawResult", "LiteralOptions", "OptionsService", "PickSpec", "Pool", "analyze", "draw",
+    "fixed_text", "pool_key", "uses_draws",
 ]

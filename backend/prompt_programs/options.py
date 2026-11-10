@@ -36,7 +36,6 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tup
 
 from core.logging import get_logger
 from prompt_programs.draws import LiteralOptions, PickSpec, Pool, pool_key
-from prompt_programs.resolver import ClassResolver, NoVocabulary
 from prompt_programs.runtime import RANK_DECAY
 from prompt_programs.vocab import OPEN_SHARE, Leaf, fill, tags_match, template_matches, vocabulary
 
@@ -504,7 +503,7 @@ class GeneratedOptions:
 
     def __init__(self, store: Optional[OptionStore], program: ProgramContext,
                  edits: Optional[Dict[str, Dict[str, Any]]] = None, filler: Optional[OptionFiller] = None,
-                 resolver: Optional[ClassResolver] = None, limits: Optional[Dict[str, Any]] = None,
+                 limits: Optional[Dict[str, Any]] = None,
                  project_id: Optional[int] = None, generate: bool = True,
                  checker: Optional[Callable[[OptionJob, "GeneratedOptions"], Awaitable[Any]]] = None,
                  version: Optional[str] = None):
@@ -515,7 +514,6 @@ class GeneratedOptions:
         generate = generate and self.version == OPTIONS_VERSION
         self.edits = edits or {}
         self.literal = LiteralOptions(self.edits)
-        self.resolver = resolver or NoVocabulary()
         self.limits = limits or {}
         self.project_id = project_id
         self.generate = generate and store is not None

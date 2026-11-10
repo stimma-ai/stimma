@@ -373,3 +373,39 @@ async def test_the_fix_judge_setting_route(tmp_path, monkeypatch):
         r = (await c.put("/api/prompt-programs/fix-judge", json={"model": str(tmp_path / "missing")})).json()
         assert r["status"] == "error" and "no judge model directory" in r["error"]
         assert (await c.put("/api/prompt-programs/fix-judge", json={"model": ""})).json()["status"] == "off"
+
+
+class TestTheFixNeverCostsTheImage:
+    """Whatever the fix judge does wrong, the draw ships unjudged and generation goes on."""
+
+    @pytest.mark.parametrize("fail", ["first", "second", "garbage", "short"])
+    def test_any_judge_failure_ships_the_draw_as_made(self, fail):
+        class Flaky:
+            version, cut = "flaky", 0.5
+
+            def __init__(self):
+                self.passes = 0
+
+            def p_wrong(self, items):
+                self.passes += 1
+                if fail == "first" or (fail == "second" and self.passes == 2):
+                    raise KeyError("bad response")
+                if fail == "garbage":
+                    return [object() for _ in items]
+                if fail == "short":
+                    return []
+                return [0.99 for _ in items]  # everything flagged: reroll, then the second pass
+        entry = entry_for()
+        r, rec = realize_and_fix(entry, seed=5, cfg=FluentSettings(generate_options=False), judge=Flaky())
+        assert r.prompt == draw(entry, 5).prompt or fail == "short"
+        if fail != "short":
+            assert "the fix pass failed" in rec["error"]
+
+    def test_a_model_that_breaks_on_load_ships_the_draw(self, tmp_path):
+        bad = tmp_path / "judge"
+        bad.mkdir()
+        (bad / "model.onnx").write_bytes(b"not a model")
+        (bad / "tokenizer.json").write_text("{}")
+        entry = entry_for()
+        r, rec = realize_and_fix(entry, seed=6, cfg=FluentSettings(generate_options=False, fix_model=str(bad)))
+        assert r.prompt == draw(entry, 6).prompt and rec["error"]

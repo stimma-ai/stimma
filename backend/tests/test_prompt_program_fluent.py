@@ -1,5 +1,5 @@
-"""Fluent draws, step 2: generated options, the option cache and filler, judges,
-the bad-pool check, the runtime wiring in realize(), and the evaluation hook."""
+"""Fluent draws, step 2: generated options, the option cache and filler, and the
+runtime wiring in realize()."""
 
 import asyncio
 import json
@@ -8,21 +8,14 @@ import threading
 import pytest
 
 from prompt_programs import prepare as prep
-from prompt_programs.draws import DEFAULT_RARITY, WRONG_CUT, DrawResult, NullJudge, PickSpec, Question, draw, fixed_text
+from prompt_programs.draws import DrawResult, PickSpec, fixed_text
 from prompt_programs.runtime import ProgramError
-from prompt_programs.evaluate import draw_many, fill_options
-from prompt_programs.fluent import (
-    CHECK_PROPOSALS, Runtime, pool_checker, prefill_judgments, program_context, runtime_for, start_options,
-)
-from prompt_programs.judge import (
-    CachedJudge, FluentSettings, HttpJudge, JudgeUnavailable, build_judge, configured_judge, make_server,
-    score_question, settings, tiers_from_answer,
-)
+from prompt_programs.fluent import program_context, runtime_for, start_options
+from prompt_programs.judge import FluentSettings, settings
 from prompt_programs.options import (
     MAX_ROUNDS, THIN, GeneratedOptions, OptionFiller, OptionJob, OptionStore, ProgramContext, gen_key,
     generation_messages,
 )
-from prompt_programs.resolver import NoVocabulary
 
 PORTRAIT = '''
 era = pick("era", ["1920s", "1970s", "1990s"], label="Era", source="list", phase=1, line=1)
@@ -60,19 +53,6 @@ class FakeGen:
             return list(self.table[job.spec.id]), "fake"
         ctx = ",".join(f"{v}" for v in job.context.values())
         return [f"{job.spec.id} {ctx} variant {job.round}.{i}".replace("  ", " ") for i in range(self.per_call)], "fake"
-
-
-class FakeJudge:
-    version = "fake-1"
-    null = False
-
-    def __init__(self, wrong=()):
-        self.wrong = set(wrong)
-        self.calls = []
-
-    def judge(self, state, questions):
-        self.calls.append((state, list(questions)))
-        return [{"wrong": 1.0} if (q.value in self.wrong or q.pick_id in self.wrong) else {"typical": 1.0} for q in questions]
 
 
 def spec(id="hair", about="her hairstyle", source="text", seeds=("finger waves",), literal=(), label="Hairstyle", kind="pick"):
@@ -209,10 +189,6 @@ class TestGeneratedOptions:
         GeneratedOptions(store, program(), filler=filler, generate=False).get(spec(), {})
         assert not filler._jobs
 
-    def test_the_resolver_resolves_nothing(self):
-        assert NoVocabulary().resolve(spec()) is None and NoVocabulary.version == "none"
-
-
 class TestGenerationMessages:
     def test_messages_carry_spec_context_style_and_avoid(self):
         job = OptionJob("k", spec(seeds=("finger waves",)), {"era": "1920s"}, program(signature="a jazz portrait"),
@@ -333,125 +309,12 @@ class TestOptionFiller:
             task.cancel()
 
 
-# --------------------------------------------------------------------------- judges
-
-class TestJudges:
-    def test_the_score_question_and_its_answer(self):
-        q = score_question(Question("hair", "Hairstyle", "her hairstyle", "grey hair"))
-        assert q["type"] == "score" and len(q["criteria"]) == 4 and q["criteria"][0].startswith("wrong")
-        assert '[Hairstyle] (her hairstyle) is filled with "grey hair"' in q["instructions"]
-        t = tiers_from_answer({"probabilities": {"0": 0.1, "1": 0.2, "2": 0.3, "3": 0.4}})
-        assert t == {"typical": 0.4, "plausible": 0.3, "unusual": 0.2, "wrong": 0.1}
-
-    def test_judgments_are_cached_across_draws_and_on_disk(self, tmp_path):
-        inner = FakeJudge(wrong={"grey hair"})
-        j = CachedJudge(inner, tmp_path / "j.sqlite")
-        qs = [Question("hair", "Hairstyle", "her hairstyle", v) for v in ("grey hair", "a bob")]
-        a = j.judge("A girl with [Hairstyle]", qs)
-        b = j.judge("A girl with [Hairstyle]", list(reversed(qs)))
-        assert a[0]["wrong"] == 1.0 and b[1]["wrong"] == 1.0 and len(inner.calls) == 1
-        j.judge("A woman with [Hairstyle]", qs[:1])  # a new state is a new judgment
-        assert len(inner.calls) == 2 and j.stats()["passes"] == 2 and j.stats()["hits"] == 2
-        again = CachedJudge(FakeJudge(), tmp_path / "j.sqlite")  # a new process: from disk
-        assert again.judge("A girl with [Hairstyle]", qs[:1])[0]["wrong"] == 1.0 and again.passes == 0
-
-    def test_a_new_judge_version_is_a_new_judgment(self, tmp_path):
-        a = CachedJudge(FakeJudge(wrong={"x"}), tmp_path / "j.sqlite")
-        a.judge("s", [Question("p", "P", "", "x")])
-        other = FakeJudge()
-        other.version = "fake-2"
-        b = CachedJudge(other, tmp_path / "j.sqlite")
-        assert b.judge("s", [Question("p", "P", "", "x")])[0] == {"typical": 1.0} and b.passes == 1
-
-    def test_the_http_judge_talks_to_the_server(self):
-        server = make_server(FakeJudge(wrong={"grey hair"}), "127.0.0.1", 0)
-        t = threading.Thread(target=server.serve_forever, daemon=True)
-        t.start()
-        try:
-            j = HttpJudge(f"http://127.0.0.1:{server.server_address[1]}")
-            assert j.version == "fake-1"
-            got = j.judge("A girl with [Hairstyle]", [Question("hair", "Hairstyle", "", "grey hair"),
-                                                      Question("hair", "Hairstyle", "", "a bob")])
-            assert got[0]["wrong"] == 1.0 and got[1]["typical"] == 1.0
-        finally:
-            server.shutdown()
-
-    def test_an_absent_server_is_unavailable(self):
-        with pytest.raises(JudgeUnavailable):
-            HttpJudge("http://127.0.0.1:9", timeout=0.5)
-
-    def test_configuration_defaults_to_the_null_judge(self, monkeypatch):
-        assert configured_judge(FluentSettings()).version == "null"
-        assert build_judge(FluentSettings(judge="none")).version == "null"
-        with pytest.raises(JudgeUnavailable):
-            build_judge(FluentSettings(judge="http"))
-        # a judge that can't load stays null, and the product keeps drawing
-        broken = FluentSettings(judge="http", judge_url="http://127.0.0.1:9")
-        assert configured_judge(broken, wait=True).version == "null"
-        assert configured_judge(broken).version == "null"
-
-    def test_settings_read_the_environment(self, monkeypatch):
-        monkeypatch.setenv("STIMMA_FLUENT_JUDGE", "HTTP")
-        monkeypatch.setenv("STIMMA_FLUENT_JUDGE_URL", "http://judge:8790")
-        monkeypatch.setenv("STIMMA_FLUENT_RARITY", "0.1")
-        monkeypatch.setenv("STIMMA_FLUENT_GENERATE", "0")
-        s = settings()
-        assert (s.judge, s.judge_url, s.rarity, s.wrong_cut, s.generate_options) == ("http", "http://judge:8790", 0.1, 0.5, False)
-
-
-# --------------------------------------------------------------------------- the bad-pool check
-
-class TestBadPoolCheck:
-    def _setup(self, tmp_path, signature, wrong):
-        store = OptionStore(tmp_path)
-        filler = OptionFiller(store, FakeGen(table={"hair": [f"bad {i}" for i in range(12)]}))
-        prog = program(signature=signature)
-        judge = FakeJudge(wrong=wrong)
-        opts = GeneratedOptions(store, prog, filler=filler, checker=pool_checker(judge, 0.5))
-        return store, filler, opts, judge
-
-    async def test_a_pool_that_fits_passes(self, tmp_path):
-        store, filler, opts, judge = self._setup(tmp_path, "a jazz portrait", wrong=())
-        opts.get(spec(), {})
-        await filler.drain()
-        assert filler.checks[0]["ok"] == CHECK_PROPOSALS and not filler._jobs
-        assert judge.calls[0][0] == "A portrait of a [Role] with [Hairstyle]"  # the fixed text
-
-    async def test_a_shared_pool_that_does_not_fit_switches_to_this_prompt(self, tmp_path):
-        bad = {f"bad {i}" for i in range(12)} | {"finger waves"}
-        store, filler, opts, judge = self._setup(tmp_path, "a jazz portrait", wrong=bad)
-
-        async def gen(job):  # the shared pool is off; options written for the prompt fit
-            good = job.signature == program().template
-            return [f"{'good' if good else 'bad'} {i}" for i in range(12)], "fake"
-        filler.generator = gen
-        opts.get(spec(), {})
-        await filler.drain()
-        assert filler.checks[0]["ok"] < 5
-        assert store.specific("prog1") == ["hair"]
-        fresh = GeneratedOptions(store, program(signature="a jazz portrait"))
-        pool = fresh.get(spec(), {})
-        assert pool.key == "hair: her hairstyle | written for this prompt"
-        recs = store.records(gen_key(spec(), {}, program().template, "prose", True))
-        assert len(recs) == 1 and recs[0]["options"][0] == "good 0" and filler.checks[1]["ok"] >= 5
-
-    async def test_a_prompt_keyed_pool_that_does_not_fit_gets_a_round_told_what_failed(self, tmp_path):
-        bad = {f"bad {i}" for i in range(12)} | {"finger waves"}
-        store, filler, opts, judge = self._setup(tmp_path, "", wrong=bad)
-        opts.get(spec(), {})
-        await filler.drain()
-        key = gen_key(spec(), {}, program().template, "prose", True)
-        recs = store.records(key)
-        avoid = recs[1]["inputs"]["avoid"] if len(recs) == 2 else []
-        assert len(recs) == 2 and recs[1]["round"] == 1 and avoid and set(avoid) <= bad
-
-
-# --------------------------------------------------------------------------- the runtime in realize()
+# --------------------------------------------------------------------------- realize
 
 class TestRealize:
-    def _runtime(self, tmp_path, entry, judge=None, filler=None, cfg=OFF, revision=None):
+    def _runtime(self, tmp_path, entry, filler=None, cfg=OFF, revision=None):
         store = OptionStore(tmp_path)
-        return store, runtime_for(entry, store=store, filler=filler, judge=judge or NullJudge(), cfg=cfg, revision=revision)
+        return store, runtime_for(entry, store=store, filler=filler, cfg=cfg, revision=revision)
 
     def test_the_fixed_text_masks_every_pick(self):
         assert fixed_text(PORTRAIT) == "A portrait of a [Role] in the [Era] with [Hairstyle], [Light]"
@@ -470,7 +333,7 @@ class TestRealize:
             r = prep.realize(entry, seed=seed, runtime=rt)
             seen |= {d.value for d in r.draws}
         assert {"a sleek bob", "pin curls", "neon glow"} <= seen
-        assert r.revision["pools"]["hair: her hairstyle"] == 3 and r.revision["judge"] == "null"
+        assert r.revision["pools"]["hair: her hairstyle"] == 3 and "judge" not in r.revision
 
     def test_the_same_revision_replays_after_pools_grow(self, tmp_path):
         entry = entry_for(PORTRAIT)
@@ -524,7 +387,7 @@ class TestRealize:
         assert len(queued) == 3 and gen.calls == []  # role, hair, light; never the user's era list; no call yet
         await filler.drain()
         assert len(gen.calls) == 3
-        r = prep.realize(entry, seed=1, runtime=runtime_for(entry, store=store, judge=NullJudge(), cfg=OFF))
+        r = prep.realize(entry, seed=1, runtime=runtime_for(entry, store=store, cfg=OFF))
         assert any("variant 0." in d.value for d in r.draws)
         assert start_options(entry, store=store, filler=filler, cfg=ON) == []  # already filled
 
@@ -532,110 +395,36 @@ class TestRealize:
         assert start_options({"program": 'emit("x")'}, store=OptionStore(tmp_path), cfg=ON) == []
         assert start_options({"program": "pick(", "key": "k"}, store=OptionStore(tmp_path), cfg=ON) == []
 
-    def test_a_pick_with_nothing_accepted_asks_for_more_at_high_priority(self, tmp_path):
-        entry = entry_for(PORTRAIT)
-        store = OptionStore(tmp_path)
-        ctx = program_context(entry)
-        hair = spec()
-        key = gen_key(hair, {}, ctx.signature, "prose", True)
-        store.append(key, {"round": 0, "options": [f"style {i}" for i in range(10)]})
-        filler = OptionFiller(store, FakeGen())
-        judge = FakeJudge(wrong={"hair"})
-        rt = runtime_for(entry, store=store, filler=filler, judge=judge, cfg=ON)
-        r = prep.realize(entry, seed=3, runtime=rt)
-        assert r.unresolved[0]["id"] == "hair"
-        assert filler._jobs[key][0] == 0  # high
-
     def test_more_coming_is_reported(self, tmp_path):
         entry = entry_for(PORTRAIT)
         store = OptionStore(tmp_path)
         filler = OptionFiller(store, FakeGen())
-        r = prep.realize(entry, seed=1, runtime=runtime_for(entry, store=store, filler=filler, judge=NullJudge(), cfg=ON))
+        r = prep.realize(entry, seed=1, runtime=runtime_for(entry, store=store, filler=filler, cfg=ON))
         assert isinstance(r, DrawResult) and set(r.more_coming) == {"role", "hair", "light"}
         assert set(r.to_dict()["more_coming"]) == {"role", "hair", "light"}
 
-    def test_default_realize_works_without_a_profile_or_judge(self, monkeypatch):
+    def test_default_realize_works_without_a_profile(self, monkeypatch):
         import prompt_programs.fluent as fl
         monkeypatch.setattr(fl, "_profile_store", lambda pid: None)
         r = prep.realize(entry_for(PORTRAIT), seed=2)
-        assert r.revision["judge"] == "null" and "finger waves" in r.prompt
+        assert r.revision["engine"] and "finger waves" in r.prompt
 
-    def test_the_revision_carries_knob_and_cut(self, tmp_path):
+    def test_revisions_recorded_with_the_null_judge_still_replay(self, tmp_path):
+        # Revisions from before the in-draw judge was removed record judge "null" and its
+        # knobs: drawing judged nothing then either, so they replay exactly.
         entry = entry_for(PORTRAIT)
-        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=FakeJudge(), cfg=FluentSettings(rarity=0.2, wrong_cut=0.4,
-                                                                                                      generate_options=False))
-        r = prep.realize(entry, seed=1, runtime=rt)
-        assert r.revision["rarity"] == 0.2 and r.revision["wrong_cut"] == 0.4 and r.revision["judge"] == "fake-1"
-        replay = runtime_for(entry, store=OptionStore(tmp_path), judge=FakeJudge(), cfg=OFF, revision=r.revision)
-        assert (replay.rarity, replay.wrong_cut) == (0.2, 0.4)
+        r = prep.realize(entry, seed=3, runtime=self._runtime(tmp_path, entry)[1])
+        old = {**r.revision, "judge": "null", "rarity": 0.3, "keep": "tiers", "wrong_cut": 0.9}
+        rt = self._runtime(tmp_path, entry, revision=old)[1]
+        assert prep.realize(entry, seed=3, revision=old, runtime=rt).prompt == r.prompt
 
-    def test_a_replay_uses_the_recorded_judge_and_the_old_defaults(self, tmp_path):
+    def test_a_replay_drawn_with_another_judge_says_so(self, tmp_path):
         entry = entry_for(PORTRAIT)
-        r = prep.realize(entry, seed=3, runtime=runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF))
-        today = FluentSettings(wrong_cut=0.9, rarity=0.9, generate_options=False)
-        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=FakeJudge(wrong={"role", "hair", "light"}), cfg=today,
-                         revision=r.revision)
-        assert isinstance(rt.judge, NullJudge)
-        assert prep.realize(entry, seed=3, revision=r.revision, runtime=rt).prompt == r.prompt
-        old = {k: v for k, v in r.revision.items() if k not in ("rarity", "wrong_cut")}
-        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=today, revision=old)
-        assert (rt.rarity, rt.wrong_cut) == (DEFAULT_RARITY, WRONG_CUT)
-
-    def test_a_replay_whose_judge_is_gone_says_so(self, tmp_path):
-        entry = entry_for(PORTRAIT)
-        r = prep.realize(entry, seed=1, runtime=runtime_for(entry, store=OptionStore(tmp_path), judge=FakeJudge(), cfg=OFF))
-        with pytest.raises(ProgramError):
-            runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=r.revision)
-
-    def test_a_judge_that_stops_answering_falls_back_to_none(self, monkeypatch):
-        import prompt_programs.fluent as fl
-
-        class Dropping(FakeJudge):
-            def judge(self, state, questions):
-                raise JudgeUnavailable("gone")
-        monkeypatch.setattr(fl, "_profile_store", lambda pid: None)
-        monkeypatch.setattr(fl, "configured_judge", lambda cfg=None: Dropping())
-        r = prep.realize(entry_for(PORTRAIT), seed=2)
-        assert r.revision["judge"] == "null"
-        with pytest.raises(ProgramError):  # an exact replay never falls back
-            prep.realize(entry_for(PORTRAIT), seed=2, revision={**r.revision, "judge": "fake-1"})
-
-
-# --------------------------------------------------------------------------- the evaluation hook
-
-class TestEvaluate:
-    async def test_fill_then_draw_many(self, tmp_path):
-        entry = entry_for(PORTRAIT)
-        store = OptionStore(tmp_path)
-        gen = FakeGen()
-        filled = await fill_options(entry, store, generator=gen, rounds=2)
-        assert filled["calls"] == 6 and filled["failures"] == 0
-        again = await fill_options(entry, store, generator=gen)
-        assert again["calls"] == 0  # pack-rat: every round is on disk
-        judge = CachedJudge(FakeJudge(wrong={"jazz singer"}))
-        out = draw_many(entry, 20, judge=judge, store=store, rarity=0.3)
-        assert out["stats"]["draws"] == 20 and out["stats"]["aborted"] == 0
-        assert all(r["values"]["role"] != "jazz singer" for r in out["draws"])
-        assert out["stats"]["judge"]["version"] == "fake-1" and out["stats"]["judge"]["passes"] > 0
-        assert out["stats"]["ms_p50"] is not None and out["draws"][0]["revision"]["judge"] == "fake-1"
-        assert len({r["values"]["hair"] for r in out["draws"]}) > 3
-
-    async def test_fill_runs_the_bad_pool_check_with_a_judge(self, tmp_path):
-        entry = entry_for(PORTRAIT)
-        filled = await fill_options(entry, OptionStore(tmp_path), generator=FakeGen(), judge=FakeJudge())
-        assert len(filled["checks"]) == 3 and all(c["ok"] == CHECK_PROPOSALS for c in filled["checks"])
-
-    def test_aborted_draws_are_counted(self, tmp_path):
-        entry = entry_for(PORTRAIT)
-        out = draw_many(entry, 3, edits={"era": {"remove": ["1920s", "1970s", "1990s"]}}, store=OptionStore(tmp_path))
-        assert out["stats"]["aborted"] == 3 and out["draws"][0]["aborted"]["choice_id"] == "era"
-
-    def test_rows_are_json(self, tmp_path):
-        out = draw_many(entry_for(PORTRAIT), 2, store=OptionStore(tmp_path))
-        json.dumps(out)
-
-
-# --------------------------------------------------------------------------- parsing and the lookup-key rule
+        r = prep.realize(entry, seed=1, runtime=self._runtime(tmp_path, entry)[1])
+        with pytest.raises(ProgramError, match="judge d3-edge"):
+            self._runtime(tmp_path, entry, revision={**r.revision, "judge": "d3-edge@abc/q1"})
+        with pytest.raises(ProgramError, match="can't be replayed exactly"):
+            prep.realize(entry, seed=1, revision={**r.revision, "judge": "fake-1"})
 
 class TestParseOptions:
     def test_the_first_json_list_wins(self):
@@ -711,20 +500,16 @@ class TestLookupKeyRule:
         with pytest.raises(ProgramError, match="Describe \"h\" in words"):
             analyze(src, strict=True)
 
-    def test_a_program_prepared_before_the_rule_draws_as_it_did(self, tmp_path):
-        # pp-20 programs could name a generated pick in about=; they still draw, keyed by its value.
+    def test_a_program_prepared_before_the_rule_still_draws(self, tmp_path):
+        # pp-20 programs could name a generated pick in about=; they still draw, by today's
+        # rule: a generated pick's value never keys a pool.
         src = ('job = pick("job", about="her job", seed=["nun", "lifeguard"], phase=1)\n'
                'outfit = pick("outfit", about=f"what a {job} wears", seed=["a coat"], phase=2)\nemit(job, outfit)\n')
-        entry = entry_for(src, version="pp-20")
-        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
-        for seed in range(8):
-            prep.realize(entry, seed=seed, runtime=rt)
-            rt.options.reset()
-        specs = {(spec.id, tuple(sorted(ctx.items()))) for spec, ctx in rt.options.seen_specs()}
-        assert ("outfit", (("job", "nun"),)) in specs and ("outfit", (("job", "lifeguard"),)) in specs
-        rt = runtime_for(entry_for(src, version="pp-21"), store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
-        prep.realize(entry_for(src, version="pp-21"), seed=1, runtime=rt)
-        assert [ctx for spec, ctx in rt.options.seen_specs() if spec.id == "outfit"] == [{}]  # today's rule
+        for version in ("pp-20", "pp-21"):
+            entry = entry_for(src, version=version)
+            rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
+            assert prep.realize(entry, seed=1, runtime=rt).prompt
+            assert [ctx for spec, ctx in rt.options.seen_specs() if spec.id == "outfit"] == [{}]
 
     def test_a_list_named_in_about_keys_the_pool_and_a_generated_pick_does_not(self, tmp_path):
         src = ('job = pick("job", ["nun", "lifeguard"], label="Job", source="list", phase=1, line=1)\n'
@@ -733,7 +518,7 @@ class TestLookupKeyRule:
                'if mood == "calm":\n    hat = pick("hat", about="her hat", seed=["a cap"], phase=2)\n'
                'emit(job, mood, outfit)\n')
         entry = entry_for(src)
-        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
+        rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
         for seed in range(12):
             prep.realize(entry, seed=seed, runtime=rt)
             rt.options.reset()
@@ -754,127 +539,14 @@ class TestLookupKeyRule:
 
 def test_a_malformed_revision_is_ignored(tmp_path):
     entry = entry_for(PORTRAIT)
-    rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF,
+    rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF,
                      revision={"pools": ["x"], "rarity": "lots", "wrong_cut": None})
-    assert (rt.rarity, rt.wrong_cut, rt.options.limits) == (0.3, 0.5, {})
+    assert rt.options.limits == {}
     assert prep.realize(entry, seed=1, revision="nonsense", runtime=None).prompt
 
 
-# --------------------------------------------------------------------------- keep mode, prefill, adapters
-
-class CountingJudge(FakeJudge):
-    """Scores from a table by value; counts the questions it is asked."""
-
-    def __init__(self, table=None):
-        super().__init__()
-        self.table = table or {}
-        self.asked = 0
-
-    def judge(self, state, questions):
-        self.calls.append((state, list(questions)))
-        self.asked += len(questions)
-        return [self.table.get(q.value, {"typical": 1.0}) for q in questions]
-
-
-class TestKeepMode:
-    SRC = 'hair = pick("hair", ["brown hair", "grey hair", "blue hair"], source="list", phase=1)\nemit("A woman with", hair)\n'
-
-    def test_cut_mode_keeps_every_value_that_isnt_wrong(self):
-        judge = CountingJudge({"grey hair": {"unusual": 1.0}, "blue hair": {"wrong": 0.9, "typical": 0.1}})
-        got = [{d.id: d.value for d in draw(self.SRC, s, judge=judge, keep="cut", rarity=0.0).draws}["hair"] for s in range(300)]
-        assert "blue hair" not in got and 0.35 < got.count("grey hair") / 300 < 0.65  # unusual isn't scaled down
-        tiers = [{d.id: d.value for d in draw(self.SRC, s, judge=judge, keep="tiers", rarity=0.0).draws}["hair"] for s in range(100)]
-        assert set(tiers) == {"brown hair"}
-
-    def test_the_runtime_defaults_to_cut_and_records_it(self, tmp_path):
-        assert FluentSettings().keep == "cut" and settings().keep == "cut"
-        entry = entry_for(PORTRAIT)
-        r = prep.realize(entry, seed=1, runtime=runtime_for(entry, store=OptionStore(tmp_path), judge=FakeJudge(), cfg=OFF))
-        assert r.revision["keep"] == "cut"
-        old = dict(r.revision)
-        old.pop("keep")  # a revision from before keep modes drew with tiers
-        assert runtime_for(entry, store=OptionStore(tmp_path), judge=FakeJudge(), cfg=OFF, revision=old).keep == "tiers"
-
-    def test_keep_mode_from_the_environment(self, monkeypatch):
-        monkeypatch.setenv("STIMMA_FLUENT_KEEP", "tiers")
-        assert settings().keep == "tiers"
-        monkeypatch.setenv("STIMMA_FLUENT_KEEP", "nonsense")
-        assert settings().keep == "cut"
-
-
-class TestPrefill:
-    def test_phase_one_is_judged_against_the_fixed_text(self):
-        judge = FakeJudge()
-        draw(PORTRAIT, 3, judge=judge)
-        assert judge.calls[0][0] == fixed_text(PORTRAIT)
-
-    def test_prefetch_changes_no_draw(self):
-        table = {"nurse": {"wrong": 1.0}, "pin curls": {"unusual": 1.0}}
-        for seed in range(10):
-            a = draw(PORTRAIT, seed, judge=CountingJudge(table))
-            b = draw(PORTRAIT, seed, judge=CountingJudge(table), prefetch=48)
-            assert a.prompt == b.prompt
-
-    def test_prefilled_judgments_serve_later_draws(self, tmp_path):
-        entry = entry_for(PORTRAIT)
-        store = OptionStore(tmp_path)
-        ctx = program_context(entry)
-        for s, opts in ((spec(), ["a sleek bob", "pin curls", "an updo"]),
-                        (spec(id="role", about="the woman's job", seeds=("jazz singer", "nurse"), label="Role"), ["a pilot", "a chemist"]),
-                        (spec(id="light", about="the lighting", seeds=("soft window light",), label="Light"), ["neon glow"])):
-            store.append(gen_key(s, {}, ctx.signature, "prose", True), {"round": 0, "options": opts})
-        cold = CountingJudge()
-        draw_many(entry, 10, judge=CachedJudge(cold), store=store, seeds=range(100, 110))
-        inner = CountingJudge()
-        judge = CachedJudge(inner, tmp_path / "j.sqlite")
-        stats = prefill_judgments(entry, judge, store=store, draws=12, cfg=OFF)
-        assert stats["draws"] == 12 and stats["questions"] > 0
-        before = inner.asked
-        out = draw_many(entry, 10, judge=judge, store=store, seeds=range(100, 110))
-        assert inner.asked - before < cold.asked / 3  # most of what the draws asked was already judged
-        assert out["stats"]["aborted"] == 0
-        again = CachedJudge(CountingJudge(), tmp_path / "j.sqlite")  # and it survives a restart
-        assert again.judge(fixed_text(PORTRAIT), [Question("role", "Role", "the woman's job", "a pilot")]) and again.passes == 0
-
-    def test_the_null_judge_prefills_nothing(self, tmp_path):
-        assert prefill_judgments(entry_for(PORTRAIT), NullJudge(), store=OptionStore(tmp_path)) == {"draws": 0}
-
-    async def test_prefill_runs_in_the_background_after_the_fills(self, tmp_path):
-        from prompt_programs.fluent import schedule_prefill
-        entry = entry_for(PORTRAIT)
-        store = OptionStore(tmp_path)
-        filler = OptionFiller(store, FakeGen())
-        judge = CachedJudge(CountingJudge())
-        queued = start_options(entry, store=store, filler=filler, cfg=ON, prefill=False)
-        task = schedule_prefill(entry, judge, filler, queued, store=store, wait_seconds=10)
-        await filler.drain()
-        stats = await asyncio.wait_for(task, 30)
-        assert stats["draws"] > 0 and stats["questions"] > 0
-        assert schedule_prefill(entry, NullJudge(), filler, queued, store=store) is None
-
-
-class TestAdapterAndBatching:
-    def test_the_adapter_judge_wraps_an_eval_adapter(self, monkeypatch):
-        import sys
-        import types
-        from prompt_programs.judge import AdapterJudge
-        mod = types.ModuleType("fake_adapters")
-
-        class Obj:
-            revision = "abcdef123456"
-
-            def judge(self, state, picks, form="score"):
-                return [{"wrong": 1.0 if v == "grey hair" else 0.0, "typical": 0.0 if v == "grey hair" else 1.0}
-                        for _, _, v in picks]
-        mod.load = lambda name, device="cuda": Obj()
-        monkeypatch.setitem(sys.modules, "fake_adapters", mod)
-        j = AdapterJudge("fake_adapters", "d3-mini", "cuda")
-        assert j.version == "d3-mini@abcdef12/adapter-score"
-        got = j.judge("s", [Question("hair", "Hair", "", "grey hair"), Question("hair", "Hair", "", "a bob")])
-        assert got[0]["wrong"] == 1.0 and got[1] == {"typical": 1.0, "plausible": 0.0, "unusual": 0.0, "wrong": 0.0}
-
-    def test_big_passes_are_split(self):
-        inner = CountingJudge()
-        j = CachedJudge(inner, batch=8)
-        j.judge("s", [Question("p", "P", "", f"v{i}") for i in range(20)])
-        assert [len(qs) for _, qs in inner.calls] == [8, 8, 4] and j.passes == 3
+def test_settings_read_the_environment(monkeypatch):
+    monkeypatch.setenv("STIMMA_FLUENT_GENERATE", "0")
+    monkeypatch.setenv("STIMMA_FLUENT_JUDGE", "http")  # gone: ignored
+    s = settings()
+    assert s.generate_options is False and not hasattr(s, "judge")

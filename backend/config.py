@@ -441,21 +441,7 @@ class ServerConfig(BaseModel):
 
 
 class FluentConfig(BaseModel):
-    """Fluent (Tool View prompt programs) draws: the judge and its knobs.
-
-    judge: none | local | http. ``local`` runs the decision model in-process on CPU
-    (needs torch + transformers); ``http`` asks a judge server at ``judge_url``.
-    Without a working judge, draws use the null judge (keep everything).
-    """
-    judge: str = "none"
-    judge_model: str = "d3-edge"
-    judge_url: str = ""
-    judge_threads: int = 0
-    rarity: float = 0.3      # keep rate of an "unusual" value
-    wrong_cut: float = 0.5   # P(wrong) above this keeps nothing
-    # cut: only the wrong cut acts (every other value is kept). tiers: unusual values are
-    # also kept at the rarity rate. "cut" until the judge's lower tiers are calibrated.
-    keep: str = "cut"
+    """Fluent (Tool View prompt programs) draws: option generation and the fix judge."""
     generate_options: bool = True
     # The fix judge: a small ONNX model directory that checks each finished draw and
     # rerolls the picks it flags (prompt_programs.fix). Empty: off.

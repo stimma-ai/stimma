@@ -71,7 +71,7 @@ DEFAULTS: Dict[str, Any] = {
     "wrong": "wrong",
     "cut": 0.5,
 }
-REROLL_STRIDE = 10007   # reroll r draws on seed + stride * r (the eval's seeds)
+REROLL_STRIDE = 10007   # reroll r draws on seed + stride * r
 DEFAULT_ROUNDS = 4
 MAX_BATCH = 64          # pairs per model call; a bigger pass runs as several
 
@@ -170,8 +170,8 @@ def _file_digest(path: Path) -> str:
 
 
 def default_threads() -> int:
-    """onnxruntime threads for the judge when fix_threads is unset: one batch of a draw's
-    picks ran fastest at 8 on a 20-core CPU (more threads cost more than they gave)."""
+    """onnxruntime threads for the judge when fix_threads is unset: up to 8 (past that,
+    more threads cost one batch of a draw's picks more than they gave)."""
     return max(1, min(8, os.cpu_count() or 1))
 
 

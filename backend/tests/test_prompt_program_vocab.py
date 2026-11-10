@@ -4,7 +4,7 @@ view of them, the writer's catalogue, and article agreement in emitted text."""
 import pytest
 
 from prompt_programs import prepare as prep
-from prompt_programs.draws import NullJudge, PickSpec, draw
+from prompt_programs.draws import PickSpec, draw
 from prompt_programs.fluent import pool_options
 from prompt_programs.judge import FluentSettings
 from prompt_programs.options import (
@@ -129,7 +129,7 @@ class TestBinding:
         opts = GeneratedOptions(None, program())
         v = vocabulary()
         for seed in range(5):
-            r = draw(PORTRAIT, seed, None, [], None, None, None, options=opts, judge=NullJudge())
+            r = draw(PORTRAIT, seed, None, [], None, None, None, options=opts)
             got = {d.id: d for d in r.draws}
             assert got["eth"].value in {x.text for x in v.get("person.ethnicity").values}
             assert got["eyes"].value in {x.text for x in v.get("person.eye_color").eligible()}
@@ -138,7 +138,7 @@ class TestBinding:
 
     def test_a_list_the_vocabulary_lost_draws_unbound(self):
         src = PORTRAIT.replace("person.eye_color", "person.gone")
-        r = draw(src, 1, None, [], None, None, None, options=GeneratedOptions(None, program()), judge=NullJudge())
+        r = draw(src, 1, None, [], None, None, None, options=GeneratedOptions(None, program()))
         eyes = next(d for d in r.draws if d.id == "eyes")
         assert eyes.value == "hazel" and eyes.cls == "person.gone"  # its seed; the id is kept for replays
 
@@ -199,27 +199,27 @@ class TestBoundPools:
         from prompt_programs.fluent import runtime_for
         info = discover(PORTRAIT)
         entry = {"key": "p", "program": PORTRAIT, "loras": [], "params": {}, "mode": "prose", "choices": info["choices"]}
-        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
-        first = draw(PORTRAIT, 12, None, [], None, None, None, options=rt.options, judge=NullJudge())
+        rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
+        first = draw(PORTRAIT, 12, None, [], None, None, None, options=rt.options)
         rev = first.revision
         assert any(isinstance(v, list) for v in rev["pools"].values())  # bound pools are recorded whole
         v = vocabulary()
         for lid in ("person.expression", "person.eye_color", "person.ethnicity"):  # a new vocabulary release
             leaf = v.leaves[lid]
             monkeypatch.setitem(v.leaves, lid, dataclasses.replace(leaf, values=tuple(reversed(leaf.values[1:]))))
-        rt2 = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=rev)
-        again = draw(PORTRAIT, 12, None, [], None, None, None, options=rt2.options, judge=NullJudge())
+        rt2 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=rev)
+        again = draw(PORTRAIT, 12, None, [], None, None, None, options=rt2.options)
         assert again.prompt == first.prompt
 
     def test_a_revision_replays_after_its_list_is_removed(self, tmp_path, monkeypatch):
         from prompt_programs.fluent import runtime_for
         entry = {"key": "p", "program": PORTRAIT, "loras": [], "params": {}, "mode": "prose",
                  "choices": discover(PORTRAIT)["choices"]}
-        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
-        first = draw(PORTRAIT, 0, None, [], None, None, None, options=rt.options, judge=NullJudge())
+        rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
+        first = draw(PORTRAIT, 0, None, [], None, None, None, options=rt.options)
         monkeypatch.delitem(vocabulary().leaves, "person.eye_color")
-        rt2 = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=first.revision)
-        again = draw(PORTRAIT, 0, None, [], None, None, None, options=rt2.options, judge=NullJudge())
+        rt2 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision)
+        again = draw(PORTRAIT, 0, None, [], None, None, None, options=rt2.options)
         assert again.prompt == first.prompt
 
     def test_bound_and_unbound_pools_never_share_generated_options(self):
@@ -369,9 +369,9 @@ class TestWhere:
         from prompt_programs.fluent import runtime_for
         entry = young_entry()
         await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(young))
-        rt = runtime_for(entry, store=OptionStore(tmp_path / "o"), judge=NullJudge(), cfg=OFF)
+        rt = runtime_for(entry, store=OptionStore(tmp_path / "o"), cfg=OFF)
         for seed in range(8):
-            r = draw(YOUNG, seed, None, [], None, None, None, options=rt.options, judge=NullJudge())
+            r = draw(YOUNG, seed, None, [], None, None, None, options=rt.options)
             assert young(next(d for d in r.draws if d.id == "age").value)
             rt.options.reset()
         out = pool_options(entry, store=OptionStore(tmp_path / "o"), cfg=OFF)
@@ -446,7 +446,19 @@ def dressed(monkeypatch):
 
 def draw_dressed(seed, **kw):
     return draw(DRESSED, seed, kw.pop("pins", None), [], None, kw.pop("fixed", None), kw.pop("edits", None),
-                options=kw.pop("options", None) or GeneratedOptions(None, program()), judge=kw.pop("judge", NullJudge()), **kw)
+                options=kw.pop("options", None) or GeneratedOptions(None, program()), **kw)
+
+
+class FixSpy:
+    """A fix judge that records what it is asked and flags nothing."""
+    version, cut = "spy", 0.5
+
+    def __init__(self):
+        self.items = []
+
+    def p_wrong(self, items):
+        self.items += list(items)
+        return [0.0 for _ in items]
 
 
 class TestTemplates:
@@ -493,28 +505,21 @@ class TestTemplates:
             r = draw_dressed(seed, edits=edits, options=GeneratedOptions(None, program(), edits=edits))
             assert "running shorts" not in r.prompt
 
-    def test_the_judge_reads_filled_looks(self, dressed):
-        class Spy:
-            version, null = "spy", False
-
-            def __init__(self):
-                self.values = []
-
-            def judge(self, state, questions):
-                self.values += [q.value for q in questions]
-                return [{"typical": 1.0} for _ in questions]
-        spy = Spy()
-        draw_dressed(1, judge=spy)
-        assert spy.values and not any("{" in v for v in spy.values)
+    def test_the_fix_judge_reads_filled_looks(self, dressed):
+        from prompt_programs.fix import score_draw
+        spy = FixSpy()
+        for seed in range(6):
+            score_draw(spy, draw_dressed(seed), "a woman")
+        assert spy.items and not any("{" in it.value or "{" in it.state for it in spy.items)
 
     def test_a_revision_replays_a_template_draw(self, dressed, tmp_path):
         from prompt_programs.fluent import runtime_for
         entry = {"key": "d", "program": DRESSED, "loras": [], "params": {}, "mode": "prose",
                  "choices": discover(DRESSED)["choices"]}
-        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
-        first = draw(DRESSED, 5, None, [], None, None, None, options=rt.options, judge=NullJudge())
-        rt2 = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=first.revision)
-        assert draw(DRESSED, 5, None, [], None, None, None, options=rt2.options, judge=NullJudge()).prompt == first.prompt
+        rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
+        first = draw(DRESSED, 5, None, [], None, None, None, options=rt.options)
+        rt2 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision)
+        assert draw(DRESSED, 5, None, [], None, None, None, options=rt2.options).prompt == first.prompt
 
     def test_a_kept_look_alone_keeps_its_colours(self, dressed):
         first = draw_dressed(4)
@@ -522,39 +527,32 @@ class TestTemplates:
         for seed in range(6):
             assert draw_dressed(50 + seed, fixed={"outfit": look}).prompt == first.prompt
 
-    def test_a_pinned_template_reads_filled_in_the_judges_context(self, dressed):
-        class Spy:
-            version, null = "spy", False
-
-            def __init__(self):
-                self.states = []
-
-            def judge(self, state, questions):
-                self.states.append(state)
-                return [{"typical": 1.0} for _ in questions]
-        spy = Spy()
+    def test_a_pinned_template_reads_filled_in_the_fix_judges_context(self, dressed):
+        from prompt_programs.fix import score_draw
+        spy = FixSpy()
         src = DRESSED.replace('emit("A woman wearing", outfit, ".")',
                               'pose = pick("pose", about="her pose", seed=["standing", "sitting"], label="Pose", phase=1)\n'
                               'emit("A woman wearing", outfit, ",", pose, ".")')
-        draw(src, 2, {"outfit": ["a {main} technical T-shirt and {accent} running shorts"]}, [], None, None, None,
-             options=GeneratedOptions(None, program()), judge=spy)
-        assert spy.states and not any("{" in st for st in spy.states)
+        r = draw(src, 2, {"outfit": ["a {main} technical T-shirt and {accent} running shorts"]}, [], None, None, None,
+                 options=GeneratedOptions(None, program()))
+        score_draw(spy, r, "a woman")
+        assert "{" not in r.prompt and spy.items and not any("{" in it.state for it in spy.items)
 
     def test_a_replay_keeps_its_colours_after_the_palette_changes(self, dressed, tmp_path, monkeypatch):
         import dataclasses
         from prompt_programs.fluent import runtime_for
         entry = {"key": "d", "program": DRESSED, "loras": [], "params": {}, "mode": "prose",
                  "choices": discover(DRESSED)["choices"]}
-        rt = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF)
-        first = draw(DRESSED, 5, None, [], None, None, None, options=rt.options, judge=NullJudge())
+        rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
+        first = draw(DRESSED, 5, None, [], None, None, None, options=rt.options)
         pal = dressed.leaves["person.palette"]
         recoloured = tuple(dataclasses.replace(v, roles={k: "chartreuse" for k in v.roles}) for v in pal.values)
         monkeypatch.setitem(dressed.leaves, "person.palette", dataclasses.replace(pal, values=recoloured))
-        rt2 = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=first.revision)
-        assert draw(DRESSED, 5, None, [], None, None, None, options=rt2.options, judge=NullJudge()).prompt == first.prompt
+        rt2 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision)
+        assert draw(DRESSED, 5, None, [], None, None, None, options=rt2.options).prompt == first.prompt
         monkeypatch.delitem(dressed.leaves, "person.outfit.test")  # the outfit list itself removed
-        rt3 = runtime_for(entry, store=OptionStore(tmp_path), judge=NullJudge(), cfg=OFF, revision=first.revision)
-        assert "{" not in draw(DRESSED, 5, None, [], None, None, None, options=rt3.options, judge=NullJudge()).prompt
+        rt3 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision)
+        assert "{" not in draw(DRESSED, 5, None, [], None, None, None, options=rt3.options).prompt
 
     def test_colours_turned_off_leave_the_look_without_them(self, dressed):
         edits = {"outfit.colours": {"off": True}}
@@ -624,6 +622,6 @@ class TestLocalFacetWhere:
         from prompt_programs.fluent import program_context
         opts = GeneratedOptions(None, program_context(entry))
         for seed in range(6):
-            r = draw(src, seed, None, [], None, None, None, options=opts, judge=NullJudge())
+            r = draw(src, seed, None, [], None, None, None, options=opts)
             assert "tuxedo" not in r.prompt and "karate gi" not in r.prompt and "navy" in r.prompt
             opts.reset()
