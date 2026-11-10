@@ -40,6 +40,18 @@ test('tiered layout groups in tier order; unknown values sit with the usual ones
   assert.deepEqual(l.groups.map(g => g.label), ['Usual', 'Less usual', 'Rare', 'More ideas'])
 })
 
+test('values drawn only when picked get their own closed group, last', () => {
+  const tiers: Record<string, VocabTier> = { '8–10-year-old': 'opt_in', '20–24-year-old': 'typical', '60–64-year-old': 'plausible' }
+  const l = layoutOptions(Object.keys(tiers), [], '', tiers)
+  assert.deepEqual(l.groups.map(g => [g.tier, g.label, g.items]), [
+    ['typical', 'Usual', ['20–24-year-old']], ['plausible', 'Less usual', ['60–64-year-old']],
+    ['opt_in', 'Only when picked', ['8–10-year-old']],
+  ])
+  assert.equal(groupOpen(l.groups[2], '', {}), false)
+  // Picked, it is pinned like any other option.
+  assert.deepEqual(layoutOptions(Object.keys(tiers), ['8–10-year-old'], '', tiers).pinned, ['8–10-year-old'])
+})
+
 test('search keeps group totals and opens exactly the groups with hits', () => {
   const tiers: Record<string, VocabTier> = { 'soft smile': 'typical', frown: 'typical', 'wry smile': 'unusual', scowl: 'plausible' }
   const l = layoutOptions(Object.keys(tiers), [], 'smile', tiers)
