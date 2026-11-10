@@ -23,9 +23,12 @@ earlier pick its options follow (`by=`).
 from __future__ import annotations
 
 import ast
+import functools
+import operator
 import random
 import re
 import sys
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
@@ -423,17 +426,33 @@ class _Runner:
         return n
 
     def emit(self, *parts: Any) -> None:
-        for p in parts:
-            if p is None:
+        self.parts.extend(flatten_parts(parts, sum(map(len, self.parts))))
+
+
+def flatten_parts(parts: Sequence[Any], used: int = 0) -> List[str]:
+    """What emit() writes for its arguments: each value as text, lists and tuples in
+    order, None and LoRA names skipped (a LoRA is turned on, never written into the
+    prompt). `used` is the prompt text already emitted: the whole prompt is capped."""
+    out: List[str] = []
+    stack = [iter(parts)]
+    while stack:
+        for p in stack[-1]:
+            if p is None or isinstance(p, LoraName):
                 continue
             if isinstance(p, (list, tuple)):
-                self.emit(*p)
-                continue
-            if isinstance(p, LoraName):  # a LoRA is turned on, never written into the prompt
-                continue
-            s = str(p).strip()
+                if len(stack) > 32:
+                    raise _limit("emit() was given lists nested too deeply.")
+                stack.append(iter(p))
+                break
+            s = _text(p).strip()
             if s:
-                self.parts.append(s)
+                used += len(s)
+                if used > MAX_PROMPT_CHARS:
+                    raise _limit(f"the prompt is too long (over {MAX_PROMPT_CHARS:,} characters).")
+                out.append(s)
+        else:
+            stack.pop()
+    return out
 
 
 def bound_leaf(cid: str, cls: Optional[str], source: str = "text", options: Any = None) -> Any:
@@ -520,26 +539,299 @@ def tidy_text(parts: List[str]) -> str:
     return s.strip()
 
 
+# --------------------------------------------------------------------------- the sandbox
+# The step budget counts the program's lines, but one line can still ask C code for a lot
+# of work: "a" * 10**9, s.replace("", s), f"{x:>999999999}", max(range(10**9)). Every
+# operation that can grow a value is checked before it runs (compile_program rewrites
+# +, *, % and the growing methods into calls to a _Guard), and a run's CPU time is
+# capped. Prompts are short: legitimate programs are far inside every limit.
+
+MAX_SIZE = 100_000          # characters of a string, or items of a list, one operation may make
+MAX_MADE = 5_000_000        # characters and items one run's operations may make in all
+MAX_RANGE = 10_000          # numbers in a range()
+MAX_INT_BITS = 1024         # size of an int a multiplication may make
+MAX_FORMAT_NUMBER = 1000    # a width or precision in a format spec or % format
+MAX_PROMPT_CHARS = 100_000  # the emitted prompt
+MAX_CPU_SECONDS = 1.0       # CPU time of one run (thread time: waiting for the GIL doesn't count)
+
+_SCALARS = (str, int, float, bool, type(None))
+_SEQS = (str, bytes, list, tuple)
+_GROWING_METHODS = ("join", "replace", "extend")
+_CONVERSIONS = {115: str, 114: repr, 97: ascii}
+
+
+def _program_line() -> Optional[int]:
+    f = sys._getframe(1)
+    while f is not None:
+        if f.f_code.co_filename == "<program>":
+            return f.f_lineno
+        f = f.f_back
+    return None
+
+
+def _limit(msg: str) -> ProgramError:
+    line = _program_line()
+    return ProgramError(f"Line {line}: {msg}" if line is not None else msg[:1].upper() + msg[1:])
+
+
+def measure(value: Any, limit: int = MAX_SIZE) -> int:
+    """About how many characters a value's text takes, counted until it passes `limit`.
+    Containers are walked without recursion, so lists that hold the same list many
+    times over stop at the limit instead of writing it all out."""
+    total = 0
+    stack = [value]
+    while stack:
+        v = stack.pop()
+        t = type(v)
+        if t is str or t is bytes:
+            total += len(v)
+        elif t is int:
+            total += v.bit_length() // 3 + 2
+        elif t in (list, tuple, set, frozenset):
+            total += 2 + 2 * len(v)
+            if len(v) and set(map(type, v)) == {str}:
+                total += sum(map(len, v))
+            else:
+                stack.extend(v)
+        elif t is dict:
+            total += 2 + 4 * len(v)
+            stack.extend(v.keys())
+            stack.extend(v.values())
+        elif isinstance(v, (str, bytes)):
+            total += len(v)
+        else:
+            total += 8
+        if total > limit:
+            break
+    return total
+
+
+def _text(value: Any) -> str:
+    """str(value), refused when the text would be too long."""
+    if type(value) is not str and not isinstance(value, _SCALARS) and measure(value) > MAX_SIZE:
+        raise _limit(f"this value's text is too long (over {MAX_SIZE:,} characters).")
+    return str(value)
+
+
+class _StrBuiltin:
+    """The program's str(): the real str, refusing text too long to make. str.lower and
+    the other methods are str's own."""
+    __slots__ = ()
+
+    def __call__(self, *args: Any, **kw: Any) -> str:
+        if len(args) == 1 and not kw:
+            return _text(args[0])
+        return str(*args, **kw)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(str, name)
+
+
+def _range(*args: Any) -> range:
+    r = range(*args)
+    try:
+        n = len(r)
+    except OverflowError:
+        n = MAX_RANGE + 1
+    if n > MAX_RANGE:
+        raise _limit(f"range() is limited to {MAX_RANGE:,} numbers.")
+    return r
+
+
+_PERCENT = re.compile(r"%(?:\([^)]*\))?([^a-zA-Z%]*)")
+
+
+def _spec_ok(spec: str, what: str, star: bool = False) -> None:
+    """No width or precision over MAX_FORMAT_NUMBER, and (`star`: a % format) none taken
+    from the arguments."""
+    if (star and "*" in spec) or any(int(d) > MAX_FORMAT_NUMBER for d in re.findall(r"\d+", spec)):
+        raise _limit(f"{what}: widths and precisions go up to {MAX_FORMAT_NUMBER}.")
+
+
+class _Guard:
+    """One run's checks on the operations that can grow a value (see compile_program)."""
+
+    def __init__(self) -> None:
+        self.made = 0
+
+    def _made(self, v: Any) -> Any:
+        if isinstance(v, _SEQS):
+            n = len(v)
+            if n > MAX_SIZE:
+                raise _limit(f"this makes a value too long (over {MAX_SIZE:,} characters or items).")
+            self.made += n
+            if self.made > MAX_MADE:
+                raise _limit("the program builds too much text (it may grow a value in a loop).")
+        return v
+
+    @staticmethod
+    def _before(op: str, a: Any, b: Any) -> None:
+        if op == "*":
+            if isinstance(a, int) and isinstance(b, int):
+                if a.bit_length() + b.bit_length() > MAX_INT_BITS:
+                    raise _limit("this number is too big.")
+                return
+            seq, n = (a, b) if isinstance(a, _SEQS) else (b, a)
+            if isinstance(seq, _SEQS) and isinstance(n, int) and len(seq) * n > MAX_SIZE:
+                raise _limit(f"this makes a value too long (over {MAX_SIZE:,} characters or items).")
+        elif op == "+":
+            if isinstance(a, _SEQS) and isinstance(b, _SEQS) and len(a) + len(b) > MAX_SIZE:
+                raise _limit(f"this makes a value too long (over {MAX_SIZE:,} characters or items).")
+        elif op == "%" and isinstance(a, (str, bytes)):
+            for spec in _PERCENT.findall(a if isinstance(a, str) else a.decode("latin-1")):
+                _spec_ok(spec, "a % format", star=True)
+            if not isinstance(b, _SCALARS) and measure(b) > MAX_SIZE:
+                raise _limit(f"this value's text is too long (over {MAX_SIZE:,} characters).")
+
+    def op(self, op: str, a: Any, b: Any) -> Any:
+        self._before(op, a, b)
+        return self._made(a + b if op == "+" else a * b if op == "*" else a % b)
+
+    def aug(self, op: str, a: Any, b: Any) -> Any:
+        """x += y (and *=, %=): in place where the value allows it, as Python does."""
+        self._before(op, a, b)
+        return self._made(operator.iadd(a, b) if op == "+" else operator.imul(a, b) if op == "*" else operator.imod(a, b))
+
+    def aug_item(self, obj: Any, key: Any, op: str, b: Any) -> None:
+        obj[key] = self.aug(op, obj[key], b)
+
+    def call(self, obj: Any, name: str, *args: Any, **kw: Any) -> Any:
+        """obj.join / .replace / .extend: the result's size is known before it's made."""
+        if isinstance(obj, (type, _StrBuiltin)) and args:  # str.join(sep, items): the unbound form
+            obj, args = args[0], args[1:]
+        fn = getattr(obj, name)
+        if name == "join" and isinstance(obj, (str, bytes)) and len(args) == 1:
+            items = args[0] if isinstance(args[0], (list, tuple)) else list(args[0])
+            args = (items,)
+            try:
+                size = sum(map(len, items)) + len(obj) * max(0, len(items) - 1)
+            except TypeError:  # not all text: join says what's wrong
+                size = 0
+            if size > MAX_SIZE:
+                raise _limit(f"this makes a value too long (over {MAX_SIZE:,} characters or items).")
+        elif name == "replace" and isinstance(obj, (str, bytes)) and len(args) >= 2:
+            old, new = args[0], args[1]
+            count = args[2] if len(args) > 2 else kw.get("count", -1)
+            if isinstance(old, type(obj)) and isinstance(new, type(obj)) and len(new) > len(old):
+                hits = obj.count(old) if old else len(obj) + 1
+                if isinstance(count, int) and count >= 0:
+                    hits = min(hits, count)
+                if len(obj) + hits * (len(new) - len(old)) > MAX_SIZE:
+                    raise _limit(f"this makes a value too long (over {MAX_SIZE:,} characters or items).")
+        elif name == "extend" and isinstance(obj, list) and len(args) == 1:
+            items = args[0] if isinstance(args[0], _SEQS) else list(args[0])
+            args = (items,)
+            if len(obj) + len(items) > MAX_SIZE:
+                raise _limit(f"this makes a value too long (over {MAX_SIZE:,} characters or items).")
+            self.made += len(items)
+        out = fn(*args, **kw)
+        return self._made(out) if isinstance(out, (str, bytes)) else out
+
+    def fmt(self, value: Any, conversion: int, spec: str) -> str:
+        """One {value!r:spec} of an f-string."""
+        if conversion == -1 and not spec and type(value) is str:
+            return value
+        if conversion in _CONVERSIONS:
+            if not isinstance(value, _SCALARS) and measure(value) > MAX_SIZE:
+                raise _limit(f"this value's text is too long (over {MAX_SIZE:,} characters).")
+            value = _CONVERSIONS[conversion](value)
+        if spec:
+            if len(spec) > 40:
+                raise _limit("this f-string's format spec is too long.")
+            _spec_ok(spec, "an f-string format")
+            return format(value, spec)
+        return _text(value)
+
+    def fstr(self, s: str) -> str:
+        return self._made(s)
+
+
+class _Guarded(ast.NodeTransformer):
+    """Rewrites the operations that can grow a value into calls to a _Guard (the
+    `__pp_*` names: a program can't write a name starting with __)."""
+
+    _OPS = {ast.Add: "+", ast.Mult: "*", ast.Mod: "%"}
+
+    @staticmethod
+    def _call(name: str, args: List[ast.expr], node: ast.AST, keywords: Optional[List[ast.keyword]] = None) -> ast.Call:
+        return ast.copy_location(ast.Call(ast.Name(name, ast.Load()), args, keywords or []), node)
+
+    def visit_BinOp(self, node: ast.BinOp) -> ast.AST:
+        self.generic_visit(node)
+        op = self._OPS.get(type(node.op))
+        return self._call("__pp_op", [ast.Constant(op), node.left, node.right], node) if op else node
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> ast.AST:
+        self.generic_visit(node)
+        op = self._OPS.get(type(node.op))
+        if op is None:
+            return node
+        if isinstance(node.target, ast.Name):
+            value = self._call("__pp_aug", [ast.Constant(op), ast.Name(node.target.id, ast.Load()), node.value], node)
+            return ast.copy_location(ast.Assign([node.target], value), node)
+        if isinstance(node.target, ast.Subscript):
+            t = node.target
+            return ast.copy_location(ast.Expr(self._call("__pp_aug_item", [t.value, t.slice, ast.Constant(op), node.value],
+                                                          node)), node)
+        return node
+
+    def visit_Call(self, node: ast.Call) -> ast.AST:
+        self.generic_visit(node)
+        if isinstance(node.func, ast.Attribute) and node.func.attr in _GROWING_METHODS:
+            return self._call("__pp_call", [node.func.value, ast.Constant(node.func.attr), *node.args], node, node.keywords)
+        return node
+
+    def visit_FormattedValue(self, node: ast.FormattedValue) -> ast.AST:
+        self.generic_visit(node)
+        spec = node.format_spec if node.format_spec is not None else ast.Constant("")
+        node.value = self._call("__pp_fmt", [node.value, ast.Constant(node.conversion), spec], node)
+        node.conversion, node.format_spec = -1, None
+        return node
+
+    def visit_JoinedStr(self, node: ast.JoinedStr) -> ast.AST:
+        self.generic_visit(node)
+        return self._call("__pp_fstr", [node], node)
+
+
 def compile_program(tree: ast.Module) -> Any:
-    """Compile a checked program for execute()."""
+    """Compile a checked program for execute(), its growing operations guarded."""
+    tree = ast.fix_missing_locations(_Guarded().visit(tree))
     return compile(tree, "<program>", "exec")
+
+
+_SANDBOX_BUILTINS: Dict[str, Any] = {**_SAFE_BUILTINS, "range": _range, "str": _StrBuiltin()}
+
+
+def _api_call(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """An API function as the program calls it: arguments whose text would be huge are
+    refused before the runtime turns them into text."""
+    def call(*args: Any, **kw: Any) -> Any:
+        for v in (*args, *kw.values()):
+            if not isinstance(v, _SCALARS) and measure(v) > MAX_SIZE:
+                raise _limit(f"this argument is too big (over {MAX_SIZE:,} characters).")
+        return fn(*args, **kw)
+    return call
 
 
 def execute(code: Any, api: Any, passthrough: Tuple[type, ...] = ()) -> None:
     """Run compiled program code against an API object (its pick/pick_lora/param/group/
-    emit) in the sandbox: only _SAFE_BUILTINS, and a step budget. Errors become a
-    ProgramError naming the program's line; ProgramError and `passthrough` exceptions
-    propagate as they are."""
-    env: Dict[str, Any] = {"__builtins__": dict(_SAFE_BUILTINS)}
+    emit) in the sandbox: only _SANDBOX_BUILTINS, a step budget, a CPU budget and the
+    size checks. Errors become a ProgramError naming the program's line; ProgramError
+    and `passthrough` exceptions propagate as they are."""
+    guard = _Guard()
+    env: Dict[str, Any] = {"__builtins__": dict(_SANDBOX_BUILTINS), "__pp_op": guard.op, "__pp_aug": guard.aug,
+                           "__pp_aug_item": guard.aug_item, "__pp_call": guard.call, "__pp_fmt": guard.fmt,
+                           "__pp_fstr": guard.fstr}
     for name in API_NAMES:
-        env[name] = getattr(api, name)
+        env[name] = _api_call(getattr(api, name))
     steps = 0
+    started = time.thread_time()
 
     def tracer(frame, event, arg):  # step budget: a program must finish quickly
         nonlocal steps
         if frame.f_code.co_filename == "<program>":
             steps += 1
-            if steps > MAX_STEPS:
+            if steps > MAX_STEPS or (steps & 63 == 0 and time.thread_time() - started > MAX_CPU_SECONDS):
                 raise ProgramError("Program ran too long (it may loop forever).")
             return tracer
         return None
@@ -547,7 +839,7 @@ def execute(code: Any, api: Any, passthrough: Tuple[type, ...] = ()) -> None:
     old = sys.gettrace()
     sys.settrace(tracer)
     try:
-        exec(code, env)  # noqa: S102 — checked AST, no builtins beyond _SAFE_BUILTINS
+        exec(code, env)  # noqa: S102 — checked AST, no builtins beyond _SANDBOX_BUILTINS
     except (ProgramError, *passthrough):
         raise
     except Exception as e:  # report like a traceback line the model can act on
@@ -562,13 +854,20 @@ def execute(code: Any, api: Any, passthrough: Tuple[type, ...] = ()) -> None:
         sys.settrace(old)
 
 
+@functools.lru_cache(maxsize=256)
+def _compiled(source: str) -> Any:
+    """check() and compile_program() for a source, once: discovery and draws run the
+    same program many times. Code objects are immutable, so sharing one is safe."""
+    return compile_program(check(source))
+
+
 def run(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None,
         loras: Optional[Sequence[LoraInfo]] = None, tool_params: Optional[Set[str]] = None,
         fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Dict[str, Any]]] = None) -> RunResult:
     """Run a program once. Deterministic for a given (source, seed, pins, fixed)."""
-    tree = check(source)
+    code = _compiled(source)
     runner = _Runner(seed, pins or {}, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params, fixed, edits)
-    execute(compile_program(tree), runner)
+    execute(code, runner)
     prompt = tidy_text(runner.parts)
     if not prompt:
         raise ProgramError("The program emitted no prompt text. Call emit(...) with the finished prompt.")
@@ -620,7 +919,7 @@ def _group_by_subject(choices: Dict[str, "Choice"], order: List[str], groups: Di
     labels: Dict[str, str] = {}
     for cid in order:
         c = choices[cid]
-        if c.group or c.kind == "param":
+        if c.group or c.kind == "param" or len(c.label) > 80:  # a long label is no "Girl 1 Hair" (and slow to match)
             continue
         m = _SUBJECT_LABEL.match(c.label.strip())
         if not m:

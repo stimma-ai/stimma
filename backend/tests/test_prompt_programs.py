@@ -95,7 +95,8 @@ emit("Three friends:", ", ".join(ages))
         ("x = ().__class__\n", "is not allowed"),
         ("while True:\n    pass\n", "While is not allowed"),
         ("emit(open('x'))\n", "NameError"),
-        ("for i in range(1000000000):\n    pass\nemit('x')\n", "ran too long"),
+        ("for i in range(1000000000):\n    pass\nemit('x')\n", "range\\(\\) is limited"),
+        ("for i in range(9000):\n    for j in range(9000):\n        pass\nemit('x')\n", "ran too long"),
         ("pick('a', ['x'])\npick('a', ['y'])\nemit('z')\n", "used twice"),
         ("pick('a', ['x'])\n", "emitted no prompt"),
     ])
@@ -976,3 +977,73 @@ class TestSandbox:
         from prompt_programs.draws import draw
         assert text in run(src_plain, 1).prompt
         assert text in draw(src_phased, 1).prompt
+
+
+DAG = 'L = ["x" * 1000]\nfor i in range(40):\n    L = [L, L]\n'
+HOGS = [
+    'x = "a" * 200000000',
+    'x = [0] * 1000000000',
+    'x = 3 * "ab" * 100000000',
+    's = "ab"\nfor i in range(6):\n    s = s.replace("", s)\nx = s',
+    'x = f"{1:>200000000}"',
+    'x = f"{1.5:.200000000f}"',
+    'w = 200000000\nx = f"{1:>{w}}"',
+    'x = "%0200000000d" % 1',
+    'x = "%*d" % (200000000, 1)',
+    'x = max(range(300000000))',
+    'x = sorted(range(300000000))',
+    'x = len(list(range(100000000)))',
+    'n = 7\nfor i in range(40):\n    n = n * n\nx = n',
+    's = "ab"\nfor i in range(60):\n    s = s + s\nx = s',
+    's = "ab"\nfor i in range(60):\n    s += s\nx = s',
+    'd = {"k": "ab"}\nfor i in range(60):\n    d["k"] += d["k"]\nx = d["k"]',
+    'L = [1]\nfor i in range(60):\n    L.extend(L)\nx = len(L)',
+    's = "ab"\nfor i in range(60):\n    s = "".join([s, s])\nx = s',
+    's = "ab"\nfor i in range(60):\n    s = str.join("", [s, s])\nx = s',
+    'acc = []\nfor i in range(20000):\n    acc.append("y" * 99999)\nx = len(acc)',
+    DAG + 'x = str(L)',
+    DAG + 'x = f"{L}"',
+    DAG + 'x = f"{L!r}"',
+    DAG + 'x = "%s" % (L,)',
+    DAG + 'x = "ok"\nemit(L)',
+    DAG + 'x = "ok"\nemit("a", label=L)',
+]
+
+
+class TestResourceLimits:
+    @pytest.mark.parametrize("body", HOGS)
+    def test_one_line_cannot_hog_memory_or_cpu(self, body):
+        import time
+        for go in _both(body + "\nemit(x)"):
+            started = time.monotonic()
+            with pytest.raises(ProgramError):
+                go()
+            assert time.monotonic() - started < 0.1
+
+    def test_cpu_budget(self):
+        import time
+        body = 'L = list(range(10000))\nfor i in range(5000):\n    x = sorted(L, key=str)\nx = "done"'
+        for go in _both(body + "\nemit(x)"):
+            started = time.monotonic()
+            with pytest.raises(ProgramError, match="ran too long"):
+                go()
+            assert time.monotonic() - started < 2.0
+
+    @pytest.mark.parametrize("body, text", [
+        ('x = ", ".join(["a", "b"] * 3)', "a, b, a, b, a, b"),
+        ('x = "-" * 3 + era', "---1920s"),
+        ('parts = []\nfor i in range(3):\n    parts += [f"#{i}"]\nx = " ".join(parts)', "#0 #1 #2"),
+        ('x = era.replace("19", "nineteen-")', "nineteen-20s"),
+        ('L = ["a"]\nL.extend(["b", "c"])\nx = str.join("+", L)', "a+b+c"),
+        ('x = str(sorted([3, 1, 2]))', "[1, 2, 3]"),
+        ('x = " ".join(sorted(["b", "A", "c"], key=str.lower))', "A b c"),
+        ('x = f"{100000 * 100000}"', "10000000000"),
+    ])
+    def test_ordinary_programs_are_unaffected(self, body, text):
+        from prompt_programs.draws import draw
+        assert text.lower() in run(_plain(body + "\nemit(x)").replace('["1920s", "1970s"]', '["1920s"]'), 1).prompt.lower()
+        assert text.lower() in draw(_phased(body + "\nemit(x)").replace('["1920s", "1970s"]', '["1920s"]'), 1).prompt.lower()
+
+    def test_a_limit_names_the_line(self):
+        with pytest.raises(ProgramError, match=r"^Line 3: this makes a value too long"):
+            run(_plain('y = 1\nx = "a" * 200000000\nemit(x)'), 1)

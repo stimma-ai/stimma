@@ -36,7 +36,7 @@ from typing import Any, Dict, FrozenSet, List, Optional, Protocol, Sequence, Set
 
 from prompt_programs.runtime import (
     RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _Runner, LoraName, _as_list,
-    _label_from_id, _lora_key, check, compile_program, execute, lora_names, tidy_text,
+    _label_from_id, _lora_key, check, compile_program, execute, flatten_parts, lora_names, tidy_text,
 )
 from prompt_programs.vocab import fill, is_template, tags_match, template_matches, vocabulary
 
@@ -956,21 +956,9 @@ class _Exec(_Runner):
         taints = self.eng.an.emits.get(_site, [])
         for i, p in enumerate(parts):
             t = taints[i] if i < len(taints) else _EMPTY
-            for s in _flatten(p):  # each span recorded once, with its part's taint
+            for s in flatten_parts([p], sum(map(len, self.parts))):  # each span recorded once, with its part's taint
                 self.parts.append(s)
                 self.spans.append((s, t))
-
-
-def _flatten(p: Any) -> List[str]:
-    """runtime._Runner.emit's flattening, without re-entering emit()."""
-    if p is None:
-        return []
-    if isinstance(p, (list, tuple)):
-        return [s for q in p for s in _flatten(q)]
-    if isinstance(p, LoraName):
-        return []
-    s = str(p).strip()
-    return [s] if s else []
 
 
 # --------------------------------------------------------------------------- the draw loop
