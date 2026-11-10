@@ -171,6 +171,8 @@ checks that temporary files really execute (using a native binary, which detects
 `noexec`) and that the cache is writable. Install hook programs outside the
 checkout so checkout cleanup cannot remove them. Keep caches/toolchains on
 persistent volumes; only disposable test data belongs in bounded memory storage.
+Keep uv's managed Python and tool installation directories outside `UV_CACHE_DIR`:
+`uv cache prune` removes unknown directories inside that disposable download cache.
 
 The runner's `ACTIONS_RUNNER_ACTION_ARCHIVE_CACHE` holds official action archives
 keyed by repository and resolved commit. Prewarm a configured cache with

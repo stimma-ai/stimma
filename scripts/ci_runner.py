@@ -38,6 +38,13 @@ def check_runner(temporary, cache):
         except PermissionError as error:
             raise RuntimeError('Runner temporary filesystem must allow execution (mount with exec)') from error
     paths = {cache}
+    uv_cache = Path(os.environ.get('UV_CACHE_DIR', cache / 'uv')).resolve()
+    for key in ('UV_PYTHON_INSTALL_DIR', 'UV_TOOL_DIR', 'UV_TOOL_BIN_DIR'):
+        if os.environ.get(key):
+            installed = Path(os.environ[key]).resolve()
+            if installed == uv_cache or uv_cache in installed.parents:
+                raise RuntimeError('Persistent uv Python/tool directories must be outside UV_CACHE_DIR; '
+                                   'uv cache prune removes them')
     for key in ('RUNNER_TOOL_CACHE', 'UV_PYTHON_INSTALL_DIR', 'UV_TOOL_DIR',
                 'UV_TOOL_BIN_DIR', 'DENO_INSTALL', 'NPM_CONFIG_CACHE'):
         if os.environ.get(key):

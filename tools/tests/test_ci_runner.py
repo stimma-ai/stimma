@@ -52,6 +52,16 @@ class RunnerChecks(unittest.TestCase):
                 with self.assertRaises(FileExistsError):
                     runner.check_runner(root / 'temp', root / 'cache')
 
+    def test_managed_python_and_tools_cannot_live_inside_the_prunable_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for key in ('UV_PYTHON_INSTALL_DIR', 'UV_TOOL_DIR', 'UV_TOOL_BIN_DIR'):
+                with self.subTest(key=key), patch.dict(os.environ,
+                        {'UV_CACHE_DIR': str(root / 'downloads'),
+                         key: str(root / 'downloads/installed')}, clear=True):
+                    with self.assertRaisesRegex(RuntimeError, 'outside UV_CACHE_DIR'):
+                        runner.check_runner(root / 'temp', root / 'cache')
+
     def test_scratch_cleanup_is_repeatable_but_refuses_unrelated_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
