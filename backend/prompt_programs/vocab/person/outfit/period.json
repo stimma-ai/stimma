@@ -775,7 +775,7 @@
       }
     },
     {
-      "text": "a {main} wool justaucorps, {accent} waistcoat, and {neutral} knee breeches",
+      "text": "a {main} wool justaucorps, {accent} vest, and {neutral} knee breeches",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1439,7 +1439,7 @@
       }
     },
     {
-      "text": "a {main} work jacket and high-waisted blue denim dungarees",
+      "text": "a {main} work jacket and high-waisted blue denim overalls",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2462,7 +2462,7 @@
       }
     },
     {
-      "text": "a {main} wool sack coat, {accent} waistcoat, and {neutral} trousers",
+      "text": "a {main} wool sack coat, {accent} vest, and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2690,7 +2690,7 @@
       }
     },
     {
-      "text": "a {main} wool knickerbocker suit with a {accent} knitted waistcoat and {neutral} stockings",
+      "text": "a {main} wool knickerbocker suit with a {accent} knitted vest and {neutral} stockings",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2919,7 +2919,7 @@
       }
     },
     {
-      "text": "a {main} wool cutaway tailcoat over a {accent} waistcoat, white linen shirt, and {neutral} pantaloons",
+      "text": "a {main} wool cutaway tailcoat over a {accent} vest, white linen shirt, and {neutral} pantaloons",
       "tier": "typical",
       "tags": {
         "era": [

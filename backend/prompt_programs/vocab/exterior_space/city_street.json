@@ -100,7 +100,7 @@
       }
     },
     {
-      "text": "a steep street with retaining walls and terraced houses",
+      "text": "a steep street with retaining walls and row houses",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -245,7 +245,7 @@
       }
     },
     {
-      "text": "a street with detached houses and front garden fences",
+      "text": "a street with detached houses and front yard fences",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -271,7 +271,7 @@
       }
     },
     {
-      "text": "a street with bollards and a protected cycle lane",
+      "text": "a street with bollards and a protected bike lane",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -288,7 +288,7 @@
       }
     },
     {
-      "text": "a street with food kiosks and painted crossing stripes",
+      "text": "a street with food kiosks and painted crosswalk stripes",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -334,7 +334,7 @@
       }
     },
     {
-      "text": "a street with elevated railway tracks overhead",
+      "text": "a street with elevated train tracks overhead",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1141,7 +1141,7 @@
       }
     },
     {
-      "text": "a Roman street with stepping stones and plastered shopfronts",
+      "text": "a Roman street with stepping stones and plastered storefronts",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1186,7 +1186,7 @@
       }
     },
     {
-      "text": "a city street with horse-tram rails and cast-iron shopfronts",
+      "text": "a city street with horse-tram rails and cast-iron storefronts",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1204,7 +1204,7 @@
       }
     },
     {
-      "text": "a street with Art Deco cinemas and tiled shopfronts",
+      "text": "a street with Art Deco movie theaters and tiled storefronts",
       "tier": "typical",
       "tags": {
         "era": [

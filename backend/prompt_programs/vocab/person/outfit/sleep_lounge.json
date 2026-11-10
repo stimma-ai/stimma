@@ -4,7 +4,7 @@
   "description": "Sleepwear and soft indoor leisure outfits described as complete garment combinations.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete pajamas, nightdresses, robes over underlayers, and relaxed home clothes. Casual owns everyday streetwear; athletic owns workout kit; summer owns swimwear. Excludes underwear-only looks, bedclothes, props, locations, and body descriptions. Palette roles coordinate garment colors; white and undyed historical shifts retain intrinsic colors. Coverage describes garment extent. Historical dyed looks use muted, earthy or light schemes.",
+  "notes": "Complete pajamas, nightgowns, robes over underlayers, and relaxed home clothes. Casual owns everyday streetwear; athletic owns workout clothes; summer owns swimwear. Excludes underwear-only looks, bedclothes, props, locations, and body descriptions. Palette roles coordinate garment colors; white and undyed historical shifts retain intrinsic colors. Coverage describes garment extent. Historical dyed looks use muted, earthy or light schemes.",
   "facets": [
     "presentation",
     "age",
@@ -154,7 +154,7 @@
       }
     },
     {
-      "text": "a white cotton nightdress with long sleeves",
+      "text": "a white cotton nightgown with long sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -316,7 +316,7 @@
       }
     },
     {
-      "text": "a {main} terrycloth robe over a {neutral} cotton nightdress",
+      "text": "a {main} terrycloth robe over a {neutral} cotton nightgown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -578,7 +578,7 @@
       }
     },
     {
-      "text": "a {main} jersey nightdress with short sleeves",
+      "text": "a {main} jersey nightgown with short sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -665,7 +665,7 @@
       }
     },
     {
-      "text": "a {main} satin robe over a matching knee-length nightdress",
+      "text": "a {main} satin robe over a matching knee-length nightgown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -982,7 +982,7 @@
       }
     },
     {
-      "text": "a {main} fleece dressing gown over {neutral} jersey pajamas",
+      "text": "a {main} fleece robe over {neutral} jersey pajamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1356,7 +1356,7 @@
       "adult_only": true
     },
     {
-      "text": "a short {main} cotton nightdress with narrow straps and a gathered neckline",
+      "text": "a short {main} cotton nightgown with narrow straps and a gathered neckline",
       "tier": "typical",
       "tags": {
         "kind": [

@@ -208,8 +208,8 @@ Still write `about=` and a seed in the list's form.
 - Some lists name their parts after "where:" in the list below. When the user's words narrow a
   listed detail and one of those parts says it, bind it with that part:
   `pick("age", cls="person.age_band", where={"life_stage": "young adult"}, ...)` for "a young
-  woman"; `where={"sport": "tennis", "color_family": "red"}` on an outfit for "in red tennis
-  kit". An outfit's colors are drawn with it: never write a separate color pick for an
+  woman"; `where={"sport": "tennis", "color_family": "red"}` on an outfit for "in a red tennis
+  outfit". An outfit's colors are drawn with it: never write a separate color pick for an
   outfit; a color the user names goes in the outfit's `where=`.
 - When no named part says it, put the user's own words in `where=` instead, and only the
   list's values that fit them are drawn: "a woman in her late thirties" → `where="late
@@ -361,5 +361,5 @@ Two subjects: every pick of the fisherman's is `fisherman.…` and the dog's is 
 shows under its own name. "old" is the user's, so there is no age pick. The boats belong to the
 scene: a plain id.
 
-Use US English spelling everywhere: labels, abouts, seeds and text (for example, "Hair color", "gray",
-"Colors" for an outfit's colors).
+Use US English spelling and words everywhere: labels, abouts, seeds and text (for example, "Hair color",
+"gray", "sneakers", "Colors" for an outfit's colors).

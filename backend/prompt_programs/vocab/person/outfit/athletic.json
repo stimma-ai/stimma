@@ -26,7 +26,7 @@
   },
   "values": [
     {
-      "text": "a {main} technical T-shirt and {accent} running shorts with {neutral} mesh trainers",
+      "text": "a {main} technical T-shirt and {accent} running shorts with {neutral} mesh sneakers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -78,7 +78,7 @@
       }
     },
     {
-      "text": "a {main} training vest and {neutral} stretch leggings",
+      "text": "a {main} training tank top and {neutral} stretch leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -443,7 +443,7 @@
       }
     },
     {
-      "text": "a {main} football jersey and {accent} shorts with {neutral} knee socks",
+      "text": "a {main} soccer jersey and {accent} shorts with {neutral} knee socks",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -527,7 +527,7 @@
       }
     },
     {
-      "text": "a {main} basketball vest and loose matching shorts",
+      "text": "a {main} basketball jersey and loose matching shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -584,7 +584,7 @@
       }
     },
     {
-      "text": "a {main} boxing vest and {accent} satin shorts",
+      "text": "a {main} boxing tank top and {accent} satin shorts",
       "tier": "typical",
       "tags": {
         "formality": [

@@ -21,7 +21,7 @@ def P(cid, cls=None, about="a detail", seed="x", label="Detail", phase=1, extra=
 AGE, ETH, HAIR, STYLE, OUTFIT, DOG = ("person.age_band", "person.ethnicity", "person.hair_color", "person.hairstyle",
                                       "person.outfit.casual", "animal.dog_breed")
 SEEDS = {"person.expression": "a frown", "person.outfit.formal": "a navy suit", AGE: "25–29-year-old", ETH: "Korean", HAIR: "black", STYLE: "a low ponytail", OUTFIT: "a denim jacket",
-         DOG: "French bulldog", "person.outfit.summer": "a swimsuit", "animal.cat_coat": "ginger tabby", "person.eye_color": "hazel"}
+         DOG: "French bulldog", "person.outfit.summer": "a swimsuit", "animal.cat_coat": "orange tabby", "person.eye_color": "hazel"}
 
 
 def detail(cls):

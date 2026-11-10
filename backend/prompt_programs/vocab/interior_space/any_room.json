@@ -114,7 +114,7 @@
       }
     },
     {
-      "text": "a cramped landing with a linen cupboard and banister",
+      "text": "a cramped landing with a linen closet and banister",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -163,7 +163,7 @@
       }
     },
     {
-      "text": "a clinic examination room with a couch and instrument trolley, neatly arranged",
+      "text": "a clinic examination room with a couch and instrument cart, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -207,7 +207,7 @@
       }
     },
     {
-      "text": "a dental surgery with a reclining chair and instrument trays, neatly arranged",
+      "text": "a dental office with a reclining chair and instrument trays, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -251,7 +251,7 @@
       }
     },
     {
-      "text": "a spacious airport terminal with check-in kiosks and queue barriers, neatly arranged",
+      "text": "a spacious airport terminal with check-in kiosks and stanchions, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -271,7 +271,7 @@
       }
     },
     {
-      "text": "a railway carriage with facing seats and luggage racks",
+      "text": "a train car with facing seats and luggage racks",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -295,7 +295,7 @@
       }
     },
     {
-      "text": "a subway carriage with hanging straps and molded benches",
+      "text": "a subway car with hanging straps and molded benches",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -855,7 +855,7 @@
       }
     },
     {
-      "text": "a spacious cinema auditorium with tiered seats and a projection screen, neatly arranged",
+      "text": "a spacious movie theater auditorium with tiered seats and a projection screen, neatly arranged",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -901,7 +901,7 @@
       }
     },
     {
-      "text": "a dressing room with mirrors and costume rails",
+      "text": "a dressing room with mirrors and costume racks",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1828,7 +1828,7 @@
       }
     },
     {
-      "text": "a railway waiting hall with iron columns and wooden benches",
+      "text": "a train station waiting hall with iron columns and wooden benches",
       "tier": "typical",
       "tags": {
         "era": [

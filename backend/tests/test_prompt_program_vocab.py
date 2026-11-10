@@ -80,7 +80,7 @@ class TestTheVocabulary:
         cat = vocabulary().catalog()
         assert "- person.eye_color: adjective" in cat and "interior_space" not in cat
         assert "- animal.dog_breed: noun phrase" in cat and "- animal.cat_coat:" in cat
-        assert "ginger tabby" not in cat
+        assert "orange tabby" not in cat
         assert "medium brown" not in cat  # no fixed samples (a shade name like "hazel" is a facet, not a sample)
 
     def test_the_writer_reads_the_catalog(self):

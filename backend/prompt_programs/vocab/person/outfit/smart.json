@@ -462,7 +462,7 @@
       }
     },
     {
-      "text": "a {main} waistcoat over a {accent} shirt and {neutral} trousers",
+      "text": "a {main} vest over a {accent} shirt and {neutral} trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -822,7 +822,7 @@
       }
     },
     {
-      "text": "a {accent} roll-neck and a {main} checked midi skirt",
+      "text": "a {accent} turtleneck and a {main} checked midi skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -942,7 +942,7 @@
       }
     },
     {
-      "text": "a {main} linen waistcoat and matching pleated trousers",
+      "text": "a {main} linen vest and matching pleated trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1575,7 +1575,7 @@
       }
     },
     {
-      "text": "a {main} sleeveless knee-length tailored waistcoat over a {accent} shirt dress and {neutral} opaque tights",
+      "text": "a {main} sleeveless knee-length tailored vest over a {accent} shirt dress and {neutral} opaque tights",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2352,7 +2352,7 @@
       }
     },
     {
-      "text": "a {main} long-sleeved cotton kurta beneath a {accent} woven waistcoat with {neutral} straight trousers",
+      "text": "a {main} long-sleeved cotton kurta beneath a {accent} woven vest with {neutral} straight trousers",
       "tier": "typical",
       "tags": {
         "formality": [

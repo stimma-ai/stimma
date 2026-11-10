@@ -359,7 +359,7 @@
       }
     },
     {
-      "text": "a {main} leather jacket over a {accent} wool jumper and {neutral} jeans",
+      "text": "a {main} leather jacket over a {accent} wool sweater and {neutral} jeans",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -947,7 +947,7 @@
       }
     },
     {
-      "text": "a {main} quilted liner jacket over a {accent} roll-neck and {neutral} brushed-cotton trousers",
+      "text": "a {main} quilted liner jacket over a {accent} turtleneck and {neutral} brushed-cotton trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1153,7 +1153,7 @@
       }
     },
     {
-      "text": "a {main} insulated anorak with a {accent} chest panel and {neutral} fleece-lined trousers",
+      "text": "a {main} insulated parka with a {accent} chest panel and {neutral} fleece-lined trousers",
       "tier": "typical",
       "tags": {
         "formality": [

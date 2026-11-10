@@ -4,7 +4,7 @@
   "description": "Everyday outfits built from relaxed garments and practical separates.",
   "pos": "noun phrase",
   "frame": "wearing ___",
-  "notes": "Complete everyday looks, including simple dresses and culturally specific daily garments. Smart owns tailored workwear; athletic owns exercise kit; summer owns beachwear; cold_weather owns outerwear-led looks. Excludes accessories, props, body descriptors, and grooming. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply garment colors; blue denim and undyed fabric may retain intrinsic colors. Coverage describes garment extent. Historical dyed looks use muted, earthy or monochrome schemes.",
+  "notes": "Complete everyday looks, including simple dresses and culturally specific daily garments. Smart owns tailored workwear; athletic owns exercise clothes; summer owns beachwear; cold_weather owns outerwear-led looks. Excludes accessories, props, body descriptors, and grooming. Garments never imply descent or body type. Cultural garments are available in any region. Use subject-appropriate pronouns. Picks require writer compatibility with the setting and activity. Palette roles supply garment colors; blue denim and undyed fabric may retain intrinsic colors. Coverage describes garment extent. Historical dyed looks use muted, earthy or monochrome schemes.",
   "facets": [
     "presentation",
     "age",
@@ -345,7 +345,7 @@
       }
     },
     {
-      "text": "a cotton shirt with {main} and {accent} checks and stonewashed denim dungarees",
+      "text": "a cotton shirt with {main} and {accent} checks and stonewashed denim overalls",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -685,7 +685,7 @@
       }
     },
     {
-      "text": "a {main} canvas boiler suit with rolled sleeves",
+      "text": "a {main} canvas coverall with rolled sleeves",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1933,7 +1933,7 @@
       }
     },
     {
-      "text": "a {main} linen waistcoat over a {accent} long-sleeved blouse and {neutral} palazzo trousers",
+      "text": "a {main} linen vest over a {accent} long-sleeved blouse and {neutral} palazzo trousers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2351,7 +2351,7 @@
       }
     },
     {
-      "text": "a {main} thobe beneath a cropped {accent} sleeveless brocade waistcoat",
+      "text": "a {main} thobe beneath a cropped {accent} sleeveless brocade vest",
       "tier": "typical",
       "tags": {
         "formality": [

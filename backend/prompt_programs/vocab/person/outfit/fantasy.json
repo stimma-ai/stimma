@@ -963,7 +963,7 @@
       }
     },
     {
-      "text": "a {main} velvet frock coat and {accent} brocade waistcoat with {neutral} trousers",
+      "text": "a {main} velvet frock coat and {accent} brocade vest with {neutral} trousers",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1779,7 +1779,7 @@
       }
     },
     {
-      "text": "a {main} brocade waistcoat over a {accent} puff-sleeved shirt and {neutral} striped trousers",
+      "text": "a {main} brocade vest over a {accent} puff-sleeved shirt and {neutral} striped trousers",
       "tier": "typical",
       "tags": {
         "genre": [
