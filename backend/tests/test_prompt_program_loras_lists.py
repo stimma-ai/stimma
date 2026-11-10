@@ -215,6 +215,25 @@ class TestTextProtocolDeadline:
         entry = await _ensure()
         assert entry["program"] == good and tripped
 
+    async def test_validation_runs_off_the_event_loop(self, slow_model, monkeypatch):
+        import threading
+        good = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather", line=1)\n'
+                'emit("A woman waiting for a train on a", w, "morning.")\n')
+        real, threads = prep.validate, []
+
+        def validate(*a, **kw):
+            threads.append(threading.current_thread())
+            return real(*a, **kw)
+
+        async def ask(messages, project_id, max_tokens=4096):
+            return f"```python\n{good}```"
+
+        monkeypatch.setattr(prep, "validate", validate)
+        monkeypatch.setattr(prep, "_ask_model", ask)
+        loop_thread = threading.current_thread()
+        entry = await _ensure()
+        assert entry["program"] == good and threads and loop_thread not in threads
+
     async def test_the_fallback_counts_time_from_the_start_of_the_prepare(self, slow_model, monkeypatch):
         import time
         monkeypatch.setattr(prep, "PREPARE_LIMIT_SECONDS", 1.0)

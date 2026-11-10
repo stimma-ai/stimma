@@ -1857,7 +1857,9 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
         fixed += more
         try:
             check(source)
-            checked = validate(source, new, loras, set(params), enhanced if elaborate else plain_example(new), elaborate)
+            # validate() runs the program some 50 times: in a worker thread, off the event loop
+            checked = await asyncio.to_thread(validate, source, new, loras, set(params),
+                                              enhanced if elaborate else plain_example(new), elaborate)
         except _CHECK_ERRORS as e:
             raise ProgramError(_check_error(e)) from None
         problems = checked["problems"]
@@ -1996,7 +1998,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
         fixes += fixed
         try:
             check(source)
-            checked = validate(source, source_prompt, loras, set(params), enhanced, elaborate)
+            checked = await asyncio.to_thread(validate, source, source_prompt, loras, set(params), enhanced, elaborate)
         except _CHECK_ERRORS as e:
             problems = [_check_error(e)]
         else:

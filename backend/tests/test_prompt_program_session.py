@@ -913,3 +913,36 @@ class TestEditorAndSubmitShareAKey:
             tool_id="t", prompt_options=prompt_options, project_id=None, profile_id="p", elaborate=True,
             enhance="expand", lora_triggers=False))
         assert record["key"] == prepared["key"] and len(model.seen) == 1
+
+
+class TestValidationIsOffTheEventLoop:
+    """validate() runs a written program some 50 times: never on the event loop."""
+
+    def spy(self, monkeypatch):
+        import threading
+        real, threads = prep.validate, []
+
+        def validate(*a, **kw):
+            threads.append(threading.current_thread())
+            return real(*a, **kw)
+
+        monkeypatch.setattr(prep, "validate", validate)
+        return threads
+
+    async def test_a_write_and_an_edit_validate_in_a_worker_thread(self, model, monkeypatch):
+        import threading
+        threads = self.spy(monkeypatch)
+        model.replies = [reply(write(GOOD))]
+        assert (await ensure())["program"] == GOOD
+        model.replies = [reply(write(GOOD_EVENING))]
+        await ensure(EDITED)
+        assert len(threads) >= 2 and threading.current_thread() not in threads
+
+    async def test_a_list_change_carried_in_code_validates_in_a_worker_thread(self, model, monkeypatch):
+        import threading
+        model.replies = [reply(write(GOOD))]
+        await ensure()
+        threads = self.spy(monkeypatch)
+        entry = await ensure(PROMPT.replace("{rainy|foggy}", "{rainy|foggy|snowy}"))
+        assert not model.replies and "snowy" in entry["program"]  # no model call: carried over in code
+        assert threads and threading.current_thread() not in threads

@@ -537,7 +537,10 @@ async def _converse(cfg: Any, messages: List[Dict[str, Any]], added: List[Dict[s
                 mutated = mutated or tool.mutates
                 kinds.append(f"{name}:json")
             else:
-                text = tool.handler(turn, args if isinstance(args, dict) else {})
+                # In a worker thread: writing or editing validates the program (some 50 runs
+                # of it), which must not hold up the event loop. Nothing else touches `turn`
+                # meanwhile: this loop is its only user, and it waits here.
+                text = await asyncio.to_thread(tool.handler, turn, args if isinstance(args, dict) else {})
                 mutated = mutated or tool.mutates
                 kinds.append(name)
             push({"role": "tool", "tool_call_id": cid, "name": name, "content": text})
@@ -667,7 +670,7 @@ async def prepare_session(*, cfg: Any, base: Optional[Dict[str, Any]], context: 
             patched = base["program"] if kind == "same" else prep.patch_lists(base["program"], old, prompt)
             if patched is not None:
                 code = Turn(prompt=prompt, elaborate=elaborate, loras=loras, params=params, old=old)
-                code.settle(patched, "code")
+                await asyncio.to_thread(code.settle, patched, "code")  # validates: off the event loop
                 if code.accepted is not None:
                     turn, patch_kind = code, kind
                     # an empty node keeps the lineage's log; the next edit turn shows the program as it stands
