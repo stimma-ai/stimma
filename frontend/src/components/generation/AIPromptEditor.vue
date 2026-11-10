@@ -3,8 +3,7 @@
     <!-- Main Prompt Editor -->
     <div class="relative rounded-md border border-transparent bg-field focus-within:border-accent transition-colors [&_.cm-editor]:!bg-transparent">
       <div ref="editorMount"></div>
-      <!-- Host-supplied extras: a status mark in the corner, a row under the text. -->
-      <slot name="corner" />
+      <!-- Host-supplied extras: a row under the text. -->
       <slot name="below-editor" />
 
       <!-- Bottom Action Bar (flows below textarea): a single quiet ghost row
@@ -16,20 +15,7 @@
              declared input). Reads left→right: Enhance Prompt → Translate Prompt.
              Enhance is family-aware (prose / keywords / cinematography / Ideogram
              JSON) — the style is chosen automatically from the tool's model. -->
-        <!-- Raw: the prompt is sent exactly as typed, so Enhance and Translate don't
-             apply. Always visible while on, so a hidden setting can't surprise you. -->
-        <div v-if="!hideAutoImprove && rawMode && !hasMode" class="flex items-center gap-2">
-          <button
-            type="button"
-            class="flex items-center gap-1.5 text-ctl -mx-1.5 px-1.5 py-0.5 rounded-md text-content bg-overlay-subtle hover:text-content-secondary"
-            title="Sent exactly as typed: no wildcards, # lines, Enhance or Translate. Click to process the prompt again."
-            @click="setRaw(false)"
-          >
-            <span class="font-mono text-[10px] font-semibold uppercase tracking-wide">Raw</span>
-            <span class="text-content-muted">sent exactly as typed</span>
-          </button>
-        </div>
-        <div v-else-if="!hideAutoImprove" class="flex items-center gap-3">
+        <div v-if="!hideAutoImprove" class="flex items-center gap-3">
           <!-- A host's own prompt control (Tool View's Fluent) replaces Enhance and Raw. -->
           <slot name="mode" :open-help="openHelp" />
           <!-- Enhance Prompt toggle. With no LLM configured the chip stays
@@ -171,17 +157,6 @@
                   <span class="flex-1 text-left">Monospace font</span>
                   <CheckIcon v-if="monospaceEnabled" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
                 </button>
-                <button
-                  v-if="rawInMenu"
-                  role="menuitemcheckbox"
-                  :aria-checked="rawMode"
-                  class="w-full flex items-center gap-2 px-3 py-2 text-xs coarse:py-3 coarse:text-[13px] text-content-secondary hover:bg-overlay-subtle transition-colors"
-                  title="Send the prompt exactly as typed, for prompts another stage will process"
-                  @click="setRaw(!rawMode); showEditorMenu = false"
-                >
-                  <span class="flex-1 text-left">Send exactly as typed</span>
-                  <CheckIcon v-if="rawMode" class="w-3.5 h-3.5 shrink-0 text-accent-hi" />
-                </button>
                 <div v-if="!hasMode" class="my-1 border-t border-edge-subtle"></div>
                 <button
                   v-if="!hasMode"
@@ -243,7 +218,7 @@
                     <code class="text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded text-xs" v-text="'{{name}}'"></code>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    Picks a random value from a named wildcard list defined in Settings &gt; Wildcards. {{ hasMode ? `With ${brand} on, any other name works too: ${brand} writes the options.` : 'With a chat model set up, any other name works too: the model writes its options.' }}
+                    Picks a random value from a named wildcard list defined in Settings &gt; Wildcards. With a chat model set up, any other name works too: the model writes its options.
                   </p>
                 </div>
 
@@ -253,7 +228,7 @@
                     <code class="text-gray-500 italic bg-zinc-500/10 px-1.5 py-0.5 rounded text-xs"># comment</code>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    {{ hasMode ? `Notes for ${brand}` : 'Instructions for the chat model' }} (&ldquo;# vary her expression&rdquo;). They are never sent to the {{ hasMode ? 'image model.' : 'generation tool, and without a chat model they are ignored.' }}
+                    Instructions for the chat model (&ldquo;# vary her expression&rdquo;). They are never sent to the generation tool, and without a chat model they are ignored.
                   </p>
                 </div>
 
@@ -263,38 +238,21 @@
                     <code class="text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded text-xs">[verbatim text]</code>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    Text in brackets is sent exactly as written{{ hasMode ? `, untouched by ${brand}` : '' }}.
+                    Text in brackets is sent exactly as written.
                   </p>
                 </div>
 
                 <!-- Divider -->
                 <div v-if="!hideAutoImprove" class="border-t border-edge-subtle my-3"></div>
 
-                <!-- Fluent (Tool View) -->
-                <div v-if="hasMode">
-                  <div class="flex items-center gap-1.5 mb-1">
-                    <WandSparklesIcon class="w-3 h-3 text-accent" />
-                    <span class="text-xs font-medium text-content-secondary">{{ brand }}</span>
-                  </div>
-                  <p class="text-xs text-content-tertiary leading-relaxed">
-                    {{ brand }} writes your prompt the way this model understands it and gives every image a fresh take. The text in the editor never changes. Raw sends it exactly as typed.
-                  </p>
-                </div>
-
                 <!-- Enhance Prompt -->
-                <div v-if="!hideAutoImprove && !hasMode">
+                <div v-if="!hideAutoImprove">
                   <div class="flex items-center gap-1.5 mb-1">
                     <WandSparklesIcon class="w-3 h-3 text-accent" />
                     <span class="text-xs font-medium text-content-secondary">Enhance prompt</span>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
                     When enabled, your prompt is automatically enhanced by AI each time you generate. The original prompt is preserved in the editor &mdash; only the version sent to the generation tool is improved.
-                  </p>
-                </div>
-                <div v-if="!hideAutoImprove && !hasMode" class="mt-3">
-                  <div class="text-xs font-medium text-content-secondary mb-1">Send exactly as typed</div>
-                  <p class="text-xs text-content-tertiary leading-relaxed">
-                    In this menu. Sends the prompt untouched, braces, brackets and # lines included, for prompts another stage will process.
                   </p>
                 </div>
                 </template>
@@ -542,19 +500,19 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
   })
 
 // --- How the prompt will be read: Raw, by a model (a program, or Enhance), or plain (no model) ---
-// Raw and the newer highlighting ship with Fluent (see promptBrand.ts).
-const rawMode = computed(() => fluentEnabled.value && !!props.promptOptions.raw)
+// Raw and the newer highlighting ship with Fluent (see promptBrand.ts). Raw is Tool
+// View's (its prompt menu); other editors have no Raw.
 // A host with its own prompt control (Tool View's Fluent, in the mode slot) owns Enhance,
 // Raw and the syntax help's entry point.
 const slots = useSlots()
 const hasMode = computed(() => !!props.promptControl && !!slots.mode)
-const rawInMenu = computed(() => fluentEnabled.value && !props.hideAutoImprove && !hasMode.value)
+const rawMode = computed(() => fluentEnabled.value && hasMode.value && !!props.promptOptions.raw)
 const brand = PROMPT_BRAND
 // The tips panel in Tool View: what Fluent is, then what to write, in the user's words.
 // (Copy reviewed for plain, human wording.)
 const fluentIntro = [
-  `${PROMPT_BRAND} reads your prompt before each run and writes the prompt sent to the image model. Your text in the editor never changes.`,
-  `Detail Level sets how much ${PROMPT_BRAND} adds: Yours keeps your wording, Medium adds what this model needs to read it, High fills in the details you left open.`,
+  `${PROMPT_BRAND} reads your prompt once and gives every image fresh choices. Your text in the editor never changes.`,
+  `Detail level sets how much ${PROMPT_BRAND} adds: Yours keeps your wording, Medium adds what this model needs to read it, High fills in the details you left open.`,
   'A new prompt takes a few extra seconds the first time you run it.',
 ]
 const AMBER = 'text-amber-600 bg-amber-500/10'
@@ -574,11 +532,8 @@ const fluentTips = [
   { title: 'Verbatim text', examples: [{ code: '[ohwx woman]', tone: BLUE }],
     text: [`Text in square brackets goes to the image model exactly as written. ${PROMPT_BRAND} never sees it. Use brackets for LoRA trigger words or words you want to appear in the picture.`] },
   { title: 'Not happy with the options?', examples: [],
-    text: [`Choose Try different choices and wording in the ${PROMPT_BRAND} menu.`] },
+    text: ['Choose Try different… in the Prompting menu.'] },
 ]
-function setRaw(on: boolean) {
-  emit('update:promptOptions', { ...props.promptOptions, raw: on || undefined })
-}
 const { wildcards } = useWildcards()
 const { segments } = useSegments()
 const syntaxMode = computed<PromptSyntaxMode>(() =>
