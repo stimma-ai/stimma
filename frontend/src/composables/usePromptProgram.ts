@@ -4,7 +4,7 @@ import { getApiBase } from '../apiConfig'
 import type { ChoiceVocab } from '../utils/programVocab'
 import { shownOption } from '../utils/programVocab'
 import { programSections } from '../utils/programChoiceLayout'
-import { prepareBody, prepareErrorCode, prepareSettingsSig, type PrepareInputs } from '../utils/fluentSubmit'
+import { DECLINED_CODE, prepareBody, prepareErrorCode, prepareSettingsSig, type PrepareInputs } from '../utils/fluentSubmit'
 import { createChoiceCard } from '../utils/choiceCard'
 import { isLimited, ticksOf } from '../utils/programTicks'
 
@@ -207,8 +207,12 @@ export function usePromptProgram(o: Options) {
       preparedSig.value = sig
       if (error.value?.sig === sig) error.value = null  // prepared since (the server's background try)
       markReady(sig)
-    } catch {
-      // Not prepared yet: the next run prepares.
+    } catch (e: any) {
+      // Not prepared yet: the next run prepares. Unless the chat model declined this prompt
+      // (the server's background try may have met that since we last heard): then say so.
+      if (id !== lookupId || sig !== signature.value || prepareErrorCode(e) !== DECLINED_CODE) return
+      forget(sig)
+      error.value = { sig, code: DECLINED_CODE, message: e?.response?.data?.detail?.message || 'Couldn’t read this prompt.' }
     }
   }
 

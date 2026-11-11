@@ -1742,7 +1742,7 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
                          profile_id: Optional[str], cache_only: bool = False, force: bool = False,
                          elaborate: bool = True, lora_notes: bool = True, lora_triggers: bool = True,
                          base_key: Optional[str] = None, enhance: Optional[str] = None,
-                         wait: bool = False) -> Optional[Dict[str, Any]]:
+                         wait: bool = False, tell_declined: bool = False) -> Optional[Dict[str, Any]]:
     """The prepared program for these inputs, from cache or by asking the model.
     enhance: "expand" (the per-model guide is part of the writer's instructions and the
     program writes a complete, rich prompt with content picks), "fill" (a short per-model
@@ -1811,13 +1811,16 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         store.remember(context, key)  # back to this prompt: the next small edit patches it
     if cached and cached.get("narrow_pending"):
         renarrow(cached, store, project_id)  # in the background; this run draws from it as it is
-    if cached or cache_only:
+    if cached:
         return cached
     # The chat model declined these exact inputs before: it would again, so don't ask.
-    # "Try again" (force) asks anyway.
-    declined = None if force else store.get_declined(key)
+    # "Try again" (force) asks anyway. A lookup hears of it only when it asks to (the
+    # editor's, which is how a decline met by a background retry reaches the prompt box).
+    declined = None if force or (cache_only and not tell_declined) else store.get_declined(key)
     if declined is not None:
         raise PrepareDeclined(str(declined.get("reply") or ""))
+    if cache_only:
+        return None
     # It failed a moment ago: answer at once (the run goes ahead on its fallback) and let
     # the background retry, rather than every run of a generate-forever lane waiting out
     # another prepare. "Try again" (force) prepares now.

@@ -173,10 +173,17 @@ export function withDirect(promptOptions: any): any {
 }
 
 /** After a run whose prompt was declined: switch the box to Direct and say so. True when it
-    switched (not when the user is already in Direct). */
+    switched (not when the user is already in Direct). A prompt Direct can't run (a {{name}}
+    that isn't a saved wildcard) stays where it is, since there its runs keep going out as
+    written; it's told once (`told`), not on every run. */
 export function switchDeclinedToDirect(o: { declined: boolean; direct: boolean; promptOptions: any;
+  directCantRun?: boolean; told?: boolean;
   set: (next: any) => void; notify: (message: string) => void }): boolean {
   if (!o.declined || o.direct) return false
+  if (o.directCantRun) {
+    if (!o.told) o.notify(DECLINED_NOTICE)
+    return false
+  }
   o.set(withDirect(o.promptOptions))
   o.notify(DECLINED_NOTICE)
   return true

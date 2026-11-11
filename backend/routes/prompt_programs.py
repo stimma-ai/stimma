@@ -74,7 +74,7 @@ def program_http_error(e: Exception, failed: str = "program_failed") -> Optional
     return None
 
 
-async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
+async def _prepare(req: PrepareRequest, tell_declined: bool = False) -> Dict[str, Any]:
     from prompt_programs.prepare import ensure_program
     from routes.generation import prompt_enhance_context
 
@@ -87,6 +87,7 @@ async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
             lora_items=req.loras, project_id=req.project_id, profile_id=get_current_profile(),
             cache_only=req.cache_only, force=req.force, elaborate=req.elaborate, lora_notes=req.lora_notes,
             lora_triggers=req.lora_triggers, base_key=req.base_key, enhance=req.enhance,
+            tell_declined=tell_declined,
         )
     except Exception as e:
         http = program_http_error(e)
@@ -97,7 +98,9 @@ async def _prepare(req: PrepareRequest) -> Dict[str, Any]:
 
 @router.post("/prepare")
 async def prepare(req: PrepareRequest) -> Dict[str, Any]:
-    entry = await _prepare(req)
+    # The editor's lookup also learns that the chat model declined this prompt (the answer a
+    # background retry may have met since the prompt box last heard).
+    entry = await _prepare(req, tell_declined=True)
     if entry is None:  # cache_only and not prepared yet: not an error, just nothing to show
         return {"key": None}
     if entry.get("unsupported"):  # structured formats are still enhanced per image

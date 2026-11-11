@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DECLINED_CODE, DECLINED_NOTICE, wasDeclined, withDirect, effectiveWay, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
+import { DECLINED_CODE, DECLINED_NOTICE, switchDeclinedToDirect, wasDeclined, withDirect, effectiveWay, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
@@ -208,4 +208,16 @@ test('a prompt the chat model declined switches the box to Direct, says so plain
   for (const text of [DECLINED_NOTICE, n.head, n.body ?? '']) {
     assert.doesNotMatch(text, /prepar|writer|program|refus|Fluent|Brand/i)
   }
+})
+
+test('a declined prompt Direct can’t run stays put, and is told once', () => {
+  const said: string[] = []
+  let set = 0
+  const run = (extra: Record<string, any>) => switchDeclinedToDirect({
+    declined: true, direct: false, promptOptions: {}, set: () => { set++ }, notify: m => said.push(m), ...extra })
+  assert.equal(run({ directCantRun: true }), false)
+  assert.equal(run({ directCantRun: true, told: true }), false)
+  assert.deepEqual([set, said], [0, [DECLINED_NOTICE]])
+  assert.equal(run({}), true)
+  assert.deepEqual([set, said.length], [1, 2])
 })

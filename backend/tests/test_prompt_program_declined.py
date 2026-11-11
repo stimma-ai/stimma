@@ -102,6 +102,9 @@ class TestRemembered:
         with pytest.raises(prep.PrepareDeclined):
             await ensure()
         assert await ensure(cache_only=True) is None
+        with pytest.raises(prep.PrepareDeclined):  # the editor's lookup is told
+            await ensure(cache_only=True, tell_declined=True)
+        assert len(tools.seen) == 2
 
     async def test_edited_words_ask_afresh(self, tools):
         tools.replies = [prose(), prose()]
@@ -142,6 +145,16 @@ class TestRemembered:
         assert not prep._failures and len(tools.seen) == 3  # one retry, declined, no more
         with pytest.raises(prep.PrepareDeclined):
             await ensure()
+
+    def test_the_editors_lookup_hears_what_a_background_retry_met(self, tools, monkeypatch):
+        client = _route_client(monkeypatch)
+        body = {"tool_id": "t", "prompt": PROMPT, "cache_only": True}
+        assert client.post("/api/prompt-programs/prepare", json=body).json() == {"key": None}
+        tools.replies = [prose(), prose()]
+        client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PROMPT})
+        r = client.post("/api/prompt-programs/prepare", json=body)
+        assert r.status_code == 422 and r.json()["detail"]["code"] == "prepare_declined"
+        assert len(tools.seen) == 2
 
 
 class TestRunsGoOutAsWritten:

@@ -5537,6 +5537,9 @@ function noSubmit(options: ForeverSubmitOptions, declineReservation = true): Sub
   }
 }
 
+// The declined prompt the user was last told about (see switchDeclinedToDirect).
+let declinedToldFor: string | null = null
+
 /** {{names}} in the prompt that aren't saved wildcards or segments (so only a model can fill them). */
 const { wildcards: savedWildcards } = useWildcards()
 const { segments: savedSegments } = useSegments()
@@ -5687,13 +5690,17 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     submitted = result.submitted || submitted
     declineReservation = result.declineReservation
   }
+  const declinedPrompt = globalPrefs.value.prompt || ''
   switchDeclinedToDirect({
     // still this prompt and these settings: submitting can wait on uploads, and an edit made
     // meanwhile wasn't declined (the status is the current prompt's alone)
     declined: declined && wasDeclined({ status: promptProgram.status.value, code: promptProgram.error.value?.code }),
     direct: directMode.value, promptOptions: globalPrefs.value.promptOptions,
+    // Direct stops on a {{name}} that isn't saved; this prompt keeps running as it just did
+    directCantRun: unknownSmartNames(declinedPrompt).length > 0,
+    told: declinedToldFor === declinedPrompt,
     set: (next) => { globalPrefs.value.promptOptions = next },
-    notify: (message) => addToast(message, 'info', 8000),
+    notify: (message) => { declinedToldFor = declinedPrompt; addToast(message, 'info', 8000) },
   })
   return { submitted, declineReservation }
 }
