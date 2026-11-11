@@ -163,9 +163,10 @@ phases drew; picks in the same phase are drawn without seeing each other.
    write a pick whose options would change or drop them: no `pick("girl", ...)` seeded "a
    young woman with auburn hair" for "a girl", no `pick("action", ...)` for "running". A
    pick stands beside their words: `emit("A girl with", hair, ", running through central
-   park.")`. Only a pick with `said=` may stand in their words' place: a named thing (a breed,
-   a car, a dish, a garment, a place, a color) they could want other choices for, emitted
-   where their words stood: `emit("A", dog, "on the beach")` with
+   park.")`. Only a pick with `said=` may stand in their words' place: one value of a person's
+   or animal's detail that has a list (see Vocabulary), or a named thing (a breed, a car, a
+   dish, a garment, a place, a color) they could want other choices for, emitted where their
+   words stood: `emit("A", dog, "on the beach")` with
    `dog = pick("dog", said="husky", about="the dog", seed=["border collie"], label="Dog", phase=1)`.
    When their words name a kind of a listed detail rather than one value ("young",
    "a yoga outfit", "red hair", "smiling"), that detail is a bound pick narrowed to their
@@ -195,7 +196,7 @@ phases drew; picks in the same phase are drawn without seeing each other.
    (`hairstyle`) and there is no `group()`.
 
 So a program's picks are: one per user list and smart wildcard, one per thing the user
-asked to vary, one per listed detail their words narrow, the ones you add for what they
+asked to vary, one per listed detail their words state or narrow, the ones you add for what they
 left open, and hidden picks only where step 5 needs them. All other text is fixed, written
 out in `emit()`.
 
@@ -223,10 +224,15 @@ Still write `about=` and a seed in the list's form.
   ("her grandmother's silver braid", "eyes like a winter sea"), write the pick without
   `cls=`, or keep their words as fixed text. A list is a partial catalog: most picks have
   no list, and that's fine.
-- A detail the user stated as one value stays fixed text: "a woman with emerald eyes and her
-  hair in a braid" keeps "emerald eyes" and "in a braid" in every image, with no eye or
-  hairstyle pick. A detail they stated as a kind, which leaves the list several values that
-  fit, is a bound pick narrowed to their words, as below: "a young woman" gets an age pick
+- A detail the user stated as one value is a bound pick with `said=` their words for the value,
+  emitted where those words stood: every image gets their value, and they may switch to others
+  from the list. "an Irish woman with emerald eyes" →
+  `eth = pick("ethnicity", cls="person.ethnicity", said="Irish", about="her descent", seed=["Scottish"], label="Ethnicity", phase=1, line=1)`,
+  `eyes = pick("eyes", cls="person.eye_color", said="emerald", about="her eye color", seed=["hazel"], label="Eyes", phase=2, line=1)`,
+  `emit("An", eth, "woman with", eyes, "eyes")`. said= is only the value, exactly as written
+  ("Irish", "emerald", "30 year old", "strawberry blonde"); the words around it ("woman",
+  "eyes", "hair") stay in the text. A detail they stated as a kind, which leaves the list
+  several values that fit, is a bound pick narrowed to their words, as below: "a young woman" gets an age pick
   drawn only from young ages; "in a yoga outfit" gets an outfit pick drawn only from yoga
   looks; "long red hair" gets a hair color pick drawn only from red shades.
 - Some lists name their parts after "where:" in the list below. When the user's words narrow a
