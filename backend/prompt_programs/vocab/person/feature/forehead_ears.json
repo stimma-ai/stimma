@@ -1,0 +1,412 @@
+{
+  "id": "person.feature.forehead_ears",
+  "label": "Forehead, hairline and ears",
+  "description": "The forehead, the line where the hair begins, and the ears.",
+  "pos": "noun phrase",
+  "frame": "a person with ___",
+  "notes": "Merged from three independently written sets. Each value says what is visible: no attractiveness or character words, no expression, no color, no ancestry words. A person gets two or three face features (person.face), not every list. `life_stage` is the ages a value is seen at: a drawn age that doesn't fit removes it. `by_ancestry: unreviewed` marks values whose rate differs by ancestry and are not weighted yet. Closed: generated face options drift to praise.",
+  "facets": [],
+  "closed": true,
+  "strict": true,
+  "catalog": false,
+  "local_facets": {
+    "aspect": [
+      "forehead",
+      "hairline",
+      "ears"
+    ]
+  },
+  "context": {
+    "takes": {
+      "life_stage": {
+        "mismatch": "drop"
+      }
+    }
+  },
+  "shares": {
+    "aspect": {
+      "forehead": 0.4,
+      "hairline": 0.3,
+      "ears": 0.3
+    }
+  },
+  "values": [
+    {
+      "text": "a high forehead",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "forehead"
+        ]
+      }
+    },
+    {
+      "text": "a low forehead",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "forehead"
+        ]
+      }
+    },
+    {
+      "text": "a broad forehead",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "forehead"
+        ]
+      }
+    },
+    {
+      "text": "a narrow forehead",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "forehead"
+        ]
+      }
+    },
+    {
+      "text": "a rounded forehead that curves forward",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "forehead"
+        ]
+      }
+    },
+    {
+      "text": "a forehead that slopes back from the brow",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "forehead"
+        ]
+      }
+    },
+    {
+      "text": "a flat, upright forehead",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "forehead"
+        ]
+      }
+    },
+    {
+      "text": "a heavy brow ridge above the eyes",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "forehead"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a slight ridge of bone just above the eyebrows",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "forehead"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "shallow hollows at the temples",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "forehead"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a high, rounded forehead",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "forehead"
+        ],
+        "life_stage": [
+          "baby",
+          "child"
+        ]
+      }
+    },
+    {
+      "text": "a straight hairline",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "hairline"
+        ]
+      }
+    },
+    {
+      "text": "a rounded hairline",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "hairline"
+        ]
+      }
+    },
+    {
+      "text": "a hairline that comes to a point in the middle",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "hairline"
+        ]
+      }
+    },
+    {
+      "text": "an uneven hairline",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "hairline"
+        ]
+      }
+    },
+    {
+      "text": "a low hairline close to the eyebrows",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "hairline"
+        ]
+      }
+    },
+    {
+      "text": "a hairline that has drawn back at the temples",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "hairline"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ],
+        "presentation": [
+          "masculine"
+        ]
+      },
+      "opt_in": true
+    },
+    {
+      "text": "a hairline far back on the crown",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "hairline"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
+        ],
+        "presentation": [
+          "masculine"
+        ]
+      },
+      "opt_in": true
+    },
+    {
+      "text": "a hairline with a tuft that grows upward at the front",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "hairline"
+        ]
+      }
+    },
+    {
+      "text": "a thinning hairline with the scalp showing through",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "hairline"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "shallow dips in the hairline above both temples",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "hairline"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a hairline higher on one side than the other",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "hairline"
+        ]
+      }
+    },
+    {
+      "text": "ears that lie flat against the head",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "ears"
+        ]
+      }
+    },
+    {
+      "text": "ears that stand out from the head",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "ears"
+        ]
+      }
+    },
+    {
+      "text": "small ears",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "ears"
+        ]
+      }
+    },
+    {
+      "text": "large ears",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "ears"
+        ]
+      }
+    },
+    {
+      "text": "ears with long, hanging lobes",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "ears"
+        ]
+      }
+    },
+    {
+      "text": "ears set low on the head",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "ears"
+        ]
+      }
+    },
+    {
+      "text": "ears pointed slightly at the top",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "ears"
+        ]
+      }
+    },
+    {
+      "text": "one ear that stands out more than the other",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "ears"
+        ]
+      }
+    },
+    {
+      "text": "large ears with long, creased lobes",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "ears"
+        ],
+        "life_stage": [
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "thickened, lumpy ears, as on a wrestler",
+      "tier": "unusual",
+      "tags": {
+        "aspect": [
+          "ears"
+        ]
+      }
+    },
+    {
+      "text": "ears set high, their tops above the line of the eyebrows",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "ears"
+        ]
+      }
+    },
+    {
+      "text": "a crease running across each earlobe",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "ears"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "ears with the upper rim folded over",
+      "tier": "unusual",
+      "tags": {
+        "aspect": [
+          "ears"
+        ]
+      }
+    }
+  ]
+}

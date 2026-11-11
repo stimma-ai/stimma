@@ -113,7 +113,7 @@ class TestTheData:
             assert set(lf.takes) <= set(v.context), lf.id
             assert not set(lf.gives) & set(lf.takes), f"{lf.id} gives and takes the same facet"
             for f, (mode, factor) in lf.takes.items():
-                assert mode in ("rare", "never") and (mode == "never" or 0 < factor < 1), (lf.id, f)
+                assert mode in ("rare", "never", "drop") and (mode != "rare" or 0 < factor < 1), (lf.id, f)
                 if f in lf.less:   # the middle level sits between kept and the mismatch
                     assert factor < lf.less[f] < 1, (lf.id, f)
             if lf.stated:

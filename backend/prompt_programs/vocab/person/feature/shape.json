@@ -1,0 +1,383 @@
+{
+  "id": "person.feature.shape",
+  "label": "Face shape",
+  "description": "The outline, fullness and proportions of the whole face.",
+  "pos": "noun phrase",
+  "frame": "a person with ___",
+  "notes": "Merged from three independently written sets. Each value says what is visible: no attractiveness or character words, no expression, no color, no ancestry words. A person gets two or three face features (person.face), not every list. `life_stage` is the ages a value is seen at: a drawn age that doesn't fit removes it. `by_ancestry: unreviewed` marks values whose rate differs by ancestry and are not weighted yet. Closed: generated face options drift to praise.",
+  "facets": [],
+  "closed": true,
+  "strict": true,
+  "catalog": false,
+  "local_facets": {
+    "aspect": [
+      "outline",
+      "fullness",
+      "proportion",
+      "symmetry"
+    ]
+  },
+  "context": {
+    "takes": {
+      "life_stage": {
+        "mismatch": "drop"
+      }
+    }
+  },
+  "shares": {
+    "aspect": {
+      "outline": 0.4,
+      "fullness": 0.25,
+      "proportion": 0.2,
+      "symmetry": 0.15
+    }
+  },
+  "values": [
+    {
+      "text": "an oval face, a little longer than it is wide",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a round face, about as wide as it is long",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a long, narrow face",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a square face with a wide forehead and a wide jaw",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a heart-shaped face, wide at the forehead and narrow at the chin",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a face widest at the cheekbones, narrowing above and below",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a rectangular face, long with straight sides",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "outline"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a face widest at the jaw, narrowing toward the forehead",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a short, wide face",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a face that tapers evenly from the temples to a narrow chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a very long face with a high forehead and a long chin",
+      "tier": "unusual",
+      "tags": {
+        "aspect": [
+          "outline"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a face with almost straight sides from the temples to the jaw",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a face only a little longer than it is wide",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a compact face, short from brow to chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "outline"
+        ]
+      }
+    },
+    {
+      "text": "a full, fleshy face with soft edges",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ]
+      }
+    },
+    {
+      "text": "a lean face with the bones showing under the skin",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a gaunt face with sunken temples",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a plump face with a soft double chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ]
+      }
+    },
+    {
+      "text": "a baby-round face with full cheeks and a small chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ],
+        "life_stage": [
+          "baby",
+          "child"
+        ]
+      }
+    },
+    {
+      "text": "a face that has grown heavier in its lower half",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a thin face with loose skin over the bones",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ],
+        "life_stage": [
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "features set close together in the middle of a broad face",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "proportion"
+        ]
+      }
+    },
+    {
+      "text": "features spread wide across the face",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "proportion"
+        ]
+      }
+    },
+    {
+      "text": "a large forehead above small, low-set features",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "proportion"
+        ]
+      }
+    },
+    {
+      "text": "a long lower face, with a wide gap between nose and chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "proportion"
+        ]
+      }
+    },
+    {
+      "text": "a tall forehead that takes up a large share of the face",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "proportion"
+        ]
+      }
+    },
+    {
+      "text": "a short forehead, with most of the face below the brows",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "proportion"
+        ]
+      }
+    },
+    {
+      "text": "a short lower face, with the chin close under the mouth",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "proportion"
+        ]
+      }
+    },
+    {
+      "text": "a slightly uneven face, one side a little fuller than the other",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "symmetry"
+        ]
+      }
+    },
+    {
+      "text": "one eye set a little higher than the other",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "symmetry"
+        ]
+      }
+    },
+    {
+      "text": "a mouth that sits slightly to one side",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "symmetry"
+        ]
+      }
+    },
+    {
+      "text": "a nose and chin that lean slightly to the same side",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "symmetry"
+        ]
+      }
+    },
+    {
+      "text": "a clearly lopsided face, the jaw wider on one side",
+      "tier": "unusual",
+      "tags": {
+        "aspect": [
+          "symmetry"
+        ]
+      }
+    },
+    {
+      "text": "a chin that sits a little off the line of the nose",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "symmetry"
+        ]
+      }
+    }
+  ]
+}

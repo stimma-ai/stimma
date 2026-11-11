@@ -113,7 +113,7 @@ class TestBinding:
         v = vocabulary()
         assert v.resolve("person.eye_eye_color").id == "person.eye_color"
         assert v.resolve("person.eye_colour").id == "person.eye_color"
-        assert v.resolve("person.face") is None and v.resolve("interior.bedroom") is None
+        assert v.resolve("person.nostril") is None and v.resolve("interior.bedroom") is None
         src = PORTRAIT.replace("person.eye_color", "person.eye_colour")
         eyes = next(d for d in run(src, 1).draws if d.id == "eyes")
         assert eyes.cls == "person.eye_color"
@@ -289,6 +289,13 @@ def young_entry(prompt="a young woman with pretty eyes"):
             "prompt": prompt}
 
 
+def pretty_entry():
+    """YOUNG with the writer's where= on her eyes too: words nothing on the eye color list fits."""
+    src = YOUNG.replace('about="her eye color"', 'where="pretty", about="her eye color"')
+    return {"key": "p", "program": src, "loras": [], "params": {}, "mode": "prose", "choices": discover(src)["choices"],
+            "prompt": "a young woman with pretty eyes"}
+
+
 class FakeAsk:
     """Answers a narrowing question with the values for which `keep` is true, and the
     prompt-reading question with `read` ({choice id: words})."""
@@ -336,10 +343,19 @@ class TestWhere:
 
     async def test_nothing_fitting_or_an_unreadable_answer_leaves_the_pick_unbound(self, tmp_path):
         for ask in (FakeAsk(lambda v: False), FakeAsk(reply="I can't tell.")):
-            entry = young_entry()
+            entry = pretty_entry()
             notes = await narrow_entry(entry, NarrowCache(tmp_path / str(id(ask))), ask)
             by = {c["id"]: c for c in entry["choices"]}
-            assert entry["filters"]["age"] == [] and "cls" not in by["age"] and notes
+            assert entry["filters"]["eyes"] == [] and "cls" not in by["eyes"] and notes
+
+    async def test_a_list_never_drawn_without_keeps_its_whole_list_when_nothing_fits(self, tmp_path):
+        # Ages generated to fit words nothing in the list fits include children: the age list stays.
+        assert vocabulary().get("person.age_band").strict and not vocabulary().get("person.eye_color").strict
+        entry = pretty_entry()
+        notes = await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(lambda v: False))
+        by = {c["id"]: c for c in entry["choices"]}
+        assert "age" not in entry["filters"] and by["age"]["cls"] == "person.age_band"
+        assert any("whole list" in n for n in notes)
 
     async def test_the_prompts_own_words_narrow_a_pick_the_writer_left_open(self, tmp_path):
         src = YOUNG.replace(', where="young"', "")  # the writer forgot where=
@@ -395,16 +411,16 @@ class TestWhere:
 
     async def test_an_unbound_fallback_generates_within_the_words(self, tmp_path):
         from prompt_programs.fluent import program_context
-        entry = young_entry()
+        entry = pretty_entry()
         await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(lambda v: False))
         store = OptionStore(tmp_path / "o")
         filler = OptionFiller(store, FakeGen())
         opts = GeneratedOptions(store, program_context(entry), filler=filler)
-        spec = PickSpec("age", "Age", "her age", 1, "text", "pick", ["20–24-year-old"], [], "person.age_band")
+        spec = PickSpec("eyes", "Eyes", "her eye color", 1, "text", "pick", ["hazel"], [], "person.eye_color")
         pool = opts.get(spec, {})
-        assert pool.items == ["20–24-year-old"]  # its seed, while generated options are written
+        assert pool.items == ["hazel"]  # its seed, while generated options are written
         job = filler._jobs[opts.queued[0]][1]
-        assert 'own words: "young"' in generation_messages(job)[1]["content"]
+        assert 'own words: "pretty"' in generation_messages(job)[1]["content"]
 
     async def test_an_open_list_generates_from_the_subset_with_the_words_as_a_rule(self, tmp_path):
         from prompt_programs.fluent import program_context
@@ -793,3 +809,58 @@ class TestOldColorsIds:
             r = prep.realize(entry, seed=seed, runtime=runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF))
             assert r.prompt and "{" not in r.prompt
 
+
+
+class TestSharesAndComposedLists:
+    """A list may give its parts fixed shares of the draws, and a list may be composed of
+    other lists' values (a face is two or three features)."""
+
+    def test_a_parts_share_does_not_depend_on_how_many_values_it_has(self):
+        look = vocabulary().get("camera.look")
+        by_part = {}
+        for v in look.values:
+            by_part.setdefault(v.tags["intent"][0], []).append(v)
+        total = sum(v.weight for v in look.values)
+        assert abs(sum(v.weight for v in by_part["sharp"]) / total - 0.2) < 1e-9
+        assert abs(sum(v.weight for v in by_part["soft_background"]) / total - 0.05) < 1e-9
+        assert len(by_part["sharp"]) != len(by_part["soft_background"])
+
+    def test_a_part_with_no_share_is_drawn_only_when_asked_for(self):
+        selfie = vocabulary().get("camera.selfie_framing")
+        group = [v for v in selfie.values if v.tags["kind"] == ["group"]]
+        assert group and all(v.opt_in for v in group)
+        drawn, standby = selfie.pool_values()
+        assert not {v.text for v in group} & {v.text for v in drawn} and {v.text for v in group} <= {v.text for v in standby}
+        asked, _ = selfie.pool_values([v.text for v in group])
+        assert asked == group and all(v.weight > 0 for v in asked)
+
+    def test_a_face_is_two_or_three_features_of_different_lists(self):
+        v = vocabulary()
+        face = v.get("person.face")
+        parts = {lid: {x.text for x in lf.values} for lid, lf in v.leaves.items() if lid.startswith("person.feature.")}
+        assert len(parts) == 9 and len(face.values) == 3000 and len({x.text for x in face.values}) == 3000
+        assert face.listed and not any(v.get(lid).listed for lid in parts)
+        assert [x.text for x in face.values] == [x.text for x in load().get("person.face").values]
+
+    def test_a_face_fits_the_persons_age(self):
+        v = vocabulary()
+        face, age = v.get("person.face"), v.get("person.age_band")
+        pool = [(x.text, x.weight) for x in face.values]
+
+        def at(band):
+            return {o for o, w in face.weigh(pool, [("life_stage", age.context_tags(band, "life_stage"))]) if w > 0}
+        child, old = at("5–7-year-old"), at("75–79-year-old")
+        lines = {x.text for x in face.values if "deep wrinkles" in x.text or "age spots" in x.text}
+        assert lines and not lines & child and lines <= old
+        assert {x.text for x in face.values if "baby-round" in x.text}.isdisjoint(old)
+        # Removing what doesn't fit leaves the other faces their weight: nothing is scaled up to fill the gap.
+        kept = dict(face.weigh(pool, [("life_stage", ("child",))]))
+        assert all(kept[o] in (0.0, w) for o, w in pool)
+
+    def test_a_feature_of_one_sex_is_drawn_only_for_that_sex(self):
+        face = vocabulary().get("person.face")
+        gendered = [x for x in face.values if x.tags["presentation"] != ["feminine", "masculine"]]
+        assert gendered and all(x.opt_in and len(x.tags["presentation"]) == 1 for x in gendered)
+        men = {x.text for x in face.matching({"presentation": "masculine"})}
+        assert {x.text for x in gendered if x.tags["presentation"] == ["masculine"]} <= men
+        assert not {x.text for x in gendered if x.tags["presentation"] == ["feminine"]} & men

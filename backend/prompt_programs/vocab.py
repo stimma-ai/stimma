@@ -65,7 +65,7 @@ ROOT = Path(__file__).parent / "vocab"
 TIER_WEIGHTS = {"typical": 1.0, "plausible": 0.3, "unusual": 0.03}
 OPEN_SHARE = 0.5      # an open leaf's list values' share of its pool's weight once generated options exist
 EXAMPLES = 10         # list values shown to the options generator for an open leaf
-CATALOG_ROOTS = ("person", "animal")   # what the writer is shown; the rest waits for an open() tool
+CATALOG_ROOTS = ("person", "animal", "camera.portrait_framing", "camera.selfie_framing", "camera.look", "art.style")   # what the writer is shown; the rest waits for an open() tool
 TYPO_CUTOFF = 0.85    # difflib ratio above which an unknown id is read as a typo of a known one
 AGE_LIST = "person.age_band"     # the list a person's age is drawn from
 MINOR = ("child", "teen")        # the age facet's values under 18
@@ -122,10 +122,11 @@ class Value:
     adult_only: bool = False   # an adult-coded look: never in the pools of a person under 18
     group: str = ""            # the leaf's declared group it takes its shared tags from
     less_common: Dict[str, Any] = field(default_factory=dict)   # context facet -> families it gives as less common
+    scale: float = 1.0         # its branch's share over the branch's tier weights (a leaf's `shares`)
 
     @property
     def weight(self) -> float:
-        return TIER_WEIGHTS.get(self.tier, TIER_WEIGHTS["plausible"])
+        return TIER_WEIGHTS.get(self.tier, TIER_WEIGHTS["plausible"]) * self.scale
 
     @property
     def minor(self) -> bool:
@@ -154,6 +155,8 @@ class Leaf:
     individual: bool = False   # a detail of one subject (a node above says "individual": see Node)
     groups: Dict[str, Any] = field(default_factory=dict)   # declared groups of shared tags (module docstring)
     less: Dict[str, float] = field(default_factory=dict)   # facet -> factor for a less-common family (module docstring)
+    listed: bool = True        # shown to the writer; a part of a composed list isn't ("catalog": false)
+    strict: bool = False       # never drawn without the list: words nothing in it fits leave it whole (narrow.py)
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
@@ -198,7 +201,7 @@ class Leaf:
             want = {f for f in families if not f.startswith(LESS)}
             less = {f[len(LESS):] for f in families if f.startswith(LESS)} - want
             keep = set(neutral.get(facet, ()))
-            factor = 0.0 if mode[0] == "never" else mode[1]
+            factor = 0.0 if mode[0] in ("never", "drop") else mode[1]
             less_factor = self.less.get(facet, factor)
 
             def cost(t: Optional[Tuple[str, ...]]) -> float:
@@ -209,6 +212,9 @@ class Leaf:
             nxt = [(o, w * cost(t)) if s else (o, w) for (o, w), t, s in zip(out, tagged, spoken)]
             before = sum(w for (_, w), s in zip(out, spoken) if s)
             after = sum(w for (_, w), s in zip(nxt, spoken) if s)
+            if mode[0] == "drop":   # the values that don't fit leave; the rest keep their own weight
+                out = nxt
+                continue
             if before > 0 and after <= 0:
                 continue
             if after > 0:
@@ -331,6 +337,8 @@ class Vocabulary:
             leaf = self.leaves[lid]
             if any(other.slots == lid for other in self.leaves.values()):
                 continue  # a palette: drawn with the templates that use it, never bound by itself
+            if not leaf.listed:
+                continue  # a part of a composed list: bindable, but the writer is shown the whole
             line = f'- {lid}: {leaf.pos}, fits "{leaf.frame}". {leaf.description[:1].upper()}{leaf.description[1:].rstrip(".")}.'
             parts = [f'{f} = {" | ".join(vals)}' for f, vals in leaf.local_facets.items()]
             palette = self.leaves.get(leaf.slots) if leaf.slots else None
@@ -367,7 +375,7 @@ class Vocabulary:
 
 def _context_dict(lf: Leaf) -> Dict[str, Any]:
     return {**({"gives": list(lf.gives)} if lf.gives else {}), **({"stated": True} if lf.stated else {}),
-            **({"takes": {f: {**({"mismatch": m} if m == "never" else {"mismatch": m, "factor": x}),
+            **({"takes": {f: {**({"mismatch": m} if m in ("never", "drop") else {"mismatch": m, "factor": x}),
                               **({"less_common": lf.less[f]} if f in lf.less else {})}
                           for f, (m, x) in lf.takes.items()}} if lf.takes else {})}
 
@@ -377,7 +385,7 @@ def _leaf_context(d: Dict[str, Any]) -> Tuple[Tuple[str, ...], Dict[str, Tuple[s
     takes, less = {}, {}
     for f, spec in (ctx.get("takes") or {}).items():
         mode = str((spec or {}).get("mismatch") or "rare")
-        takes[str(f)] = ("never", 0.0) if mode == "never" else ("rare", float((spec or {}).get("factor", 0.1)))
+        takes[str(f)] = (mode, 0.0) if mode in ("never", "drop") else ("rare", float((spec or {}).get("factor", 0.1)))
         if (spec or {}).get("less_common") is not None:
             less[str(f)] = float(spec["less_common"])
     return tuple(str(f) for f in ctx.get("gives") or ()), takes, ctx.get("stated") is True, less
@@ -395,10 +403,83 @@ def _value(lid: str, v: Dict[str, Any], groups: Dict[str, Any]) -> Value:
                  {**(g.get("less_common") or {}), **(v.get("less_common") or {})})
 
 
+def _shared(lid: str, vals: Tuple[Value, ...], shares: Dict[str, Dict[str, float]]) -> Tuple[Value, ...]:
+    """Values weighted by their branch's share. A leaf may declare, for one local facet, the
+    share of draws each of its parts gets when a pick isn't narrowed:
+    `"shares": {"intent": {"sharp": 0.2, "soft_background": 0.05}}`. A part's values split its
+    share by tier, so how many values a part has doesn't change how often it's drawn. A part
+    with share 0 is opt-in: drawn only when a pick asks for it (where=)."""
+    if not shares:
+        return vals
+    if len(shares) != 1:
+        raise ValueError(f"vocabulary: {lid} declares shares on more than one facet")
+    (facet, by_part), = shares.items()
+    parts: Dict[str, float] = {}
+    for v in vals:
+        tagged = v.tags.get(facet)
+        if not isinstance(tagged, (list, tuple)) or len(tagged) != 1 or str(tagged[0]) not in by_part:
+            raise ValueError(f"vocabulary: {lid} has shares on {facet}; {v.text!r} needs exactly one {facet} with a share")
+        parts[str(tagged[0])] = parts.get(str(tagged[0]), 0.0) + v.weight
+    total = sum(float(by_part[p]) for p in parts)
+    if total <= 0:
+        raise ValueError(f"vocabulary: {lid}'s shares on {facet} are all 0")
+    out = []
+    for v in vals:
+        part = str(v.tags[facet][0])
+        share = float(by_part[part]) / total
+        out.append(replace(v, scale=(share or 1.0) / parts[part], opt_in=v.opt_in or share == 0))
+    return tuple(out)
+
+
+def _weighted(rng: random.Random, pairs: Sequence[Tuple[Any, float]]) -> Any:
+    return rng.choices([x for x, _ in pairs], weights=[w for _, w in pairs], k=1)[0]
+
+
+def _composed(lid: str, spec: Dict[str, Any], leaves: Dict[str, Leaf]) -> Tuple[Value, ...]:
+    """A composed list's values: each one a few parts joined, every part a value of a
+    different list. `"compose": {"parts": {list id: weight}, "take": {"2": 0.55, "3": 0.45},
+    "count": 2000, "tags": {facet: [values an untagged part fits]}}`. The parts are sampled
+    by the lists' weights and the values' own, so drawing the result uniformly keeps each
+    list's designed spread; which lists a value uses varies, so two faces differ in what is
+    said of them, not only in how. A combination keeps a tag only where its parts agree (the
+    ages all of them fit); parts that share nothing are not combined. Sampling is seeded by
+    the list id: the same data always composes the same values."""
+    rng = random.Random(lid)
+    parts = [(leaves[pid], float(w)) for pid, w in spec["parts"].items()]
+    order = {lf.id: i for i, (lf, _) in enumerate(parts)}
+    take = [(int(k), float(w)) for k, w in spec["take"].items()]
+    fill_tags = {f: tuple(v) for f, v in (spec.get("tags") or {}).items()}
+    out: Dict[str, Value] = {}
+    for _ in range(int(spec.get("count", 1000)) * 20):
+        if len(out) >= int(spec.get("count", 1000)):
+            break
+        pool, chosen = list(parts), []
+        for _ in range(min(_weighted(rng, take), len(pool))):
+            got = _weighted(rng, [(p, p[1]) for p in pool])
+            pool.remove(got)
+            chosen.append(got[0])
+        chosen.sort(key=lambda lf: order[lf.id])
+        vals = [_weighted(rng, [(v, v.weight) for v in lf.values]) for lf in chosen]
+        tags: Dict[str, Any] = {}
+        for facet, default in fill_tags.items():
+            fits = set(default)
+            for v in vals:
+                if facet in v.tags:
+                    fits &= {str(x) for x in v.tags[facet]}
+            tags[facet] = [x for x in default if x in fits]
+        if not all(tags.values()):
+            continue
+        tags = {f: v for f, v in tags.items() if f in (spec.get("keep") or ()) or len(v) < len(fill_tags[f])}
+        text = ", ".join(v.text for v in vals)   # a list, as a prompt lists things: no "and" to misread
+        out.setdefault(text, Value(text, "typical", tags, opt_in=any(v.opt_in for v in vals)))
+    return tuple(out.values())
+
+
 def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
     gives, takes, stated, less = _leaf_context(d)
     groups = dict(d.get("groups") or {})
     vals = tuple(_value(lid, v, groups) for v in d.get("values") or [] if str(v.get("text") or "").strip())
+    vals = _shared(lid, vals, d.get("shares") or {})
     return Leaf(lid, str(d.get("label") or lid), str(d.get("description") or ""), str(d.get("pos") or ""),
                 str(d.get("frame") or ""), str(d.get("notes") or ""), tuple(d.get("facets") or ()),
                 bool(d.get("closed")), {k: tuple(v) for k, v in (d.get("untagged") or {}).items()}, vals,
@@ -411,6 +492,7 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
     leaves: Dict[str, Leaf] = {}
     facets: Dict[str, Dict[str, Any]] = {}
     context: Dict[str, Dict[str, Any]] = {}
+    composed: Dict[str, Dict[str, Any]] = {}
     h = hashlib.sha256()
     for root in roots:
         if not root.is_dir():
@@ -439,6 +521,14 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
                 if lid in leaves:
                     raise ValueError(f"vocabulary: {lid} is defined twice")
                 leaves[lid] = _leaf(lid, d)
+                if d.get("catalog") is False:
+                    leaves[lid] = replace(leaves[lid], listed=False)
+                if d.get("strict") is True:
+                    leaves[lid] = replace(leaves[lid], strict=True)
+                if d.get("compose"):
+                    composed[lid] = d["compose"]
+    for lid, spec in composed.items():
+        leaves[lid] = replace(leaves[lid], values=_composed(lid, spec, leaves))
     for lid, lf in list(leaves.items()):  # a leaf under an individual node is a subject's own detail
         parts = lid.split(".")
         if any(getattr(nodes.get(".".join(parts[:i])), "individual", False) for i in range(1, len(parts))):

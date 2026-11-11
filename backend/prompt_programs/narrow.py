@@ -56,10 +56,11 @@ from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-2"   # narrow-2: ages under 18 only when asked; "a girl" alone is a young adult
+NARROW_VERSION = "narrow-3"   # narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
 NARROW_SECONDS = 20.0   # all of a program's narrowing calls together; past it, unresolved picks go unbound
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
+_MEMBER = re.compile(r"^(.+)\[\d+\]\.(.+)$")   # kids[2].age → ("kids", "age")
 
 _SYSTEM = """You choose which items of a list fit a description from an image prompt.
 
@@ -72,8 +73,9 @@ only when asked for. If no item fits, reply [].
 Ages: a person is an adult (18 or over) unless the description itself makes them a child or
 a teenager: "a child", "a baby", "a toddler", "kids", "a teenage boy", "a 10-year-old", "a
 little girl", "a schoolboy". A man or a woman is an adult. "A girl" or "a boy" alone is a
-young adult, as people often say of a young woman or man: ages under 18 fit only when other
-words make them a child or a teenager. A "teenage boy" is 13 to 19."""
+young adult, as people often say of a young woman or man: keep the ages from 18 to 29 for
+them and no others. Ages under 18 fit only when other words make them a child or a teenager.
+A "teenage boy" is 13 to 19."""
 
 _READ_SYSTEM = """You read an image prompt and find the words in it that describe certain details.
 
@@ -348,6 +350,19 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         unfinished |= {c["id"] for c in readable}
         read = {}
     seconds = max(1.0, seconds - (asyncio.get_running_loop().time() - t0))
+    # The members of one group() ("kids playing football": four of them) are the same words'
+    # people. A reading that names the first member's age and stops leaves the others adults:
+    # a detail read for one member is read for every member the reading left out. People the
+    # prompt describes one by one aren't a group(), and keep each their own words.
+    declared = {str(g.get("id")) for g in entry.get("groups") or [] if g.get("id") and not g.get("from_ids")}
+    shared: Dict[Tuple[str, str], str] = {}
+    members = [(c, m) for c in bound if (m := _MEMBER.match(str(c["id"]))) and m.group(1) in declared]
+    for c, m in members:
+        if read.get(c["id"]):
+            shared.setdefault((m.group(1), m.group(2)), read[c["id"]])
+    for c, m in members:
+        if not read.get(c["id"]) and (m.group(1), m.group(2)) in shared:
+            read[c["id"]] = shared[(m.group(1), m.group(2))]
     wanted: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}   # (list, words, about) → choices
     for c in bound:
         phrase = phrase_of(c, read)
@@ -404,6 +419,13 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             got = within or facet[cid]
         else:
             got = words[cid]
+        if not got and getattr(vocab.get(c.get("cls")), "strict", False):
+            # A list that is never drawn without (ages: generated ones include children; a face or a
+            # photo's look: generated ones are praise and blur). Words nothing in it fits weren't about
+            # this detail ("a girl" for her age, "selfie" for its framing): the whole list stands.
+            filters.pop(cid, None)
+            notes.append(f'{cid}: nothing in {c["cls"]} fits {phrase_of(c)!r}; drawing from the whole list')
+            continue
         filters[cid] = list(got)
         if got:
             c["options"] = list(got)

@@ -291,7 +291,7 @@ class Turn:
             source, _ = prep.fix_quotes(source)
             source, more = prep.fix_patched(source, self.prompt)
         else:
-            source = prep.drop_name_options(source, self.prompt)
+            source = prep.drop_name_options(prep.expand_people(source), self.prompt)
             source, more = prep.fix_written(source, self.prompt, self.loras)
         fixed += more
         self.fixes += fixed

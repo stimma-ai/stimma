@@ -126,7 +126,11 @@ class TestTheMarkers:
         for text in ("a {main} one-piece swimsuit with a square neckline", "a {main} bikini with a high-waisted bottom"):
             assert not v.get("person.outfit.summer").value(text).adult_only
         assert not any(x.adult_only for x in v.get("person.outfit.athletic").values)
-        assert not any(x.opt_in for lid, lf in v.leaves.items() if lid != AGE_LIST for x in lf.values)
+        # Besides ages under 18, only a feature of one sex and a part with no share are opt-in.
+        for lid, lf in v.leaves.items():
+            for x in lf.values:
+                if x.opt_in and lid != AGE_LIST:
+                    assert len(x.tags.get("presentation") or []) == 1 or lid == "camera.selfie_framing", (lid, x.text)
 
     def test_the_newly_flagged_looks_leave_a_minors_pools(self):
         for cls, text in (("person.outfit.formal", "a {main} sequined crop top and a matching high-waisted mini skirt"),

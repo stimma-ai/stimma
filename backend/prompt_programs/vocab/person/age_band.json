@@ -338,5 +338,11 @@
       "older",
       "elderly"
     ]
-  }
+  },
+  "context": {
+    "gives": [
+      "life_stage"
+    ]
+  },
+  "strict": true
 }

@@ -1,0 +1,422 @@
+{
+  "id": "person.feature.jaw_chin",
+  "label": "Jaw and chin",
+  "description": "The jawline, the chin and where they meet the neck.",
+  "pos": "noun phrase",
+  "frame": "a person with ___",
+  "notes": "Merged from three independently written sets. Each value says what is visible: no attractiveness or character words, no expression, no color, no ancestry words. A person gets two or three face features (person.face), not every list. `life_stage` is the ages a value is seen at: a drawn age that doesn't fit removes it. `by_ancestry: unreviewed` marks values whose rate differs by ancestry and are not weighted yet. Closed: generated face options drift to praise.",
+  "facets": [],
+  "closed": true,
+  "strict": true,
+  "catalog": false,
+  "local_facets": {
+    "aspect": [
+      "jaw",
+      "chin",
+      "neck"
+    ]
+  },
+  "context": {
+    "takes": {
+      "life_stage": {
+        "mismatch": "drop"
+      }
+    }
+  },
+  "shares": {
+    "aspect": {
+      "jaw": 0.4,
+      "chin": 0.4,
+      "neck": 0.2
+    }
+  },
+  "values": [
+    {
+      "text": "a wide, square jaw",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a narrow jaw",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ]
+      }
+    },
+    {
+      "text": "a soft, rounded jawline",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ]
+      }
+    },
+    {
+      "text": "a sharply angled jaw below the ears",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a jawline hidden under soft flesh",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ]
+      }
+    },
+    {
+      "text": "a jaw that tapers in a straight line to the chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ]
+      }
+    },
+    {
+      "text": "a heavy jaw, wider than the forehead",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "an uneven jaw, longer on one side",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ]
+      }
+    },
+    {
+      "text": "soft jowls on either side of the chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "loose jowls that blur the jawline",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ],
+        "life_stage": [
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "jaw corners that flare outward, wider than the neck below them",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "a small jaw that curves straight into the chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "jaw"
+        ],
+        "life_stage": [
+          "baby",
+          "child"
+        ]
+      }
+    },
+    {
+      "text": "a rounded chin",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "chin"
+        ]
+      }
+    },
+    {
+      "text": "a pointed chin",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "chin"
+        ]
+      }
+    },
+    {
+      "text": "a broad, square chin",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "chin"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a small chin that sits back from the lips",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "chin"
+        ]
+      }
+    },
+    {
+      "text": "a chin that juts forward",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "chin"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a long chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "chin"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a short chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "chin"
+        ]
+      }
+    },
+    {
+      "text": "a chin with a cleft down the middle",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "chin"
+        ]
+      }
+    },
+    {
+      "text": "a chin with a dimple in its center",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "chin"
+        ]
+      }
+    },
+    {
+      "text": "a flat chin with a crease beneath the lower lip",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "chin"
+        ]
+      }
+    },
+    {
+      "text": "a double chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "chin"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a small rounded chin beneath a wider jaw",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "chin"
+        ]
+      }
+    },
+    {
+      "text": "a deep crease between the lower lip and a rounded pad of chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "chin"
+        ]
+      }
+    },
+    {
+      "text": "a lower jaw set back, with the lower lip behind the upper",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "chin"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "a lower jaw set forward, with the lower lip in front of the upper",
+      "tier": "unusual",
+      "tags": {
+        "aspect": [
+          "chin"
+        ]
+      }
+    },
+    {
+      "text": "a chin set slightly to one side",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "chin"
+        ]
+      }
+    },
+    {
+      "text": "a long, thin neck",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "neck"
+        ]
+      }
+    },
+    {
+      "text": "a short, thick neck",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "neck"
+        ]
+      }
+    },
+    {
+      "text": "a prominent Adam's apple",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "neck"
+        ],
+        "presentation": [
+          "masculine"
+        ]
+      },
+      "opt_in": true
+    },
+    {
+      "text": "a fold of loose skin beneath the chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "neck"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "loose, creased skin on the neck",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "neck"
+        ],
+        "life_stage": [
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a soft fullness under the chin",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "neck"
+        ]
+      }
+    }
+  ]
+}

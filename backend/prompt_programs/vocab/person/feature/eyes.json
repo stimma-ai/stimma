@@ -1,0 +1,353 @@
+{
+  "id": "person.feature.eyes",
+  "label": "Eye shape",
+  "description": "The shape, lids, set and spacing of the eyes, not their color.",
+  "pos": "noun phrase",
+  "frame": "a person with ___",
+  "notes": "Merged from three independently written sets. Each value says what is visible: no attractiveness or character words, no expression, no color, no ancestry words. A person gets two or three face features (person.face), not every list. `life_stage` is the ages a value is seen at: a drawn age that doesn't fit removes it. `by_ancestry: unreviewed` marks values whose rate differs by ancestry and are not weighted yet. Closed: generated face options drift to praise.",
+  "facets": [],
+  "closed": true,
+  "strict": true,
+  "catalog": false,
+  "local_facets": {
+    "aspect": [
+      "shape",
+      "lids",
+      "set",
+      "around"
+    ]
+  },
+  "context": {
+    "takes": {
+      "life_stage": {
+        "mismatch": "drop"
+      }
+    }
+  },
+  "shares": {
+    "aspect": {
+      "shape": 0.3,
+      "lids": 0.3,
+      "set": 0.25,
+      "around": 0.15
+    }
+  },
+  "values": [
+    {
+      "text": "almond-shaped eyes",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "round eyes showing the whole iris",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "narrow eyes, long from corner to corner",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyes that turn down at the outer corners",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyes that tilt up at the outer corners",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "small eyes",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "large, wide-open eyes",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyes of slightly different sizes",
+      "tier": "unusual",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyes wider toward the outer corners than the inner",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyes with a smooth upper lid and no crease",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "lids"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "eyes with a deep crease in the upper lid",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "lids"
+        ]
+      }
+    },
+    {
+      "text": "hooded eyes, the upper lid hidden under the brow fold",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "lids"
+        ]
+      }
+    },
+    {
+      "text": "eyes with a fold of skin covering the inner corner",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "lids"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "heavy upper lids that half cover the iris",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "lids"
+        ]
+      }
+    },
+    {
+      "text": "one lid creased and the other smooth",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "lids"
+        ]
+      }
+    },
+    {
+      "text": "upper lids that droop at the outer corners",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "lids"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "loose, folded upper lids resting on the lashes",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "lids"
+        ],
+        "life_stage": [
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "prominent lower lids",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "lids"
+        ]
+      }
+    },
+    {
+      "text": "a high crease with a broad band of eyelid showing beneath the brow",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "lids"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "full upper lids that narrow the opening of the eye",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "lids"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "deep-set eyes shadowed by the brow",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "set"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "eyes set wide apart",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "set"
+        ]
+      }
+    },
+    {
+      "text": "eyes set close together",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "set"
+        ]
+      }
+    },
+    {
+      "text": "prominent eyes that stand forward from their sockets",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "set"
+        ]
+      }
+    },
+    {
+      "text": "eyes set shallow, level with the brow and cheek",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "set"
+        ]
+      }
+    },
+    {
+      "text": "eyes set high in the face",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "set"
+        ]
+      }
+    },
+    {
+      "text": "eyes set low, with a tall forehead above them",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "set"
+        ]
+      }
+    },
+    {
+      "text": "one eye that turns slightly inward",
+      "tier": "unusual",
+      "tags": {
+        "aspect": [
+          "set"
+        ]
+      }
+    },
+    {
+      "text": "short, sparse eyelashes",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "around"
+        ]
+      }
+    },
+    {
+      "text": "long, thick eyelashes",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "around"
+        ]
+      }
+    },
+    {
+      "text": "straight lashes that point downward",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "around"
+        ]
+      }
+    },
+    {
+      "text": "a visible gap of white beneath the iris",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "around"
+        ]
+      }
+    }
+  ]
+}

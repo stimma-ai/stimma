@@ -10,99 +10,249 @@
   "values": [
     {
       "text": "slender",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "stocky",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "athletic",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "plus-size",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "petite",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "broad-shouldered",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "narrow-shouldered",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "tall",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "short",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "medium-height",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "muscular",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "round-bellied",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "broad-hipped",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "narrow-hipped",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "long-limbed",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "broad-chested",
-      "tier": "typical"
+      "tier": "typical",
+      "tags": {
+        "presentation": [
+          "masculine"
+        ]
+      },
+      "opt_in": true
     },
     {
       "text": "powerfully built",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "long-waisted",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "short-waisted",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "lanky",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "barrel-chested",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "presentation": [
+          "masculine"
+        ]
+      },
+      "opt_in": true
     },
     {
       "text": "straight-waisted",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "small-framed",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     },
     {
       "text": "large-framed",
-      "tier": "plausible"
+      "tier": "plausible",
+      "tags": {
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
+      }
     }
-  ]
+  ],
+  "local_facets": {
+    "presentation": [
+      "feminine",
+      "masculine"
+    ]
+  }
 }

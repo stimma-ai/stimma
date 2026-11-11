@@ -187,6 +187,11 @@
         ],
         "texture": [
           "unspecified"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -431,6 +436,11 @@
         ],
         "texture": [
           "unspecified"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -469,6 +479,9 @@
       "texture": {
         "mismatch": "rare",
         "factor": 0.05
+      },
+      "life_stage": {
+        "mismatch": "drop"
       }
     }
   }

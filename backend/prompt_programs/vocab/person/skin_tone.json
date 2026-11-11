@@ -178,6 +178,11 @@
       "tags": {
         "skin_family": [
           "fair"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -188,6 +193,11 @@
         "skin_family": [
           "medium",
           "brown"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -198,6 +208,11 @@
         "skin_family": [
           "brown",
           "deep"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     }
@@ -207,6 +222,9 @@
       "skin_family": {
         "mismatch": "rare",
         "factor": 0.02
+      },
+      "life_stage": {
+        "mismatch": "drop"
       }
     }
   }

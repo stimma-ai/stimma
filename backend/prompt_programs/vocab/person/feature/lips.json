@@ -1,0 +1,325 @@
+{
+  "id": "person.feature.lips",
+  "label": "Lips and mouth",
+  "description": "The fullness, width and resting shape of the lips, and the teeth where they show at rest.",
+  "pos": "noun phrase",
+  "frame": "a person with ___",
+  "notes": "Merged from three independently written sets. Each value says what is visible: no attractiveness or character words, no expression, no color, no ancestry words. A person gets two or three face features (person.face), not every list. `life_stage` is the ages a value is seen at: a drawn age that doesn't fit removes it. `by_ancestry: unreviewed` marks values whose rate differs by ancestry and are not weighted yet. Closed: generated face options drift to praise.",
+  "facets": [],
+  "closed": true,
+  "strict": true,
+  "catalog": false,
+  "local_facets": {
+    "aspect": [
+      "fullness",
+      "width",
+      "shape",
+      "teeth"
+    ]
+  },
+  "context": {
+    "takes": {
+      "life_stage": {
+        "mismatch": "drop"
+      }
+    }
+  },
+  "shares": {
+    "aspect": {
+      "fullness": 0.35,
+      "width": 0.2,
+      "shape": 0.3,
+      "teeth": 0.15
+    }
+  },
+  "values": [
+    {
+      "text": "full lips",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "thin lips",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ]
+      }
+    },
+    {
+      "text": "a full lower lip and a thinner upper lip",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ]
+      }
+    },
+    {
+      "text": "a fuller upper lip than lower lip",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ]
+      }
+    },
+    {
+      "text": "very thin lips, a narrow line when closed",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ]
+      }
+    },
+    {
+      "text": "thick lips with a clearly outlined edge",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "lips that have thinned and lost their edge",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ],
+        "life_stage": [
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "lips fuller in the center and thin toward the corners",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ]
+      }
+    },
+    {
+      "text": "very full lips that stand well out from the face",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "fullness"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "a wide mouth",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "width"
+        ]
+      }
+    },
+    {
+      "text": "a small, narrow mouth",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "width"
+        ]
+      }
+    },
+    {
+      "text": "a mouth as wide as the gap between the pupils",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "width"
+        ]
+      }
+    },
+    {
+      "text": "a small mouth with full lips",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "width"
+        ]
+      }
+    },
+    {
+      "text": "a small mouth, its corners not far outside the nostrils",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "width"
+        ]
+      }
+    },
+    {
+      "text": "a very wide mouth that reaches toward the sides of the cheeks",
+      "tier": "unusual",
+      "tags": {
+        "aspect": [
+          "width"
+        ]
+      }
+    },
+    {
+      "text": "a sharply peaked upper lip",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "a softly rounded upper lip with no clear peaks",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "corners of the mouth that turn down at rest",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "corners of the mouth that turn up at rest",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "a deep groove between the nose and the upper lip",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "a lower lip that pushes forward",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "an uneven mouth, fuller on one side",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "one corner of the mouth sitting higher than the other",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "lips whose edges fade into the skin around them",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "lips slightly parted at rest, the front teeth just showing",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "teeth"
+        ]
+      }
+    },
+    {
+      "text": "front teeth that push the upper lip forward",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "teeth"
+        ]
+      }
+    },
+    {
+      "text": "a gap between the two front teeth",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "teeth"
+        ]
+      }
+    },
+    {
+      "text": "uneven, crowded front teeth",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "teeth"
+        ]
+      }
+    },
+    {
+      "text": "a small scar crossing the upper lip",
+      "tier": "unusual",
+      "tags": {
+        "aspect": [
+          "teeth"
+        ]
+      }
+    },
+    {
+      "text": "front teeth that angle outward",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "teeth"
+        ]
+      }
+    }
+  ]
+}

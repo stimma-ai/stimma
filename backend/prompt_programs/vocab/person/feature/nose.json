@@ -1,0 +1,423 @@
+{
+  "id": "person.feature.nose",
+  "label": "Nose",
+  "description": "The size, bridge, tip and nostrils of the nose.",
+  "pos": "noun phrase",
+  "frame": "a person with ___",
+  "notes": "Merged from three independently written sets. Each value says what is visible: no attractiveness or character words, no expression, no color, no ancestry words. A person gets two or three face features (person.face), not every list. `life_stage` is the ages a value is seen at: a drawn age that doesn't fit removes it. `by_ancestry: unreviewed` marks values whose rate differs by ancestry and are not weighted yet. Closed: generated face options drift to praise.",
+  "facets": [],
+  "closed": true,
+  "strict": true,
+  "catalog": false,
+  "local_facets": {
+    "aspect": [
+      "size",
+      "bridge",
+      "tip",
+      "nostrils"
+    ]
+  },
+  "context": {
+    "takes": {
+      "life_stage": {
+        "mismatch": "drop"
+      }
+    }
+  },
+  "shares": {
+    "aspect": {
+      "size": 0.25,
+      "bridge": 0.3,
+      "tip": 0.25,
+      "nostrils": 0.2
+    }
+  },
+  "values": [
+    {
+      "text": "a small, short nose",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "size"
+        ]
+      }
+    },
+    {
+      "text": "a long nose",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "size"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a large, prominent nose",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "size"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a broad nose",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "size"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "a narrow nose",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "size"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "a short, wide nose",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "size"
+        ]
+      }
+    },
+    {
+      "text": "a long, thin nose",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "size"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a nose that widens a lot at the nostrils",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "size"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "a short nose that leaves a long gap above the upper lip",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "size"
+        ]
+      }
+    },
+    {
+      "text": "a long nose that ends close to the upper lip",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "size"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a straight nose bridge",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "bridge"
+        ]
+      }
+    },
+    {
+      "text": "a low, flat nose bridge",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "bridge"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "a high nose bridge",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "bridge"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "a nose with a bump on the bridge",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "bridge"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a curved, hooked nose",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "bridge"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a nose that dips inward along the bridge",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "bridge"
+        ]
+      }
+    },
+    {
+      "text": "a wide nose bridge",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "bridge"
+        ]
+      }
+    },
+    {
+      "text": "a thin, sharp nose bridge",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "bridge"
+        ]
+      }
+    },
+    {
+      "text": "a crooked nose, bent to one side",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "bridge"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a flattened nose with a thickened bridge, as if once broken",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "bridge"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "a rounded nose tip",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "tip"
+        ]
+      }
+    },
+    {
+      "text": "a slightly upturned nose",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "tip"
+        ]
+      }
+    },
+    {
+      "text": "a nose tip that points downward",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "tip"
+        ]
+      }
+    },
+    {
+      "text": "a wide, fleshy nose tip",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "tip"
+        ]
+      }
+    },
+    {
+      "text": "a narrow, pointed nose tip",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "tip"
+        ]
+      }
+    },
+    {
+      "text": "a snub nose, short and turned up",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "tip"
+        ]
+      }
+    },
+    {
+      "text": "a nose tip that barely stands out from the face",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "tip"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "a nose tip that stands well forward of the nostrils",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "tip"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "wide, flared nostrils",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "nostrils"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "narrow nostrils",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "nostrils"
+        ]
+      }
+    },
+    {
+      "text": "rounded nostrils that show from the front",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "nostrils"
+        ]
+      }
+    },
+    {
+      "text": "long, slit-like nostrils",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "nostrils"
+        ]
+      }
+    },
+    {
+      "text": "a wide base to the nose, as wide as the gap between the eyes",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "nostrils"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    }
+  ]
+}

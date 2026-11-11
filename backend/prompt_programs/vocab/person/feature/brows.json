@@ -1,0 +1,364 @@
+{
+  "id": "person.feature.brows",
+  "label": "Eyebrows",
+  "description": "The thickness, line and position of the eyebrows.",
+  "pos": "noun phrase",
+  "frame": "a person with ___",
+  "notes": "Merged from three independently written sets. Each value says what is visible: no attractiveness or character words, no expression, no color, no ancestry words. A person gets two or three face features (person.face), not every list. `life_stage` is the ages a value is seen at: a drawn age that doesn't fit removes it. `by_ancestry: unreviewed` marks values whose rate differs by ancestry and are not weighted yet. Closed: generated face options drift to praise.",
+  "facets": [],
+  "closed": true,
+  "strict": true,
+  "catalog": false,
+  "local_facets": {
+    "aspect": [
+      "weight",
+      "shape",
+      "position",
+      "grooming"
+    ]
+  },
+  "context": {
+    "takes": {
+      "life_stage": {
+        "mismatch": "drop"
+      }
+    }
+  },
+  "shares": {
+    "aspect": {
+      "weight": 0.3,
+      "shape": 0.35,
+      "position": 0.2,
+      "grooming": 0.15
+    }
+  },
+  "values": [
+    {
+      "text": "thick, dense eyebrows",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "weight"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "thin eyebrows",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "weight"
+        ]
+      }
+    },
+    {
+      "text": "sparse eyebrows with skin showing through",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "weight"
+        ]
+      }
+    },
+    {
+      "text": "bushy eyebrows with long stray hairs",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "weight"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "very faint eyebrows, barely visible",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "weight"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows thick at the inner end and thinning to nothing",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "weight"
+        ]
+      }
+    },
+    {
+      "text": "wiry, overgrown eyebrows",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "weight"
+        ],
+        "life_stage": [
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows with a bare gap through one of them",
+      "tier": "unusual",
+      "tags": {
+        "aspect": [
+          "weight"
+        ]
+      }
+    },
+    {
+      "text": "patchy eyebrows, thick in some stretches and thin in others",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "weight"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows fuller in the inner half and thin along the tail",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "weight"
+        ]
+      }
+    },
+    {
+      "text": "thinning eyebrows with a few long stray hairs",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "weight"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
+        ]
+      }
+    },
+    {
+      "text": "straight, level eyebrows",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "softly curved eyebrows",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows with a high arch",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows with an angled peak toward the outer end",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows that slope down toward the temples",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows that slant up toward the temples",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "short eyebrows that end above the middle of the eye",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "long eyebrows that reach past the outer corners of the eyes",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "rounded eyebrows in an even half-circle",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows of clearly different shapes",
+      "tier": "unusual",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows with a flat inner half and a curved outer half",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows that stop short of the outer corners of the eyes",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "shape"
+        ]
+      }
+    },
+    {
+      "text": "low eyebrows sitting close above the eyes",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "position"
+        ]
+      }
+    },
+    {
+      "text": "high eyebrows with a wide gap above the eyelids",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "position"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows set wide apart",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "position"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows set close together",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "position"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows that nearly meet above the nose",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "position"
+        ],
+        "by_ancestry": [
+          "unreviewed"
+        ]
+      }
+    },
+    {
+      "text": "eyebrows that meet in a single line across the nose",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "position"
+        ]
+      }
+    },
+    {
+      "text": "one eyebrow sitting higher than the other",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "position"
+        ]
+      }
+    },
+    {
+      "text": "untidy eyebrows with hairs growing in several directions",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "grooming"
+        ]
+      }
+    },
+    {
+      "text": "neat eyebrows with a clean edge",
+      "tier": "typical",
+      "tags": {
+        "aspect": [
+          "grooming"
+        ]
+      }
+    },
+    {
+      "text": "plucked eyebrows, thin and sharply edged",
+      "tier": "plausible",
+      "tags": {
+        "aspect": [
+          "grooming"
+        ],
+        "presentation": [
+          "feminine"
+        ]
+      },
+      "opt_in": true
+    }
+  ]
+}

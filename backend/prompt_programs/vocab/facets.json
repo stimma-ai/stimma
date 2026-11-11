@@ -196,6 +196,19 @@
      "dry_season"
     ],
     "about": "the stage of the year"
+   },
+   "life_stage": {
+    "scope": "person",
+    "values": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ],
+    "about": "the stage of life a person's drawn age is in; on a face value, the stages it is seen at (deep lines from middle age, baby-round cheeks on a child). Values with no tag fit every age."
    }
   }
  }

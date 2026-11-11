@@ -1,0 +1,551 @@
+{
+  "id": "camera.portrait_framing",
+  "label": "Portrait framing",
+  "description": "How a portrait of one person is framed: how much of them shows, where they sit in the frame and how the camera faces them.",
+  "pos": "noun phrase",
+  "frame": "framed as ___",
+  "notes": "DRAFT. One whole framing per value: crop, placement and camera position together, in plain words for what is visible. No pose (person.pose), lens, focus or lighting words. Closed: generated framings drift back to 'close-up portrait'. Supersedes camera.shot_size and camera.angle for portraits.",
+  "shares": {
+    "crop": {
+      "close": 0.3,
+      "half": 0.35,
+      "full": 0.2,
+      "wide": 0.15
+    }
+  },
+  "facets": [],
+  "closed": true,
+  "local_facets": {
+    "crop": [
+      "close",
+      "half",
+      "full",
+      "wide"
+    ]
+  },
+  "values": [
+    {
+      "text": "a tight headshot cropped just above the hairline",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a head-and-shoulders portrait with the face centered",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a head-and-shoulders portrait with the person to one side and open space beside them",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a head-and-shoulders portrait with the body angled away and the face turned back to the camera",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a close portrait at eye level, straight on",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a face filling the frame, cropped at the forehead and chin",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a profile portrait with the face turned toward the edge of the frame",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a three-quarter view of the face, looking past the camera",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a close portrait from slightly above, the person looking up at the camera",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a close portrait from just below the chin line, looking up at the face",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a close portrait partly hidden behind something near the camera",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a close portrait looking back over one shoulder",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a close portrait with the head tilted and the eyes in the top third of the frame",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a close portrait with the face in one corner and plain space across the rest",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a close portrait with the face at the edge of the frame, half cut off",
+      "tier": "unusual",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a close portrait of the lower half of the face and the neck",
+      "tier": "unusual",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a close portrait reflected in a small mirror",
+      "tier": "unusual",
+      "tags": {
+        "crop": [
+          "close"
+        ]
+      }
+    },
+    {
+      "text": "a chest-up portrait with the shoulders turned three-quarters to the camera",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a waist-up portrait with the hands in the frame",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a straight-on waist-up portrait with the shoulders square to the camera",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a waist-up portrait with the person to one side and the setting filling the rest",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a seated portrait cropped at the waist",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a portrait over the shoulder, the person glancing back at the camera",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a waist-up portrait from a low camera, looking up at the person",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a waist-up portrait from above, the person looking up",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a chest-up portrait with the face low in the frame and empty space above",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a waist-up portrait in profile",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a waist-up portrait from behind, the head turned to one side",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a waist-up portrait seen across a table",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a waist-up portrait framed by a window, seen from outside",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a waist-up portrait with the camera tilted so the frame leans",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a chest-up portrait taken from very close, the shoulders running out of the frame",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a waist-up portrait with the top of the head cropped off",
+      "tier": "unusual",
+      "tags": {
+        "crop": [
+          "half"
+        ]
+      }
+    },
+    {
+      "text": "a three-quarter-length portrait cropped at mid-thigh",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a full-length portrait with space above the head and below the feet",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a full-length portrait, straight on from chest height",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a seated full-length portrait",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a full-length portrait from a low camera, the legs long in the frame",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a full-length portrait from above, looking down at the person",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a full-length portrait in profile",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a full-length portrait from behind",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a full-length portrait with the person to one side of the frame",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a knee-up portrait at a slight angle",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a full-length portrait filling the frame from top to bottom",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a full-length portrait from a distance, with clear space all round",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a full-length portrait reflected in a tall mirror",
+      "tier": "unusual",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a full-length portrait from directly overhead, the person lying down",
+      "tier": "unusual",
+      "tags": {
+        "crop": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "a wide portrait with the person small among their surroundings",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "wide"
+        ]
+      }
+    },
+    {
+      "text": "a wide portrait with the person centered and the setting symmetrical around them",
+      "tier": "typical",
+      "tags": {
+        "crop": [
+          "wide"
+        ]
+      }
+    },
+    {
+      "text": "a portrait seen through a doorway, the person framed by its edges",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "wide"
+        ]
+      }
+    },
+    {
+      "text": "a wide portrait with the person at the far side of the frame",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "wide"
+        ]
+      }
+    },
+    {
+      "text": "a wide portrait from behind, the person facing the view",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "wide"
+        ]
+      }
+    },
+    {
+      "text": "a wide portrait from high up, looking down on the person",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "wide"
+        ]
+      }
+    },
+    {
+      "text": "a wide portrait from ground level, the person standing against the sky",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "wide"
+        ]
+      }
+    },
+    {
+      "text": "a wide portrait with the person seen through a window",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "wide"
+        ]
+      }
+    },
+    {
+      "text": "a wide portrait with the person in the lower corner and the setting towering above",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "wide"
+        ]
+      }
+    },
+    {
+      "text": "a wide portrait with the person in the middle distance and nearer things at the edges",
+      "tier": "plausible",
+      "tags": {
+        "crop": [
+          "wide"
+        ]
+      }
+    },
+    {
+      "text": "a very distant portrait, the person a small figure in a large view",
+      "tier": "unusual",
+      "tags": {
+        "crop": [
+          "wide"
+        ]
+      }
+    }
+  ],
+  "strict": true
+}

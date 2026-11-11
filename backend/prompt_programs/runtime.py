@@ -1283,6 +1283,7 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
     order: List[str] = []
     presence: Dict[str, List[bool]] = {}
     values: Dict[str, List[Any]] = {}
+    listed: Dict[str, Set[Any]] = {}
     for r_i, res in enumerate(results):
         for d in res.draws:
             c = choices.get(d.id)
@@ -1297,9 +1298,11 @@ def discover(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_param
             c.seen += 1
             if d.kind == "param":
                 c.options = d.options
-            else:
+            else:   # a set beside the list: a 3,000-value list's options are met 48 times over
+                have = listed.setdefault(d.id, set(c.options))
                 for o in d.options:
-                    if o not in c.options:
+                    if o not in have:
+                        have.add(o)
                         c.options.append(o)
             if d.follows and not c.follows:
                 c.follows = d.follows

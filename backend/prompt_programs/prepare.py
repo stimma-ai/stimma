@@ -26,6 +26,7 @@ from prompt_programs.runtime import (
     tidy_text,
 )
 from prompt_programs.draws import DrawAborted, analyze, draw, uses_draws
+from prompt_programs.people import expand_people
 from prompt_programs.store import ProgramStore, program_key
 from prompt_programs.vocab import AGE_LIST, vocabulary
 
@@ -2677,7 +2678,7 @@ async def _prepare_new(*, key: str, store: ProgramStore, tool_id: str, ctx: Dict
                 retry = (reply[:2000], "Your reply was cut off because it was far too long. Write the program "
                          "again, short: write the text once in emit() and give each pick 1 to 3 seeds.")
                 continue
-            source, repaired = drop_name_options(extract_code(reply), source_prompt), False
+            source, repaired = drop_name_options(expand_people(extract_code(reply)), source_prompt), False
         source, fixed = fix_written(source, source_prompt, loras)
         fixes += fixed
         try:
@@ -2812,7 +2813,7 @@ def fix_written(source: str, prompt: str, loras: Sequence[LoraInfo]) -> Tuple[st
 def fix_patched(source: str, prompt: str) -> Tuple[str, List[str]]:
     """The fixes in code a program patched for a prompt edit gets (fewer than a fresh write:
     what the edit didn't touch was already fixed)."""
-    source = drop_name_options(source, prompt)
+    source = drop_name_options(expand_people(source), prompt)
     notes: List[str] = []
     for fix in (fix_order, lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, lambda x: fix_requested(x, prompt),

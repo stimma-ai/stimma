@@ -1,0 +1,497 @@
+{
+  "id": "camera.selfie_framing",
+  "label": "Selfie framing",
+  "description": "How a selfie is taken and framed: where the phone is held, how close, and what of the person and place it shows.",
+  "pos": "noun phrase",
+  "frame": "taken as ___",
+  "notes": "DRAFT. One whole selfie setup per value. Phone position is said by where the hand is, not by lens numbers. 'group' values need more than one person: zero share by default, drawn only when the writer asks for them (where={\"kind\": \"group\"}). Closed.",
+  "shares": {
+    "kind": {
+      "arm": 0.6,
+      "mirror": 0.3,
+      "hands_free": 0.1,
+      "group": 0.0
+    }
+  },
+  "facets": [],
+  "closed": true,
+  "local_facets": {
+    "kind": [
+      "arm",
+      "mirror",
+      "hands_free",
+      "group"
+    ]
+  },
+  "values": [
+    {
+      "text": "an arm's-length selfie from slightly above eye level",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "an arm's-length selfie at eye level with the face centered",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a close selfie with the face filling most of the frame",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie with the head tilted and the background showing over one shoulder",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a chest-up selfie with the phone held slightly to one side",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie from just below eye level",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a high-angle selfie with the arm stretched up, looking up at the phone",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a low-angle selfie with the phone held near the waist, looking down at it",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie with the outstretched arm visible at the edge of the frame",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a wide selfie with the phone held far out, taking in the surroundings",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie lying down, the phone held above the face",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a very wide selfie from above, the body stretching away below the face",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie with half the face out of the frame",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie with the face in the lower corner and the place behind filling the frame",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie in profile, looking away from the phone",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie with the phone held sideways, a wide frame with the person at one end",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie taken while walking, slightly off-level",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie looking down at a phone held in the lap",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie with the chin tucked and the eyes looking up at the phone",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie with the phone held out in both hands",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie with the face and one raised hand close to the phone",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a mis-aimed selfie with part of the head cut off",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a selfie from a stick held high, showing head to knees",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a very close selfie of one eye and cheek",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "arm"
+        ]
+      }
+    },
+    {
+      "text": "a mirror selfie with the phone at chest height and the whole outfit showing",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a mirror selfie cropped at the waist",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a mirror selfie with the phone held beside the face",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a mirror selfie with the phone covering part of the face",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a full-length mirror selfie with the phone held low at the hip",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a mirror selfie over the shoulder, showing the back of the outfit",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a mirror selfie sitting on the floor",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a mirror selfie leaning in close to the glass",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a mirror selfie with the flash on, a white burst in the glass",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a mirror selfie with the mirror's frame visible round the edges",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a mirror selfie cropped at the neck, showing only the outfit",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a mirror selfie at an angle, the room visible behind",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a selfie in the reflection of a window",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a selfie in a small hand mirror",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "mirror"
+        ]
+      }
+    },
+    {
+      "text": "a hands-free selfie with the phone propped a few steps away",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "hands_free"
+        ]
+      }
+    },
+    {
+      "text": "a hands-free selfie with the phone propped low on the ground, looking up",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "hands_free"
+        ]
+      }
+    },
+    {
+      "text": "a hands-free selfie with the phone propped at table height, waist up",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "hands_free"
+        ]
+      }
+    },
+    {
+      "text": "a hands-free selfie from across the room, full length",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "hands_free"
+        ]
+      }
+    },
+    {
+      "text": "a hands-free selfie with the phone leaning at a slight tilt",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "hands_free"
+        ]
+      }
+    },
+    {
+      "text": "a hands-free selfie caught while walking back from the phone",
+      "tier": "unusual",
+      "tags": {
+        "kind": [
+          "hands_free"
+        ]
+      }
+    },
+    {
+      "text": "a group selfie with faces crowded together close to the phone",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "group"
+        ]
+      }
+    },
+    {
+      "text": "a group selfie with one person in front holding the phone and the others behind",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "group"
+        ]
+      }
+    },
+    {
+      "text": "a selfie of two people with their heads together, from slightly above",
+      "tier": "typical",
+      "tags": {
+        "kind": [
+          "group"
+        ]
+      }
+    },
+    {
+      "text": "a selfie of two people cheek to cheek",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "group"
+        ]
+      }
+    },
+    {
+      "text": "a group selfie from a high arm, everyone looking up",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "group"
+        ]
+      }
+    },
+    {
+      "text": "a group selfie with the person holding the phone half out of the frame",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "group"
+        ]
+      }
+    },
+    {
+      "text": "a group mirror selfie",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "group"
+        ]
+      }
+    },
+    {
+      "text": "a wide group selfie with the phone held far out and the place behind",
+      "tier": "plausible",
+      "tags": {
+        "kind": [
+          "group"
+        ]
+      }
+    }
+  ],
+  "strict": true
+}

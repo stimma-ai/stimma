@@ -30,6 +30,12 @@
           "teen",
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -41,6 +47,12 @@
           "teen",
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -51,6 +63,12 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -60,6 +78,12 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
           "elderly"
         ]
       }
@@ -72,6 +96,12 @@
           "teen",
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -83,6 +113,12 @@
           "teen",
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -92,6 +128,12 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
           "elderly"
         ]
       }
@@ -103,6 +145,12 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -112,6 +160,12 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
           "elderly"
         ]
       }
@@ -123,6 +177,12 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -132,6 +192,12 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
           "elderly"
         ]
       }
@@ -143,6 +209,12 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -153,6 +225,12 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -162,6 +240,12 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
           "elderly"
         ]
       }
@@ -174,6 +258,12 @@
           "teen",
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -185,6 +275,12 @@
           "teen",
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -194,6 +290,12 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
           "elderly"
         ]
       }
@@ -205,6 +307,12 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -214,6 +322,12 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
           "elderly"
         ]
       }
@@ -225,6 +339,12 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -235,6 +355,12 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -244,6 +370,12 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
           "elderly"
         ]
       }
@@ -256,6 +388,12 @@
           "teen",
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -267,6 +405,12 @@
           "teen",
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -277,6 +421,12 @@
         "age": [
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -286,6 +436,12 @@
       "tags": {
         "age": [
           "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
           "elderly"
         ]
       }
@@ -298,6 +454,12 @@
           "teen",
           "adult",
           "elderly"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     }
@@ -306,5 +468,12 @@
     "presentation": [
       "masculine"
     ]
+  },
+  "context": {
+    "takes": {
+      "life_stage": {
+        "mismatch": "drop"
+      }
+    }
   }
 }

@@ -20,6 +20,14 @@
         ],
         "hair_family": [
           "black"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -32,6 +40,14 @@
         ],
         "hair_family": [
           "dark_brown"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -44,6 +60,14 @@
         ],
         "hair_family": [
           "brown"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -56,6 +80,14 @@
         ],
         "hair_family": [
           "brown"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -68,6 +100,14 @@
         ],
         "hair_family": [
           "blonde"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -80,6 +120,14 @@
         ],
         "hair_family": [
           "blonde"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -92,6 +140,14 @@
         ],
         "hair_family": [
           "red"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -101,6 +157,11 @@
       "tags": {
         "shade": [
           "gray"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -110,6 +171,11 @@
       "tags": {
         "shade": [
           "white"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -120,6 +186,11 @@
         "shade": [
           "black",
           "gray"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -132,6 +203,14 @@
         ],
         "hair_family": [
           "brown"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -144,6 +223,14 @@
         ],
         "hair_family": [
           "red"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -158,6 +245,14 @@
         "hair_family": [
           "blonde",
           "red"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -170,6 +265,14 @@
         ],
         "hair_family": [
           "blonde"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -182,6 +285,14 @@
         ],
         "hair_family": [
           "blonde"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -194,6 +305,14 @@
         ],
         "hair_family": [
           "blonde"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -206,6 +325,14 @@
         ],
         "hair_family": [
           "red"
+        ],
+        "life_stage": [
+          "baby",
+          "child",
+          "teen",
+          "young adult",
+          "middle-aged",
+          "older"
         ]
       }
     },
@@ -219,6 +346,11 @@
         ],
         "hair_family": [
           "dark_brown"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -232,6 +364,11 @@
         ],
         "hair_family": [
           "black"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -442,6 +579,11 @@
         ],
         "shade": [
           "gray"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older",
+          "elderly"
         ]
       }
     },
@@ -477,6 +619,9 @@
         "mismatch": "rare",
         "factor": 0.04,
         "less_common": 0.3
+      },
+      "life_stage": {
+        "mismatch": "drop"
       }
     }
   }
