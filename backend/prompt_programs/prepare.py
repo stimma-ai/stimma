@@ -1596,6 +1596,57 @@ def fix_said(source: str, prompt: str) -> Tuple[str, List[str]]:
 _AGE_DETAILS = ("age", "age_band")   # the detail part of a pick id the writer named as a person's age
 
 
+def fix_lone_subject(source: str, prompt: str = "") -> Tuple[str, List[str]]:
+    """With one person in the program and no group(), a detail of a person that names no one
+    is theirs: `expression` beside `woman.age` becomes `woman.expression`, so the card groups
+    it with her and her rules (her age) hold for it. The writer used to be asked to rename it,
+    which cost a model call for something the program's own shape already says. From ids and
+    lists only: the one subject whose picks are bound to person lists, and plain-id picks
+    bound to a per-person list. A said= pick, a shared=True pick and the user's own wildcard
+    keep their ids."""
+    from prompt_programs.runtime import subject_of
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, []
+    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and getattr(n.func, "id", None) in ("pick", "group")]
+    if any(getattr(c.func, "id", None) == "group" for c in calls):
+        return source, []
+    wild = {smart_id(n) for n in smart_wildcards(prompt)}
+    vocab = vocabulary()
+
+    def person_list(call: ast.Call) -> bool:
+        cls = _const(_kw(call, "cls"))
+        leaf = vocab.resolve(cls) if isinstance(cls, str) and cls.strip() else None
+        return leaf is not None and leaf.id.startswith("person.") and _individual_leaf(cls)
+
+    ids = [(c, _const(c.args[0])) for c in calls if c.args and isinstance(c.args[0], ast.Constant)]
+    if len(ids) != len(calls):   # an id built in code (a loop): more than one subject may hide in it
+        return source, []
+    subjects = {str(t).split(".", 1)[0] for _, t in ids if isinstance(t, str) and subject_of(t)}
+    if len(subjects) != 1:
+        return source, []
+    who = next(iter(subjects))
+    if not any(person_list(c) for c, t in ids if isinstance(t, str) and t.startswith(who + ".")):
+        return source, []        # the one subject is no person (a dog, a dragon)
+    taken = {t for _, t in ids}
+    pos = _offsets(source)
+    edits: List[Tuple[int, int, str]] = []
+    notes: List[str] = []
+    for c, t in ids:
+        if not isinstance(t, str) or "." in t or t in wild or not person_list(c):
+            continue
+        if _kw(c, "said") is not None or _const(_kw(c, "shared")) is True or f"{who}.{t}" in taken:
+            continue
+        first = c.args[0]
+        edits.append((pos(first.lineno, first.col_offset), pos(first.end_lineno, first.end_col_offset),
+                      json.dumps(f"{who}.{t}", ensure_ascii=False)))
+        notes.append(f"{t}: {who}'s, so its id is {who}.{t}")
+    for start, end, text in sorted(edits, reverse=True):
+        source = source[:start] + text + source[end:]
+    return source, notes
+
+
 def fix_age_lists(source: str) -> Tuple[str, List[str]]:
     """A pick the writer named as someone's age (`man.age_band`, `couple[1].age`, `age`) but left
     without a list is bound to the age list. Unbound, its options are written freely and an adult's
@@ -2869,7 +2920,7 @@ def fix_written(source: str, prompt: str, loras: Sequence[LoraInfo]) -> Tuple[st
     """The fixes in code a written (or repaired) program gets before validation, in order.
     Returns the source and what changed."""
     notes: List[str] = []
-    for fix in (fix_quotes, fix_order, lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
+    for fix in (fix_quotes, fix_order, lambda x: fix_subjects(x, prompt), lambda x: fix_lone_subject(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, fix_unplaced, fix_brackets,
                 lambda x: fix_requested(x, prompt), lambda x: fix_duplicates(x, prompt),
                 lambda x: fix_trigger_words(x, loras, prompt), lambda x: fix_said(x, prompt), fix_age_lists):
@@ -2883,7 +2934,8 @@ def fix_patched(source: str, prompt: str) -> Tuple[str, List[str]]:
     what the edit didn't touch was already fixed)."""
     source = drop_name_options(expand_people(source), prompt)
     notes: List[str] = []
-    for fix in (fix_order, lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
+    for fix in (fix_order, lambda x: fix_subjects(x, prompt), lambda x: fix_lone_subject(x, prompt), fix_generated_refs,
+                lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, lambda x: fix_requested(x, prompt),
                 lambda x: fix_said(x, prompt), fix_age_lists):
         source, more = fix(source)

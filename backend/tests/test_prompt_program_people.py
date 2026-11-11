@@ -139,3 +139,24 @@ class TestAGroupsWordsAreEveryMembers:
         await narrow_entry(entry, NarrowCache(tmp_path), ask)
         for i in (1, 2, 3):
             assert entry["filters"][f"kids[{i}].age"] == ["5–7-year-old", "8–10-year-old", "11–12-year-old"]
+
+
+class TestTheOnePersonOwnsTheirDetails:
+    SRC = ('nurse = person("nurse", noun="nurse", presentation="feminine")\n'
+           "expression = pick('expression', cls='person.expression', about=\"the nurse's expression\", seed=['a weary look'], label='Expression', phase=2, added=True)\n"
+           "corridor = pick('corridor', about='the hospital setting', seed=['a bright corridor'], label='Setting', phase=1, added=True)\n"
+           "emit('A photo of', nurse, ', with', expression, ', in', corridor, '.')\n")
+
+    def test_a_plain_person_detail_takes_the_one_persons_id(self):
+        from prompt_programs import prepare as prep
+        out, notes = prep.fix_lone_subject(expand_people(self.SRC), "a nurse in a corridor")
+        assert 'pick("nurse.expression"' in out and "pick('corridor'" in out   # the scene's detail stays the scene's
+        assert notes == ["expression: nurse's, so its id is nurse.expression"]
+        assert not prep.validate(out, "a nurse in a corridor", [], set(), "", True)["problems"]
+
+    def test_two_subjects_or_the_users_words_are_left_alone(self):
+        from prompt_programs import prepare as prep
+        two = expand_people(self.SRC + 'doctor = person("doctor", noun="doctor")\nemit(doctor)\n')
+        assert prep.fix_lone_subject(two, "a nurse and a doctor")[0] == two
+        said = expand_people(self.SRC.replace("added=True)\ncorridor", 'said="weary")\ncorridor'))
+        assert "nurse.expression" not in prep.fix_lone_subject(said, "a weary nurse in a corridor")[0]

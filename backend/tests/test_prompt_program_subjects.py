@@ -332,8 +332,11 @@ class TestShapes:
         looped = loop("friends", 3, [AGE, OUTFIT], outside=[("hairstyle", STYLE)])
         said = subject_problems(written(looped, "three friends")[1])
         assert said and 'pick(f"friends[{i+1}].hairstyle"' in said[0]
+        # One named person and no group(): the detail is theirs, and code names it so (fix_lone_subject).
+        # The writer is no longer asked: nothing in the program says there is a second person to give it to.
         one_named = hand(("man", [AGE]), extra_lines=[f"h = {bound('hairstyle', STYLE)}"])
-        assert subject_problems(written(one_named, "a man and a woman on a train")[1])
+        fixed, checked, _ = written(one_named, "a man and a woman on a train")
+        assert '"man.hairstyle"' in fixed and not subject_problems(checked)
 
     def test_a_wildcards_own_id_is_never_renamed(self):
         src = hand(("friends1", [AGE]), ("friends2", [AGE]),
