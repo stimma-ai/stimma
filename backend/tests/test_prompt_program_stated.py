@@ -115,7 +115,7 @@ class TestStatedAgeAndMinors:
 
 FORGOT = '''
 eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["emerald"], label="Eyes", phase=1, line=1)
-hair = pick("hair_color", cls="person.hair_color", about="her hair color", seed=["auburn"], label="Hair color", phase=1, line=1, added=True)
+hair = pick("hair_color", cls="person.hair_color", about="her hair color", seed=["auburn"], label="Hair color", phase=1, added=True)
 emit("A woman with", eyes, "eyes and", hair, "hair")
 '''
 
@@ -124,6 +124,10 @@ class TestAForgottenMarkOnAListedDetail:
     def test_a_bound_pick_from_their_text_is_asked_about_and_an_added_one_is_not(self):
         from prompt_programs.said import candidates
         e = entry_of(FORGOT, "a woman with emerald eyes")
+        assert [c["id"] for c in candidates(e)] == ["eyes"]
+        # marked added but pointing at the user's line: still asked about
+        e = entry_of(FORGOT.replace('label="Eyes", phase=1, line=1)', 'label="Eyes", phase=1, line=1, added=True)'),
+                     "a woman with emerald eyes")
         assert [c["id"] for c in candidates(e)] == ["eyes"]
 
     def test_marking_it_undoes_its_narrowing_so_the_list_is_there_to_tick(self, tmp_path):
