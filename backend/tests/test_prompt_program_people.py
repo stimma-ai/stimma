@@ -31,6 +31,21 @@ class TestEveryPersonIsFullyDescribed:
         assert all(vocabulary().get(cls) is not None for cls in got.values())
         analyze(expand_people(ONE))   # the expanded program is a valid program
 
+    def test_a_pick_written_under_the_persons_own_id_is_the_only_one(self):
+        # the writer's own pick of a detail, with no list: person() makes no second pick under that id
+        src = expand_people('alien = person("alien", noun="alien")\n'
+                            'skin = pick("alien.skin", about="the alien\'s skin", seed=["warty green skin"], label="Skin", phase=2, added=True)\n'
+                            'emit("A photo of", alien, "with", skin, ".")\n')
+        assert src.count('"alien.skin"') + src.count("'alien.skin'") == 1 and "person.skin_tone" not in src
+        analyze(src)
+
+    def test_a_detail_named_as_the_persons_own_is_their_pick_placed_by_hand(self):
+        src = expand_people('w = person("woman", noun="woman")\nemit("A", w.noun, "with", w.hair, "hair down:", w, ".")\n')
+        assert "w.hair" not in src and "w.noun" not in src
+        emitted = src.strip().splitlines()[-1]
+        assert emitted.count("w_hair,") == 1 and "'A', 'woman', 'with', w_hair" in emitted   # placed once, where they put it
+        analyze(src)
+
     def test_the_description_stands_where_the_program_put_the_person(self):
         emit = expand_people(ONE).strip().splitlines()[-1]
         assert emit.startswith("emit('A portrait of', 'a', woman_build, woman_age, woman_descent, 'woman', 'with', woman_skin, 'skin'")

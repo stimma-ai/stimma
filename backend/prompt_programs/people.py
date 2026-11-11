@@ -113,6 +113,16 @@ class _People(ast.NodeTransformer):
                                  for a in n.args for x in ([a] if isinstance(a, ast.Name) else _formatted(a)) if x.id in names}
         # The program's own picks on the lists person() draws from, and whose they are: a pick
         # whose id starts with a person's, or with one person any pick with a plain id.
+        # A detail the program names as the person's own (`woman.hair` in an emit(), `woman.noun`): the
+        # program places that pick itself, so the description leaves it out and it is said once.
+        self.by_hand: Dict[str, Set[str]] = {}
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id in names and (k := _name(n.attr)):
+                self.by_hand.setdefault(n.value.id, set()).add(k)
+        self.vars: Dict[str, Dict[str, str]] = {}                 # variable -> detail -> the pick's variable
+        # Every id the program's own picks use: person() never makes a second pick under one of them.
+        self.own_ids: Set[str] = {_id_text(n.args[0]) for n in ast.walk(tree)
+                                  if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "pick" and n.args}
         ids = [(n.value.args[0] if n.value.args else None) for n in made]
         texts = [_id_text(i) or n.targets[0].id for i, n in zip(ids, made)]
         self.kept: List[Tuple[str, str]] = []                     # (pick id as written, detail)
@@ -135,7 +145,9 @@ class _People(ast.NodeTransformer):
 
     def _theirs(self, person_id: str) -> Set[str]:
         """The details the program's own picks draw for this person: left to those picks."""
-        return {detail for pid, detail in self.kept if pid.startswith(person_id + ".") or (self.count == 1 and "." not in pid)}
+        listed = {detail for pid, detail in self.kept if pid.startswith(person_id + ".") or (self.count == 1 and "." not in pid)}
+        # ...and a pick the program wrote under the very id person() would use (`alien.skin`, with no list)
+        return listed | {k for k in DETAILS if person_id and f"{person_id}.{k}" in self.own_ids}
 
     # ---- person(...) assignments become the picks
     def _expand(self, target: str, call: ast.Call) -> List[ast.stmt]:
@@ -168,8 +180,12 @@ class _People(ast.NodeTransformer):
             pick = ast.Call(func=ast.Name("pick", ast.Load()), args=[_suffixed(id_node, "." + k)], keywords=kws)
             out.append(ast.Assign(targets=[ast.Name(var[k], ast.Store())], value=pick, lineno=call.lineno))
 
+        self.vars[target] = var
+        placed_by_hand = self.by_hand.get(target, set())
+
         def name(k: str) -> ast.expr:
             return ast.Name(var[k], ast.Load())
+        var = {k: v for k, v in var.items() if k not in placed_by_hand}   # the description: what the program didn't place
         # "a slender 30–34-year-old Korean woman with warm beige skin, shoulder-length wavy dark brown hair, hazel eyes, ..."
         parts: List[ast.expr] = [ast.Constant("a")] + [name(k) for k in ("build", "age", "descent") if k in var] + [noun_part]
         groups = [g for g in ([name("skin"), ast.Constant("skin")] if "skin" in var else [],
@@ -230,6 +246,16 @@ class _People(ast.NodeTransformer):
             return node
         if id(node) in self.adopt:
             node.args[0] = self.adopt[id(node)]
+        return self.generic_visit(node)
+
+    def visit_Attribute(self, node: ast.Attribute) -> Any:
+        # `woman.hair`: that person's pick of the detail; `woman.noun`: what they are
+        if isinstance(node.value, ast.Name) and node.value.id in self.people and isinstance(node.ctx, ast.Load):
+            k = _name(node.attr)
+            if k in self.vars.get(node.value.id, {}):
+                return ast.Name(self.vars[node.value.id][k], ast.Load())
+            if node.attr == "noun":
+                return ast.Constant(self.people[node.value.id][0])
         return self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> Any:
