@@ -18,6 +18,7 @@ from prompt_programs.additions import profile_additions
 from prompt_programs.compact import is_pool_ref
 from prompt_programs.draws import CONTEXT_VERSIONS, draw, fixed_text, uses_draws
 from prompt_programs.judge import FluentSettings, settings
+from prompt_programs.reach import reach_of
 from prompt_programs.options import (
     FIRST_OPTIONS_VERSION, OPTIONS_VERSIONS, GeneratedOptions, OptionFiller, OptionStore, ProgramContext, filler_for,
     store_for,
@@ -192,9 +193,13 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
     generated = [c["id"] for c in entry.get("choices") or [] if c.get("kind") == "pick" and c.get("source") != "list"]
     bound_cls = {c["id"]: c.get("cls") for c in entry.get("choices") or [] if c.get("cls")}
     listed = {c["id"]: c.get("options") for c in entry.get("choices") or [] if c.get("cls")}
+
+    def own_adds(cid: str) -> List[str]:   # options the user added in this choice's card
+        return [str(x) for x in ((rt.options.edits.get(cid) or {}).get("add") or [])]
     for cid in generated:
         others = {k: v for k, v in pins.items() if k != cid}
         seen: List[str] = []
+        contexts: List[Any] = []   # the context the pick's pool was drawn in, per draw (reach.py)
         for seed in range(POOL_DRAWS):
             try:
                 res = draw(entry["program"], 7919 * seed + 3, others, loras, params, None, None, options=rt.options)
@@ -205,14 +210,17 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
             for d in res.draws:
                 if d.id == cid:
                     seen.extend(o for o in d.options if o not in seen)
+            contexts.extend(rt.options.drawn_context(cid))
             rt.options.reset()
         leaf = vocabulary().get(bound_cls.get(cid))
         if leaf is not None and seen:
             # A bound pick shows its whole list (the picker searches and groups it), each
             # value's tier, and which values were generated to extend an open list. Opt-in
             # values the user's words didn't ask for are drawn only when picked: their own group.
-            asked = set((entry.get("filters") or {}).get(cid) or ())
-            tiers = {v.text: ("opt_in" if v.opt_in and v.text not in asked else v.tier) for v in leaf.values}
+            narrowed = [str(x) for x in (entry.get("filters") or {}).get(cid) or ()]
+            asked = set(narrowed)
+            # A narrowed list's rest is drawn only once ticked too (vocab.Leaf.pool_values).
+            tiers = {v.text: ("opt_in" if (v.opt_in or asked) and v.text not in asked else v.tier) for v in leaf.values}
             # The user's own options kept for this list (additions.py) sit with the usual values,
             # or with the values drawn only once picked where the choice's words decide.
             mine_here = {o: held for o, held in rt.options.mine_shown.get(cid, {}).items() if o in seen}
@@ -232,6 +240,15 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
             parts = list_parts(leaf, seen)
             if parts:
                 vocab[cid]["parts"] = parts
+            ch = next((c for c in entry.get("choices") or [] if c.get("id") == cid), {})
+            said = str(ch.get("said") or "")
+            where = ch.get("where")
+            words = str(ch.get("where_words") or (where if isinstance(where, str) else "") or "")
+            shown = vocab[cid]["tiers"]
+            reach = reach_of(leaf, seen, [o for o in seen if shown.get(o) == "opt_in"], [*mine_here, *own_adds(cid)],
+                             said=said, narrowed=narrowed, words=words, contexts=contexts)
+            if reach:
+                vocab[cid]["reach"] = reach
         elif seen:
             out[cid] = seen[:60]
     return {"options": out, "more": more, "vocab": vocab}

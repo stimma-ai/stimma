@@ -3,6 +3,8 @@
  * dev vocabulary browser shows. Pure functions only, so they test without a DOM.
  */
 
+import type { ChoiceReach } from './programReach'
+
 /** `opt_in`: a value drawn only when asked for (an age under 18 the prompt didn't ask for):
  *  the picker offers it unticked, and ticking it draws it. */
 export type VocabTier = 'typical' | 'plausible' | 'unusual' | 'generated' | 'opt_in'
@@ -18,6 +20,8 @@ export interface ChoiceVocab {
   /** The list's named parts (hair color: black, brunette, blonde…), for lists short enough
    *  to carry them: `of` maps an option to its part, and leaves out options without one. */
   parts?: ListParts
+  /** How far the choice reaches: what the user said, what fits, and any (programReach.ts). */
+  reach?: ChoiceReach
 }
 
 export interface ListParts { name: string; values: string[]; of: Record<string, string> }

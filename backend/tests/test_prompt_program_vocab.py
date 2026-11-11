@@ -443,7 +443,10 @@ class TestWhere:
             assert young(next(d for d in r.draws if d.id == "age").value)
             rt.options.reset()
         out = pool_options(entry, store=OptionStore(tmp_path / "o"), cfg=OFF)
-        assert out["options"]["age"] and all(young(v) for v in out["options"]["age"])
+        # The picker lists the whole list: the subset fits, the rest is drawn only once ticked.
+        tiers = out["vocab"]["age"]["tiers"]
+        assert [v for v in out["options"]["age"] if tiers[v] != "opt_in"] == entry["filters"]["age"]
+        assert out["vocab"]["age"]["reach"]["fits"] == entry["filters"]["age"]
 
     async def test_an_unbound_fallback_generates_within_the_words(self, tmp_path):
         from prompt_programs.fluent import program_context
@@ -469,7 +472,9 @@ class TestWhere:
         opts = GeneratedOptions(store, program_context(entry), filler=filler)
         spec = PickSpec("age", "Age", "her age", 1, "text", "pick", [], [], "person.expression")
         pool = opts.get(spec, {})
-        assert pool.items and all(("smile" in v or "grin" in v) for v in pool.items)
+        drawn = [v for v, w in zip(pool.items, pool.weights) if w > 0]
+        assert drawn and all(("smile" in v or "grin" in v) for v in drawn)
+        assert all(w == 0 for v, w in zip(pool.items, pool.weights) if v not in drawn)  # the rest stands by
         job = filler._jobs[opts.queued[0]][1]
         assert job.examples and all(("smile" in v or "grin" in v) for v in job.examples)
         assert 'own words: "happy"' in generation_messages(job)[1]["content"]

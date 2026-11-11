@@ -277,3 +277,102 @@ test("a choice that stands for the user's words shows them ticked, and ticking o
   await expect(option('yellow ferrari')).toHaveAttribute('aria-checked', 'true')
   assert.deepEqual(await page.evaluate(() => window.state().edits.car || {}), {})
 })
+
+// ---- the settings row: what you said, what fits, any ------------------------------------
+
+const row = card => card.getByRole('radiogroup', { name: 'Draw from' })
+const segment = (card, value) => row(card).locator(`[data-segment="${value}"]`)
+const segments = card => row(card).locator('[role="radio"]').evaluateAll(bs => bs.map(b => [...b.children].map(c => c.textContent.trim()).join(' ')))
+const lit = card => row(card).locator('[aria-checked="true"]').getAttribute('data-segment')
+
+test('a stated value: Just, Similar and Any, one click each; hand ticks read as yours', async t => {
+  const { card, option, options, all, state } = await open(t, 'descent')
+  await expect(all).toHaveCount(0)
+  assert.deepEqual(await segments(card), ['Just Irish', 'Similar 3', 'Any 20'])
+  assert.equal(await lit(card), 'said')
+  assert.deepEqual((await options()).slice(0, 4), ['Irish', 'Scottish', 'Welsh', 'Korean'])   // what fits, then the rest
+  await expect(card.locator('[data-beyond]')).toContainText('Beyond your prompt')
+  await expect(card.locator('[data-beyond]')).toContainText('17')
+  await expect(option('Korean').locator('.line-through')).toHaveCount(0)   // muted, not struck
+  await segment(card, 'fits').click()
+  await expect.poll(() => state('descent')).toEqual({ pins: ['Irish', 'Scottish', 'Welsh'], edit: {} })
+  assert.equal(await lit(card), 'fits')
+  await segment(card, 'any').click()
+  await expect.poll(async () => (await state('descent')).pins.length).toBe(20)
+  assert.equal(await lit(card), 'any')
+  await segment(card, 'said').click()
+  await expect.poll(() => state('descent')).toEqual({ pins: [], edit: {} })
+  await option('Greek').click()
+  assert.deepEqual(await segments(card), ['Yours 2', 'Just Irish', 'Similar 3', 'Any 20'])
+  assert.equal(await lit(card), 'yours')
+  await segment(card, 'said').click()
+  await expect.poll(() => state('descent')).toEqual({ pins: [], edit: {} })
+})
+
+test("your own option joins the top, stays ticked and doesn't change the setting", async t => {
+  const { card, options, option, state } = await open(t, 'descent')
+  const own = card.getByPlaceholder('Add your own…')
+  await own.fill('Atlantean')
+  await own.press('Enter')
+  await expect(option('Atlantean')).toHaveAttribute('aria-checked', 'true')
+  assert.equal((await options())[0], 'Atlantean')
+  assert.equal(await lit(card), 'said')
+  await segment(card, 'fits').click()
+  await expect.poll(async () => (await state('descent')).pins).toEqual(['Irish', 'Scottish', 'Welsh', 'Atlantean'])
+  assert.equal(await lit(card), 'fits')
+})
+
+test('a narrowed choice starts on its words; Any reaches the rest, never ages drawn only when asked', async t => {
+  const { card, option, state } = await open(t, 'young')
+  assert.deepEqual(await segments(card), ['Young 3', 'Any 8'])
+  assert.equal(await lit(card), 'fits')
+  await expect(option('40–44-year-old')).toHaveAttribute('aria-checked', 'false')
+  await segment(card, 'any').click()
+  await expect.poll(async () => (await state('young')).pins).toEqual(adultAgesInOrder)
+  await expect(option('8–10-year-old')).toHaveAttribute('aria-checked', 'false')
+  await segment(card, 'fits').click()
+  await expect.poll(() => state('young')).toEqual({ pins: [], edit: {} })
+})
+const adultAgesInOrder = ['18–19-year-old', '20–24-year-old', '25–29-year-old', '30–34-year-old', '40–44-year-old', '50–54-year-old', '60–64-year-old', '70–74-year-old']
+
+test('an open choice starts on Any as before; What fits leaves the rest out', async t => {
+  const { card, state } = await open(t, 'hairstyle')
+  assert.deepEqual(await segments(card), ['What fits 24', 'Any 30'])
+  assert.equal(await lit(card), 'any')
+  await segment(card, 'fits').click()
+  await expect.poll(async () => (await state('hairstyle')).edit.out).toEqual(['hairstyle 25', 'hairstyle 26', 'hairstyle 27', 'hairstyle 28', 'hairstyle 29', 'hairstyle 30'])
+  await segment(card, 'any').click()
+  await expect.poll(() => state('hairstyle')).toEqual({ pins: [], edit: {} })
+})
+
+test('a choice where everything fits keeps the plain All row', async t => {
+  const { card, all } = await open(t, 'gaze')
+  await expect(row(card)).toHaveCount(0)
+  await expect(all).toHaveText('All')
+  await expect(card.locator('[data-beyond]')).toHaveCount(0)
+})
+
+test('while searching, the row is back to All shown and Only these', async t => {
+  const { card, all, state } = await open(t, 'descent')
+  await card.getByPlaceholder('Search').fill('i')
+  await expect(row(card)).toHaveCount(0)
+  await expect(all).toContainText('shown')
+  await card.getByPlaceholder('Search').fill('')
+  await expect(row(card)).toBeVisible()
+  assert.deepEqual(await state('descent'), { pins: [], edit: {} })
+})
+
+test('the row fits a compact width', async t => {
+  const { page, card } = await open(t, 'descent')
+  await page.setViewportSize({ width: 360, height: 800 })
+  await page.evaluate(() => window.openChoice('descent'))
+  await expect(row(card)).toBeVisible()
+  // the card settles at its new place after the resize: the row stays inside it
+  await expect.poll(async () => {
+    const box = await row(card).boundingBox()
+    const cardBox = await card.boundingBox()
+    return box.x >= cardBox.x && box.x + box.width <= cardBox.x + cardBox.width + 0.5 && cardBox.x + cardBox.width <= 360
+  }).toBe(true)
+  for (const v of ['said', 'fits', 'any']) await expect(segment(card, v)).toBeVisible()
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+})

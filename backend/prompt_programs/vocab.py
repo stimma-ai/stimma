@@ -59,7 +59,7 @@ import re
 from dataclasses import dataclass, field, replace
 from functools import cached_property, lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 ROOT = Path(__file__).parent / "vocab"
 TIER_WEIGHTS = {"typical": 1.0, "plausible": 0.3, "unusual": 0.03}
@@ -193,6 +193,24 @@ class Leaf:
         neutral values and anything not in this list (a user's addition, a generated option) keep
         their weight. A mismatch that would leave the tagged values no weight is not applied."""
         out = list(items)
+        for facet, mode, costs in self._facet_costs([o for o, _ in out], context):
+            spoken = [c is not None for c in costs]
+            nxt = [(o, w * c) if c is not None else (o, w) for (o, w), c in zip(out, costs)]
+            before = sum(w for (_, w), s in zip(out, spoken) if s)
+            after = sum(w for (_, w), s in zip(nxt, spoken) if s)
+            if mode == "drop":   # the values that don't fit leave; the rest keep their own weight
+                out = nxt
+                continue
+            if before > 0 and after <= 0:
+                continue
+            if after > 0:
+                nxt = [(o, w * before / after) if s else (o, w) for (o, w), s in zip(nxt, spoken)]
+            out = nxt
+        return out
+
+    def _facet_costs(self, texts: Sequence[str], context: Sequence[Tuple[str, Sequence[str]]]):
+        """For each context facet this list takes: (facet, mode, each text's cost), the cost
+        None for a text the facet doesn't speak to (no tag, a neutral value, not in this list)."""
         neutral = vocabulary().context_neutral
         for facet, families in context:
             mode = self.takes.get(facet)
@@ -204,22 +222,23 @@ class Leaf:
             factor = 0.0 if mode[0] in ("never", "drop") else mode[1]
             less_factor = self.less.get(facet, factor)
 
-            def cost(t: Optional[Tuple[str, ...]]) -> float:
-                fams = set(t or ())
+            def cost(t: Optional[Tuple[str, ...]]) -> Optional[float]:
+                if t is None or set(t) & keep:
+                    return None
+                fams = set(t)
                 return 1.0 if fams & want else less_factor if fams & less else factor
-            tagged = [self.context_tags(o, facet) for o, _ in out]
-            spoken = [t is not None and not set(t) & keep for t in tagged]
-            nxt = [(o, w * cost(t)) if s else (o, w) for (o, w), t, s in zip(out, tagged, spoken)]
-            before = sum(w for (_, w), s in zip(out, spoken) if s)
-            after = sum(w for (_, w), s in zip(nxt, spoken) if s)
-            if mode[0] == "drop":   # the values that don't fit leave; the rest keep their own weight
-                out = nxt
+            yield facet, mode[0], [cost(self.context_tags(o, facet)) for o in texts]
+
+    def reduced(self, texts: Sequence[str], context: Sequence[Tuple[str, Sequence[str]]]) -> Set[str]:
+        """The texts a context makes less likely or leaves out (weigh() gives them less than
+        their own weight): those tagged on a facet it speaks to with no family it wants. A
+        facet weigh() would skip (every value it speaks to mismatched) reduces nothing."""
+        out: Set[str] = set()
+        for _, mode, costs in self._facet_costs(texts, context):
+            low = {t for t, c in zip(texts, costs) if c is not None and c < 1.0}
+            if mode != "drop" and any(c is not None for c in costs) and all(c is None or c <= 0 for c in costs):
                 continue
-            if before > 0 and after <= 0:
-                continue
-            if after > 0:
-                nxt = [(o, w * before / after) if s else (o, w) for (o, w), s in zip(nxt, spoken)]
-            out = nxt
+            out |= low
         return out
 
     def matching(self, want: Dict[str, Any], context: Optional[Dict[str, str]] = None) -> List[Value]:
@@ -247,13 +266,14 @@ class Leaf:
     def pool_values(self, allowed: Optional[Sequence[str]] = None, minor: bool = False,
                     context: Optional[Dict[str, str]] = None) -> Tuple[List[Value], List[Value]]:
         """(drawn, standby): the values a pick's pool draws from, and the opt-in values it
-        holds at weight 0 for the picker and pins. Narrowed (`allowed`, where=) a pool is
-        exactly its subset, opt-in values included: the words asked for them. For a person
+        holds at weight 0 for the picker and pins. Narrowed (`allowed`, where=) a pool draws
+        exactly its subset, opt-in values included: the words asked for them; the rest of the list
+        stands by, so the picker can offer it and a tick draws it. For a person
         who may be under 18 (`minor`), adult-only values leave both."""
         vals = self.eligible(context)
         if allowed is not None:
             keep = set(allowed)
-            drawn, standby = [v for v in vals if v.text in keep], []
+            drawn, standby = [v for v in vals if v.text in keep], [v for v in vals if v.text not in keep]
         else:
             drawn, standby = [v for v in vals if not v.opt_in], [v for v in vals if v.opt_in]
         if minor:
