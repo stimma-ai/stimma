@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from core.logging import get_logger
 from prompt_programs.additions import profile_additions
+from prompt_programs.compact import is_pool_ref
 from prompt_programs.draws import CONTEXT_VERSIONS, draw, fixed_text, uses_draws
 from prompt_programs.judge import FluentSettings, settings
 from prompt_programs.options import (
@@ -85,6 +86,14 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
                            "Stimma doesn't have, so it can't be replayed exactly.")
     context = not rev or rev.get("context") in CONTEXT_VERSIONS
     pools = rev.get("pools")
+    if isinstance(pools, dict) and any(is_pool_ref(v) for v in pools.values()):
+        # Vocabulary pools recorded by reference (compact.py): read back whole, as they were drawn from.
+        kept = getattr(store, "pools", None)
+        read = {k: (kept.get(v) if kept is not None else None) if is_pool_ref(v) else v for k, v in pools.items()}
+        if any(v is None for v in read.values()):
+            raise ProgramError("The choices this prompt was drawn from aren't stored on this device any more, "
+                               "so it can't be replayed exactly.")
+        pools = read
     # A pool's recorded length, or a vocabulary list's whole pool ([[value, weight], ...]).
     limits = ({str(k): (int(v) if not isinstance(v, list) else v) for k, v in pools.items()
                if (isinstance(v, (int, float)) and not isinstance(v, bool)) or isinstance(v, list)}

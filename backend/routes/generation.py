@@ -588,6 +588,7 @@ async def _run_prompt_program(
     submit's generator instance, served a draw its pool made ahead when one is current."""
     from llm_resolver import LLMUnavailableError
     from prompt_programs import fallback
+    from prompt_programs.compact import pack_values
     from prompt_programs.fix import prompt_view, realize_and_fix
     from prompt_programs.prepare import (PrepareTimeout, ProgramError, draw_seed, enhance_level, ensure_program,
                                          writer_failure)
@@ -671,7 +672,9 @@ async def _run_prompt_program(
     record = {"key": entry["key"], "mode": entry.get("mode"), "elaborate": entry.get("elaborate", True),
               "enhance": entry.get("enhance"), **result.to_dict(), "pins": program_opts.get("pins") or {},
               "lora_controlled": controlled,
-              "choices": [c for c in entry.get("choices") or [] if not c.get("hidden")]}
+              # Stored with every image: a choice on a vocabulary list names the list, never copies it.
+              "choices": [{**c, "options": pack_values(c.get("cls"), c.get("options"))} if c.get("cls") else c
+                          for c in entry.get("choices") or [] if not c.get("hidden")]}
     if fix is not None:
         record["fix"] = fix
     if not (fix or {}).get("rounds"):  # the fix record's rounds carry each roll's prompt

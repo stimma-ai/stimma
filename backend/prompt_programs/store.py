@@ -2,7 +2,8 @@
 
 A program is keyed by everything that shaped it (prompt source, tool, the LoRAs the
 prompt named, parameter names, and the instructions version). Asking again with the
-same inputs never calls the model. Entries are small JSON files; nothing is deleted.
+same inputs never calls the model. Entries are small JSON files (a vocabulary list in one is a reference to the list, never a
+copy: compact.py); nothing is deleted.
 
 Each editing context (everything in the key except the prompt) also remembers its most
 recent programs, so a small edit to a prompt can patch the program it came from.
@@ -54,15 +55,19 @@ class ProgramStore:
             entry = json.loads(p.read_text("utf-8"))
         except (OSError, ValueError):
             return None
+        from prompt_programs.compact import unpack_entry
         from prompt_programs.runtime import current_entry
+        if isinstance(entry, dict):   # its vocabulary lists are stored by reference (compact.py)
+            entry = unpack_entry(entry)
         return current_entry(entry)   # an older build's choice ids, read as today's
 
     def put(self, key: str, entry: Dict[str, Any]) -> None:
+        from prompt_programs.compact import pack_entry
         p = self._path(key)
         p.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=p.parent, suffix=".tmp")
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(entry, f, ensure_ascii=False, indent=1)
+            json.dump(pack_entry(entry), f, ensure_ascii=False, indent=1)
         os.replace(tmp, p)
 
     def _recent_path(self, context: str) -> Path:

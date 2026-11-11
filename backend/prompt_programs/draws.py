@@ -1323,10 +1323,14 @@ class _Engine:
         raise DrawAborted(cid, seen.spec.label, "unresolved")
 
     def revision(self, source: str) -> Dict[str, Any]:
+        # A vocabulary pool is recorded by the hash of its contents, kept once beside the generated
+        # options (compact.py): written into every image's revision, a list of faces is 300 KB a person.
+        kept = getattr(getattr(self.options, "store", None), "pools", None)
+        pools = {k: kept.put(v) if kept is not None and isinstance(v, list) else v for k, v in self.pools.items()}
         rev = {
             "engine": DRAW_VERSION,
             "program": hashlib.sha256(source.encode("utf-8")).hexdigest()[:16],
-            "pools": dict(sorted(self.pools.items())),
+            "pools": dict(sorted(pools.items())),
             "edits": hashlib.sha256(json.dumps(self.edits, sort_keys=True, default=str).encode()).hexdigest()[:16]
             if self.edits else None,
         }

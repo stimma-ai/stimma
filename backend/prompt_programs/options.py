@@ -227,6 +227,12 @@ class OptionStore:
     def _path(self, key: str) -> Path:
         return self.root / key[:2] / f"{key}.jsonl"
 
+    @property
+    def pools(self) -> Any:
+        """The vocabulary pools draws recorded, each kept once (compact.py)."""
+        from prompt_programs.compact import PoolStore
+        return PoolStore(self.root / "pools")
+
     def records(self, key: str) -> List[Dict[str, Any]]:
         p = self._path(key)
         try:

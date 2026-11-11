@@ -204,7 +204,8 @@ class TestBoundPools:
         rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
         first = draw(PORTRAIT, 12, None, [], None, None, None, options=rt.options)
         rev = first.revision
-        assert any(isinstance(v, list) for v in rev["pools"].values())  # bound pools are recorded whole
+        # bound pools are recorded whole: each by the hash of its contents, kept once (compact.py)
+        assert any(isinstance(v, dict) and "$pool" in v for v in rev["pools"].values())
         v = vocabulary()
         for lid in ("person.expression", "person.eye_color", "person.ethnicity"):  # a new vocabulary release
             leaf = v.leaves[lid]
