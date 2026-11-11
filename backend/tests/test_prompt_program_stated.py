@@ -111,3 +111,30 @@ class TestStatedAgeAndMinors:
     def test_unread_the_childs_age_still_counts_as_a_minors(self):
         e = age_entry("girl", "12 year old", "flying a kite on a hill")   # narrowing never ran
         assert dict(program_minors(e)).get("girl")
+
+
+FORGOT = '''
+eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["emerald"], label="Eyes", phase=1, line=1)
+hair = pick("hair_color", cls="person.hair_color", about="her hair color", seed=["auburn"], label="Hair color", phase=1, line=1, added=True)
+emit("A woman with", eyes, "eyes and", hair, "hair")
+'''
+
+
+class TestAForgottenMarkOnAListedDetail:
+    def test_a_bound_pick_from_their_text_is_asked_about_and_an_added_one_is_not(self):
+        from prompt_programs.said import candidates
+        e = entry_of(FORGOT, "a woman with emerald eyes")
+        assert [c["id"] for c in candidates(e)] == ["eyes"]
+
+    def test_marking_it_undoes_its_narrowing_so_the_list_is_there_to_tick(self, tmp_path):
+        from prompt_programs.said import apply_said
+        e = entry_of(FORGOT, "a woman with emerald eyes", filters={"eyes": ["green"]})
+        eyes = next(c for c in e["choices"] if c["id"] == "eyes")
+        eyes.update(options=["green"], where="emerald")
+        assert apply_said(e, {"eyes": "emerald"})
+        assert "eyes" not in e["filters"] and "where" not in eyes and eyes["said"] == "emerald"
+        assert eyes["options"][0] == "emerald"
+        for _, d in draws_of(e, tmp_path, range(20)):
+            assert d["eyes"].value == "emerald"
+        _, d = next(draws_of(e, tmp_path / "o", [0]))
+        assert len(set(d["eyes"].options) & values_of("person.eye_color")) > 10
