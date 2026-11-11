@@ -46,6 +46,13 @@ class TestEveryPersonIsFullyDescribed:
         assert emitted.count("w_hair,") == 1 and "'A', 'woman', 'with', w_hair" in emitted   # placed once, where they put it
         analyze(src)
 
+    def test_a_person_placed_twice_is_described_once(self):
+        src = expand_people('man = person("man", noun="man")\nemit("A photo of", man, "on a pier.")\nemit("Behind", man, ", gulls.")\n')
+        first, second = src.strip().splitlines()[-2:]
+        assert "man_age" in first and "man_face" in first
+        assert second == "emit('Behind', 'the', 'man', ', gulls.')"
+        analyze(src)
+
     def test_the_description_stands_where_the_program_put_the_person(self):
         emit = expand_people(ONE).strip().splitlines()[-1]
         assert emit.startswith("emit('A portrait of', 'a', woman_build, woman_age, woman_descent, 'woman', 'with', woman_skin, 'skin'")

@@ -120,6 +120,10 @@ class _People(ast.NodeTransformer):
             if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id in names and (k := _name(n.attr)):
                 self.by_hand.setdefault(n.value.id, set()).add(k)
         self.vars: Dict[str, Dict[str, str]] = {}                 # variable -> detail -> the pick's variable
+        # A person the program places a second time is "the woman" there: described once, where they first stand.
+        self.again: Dict[str, List[ast.expr]] = {}
+        self.described: Set[str] = set()
+        self.branches = 0
         # Every id the program's own picks use: person() never makes a second pick under one of them.
         self.own_ids: Set[str] = {_id_text(n.args[0]) for n in ast.walk(tree)
                                   if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "pick" and n.args}
@@ -197,6 +201,7 @@ class _People(ast.NodeTransformer):
         for i, g in enumerate(groups):
             parts += [ast.Constant("with" if i == 0 else ",")] + g
         self.people[target] = (noun, parts)
+        self.again[target] = [ast.Constant("the"), noun_part]
         if target not in self.placed:   # never put in an emit(): they stand where they were made
             out.append(ast.Expr(ast.Call(func=ast.Name("emit", ast.Load()), args=[*parts, ast.Constant(";")], keywords=[])))
         return out
@@ -216,7 +221,11 @@ class _People(ast.NodeTransformer):
         return node
 
     def visit_If(self, node: ast.If) -> Any:
-        node = self.generic_visit(node)
+        self.branches += 1   # a branch may be the only place they stand: never "the woman" there
+        try:
+            node = self.generic_visit(node)
+        finally:
+            self.branches -= 1
         node.body = node.body or [ast.Pass()]
         return node
 
@@ -226,7 +235,7 @@ class _People(ast.NodeTransformer):
             args: List[ast.expr] = []
             for a in node.args:
                 if isinstance(a, ast.Name) and a.id in self.people:
-                    args += self.people[a.id][1]
+                    args += self._stand(a.id)
                 elif any(x.id in self.people for x in _formatted(a)):
                     # emit(f"A portrait of {woman} in her kitchen."): the text around her, and her description between
                     # Split only at the person: the rest of the f-string stays one string, as written.
@@ -237,7 +246,7 @@ class _People(ast.NodeTransformer):
                             args.append(run[0] if len(run) == 1 and isinstance(run[0], ast.Constant) else ast.JoinedStr(values=run))
                             run = []
                         if here:
-                            args += self.people[v.value.id][1]
+                            args += self._stand(v.value.id)
                         elif v is not None:
                             run.append(self.visit(v))
                 else:
@@ -247,6 +256,14 @@ class _People(ast.NodeTransformer):
         if id(node) in self.adopt:
             node.args[0] = self.adopt[id(node)]
         return self.generic_visit(node)
+
+    def _stand(self, target: str) -> List[ast.expr]:
+        """The person where the program put them: their description the first time, in a loop
+        every time (each pass is another person), and "the woman" wherever they stand again."""
+        if target in self.described and not self.loops and not self.branches:
+            return list(self.again[target])
+        self.described.add(target)
+        return list(self.people[target][1])
 
     def visit_Attribute(self, node: ast.Attribute) -> Any:
         # `woman.hair`: that person's pick of the detail; `woman.noun`: what they are
