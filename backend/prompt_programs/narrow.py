@@ -56,7 +56,7 @@ from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-3"   # narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
+NARROW_VERSION = "narrow-4"   # narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
 NARROW_SECONDS = 20.0   # all of a program's narrowing calls together; past it, unresolved picks go unbound
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
@@ -64,18 +64,24 @@ _MEMBER = re.compile(r"^(.+)\[\d+\]\.(.+)$")   # kids[2].age → ("kids", "age")
 
 _SYSTEM = """You choose which items of a list fit a description from an image prompt.
 
-Reply with only a JSON list of the items that fit, each copied exactly as written. Read the
-description literally and whole, with what it is said of.
-Keep every item the description allows and leave out every item it rules out. When the
-description doesn't speak to an item either way, keep it, unless the list says that item fits
-only when asked for. If no item fits, reply [].
+Reply with only a JSON list of the items that fit, each copied exactly as written. If no item
+fits, reply [].
+
+Read the description whole, with what it is said of, the way a casting director would: which
+items would a reader of those words accept, and which would they call wrong? Keep the first and
+leave out the second. Words narrow by what they imply as well as by what they state: a life
+stage, a role or a kinship brings its usual range with it ("a grandmother" is not 25, "a
+college student" is not 60, "a veteran" is not 20, "retired" is not 30), and "old", "young" or
+"little" narrow even where the noun alone would not ("an old man" is old, not any adult).
+Only when the description truly says nothing about an item either way, keep it, unless the
+list says that item is kept only when called for.
 
 Ages: a person is an adult (18 or over) unless the description itself makes them a child or
 a teenager: "a child", "a baby", "a toddler", "kids", "a teenage boy", "a 10-year-old", "a
-little girl", "a schoolboy". A man or a woman is an adult. "A girl" or "a boy" alone is a
-young adult, as people often say of a young woman or man: keep the ages from 18 to 29 for
-them and no others. Ages under 18 fit only when other words make them a child or a teenager.
-A "teenage boy" is 13 to 19."""
+little girl", "a schoolboy". Such words call for the ages under 18 that match them, and only
+those. A man or a woman is an adult, of whatever ages the rest of the description allows.
+"A girl" or "a boy" alone is a young adult, as people often say of a young woman or man: keep
+the ages from 18 to 29 for them and no others. A "teenage boy" is 13 to 19."""
 
 _READ_SYSTEM = """You read an image prompt and find the words in it that describe certain details.
 
@@ -166,8 +172,9 @@ def messages_for(leaf: Leaf, phrase: str, values: Sequence[str], about: str = ""
     shown = set(values)
     asked = [_shown(v.text) for v in leaf.values if v.opt_in and _shown(v.text) in shown]
     if asked:  # opt-in values (vocab.py): never kept by default
-        user += ("\n\nThese items fit only when the description asks for them in its own words, never because it "
-                 f"doesn't rule them out: {json.dumps(asked, ensure_ascii=False)}")
+        user += ("\n\nThese items are kept only when called for: keep one when the description itself means it (a "
+                 "description of a child means the child's ages), never merely because the description doesn't rule "
+                 f"it out: {json.dumps(asked, ensure_ascii=False)}")
     return [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": user}]
 
 

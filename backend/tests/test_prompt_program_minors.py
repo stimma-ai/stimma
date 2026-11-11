@@ -233,7 +233,7 @@ class TestNarrowing:
         user = messages_for(ages(), "girl", [v.text for v in ages().eligible()], "her age")[1]["content"]
         listed = json.loads(user.rsplit(": ", 1)[1])
         assert listed == [v.text for v in ages().values if v.minor]  # the opt-in values, named as such
-        assert "only when the description asks for them" in user
+        assert "kept only when called for" in user
         assert "only when asked" not in messages_for(vocabulary().get("person.eye_color"), "dark", ["brown"])[1]["content"]
 
     def test_the_reader_quotes_the_kind_of_person_for_their_age(self):
