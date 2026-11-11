@@ -232,7 +232,8 @@ function del(o: string) {
   // One the user added just goes; anything else (seeds, list values and generated options
   // alike) is remembered as deleted for this pick, which keeps its id through prompt edits.
   const e = edit.value
-  const userAdded = (e.add || []).includes(o)
+  const userAdded = props.program.isOwn(props.choice, o)
+  if (userAdded) void props.program.keepAddition(props.choice, o, false)
   const added = (e.add || []).filter(x => x !== o)
   const removed = userAdded ? e.remove : [...new Set([...(e.remove || []), o])]
   props.program.setEdit(props.choice.id, { ...e, add: added, remove: removed })
@@ -243,6 +244,7 @@ function add(text: string) {
   const v = text.trim()
   if (!v || opts.value.includes(v)) return
   props.program.setEdit(props.choice.id, { ...edit.value, add: [...(edit.value.add || []), v] })
+  void props.program.keepAddition(props.choice, v)
   void nextTick(() => {
     const list = listRef.value
     if (!list) return

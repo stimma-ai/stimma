@@ -7,6 +7,7 @@ import { programSections } from '../utils/programChoiceLayout'
 import { DECLINED_CODE, prepareBody, prepareErrorCode, prepareSettingsSig, type PrepareInputs } from '../utils/fluentSubmit'
 import { createChoiceCard } from '../utils/choiceCard'
 import { isLimited, ticksOf } from '../utils/programTicks'
+import { additionList, isOwnOption } from '../utils/programAdditions'
 
 export type { ChoiceVocab } from '../utils/programVocab'
 
@@ -393,6 +394,20 @@ export function usePromptProgram(o: Options) {
     return [...base.filter(x => !removed.has(x)), ...(e.add || []).filter(x => !have.has(x))]
   }
 
+  /** An option the user typed into a list-bound choice's card is kept for that list, so
+      later prompts offer it too; forgetting one of their own options forgets it there. */
+  async function keepAddition(c: ProgramChoice, text: string, keep = true) {
+    const cls = additionList(c, vocab.value[c.id])
+    if (!cls) return
+    try {
+      await axios.post(`${getApiBase()}/prompt-programs/additions${keep ? '' : '/remove'}`, { cls, text })
+      void fetchPools()
+    } catch { /* still added (or deleted) here */ }
+  }
+  function isOwn(c: ProgramChoice, option: string): boolean {
+    return isOwnOption(option, edits.value[c.id], vocab.value[c.id])
+  }
+
   /** The list a bound pick draws from, once the pools have said (null for other picks). */
   function vocabOf(c: ProgramChoice): ChoiceVocab | null {
     return vocab.value[c.id] || null
@@ -481,7 +496,7 @@ export function usePromptProgram(o: Options) {
   return {
     program, status, error, unsupported, pins, edits, choices, sections, byId, openCard,
     prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns, suggestOptions,
-    setPins, setManyPins, setEdit, optionsOf, vocabOf, valueText, isPinned, showsValue,
+    setPins, setManyPins, setEdit, optionsOf, vocabOf, valueText, isPinned, showsValue, keepAddition, isOwn,
     loraControl, paramControl, open, close,
   }
 }
