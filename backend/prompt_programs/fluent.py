@@ -191,6 +191,7 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
     pins = {k: v for k, v in (pins or {}).items() if v}
     generated = [c["id"] for c in entry.get("choices") or [] if c.get("kind") == "pick" and c.get("source") != "list"]
     bound_cls = {c["id"]: c.get("cls") for c in entry.get("choices") or [] if c.get("cls")}
+    listed = {c["id"]: c.get("options") for c in entry.get("choices") or [] if c.get("cls")}
     for cid in generated:
         others = {k: v for k, v in pins.items() if k != cid}
         seen: List[str] = []
@@ -219,6 +220,13 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
             out[cid] = seen
             vocab[cid] = {"cls": leaf.id, "label": leaf.label, "closed": leaf.closed,
                           "tiers": {o: tiers.get(o, "generated") for o in seen}}
+            if len(leaf.values) > PARTS_MAX:
+                # A long list (thousands of faces) came with the prepared program's choice already:
+                # this answer is asked for again on every tick and while pools fill, so it carries
+                # only what the choice doesn't have, and only the tiers the picker acts on.
+                have = set(listed.get(cid) or ())
+                out[cid] = [o for o in seen if o not in have]
+                vocab[cid]["tiers"] = {o: t for o, t in vocab[cid]["tiers"].items() if t != "typical"}
             if mine_here:
                 vocab[cid]["mine"] = list(mine_here)
             parts = list_parts(leaf, seen)

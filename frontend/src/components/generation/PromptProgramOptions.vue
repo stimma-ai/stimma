@@ -16,8 +16,8 @@
         type="button"
         :aria-pressed="part === p"
         :data-part="p"
-        :class="['px-2 py-0.5 coarse:py-1.5 rounded-full text-xs coarse:text-[13px] transition-colors outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
-          part === p ? 'bg-selection/15 text-content' : 'text-content-secondary hover:text-content hover:bg-overlay-subtle']"
+        :class="['px-2.5 py-0.5 coarse:py-1.5 rounded-full text-xs coarse:text-[13px] border transition-colors outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
+          part === p ? 'bg-selection/15 text-selection border-selection/40' : 'bg-surface-raised border-transparent text-content-secondary hover:text-content hover:bg-surface-hover']"
         @click="picked = part === p ? '' : p"
       >{{ partLabel(p) }}</button>
     </div>

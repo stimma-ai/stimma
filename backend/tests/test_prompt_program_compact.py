@@ -134,3 +134,20 @@ class TestRecordedPools:
 
     def test_the_store_refuses_a_hash_that_is_a_path(self, tmp_path):
         assert PoolStore(tmp_path).get({"$pool": "../../etc/passwd"}) is None
+
+
+class TestThePoolsAnswerStaysSmall:
+    def test_a_long_list_is_not_sent_again_with_the_pools(self, tmp_path):
+        from prompt_programs.fluent import pool_options
+        e = entry()
+        cfg = dataclasses.replace(settings(), generate_options=False)
+        got = pool_options(e, store=OptionStore(tmp_path), cfg=cfg)
+        # only what her choice doesn't list already: the few faces drawn only for a woman
+        extra = got["options"]["woman.face"]
+        assert len(extra) < 50 and not set(extra) & set(next(c for c in e["choices"] if c["id"] == "woman.face")["options"])
+        assert got["vocab"]["woman.face"]["cls"] == "person.face"
+        assert got["vocab"]["woman.face"]["tiers"] == {}          # every face is a usual one
+        assert size(got) < 40_000 < size(e)
+        # a short list is answered whole, as before, with its opt-in values marked for the picker
+        assert len(got["options"]["woman.age"]) > 10
+        assert "opt_in" in set(got["vocab"]["woman.age"]["tiers"].values())
