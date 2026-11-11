@@ -32,7 +32,7 @@ from prompt_programs.vocab import AGE_LIST, vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-51"   # pp-51: person() describes every person (people.py). pp-50: US word choices (vocabulary, instructions). pp-49: US spelling (vocabulary, instructions, the .colors id). pp-48: animal lists offered to the writer, person + animal ids grouped (fix_subjects). pp-47: the four Fluent branches together (said=, context, subjects, fallback) and one
+PREPARE_VERSION = "pp-52"   # pp-52: stated values are said= choices (person(said=), bound picks), High develops what is stated and lights it with a pick. pp-51: person() describes every person (people.py). pp-50: US word choices (vocabulary, instructions). pp-49: US spelling (vocabulary, instructions, the .colors id). pp-48: animal lists offered to the writer, person + animal ids grouped (fix_subjects). pp-47: the four Fluent branches together (said=, context, subjects, fallback) and one
 # rule for whose detail a pick is (draws.person_of). pp-46 (each branch on its own): said= keeps a thing the user
 # named (said.py); context facets: a stated descent, time or season and user list values read as context; every
 # subject's details name the subject, shared=True (fix_subjects); a program that loses the user's words is never
@@ -212,8 +212,13 @@ def build_user_message(prompt: str, model_name: Optional[str], mode: str,
                      "(a few words) in the same register as the user's words. Add no extra picks (no added=True).")
     elif elaborate:
         parts.append(f"Write the program. What it emits is the prompt {model_name or 'the image model'} reads: "
-                     "write it the way the style guide says, complete and rich, with a pick wherever the "
-                     "image should vary.")
+                     "write it the way the style guide says, complete and rich and as long as it asks, with a "
+                     "pick wherever the image should vary. Develop what the user stated with what is seen there, true to their "
+                     "words: the cafe's room and tables, the water and mist at dawn, the dress's cut and "
+                     "fabric. That detail stands beside their words, never in their place: "
+                     "emit(\"She sits in a cafe,\", room, ...), not emit(\"She sits in\", room). Describe each "
+                     "person in full. Write the words around each pick so the sentence reads right for every "
+                     "value it can draw.")
     else:
         parts.append("Write the program, keeping the user's words: emit their prompt as written, joined into "
                      "readable text with nothing added. Seeds you write are short phrases (a few words) in the "
@@ -1588,6 +1593,44 @@ def fix_said(source: str, prompt: str) -> Tuple[str, List[str]]:
     return source, notes
 
 
+_AGE_DETAILS = ("age", "age_band")   # the detail part of a pick id the writer named as a person's age
+
+
+def fix_age_lists(source: str) -> Tuple[str, List[str]]:
+    """A pick the writer named as someone's age (`man.age_band`, `couple[1].age`, `age`) but left
+    without a list is bound to the age list. Unbound, its options are written freely and an adult's
+    age pick drew "an infant" or "a teenager"; bound, it draws adults unless the user's words
+    narrow it (narrow.py), as the minors policy asks. Reads the writer's own ids, never the prompt."""
+    if "age" not in source or AGE_LIST not in vocabulary().leaves:
+        return source, []
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, []
+    pos = _offsets(source)
+    edits: List[Tuple[int, str]] = []
+    notes: List[str] = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick" and node.args):
+            continue
+        if len(node.args) > 1 or _kw(node, "cls") is not None or _kw(node, "source") is not None:
+            continue   # a user list, or bound already
+        first = node.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str):
+            cid = first.value
+        elif isinstance(first, ast.JoinedStr) and first.values and isinstance(first.values[-1], ast.Constant):
+            cid = str(first.values[-1].value)
+        else:
+            continue
+        if cid.rsplit(".", 1)[-1].strip() not in _AGE_DETAILS:
+            continue
+        edits.append((pos(first.end_lineno, first.end_col_offset), f', cls="{AGE_LIST}"'))
+        notes.append(f"{cid}: bound to {AGE_LIST}")
+    for at, text in sorted(edits, reverse=True):
+        source = source[:at] + text + source[at:]
+    return source, notes
+
+
 def _said_problems(info: Dict[str, Any], prompt: str, samples: Sequence[RunResult]) -> Tuple[List[str], List[str]]:
     """said= is the user's own words for the thing a pick stands for: an exact stretch of their
     prompt, on a pick that isn't their list, wildcard or # line request, said once in the prompt.
@@ -2804,7 +2847,7 @@ def fix_written(source: str, prompt: str, loras: Sequence[LoraInfo]) -> Tuple[st
     for fix in (fix_quotes, fix_order, lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, fix_unplaced, fix_brackets,
                 lambda x: fix_requested(x, prompt), lambda x: fix_duplicates(x, prompt),
-                lambda x: fix_trigger_words(x, loras, prompt), lambda x: fix_said(x, prompt)):
+                lambda x: fix_trigger_words(x, loras, prompt), lambda x: fix_said(x, prompt), fix_age_lists):
         source, more = fix(source)
         notes += more
     return source, notes
@@ -2817,7 +2860,7 @@ def fix_patched(source: str, prompt: str) -> Tuple[str, List[str]]:
     notes: List[str] = []
     for fix in (fix_order, lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, lambda x: fix_requested(x, prompt),
-                lambda x: fix_said(x, prompt)):
+                lambda x: fix_said(x, prompt), fix_age_lists):
         source, more = fix(source)
         notes += more
     return source, notes

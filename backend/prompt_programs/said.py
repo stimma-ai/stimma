@@ -51,7 +51,10 @@ Reply with only a JSON object mapping each part's id to the user's words or null
 def candidates(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
     """The picks to ask about: the writer's picks with a spec, whether it marked them added or
     from the user's text, but not the user's lists, wildcards or #-line requests; shown to the
-    user, not bound to a list (narrowing reads those), not marked said."""
+    user, not marked said. A pick bound to a list is asked about only when the writer took it
+    from the user's text (not added, or added but pointing at a line of the prompt): a stated
+    value it forgot to mark ("emerald eyes" as an eye pick) would otherwise be narrowed to the
+    list's nearest kind and their word lost."""
     from prompt_programs.prepare import _comment_lines
     from prompt_programs.vocab import vocabulary
     vocab = vocabulary()
@@ -59,7 +62,8 @@ def candidates(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
     return [c for c in entry.get("choices") or []
             if c.get("kind", "pick") == "pick" and c.get("source") != "list" and not c.get("hidden")
             and not (c.get("source") != "added" and c.get("line") in comments)
-            and not c.get("said") and not c.get("wildcard") and vocab.get(c.get("cls")) is None
+            and not c.get("said") and not c.get("wildcard")
+            and (vocab.get(c.get("cls")) is None or c.get("source") != "added" or c.get("line") is not None)
             and str(c.get("about") or "").strip()]
 
 
@@ -205,6 +209,14 @@ def apply_said(entry: Dict[str, Any], found: Dict[str, str]) -> List[str]:
             continue
         c["said"], c["source"] = words, "text"
         c["options"] = list(dict.fromkeys([words, *(c.get("options") or [])]))
+        # Their words, not a kind: a narrowing of the same pick (read beside this) no longer holds,
+        # so the whole list is there to tick.
+        if c.get("cls"):
+            (entry.get("filters") or {}).pop(str(c.get("id")), None)
+            (entry.get("narrow_pending") or {}).pop(str(c.get("id")), None)
+            c.pop("where_words", None)
+            if isinstance(c.get("where"), str):
+                c.pop("where")
         c["line"] = next((i + 1 for i, ln in enumerate(lines) if words.lower() in re.sub(r"\s+", " ", ln)), c.get("line"))
     entry["said_read"] = dict(done)
     return [f'{cid}: keeps the user\'s "{w}"' for cid, w in done.items()]

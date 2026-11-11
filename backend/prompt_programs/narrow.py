@@ -288,8 +288,11 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     vocab = vocabulary()
     # A pick with said= is the user's own words, not a kind to narrow to: its list holds alternatives.
     bound = [c for c in entry.get("choices") or [] if vocab.get(c.get("cls")) is not None and not c.get("said")]
+    # An age the user stated (said=) is still read, so their person's pools know an adult from a minor.
+    said_ages = [c for c in entry.get("choices") or [] if c.get("said") and c.get("kind", "pick") == "pick"
+                 and getattr(vocab.resolve(c.get("cls")) if c.get("cls") else None, "id", None) == AGE_LIST]
     entry.pop("narrow_pending", None)
-    if not bound:
+    if not bound and not said_ages:
         return []
     before = {c["id"]: {"cls": c["cls"], "options": list(c.get("options") or [])} for c in bound}
     unfinished: set = set()
@@ -322,7 +325,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             else:
                 notes.append(f'{ch["id"]}: nothing in {lf.id} has {want}; drawing from the whole list')
     t0 = asyncio.get_running_loop().time()
-    stated = stated_ages(entry, bound)
+    stated = stated_ages(entry, bound, said_ages)
     stated_ctx = stated_context(entry, bound)
     readable = [c for c in bound if not c.get("wildcard")] + stated + stated_ctx
     listed = list_age_values(entry, bound)
@@ -491,8 +494,10 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     return notes
 
 
-def stated_ages(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """For each person with bound details but no age pick, a detail to read their age by:
+def stated_ages(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]],
+                said: Sequence[Dict[str, Any]] = ()) -> List[Dict[str, Any]]:
+    """For each person with bound details but no age pick (an age pick holding the user's own
+    words, `said`, counts as none: their words are read), a detail to read their age by:
     {"id", "cls": the age list, "about", "age_of": the person}. Their stated age ("a
     10-year-old", "a little girl") is then read and narrowed like an age pick's words, so
     their pools know when they are under 18 (options.program_minors)."""
@@ -501,9 +506,9 @@ def stated_ages(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> List[
         return []
     aged = {person_of(c["id"]) for c in bound if c.get("cls") == AGE_LIST}
     ids = {str(c.get("id")) for c in entry.get("choices") or []}
-    named = {person_of(c["id"]) for c in bound if str(c.get("cls") or "").startswith("person.")} - {""}
+    named = {person_of(c["id"]) for c in [*bound, *said] if str(c.get("cls") or "").startswith("person.")} - {""}
     out: Dict[str, Dict[str, Any]] = {}
-    for c in bound:
+    for c in [*bound, *said]:
         p = person_of(c["id"])
         # an age pick speaks for its person, and one naming no subject for everyone (draws.owns);
         # a shared detail beside named people is read through theirs, not as "the person"

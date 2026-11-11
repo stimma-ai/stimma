@@ -305,13 +305,17 @@ prompt_enhancement:
     normal sentence is fine.
 
   improve_system_prompt: |
-    You are writing the prompt an image generation model will read, from a user's request. Keep everything the user stated: every subject, attribute, action, count, position and place, in their wording where it reads well.
+    You are writing the prompt an image generation model will read, from a user's request. Keep everything the user stated: every subject, attribute, action, count, position and place, in their wording where it reads well, and never contradict it.
 
-    The look of the image is the user's to set. Whatever the request says about it (the medium, an artist or era, the light or time of day, the lens or focus, the framing, the mood, quality words) is copied into your description word for word, at the start, and you add nothing to it. Where the request says nothing about the look, neither do you.
+    Develop what they stated: each thing they named gets what someone looking at the image would see of it. A cafe gets its room, its tables and what is on them; fishing at dawn gets the water, the mist and the rod; a red dress gets its cut and fabric; soft window light gets its direction and how it falls on the face. Then fill in what they left open.
 
-    Your part is the contents. Write them as a plain, factual inventory in full sentences: first the subject and its specific appearance (for a person: face, hair, build, expression, each garment), then what it holds or does, then the few things around it and how they relate to it. Every added detail is a definite, nameable thing. Draw each one from this request's own subject and place, the details someone who knows that subject would expect there, in the condition such things are usually in.
+    People come first. For each person: their hair (length, texture, color, how it is worn), their face and expression, their build, each garment with its color and material, what they hold, and how they stand or move.
 
-    Scale to the request: a short request becomes a full description of about 60 to 120 words; a detailed request gains new content it never mentioned, not further adjectives on what it already said. End on the last concrete detail.
+    The light: keep the light, time of day and weather the request states, in its words, and say how that light falls on the subject. Where it states none, describe one light that suits the place and time: where it comes from and how it falls on the subject.
+
+    The rest of the look is the user's to set. The medium, an artist or era, the lens or focus, the framing, the mood and quality words the request gives are copied word for word, at the start. Where it names none of these, neither do you.
+
+    Write full sentences: the subject and its appearance first, then what it does, then its surroundings and the light. Every added detail is a definite, nameable thing, drawn from this request's own subject and place, in the condition such things are usually in. A short request becomes a full description of about 100 to 160 words; a detailed request gains what it never mentioned, not further adjectives on what it already said. End on the last concrete detail.
 
     {protected_text_guidance}
 
@@ -321,10 +325,10 @@ prompt_enhancement:
     You are helping with prompt engineering for tag-based image models (Stable Diffusion 1.5 and SDXL). These models were trained on Danbooru-style tag lists, NOT prose — they respond best to a comma-separated sequence of concise, concrete tags rather than flowing sentences.
 
     Rewrite the user's prompt into a tag list while preserving their original intent:
-    - Output a single line (or a few) of comma-separated tags, ordered most-important first: main subject and its key attributes, then clothing/pose/expression, then setting/background, then any composition/framing, lighting and style/medium tags the request states (add none of these yourself), and finally "masterpiece, best quality".
+    - Output a single line (or a few) of comma-separated tags, ordered most-important first: main subject and its key attributes, then clothing/pose/expression, then setting/background with the things seen there, then lighting (the request's, or where it states none, one or two tags for a light that suits the scene), then any composition/framing and style/medium tags the request states (add none of these yourself), and finally "masterpiece, best quality".
     - Convert prose into tags: "a woman with long red hair standing in a forest" -> "1girl, long hair, red hair, standing, forest, ...". Break compound descriptions into atomic tags.
     - Keep tags short — typically 1-4 words each. Prefer conventional booru/SD tag vocabulary where it exists (e.g. "1girl", "looking at viewer", "upper body", "holding umbrella").
-    - Describe a person concretely: hair length and color, eye color, expression, build, clothing — don't just write "woman", as the model will default to a generic look.
+    - Describe a person concretely: hair length, color and style, eye color, expression, build, each garment with its color, pose, what they hold — don't just write "woman", as the model will default to a generic look. Develop what the request states the same way: a cafe gets tags for what is in it, a dress its cut and fabric.
     - Preserve unusual or specific details the user included; those are intentional creative choices.
     - Do NOT write full sentences, and do NOT add articles/prepositions to pad tags. No prose, no explanations.
 
@@ -418,7 +422,7 @@ prompt_enhancement:
 
     {canvas_guidance}
 
-    1. Split the brief. What the user fixed must survive unchanged: every string of text they want shown (copied character for character, in its own script, with its punctuation), every named object, count, stated colour and stated position. An instruction about the job rather than the picture ("make the text sharp", "no noise") is not content: obey it silently and never echo it. Everything the user left open about the CONTENT, you decide — a three-word request and a three-hundred-word request both become a full description, so a short brief means you invent most of what is in the frame. The LOOK is the user's: style, medium, palette, lighting, time of day, camera and mood appear exactly as the request states them, and where it states none, the description states none.
+    1. Split the brief. What the user fixed must survive unchanged: every string of text they want shown (copied character for character, in its own script, with its punctuation), every named object, count, stated colour and stated position. An instruction about the job rather than the picture ("make the text sharp", "no noise") is not content: obey it silently and never echo it. Everything the user left open about the CONTENT, you decide — a three-word request and a three-hundred-word request both become a full description, so a short brief means you invent most of what is in the frame. The LOOK is the user's: style, medium, palette, camera and mood appear exactly as the request states them, and where it states none, the description states none. Light is content: keep the lighting and time of day the request states, and where it states none, describe one light that suits the scene, where it comes from and how it falls on the subject.
 
     2. Open with one sentence of about twenty words naming the orientation, subject and background, with the style and medium the request gives: "This is a wide flat-vector poster of …" for a request that says poster and flat vector, "The image shows, in a vertical frame, …" for one that names no medium. The medium noun is the one the request gives or implies (photograph, poster, illustration, infographic, logo, page, card …), otherwise the neutral "image". Name a style only if the request gives one; never call an image realistic or a photograph unless the request does.
 

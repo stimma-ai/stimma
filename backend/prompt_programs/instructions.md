@@ -51,7 +51,7 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   with no `group()`: for each detail that varies, one pick per person with ids like
   `girl[1].hair`, `girl[2].hair` and the label of the detail alone ("Hair"), and the rest
   fixed text. The app shows each person's details together.
-- `person(id, noun=..., presentation=..., leave=[...])` describes one person and
+- `person(id, noun=..., presentation=..., said={...}, leave=[...])` describes one person and
   returns the description, to put in `emit()` where the person stands. It draws their age,
   descent, skin, hair, eyes, face and build for you, so every person is fully described and
   no two are alike: never write those picks yourself, and never describe a face in your own
@@ -59,13 +59,16 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   - `noun`: what they are, in the user's word: `noun="woman"`, `noun="fisherman"`,
     `noun="friend"`; or the pick of the user's list that names them (`noun=job`).
   - `presentation`: `"feminine"` or `"masculine"` when the user's words say which.
-  - What the user said of them ("an old fisherman", "a young red-haired woman", "a tall
-    Swedish man") is read from their prompt and kept for you: the description then says an
-    old age, red hair, a Swedish man. Don't repeat those words in your own text, and don't
-    pass them.
-  - `leave`: only for a detail the user gave as one exact value you keep as fixed text
-    ("with emerald eyes" → `leave=["eyes"]`, and "with emerald eyes" stays in your text).
-    The details are `age`, `descent`, `skin`, `hair`, `hair_color`, `eyes`, `face`, `build`.
+  - What the user said of them as a kind ("an old fisherman", "a young red-haired woman", "a
+    tall man") is read from their prompt and kept for you: the description then says an old
+    age, red hair, a tall build. Don't repeat those words in your own text, and don't pass them.
+  - `said`: a detail the user gave as one value, with their words for the value, exactly as
+    written: "a 30 year old Irish woman with emerald eyes" →
+    `said={"age": "30 year old", "descent": "Irish", "eyes": "emerald"}`. Every image gets
+    their value, and they may switch to others. Don't repeat those words in your own text.
+  - `leave`: only for a detail the user described in words no list holds, kept as fixed text
+    ("eyes like a winter sea" → `leave=["eyes"]`, and those words stay in your text).
+  The details are `age`, `descent`, `skin`, `hair`, `hair_color`, `eyes`, `face`, `build`.
   The description reads "a slender 30–34-year-old Korean woman with warm beige skin,
   shoulder-length wavy dark brown hair, hazel eyes, a long, narrow nose and freckles across
   the nose": write your text around it, starting after it with a comma.
@@ -120,12 +123,16 @@ phases drew; picks in the same phase are drawn without seeing each other.
    The user's own words go in as fixed text: their subject, what it does, the place, the
    objects, colors and style they named. "a girl running in central park" keeps "a girl",
    "running" and "central park" in every image; you add detail around them, never instead
-   of them. The look is the user's too: the medium, palette, light, time of day, lens and mood
-   they named stay as written, and you write none of your own into the text unless the
-   style guide's format calls for it. For a photo whose look or framing the user left open,
-   those come from the look and framing lists as added picks (see Vocabulary), never from
-   words you write. A setting, sky or weather you add describes the things
-   there, not the light on them.
+   of them, and detail added to a thing they named stands beside its words: "on a cliff of",
+   rock, never a pick in the cliff's place. The look is the user's too: the medium, palette,
+   light, time of day, lens and mood they named stay as written, and you write none of your
+   own into the text unless the style guide's format calls for it. For a photo whose look or
+   framing the user left open, those come from the look and framing lists as added picks (see
+   Vocabulary), never from words you write. When the style guide asks for light the user
+   didn't name, it is one added pick, in a later phase than the place and time it lights and
+   naming them in its `about` (`about="the light on her in the cafe"`), never fixed text: light written once is the same
+   light in every image. A setting, sky or weather you add describes the things there, not the
+   light on them.
 2. **Put a pick where each varying part stands:**
    - `{a|b|c}` → a user list pick, its variable in `emit()` where the list stood. Exactly
      those options, in that order. Never add to or replace them, and don't write a second
@@ -161,11 +168,13 @@ phases drew; picks in the same phase are drawn without seeing each other.
    knight"), what it does ("running", "waving"), the weather ("in a snowstorm"), a place, a
    color, a blue frock, an owl on her shoulder. Their words stay in the text, and never
    write a pick whose options would change or drop them: no `pick("girl", ...)` seeded "a
-   young woman with auburn hair" for "a girl", no `pick("action", ...)` for "running". A
-   pick stands beside their words: `emit("A girl with", hair, ", running through central
-   park.")`. Only a pick with `said=` may stand in their words' place: a named thing (a breed,
-   a car, a dish, a garment, a place, a color) they could want other choices for, emitted
-   where their words stood: `emit("A", dog, "on the beach")` with
+   young woman with auburn hair" for "a girl", no `pick("action", ...)` and no pose or
+   activity pick for "running"; how she moves as she runs is a pick with no list. A pick
+   stands beside their words: `emit("A girl with", hair, ", running through central
+   park.")`. Only a pick with `said=` may stand in their words' place: one value of a person's
+   or animal's detail that has a list (see Vocabulary), or a named thing (a breed, a car, a
+   dish, a garment, a city, a color) they could want other choices for, emitted where their
+   words stood: `emit("A", dog, "on the beach")` with
    `dog = pick("dog", said="husky", about="the dog", seed=["border collie"], label="Dog", phase=1)`.
    When their words name a kind of a listed detail rather than one value ("young",
    "a yoga outfit", "red hair", "smiling"), that detail is a bound pick narrowed to their
@@ -195,7 +204,7 @@ phases drew; picks in the same phase are drawn without seeing each other.
    (`hairstyle`) and there is no `group()`.
 
 So a program's picks are: one per user list and smart wildcard, one per thing the user
-asked to vary, one per listed detail their words narrow, the ones you add for what they
+asked to vary, one per listed detail their words state or narrow, the ones you add for what they
 left open, and hidden picks only where step 5 needs them. All other text is fixed, written
 out in `emit()`.
 
@@ -223,10 +232,14 @@ Still write `about=` and a seed in the list's form.
   ("her grandmother's silver braid", "eyes like a winter sea"), write the pick without
   `cls=`, or keep their words as fixed text. A list is a partial catalog: most picks have
   no list, and that's fine.
-- A detail the user stated as one value stays fixed text: "a woman with emerald eyes and her
-  hair in a braid" keeps "emerald eyes" and "in a braid" in every image, with no eye or
-  hairstyle pick. A detail they stated as a kind, which leaves the list several values that
-  fit, is a bound pick narrowed to their words, as below: "a young woman" gets an age pick
+- A detail the user stated as one value is still a choice, set to their value: their words for
+  the value go in `said=`, exactly as written ("Irish", "emerald", "30 year old", "a braid"),
+  and the words around it stay in the text. What `person()` draws takes it in its `said=`
+  (above). Any other listed detail is a bound pick with `said=`, emitted where their words
+  stood: "her hair in a braid" →
+  `hairstyle = pick("woman.hairstyle", cls="person.hairstyle", said="a braid", about="her hairstyle", seed=["a loose side braid"], label="Hairstyle", phase=2, line=1)`,
+  `emit(..., ", her hair in", hairstyle)`. A detail they stated as a kind, which leaves the list
+  several values that fit, is a bound pick narrowed to their words, as below: "a young woman" gets an age pick
   drawn only from young ages; "in a yoga outfit" gets an outfit pick drawn only from yoga
   looks; "long red hair" gets a hair color pick drawn only from red shades.
 - Some lists name their parts after "where:" in the list below. When the user's words narrow a
