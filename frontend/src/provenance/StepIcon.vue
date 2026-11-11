@@ -1,7 +1,4 @@
 <template>
-  <!-- Task-type glyph (the ToolIcon set). The markup comes from the static
-       glyph table, looked up by a validated key; unknown keys draw the
-       default glyph. -->
   <svg
     viewBox="0 0 24 24"
     fill="none"
@@ -15,6 +12,10 @@
 </template>
 
 <script setup lang="ts">
+// Task-type glyph (the ToolIcon set). The markup comes from the static glyph
+// table, looked up by a validated key; unknown keys draw the default glyph.
+// (No comment above the <svg>: in dev builds it would make the template a
+// fragment, and the caller's size classes would not reach the glyph.)
 import { computed } from 'vue'
 import { getTaskTypeIconSvg } from '../utils/taskTypeIcons.ts'
 
