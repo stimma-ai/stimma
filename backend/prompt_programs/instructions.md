@@ -120,12 +120,16 @@ phases drew; picks in the same phase are drawn without seeing each other.
    The user's own words go in as fixed text: their subject, what it does, the place, the
    objects, colors and style they named. "a girl running in central park" keeps "a girl",
    "running" and "central park" in every image; you add detail around them, never instead
-   of them. The look is the user's too: the medium, palette, light, time of day, lens and mood
-   they named stay as written, and you write none of your own into the text unless the
-   style guide's format calls for it. For a photo whose look or framing the user left open,
-   those come from the look and framing lists as added picks (see Vocabulary), never from
-   words you write. A setting, sky or weather you add describes the things
-   there, not the light on them.
+   of them, and detail added to a thing they named stands beside its words: "on a cliff of",
+   rock, never a pick in the cliff's place. The look is the user's too: the medium, palette,
+   light, time of day, lens and mood they named stay as written, and you write none of your
+   own into the text unless the style guide's format calls for it. For a photo whose look or
+   framing the user left open, those come from the look and framing lists as added picks (see
+   Vocabulary), never from words you write. When the style guide asks for light the user
+   didn't name, it is one added pick whose `about` names the place and time it lights
+   (`about="the light on her in the cafe"`), never fixed text: light written once is the same
+   light in every image. A setting, sky or weather you add describes the things there, not the
+   light on them.
 2. **Put a pick where each varying part stands:**
    - `{a|b|c}` → a user list pick, its variable in `emit()` where the list stood. Exactly
      those options, in that order. Never add to or replace them, and don't write a second
@@ -161,11 +165,12 @@ phases drew; picks in the same phase are drawn without seeing each other.
    knight"), what it does ("running", "waving"), the weather ("in a snowstorm"), a place, a
    color, a blue frock, an owl on her shoulder. Their words stay in the text, and never
    write a pick whose options would change or drop them: no `pick("girl", ...)` seeded "a
-   young woman with auburn hair" for "a girl", no `pick("action", ...)` for "running". A
-   pick stands beside their words: `emit("A girl with", hair, ", running through central
+   young woman with auburn hair" for "a girl", no `pick("action", ...)` and no pose or
+   activity pick for "running"; how she moves as she runs is a pick with no list. A pick
+   stands beside their words: `emit("A girl with", hair, ", running through central
    park.")`. Only a pick with `said=` may stand in their words' place: one value of a person's
    or animal's detail that has a list (see Vocabulary), or a named thing (a breed, a car, a
-   dish, a garment, a place, a color) they could want other choices for, emitted where their
+   dish, a garment, a city, a color) they could want other choices for, emitted where their
    words stood: `emit("A", dog, "on the beach")` with
    `dog = pick("dog", said="husky", about="the dog", seed=["border collie"], label="Dog", phase=1)`.
    When their words name a kind of a listed detail rather than one value ("young",

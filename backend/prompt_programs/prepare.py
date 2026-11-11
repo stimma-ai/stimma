@@ -212,8 +212,13 @@ def build_user_message(prompt: str, model_name: Optional[str], mode: str,
                      "(a few words) in the same register as the user's words. Add no extra picks (no added=True).")
     elif elaborate:
         parts.append(f"Write the program. What it emits is the prompt {model_name or 'the image model'} reads: "
-                     "write it the way the style guide says, complete and rich, with a pick wherever the "
-                     "image should vary.")
+                     "write it the way the style guide says, complete and rich and as long as it asks, with a "
+                     "pick wherever the image should vary. Develop what the user stated with what is seen there, true to their "
+                     "words: the cafe's room and tables, the water and mist at dawn, the dress's cut and "
+                     "fabric. That detail stands beside their words, never in their place: "
+                     "emit(\"She sits in a cafe,\", room, ...), not emit(\"She sits in\", room). Describe each "
+                     "person in full. Write the words around each pick so the sentence reads right for every "
+                     "value it can draw.")
     else:
         parts.append("Write the program, keeping the user's words: emit their prompt as written, joined into "
                      "readable text with nothing added. Seeds you write are short phrases (a few words) in the "
