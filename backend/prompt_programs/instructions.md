@@ -129,8 +129,8 @@ phases drew; picks in the same phase are drawn without seeing each other.
    own into the text unless the style guide's format calls for it. For a photo whose look or
    framing the user left open, those come from the look and framing lists as added picks (see
    Vocabulary), never from words you write. When the style guide asks for light the user
-   didn't name, it is one added pick whose `about` names the place and time it lights
-   (`about="the light on her in the cafe"`), never fixed text: light written once is the same
+   didn't name, it is one added pick, in a later phase than the place and time it lights and
+   naming them in its `about` (`about="the light on her in the cafe"`), never fixed text: light written once is the same
    light in every image. A setting, sky or weather you add describes the things there, not the
    light on them.
 2. **Put a pick where each varying part stands:**
