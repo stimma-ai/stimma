@@ -2,11 +2,11 @@ import { computed, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'v
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import type { ChoiceVocab } from '../utils/programVocab'
-import { shownOption } from '../utils/programVocab'
+import { shownOption, standbyOf } from '../utils/programVocab'
 import { programSections } from '../utils/programChoiceLayout'
 import { DECLINED_CODE, prepareBody, prepareErrorCode, prepareSettingsSig, type PrepareInputs } from '../utils/fluentSubmit'
 import { createChoiceCard } from '../utils/choiceCard'
-import { isLimited, ticksOf } from '../utils/programTicks'
+import { isLimited, stateFor, ticksOf, wireEdits, type TickState } from '../utils/programTicks'
 import { additionList, isOwnOption } from '../utils/programAdditions'
 
 export type { ChoiceVocab } from '../utils/programVocab'
@@ -19,6 +19,10 @@ export type { ChoiceVocab } from '../utils/programVocab'
  * the prepared program for the current prompt, its status, and the user's pins and
  * edits to its choices. Pins and edits live in promptOptions, so they persist per
  * tool and ride presets like the rest of the prompt's settings.
+ *
+ * In a choice's card a tick means the option can be drawn. The ticks are stored as the
+ * shorter of the ticked values (pins) and the unticked ones (the edit's `out`); see
+ * utils/programTicks.ts. The server reads `out` as removed and `none` as off (wireEdits).
  */
 
 export interface ProgramChoice {
@@ -77,7 +81,17 @@ export interface PoolsResponse {
   vocab?: Record<string, ChoiceVocab>
 }
 
-export interface ChoiceEdit { add?: string[]; remove?: string[]; off?: boolean }
+export interface ChoiceEdit {
+  add?: string[]
+  /** Options deleted from the choice: not shown, not drawn. */
+  remove?: string[]
+  /** The choice itself removed: its pill goes and the image model decides the detail. */
+  off?: boolean
+  /** Options unticked in the card: still shown, left out of the draw. */
+  out?: string[]
+  /** Nothing ticked: the detail is left out of the prompt; the pill stays, to get back in. */
+  none?: boolean
+}
 
 export type ProgramStatus = 'off' | 'ready' | 'stale' | 'busy' | 'error'
 
@@ -106,6 +120,8 @@ interface Options {
 
 /** How often the editor looks for a program the server prepared in the background after a failure. */
 const ERROR_POLL_MS = 15_000
+
+const count = (n: number) => n.toLocaleString('en-US')
 
 export function usePromptProgram(o: Options) {
   const program = ref<PreparedProgram | null>(null)
@@ -162,24 +178,55 @@ export function usePromptProgram(o: Options) {
   function writeOptions(patch: Record<string, any>) {
     o.setPromptOptions({ ...(o.promptOptions.value || {}), ...patch })
   }
+  /** Edits without the ticks stored in them for these choices, when any are: pins set
+      from outside a card (an image's choices, the agent) say what is ticked on their own. */
+  function withoutTicks(ids: string[]): Record<string, any> {
+    if (!ids.some(id => edits.value[id]?.out?.length || edits.value[id]?.none)) return {}
+    const next = { ...edits.value }
+    for (const id of ids) {
+      if (!next[id]) continue
+      const { out: _out, none: _none, ...rest } = next[id]
+      if (Object.keys(rest).length) next[id] = rest
+      else delete next[id]
+    }
+    return { programEdits: next }
+  }
+  /** Limit a choice to these values; none of them: it draws from every option again. */
   function setPins(id: string, values: string[]) {
     const next = { ...pins.value }
     if (values.length) next[id] = values
     else delete next[id]
-    writeOptions({ programPins: next })
+    writeOptions({ programPins: next, ...withoutTicks([id]) })
   }
   function setManyPins(values: Record<string, string[]>) {
-    writeOptions({ programPins: { ...pins.value, ...values } })
+    writeOptions({ programPins: { ...pins.value, ...values }, ...withoutTicks(Object.keys(values)) })
   }
-  function setEdit(id: string, edit: ChoiceEdit) {
+  function withEdit(id: string, edit: ChoiceEdit): Record<string, ChoiceEdit> {
     const next = { ...edits.value }
     const clean: ChoiceEdit = {}
     if (edit.add?.length) clean.add = edit.add
     if (edit.remove?.length) clean.remove = edit.remove
     if (edit.off) clean.off = true
+    if (edit.out?.length) clean.out = edit.out
+    if (edit.none) clean.none = true
     if (Object.keys(clean).length) next[id] = clean
     else delete next[id]
-    writeOptions({ programEdits: next })
+    return next
+  }
+  function setEdit(id: string, edit: ChoiceEdit) {
+    writeOptions({ programEdits: withEdit(id, edit) })
+  }
+  /** Store a choice's ticks (programTicks.stateFor), with its edit when that changes too:
+      one write, so the pins and the edit never disagree. */
+  function setTicks(id: string, state: TickState, edit: ChoiceEdit = edits.value[id] || {}) {
+    const patch: Record<string, any> = { programEdits: withEdit(id, { ...edit, out: state.out, none: state.none }) }
+    if (state.pins.length || pins.value[id]) {
+      const next = { ...pins.value }
+      if (state.pins.length) next[id] = state.pins
+      else delete next[id]
+      patch.programPins = next
+    }
+    writeOptions(patch)
   }
 
   function request(extra: Record<string, any> = {}) {
@@ -323,10 +370,13 @@ export function usePromptProgram(o: Options) {
     if (!fresh.length) return
     const e = edits.value[c.id] || {}
     if (mode === 'more') {
-      setEdit(c.id, { ...e, add: [...(e.add || []), ...fresh] })
+      const add = [...(e.add || []), ...fresh]
+      // New options arrive ticked like the rest, except where a tick is the user's to give:
+      // a choice that stands for their own words, or one with nothing ticked.
+      if (c.said || e.none) setEdit(c.id, { ...e, add })
+      else setTicks(c.id, stateFor(c, [...ticks(c), ...fresh], [...current, ...fresh], standbyFor(c)), { ...e, add })
     } else {
-      setEdit(c.id, { ...e, remove: [...c.options], add: fresh })
-      setPins(c.id, [])
+      setTicks(c.id, { pins: [], out: [], none: false }, { ...e, remove: [...c.options], add: fresh })
     }
   }
 
@@ -335,7 +385,7 @@ export function usePromptProgram(o: Options) {
     const out = []
     for (let i = 0; i < n; i++) {
       const { data } = await axios.post(`${getApiBase()}/prompt-programs/preview`, request({
-        cache_only: true, pins: pins.value, edits: edits.value, seed: Math.floor(Math.random() * 2 ** 31),
+        cache_only: true, pins: pins.value, edits: wireEdits(edits.value), seed: Math.floor(Math.random() * 2 ** 31),
       }))
       out.push(data)
     }
@@ -348,7 +398,7 @@ export function usePromptProgram(o: Options) {
     return {
       enabled: true,
       pins: pins.value,
-      edits: edits.value,
+      edits: wireEdits(edits.value),
       loras: o.loraItems.value.map(i => ({ lora: i.lora, weight: i.weight, enabled: !!i.enabled })),
       ...(fixed ? { fixed } : {}),
       // Its own seed, never the image's. Absent: each image draws fresh.
@@ -384,6 +434,7 @@ export function usePromptProgram(o: Options) {
   watch([() => program.value?.key, pins], () => { void fetchPools() })
   onUnmounted(() => { if (poolsTimer) clearTimeout(poolsTimer) })
 
+  /** What a choice's card lists: values left out (`out`) stay, only deleted ones go. */
   function optionsOf(c: ProgramChoice): string[] {
     const e = edits.value[c.id] || {}
     const removed = new Set(e.remove || [])
@@ -413,13 +464,24 @@ export function usePromptProgram(o: Options) {
     return vocab.value[c.id] || null
   }
 
+  // A bound pick's values drawn only when ticked (its list's opt-in values).
+  const standby = computed(() => Object.fromEntries(Object.entries(vocab.value).map(([id, v]) => [id, standbyOf(v)])))
+  function standbyFor(c: ProgramChoice): Set<string> | undefined {
+    return standby.value[c.id]
+  }
+  /** The options ticked in a choice's card: the ones it can draw. */
+  function ticks(c: ProgramChoice): Set<string> {
+    return ticksOf(c, pins.value[c.id], edits.value[c.id], optionsOf(c), standbyFor(c))
+  }
+
   function visible(c: ProgramChoice): boolean {
     if (edits.value[c.id]?.off) return false
     if (!c.parent) return true
     const parent = byId.value[c.parent]
     if (!parent || edits.value[parent.id]?.off) return false
-    const p = (pins.value[parent.id] || []).filter(v => parent.options.includes(v))
-    return !p.length || p.some(v => (c.when || []).includes(v))
+    if (!isChanged(parent)) return true
+    const on = ticks(parent)
+    return (c.when || []).some(v => on.has(v))
   }
 
   const sections = computed(() => programSections(
@@ -429,14 +491,22 @@ export function usePromptProgram(o: Options) {
   function valueText(c: ProgramChoice): string {
     if (c.kind === 'param') return `${c.options[0]}–${c.options[1]}`
     const all = optionsOf(c)
-    const p = [...ticksOf(c, pins.value[c.id], all)]
-    if (!p.length) return all.length === 1 ? '1 option' : `${all.length} options`
+    const p = [...ticks(c)]
     if (p.length === 1) return shownOption(p[0])
-    return `${p.length} of ${all.length}`
+    if (p.length === all.length) return all.length === 1 ? '1 option' : `${count(all.length)} options`
+    return `${count(p.length)} of ${count(all.length)}`
   }
-  /** The user limited what this choice draws (ticks other than its own default). */
+  /** The ticks differ from how the choice starts. */
+  function isChanged(c: ProgramChoice) {
+    return c.kind !== 'param' && isLimited(c, pins.value[c.id], edits.value[c.id], optionsOf(c), standbyFor(c))
+  }
+  /** Nothing is ticked: the detail is left out of the prompt. */
+  function isNone(c: ProgramChoice) {
+    return c.kind !== 'param' && isChanged(c) && !ticks(c).size
+  }
+  /** The user narrowed what this choice draws (ticks other than its own default). */
   function isPinned(c: ProgramChoice) {
-    return c.kind !== 'param' && isLimited(c, pins.value[c.id], optionsOf(c))
+    return isChanged(c) && !isNone(c)
   }
   /** The pill shows its value: when limited, or when it draws the user's own words. */
   function showsValue(c: ProgramChoice) {
@@ -496,7 +566,7 @@ export function usePromptProgram(o: Options) {
   return {
     program, status, error, unsupported, pins, edits, choices, sections, byId, openCard,
     prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns, suggestOptions,
-    setPins, setManyPins, setEdit, optionsOf, vocabOf, valueText, isPinned, showsValue, keepAddition, isOwn,
+    setPins, setManyPins, setEdit, setTicks, optionsOf, vocabOf, valueText, isPinned, isNone, showsValue, keepAddition, isOwn,
     loraControl, paramControl, open, close,
   }
 }

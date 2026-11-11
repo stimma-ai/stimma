@@ -1,10 +1,10 @@
 /**
- * Fluent vocabulary lists, frontend side: what the option picker groups by and the
+ * Fluent vocabulary lists, frontend side: what the option picker filters by and the
  * dev vocabulary browser shows. Pure functions only, so they test without a DOM.
  */
 
 /** `opt_in`: a value drawn only when asked for (an age under 18 the prompt didn't ask for):
- *  the picker offers it in its own group, and picking it draws it. */
+ *  the picker offers it unticked, and ticking it draws it. */
 export type VocabTier = 'typical' | 'plausible' | 'unusual' | 'generated' | 'opt_in'
 
 /** A bound pick's list, as the pools endpoint describes it (keyed by choice id). */
@@ -15,21 +15,20 @@ export interface ChoiceVocab {
   tiers: Record<string, VocabTier>
   /** The user's own options kept for this list from earlier prompts (programAdditions.ts). */
   mine?: string[]
+  /** The list's named parts (hair color: black, brunette, blonde…), for lists short enough
+   *  to carry them: `of` maps an option to its part, and leaves out options without one. */
+  parts?: ListParts
 }
+
+export interface ListParts { name: string; values: string[]; of: Record<string, string> }
 
 /** Picks with more options than this get the search-and-scroll picker. */
 export const MANY_OPTIONS = 12
 
-export const TIER_ORDER: VocabTier[] = ['typical', 'plausible', 'unusual', 'generated', 'opt_in']
+/** The most rows the picker renders at once; a longer list is narrowed by searching. */
+export const MAX_ROWS = 150
 
-/** What a person reads for each tier's group in the picker. */
-export const TIER_LABEL: Record<VocabTier, string> = {
-  typical: 'Usual',
-  plausible: 'Less usual',
-  unusual: 'Rare',
-  generated: 'More ideas',
-  opt_in: 'Only when picked',
-}
+export const TIER_ORDER: VocabTier[] = ['typical', 'plausible', 'unusual', 'generated', 'opt_in']
 
 /** Case-insensitive; every word in the query must appear somewhere in the option. */
 /** A list value as the picker shows it: a template's color slots ({main}, {accent},
@@ -45,60 +44,23 @@ export function matchesQuery(text: string, query: string): boolean {
   return words.every(w => t.includes(w))
 }
 
-export interface OptionGroup {
-  tier: VocabTier
-  label: string
-  /** Options in this group that pass the query (all of them when there is none). */
-  items: string[]
-  /** All options in the group, filter or not. */
-  total: number
+/** The options the picker shows: those passing the search, and the part chosen (if any). */
+export function shownOptions(options: string[], query: string, part?: string | null, parts?: ListParts | null): string[] {
+  const q = query.trim()
+  if (!q && !part) return options
+  return options.filter(o => (!q || matchesQuery(o, q)) && (!part || parts?.of[o] === part))
 }
 
-export interface OptionLayout {
-  /** Pinned options, always first and never filtered out. */
-  pinned: string[]
-  /** Tiered groups (bound picks); empty for a flat list. */
-  groups: OptionGroup[]
-  /** The flat list (unbound picks), filtered, pinned left out. */
-  flat: string[]
-  /** How many unpinned options pass the query. */
-  hits: number
+/** A part's name as its chip reads. */
+export function partLabel(part: string): string {
+  return part.replace(/_/g, ' ')
 }
 
-/**
- * Lay out a pick's options for the picker. Pinned values come first whatever the
- * query; the rest are filtered, and grouped by tier when the pick has a list.
- * An option the list doesn't know (one the person added) sits with the usual ones.
- */
-export function layoutOptions(options: string[], pinned: Iterable<string>, query: string, tiers?: Record<string, VocabTier> | null): OptionLayout {
-  const pinSet = new Set(pinned)
-  const pinnedOut = options.filter(o => pinSet.has(o))
-  const rest = options.filter(o => !pinSet.has(o))
-  if (!tiers) {
-    const flat = rest.filter(o => matchesQuery(o, query))
-    return { pinned: pinnedOut, groups: [], flat, hits: flat.length }
-  }
-  const byTier = new Map<VocabTier, string[]>(TIER_ORDER.map(t => [t, []]))
-  for (const o of rest) {
-    const t = tiers[o]
-    byTier.get(t && byTier.has(t) ? t : 'typical')!.push(o)
-  }
-  let hits = 0
-  const groups: OptionGroup[] = []
-  for (const tier of TIER_ORDER) {
-    const all = byTier.get(tier)!
-    if (!all.length) continue
-    const items = all.filter(o => matchesQuery(o, query))
-    hits += items.length
-    groups.push({ tier, label: TIER_LABEL[tier], items, total: all.length })
-  }
-  return { pinned: pinnedOut, groups, flat: [], hits }
-}
-
-/** Whether a tier group shows its options: while searching, exactly the groups with hits. */
-export function groupOpen(group: OptionGroup, query: string, opened: Record<string, boolean>): boolean {
-  if (query.trim()) return group.items.length > 0
-  return opened[group.tier] ?? group.tier === 'typical'
+/** Values drawn only when ticked (a list's opt-in values): they start unticked. */
+export function standbyOf(vocab: Pick<ChoiceVocab, 'tiers'> | null | undefined): Set<string> {
+  const out = new Set<string>()
+  for (const [text, tier] of Object.entries(vocab?.tiers || {})) if (tier === 'opt_in') out.add(text)
+  return out
 }
 
 // The whole vocabulary (GET /prompt-programs/vocabulary), for the dev browser -------------

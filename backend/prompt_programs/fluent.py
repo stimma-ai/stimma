@@ -150,6 +150,27 @@ def start_options(entry: Dict[str, Any], *, profile_id: Optional[str] = None, pr
 # --------------------------------------------------------------------------- what a picker shows
 
 POOL_DRAWS = 4  # draws per pick: enough to visit the pool its upstream picks key
+PARTS_MAX = 400  # a longer list sends no parts: the option-to-part map would be large
+
+
+def list_parts(leaf: Any, options: List[str]) -> Optional[Dict[str, Any]]:
+    """A list's named parts for the picker's chips: its first local facet that sorts the
+    options ({"name": facet, "values": the parts in use, in the list's order, "of": {option:
+    its part}}). An option tagged with several parts, or none, is left out of `of`. None for
+    a list with no such facet, or with more than PARTS_MAX options."""
+    if len(options) > PARTS_MAX:
+        return None
+    for facet, names in leaf.local_facets.items():
+        of: Dict[str, str] = {}
+        for o in options:
+            v = leaf.value(o)
+            tagged = v.tags.get(facet) if v is not None else None
+            if isinstance(tagged, (list, tuple)) and len(tagged) == 1 and str(tagged[0]) in names:
+                of[o] = str(tagged[0])
+        if of:
+            used = set(of.values())
+            return {"name": facet, "values": [n for n in names if n in used], "of": of}
+    return None
 
 
 def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *, profile_id: Optional[str] = None,
@@ -200,6 +221,9 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
                           "tiers": {o: tiers.get(o, "generated") for o in seen}}
             if mine_here:
                 vocab[cid]["mine"] = list(mine_here)
+            parts = list_parts(leaf, seen)
+            if parts:
+                vocab[cid]["parts"] = parts
         elif seen:
             out[cid] = seen[:60]
     return {"options": out, "more": more, "vocab": vocab}

@@ -11,14 +11,14 @@
           v-for="choice in section.choices"
           :key="choice.id"
           type="button"
-          :class="pillClass(program.isPinned(choice), openId === choice.id)"
+          :class="pillClass(program.isPinned(choice), program.isNone(choice), openId === choice.id)"
           :title="pillTitle(choice)"
           :data-choice="choice.id"
           @click="program.open(choice.id, $event.currentTarget as Element)"
         >
           <span v-if="choice.parent" class="text-content-muted -mr-0.5">↳</span>
           <WandSparklesIcon v-if="choice.source === 'added'" class="w-3 h-3 shrink-0 text-content-tertiary" />
-          <span :class="['truncate max-w-[10rem]', program.isPinned(choice) ? 'text-selection/80' : '']">{{ programLabel(choice.label) }}<template v-if="program.showsValue(choice)">:</template></span>
+          <span :class="['truncate max-w-[10rem]', program.isPinned(choice) ? 'text-selection/80' : '', program.isNone(choice) ? 'line-through' : '']">{{ programLabel(choice.label) }}<template v-if="program.showsValue(choice)">:</template></span>
           <span v-if="program.showsValue(choice)" class="truncate max-w-[16rem]">{{ program.valueText(choice) }}</span>
         </button>
       </div>
@@ -37,15 +37,19 @@ const props = defineProps<{ program: PromptProgram }>()
 
 const openId = computed(() => props.program.openCard.value?.id || null)
 
-function pillClass(pinned: boolean, open: boolean) {
+// Indigo once narrowed; muted and struck through with nothing ticked (left out of the prompt).
+function pillClass(pinned: boolean, none: boolean, open: boolean) {
   return [
     'inline-flex max-w-full items-center gap-1 px-2.5 py-1 rounded-full text-xs whitespace-nowrap shrink-0 border transition-colors outline-none focus-visible:ring-1 focus-visible:ring-selection/60 coarse:py-1.5 coarse:text-[13px]',
-    pinned ? 'bg-selection/15 text-selection' : 'bg-surface-raised text-content hover:bg-surface-hover',
+    pinned ? 'bg-selection/15 text-selection'
+      : none ? 'bg-surface-raised text-content-muted hover:bg-surface-hover'
+        : 'bg-surface-raised text-content hover:bg-surface-hover',
     open ? 'border-selection/40' : 'border-transparent',
   ]
 }
 
 function pillTitle(c: ProgramChoice) {
+  if (props.program.isNone(c)) return 'Left out'
   if (c.said && !props.program.isPinned(c)) return `Every image uses “${c.said}”. Click to choose others.`
   const n = props.program.optionsOf(c).length
   const base = c.kind === 'param' ? 'Each image picks a value in this range. Click to see it.' : `Each image picks one of ${n}. Click to choose.`

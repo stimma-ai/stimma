@@ -1,6 +1,6 @@
 <template>
-  <!-- A choice's card. Each image draws one of the options; ticking some limits the
-       draw to those. The model can write more options or a whole new set. -->
+  <!-- A choice's card. Each image draws one of the ticked options; everything starts
+       ticked. The model can write more options or a whole new set. -->
   <Teleport to="body">
     <div v-if="card" class="fixed inset-0 z-menu" @click="program.close()">
       <div
@@ -28,7 +28,6 @@
             <PromptProgramOptions
               :choice="choice"
               :program="program"
-              :deletable="editable"
               :addable="editable"
             />
             <div v-if="writable || choice.source === 'added'" class="border-t border-edge-subtle px-2 py-1.5 flex items-center gap-1">
@@ -65,7 +64,8 @@ import Spinner from '../ui/Spinner.vue'
 import PromptProgramOptions from './PromptProgramOptions.vue'
 import { useAnchoredMenuPosition } from '../../composables/useContextMenuPosition'
 import type { PromptProgram, ProgramChoice } from '../../composables/usePromptProgram'
-import { isLimited } from '../../utils/programTicks'
+import { ticksOf } from '../../utils/programTicks'
+import { standbyOf } from '../../utils/programVocab'
 
 const props = defineProps<{ program: PromptProgram }>()
 
@@ -174,22 +174,23 @@ async function write(mode: 'more' | 'reroll') {
 function removeChoice() {
   const c = choice.value
   if (!c) return
-  props.program.setEdit(c.id, { ...(props.program.edits.value[c.id] || {}), off: true })
-  props.program.setPins(c.id, [])
+  props.program.setTicks(c.id, { pins: [], out: [], none: false }, { ...(props.program.edits.value[c.id] || {}), off: true })
   props.program.close()
 }
-// Header: the choice's name, and "Use all" (or "Only mine") once some options are ticked ---
+// Header: the choice's name, and how many of its options are ticked ("35", or "3 of 35").
 const CardHeader = defineComponent({
   props: { title: String, note: String, added: Boolean, choice: Object, program: Object },
   setup(p) {
+    const n = (x: number) => x.toLocaleString('en-US')
     return () => {
       const prog = p.program as PromptProgram | undefined
       const c = p.choice as ProgramChoice | undefined
-      const limited = !!(prog && c && isLimited(c, prog.pins.value[c.id], prog.optionsOf(c)))
-      // A choice that stands for the user's own words goes back to only those; any other, to every option.
-      const reset = c?.said
-        ? { label: 'Only mine', title: `Every image uses “${c.said}”` }
-        : { label: 'Use all', title: 'Draw from every option again' }
+      let count = ''
+      if (prog && c) {
+        const all = prog.optionsOf(c)
+        const on = ticksOf(c, prog.pins.value[c.id], prog.edits.value[c.id], all, standbyOf(prog.vocabOf(c))).size
+        count = on < all.length ? `${n(on)} of ${n(all.length)}` : n(all.length)
+      }
       return h('div', { class: 'px-3 pt-2.5 pb-1.5 flex items-start gap-2' }, [
         h('div', { class: 'min-w-0 flex-1' }, [
           h('div', { class: 'flex items-center gap-1 text-[13px] font-semibold text-content' }, [
@@ -197,10 +198,7 @@ const CardHeader = defineComponent({
           ]),
           p.note ? h('div', { class: 'text-[11px] text-content-muted break-words leading-snug' }, p.note) : null,
         ]),
-        limited ? h('button', {
-          type: 'button', class: 'shrink-0 mt-0.5 text-[11px] text-content-tertiary hover:text-content',
-          title: reset.title, onClick: () => prog!.setPins(c!.id, []),
-        }, reset.label) : null,
+        count ? h('div', { class: 'shrink-0 mt-0.5 text-[11px] text-content-muted font-mono tabular-nums', 'data-count': '' }, count) : null,
       ])
     }
   },

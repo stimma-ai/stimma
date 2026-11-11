@@ -250,6 +250,41 @@ class TestThePicker:
         assert set(meta["tiers"].values()) <= {"typical", "plausible", "unusual", "generated"}
         assert out["vocab"]["expr"]["closed"] is False
 
+    def test_pool_options_carry_the_lists_parts(self, tmp_path):
+        info = discover(PORTRAIT)
+        entry = {"key": "p", "program": PORTRAIT, "loras": [], "params": {}, "mode": "prose",
+                 "choices": info["choices"]}
+        out = pool_options(entry, store=OptionStore(tmp_path), cfg=OFF)
+        leaf = vocabulary().get("person.eye_color")
+        facet, names = next(iter(leaf.local_facets.items()))
+        parts = out["vocab"]["eyes"]["parts"]
+        assert parts["name"] == facet
+        assert parts["values"] and [n for n in names if n in parts["values"]] == parts["values"]  # the list's order
+        assert set(parts["of"].values()) == set(parts["values"])
+        shown = out["options"]["eyes"]
+        for text, part in parts["of"].items():
+            assert text in shown and leaf.value(text).tags[facet] == [part]
+        # an option in several parts has no single one: it is left out of the map
+        several = [v.text for v in leaf.values if len(v.tags.get(facet) or []) > 1 and v.text in shown]
+        assert several and not any(t in parts["of"] for t in several)
+        # a list with no parts of its own carries none
+        assert not vocabulary().get("person.ethnicity").local_facets and "parts" not in out["vocab"]["eth"]
+
+    def test_list_parts_skip_long_lists_and_untagged_facets(self):
+        from prompt_programs.fluent import PARTS_MAX, list_parts
+        from prompt_programs.vocab import Leaf, Value
+        values = (Value("jet black", "typical", {"shade": ["black"]}), Value("ash brown", "typical", {"shade": ["brunette"]}),
+                  Value("salt and pepper", "typical", {"shade": ["black", "gray"]}), Value("shaved", "typical"))
+        leaf = Leaf("x.hair", "Hair", "", "", "", "", (), True, {}, values,
+                    local_facets={"length": ("short", "long"), "shade": ("black", "brunette", "gray")})
+        texts = [v.text for v in values]
+        # no value is tagged on the first facet, so the next one gives the parts
+        assert list_parts(leaf, [*texts, "my own"]) == {
+            "name": "shade", "values": ["black", "brunette"], "of": {"jet black": "black", "ash brown": "brunette"}}
+        assert list_parts(leaf, ["shaved"]) is None
+        assert list_parts(leaf, [*texts, *(f"more {i}" for i in range(PARTS_MAX))]) is None
+        assert list_parts(Leaf("x.plain", "Plain", "", "", "", "", (), True, {}, values), texts) is None
+
 
 class TestArticles:
     @pytest.mark.parametrize("text,want", [

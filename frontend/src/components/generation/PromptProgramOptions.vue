@@ -1,84 +1,107 @@
 <template>
-  <!-- A pick's options: tick to limit the draw (shift-click ticks a range), trash to
-       delete, a field to add your own.
-       Long lists (and any pick drawn from a list) get a search field and a scrolling
-       list; list-drawn picks group their values from usual to rare. Ticked values always
-       come first, whatever the search. -->
+  <!-- A pick's options, one flat list in the list's own order. A tick means the option can
+       be drawn: everything starts ticked, unticking leaves a value out (shift-click does a
+       range). Search and the list's parts only change what is shown; the All row and
+       "Only these" then act on what is shown. A long list renders its first rows and is
+       narrowed by searching. -->
   <div class="min-h-0 flex flex-col">
-    <template v-if="many">
-      <div class="px-2 pb-1.5" @keydown="onSearchKey">
-        <SearchField ref="searchRef" v-model="query" placeholder="Search options" />
+    <div v-if="many" class="px-2 pb-1.5" @keydown="onSearchKey">
+      <SearchField ref="searchRef" v-model="query" placeholder="Search" />
+    </div>
+
+    <div v-if="parts" class="px-2 pb-1.5 flex flex-wrap gap-1" role="group" :aria-label="partLabel(parts.name)">
+      <button
+        v-for="p in parts.values"
+        :key="p"
+        type="button"
+        :aria-pressed="part === p"
+        :data-part="p"
+        :class="['px-2 py-0.5 coarse:py-1.5 rounded-full text-xs coarse:text-[13px] transition-colors outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
+          part === p ? 'bg-selection/15 text-content' : 'text-content-secondary hover:text-content hover:bg-overlay-subtle']"
+        @click="picked = part === p ? '' : p"
+      >{{ partLabel(p) }}</button>
+    </div>
+
+    <div class="px-1.5">
+      <div
+        data-all
+        role="checkbox"
+        :aria-checked="allState === 'some' ? 'mixed' : allState === 'all'"
+        tabindex="0"
+        class="flex items-center gap-2.5 px-2 py-1.5 coarse:py-2.5 rounded-md cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
+        @click="toggleAll"
+        @keydown.space.self.prevent="toggleAll"
+        @keydown.enter.self.prevent="toggleAll"
+      >
+        <span :class="[boxClass, allState === 'none' ? 'border-edge-strong' : 'bg-selection border-selection text-white']">
+          <CheckIcon v-if="allState === 'all'" class="w-2.5 h-2.5" stroke-width="3" />
+          <MinusIcon v-else-if="allState === 'some'" class="w-2.5 h-2.5" stroke-width="3" />
+        </span>
+        <span class="flex-1 min-w-0 text-xs coarse:text-[13px] text-content-secondary">{{ filtered ? `All ${count(seen.length)} shown` : 'All' }}</span>
+        <button
+          v-if="filtered && seen.length"
+          type="button"
+          class="shrink-0 -my-0.5 px-1.5 py-0.5 coarse:py-1.5 rounded-md text-xs coarse:text-[13px] text-accent hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
+          @click.stop="onlyThese"
+        >Only these</button>
       </div>
-      <div v-if="vocab" class="px-3.5 pb-1 flex items-baseline gap-2 text-[11px] text-content-muted">
-        <span class="flex-1 min-w-0 truncate">{{ listName }}</span>
-        <span class="font-mono tabular-nums">{{ opts.length }}</span>
-      </div>
-    </template>
+    </div>
 
     <div
       ref="listRef"
       :class="['min-h-0 overflow-y-auto overscroll-contain px-1.5 pb-1.5 flex flex-col gap-px', many ? 'max-h-[min(26rem,50dvh)]' : '']"
     >
-      <template v-for="e in entries" :key="e.key">
+      <div
+        v-for="o in rows"
+        :key="o"
+        :data-option="o"
+        role="checkbox"
+        :aria-checked="ticks.has(o)"
+        tabindex="0"
+        class="group/opt flex items-start gap-2.5 px-2 py-1.5 coarse:py-2.5 rounded-md cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
+        @mousedown="onOptionMouseDown"
+        @click="onOptionClick(o, $event)"
+        @keydown.space.self.prevent="toggle(o)"
+        @keydown.enter.self.prevent="toggle(o)"
+      >
+        <span :class="[boxClass, 'mt-[2px]', ticks.has(o) ? 'bg-selection border-selection text-white' : 'border-edge-strong']">
+          <CheckIcon v-if="ticks.has(o)" class="w-2.5 h-2.5" stroke-width="3" />
+        </span>
+        <span :class="['flex-1 min-w-0 text-xs coarse:text-[13px] leading-snug break-words', ticks.has(o) ? 'text-content' : 'text-content-muted line-through']">
+          {{ shownOption(o) }}<span v-if="trigger(o)" class="ml-1.5 font-mono text-[10px] text-content-muted">{{ trigger(o) }}</span>
+        </span>
         <button
-          v-if="e.type === 'group'"
           type="button"
-          :aria-expanded="e.open"
-          :data-group="e.group.tier"
-          class="mt-1 first:mt-0 flex items-center gap-1.5 px-2 py-1 coarse:py-2.5 rounded-md text-xs font-semibold text-content-secondary hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
-          @click="toggleGroup(e.group.tier, e.open)"
-        >
-          <Caret :open="e.open" class="opacity-70" />
-          <span class="flex-1 text-left">{{ e.group.label }}</span>
-          <span class="font-mono tabular-nums font-normal text-content-muted">{{ query.trim() ? e.group.items.length : e.group.total }}</span>
-        </button>
-        <div
-          v-else-if="e.type === 'empty'"
-          class="px-2 py-1.5 coarse:py-2.5 text-xs coarse:text-[13px] text-content-muted"
-        >No matches</div>
+          :aria-label="`Only ${shownOption(o)}`"
+          class="shrink-0 -my-0.5 px-1.5 py-0.5 rounded-md text-xs coarse:text-[13px] text-content-secondary hover:text-content hover:bg-overlay-subtle opacity-0 group-hover/opt:opacity-100 group-focus-within/opt:opacity-100 coarse:opacity-100 outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
+          @click.stop="only(o)"
+        >Only</button>
         <button
-          v-else-if="e.type === 'add'"
+          v-if="program.isOwn(choice, o)"
+          type="button"
+          title="Delete option"
+          :aria-label="`Delete ${shownOption(o)}`"
+          class="shrink-0 -my-0.5 p-0.5 rounded text-content-muted hover:text-red-400 opacity-0 group-hover/opt:opacity-100 group-focus-within/opt:opacity-100 coarse:opacity-100"
+          @click.stop="forget(o)"
+        >
+          <TrashIcon class="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <template v-if="!seen.length && filtered">
+        <div class="px-2 py-1.5 coarse:py-2.5 text-xs coarse:text-[13px] text-content-muted">No matches</div>
+        <button
+          v-if="canAddQuery"
           type="button"
           class="flex items-center gap-2.5 px-2 py-1.5 coarse:py-2.5 rounded-md text-left text-xs coarse:text-[13px] text-content-secondary hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
-          @click="add(query)"
+          @click="addQuery"
         >
           <PlusIcon class="shrink-0 w-3.5 h-3.5 text-content-muted" />
           <span class="min-w-0 break-words">Add “{{ query.trim() }}”</span>
         </button>
-        <div
-          v-else
-          :data-option="e.value"
-          role="checkbox"
-          :aria-checked="pinned.has(e.value)"
-          tabindex="0"
-          :class="['group/opt flex items-start gap-2.5 px-2 py-1.5 coarse:py-2.5 rounded-md cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
-            pinned.has(e.value) ? 'bg-selection/10' : 'hover:bg-overlay-subtle']"
-          @mousedown="onOptionMouseDown"
-          @click="onOptionClick(e.value, $event)"
-          @keydown.space.self.prevent="toggle(e.value)"
-          @keydown.enter.self.prevent="toggle(e.value)"
-        >
-          <span
-            :class="['mt-[2px] shrink-0 w-3.5 h-3.5 rounded-[4px] flex items-center justify-center border',
-              pinned.has(e.value) ? 'bg-selection border-selection text-white' : 'border-edge-strong']"
-          >
-            <CheckIcon v-if="pinned.has(e.value)" class="w-2.5 h-2.5" stroke-width="3" />
-          </span>
-          <span :class="['flex-1 min-w-0 text-xs coarse:text-[13px] leading-snug break-words', pinned.has(e.value) ? 'text-content' : 'text-content-secondary group-hover/opt:text-content']">
-            {{ shownOption(e.value) }}<span v-if="trigger(e.value)" class="ml-1.5 font-mono text-[10px] text-content-muted">{{ trigger(e.value) }}</span>
-          </span>
-          <button
-            v-if="deletable && canDelete(props.choice, e.value)"
-            type="button"
-            title="Delete option"
-            :aria-label="`Delete ${e.value}`"
-            class="shrink-0 -my-0.5 p-0.5 rounded text-content-muted hover:text-red-400 opacity-0 group-hover/opt:opacity-100 focus-visible:opacity-100 coarse:opacity-100"
-            @click.stop="del(e.value)"
-          >
-            <TrashIcon class="w-3.5 h-3.5" />
-          </button>
-        </div>
       </template>
+      <div v-if="seen.length > rows.length" data-more class="px-2 pt-1.5 text-[11px] text-content-muted font-mono tabular-nums">
+        {{ count(rows.length) }} of {{ count(seen.length) }}
+      </div>
     </div>
 
     <div v-if="addable" class="px-1.5 pb-1.5">
@@ -100,86 +123,72 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { CheckIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CheckIcon, MinusIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import SearchField from '../ui/SearchField.vue'
-import Caret from '../ui/Caret.vue'
 import { useViewport } from '../../composables/useViewport'
-import { MANY_OPTIONS, groupOpen, layoutOptions, type OptionGroup, shownOption } from '../../utils/programVocab'
-import { deletable as canDelete, pinsFor, ticksOf, toggleTick } from '../../utils/programTicks'
+import { MANY_OPTIONS, MAX_ROWS, partLabel, shownOption, shownOptions, standbyOf } from '../../utils/programVocab'
+import { stateFor, ticksOf } from '../../utils/programTicks'
 import type { PromptProgram, ProgramChoice } from '../../composables/usePromptProgram'
 
 const props = defineProps<{
   choice: ProgramChoice
   program: PromptProgram
-  deletable?: boolean
   addable?: boolean
 }>()
 
 const { allowsAutofocus } = useViewport()
 
+const boxClass = 'shrink-0 w-3.5 h-3.5 rounded-[4px] flex items-center justify-center border'
+const count = (n: number) => n.toLocaleString('en-US')
+
 const query = ref('')
 const draft = ref('')
-// Tier groups the person opened or closed (Usual starts open, the rest closed).
-const opened = ref<Record<string, boolean>>({})
+const picked = ref('')
 const listRef = ref<HTMLElement | null>(null)
 const searchRef = ref<InstanceType<typeof SearchField> | null>(null)
 
 const opts = computed(() => props.program.optionsOf(props.choice))
-// What the card shows ticked: the pins, or for a choice that stands for the user's own words,
-// those words (each image uses them until other options are ticked).
-const pinned = computed(() => ticksOf(props.choice, props.program.pins.value[props.choice.id], opts.value))
 const edit = computed(() => props.program.edits.value[props.choice.id] || {})
 const vocab = computed(() => props.program.vocabOf(props.choice))
+// Values drawn only when ticked (a list's opt-in values) start unticked, and the All row
+// and "Only these" leave them alone unless they are all that is shown.
+const standby = computed(() => standbyOf(vocab.value))
+const ticks = computed(() => ticksOf(props.choice, props.program.pins.value[props.choice.id], edit.value, opts.value, standby.value))
 const many = computed(() => !!vocab.value || !!props.choice.cls || opts.value.length > MANY_OPTIONS)
-const listName = computed(() => {
-  const label = vocab.value?.label || ''
-  return /\blist$/i.test(label) ? label : `${label} list`
+
+const parts = computed(() => vocab.value?.parts?.values.length ? vocab.value.parts : null)
+const part = computed(() => parts.value?.values.includes(picked.value) ? picked.value : '')
+const filtered = computed(() => !!query.value.trim() || !!part.value)
+
+// The list's own order. In a list too long to show whole, the person's own additions lead,
+// so one just added is in view.
+const order = computed(() => {
+  if (opts.value.length <= MAX_ROWS || !edit.value.add?.length) return opts.value
+  const own = new Set(edit.value.add)
+  return [...opts.value.filter(o => own.has(o)), ...opts.value.filter(o => !own.has(o))]
 })
-
-type Entry =
-  | { type: 'option'; key: string; value: string }
-  | { type: 'group'; key: string; group: OptionGroup; open: boolean }
-  | { type: 'empty'; key: string }
-  | { type: 'add'; key: string }
-
-const layout = computed(() => many.value
-  ? layoutOptions(opts.value, pinned.value, query.value, vocab.value?.tiers)
-  : null)
-
-const entries = computed<Entry[]>(() => {
-  const l = layout.value
-  const opt = (value: string): Entry => ({ type: 'option', key: `o:${value}`, value })
-  if (!l) return opts.value.map(opt)
-  const out: Entry[] = l.pinned.map(opt)
-  if (l.groups.length) {
-    for (const g of l.groups) {
-      const open = groupOpen(g, query.value, opened.value)
-      // While searching, groups without a hit drop out of the way.
-      if (query.value.trim() && !g.items.length) continue
-      out.push({ type: 'group', key: `g:${g.tier}`, group: g, open })
-      if (open) out.push(...g.items.map(opt))
-    }
-  } else {
-    out.push(...l.flat.map(opt))
-  }
+const seen = computed(() => shownOptions(order.value, query.value, part.value, parts.value))
+const rows = computed(() => seen.value.length > MAX_ROWS ? seen.value.slice(0, MAX_ROWS) : seen.value)
+const bulk = computed(() => {
+  if (!standby.value.size) return seen.value
+  const regular = seen.value.filter(o => !standby.value.has(o))
+  return regular.length ? regular : seen.value
+})
+const allState = computed<'all' | 'some' | 'none'>(() => {
+  const on = ticks.value
+  if (bulk.value.length && bulk.value.every(o => on.has(o))) return 'all'
+  return seen.value.some(o => on.has(o)) ? 'some' : 'none'
+})
+const canAddQuery = computed(() => {
   const q = query.value.trim()
-  // Nothing matches: say so, and offer the search as an option of its own.
-  if (q && !l.hits) {
-    out.push({ type: 'empty', key: 'empty' })
-    if (props.addable && !opts.value.includes(q)) out.push({ type: 'add', key: 'add' })
-  }
-  return out
+  return !!q && !!props.addable && !opts.value.includes(q)
 })
-
-function toggleGroup(tier: string, open: boolean) {
-  opened.value = { ...opened.value, [tier]: !open }
-}
 
 // A different pick in the same card (a person's detail): start fresh.
 watch(() => props.choice.id, () => {
   query.value = ''
   draft.value = ''
-  opened.value = {}
+  picked.value = ''
   anchor.value = null
   focusSearch()
 })
@@ -194,20 +203,47 @@ function trigger(o: string): string {
   return props.choice.kind === 'lora' ? (lora(o)?.trigger || '').split(',')[0] : ''
 }
 
+function write(next: Iterable<string>) {
+  props.program.setTicks(props.choice.id, stateFor(props.choice, next, opts.value, standby.value))
+}
+
 function toggle(o: string) {
-  props.program.setPins(props.choice.id, toggleTick(props.choice, props.program.pins.value[props.choice.id], opts.value, o))
+  const next = new Set(ticks.value)
+  next.has(o) ? next.delete(o) : next.add(o)
+  write(next)
   anchor.value = o
 }
 
+// One of the person's own options (typed here, or kept for this list from an earlier prompt)
+// can be forgotten: it leaves this choice and the list.
+function forget(o: string) {
+  const e = edit.value
+  void props.program.keepAddition(props.choice, o, false)
+  const rest = opts.value.filter(x => x !== o)
+  props.program.setTicks(props.choice.id, stateFor(props.choice, [...ticks.value].filter(x => x !== o), rest, standby.value),
+    { ...e, add: (e.add || []).filter(x => x !== o) })
+}
+
+function only(o: string) {
+  write([o])
+  anchor.value = o
+}
+
+function toggleAll() {
+  const next = new Set(ticks.value)
+  if (allState.value === 'all') for (const o of seen.value) next.delete(o)
+  else for (const o of bulk.value) next.add(o)
+  write(next)
+}
+
+function onlyThese() {
+  write(bulk.value)
+}
+
 // Shift-click ticks (or unticks) every shown option between the last one clicked and
-// this one. Ticked options float to the top of long lists, so the range is measured in
-// the list's untouched order, the one you see before anything is ticked.
+// this one. The range is measured in the whole list, so it can start from an option the
+// search has since hidden.
 const anchor = ref<string | null>(null)
-const naturalOrder = computed(() => {
-  if (!many.value) return opts.value
-  const l = layoutOptions(opts.value, [], '', vocab.value?.tiers)
-  return l.groups.length ? l.groups.flatMap(g => g.items) : l.flat
-})
 
 function onOptionMouseDown(e: MouseEvent) {
   // Keep shift-click from selecting the text in between.
@@ -215,43 +251,41 @@ function onOptionMouseDown(e: MouseEvent) {
 }
 
 function onOptionClick(o: string, e: MouseEvent) {
-  const order = naturalOrder.value
-  const from = anchor.value ? order.indexOf(anchor.value) : -1
-  const to = order.indexOf(o)
+  const all = order.value
+  const from = anchor.value ? all.indexOf(anchor.value) : -1
+  const to = all.indexOf(o)
   if (!e.shiftKey || from < 0 || to < 0) { toggle(o); return }
-  const shown = new Set(entries.value.flatMap(x => x.type === 'option' ? [x.value] : []))
-  const range = order.slice(Math.min(from, to), Math.max(from, to) + 1).filter(x => shown.has(x))
-  const on = !pinned.value.has(o)
-  const next = new Set(pinned.value)
-  for (const x of range) on ? next.add(x) : next.delete(x)
-  props.program.setPins(props.choice.id, pinsFor(props.choice, next, opts.value))
+  const shown = new Set(seen.value)
+  const on = !ticks.value.has(o)
+  const next = new Set(ticks.value)
+  for (const x of all.slice(Math.min(from, to), Math.max(from, to) + 1)) {
+    if (!shown.has(x)) continue
+    on ? next.add(x) : next.delete(x)
+  }
+  write(next)
   anchor.value = o
 }
 
-function del(o: string) {
-  // One the user added just goes; anything else (seeds, list values and generated options
-  // alike) is remembered as deleted for this pick, which keeps its id through prompt edits.
-  const e = edit.value
-  const userAdded = props.program.isOwn(props.choice, o)
-  if (userAdded) void props.program.keepAddition(props.choice, o, false)
-  const added = (e.add || []).filter(x => x !== o)
-  const removed = userAdded ? e.remove : [...new Set([...(e.remove || []), o])]
-  props.program.setEdit(props.choice.id, { ...e, add: added, remove: removed })
-  props.program.setPins(props.choice.id, pinsFor(props.choice, [...pinned.value].filter(x => x !== o), opts.value))
-}
-
+// The person's own option joins the list ticked, whatever else is, and is kept for this
+// list so later prompts offer it too.
 function add(text: string) {
   const v = text.trim()
   if (!v || opts.value.includes(v)) return
-  props.program.setEdit(props.choice.id, { ...edit.value, add: [...(edit.value.add || []), v] })
+  const e = edit.value
+  const next = { ...e, add: [...(e.add || []), v], remove: (e.remove || []).filter(x => x !== v) }
+  props.program.setTicks(props.choice.id, stateFor(props.choice, [...ticks.value, v], [...opts.value, v], standby.value), next)
   void props.program.keepAddition(props.choice, v)
   void nextTick(() => {
     const list = listRef.value
     if (!list) return
-    if (!many.value) { list.scrollTo({ top: list.scrollHeight }); return }
     const row = [...list.querySelectorAll<HTMLElement>('[data-option]')].find(r => r.dataset.option === v)
     row?.scrollIntoView({ block: 'nearest' })
   })
+}
+
+function addQuery() {
+  add(query.value)
+  query.value = ''
 }
 
 function commit() {
@@ -272,12 +306,9 @@ function onSearchKey(e: KeyboardEvent) {
     e.stopPropagation()
     e.preventDefault()
   } else if (e.key === 'Enter') {
-    const l = layout.value
-    if (!l) return
     e.preventDefault()
-    const hits = [...l.flat, ...l.groups.flatMap(g => g.items)]
-    if (hits.length === 1) toggle(hits[0])
-    else if (!hits.length && props.addable) { add(query.value); query.value = '' }
+    if (seen.value.length === 1) toggle(seen.value[0])
+    else if (!seen.value.length && canAddQuery.value) addQuery()
   }
 }
 </script>
