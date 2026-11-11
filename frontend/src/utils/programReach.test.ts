@@ -73,3 +73,11 @@ test('the list leads with your own, then what you said, what fits, and the rest 
   assert.deepEqual(reachOrder(opts, { any: opts }, own), { inside: opts, beyond: [] })
   assert.deepEqual(reachOrder(['x', 'y'], { said: ['x'], any: ['x', 'y'] }, none), { inside: ['x'], beyond: ['y'] })
 })
+
+test('a ticked value drawn only when asked for reads as yours, and a setting clears it', () => {
+  const ages = ['15', '18', '20', '25', '30', '40']
+  const s = reachSettings({ fits: ['18', '20', '25'], any: ['18', '20', '25', '30', '40'], words: 'young' }, ages, new Set())
+  const standby = new Set(['15', '30', '40'])
+  assert.equal(litSetting(s, new Set(['18', '20', '25', '15']), standby), 'yours')
+  assert.deepEqual([...ticksForSetting(s, 'fits', new Set(['18', '20', '25', '15']), standby)].sort(), ['18', '20', '25'])
+})

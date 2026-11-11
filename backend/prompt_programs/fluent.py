@@ -247,7 +247,9 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
             shown = vocab[cid]["tiers"]
             reach = reach_of(leaf, seen, [o for o in seen if shown.get(o) == "opt_in"], [*mine_here, *own_adds(cid)],
                              said=said, narrowed=narrowed, words=words, contexts=contexts)
-            if reach:
+            # A long list keeps its plain row: its settings would name (and "Any" would tick)
+            # thousands of values.
+            if reach and len(leaf.values) <= PARTS_MAX:
                 vocab[cid]["reach"] = reach
         elif seen:
             out[cid] = seen[:60]

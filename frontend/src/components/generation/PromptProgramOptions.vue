@@ -185,7 +185,7 @@ const own = computed(() => new Set(opts.value.filter(o => props.program.isOwn(pr
 const reach = computed(() => vocab.value?.reach || null)
 const settings = computed(() => reachSettings(reach.value, opts.value, own.value))
 const segmented = computed(() => settings.value.length > 1 && !filtered.value)
-const lit = computed(() => litSetting(settings.value, ticks.value))
+const lit = computed(() => litSetting(settings.value, ticks.value, standby.value))
 const segments = computed(() => {
   const out: Array<{ label: string; value: string; count?: number }> = settings.value.map(s => ({
     label: s.label, value: s.key, count: s.values.length > 1 ? s.values.length : undefined,
@@ -197,7 +197,7 @@ const segments = computed(() => {
 })
 function choose(key: string | number) {
   if (key === 'yours' || key === 'none' || key === lit.value) return
-  write(ticksForSetting(settings.value, key as ReachKey, ticks.value))
+  write(ticksForSetting(settings.value, key as ReachKey, ticks.value, standby.value))
 }
 const split = computed(() => reachOrder(opts.value, reach.value, own.value))
 const beyond = computed(() => new Set(split.value.beyond))

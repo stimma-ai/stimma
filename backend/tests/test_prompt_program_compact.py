@@ -146,7 +146,11 @@ class TestThePoolsAnswerStaysSmall:
         extra = got["options"]["woman.face"]
         assert len(extra) < 50 and not set(extra) & set(next(c for c in e["choices"] if c["id"] == "woman.face")["options"])
         assert got["vocab"]["woman.face"]["cls"] == "person.face"
-        assert got["vocab"]["woman.face"]["tiers"] == {}          # every face is a usual one
+        # every face her words leave is a usual one; the few outside them wait for a tick
+        kept = set(e["filters"]["woman.face"])
+        tiers = got["vocab"]["woman.face"]["tiers"]
+        assert set(tiers.values()) <= {"opt_in"} and not set(tiers) & kept and len(tiers) < 50
+        assert "reach" not in got["vocab"]["woman.face"]           # a long list keeps its plain row
         assert size(got) < 40_000 < size(e)
         # a short list is answered whole, as before, with its opt-in values marked for the picker
         assert len(got["options"]["woman.age"]) > 10

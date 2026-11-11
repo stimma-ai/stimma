@@ -72,19 +72,21 @@ function placed(settings: ReachSetting[]): Set<string> {
 }
 
 /** Which setting the ticks match, among the options the settings speak to. */
-export function litSetting(settings: ReachSetting[], ticks: ReadonlySet<string>): ReachLit {
+export function litSetting(settings: ReachSetting[], ticks: ReadonlySet<string>, standby: ReadonlySet<string> = new Set()): ReachLit {
   const known = placed(settings)
   const on = new Set([...ticks].filter(t => known.has(t)))
+  // A value drawn only when ticked one by one, ticked: no setting holds it, so it's theirs.
+  if ([...ticks].some(t => standby.has(t) && !known.has(t))) return 'yours'
   if (!on.size) return 'none'
   return settings.find(s => sameSet(new Set(s.values), on))?.key || 'yours'
 }
 
 /** The ticks a setting asks for: its values, with the user's own options and options no
     setting speaks to left as they are. */
-export function ticksForSetting(settings: ReachSetting[], key: ReachKey, ticks: ReadonlySet<string>): Set<string> {
+export function ticksForSetting(settings: ReachSetting[], key: ReachKey, ticks: ReadonlySet<string>, standby: ReadonlySet<string> = new Set()): Set<string> {
   const known = placed(settings)
   const s = settings.find(x => x.key === key)
-  return new Set([...[...ticks].filter(t => !known.has(t)), ...(s?.values || [])])
+  return new Set([...[...ticks].filter(t => !known.has(t) && !standby.has(t)), ...(s?.values || [])])
 }
 
 /** The card's order: the user's own options, what they said, what fits, then (after the
