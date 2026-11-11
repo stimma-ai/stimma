@@ -27,8 +27,8 @@ from prompt_programs.vocab import Leaf
 
 WORDS_MAX = 18   # longer narrowing words don't name a setting ("What fits" does)
 
-# The grouping a list's "similar" values share, where its first named part isn't one: a facet
-# of the list, or None for a list whose parts say nothing about likeness (a room's size).
+# The grouping a list's "similar" values share, where its named parts together aren't one: a
+# facet of the list, or None for a list whose parts say nothing about likeness (a room's size).
 SIMILAR_BY: Dict[str, Optional[str]] = {
     "person.outfit.period": "period",
     "interior_space.any_room": None,
@@ -68,10 +68,11 @@ def _tags(leaf: Leaf, text: str, facet: str) -> Set[str]:
 
 def similar_values(leaf: Leaf, said: str, options: Sequence[str]) -> List[str]:
     """The options the list groups with a stated value, the value first: those in its declared
-    group (descent's groups, SIMILAR_GROUPS), else those sharing one of its parts in the list's
-    grouping facet (SIMILAR_BY, else its first named part: hair color's shade, age's life
-    stage, an outfit list's style). Empty when the value isn't one of the list's, the list has
-    no grouping, or the group is the value alone or most of the list (that isn't "similar")."""
+    group (descent's groups, SIMILAR_GROUPS), else those sharing one of its parts on each of
+    the list's named parts that tag it (hair color's shade, age's life stage, an outfit's style
+    and coverage, a light's mood and source; SIMILAR_BY names the one to use instead, where
+    those say little about likeness). Empty when the value isn't one of the list's, the list
+    has no grouping, or the group is the value alone or most of the list (that isn't "similar")."""
     if leaf.value(said) is None:
         return []
     declared = dict(SIMILAR_GROUPS.get(leaf.id, ()))
@@ -82,9 +83,9 @@ def similar_values(leaf: Leaf, said: str, options: Sequence[str]) -> List[str]:
         g = leaf.value(said).group
         near = [o for o in options if g and getattr(leaf.value(o), "group", "") == g]
     else:
-        facet = SIMILAR_BY[leaf.id] if leaf.id in SIMILAR_BY else next(iter(leaf.local_facets), None)
-        want = _tags(leaf, said, facet) if facet else set()
-        near = [o for o in options if want and _tags(leaf, o, facet) & want]
+        facets = ([SIMILAR_BY[leaf.id]] if SIMILAR_BY[leaf.id] else []) if leaf.id in SIMILAR_BY else list(leaf.local_facets)
+        want = {f: t for f in facets if (t := _tags(leaf, said, f))}
+        near = [o for o in options if want and all(_tags(leaf, o, f) & t for f, t in want.items())]
     listed = [o for o in options if leaf.value(o) is not None]
     if len(near) < 2 or len(near) * 2 > len(listed):
         return []
