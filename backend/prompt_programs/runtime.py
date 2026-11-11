@@ -656,8 +656,29 @@ def _fix_article(m: "re.Match[str]") -> str:
     return f"{new.capitalize() if art[0].isupper() else new} {word}"
 
 
+_LAST_WORD = re.compile(r"([^\W\d_]+)\s*$")
+_FIRST_WORD = re.compile(r"^\s*([^\W\d_]+)")
+
+
+def _seams(parts: List[str]) -> List[str]:
+    """A joining word written before a value that brings its own ("in" then "in a sunlit
+    garden", "with" then "with tufted ears", "her" then "her chestnut hair"): keep the
+    value's. Only at the seam between two parts, and only when the part before is a few
+    words of joining text, so a word doubled inside anyone's own text stays as written."""
+    out: List[str] = []
+    for part in parts:
+        part = str(part)
+        if out:
+            last, first = _LAST_WORD.search(out[-1]), _FIRST_WORD.match(part)
+            if (last and first and last.group(1).lower() == first.group(1).lower() and len(out[-1].split()) <= 3
+                    and last.group(1).lower() not in ("a", "an", "the")):   # articles: _ARTICLE, below
+                out[-1] = out[-1][: last.start()]
+        out.append(part)
+    return out
+
+
 def tidy_text(parts: List[str]) -> str:
-    s = " ".join(parts)
+    s = " ".join(_seams(parts))
     s = re.sub(r"\s+", " ", s)
     # "a" written before a value that brings its own ("A a candid snapshot"): keep the value's
     s = _ARTICLE.sub("", s)
