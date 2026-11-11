@@ -2797,7 +2797,7 @@ const controlBarStyle = computed(() => {
     }
   }
   if (barDocked.value) {
-    const dockSidebar = (showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0
+    const dockSidebar = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0) + reviewRailWidth.value
     return {
       left: `calc((100% - ${dockSidebar}px) / 2)`,
       right: 'auto',
@@ -2808,7 +2808,7 @@ const controlBarStyle = computed(() => {
   }
   const anchors = controlBarEdgeAnchors.value
   // In focus mode, treat sidebar as if it's not there
-  const sidebarWidth = (showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0
+  const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0) + reviewRailWidth.value
   // Account for image strip height when visible
   const relatedStripOffset = (showImageStrip.value && !focusMode.value) ? STRIP_HEIGHT : 0
 
@@ -2863,7 +2863,7 @@ const controlBarStyle = computed(() => {
 // above the image strip. Sits low (near the viewer bottom) — the control bar is
 // user-draggable, so we don't reserve space for its default spot.
 const transportBarStyle = computed(() => {
-  const sidebarWidth = (showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0
+  const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0) + reviewRailWidth.value
   const relatedStripOffset = (showImageStrip.value && !focusMode.value) ? STRIP_HEIGHT : 0
   return {
     left: `calc((100% - ${sidebarWidth}px) / 2)`,
@@ -4158,7 +4158,7 @@ function startDrag(event) {
   // If no edge anchors are set yet, initialize them based on current visual position
   // This prevents the "hop" when transitioning from centered to edge-anchored positioning
   if (controlBarEdgeAnchors.value.horizontal === null || controlBarEdgeAnchors.value.vertical === null) {
-    const sidebarWidth = (showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0
+    const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0) + reviewRailWidth.value
     const containerRect = overlay.value.getBoundingClientRect()
     const containerWidth = containerRect.width
     const containerHeight = containerRect.height
@@ -4214,7 +4214,7 @@ function onDrag(event) {
       const y = event.clientY - containerRect.top - dragStart.value.y
 
       // In focus mode, treat sidebar/strip as if they're not there
-      const sidebarWidth = (showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0
+      const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0) + reviewRailWidth.value
       const relatedStripOffset = (showImageStrip.value && !focusMode.value) ? STRIP_HEIGHT : 0
       const containerWidth = containerRect.width
       const containerHeight = containerRect.height

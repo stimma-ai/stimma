@@ -113,7 +113,7 @@
 // part goes and whether the review is open. It carries only what the agent
 // tied to the picture on screen (a rating or check with for=, a choice option
 // that refs it) plus comments, which every picture takes.
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ChatBubbleLeftIcon, CheckIcon, ChevronRightIcon, ChevronUpIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { StarIcon } from '@heroicons/vue/24/solid'
 import { mediaIdOfRef, type SheetMediaEntry } from './sheetHtml'
@@ -193,7 +193,9 @@ function toggleField(field: Field) {
   }
 }
 
+// A draft belongs to the picture it was written about.
 const draft = ref('')
+watch(anchor, () => { draft.value = '' })
 async function post() {
   const text = draft.value.trim()
   if (!text || !anchor.value) return
