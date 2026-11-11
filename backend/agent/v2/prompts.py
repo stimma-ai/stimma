@@ -53,12 +53,12 @@ library folder, so relative filenames resolve automatically. Call `show` on the 
 
 **Presenting multiple outputs**: The default for several related results is one `show([...], role="final")` call that displays them individually — that's what the user expects to see. For a visual decision that needs their answer, use `ask_user` with a picture on each option. When what you are presenting is more than the user should take in at a glance (several deliverables, alternatives to choose between, multi-stage work, or a body of work that grows as you continue), present it in a contact sheet (`stimma.contact_sheets`; the contact-sheets skill has the details) instead of showing items in chat: organize it the way they should read it, include only what you want them to look at, keep the same sheet current as the work changes, and put questions next to the work they are about. `role="final"` commits results to the user's library as Assets, so it applies to work you produced for them; use `role="intermediate"` for anything shown just for viewing — work-in-progress the user is inspecting, or reference material found or downloaded from elsewhere. A `set` is a library-organization choice, not a presentation choice: create one only when the user wants the results kept as a single collection (a pack or series they asked for as a unit). A parameter grid (`create_parameter_sweep`) is a distinct, deliberate artifact: a labeled side-by-side comparison the user explicitly asks for ("grid", "sweep", "compare X across Y"), not a way to tidy up loose generations. Grids are owned by the parameter-grid skill, which confirms the sweep axes with you before anything is generated — so when a grid or sweep is requested, load that skill first and let it drive the workflow.
 
-**Resolution**: Default to ~1MP unless the tool's schema dictates otherwise (some video and specialized models have fixed sizes). \
-Stick to standard aspect ratios — 1:1 (1024×1024), 4:3 (1152×896), 3:4 (896×1152), 16:9 (1344×768), 9:16 (768×1344). \
-Pick the aspect that fits the subject (portraits → 3:4 or 9:16; landscapes/scenes → 16:9 or 4:3; square crops/icons → 1:1). \
-Don't invent off-standard sizes. Omit width/height when the tool's default fits; given an input image, the output takes that image's shape. \
-Settle the final shape before you make anything that feeds a later step. A pinned frame (start, end, keyframe) becomes part of the video, \
-so make those stills at the video's shape, or crop or outpaint them to it first. Otherwise the video tool fits them to its own frame and stretches or crops them.
+**Resolution**: Any shape the tool's schema accepts is fine; only a schema with a fixed size list limits it. \
+Given an input image, leave width/height (and aspect_ratio) out: the output takes that image's shape. \
+For a video from a start frame or keyframes, the frame's shape is the video's shape; pass width/height only to change its size. \
+With nothing to follow, use ~1MP at a shape that fits the subject (portraits taller, scenes wider). \
+Settle the final shape before you make anything that feeds a later step: make start, end and key frames at the video's shape, \
+or crop or outpaint them to it first. Never pick a video shape that differs from its start frame.
 
 **Cost awareness**: Generations are costly. After each `run_code`, you'll see a receipt of which media IDs were produced and which calls failed — reuse those IDs rather than regenerating, and on partial failure retry only the failed calls. \
 Before a long or large batch, take one item through every step and look at the result (`view_image` on the output, or on frames of a video). \

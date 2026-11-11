@@ -26,7 +26,9 @@ from agent.tools.stp_utils import (
     _resolve_lora_paths,
     _get_allowed_dimensions,
     _snap_to_allowed,
+    aspect_mismatch,
     follow_input_dims,
+    frame_shaped_dims,
     nearest_aspect_choice,
 )
 
@@ -469,6 +471,55 @@ async def _media_dims(media_id: int) -> Optional[tuple]:
     return None
 
 
+def _parse_ratio(value: Any) -> Optional[tuple]:
+    """(w, h) from a "W:H" aspect choice, or None."""
+    if not isinstance(value, str) or ":" not in value:
+        return None
+    try:
+        w, h = (float(x) for x in value.split(":", 1))
+    except ValueError:
+        return None
+    return (w, h) if w > 0 and h > 0 else None
+
+
+def _center_crop_file(path: str, out_w: float, out_h: float, dest_dir: str, stem: str) -> str:
+    """Center-crop the image at path to the out_w:out_h shape; path of the copy."""
+    from PIL import Image, ImageOps
+
+    with Image.open(path) as im:
+        im = ImageOps.exif_transpose(im)
+        w, h = im.size
+        target = out_w / out_h
+        if w / h > target:
+            cw, ch = max(1, round(h * target)), h
+        else:
+            cw, ch = w, max(1, round(w / target))
+        left, top = (w - cw) // 2, (h - ch) // 2
+        dest = os.path.join(dest_dir, f"{stem}_{cw}x{ch}_{int(time.time() * 1000)}.png")
+        im.crop((left, top, left + cw, top + ch)).save(dest)
+        return dest
+
+
+async def _crop_to_shape(media_id: int, out_w: float, out_h: float,
+                         workspace_dir: Optional[str]) -> Optional[str]:
+    """Center-crop a library image to the out_w:out_h shape; path of the copy."""
+    from database_registry import get_database_registry
+
+    db = get_database_registry().get_database(get_current_profile())
+    async with db.async_session_maker() as crop_session:
+        path = (await crop_session.execute(
+            select(MediaItem.file_path).where(MediaItem.id == int(media_id))
+        )).scalar_one_or_none()
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        return await asyncio.to_thread(
+            _center_crop_file, path, out_w, out_h,
+            _get_default_folder(workspace_dir), f"frame_{media_id}")
+    except Exception as e:
+        log.warning(f"[call_tool_v2] Could not crop start frame {media_id}: {e}")
+        return None
+
 async def execute_call_tool(
     tool_id: str,
     parameters: Optional[Dict[str, Any]] = None,
@@ -601,24 +652,60 @@ async def execute_call_tool(
         if any(i is not None for i in ids):
             final_params.setdefault(lineage_id_key(name), ids)
 
-    # 4b. A caller that leaves the output size to the tool gets the shape of
-    #     the media that sets the frame, as in ToolView; schema defaults would
-    #     otherwise stretch or crop a start frame of another shape.
+    # 4b. Output shape follows the media that sets the frame, as in ToolView.
+    #     A pinned frame (keyframe, or a video's start image) is part of the
+    #     output, so its shape wins even over a caller's explicit size: a
+    #     different shape would stretch it. The caller's size still sets the
+    #     pixel count. Other inputs (references, edit sources) only fill in an
+    #     omitted size.
+    shape_note: Optional[str] = None
     if not metadata_only:
-        frame_id = _pinned_frame_media_id(final_params, nested_ids) or first_input_id
+        pinned_id = _pinned_frame_media_id(final_params, nested_ids)
+        start_id = first_input_id if task_type == "image-to-video" else None
+        locked_id = pinned_id or start_id
+        frame_id = locked_id or first_input_id
         props = param_schema.get("properties", {})
-        follow_dims = not caller_set_dims and "width" in props and "height" in props
-        follow_aspect = not caller_set_aspect and "aspect_ratio" in props
-        if frame_id is not None and (follow_dims or follow_aspect):
-            src = await _media_dims(frame_id)
-            if src:
-                if follow_dims:
-                    width, height = follow_input_dims(tool_descriptor, *src)
-                if follow_aspect:
-                    choice = nearest_aspect_choice(
-                        props["aspect_ratio"].get("enum") or [], *src)
-                    if choice is not None:
-                        final_params["aspect_ratio"] = choice
+        has_dims = "width" in props and "height" in props
+        has_aspect = "aspect_ratio" in props
+        may_change = locked_id is not None or (has_dims and not caller_set_dims) or (
+            has_aspect and not caller_set_aspect)
+        src = await _media_dims(frame_id) if frame_id is not None and may_change else None
+        if src:
+            if has_dims and not caller_set_dims:
+                width, height = follow_input_dims(tool_descriptor, *src)
+            elif has_dims and locked_id is not None and aspect_mismatch(width, height, *src) > 0.02:
+                asked = (width, height)
+                width, height = frame_shaped_dims(tool_descriptor, *src, width, height)
+                shape_note = (
+                    f"Asked for {asked[0]}x{asked[1]}, but the start frame is {src[0]}x{src[1]}; "
+                    f"made {width}x{height} so the frame keeps its shape. "
+                    "For another shape, crop or outpaint the frame first."
+                )
+            if has_aspect and (not caller_set_aspect or locked_id is not None):
+                choice = nearest_aspect_choice(props["aspect_ratio"].get("enum") or [], *src)
+                if choice is not None and choice != final_params.get("aspect_ratio"):
+                    if caller_set_aspect:
+                        shape_note = (
+                            f"Asked for aspect_ratio {final_params.get('aspect_ratio')}, but the start "
+                            f"frame is {src[0]}x{src[1]}; used {choice} so the frame keeps its shape."
+                        )
+                    final_params["aspect_ratio"] = choice
+        # A tool with fixed shapes may still not fit the start frame. Center-crop
+        # it to the output's shape rather than let the tool stretch it.
+        if src and start_id is not None and start_id == locked_id:
+            out_shape = None
+            if has_aspect and final_params.get("aspect_ratio"):
+                out_shape = _parse_ratio(final_params["aspect_ratio"])
+            elif has_dims:
+                out_shape = (width, height)
+            if out_shape and aspect_mismatch(*out_shape, *src) > 0.02:
+                cropped = await _crop_to_shape(start_id, *out_shape, kwargs.get("workspace_dir"))
+                if cropped:
+                    final_params["input_images"] = [cropped, *final_params["input_images"][1:]]
+                    final_params["input_media_ids"] = [start_id, *(final_params.get("input_media_ids") or [])[1:]]
+                    note = (f"This tool has no {src[0]}x{src[1]} shape; the start frame was "
+                            "center-cropped to fit instead of stretched.")
+                    shape_note = f"{shape_note} {note}" if shape_note else note
 
     # 5a. Metadata-only builtin tools (e.g. detect-objects) don't produce media —
     #     the generation queue is image-shaped end to end (output file, ingest,
@@ -925,6 +1012,7 @@ async def execute_call_tool(
         # What the tool actually received when enhancement rewrote the prompt.
         "sent_prompt": job_params.get("prompt") if job_params.get("prompt") != prompt else None,
         "prompt_note": prompt_note,
+        "shape_note": shape_note,
         # With vary: what this image drew, and the seed that repeats it.
         "choices": prepared.choices,
         "draw_seed": prepared.draw_seed,
@@ -936,9 +1024,9 @@ async def execute_call_tool(
     description=(
         "Execute an STP generation tool. Use discover first to find tool_id and check schema. "
         "Pass all tool arguments in a single `parameters` object: prompt, input_images (list of "
-        "media_id ints or preprocessed paths), width, height (for aspect ratio), seed, loras, plus "
+        "media_id ints or preprocessed paths), width, height, seed, loras, plus "
         "any tool-specific generation knobs (steps, cfg, guidance, ...). Omitted parameters use "
-        "schema defaults automatically. Omit seed for random results (the default). Only pass seed "
+        "schema defaults automatically, and an omitted width/height follows the input image's shape. Omit seed for random results (the default). Only pass seed "
         "for reproducibility. For controlnet, pass controlnet='pose' (or canny, depth, lineart, etc.) "
         "alongside input_images — preprocessing happens automatically."
     ),

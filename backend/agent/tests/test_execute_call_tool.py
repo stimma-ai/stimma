@@ -475,7 +475,7 @@ async def test_metadata_only_builtin_tool_executes_in_process(tmp_path):
 _VIDEO_DIMS = [[1344, 768], [768, 1344], [1024, 768], [768, 1024], [768, 768], [960, 544], [544, 960]]
 
 
-def _video_reg(extra_props=None):
+def _video_reg(extra_props=None, task_types=("image-to-video",)):
     props = {
         "prompt": {"type": "string", "default": ""},
         "input_images": {"type": "array"},
@@ -493,7 +493,7 @@ def _video_reg(extra_props=None):
     props.update(extra_props or {})
     desc = _Desc(
         name="Mock I2V",
-        task_types=["image-to-video"],
+        task_types=list(task_types),
         task_type="image-to-video",
         parameter_schema={"type": "object", "properties": props, "required": ["prompt"]},
     )
@@ -509,7 +509,11 @@ def _video_reg(extra_props=None):
     return _Reg2
 
 
-async def _submit(reg, parameters, dims_by_id):
+async def _no_crop(*a, **k):
+    return "/tmp/cropped.png"
+
+
+async def _submit(reg, parameters, dims_by_id, task_type="image-to-video", crop=None):
     captured = {}
 
     class _Queue:
@@ -526,12 +530,13 @@ async def _submit(reg, parameters, dims_by_id):
     with patch.object(ct, "ProviderRegistry", reg), \
          patch.object(ct, "get_generation_queue", lambda: _Queue()), \
          patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"), \
-         patch.object(ct, "_media_dims", _dims):
+         patch.object(ct, "_media_dims", _dims), \
+         patch.object(ct, "_crop_to_shape", crop or _no_crop):
         with pytest.raises(RuntimeError, match="__stop__"):
             await ct.execute_call_tool(
                 tool_id="comfyui:mock-i2v",
                 parameters=parameters,
-                task_type_override="image-to-video",
+                task_type_override=task_type,
                 session=object(),
             )
     return captured["params"]
@@ -558,11 +563,75 @@ async def test_omitted_size_follows_earliest_keyframe_over_reference_images():
 
 
 @pytest.mark.asyncio
-async def test_explicit_size_is_kept_even_when_frame_differs():
+async def test_explicit_size_takes_the_start_frame_shape():
+    """A start frame is the video's first frame: an explicit size of another
+    shape would stretch it, so the frame's shape wins at the asked size tier."""
     p = await _submit(
         _video_reg(),
         {"prompt": "walks", "input_images": [11], "width": 1344, "height": 768},
         {11: (896, 1152)},
+    )
+    assert (p["width"], p["height"]) == (768, 1024)
+
+
+@pytest.mark.asyncio
+async def test_explicit_size_on_freeform_tool_keeps_frame_shape_and_pixel_count():
+    reg = _video_reg({
+        "width": {"type": "integer", "default": 1280, "minimum": 256, "maximum": 2048, "x-step": 32},
+        "height": {"type": "integer", "default": 720, "minimum": 256, "maximum": 2048, "x-step": 32},
+    })
+    p = await _submit(
+        reg,
+        {"prompt": "walks", "input_images": [11], "width": 1280, "height": 720},
+        {11: (1000, 1500)},
+    )
+    w, h = p["width"], p["height"]
+    assert abs(w / h - 1000 / 1500) < 0.03
+    assert abs(w * h - 1280 * 720) / (1280 * 720) < 0.1
+
+
+@pytest.mark.asyncio
+async def test_matching_explicit_size_is_kept():
+    p = await _submit(
+        _video_reg(),
+        {"prompt": "walks", "input_images": [11], "width": 960, "height": 544},
+        {11: (1920, 1088)},
+    )
+    assert (p["width"], p["height"]) == (960, 544)
+
+
+@pytest.mark.asyncio
+async def test_explicit_aspect_ratio_takes_the_start_frame_shape():
+    reg = _video_reg({"aspect_ratio": {"type": "string", "enum": ["16:9", "9:16", "1:1"], "default": "16:9"}})
+    p = await _submit(
+        reg, {"prompt": "walks", "input_images": [11], "aspect_ratio": "16:9"}, {11: (720, 1280)})
+    assert p["aspect_ratio"] == "9:16"
+
+
+@pytest.mark.asyncio
+async def test_start_frame_no_fixed_shape_fits_is_cropped_not_stretched():
+    calls = []
+
+    async def _crop(media_id, w, h, workspace_dir):
+        calls.append((media_id, w, h))
+        return "/tmp/cropped.png"
+
+    reg = _video_reg({"aspect_ratio": {"type": "string", "enum": ["16:9", "9:16"], "default": "16:9"}})
+    p = await _submit(
+        reg, {"prompt": "walks", "input_images": [11]}, {11: (1000, 1000)}, crop=_crop)
+    assert calls and calls[0][0] == 11
+    assert p["input_images"][0] == "/tmp/cropped.png"
+    assert p["input_media_ids"][0] == 11
+
+
+@pytest.mark.asyncio
+async def test_image_edit_keeps_an_explicit_size_of_another_shape():
+    """An edit source is not a pinned frame; a deliberate new shape stands."""
+    p = await _submit(
+        _video_reg(task_types=("image-to-video", "image-to-image")),
+        {"prompt": "banner", "input_images": [11], "width": 1344, "height": 768},
+        {11: (896, 1152)},
+        task_type="image-to-image",
     )
     assert (p["width"], p["height"]) == (1344, 768)
 
@@ -630,3 +699,16 @@ async def test_a_prompt_its_caller_already_processed_goes_out_as_given():
                 prompt_processed=True,
             )
     assert captured["params"]["prompt"] == raw
+
+
+def test_center_crop_file_keeps_the_middle_at_the_output_shape(tmp_path):
+    from PIL import Image
+
+    src = tmp_path / "square.png"
+    im = Image.new("RGB", (1000, 1000), "red")
+    im.paste((0, 0, 255), (0, 0, 1000, 100))  # a band the crop should remove
+    im.save(src)
+    out = ct._center_crop_file(str(src), 16, 9, str(tmp_path), "frame_1")
+    with Image.open(out) as c:
+        assert c.size == (1000, 562)
+        assert c.getpixel((500, 0)) == (255, 0, 0)

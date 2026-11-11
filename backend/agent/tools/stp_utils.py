@@ -286,6 +286,42 @@ def follow_input_dims(tool_descriptor, src_w: float, src_h: float) -> Tuple[int,
     return snap_dims_to_schema(tool_descriptor, src_w * scale, src_h * scale)
 
 
+def frame_shaped_dims(tool_descriptor, src_w: float, src_h: float,
+                      want_w: float, want_h: float) -> Tuple[int, int]:
+    """Output size for a call that asked for want_w×want_h while a pinned frame
+    of src_w×src_h fixes the shape: the frame's shape at the requested pixel
+    count. A tool with a fixed size list gets its pair nearest that shape, at
+    the size tier closest to the request."""
+    allowed = _get_allowed_dimensions(tool_descriptor)
+    if allowed:
+        target = math.log(src_w / src_h)
+
+        def dist(pair):
+            return abs(math.log(pair[0] / pair[1]) - target)
+
+        best = min(dist(p) for p in allowed)
+        shape = [p for p in allowed if dist(p) - best < 0.02]
+        area = want_w * want_h
+        pick = min(shape, key=lambda p: abs(math.log(p[0] * p[1] / area)))
+        return int(pick[0]), int(pick[1])
+    scale = math.sqrt((want_w * want_h) / (src_w * src_h))
+    props = (tool_descriptor.parameter_schema or {}).get("properties", {})
+    w_p = props.get("width", {})
+    h_p = props.get("height", w_p)
+    high = min(
+        (w_p.get("maximum") or math.inf) / src_w,
+        (h_p.get("maximum") or math.inf) / src_h,
+    )
+    low = max((w_p.get("minimum") or 0) / src_w, (h_p.get("minimum") or 0) / src_h)
+    scale = min(high, max(low, scale))
+    return snap_dims_to_schema(tool_descriptor, src_w * scale, src_h * scale)
+
+
+def aspect_mismatch(w1: float, h1: float, w2: float, h2: float) -> float:
+    """How far apart two shapes are, as |log(ratio1 / ratio2)|; 0.02 ≈ 2%."""
+    return abs(math.log((w1 / h1) / (w2 / h2)))
+
+
 def nearest_aspect_choice(choices: List[Any], width: float, height: float) -> Optional[str]:
     """Pick the "W:H" choice closest to width/height. Mirrors ToolView's
     findNearestAspectRatio; returns None when no choice is parseable."""

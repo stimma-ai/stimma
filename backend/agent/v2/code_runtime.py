@@ -1957,6 +1957,8 @@ class StimmaSDK:
             (self._stdout_print or print)(
                 f"[{tool_id}] {result['prompt_note']} See .sent_prompt on the result."
             )
+        if result.get("shape_note"):
+            (self._stdout_print or print)(f"[{tool_id}] {result['shape_note']}")
         self._tool_results.append(tool_result)
         # Also propagate to session-level tracking so subsequent tool calls see it
         if tool_result.media_id is not None:
