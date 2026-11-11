@@ -101,6 +101,7 @@ class AdditionStore:
             if any(_norm(x) == _norm(text) for x in have):
                 return False
             have.append(text)
+            del have[:-MAX_PER_LIST]  # a list keeps its newest: the oldest make room
             self._write(lists)
             return True
 
@@ -121,6 +122,8 @@ class AdditionStore:
         blob = json.dumps(self._read(), sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
+
+MAX_PER_LIST = 500
 
 _stores: Dict[str, AdditionStore] = {}
 
