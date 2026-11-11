@@ -674,14 +674,15 @@ async def execute_call_tool(
         if src:
             if has_dims and not caller_set_dims:
                 width, height = follow_input_dims(tool_descriptor, *src)
-            elif has_dims and locked_id is not None and aspect_mismatch(width, height, *src) > 0.02:
+            elif has_dims and locked_id is not None:
                 asked = asked_dims
                 width, height = frame_shaped_dims(tool_descriptor, *src, *asked)
-                shape_note = (
-                    f"Asked for {asked[0]}x{asked[1]}, but the start frame is {src[0]}x{src[1]}; "
-                    f"made {width}x{height} so the frame keeps its shape. "
-                    "For another shape, crop or outpaint the frame first."
-                )
+                if aspect_mismatch(*asked, *src) > 0.02:
+                    shape_note = (
+                        f"Asked for {asked[0]}x{asked[1]}, but the start frame is {src[0]}x{src[1]}; "
+                        f"made {width}x{height} so the frame keeps its shape. "
+                        "For another shape, crop or outpaint the frame first."
+                    )
             if has_aspect and (not caller_set_aspect or locked_id is not None):
                 choice = nearest_aspect_choice(props["aspect_ratio"].get("enum") or [], *src)
                 if choice is not None and choice != final_params.get("aspect_ratio"):

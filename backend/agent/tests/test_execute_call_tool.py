@@ -598,6 +598,9 @@ async def test_explicit_size_keeps_its_tier_when_shapes_repeat():
     p = await _submit(
         reg, {"prompt": "walks", "input_images": [11], "width": 640, "height": 360}, {11: (720, 1280)})
     assert (p["width"], p["height"]) == (360, 640)
+    p = await _submit(
+        reg, {"prompt": "walks", "input_images": [11], "width": 360, "height": 640}, {11: (720, 1280)})
+    assert (p["width"], p["height"]) == (360, 640)
 
 
 @pytest.mark.asyncio
