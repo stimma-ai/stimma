@@ -116,9 +116,18 @@ class _People(ast.NodeTransformer):
         # A detail the program names as the person's own (`woman.hair` in an emit(), `woman.noun`): the
         # program places that pick itself, so the description leaves it out and it is said once.
         self.by_hand: Dict[str, Set[str]] = {}
-        for n in ast.walk(tree):
-            if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id in names and (k := _name(n.attr)):
-                self.by_hand.setdefault(n.value.id, set()).add(k)
+        for call in ast.walk(tree):   # only what an emit() places: `about=f"a hat for {w.hair} hair"` places nothing
+            if not (isinstance(call, ast.Call) and getattr(call.func, "id", None) == "emit"):
+                continue
+            for n in (x for arg in call.args for x in ast.walk(arg)):
+                if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id in names and (k := _name(n.attr)):
+                    self.by_hand.setdefault(n.value.id, set()).add(k)
+        # The variable of each pick the program wrote itself, by its id: `woman.hair` is that pick when it is theirs.
+        self.own_vars: Dict[str, str] = {
+            _id_text(n.value.args[0]): n.targets[0].id for n in ast.walk(tree)
+            if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name)
+            and isinstance(n.value, ast.Call) and getattr(n.value.func, "id", None) == "pick" and n.value.args}
+        self.ids_of: Dict[str, str] = {}                          # person variable -> their id as written
         self.vars: Dict[str, Dict[str, str]] = {}                 # variable -> detail -> the pick's variable
         # A person the program places a second time is "the woman" there: described once, where they first stand.
         self.again: Dict[str, List[ast.expr]] = {}
@@ -185,6 +194,7 @@ class _People(ast.NodeTransformer):
             out.append(ast.Assign(targets=[ast.Name(var[k], ast.Store())], value=pick, lineno=call.lineno))
 
         self.vars[target] = var
+        self.ids_of[target] = _id_text(id_node)
         placed_by_hand = self.by_hand.get(target, set())
 
         def name(k: str) -> ast.expr:
@@ -260,9 +270,11 @@ class _People(ast.NodeTransformer):
     def _stand(self, target: str) -> List[ast.expr]:
         """The person where the program put them: their description the first time, in a loop
         every time (each pass is another person), and "the woman" wherever they stand again."""
-        if target in self.described and not self.loops and not self.branches:
+        apart = self.loops or self.branches   # may not run, or runs once per person: never the only description
+        if target in self.described and not apart:
             return list(self.again[target])
-        self.described.add(target)
+        if not apart:
+            self.described.add(target)
         return list(self.people[target][1])
 
     def visit_Attribute(self, node: ast.Attribute) -> Any:
@@ -271,6 +283,9 @@ class _People(ast.NodeTransformer):
             k = _name(node.attr)
             if k in self.vars.get(node.value.id, {}):
                 return ast.Name(self.vars[node.value.id][k], ast.Load())
+            own = self.own_vars.get(f"{self.ids_of.get(node.value.id, '')}.{k}") if k else None
+            if own:   # the detail is the program's own pick (person() left it to that pick)
+                return ast.Name(own, ast.Load())
             if node.attr == "noun":
                 return ast.Constant(self.people[node.value.id][0])
         return self.generic_visit(node)

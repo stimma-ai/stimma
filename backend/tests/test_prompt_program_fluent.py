@@ -547,6 +547,7 @@ class TestStructuredOptions:
         from prompt_programs.options import clean_option, torn
         assert clean_option('"her chestnut hair"') == "her chestnut hair"       # a quoted option is its text
         assert clean_option('a sign that says "OPEN"') == 'a sign that says "OPEN"'
+        assert clean_option('a 12" vinyl record') == 'a 12" vinyl record'
         for bad in ('tired frown"', 'a maroon red door<|"|>', "a burgundy red door</li>,", "standing tall**\n,",
                     'fear: [\n  "a weary look'):
             assert torn(bad) and clean_option(bad) is None

@@ -448,7 +448,8 @@ def torn(o: Any) -> bool:
     ('a maroon red door<|"|>', 'fear: [\n  "a weary look'), and its neighbors in that list are
     then pieces of options split at their commas, which nothing can tell from whole ones."""
     s = str(o).strip()
-    return "\n" in s or s.count('"') % 2 == 1 or bool(_MARKUP.search(s))
+    quotes = len(re.findall(r'(?<!\d)"', s))   # 12" is inches, not a quotation mark
+    return "\n" in s or quotes % 2 == 1 or bool(_MARKUP.search(s))
 
 
 def clean_option(o: Any) -> Optional[str]:

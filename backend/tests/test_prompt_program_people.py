@@ -53,6 +53,23 @@ class TestEveryPersonIsFullyDescribed:
         assert second == "emit('Behind', 'the', 'man', ', gulls.')"
         analyze(src)
 
+    def test_a_placement_that_may_not_run_never_stands_for_the_description(self):
+        src = expand_people('w = person("woman", noun="woman")\nif False:\n    emit(w)\nemit("A portrait of", w)\n')
+        assert "w_age" in src.strip().splitlines()[-1]
+
+    def test_a_detail_named_as_the_persons_own_is_the_programs_pick_when_it_wrote_one(self):
+        src = expand_people('w = person("woman", noun="woman")\n'
+                            'h = pick("woman.hair", seed=["curly"], about="her hair", phase=2, added=True)\n'
+                            'emit(w, "with", w.hair, "hair")\n')
+        assert src.strip().splitlines()[-1].endswith("'with', h, 'hair')")
+        analyze(src)
+
+    def test_a_detail_named_outside_emit_stays_in_the_description(self):
+        src = expand_people('w = person("woman", noun="woman")\n'
+                            'hat = pick("hat", about=f"a hat for {w.hair} hair", seed=["a beret"], phase=3, added=True)\n'
+                            'emit(w, "wearing", hat)\n')
+        assert "w_hair, w_hair_color, 'hair'" in src.strip().splitlines()[-1]
+
     def test_the_description_stands_where_the_program_put_the_person(self):
         emit = expand_people(ONE).strip().splitlines()[-1]
         assert emit.startswith("emit('A portrait of', 'a', woman_build, woman_age, woman_descent, 'woman', 'with', woman_skin, 'skin'")
