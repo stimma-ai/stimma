@@ -927,6 +927,9 @@ async def execute_call_tool(
     on_job_submitted = kwargs.get("on_job_submitted")
     if callable(on_job_submitted):
         on_job_submitted(job_id)
+    if callable(cancel_checker) and cancel_checker():
+        # Cancelled while the job was being submitted, before its id was known.
+        await queue.cancel_job(job_id, profile_id=get_current_profile(), error="Cancelled by the agent")
 
     interrupt_checker = kwargs.get("interrupt_checker")
 

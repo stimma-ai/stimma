@@ -107,3 +107,44 @@ async def test_a_steer_reaches_the_agent_while_its_code_keeps_running(db_session
                 break
             await asyncio.sleep(0.02)
         assert len(notes) == 1 and 'ten videos done' in notes[0].message_text
+
+
+@pytest.mark.asyncio
+async def test_a_receipt_arriving_as_the_turn_ends_still_reaches_the_chat(db_session, monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from sqlalchemy import select
+
+    from agent.v2 import service
+    from database import Chat, ChatItem
+    from tests.helpers.ws import MockWebSocketManager
+
+    woke = []
+
+    async def fake_run(chat_id, user_message, profile_id, *args, **kwargs):
+        woke.append(chat_id)
+
+    monkeypatch.setattr("routes.chats._run_agent_background", fake_run)
+    async with db_session() as session:
+        chat = Chat(name="Late receipt")
+        session.add(chat)
+        await session.commit()
+        ws = MockWebSocketManager()
+        note = {"text": "<task-notification>\nlate\n</task-notification>",
+                "task": {"id": "bg-1", "label": "x", "state": "completed"}}
+
+        async def loop(*args, **kwargs):
+            # The task finishes while the turn's last reply is being written.
+            await service.deliver_background_notification(chat.id, note, ws, wake=True)
+
+        monkeypatch.setattr(service, "_run_agentic_loop", loop)
+        await service.run_agent(chat, None, session, ws)
+        for _ in range(100):
+            if woke:
+                break
+            await asyncio.sleep(0.02)
+        items = (await session.execute(select(ChatItem).where(ChatItem.chat_id == chat.id))).scalars().all()
+        assert [i.message_text for i in items] == [note["text"]]
+        assert woke == [chat.id]

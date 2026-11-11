@@ -221,8 +221,17 @@ async def _wake_for_notification(chat_id: int, notification_id: int, profile_id:
                 ChatItem.item_type.in_(("assistant_message", "tool_call", "user_message")),
             ).limit(1)
         )).scalar_one_or_none()
-    if later is not None or is_execution_active(chat_id):
+        chat = await session.get(Chat, chat_id)
+        settings = {}
+        if chat is not None and chat.generation_settings:
+            try:
+                settings = json.loads(chat.generation_settings)
+            except (json.JSONDecodeError, TypeError):
+                settings = {}
+    if later is not None or is_execution_active(chat_id) or chat is None:
         return  # a turn since then has seen it
+    if "_v2_pending" in settings or "_v2_ask_pending" in settings:
+        return  # waiting on the user; the receipt is in history for when they answer
     from routes.chats import _run_agent_background
     await _run_agent_background(chat_id, None, profile_id)
 
@@ -235,6 +244,20 @@ async def _on_background_finished(run, output: str) -> None:
         "task": {"id": run.id, "label": run.label, "state": run.state},
     }
     await deliver_background_notification(run.chat_id, note, run.ws_manager or global_ws, wake=run.wake)
+
+
+def _end_execution(chat_id: int, ws_manager) -> None:
+    """Bookkeeping when a run ends, however it ends."""
+    _active_chat_executions.discard(_chat_key(chat_id))
+    _active_chat_tasks.pop(_chat_key(chat_id), None)
+    _drop_pending_steers(chat_id)
+    stopped = _is_interrupted(chat_id)
+    _clear_interrupt(chat_id)
+    # Background receipts that arrived too late for this run still reach the
+    # chat; they start a turn of their own unless the user stopped this one.
+    leftover = _pending_notifications.pop(_chat_key(chat_id), None)
+    if leftover:
+        asyncio.create_task(_flush_notifications(chat_id, leftover, ws_manager, allow_wake=not stopped))
 
 
 def _max_turns_for_chat(chat: Chat) -> int:
@@ -1369,10 +1392,7 @@ async def run_agent(
         _track_agent_turn("failed", error_type=_error_type)
 
     finally:
-        _active_chat_executions.discard(_chat_key(chat_id))
-        _active_chat_tasks.pop(_chat_key(chat_id), None)
-        _drop_pending_steers(chat_id)
-        _clear_interrupt(chat_id)
+        _end_execution(chat_id, ws_manager)
 
 
 class _PermissionPause(Exception):
@@ -2459,10 +2479,7 @@ async def resume_after_hitl(
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
     finally:
-        _active_chat_executions.discard(_chat_key(chat_id))
-        _active_chat_tasks.pop(_chat_key(chat_id), None)
-        _drop_pending_steers(chat_id)
-        _clear_interrupt(chat_id)
+        _end_execution(chat_id, ws_manager)
 
 
 async def resume_after_ask_user(
@@ -2566,16 +2583,7 @@ async def resume_after_ask_user(
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
     finally:
-        _active_chat_executions.discard(_chat_key(chat_id))
-        _active_chat_tasks.pop(_chat_key(chat_id), None)
-        _drop_pending_steers(chat_id)
-        stopped = _is_interrupted(chat_id)
-        _clear_interrupt(chat_id)
-        # Background receipts that arrived too late for this run still reach
-        # the chat; they start a turn of their own unless the user stopped this one.
-        leftover = _pending_notifications.pop(_chat_key(chat_id), None)
-        if leftover:
-            asyncio.create_task(_flush_notifications(chat_id, leftover, ws_manager, allow_wake=not stopped))
+        _end_execution(chat_id, ws_manager)
 
 
 STOP_MARKER_TEXT = "The user interrupted the current operation."

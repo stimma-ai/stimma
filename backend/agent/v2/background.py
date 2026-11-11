@@ -73,6 +73,9 @@ class RunControl:
         self.cancel_new = False
         self.detached = False
         self.session_maker = session_maker
+        # Job ids are profile-local; cancels must stay in the owning profile.
+        from core.profile_context import get_current_profile
+        self.profile_id = get_current_profile()
 
     # -- hooks used by the SDK ------------------------------------------------
 
@@ -124,7 +127,7 @@ class RunControl:
             item.cancel_requested = True
             if item.job_id is not None:
                 try:
-                    await queue.cancel_job(item.job_id, error="Cancelled by the agent")
+                    await queue.cancel_job(item.job_id, profile_id=self.profile_id, error="Cancelled by the agent")
                 except Exception as e:  # the item may finish in the meantime
                     log.warning(f"background: cancel job {item.job_id} failed: {e}")
         return [i.item for i in targets]

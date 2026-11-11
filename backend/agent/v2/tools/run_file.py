@@ -27,10 +27,19 @@ from ._workspace_files import resolve_workspace_path
             type="string",
             description="Workspace-relative path to a .py file to execute",
         ),
+        ToolParameter(
+            name="background",
+            type="boolean",
+            description=(
+                "Run the file in the background: the call returns a task id right away and you get a "
+                "notification with the receipt when it finishes (see run_code)."
+            ),
+            required=False,
+        ),
     ],
     scope="agent",
 )
-async def run_file(file_path: str, **kwargs) -> str:
+async def run_file(file_path: str, background: bool = False, **kwargs) -> str:
     workspace_dir = kwargs.get("workspace_dir")
     session = kwargs.get("session")
     chat_id = kwargs.get("chat_id")
@@ -55,4 +64,5 @@ async def run_file(file_path: str, **kwargs) -> str:
         return f"Error reading {file_path}: {e}"
 
     from .run_code import run_code_detachable
-    return await run_code_detachable(code, **kwargs)
+    background = background is True or str(background).lower() == "true"
+    return await run_code_detachable(code, background=background, **kwargs)
