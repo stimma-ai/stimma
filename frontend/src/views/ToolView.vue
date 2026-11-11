@@ -5537,8 +5537,8 @@ function noSubmit(options: ForeverSubmitOptions, declineReservation = true): Sub
   }
 }
 
-// The declined prompt the user was last told about (see switchDeclinedToDirect).
-let declinedToldFor: string | null = null
+// The declined prompts the user has been told about (see switchDeclinedToDirect).
+const declinedTold = new Set<string>()
 
 /** {{names}} in the prompt that aren't saved wildcards or segments (so only a model can fill them). */
 const { wildcards: savedWildcards } = useWildcards()
@@ -5698,9 +5698,9 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     direct: directMode.value, promptOptions: globalPrefs.value.promptOptions,
     // Direct stops on a {{name}} that isn't saved; this prompt keeps running as it just did
     directCantRun: unknownSmartNames(declinedPrompt).length > 0,
-    told: declinedToldFor === declinedPrompt,
+    told: declinedTold.has(declinedPrompt),
     set: (next) => { globalPrefs.value.promptOptions = next },
-    notify: (message) => { declinedToldFor = declinedPrompt; addToast(message, 'info', 8000) },
+    notify: (message) => { declinedTold.add(declinedPrompt); addToast(message, 'info', 8000) },
   })
   return { submitted, declineReservation }
 }
