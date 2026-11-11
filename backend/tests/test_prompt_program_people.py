@@ -87,6 +87,11 @@ class TestNothingIsDrawnTwiceOrLeftOut:
         from prompt_programs.draws import draw
         assert "A portrait of a slender" in draw(src, 1).prompt
 
+    def test_the_rest_of_an_emitted_f_string_stays_one_string(self):
+        from prompt_programs.draws import draw
+        src = expand_people('w = person("woman", noun="woman")\nh = 12\nemit(f"Portrait of {w}, at {h:02}:{30:02}, in {\'day\'}light.")\n')
+        assert ", at 12:30, in daylight." in draw(src, 1).prompt
+
     def test_leave_and_a_program_without_people(self):
         src = expand_people('w = person("w", noun="woman", leave=["eyes", "build"])\nemit(w, ", with emerald eyes.")\n')
         assert "w_eyes" not in src and "w_build" not in src and "w_face" in src

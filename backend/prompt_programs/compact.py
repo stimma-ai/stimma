@@ -116,9 +116,11 @@ def unpack_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
         leaf = vocabulary().get(ref.get(REF) or c.get("cls"))
         if leaf is not None and isinstance(c.get("where"), dict):
             own = {f: v for f, v in c["where"].items() if f in leaf.local_facets}
-            if own:
-                return [v.text for v in leaf.matching(own)]
-        return now(leaf.id if leaf is not None else None)
+            if own and (matched := [v.text for v in leaf.matching(own)]):
+                return matched
+        # Never empty while the list exists: an empty filter means "drawn without the list",
+        # which is another pool key.
+        return (now(leaf.id) or [v.text for v in leaf.values]) if leaf is not None else []
     out = dict(entry)
     if isinstance(entry.get("choices"), list):
         out["choices"] = [{**c, "options": got if (got := unpack_values(c["options"])) is not None else now(c.get("cls"))}

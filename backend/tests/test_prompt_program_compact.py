@@ -78,6 +78,23 @@ class TestListsByReference:
         assert again.prompt == first.prompt
 
 
+    def test_a_filter_whose_part_matches_nothing_today_still_replays_its_recorded_pool(self, tmp_path, monkeypatch):
+        import dataclasses as dc
+        e, store, cfg = entry(), OptionStore(tmp_path / "o"), dataclasses.replace(settings(), generate_options=False)
+        programs = ProgramStore(tmp_path / "p")
+        programs.put(KEY, e)
+        first = realize(e, seed=5, runtime=runtime_for(e, store=store, cfg=cfg))
+        v = vocabulary()
+        face = v.leaves["person.face"]   # a release in which no face is tagged for a woman any more
+        monkeypatch.setitem(v.leaves, "person.face", dc.replace(face, values=tuple(
+            dc.replace(x, tags={**x.tags, "presentation": ["masculine"]}) for x in face.values)))
+        monkeypatch.setattr(v, "version", "vocab-222222222222")
+        later = programs.get(KEY)
+        assert later["filters"]["woman.face"]
+        again = realize(later, seed=5, runtime=runtime_for(later, store=store, cfg=cfg, revision=first.to_dict()["draw_revision"]))
+        assert again.prompt == first.prompt
+
+
 class TestRecordedPools:
     def cfg(self):
         return dataclasses.replace(settings(), generate_options=False)

@@ -207,13 +207,17 @@ class _People(ast.NodeTransformer):
                     args += self.people[a.id][1]
                 elif any(x.id in self.people for x in _formatted(a)):
                     # emit(f"A portrait of {woman} in her kitchen."): the text around her, and her description between
-                    for v in a.values:
-                        if isinstance(v, ast.FormattedValue) and isinstance(v.value, ast.Name) and v.value.id in self.people:
+                    # Split only at the person: the rest of the f-string stays one string, as written.
+                    run: List[ast.expr] = []
+                    for v in [*a.values, None]:
+                        here = isinstance(v, ast.FormattedValue) and isinstance(v.value, ast.Name) and v.value.id in self.people
+                        if (v is None or here) and run:
+                            args.append(run[0] if len(run) == 1 and isinstance(run[0], ast.Constant) else ast.JoinedStr(values=run))
+                            run = []
+                        if here:
                             args += self.people[v.value.id][1]
-                        elif isinstance(v, ast.Constant):
-                            args.append(v)
-                        else:
-                            args.append(ast.JoinedStr(values=[self.visit(v)]))
+                        elif v is not None:
+                            run.append(self.visit(v))
                 else:
                     args.append(self.visit(a))
             node.args = args
