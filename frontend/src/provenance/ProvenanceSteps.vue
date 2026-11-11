@@ -34,12 +34,12 @@
         <!-- What the editor did, when this step came out of the editor -->
         <EditSteps :steps="step.editSteps" />
 
-        <PromptBlock :text="step.prompt" :label="promptLabels ? 'Prompt' : ''" />
+        <!-- The prompt the image was made from; when the user typed it
+             differently, a switch shows that version in its place. -->
         <PromptBlock
-          v-if="step.originalPrompt"
-          :text="step.originalPrompt"
-          label="Original prompt"
-          muted
+          :text="step.prompt || step.originalPrompt"
+          :as-typed="step.prompt ? step.originalPrompt : null"
+          :label="promptLabels ? 'Prompt' : ''"
         />
         <PromptBlock :text="step.negativePrompt" label="Negative prompt" />
 

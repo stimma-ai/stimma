@@ -16,6 +16,7 @@ import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { bracketMatching } from '@codemirror/language'
 import { registerVimSaveHandler, useVimToggle, vimPanelKeydownHandler } from './codeMirrorVim'
 import { webkitSelectionLayer } from './webkitSelectionLayer'
+import { lineSyntaxRanges, type PromptSyntaxKind, type PromptSyntaxMode } from '../utils/promptSyntax'
 
 // --- Diff decoration effects ---
 const addDiffEffect = StateEffect.define<{ from: number; to: number }[]>()
@@ -51,10 +52,8 @@ const diffField = StateField.define<DecorationSet>({
 const diffMark = Decoration.mark({ class: 'cm-diff-added' })
 
 // --- How the prompt will be read: drives what the highlighter marks ---
-// enhance: everything is live. plain (Enhance off or no chat model): {a|b} and
-// known {{names}} still resolve, but unknown {{names}} and # lines need a model.
-// raw: sent exactly as typed, so nothing is special.
-export type PromptSyntaxMode = 'enhance' | 'plain' | 'raw'
+// (see PromptSyntaxMode in utils/promptSyntax.ts, which also holds the tokenizer)
+export type { PromptSyntaxMode }
 interface SyntaxConfig { mode: PromptSyntaxMode; known: Set<string> }
 const setSyntaxEffect = StateEffect.define<SyntaxConfig>()
 const syntaxField = StateField.define<SyntaxConfig>({
@@ -93,78 +92,12 @@ function promptSyntaxHighlighter() {
 
         for (let pos = from; pos < to; ) {
           const line = view.state.doc.lineAt(pos)
-          const text = line.text
-
-          // Comment lines: # at start of line
-          if (/^\s*#/.test(text)) {
-            builder.add(line.from, line.to, mode === 'plain' ? unreadCommentDeco : commentDeco)
-          } else {
-            // Collect all ranges for this line, then sort before adding
-            const ranges: { from: number; to: number; deco: Decoration }[] = []
-            const namedRanges = this.findNamedWildcards(text, line.from, ranges)
-            this.findBraceGroups(text, line.from, ranges, namedRanges)
-            this.findVerbatim(text, line.from, ranges)
-            ranges.sort((a, b) => a.from - b.from)
-            for (const r of ranges) {
-              builder.add(r.from, r.to, r.deco)
-            }
+          for (const r of lineSyntaxRanges(line.text, this.syntax)) {
+            builder.add(line.from + r.from, line.from + r.to, SYNTAX_DECO[r.kind])
           }
-
           pos = line.to + 1
         }
         return builder.finish()
-      }
-
-      findNamedWildcards(text: string, lineStart: number, out: { from: number; to: number; deco: Decoration }[]): { from: number; to: number }[] {
-        const skipRanges: { from: number; to: number }[] = []
-        const re = /\{\{([^{}]+)\}\}/g
-        let match
-        while ((match = re.exec(text)) !== null) {
-          const from = lineStart + match.index
-          const to = from + match[0].length
-          const { mode, known } = this.syntax
-          const needsModel = mode === 'plain' && !known.has(match[1].trim().toLowerCase())
-          out.push({ from, to, deco: needsModel ? needsEnhanceDeco : namedWildcardDeco })
-          skipRanges.push({ from: match.index, to: match.index + match[0].length })
-        }
-        return skipRanges
-      }
-
-      findBraceGroups(text: string, lineStart: number, out: { from: number; to: number; deco: Decoration }[], skipRanges: { from: number; to: number }[] = []) {
-        // Match nested braces containing at least one pipe
-        let i = 0
-        while (i < text.length) {
-          // Skip positions inside named wildcard ranges
-          if (skipRanges.some(r => i >= r.from && i < r.to)) {
-            i++
-            continue
-          }
-          if (text[i] === '{') {
-            const start = i
-            let depth = 1
-            i++
-            let hasPipe = false
-            while (i < text.length && depth > 0) {
-              if (text[i] === '{') depth++
-              else if (text[i] === '}') depth--
-              else if (text[i] === '|' && depth === 1) hasPipe = true
-              i++
-            }
-            if (depth === 0 && hasPipe) {
-              out.push({ from: lineStart + start, to: lineStart + i, deco: wildcardDeco })
-            }
-          } else {
-            i++
-          }
-        }
-      }
-
-      findVerbatim(text: string, lineStart: number, out: { from: number; to: number; deco: Decoration }[]) {
-        const re = /\[([^\]]+)\]/g
-        let match
-        while ((match = re.exec(text)) !== null) {
-          out.push({ from: lineStart + match.index, to: lineStart + match.index + match[0].length, deco: verbatimDeco })
-        }
       }
     },
     { decorations: (v) => v.decorations }
@@ -177,8 +110,16 @@ const commentDeco = Decoration.mark({ class: 'cm-comment-line' })
 // Plain mode (no chat model reads this prompt): # lines are for a model.
 const unreadCommentDeco = Decoration.mark({ class: 'cm-comment-line', attributes: { title: 'No chat model reads this prompt, so # lines are left out of it.' } })
 // Plain mode: a {{name}} that isn't a wildcard or segment needs a model to fill it.
-const needsEnhanceDeco = Decoration.mark({ class: 'cm-needs-enhance', attributes: { title: 'Not a saved wildcard, so nothing can fill it here.' } })
+const needsModelDeco = Decoration.mark({ class: 'cm-needs-enhance', attributes: { title: 'Not a saved wildcard, so nothing can fill it here.' } })
 const verbatimDeco = Decoration.mark({ class: 'cm-verbatim' })
+const SYNTAX_DECO: Record<PromptSyntaxKind, Decoration> = {
+  'wildcard': wildcardDeco,
+  'named-wildcard': namedWildcardDeco,
+  'needs-model': needsModelDeco,
+  'comment': commentDeco,
+  'comment-unread': unreadCommentDeco,
+  'verbatim': verbatimDeco,
+}
 
 // --- Theme ---
 const stimmaTheme = EditorView.theme({

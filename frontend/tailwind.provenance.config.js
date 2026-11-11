@@ -9,6 +9,8 @@ export default {
     './src/provenance/**/*.{vue,ts}',
     './src/components/ui/KeyValueList.vue',
     './src/components/ui/IconButton.vue',
+    './src/components/ui/SegmentedControl.vue',
+    './src/utils/promptSyntax.ts',
   ],
   corePlugins: { preflight: false },
   plugins: [],
