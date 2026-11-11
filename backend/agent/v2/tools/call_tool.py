@@ -606,6 +606,7 @@ async def execute_call_tool(
     caller_set_aspect = params.get("aspect_ratio") is not None
     width = final_params.pop("width", None) or 1024
     height = final_params.pop("height", None) or 1024
+    asked_dims = (width, height)
 
     allowed_dims = _get_allowed_dimensions(tool_descriptor)
     if allowed_dims:
@@ -674,8 +675,8 @@ async def execute_call_tool(
             if has_dims and not caller_set_dims:
                 width, height = follow_input_dims(tool_descriptor, *src)
             elif has_dims and locked_id is not None and aspect_mismatch(width, height, *src) > 0.02:
-                asked = (width, height)
-                width, height = frame_shaped_dims(tool_descriptor, *src, width, height)
+                asked = asked_dims
+                width, height = frame_shaped_dims(tool_descriptor, *src, *asked)
                 shape_note = (
                     f"Asked for {asked[0]}x{asked[1]}, but the start frame is {src[0]}x{src[1]}; "
                     f"made {width}x{height} so the frame keeps its shape. "

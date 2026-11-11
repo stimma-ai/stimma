@@ -591,6 +591,16 @@ async def test_explicit_size_on_freeform_tool_keeps_frame_shape_and_pixel_count(
 
 
 @pytest.mark.asyncio
+async def test_explicit_size_keeps_its_tier_when_shapes_repeat():
+    reg = _video_reg({"width": {"type": "integer", "default": 1280, "x-allowed-dimensions":
+                                [[1280, 720], [640, 360], [720, 1280], [360, 640]]},
+                      "height": {"type": "integer", "default": 720}})
+    p = await _submit(
+        reg, {"prompt": "walks", "input_images": [11], "width": 640, "height": 360}, {11: (720, 1280)})
+    assert (p["width"], p["height"]) == (360, 640)
+
+
+@pytest.mark.asyncio
 async def test_matching_explicit_size_is_kept():
     p = await _submit(
         _video_reg(),
