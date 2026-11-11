@@ -791,6 +791,10 @@ class GeneratedOptions:
         """Every generated pick and dependency context read through this service."""
         return list(self._seen.values())
 
+    def drawn_context(self, cid: str) -> List[Tuple[Tuple[str, Tuple[str, ...]], ...]]:
+        """The context (vocab.py) each pool of pick `cid` read since the last reset() was drawn in."""
+        return [self._seen[k][0].context for k in self._pools if k in self._seen and self._seen[k][0].id == cid]
+
     def reset(self) -> None:
         """Forget the pools read so far (the next get() reads the cache again)."""
         self._pools.clear()
@@ -891,11 +895,14 @@ class GeneratedOptions:
             # Opt-in values not asked for now stand by at weight 0, as in a fresh pool (an old
             # record held them at a positive weight); a kept or pinned value still draws.
             leaf = self._leaf(spec)
-            standby = {v.text for v in leaf.pool_values(self._allowed(spec), bool(spec.minor))[1]} if leaf else set()
+            # (A narrowed pool's rest was recorded at weight 0 already; its subset keeps its weights.)
+            allowed = self._allowed(spec)
+            stand = leaf.pool_values(allowed, bool(spec.minor))[1] if leaf else []
+            zero = {v.text for v in stand} if allowed is None else set()
             own = frozenset(str(x) for x in [*((self.edits.get(spec.id) or {}).get("add") or []), *self._mine_of(spec)])
             return Pool(key, [str(e[0]) for e in recorded],
-                        [0.0 if str(e[0]) in standby else float(e[1]) for e in recorded], False, True, roles,
-                        own=own), [], 0
+                        [0.0 if str(e[0]) in zero else float(e[1]) for e in recorded], False, True, roles,
+                        own=own, held={v.text: v.weight for v in stand}), [], 0
         leaf = self._leaf(spec)
         if leaf is not None:
             return self._read_bound(spec, leaf, key, skey)
@@ -945,8 +952,9 @@ class GeneratedOptions:
                     out.append((o, w))
             return out
         allowed = self._allowed(spec)
-        # Opt-in values (ages under 18) not asked for stand by at weight 0: the picker offers
-        # them and a pin draws them. A person under 18 has no adult-only values (vocab.py).
+        # Opt-in values (ages under 18) not asked for, and the rest of a narrowed list, stand by
+        # at weight 0: the picker offers them and a pin draws them. A person under 18 has no
+        # adult-only values (vocab.py).
         values, standby = leaf.pool_values(allowed, bool(spec.minor))
         if leaf.slots:  # a removal names the filled look a draw showed: it removes its template
             gone = [str(x) for x in edit.get("remove") or []]
@@ -980,7 +988,8 @@ class GeneratedOptions:
             gen = [(o, w * (1 - OPEN_SHARE) / gw) for o, w in gen]
         kept = [*listed, *gen, *[x for x in mine if x[1] == 0], *unique([(v.text, 0.0) for v in standby])]
         roles = {v.text: dict(v.roles) for v in values if v.roles}
-        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, True, roles, own=frozenset(own))
+        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, True, roles, own=frozenset(own),
+                    held={v.text: v.weight for v in standby})
         rounds = self.store.rounds(skey) if self.store is not None and not leaf.closed else 0
         return pool, generated, rounds
 

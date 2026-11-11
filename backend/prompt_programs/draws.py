@@ -677,6 +677,9 @@ class Pool:
     snapshot: bool = False       # a revision records the whole pool (vocabulary lists change between versions)
     roles: Dict[str, Dict[str, str]] = field(default_factory=dict)   # a palette pool: each scheme's colors
     own: frozenset = frozenset()   # the user's own options in it (added in the card, or kept for its list)
+    # Values held at weight 0 (standby: opt-in, or a narrowed list's rest) -> the weight a tick
+    # draws them at, so a pin that also names drawn values still draws them (a tick means drawn).
+    held: Dict[str, float] = field(default_factory=dict)
 
 
 def pool_key(spec: PickSpec, context: Dict[str, Any]) -> str:
@@ -1065,7 +1068,9 @@ class _Exec(_Runner):
         if pins:
             # A ticked option of the user's own is drawn like a typical value, even one their
             # words held back (weight 0 until ticked, see additions.py).
-            items = [(o, 1.0 if w <= 0 and o in pool.own else w) for o, w in items if o in pins]
+            # A ticked standby value draws at its own weight beside the others.
+            items = [(o, (1.0 if o in pool.own else pool.held.get(o, w)) if w <= 0 else w)
+                     for o, w in items if o in pins]
         return items
 
     def param(self, name: str, low: Any = None, high: Any = None, label: str = "", source: str = "text",
