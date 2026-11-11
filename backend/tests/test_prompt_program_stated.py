@@ -138,3 +138,35 @@ class TestAForgottenMarkOnAListedDetail:
             assert d["eyes"].value == "emerald"
         _, d = next(draws_of(e, tmp_path / "o", [0]))
         assert len(set(d["eyes"].options) & values_of("person.eye_color")) > 10
+
+
+class TestAnAgeLeftWithoutItsList:
+    SRC = '''
+man_age = pick("man.age_band", about="the man's age", seed=["middle-aged"], label="Age", phase=1, added=True)
+wife_age = pick("wife.age", about="the wife's age", seed=["young adult"], label="Age", phase=1, added=True)
+job = pick("job", ["chef", "baker"], label="Job", source="list", phase=1, line=1)
+mood = pick("mood", about="the mood at the market", seed=["busy"], label="Mood", phase=1, added=True)
+emit("A", man_age, "man and his", wife_age, job, "wife at a market,", mood)
+'''
+
+    def test_it_is_bound_to_the_age_list_and_draws_adults(self, tmp_path):
+        from prompt_programs.prepare import fix_age_lists
+        fixed, notes = fix_age_lists(self.SRC)
+        assert fixed.count('cls="person.age_band"') == 2 and len(notes) == 2
+        assert 'pick("job", ["chef", "baker"], label="Job"' in fixed and 'pick("mood", about=' in fixed
+        e = entry_of(fixed, "a man and his wife at a market")
+        adults = {v.text for v in vocabulary().get("person.age_band").values if not v.minor}
+        for _, d in draws_of(e, tmp_path, range(30)):
+            assert d["man.age_band"].value in adults and d["wife.age"].value in adults
+
+    def test_per_person_ids_in_a_loop_and_bound_ones_are_left(self):
+        from prompt_programs.prepare import fix_age_lists
+        loop = ('friends = group("friends", 2, label="Friends", line=1)\n'
+                'for i in range(friends):\n'
+                '    a = pick(f"friends[{i+1}].age", about="this friend\'s age", seed=["20s"], label="Age", phase=1, added=True)\n'
+                '    emit("a", a, "friend")')
+        fixed, _ = fix_age_lists(loop)
+        assert 'pick(f"friends[{i+1}].age", cls="person.age_band", about=' in fixed
+        assert fix_age_lists(fixed) == (fixed, [])
+        stated = 'a = pick("age", cls="person.age_band", said="30 year old", about="his age", seed=["35–39-year-old"], label="Age", phase=1, line=1)'
+        assert fix_age_lists(stated) == (stated, [])

@@ -1588,6 +1588,44 @@ def fix_said(source: str, prompt: str) -> Tuple[str, List[str]]:
     return source, notes
 
 
+_AGE_DETAILS = ("age", "age_band")   # the detail part of a pick id the writer named as a person's age
+
+
+def fix_age_lists(source: str) -> Tuple[str, List[str]]:
+    """A pick the writer named as someone's age (`man.age_band`, `couple[1].age`, `age`) but left
+    without a list is bound to the age list. Unbound, its options are written freely and an adult's
+    age pick drew "an infant" or "a teenager"; bound, it draws adults unless the user's words
+    narrow it (narrow.py), as the minors policy asks. Reads the writer's own ids, never the prompt."""
+    if "age" not in source or AGE_LIST not in vocabulary().leaves:
+        return source, []
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, []
+    pos = _offsets(source)
+    edits: List[Tuple[int, str]] = []
+    notes: List[str] = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick" and node.args):
+            continue
+        if len(node.args) > 1 or _kw(node, "cls") is not None or _kw(node, "source") is not None:
+            continue   # a user list, or bound already
+        first = node.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str):
+            cid = first.value
+        elif isinstance(first, ast.JoinedStr) and first.values and isinstance(first.values[-1], ast.Constant):
+            cid = str(first.values[-1].value)
+        else:
+            continue
+        if cid.rsplit(".", 1)[-1].strip() not in _AGE_DETAILS:
+            continue
+        edits.append((pos(first.end_lineno, first.end_col_offset), f', cls="{AGE_LIST}"'))
+        notes.append(f"{cid}: bound to {AGE_LIST}")
+    for at, text in sorted(edits, reverse=True):
+        source = source[:at] + text + source[at:]
+    return source, notes
+
+
 def _said_problems(info: Dict[str, Any], prompt: str, samples: Sequence[RunResult]) -> Tuple[List[str], List[str]]:
     """said= is the user's own words for the thing a pick stands for: an exact stretch of their
     prompt, on a pick that isn't their list, wildcard or # line request, said once in the prompt.
@@ -2804,7 +2842,7 @@ def fix_written(source: str, prompt: str, loras: Sequence[LoraInfo]) -> Tuple[st
     for fix in (fix_quotes, fix_order, lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, fix_unplaced, fix_brackets,
                 lambda x: fix_requested(x, prompt), lambda x: fix_duplicates(x, prompt),
-                lambda x: fix_trigger_words(x, loras, prompt), lambda x: fix_said(x, prompt)):
+                lambda x: fix_trigger_words(x, loras, prompt), lambda x: fix_said(x, prompt), fix_age_lists):
         source, more = fix(source)
         notes += more
     return source, notes
@@ -2817,7 +2855,7 @@ def fix_patched(source: str, prompt: str) -> Tuple[str, List[str]]:
     notes: List[str] = []
     for fix in (fix_order, lambda x: fix_subjects(x, prompt), fix_generated_refs, lambda x: fix_one_item_lists(x, prompt),
                 lambda x: fix_list_sources(x, prompt), fix_phases, lambda x: fix_requested(x, prompt),
-                lambda x: fix_said(x, prompt)):
+                lambda x: fix_said(x, prompt), fix_age_lists):
         source, more = fix(source)
         notes += more
     return source, notes
