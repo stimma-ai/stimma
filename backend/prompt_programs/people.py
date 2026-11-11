@@ -17,7 +17,10 @@ passes no narrowing words of its own, so it has none to invent.
   pick of their list (`noun=job`).
 - `presentation`: "feminine" or "masculine" when the user's words say which; it lets the
   face and facial hair fit.
-- `leave`: details the user gave as one exact value, which the program keeps as fixed text.
+- `said`: details the user gave as one value, with their words for it ({"descent": "Irish",
+  "eyes": "emerald"}): that detail's pick gets said= their words, so every image draws their
+  value and the picker offers the rest of the list (said.py).
+- `leave`: details the user gave in words no list holds, which the program keeps as fixed text.
 - `detail`: "full" or "brief". A person made in a loop (one of several) is brief unless said
   otherwise: several full descriptions bury the scene.
 
@@ -146,9 +149,12 @@ class _People(ast.NodeTransformer):
         left = _const(kw.get("leave"))
         leave = {n for k in (left if isinstance(left, (list, tuple, set)) else [left] if left else []) if (n := _name(k))}
         leave |= self._theirs(_id_text(id_node))
+        stated = _const(kw.get("said"))
+        said = {n: v.strip() for k, v in (stated.items() if isinstance(stated, dict) else ())
+                if (n := _name(k)) and isinstance(v, str) and v.strip()}
         detail = str(_const(kw.get("detail")) or ("brief" if self.loops else "full")).lower()
-        keys = [k for k in DETAILS if k not in leave and (detail != "brief" or k in BRIEF)
-                and (k != "facial_hair" or presentation == "masculine")]
+        keys = [k for k in DETAILS if k not in leave and (detail != "brief" or k in BRIEF or k in said)
+                and (k != "facial_hair" or presentation == "masculine" or k in said)]
         out: List[ast.stmt] = []
         var = {k: f"{target}_{k}" for k in keys}
         for k in keys:
@@ -156,7 +162,7 @@ class _People(ast.NodeTransformer):
             kws = [ast.keyword("cls", ast.Constant(cls)), ast.keyword("about", ast.Constant(f"the {noun}'s {what}")),
                    ast.keyword("seed", ast.List(elts=[ast.Constant(seed)], ctx=ast.Load())),
                    ast.keyword("label", ast.Constant(label)), ast.keyword("phase", ast.Constant(phase)),
-                   ast.keyword("added", ast.Constant(True))]
+                   ast.keyword("said", ast.Constant(said[k])) if k in said else ast.keyword("added", ast.Constant(True))]
             if k in ("face", "build") and presentation in ("feminine", "masculine"):   # the lists with features of one sex
                 kws.insert(1, ast.keyword("where", ast.parse(repr({"presentation": presentation}), mode="eval").body))
             pick = ast.Call(func=ast.Name("pick", ast.Load()), args=[_suffixed(id_node, "." + k)], keywords=kws)

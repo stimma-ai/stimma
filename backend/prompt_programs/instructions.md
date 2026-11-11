@@ -51,7 +51,7 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   with no `group()`: for each detail that varies, one pick per person with ids like
   `girl[1].hair`, `girl[2].hair` and the label of the detail alone ("Hair"), and the rest
   fixed text. The app shows each person's details together.
-- `person(id, noun=..., presentation=..., leave=[...])` describes one person and
+- `person(id, noun=..., presentation=..., said={...}, leave=[...])` describes one person and
   returns the description, to put in `emit()` where the person stands. It draws their age,
   descent, skin, hair, eyes, face and build for you, so every person is fully described and
   no two are alike: never write those picks yourself, and never describe a face in your own
@@ -59,13 +59,16 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   - `noun`: what they are, in the user's word: `noun="woman"`, `noun="fisherman"`,
     `noun="friend"`; or the pick of the user's list that names them (`noun=job`).
   - `presentation`: `"feminine"` or `"masculine"` when the user's words say which.
-  - What the user said of them ("an old fisherman", "a young red-haired woman", "a tall
-    Swedish man") is read from their prompt and kept for you: the description then says an
-    old age, red hair, a Swedish man. Don't repeat those words in your own text, and don't
-    pass them.
-  - `leave`: only for a detail the user gave as one exact value you keep as fixed text
-    ("with emerald eyes" → `leave=["eyes"]`, and "with emerald eyes" stays in your text).
-    The details are `age`, `descent`, `skin`, `hair`, `hair_color`, `eyes`, `face`, `build`.
+  - What the user said of them as a kind ("an old fisherman", "a young red-haired woman", "a
+    tall man") is read from their prompt and kept for you: the description then says an old
+    age, red hair, a tall build. Don't repeat those words in your own text, and don't pass them.
+  - `said`: a detail the user gave as one value, with their words for the value, exactly as
+    written: "a 30 year old Irish woman with emerald eyes" →
+    `said={"age": "30 year old", "descent": "Irish", "eyes": "emerald"}`. Every image gets
+    their value, and they may switch to others. Don't repeat those words in your own text.
+  - `leave`: only for a detail the user described in words no list holds, kept as fixed text
+    ("eyes like a winter sea" → `leave=["eyes"]`, and those words stay in your text).
+  The details are `age`, `descent`, `skin`, `hair`, `hair_color`, `eyes`, `face`, `build`.
   The description reads "a slender 30–34-year-old Korean woman with warm beige skin,
   shoulder-length wavy dark brown hair, hazel eyes, a long, narrow nose and freckles across
   the nose": write your text around it, starting after it with a comma.
@@ -229,15 +232,13 @@ Still write `about=` and a seed in the list's form.
   ("her grandmother's silver braid", "eyes like a winter sea"), write the pick without
   `cls=`, or keep their words as fixed text. A list is a partial catalog: most picks have
   no list, and that's fine.
-- A detail the user stated as one value is a bound pick with `said=` their words for the value,
-  emitted where those words stood: every image gets their value, and they may switch to others
-  from the list. "an Irish woman with emerald eyes" →
-  `eth = pick("ethnicity", cls="person.ethnicity", said="Irish", about="her descent", seed=["Scottish"], label="Ethnicity", phase=1, line=1)`,
-  `eyes = pick("eyes", cls="person.eye_color", said="emerald", about="her eye color", seed=["hazel"], label="Eyes", phase=2, line=1)`,
-  `emit("An", eth, "woman with", eyes, "eyes")`; "a 30 year old man" →
-  `age = pick("age", cls="person.age_band", said="30 year old", about="his age", seed=["35–39-year-old"], label="Age", phase=1, line=1)`.
-  said= is only the value, exactly as written ("Irish", "emerald", "30 year old",
-  "strawberry blonde"); the words around it ("woman", "eyes", "man") stay in the text. A detail they stated as a kind, which leaves the list
+- A detail the user stated as one value is still a choice, set to their value: their words for
+  the value go in `said=`, exactly as written ("Irish", "emerald", "30 year old", "a braid"),
+  and the words around it stay in the text. What `person()` draws takes it in its `said=`
+  (above). Any other listed detail is a bound pick with `said=`, emitted where their words
+  stood: "her hair in a braid" →
+  `hairstyle = pick("woman.hairstyle", cls="person.hairstyle", said="a braid", about="her hairstyle", seed=["a loose side braid"], label="Hairstyle", phase=2, line=1)`,
+  `emit(..., ", her hair in", hairstyle)`. A detail they stated as a kind, which leaves the list
   several values that fit, is a bound pick narrowed to their words, as below: "a young woman" gets an age pick
   drawn only from young ages; "in a yoga outfit" gets an outfit pick drawn only from yoga
   looks; "long red hair" gets a hair color pick drawn only from red shades.
