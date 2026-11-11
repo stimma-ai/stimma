@@ -438,12 +438,27 @@ def parse_options(reply: str, limit: int = 2 * BATCH_SIZE) -> List[str]:
     return [o for o in (clean_option(x) for x in read_options(reply) or []) if o][:limit]
 
 
+_MARKUP = re.compile(r"<\||\|>|</?[A-Za-z][A-Za-z0-9]*>|\*\*")
+
+
+def torn(o: Any) -> bool:
+    """A string that a tool-call parser tore out of a model's reply, not one option the model
+    wrote: it carries a line break, an unpaired double quote, the model's own string delimiters
+    or other markup. A quantized local model's tool calls come back like this often
+    ('a maroon red door<|"|>', 'fear: [\n  "a weary look'), and its neighbors in that list are
+    then pieces of options split at their commas, which nothing can tell from whole ones."""
+    s = str(o).strip()
+    return "\n" in s or s.count('"') % 2 == 1 or bool(_MARKUP.search(s))
+
+
 def clean_option(o: Any) -> Optional[str]:
     """One option as it goes in a pool, or None when it can't be one: empty, longer than a
-    phrase, no letters, or code-like (brackets, a trailing colon or question mark)."""
-    o = str(o).strip().strip('"').strip()
+    phrase, no letters, code-like (brackets, a trailing colon or question mark) or torn."""
+    o = str(o).strip()
+    if len(o) >= 2 and o[0] == o[-1] == '"':
+        o = o[1:-1].strip()
     if (not o or len(o) > 120 or len(o.split()) > 16 or not re.search(r"[^\W\d_]", o)
-            or o.startswith(("`", "[", "{")) or o.endswith((":", "?"))):
+            or o.startswith(("`", "[", "{")) or o.endswith((":", "?")) or torn(o)):
         return None
     return o
 
@@ -453,6 +468,9 @@ _RETRY_TEXT = ("That reply wasn't a JSON list of strings, so none of it could be
 
 # endpoints (api base, model) whose option calls made no tool call even when offered one: text from then on
 _TEXT_ONLY: set = set()
+# endpoints whose tool calls came back torn, and how often; at TORN_LIMIT they get the text form too
+_TORN: Dict[Tuple[str, str], int] = {}
+TORN_LIMIT = 2
 
 
 async def _ask_options(messages: List[Dict[str, Any]], project_id: Optional[int],
@@ -507,6 +525,13 @@ async def write_options(job: OptionJob, count: int = BATCH_SIZE) -> List[str]:
             try:
                 got = _string_list(json.loads(args) if isinstance(args, str) else args)
             except ValueError:
+                got = None
+            if got is not None and any(torn(x) for x in got):
+                # the parser tore this call: none of its strings can be trusted (see torn())
+                log.info(f"[fluent-options] torn tool call for {job.spec.label!r} (try {attempt + 1}): {str(args)[:120]!r}")
+                _TORN[endpoint] = _TORN.get(endpoint, 0) + 1
+                if _TORN[endpoint] >= TORN_LIMIT:  # it keeps happening: this endpoint gets the text form
+                    _TEXT_ONLY.add(endpoint)
                 got = None
         else:
             got = read_options(content)

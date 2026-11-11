@@ -529,6 +529,28 @@ class TestStructuredOptions:
         assert await write_options(self.job()) == ["pin curls"]
         assert [t for _, t in calls] == [True, False]
 
+    async def test_a_torn_tool_call_is_asked_again_as_a_plain_list(self, monkeypatch):
+        from prompt_programs import options as opts
+        # a quantized model's tool call as its parser returns it: delimiters left in, a list split at commas
+        torn = json.dumps({"options": ["fear: [\n  \"a weary look with heavy eyelids and a faint", "tired frown\"",
+                                       "a maroon red door<|\"|>", "a burgundy red door</li>,"]})
+        calls = self.fake(monkeypatch, [("", torn), ('["pin curls"]', None)])
+        monkeypatch.setattr(opts, "_TORN", {})
+        assert await opts.write_options(self.job()) == ["pin curls"]
+        assert [t for _, t in calls] == [True, False]
+        assert ("e", "m") not in opts._TEXT_ONLY            # once is not a habit
+        calls = self.fake(monkeypatch, [("", torn), ('["finger waves"]', None)])
+        assert await opts.write_options(self.job()) == ["finger waves"]
+        assert ("e", "m") in opts._TEXT_ONLY                # twice: the text form from now on
+
+    def test_a_torn_string_is_never_an_option(self):
+        from prompt_programs.options import clean_option, torn
+        assert clean_option('"her chestnut hair"') == "her chestnut hair"       # a quoted option is its text
+        assert clean_option('a sign that says "OPEN"') == 'a sign that says "OPEN"'
+        for bad in ('tired frown"', 'a maroon red door<|"|>', "a burgundy red door</li>,", "standing tall**\n,",
+                    'fear: [\n  "a weary look'):
+            assert torn(bad) and clean_option(bad) is None
+
     async def test_an_endpoint_without_tools_falls_back_to_text(self, monkeypatch):
         from prompt_programs import prepare as prep
         from prompt_programs.options import write_options
