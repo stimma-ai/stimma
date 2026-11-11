@@ -485,6 +485,11 @@
             <span class="text-xs text-content-muted italic">Interrupted</span>
           </div>
 
+          <!-- A background task's receipt, addressed to the agent -->
+          <div v-else-if="item.item_type === 'user_message' && backgroundNotice(item)" class="flex justify-center py-1">
+            <span class="text-xs text-content-muted">{{ backgroundNotice(item) }}</span>
+          </div>
+
           <div v-else-if="item.item_type === 'user_message'" class="flex justify-end">
             <ChatItemWrapper
               :item-id="item.id"
@@ -1194,17 +1199,23 @@
       <div v-if="imageUnsupportedMessage" class="mb-2 text-xs text-amber-500">
         {{ imageUnsupportedMessage }}
       </div>
+      <BackgroundTasksBar
+        v-if="runningBackgroundTasks.length > 0"
+        :tasks="runningBackgroundTasks"
+        @stop="stopBackgroundTask"
+      />
       <ChatMessageQueue
         v-if="messageQueue.length > 0"
+        :class="runningBackgroundTasks.length > 0 ? 'rounded-t-none' : ''"
         :messages="messageQueue"
         @steer="steerQueuedMessage"
         @edit="editQueuedMessage"
         @remove="removeQueuedMessage"
       />
-      <MediaSelectionBar v-if="mediaCollections.selection.selecting.value" :class="messageQueue.length > 0 ? 'rounded-t-none' : ''" />
+      <MediaSelectionBar v-if="mediaCollections.selection.selecting.value" :class="messageQueue.length > 0 || runningBackgroundTasks.length > 0 ? 'rounded-t-none' : ''" />
       <ChatInputBox
         ref="chatInputBoxRef"
-        :attached-top="messageQueue.length > 0 || mediaCollections.selection.selecting.value"
+        :attached-top="messageQueue.length > 0 || runningBackgroundTasks.length > 0 || mediaCollections.selection.selecting.value"
         :project-id="chat ? (chat.project_id ?? null) : undefined"
         :draft="composerDraft"
         :attachments="inputAttachments"
@@ -1253,6 +1264,13 @@
       </ChatInputBox>
       </div>
     </div>
+
+    <StopGeneratingDialog
+      :show="stopGeneratingCount > 0"
+      :in-progress="stopGeneratingCount"
+      @choose="keep => { stopGeneratingCount = 0; sendStop(keep) }"
+      @dismiss="stopGeneratingCount = 0"
+    />
 
     <!-- Delete Confirmation Modal -->
     <ConfirmModal
@@ -1401,6 +1419,8 @@ import ChatInputAttachments from '../components/chat/ChatInputAttachments.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import SendButton from '../components/ui/SendButton.vue'
 import ChatMessageQueue, { type QueuedMessage } from '../components/chat/ChatMessageQueue.vue'
+import BackgroundTasksBar, { type BackgroundTask } from '../components/chat/BackgroundTasksBar.vue'
+import StopGeneratingDialog from '../components/chat/StopGeneratingDialog.vue'
 import { useChatLiveState } from '../composables/useChatLiveState'
 import { useAgentActivity } from '../composables/useAgentActivity'
 import { useChatDock, chatOnScreen, setStageIntent, takeStageIntent } from '../composables/useChatDock'
@@ -1620,6 +1640,13 @@ const agentPlanning = ref(false)
 const agentPaused = ref(false)
 const runningNodes = ref([]) // Track currently running nodes: [{node_id, node_type, tool_name, display_name}]
 const nodeStates = ref({}) // Track node execution states: { node_id: { status, display_name } }
+// Work the agent started that runs on while the conversation continues,
+// keyed by task id (see backend agent/v2/background.py).
+const backgroundTasks = ref<Record<string, BackgroundTask>>({})
+const runningBackgroundTasks = computed(() =>
+  Object.values(backgroundTasks.value).filter(t => t.state === 'running'))
+// Non-zero while Stop asks whether to keep the turn's generations going.
+const stopGeneratingCount = ref(0)
 const suppressingPostStop = ref(false) // When true, ignore chat_item_created until agent responds to stop
 const rawPlanItemIds = reactive(new Set()) // Track which plan items are in "raw" mode
 const GENERIC_CHAT_ERROR_MESSAGE = 'Something went wrong.'
@@ -5444,8 +5471,66 @@ function autoResizeTextarea() {
   chatInputBoxRef.value?.autoResize()
 }
 
+async function loadBackgroundTasks() {
+  const forChat = chatId.value
+  try {
+    const response = await fetch(`/api/chats/${forChat}/background`)
+    if (!response.ok || forChat !== chatId.value) return
+    const data = await response.json()
+    backgroundTasks.value = Object.fromEntries((data.tasks || []).map((t: BackgroundTask) => [t.id, t]))
+  } catch (error) {
+    console.warn('Could not load background tasks', error)
+  }
+}
+
+watch(chatId, () => {
+  backgroundTasks.value = {}
+  stopGeneratingCount.value = 0
+  loadBackgroundTasks()
+}, { immediate: true })
+
+async function stopBackgroundTask(taskId: string) {
+  try {
+    const response = await fetch(`/api/chats/${chatId.value}/background/${taskId}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    if (!response.ok) reportActionError("Couldn't stop it.", await response.text())
+  } catch (error) {
+    reportActionError("Couldn't stop it.", error)
+  }
+}
+
+function backgroundNotice(item) {
+  const task = getItemMetadata(item)?.background_task
+  if (!task) return null
+  const label = task.label && task.label !== 'Running code' ? `: ${task.label}` : ''
+  return task.state === 'failed' ? `Background work ended with an error${label}` : `Background work finished${label}`
+}
+
 // Agent control functions
 async function stopAgent() {
+  // Generations in flight can carry on without the turn, so ask first.
+  try {
+    const response = await fetch(`/api/chats/${chatId.value}/background`)
+    if (response.ok) {
+      const counts = (await response.json()).foreground?.counts
+      const inProgress = counts
+        ? counts.generating + counts.queued + counts.preparing + counts.waiting
+        : 0
+      if (inProgress > 0) {
+        stopGeneratingCount.value = inProgress
+        return
+      }
+    }
+  } catch (error) {
+    console.warn('Could not check for generations in progress', error)
+  }
+  await sendStop(false)
+}
+
+async function sendStop(keepGenerating: boolean) {
   // Queued messages survive Stop: once the agent goes idle the first one starts
   // the next turn and the steers among the rest follow it in.
   try {
@@ -5453,7 +5538,8 @@ async function stopAgent() {
     suppressingPostStop.value = true
     const response = await fetch(`/api/chats/${chatId.value}/stop`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keep_generating: keepGenerating }),
     })
     if (!response.ok) {
       reportActionError("Couldn't stop.", await response.text())
@@ -6182,6 +6268,14 @@ function setupWebSocketSubscriptions() {
       console.log('Chat settings updated via WebSocket')
     }
   }))
+
+  // Background work: status while it runs, and when it ends.
+  const onBackgroundTask = (data) => {
+    if (data.chat_id !== chatId.value || !data.task) return
+    backgroundTasks.value = { ...backgroundTasks.value, [data.task.id]: data.task }
+  }
+  wsUnsubscribes.push(onWsEvent('background_task_updated', onBackgroundTask))
+  wsUnsubscribes.push(onWsEvent('background_task_finished', onBackgroundTask))
 
   // agent_started - agent began processing
   wsUnsubscribes.push(onWsEvent('agent_started', (data) => {

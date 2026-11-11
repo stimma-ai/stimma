@@ -2607,15 +2607,58 @@ async def abort_plan_execution(
     return {"success": True}
 
 
+class StopRequest(PydanticBaseModel):
+    # True: generations in flight move to the background and finish.
+    # False or absent: they stop with the turn.
+    keep_generating: Optional[bool] = None
+
+
+@router.get("/{chat_id}/background")
+async def get_background_work(chat_id: int):
+    """This chat's background tasks, and what the running turn is generating.
+
+    ``foreground`` describes the run_code the turn is waiting on, if it has
+    generation work left, so Stop can ask whether to keep it going.
+    """
+    from agent.v2 import background as bg
+    tasks = [await run.snapshot() for run in bg.list_runs(chat_id)]
+    foreground = None
+    fg = bg.get_foreground(chat_id)
+    if fg is not None and fg.control.has_generation_work:
+        items = await fg.control.snapshot_items()
+        foreground = {"label": fg.label, "items": items, "counts": bg._counts(items, fg.control.waiting)}
+    return {"tasks": tasks, "foreground": foreground}
+
+
+class CancelBackgroundRequest(PydanticBaseModel):
+    items: Optional[List[int]] = None
+
+
+@router.post("/{chat_id}/background/{task_id}/cancel")
+async def cancel_background_task(chat_id: int, task_id: str, request: Optional[CancelBackgroundRequest] = None):
+    """Cancel a background task's items (all that are left when none are named)."""
+    from agent.v2 import background as bg
+    run = bg.get_run(chat_id, task_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Background task not found")
+    try:
+        await run.control.cancel(request.items if request else None)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return await run.snapshot()
+
+
 @router.post("/{chat_id}/stop")
 async def stop_agent_execution(
     chat_id: int,
+    request: Optional[StopRequest] = None,
     session: AsyncSession = Depends(get_db_session),
 ):
     """
     Stop the currently running agent.
 
-    This is a hard interrupt and does not resume/respond.
+    This is a hard interrupt and does not resume/respond. With
+    keep_generating, generations already in flight carry on in the background.
     """
     # Get chat
     result = await session.execute(select(Chat).where(Chat.id == chat_id))
@@ -2633,6 +2676,7 @@ async def stop_agent_execution(
         session=session,
         ws_manager=ws_manager,
         stop_marker=True,
+        keep_generating=request.keep_generating if request else None,
     )
 
     return {"success": True}

@@ -15,10 +15,15 @@ async def run_agent(chat, user_message, session, ws_manager, selected_media_ids=
     await _v2_run_agent(chat, user_message, session, ws_manager, selected_media_ids, max_turns, force_plan, artifact_context=artifact_context)
 
 
-async def abort_plan(chat, session, ws_manager, stop_marker=False):
-    """Interrupt agent execution."""
+async def abort_plan(chat, session, ws_manager, stop_marker=False, keep_generating=None):
+    """Interrupt agent execution.
+
+    keep_generating=True moves a running run_code to the background first, so
+    its generations carry on after the turn stops.
+    """
     from .v2 import interrupt_execution as _v2_interrupt_execution
-    await _v2_interrupt_execution(chat, session, ws_manager, stop_marker=stop_marker)
+    await _v2_interrupt_execution(chat, session, ws_manager, stop_marker=stop_marker,
+                                  keep_generating=keep_generating)
 
 
 async def resume_agent_after_hitl(chat, response_data, session, ws_manager):

@@ -65,6 +65,13 @@ Before a long or large batch, take one item through every step and look at the r
 A mistake in the first item repeats in every item after it.
 Base recovery on the reported failure. A retry must still satisfy the tool's input requirements; if you cannot meet them, report the blocker before generating.
 
+**Work that outlives the turn**: Code can keep running while you talk with the user. For work that takes minutes (video, large batches), \
+pass `background=true` to `run_code`, tell the user what's running, and end your turn: results appear in the chat as they finish, and a \
+`<task-notification>` message brings you the receipt. When the user speaks while code is still running, it moves to the background and \
+you hear them right away. `stimma.tasks` shows each generation in a task (its state, where it runs, how long it has been generating) and \
+cancels any of them, queued or already generating, so act on what the user tells you about work in flight. The notification comes to you, \
+so there's no need to check on a task.
+
 **Batch delivery**: Call `stimma.show(results, role="final")` at the end of `run_code` to display committed results. Use `role="intermediate"` when showing work only for inspection; viewing it does not add it to Assets. \
 Keep generation and display in the same `run_code` call.
 

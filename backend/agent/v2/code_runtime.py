@@ -66,8 +66,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 # Relative paths in third-party libraries use the process working directory.
-# Keep it stable across awaits, including calls from concurrent chats.
-_code_cwd_locks = WeakKeyDictionary()
+# Keep it stable across awaits, including calls from concurrent chats. Runs in
+# the same workspace share it: a chat's background run_code must not block the
+# agent's next run_code in that chat for as long as its generations take.
+_code_cwd_states = WeakKeyDictionary()
 _code_cwd_owner: ContextVar[dict | None] = ContextVar("code_cwd_owner", default=None)
 
 
@@ -81,18 +83,35 @@ async def _code_workspace(workspace: Path):
         yield
         return
     loop = asyncio.get_running_loop()
-    lock = _code_cwd_locks.setdefault(loop, asyncio.Lock())
-    async with lock:
-        previous = Path.cwd()
-        lease = {"workspace": workspace, "active": True}
-        token = _code_cwd_owner.set(lease)
-        try:
+    state = _code_cwd_states.get(loop)
+    if state is None:
+        state = {"cond": asyncio.Condition(), "workspace": None, "count": 0, "previous": None}
+        _code_cwd_states[loop] = state
+    cond = state["cond"]
+    async with cond:
+        await cond.wait_for(lambda: state["workspace"] in (None, workspace))
+        if state["workspace"] is None:
+            state["previous"] = Path.cwd()
             os.chdir(workspace)
-            yield
-        finally:
-            os.chdir(previous)
-            lease["active"] = False
-            _code_cwd_owner.reset(token)
+            state["workspace"] = workspace
+        state["count"] += 1
+    lease = {"workspace": workspace, "active": True}
+    token = _code_cwd_owner.set(lease)
+    try:
+        yield
+    finally:
+        lease["active"] = False
+        _code_cwd_owner.reset(token)
+        # Shielded so a cancelled run still restores cwd.
+        async def _release():
+            async with cond:
+                state["count"] -= 1
+                if state["count"] == 0:
+                    os.chdir(state["previous"])
+                    state["workspace"] = None
+                    state["previous"] = None
+                    cond.notify_all()
+        await asyncio.shield(_release())
 
 
 def _disabled_image_show(self, *args, **kwargs):
@@ -1419,6 +1438,59 @@ class StimmaPackagesAPI:
         return await package_status(self._sdk.session, media)
 
 
+class StimmaTasksAPI:
+    """``stimma.tasks``: this chat's background work.
+
+    A run_code that kept going after its turn moved on (the user spoke, the
+    user stopped and kept generating, or you asked for ``background=true``) is a
+    task with an id like ``"bg-1"``. Each generation call in it is an item you
+    can inspect and cancel.
+    """
+
+    def __init__(self, sdk: "StimmaSDK"):
+        self._sdk = sdk
+
+    async def list(self) -> list[dict[str, Any]]:
+        """Background tasks in this chat, newest last: id, label, state, counts."""
+        from .background import list_runs
+        out = []
+        for run in list_runs(self._sdk.chat_id):
+            snap = await run.snapshot()
+            snap.pop("items", None)
+            out.append(snap)
+        return out
+
+    async def get(self, task_id: str) -> dict[str, Any]:
+        """One task with every generation item.
+
+        Each item has ``item`` (its number), ``tool``, ``prompt``, ``state``
+        (preparing, queued, generating, done, failed, cancelled), ``runs_on``
+        (the backend: e.g. a local ComfyUI or a cloud provider),
+        ``generating_for_s``, ``elapsed_s``, and ``media_id`` once done.
+        ``counts.waiting`` is calls in the code that haven't been made yet.
+        """
+        from .background import get_run
+        run = get_run(self._sdk.chat_id, task_id)
+        if run is None:
+            raise ValueError(f"No background task {task_id!r} in this chat. stimma.tasks.list() shows them.")
+        return await run.snapshot()
+
+    async def cancel(self, task_id: str, items: "Sequence[int] | None" = None) -> dict[str, Any]:
+        """Cancel items of a background task, queued or generating.
+
+        ``items`` is a list of item numbers from ``get()``. Leave it out to cancel
+        everything left, including calls the code hasn't made yet. Finished items
+        are kept. Cancelled calls are left out of their gather's results, so the
+        task's code carries on with what did finish. Returns the task afterwards.
+        """
+        from .background import get_run
+        run = get_run(self._sdk.chat_id, task_id)
+        if run is None:
+            raise ValueError(f"No background task {task_id!r} in this chat. stimma.tasks.list() shows them.")
+        await run.control.cancel(list(items) if items is not None else None)
+        return await run.snapshot()
+
+
 class StimmaSDK:
     # Sub-API namespaces reachable as ``stimma.<name>``. Declared here because
     # they are instance attributes, which introspection of the class cannot
@@ -1439,9 +1511,14 @@ class StimmaSDK:
         session_media_ids: list[int] | None = None,
         project_id: int | None = None,
         effective_model_slug: str | None = None,
+        control: "Any | None" = None,  # background.RunControl
     ):
         self.session = session
         self.chat_id = chat_id
+        # Per-call bookkeeping for stimma.tasks; every run has one so a run can
+        # move to the background at any point.
+        from .background import RunControl
+        self._control = control if control is not None else RunControl()
         self.workspace_dir = Path(workspace_dir)
         self.project_workspace_dir = Path(project_workspace_dir) if project_workspace_dir else None
         self.interrupt_checker = interrupt_checker
@@ -1449,6 +1526,7 @@ class StimmaSDK:
         self._effective_model_slug = effective_model_slug
         self.library = StimmaLibraryAPI(self)
         self.packages = StimmaPackagesAPI(self)
+        self.tasks = StimmaTasksAPI(self)
         from .contact_sheet_sdk import StimmaContactSheetsAPI
         self.contact_sheets = StimmaContactSheetsAPI(self)
         self._display_lock = threading.Lock()
@@ -1456,6 +1534,7 @@ class StimmaSDK:
         self._display_receipts: list[str] = []
         self._tool_results: list[ToolResult] = []
         self._tool_failures: list[dict[str, Any]] = []
+        self._tool_cancellations: list[dict[str, Any]] = []
         self._session_media_ids: list[int] = session_media_ids if session_media_ids is not None else []
         self._shown_media_ids: list[int] = []
         self._shown_labels: list[str] = []  # "path→media_id" / "media_id" per shown item, for the result receipt
@@ -1913,6 +1992,13 @@ class StimmaSDK:
         parameters = dict(kwargs)
         prompt_val = parameters.get("prompt")
         prompt_for_record = prompt_val if isinstance(prompt_val, str) else None
+        control = self._control
+        call_item = control.begin_call(tool_id, prompt_for_record)
+
+        def _on_job_submitted(job_id: int) -> None:
+            call_item.job_id = job_id
+            call_item.state = "submitted"
+
         try:
             result = await execute_call_tool(
                 tool_id=tool_id,
@@ -1924,14 +2010,24 @@ class StimmaSDK:
                 interrupt_checker=self.interrupt_checker,
                 project_id=self.project_id,
                 prompt_request=prompt_request,
+                cancel_checker=lambda: control.should_cancel(call_item),
+                on_job_submitted=_on_job_submitted,
             )
-        except Exception as e:
+        except BaseException as e:
+            control.end_call(call_item, error=e)
+            if not isinstance(e, Exception):
+                raise
+            from .background import GenerationCancelled
+            if isinstance(e, GenerationCancelled):
+                self._tool_cancellations.append({"tool_id": tool_id, "prompt": prompt_for_record})
+                raise
             self._tool_failures.append({
                 "tool_id": tool_id,
                 "prompt": prompt_for_record,
                 "error": f"{type(e).__name__}: {e}",
             })
             raise
+        control.end_call(call_item, media_id=result.get("media_id"))
         if result.get("metadata_only"):
             # Data tool (e.g. detect-objects): no media output — hand the raw
             # result dict (detections, image_size, ...) straight back.
@@ -1994,14 +2090,28 @@ class StimmaSDK:
             tracker._pending_update = tracker._build_state()
 
         sem = asyncio.Semaphore(max_concurrent)
+        from .background import GenerationCancelled
+        control = self._control
+        cancelled_marker = object()
+        control.waiting += len(coros)
 
         async def _limited(idx, coro):
             token = _progress_slots.set(
                 (*_progress_slots.get(), (tracker, idx)) if tracker else _progress_slots.get()
             )
+            entered = False
             try:
                 async with sem:
-                    result = await coro
+                    entered = True
+                    control.waiting -= 1
+                    try:
+                        result = await coro
+                    except GenerationCancelled:
+                        # Cancelled on purpose: leave it out of the results
+                        # rather than failing the whole batch.
+                        if tracker is not None:
+                            tracker._preview_slots[idx]["status"] = "cancelled"
+                        return cancelled_marker
                 if tracker is not None:
                     # Existing Tasks may have started before this gather's
                     # context existed. Their returned media still belongs here.
@@ -2016,6 +2126,10 @@ class StimmaSDK:
                     )
                 raise
             finally:
+                if not entered:
+                    control.waiting -= 1
+                    if asyncio.iscoroutine(coro):
+                        coro.close()
                 if tracker is not None:
                     tracker.update(1)
                 _progress_slots.reset(token)
@@ -2040,7 +2154,12 @@ class StimmaSDK:
             )
 
         # asyncio.gather preserves request order, including exception positions.
-        return results
+        kept = [r for r in results if r is not cancelled_marker]
+        if len(kept) != len(results):
+            (self._stdout_print or print)(
+                f"[gather] {len(results) - len(kept)} cancelled call(s) are left out of the results."
+            )
+        return kept
 
     async def delegate(
         self,
@@ -2158,6 +2277,9 @@ class StimmaSDK:
             if not items:
                 return
             item = items if len(items) > 1 else items[0]
+        if isinstance(item, (list, tuple)) and not item:
+            # e.g. a batch whose calls were all cancelled: nothing to show.
+            return
         norm_paths, norm_media_ids = self._normalize_show_inputs(item)
         with self._display_lock:
             self._pending_display_calls.append({
@@ -2842,8 +2964,9 @@ def _format_run_code_receipt(
     successes: list[ToolResult],
     failures: list[dict[str, Any]],
     *, workspace_dir: Path | None = None,
+    cancelled: list[dict[str, Any]] | None = None,
 ) -> str | None:
-    if not successes and not failures:
+    if not successes and not failures and not cancelled:
         return None
 
     def _short_prompt(p: str | None) -> str:
@@ -2904,6 +3027,17 @@ def _format_run_code_receipt(
             prompt_part = f' prompt="{sp}" — ' if sp else " — "
             lines.append(f"  - {tool}:{prompt_part}{err}")
 
+    if cancelled:
+        if successes or failures:
+            lines.append("")
+        c_word = "call was" if len(cancelled) == 1 else "calls were"
+        lines.append(f"{len(cancelled)} {c_word} cancelled on purpose:")
+        for c in cancelled[:20]:
+            sp = _short_prompt(c.get("prompt"))
+            lines.append(f"  - {c.get('tool_id') or 'tool'}" + (f': prompt="{sp}"' if sp else ""))
+        if len(cancelled) > 20:
+            lines.append(f"  ... {len(cancelled) - 20} more")
+
     lines.append("")
     if successes and failures:
         lines.append(
@@ -2914,7 +3048,7 @@ def _format_run_code_receipt(
         lines.append(
             "These media IDs are still valid — if they're useful, reuse them rather than regenerating."
         )
-    else:
+    elif failures:
         lines.append("Retry only the failed calls.")
 
     body = "\n".join(lines)
@@ -2999,6 +3133,7 @@ async def run_code_in_sandbox(
     enabled_stimpacks: list[str] | None = None,
     project_id: int | None = None,
     effective_model_slug: str | None = None,
+    control=None,
 ) -> tuple[str, dict]:
     stdout = io.StringIO()
     owner_task = asyncio.current_task()
@@ -3020,6 +3155,7 @@ async def run_code_in_sandbox(
         session_media_ids=session_media_ids,
         project_id=project_id,
         effective_model_slug=effective_model_slug,
+        control=control,
     )
 
     from .code_execution import SDKBridge, CodeWorker
@@ -3166,7 +3302,7 @@ async def run_code_in_sandbox(
                             raise  # Owner cancellation, not worker completion.
                     await sdk._finalize_progress("cancelled")
                     msg = "Error: execution interrupted by user"
-                    receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures, workspace_dir=sdk.workspace_dir)
+                    receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures, workspace_dir=sdk.workspace_dir, cancelled=sdk._tool_cancellations)
                     if receipt:
                         msg = f"{msg}\n\n{receipt}"
                     return msg, sdk.get_llm_usage()
@@ -3247,7 +3383,7 @@ async def run_code_in_sandbox(
             sdk_ref2 = sdk_instance
             if sdk_ref2 is not None:
                 err_usage = sdk_ref2.get_llm_usage()
-                receipt = _format_run_code_receipt(sdk_ref2._tool_results, sdk_ref2._tool_failures, workspace_dir=sdk_ref2.workspace_dir)
+                receipt = _format_run_code_receipt(sdk_ref2._tool_results, sdk_ref2._tool_failures, workspace_dir=sdk_ref2.workspace_dir, cancelled=sdk_ref2._tool_cancellations)
                 if receipt:
                     error_msg = f"{error_msg}\n\n{receipt}"
         except Exception:
@@ -3270,7 +3406,7 @@ async def run_code_in_sandbox(
             shown_media_ids.update(sdk._shown_media_ids)
     if sdk._display_receipts:
         output += "\n" + "\n".join(sdk._display_receipts)
-    receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures, workspace_dir=sdk.workspace_dir)
+    receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures, workspace_dir=sdk.workspace_dir, cancelled=sdk._tool_cancellations)
     if receipt:
         output = f"{output}\n\n{receipt}"
     return output, sdk_instance.get_llm_usage()
@@ -3287,4 +3423,4 @@ def compute_file_hash(path: Path) -> str:
 from .contact_sheet_sdk import ContactSheetDraft, StimmaContactSheetsAPI  # noqa: E402
 
 StimmaSDK.NAMESPACES = {"library": StimmaLibraryAPI, "packages": StimmaPackagesAPI,
-                        "contact_sheets": StimmaContactSheetsAPI}
+                        "contact_sheets": StimmaContactSheetsAPI, "tasks": StimmaTasksAPI}

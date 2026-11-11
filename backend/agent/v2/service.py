@@ -44,6 +44,10 @@ _interrupt_flags: dict[tuple[str, int], bool] = {}
 # ends, and the client (which still holds them in its queue) sends any
 # undelivered ones as ordinary messages.
 _pending_steers: dict[tuple[str, int], list[dict]] = {}
+# Background-task notifications that arrived while a run was active, waiting
+# for the same safe point as steers. Unlike steers they belong to the server:
+# whatever is left when the run ends is persisted then (see run_agent).
+_pending_notifications: dict[tuple[str, int], list[dict]] = {}
 
 
 def _chat_key(chat_id: int) -> tuple[str, int]:
@@ -150,6 +154,87 @@ async def _deliver_steers(
             "item": item.to_dict(),
         })
     return True
+
+
+async def _persist_notification(chat_id: int, note: dict, session: AsyncSession, ws_manager) -> ChatItem:
+    item = ChatItem(
+        chat_id=chat_id,
+        item_type="user_message",
+        message_text=note["text"],
+        item_metadata=json.dumps({"background_task": note["task"]}),
+    )
+    session.add(item)
+    await session.commit()
+    await session.refresh(item)
+    if ws_manager is not None:
+        await ws_manager.broadcast("chat_item_created", {"chat_id": chat_id, "item": item.to_dict()})
+    return item
+
+
+async def _deliver_notifications(chat_id: int, session: AsyncSession, ws_manager) -> bool:
+    notes = _pending_notifications.pop(_chat_key(chat_id), None)
+    if not notes:
+        return False
+    for note in notes:
+        await _persist_notification(chat_id, note, session, ws_manager)
+    return True
+
+
+async def deliver_background_notification(chat_id: int, note: dict, ws_manager, *, wake: bool) -> None:
+    """Hand a finished background task's receipt to the agent that owns it.
+
+    note: {text, task: {id, label, state}}. A running turn takes it at its next
+    step, like a steer. An idle chat gets it persisted now and, with ``wake``,
+    a new turn so the agent can act on it.
+    """
+    if is_execution_active(chat_id):
+        _pending_notifications.setdefault(_chat_key(chat_id), []).append({**note, "wake": wake})
+        return
+    await _flush_notifications(chat_id, [{**note, "wake": wake}], ws_manager, allow_wake=True)
+
+
+async def _flush_notifications(chat_id: int, notes: list[dict], ws_manager, *, allow_wake: bool) -> None:
+    from core.profile_context import get_current_profile
+    from database_registry import get_database_registry
+    profile_id = get_current_profile()
+    db = get_database_registry().get_database(profile_id)
+    last_id = None
+    async with db.async_session_maker() as session:
+        for note in notes:
+            last_id = (await _persist_notification(chat_id, note, session, ws_manager)).id
+    if allow_wake and last_id is not None and any(n.get("wake") for n in notes):
+        await _wake_for_notification(chat_id, last_id, profile_id)
+
+
+async def _wake_for_notification(chat_id: int, notification_id: int, profile_id: str) -> None:
+    """Start a turn for a notification nobody has answered yet."""
+    prev = get_active_task(chat_id)
+    if prev and not prev.done() and prev is not asyncio.current_task():
+        await asyncio.gather(prev, return_exceptions=True)
+    from database_registry import get_database_registry
+    db = get_database_registry().get_database(profile_id)
+    async with db.async_session_maker() as session:
+        later = (await session.execute(
+            select(ChatItem.id).where(
+                ChatItem.chat_id == chat_id,
+                ChatItem.id > notification_id,
+                ChatItem.item_type.in_(("assistant_message", "tool_call", "user_message")),
+            ).limit(1)
+        )).scalar_one_or_none()
+    if later is not None or is_execution_active(chat_id):
+        return  # a turn since then has seen it
+    from routes.chats import _run_agent_background
+    await _run_agent_background(chat_id, None, profile_id)
+
+
+async def _on_background_finished(run, output: str) -> None:
+    from .background import notification_text
+    from utils.websocket import ws_manager as global_ws
+    note = {
+        "text": notification_text(run, output),
+        "task": {"id": run.id, "label": run.label, "state": run.state},
+    }
+    await deliver_background_notification(run.chat_id, note, run.ws_manager or global_ws, wake=run.wake)
 
 
 def _max_turns_for_chat(chat: Chat) -> int:
@@ -638,6 +723,7 @@ async def _execute_tool_call(
     _raise_if_interrupted(chat_id)
     tool_llm_usage = None
     injected_messages: list[dict] = []
+    after_result_saved: list = []
     # Dispatch is scope-aware: a flow chat must never execute an agent-only
     # tool even if one somehow made it into the model's tool_calls (stale
     # schema from a prior turn, hallucination, etc.). Returns None → falls
@@ -659,6 +745,13 @@ async def _execute_tool_call(
                 kwargs["_ws_manager"] = ws_manager
                 kwargs["_parent_turn"] = parent_turn
                 kwargs["_parent_remaining"] = parent_remaining or []
+            # run_code can move to the background: it needs to know when the user
+            # is waiting to be heard, and how to report back once it finishes.
+            if fn_name in ("run_code", "run_file"):
+                kwargs["_ws_manager"] = ws_manager
+                kwargs["_has_pending_input"] = lambda: _has_pending_steers(chat_id)
+                kwargs["_on_background_finished"] = _on_background_finished
+                kwargs["_after_result_saved"] = after_result_saved
             # Pass enabled stimpacks so run_code can resolve stimpack lib modules
             if enabled_stimpacks:
                 kwargs["_enabled_stimpacks"] = enabled_stimpacks
@@ -736,6 +829,8 @@ async def _execute_tool_call(
         "chat_id": chat_id,
         "item": result_item.to_dict(),
     })
+    for hook in after_result_saved:
+        hook()
 
     # Inject skill content as conversation messages (from skill tool invoke).
     # The item_type stays "stimpack_injection" so existing history renders.
@@ -1600,7 +1695,8 @@ async def _run_agentic_loop_inner(
         # Steers wait for this point: the previous turn's tool results are all
         # persisted, so the user's message follows them in history.
         steered = await _deliver_steers(chat, session, ws_manager)
-        if steered:
+        notified = await _deliver_notifications(chat.id, session, ws_manager)
+        if steered or notified:
             consecutive_textonly = 0
             repeated_batches = 0
             last_batch_signature = None
@@ -2473,7 +2569,13 @@ async def resume_after_ask_user(
         _active_chat_executions.discard(_chat_key(chat_id))
         _active_chat_tasks.pop(_chat_key(chat_id), None)
         _drop_pending_steers(chat_id)
+        stopped = _is_interrupted(chat_id)
         _clear_interrupt(chat_id)
+        # Background receipts that arrived too late for this run still reach
+        # the chat; they start a turn of their own unless the user stopped this one.
+        leftover = _pending_notifications.pop(_chat_key(chat_id), None)
+        if leftover:
+            asyncio.create_task(_flush_notifications(chat_id, leftover, ws_manager, allow_wake=not stopped))
 
 
 STOP_MARKER_TEXT = "The user interrupted the current operation."
@@ -2489,8 +2591,14 @@ async def interrupt_execution(
     session: AsyncSession,
     ws_manager: WebSocketManager,
     stop_marker: bool = False,
+    keep_generating: Optional[bool] = None,
 ) -> bool:
     """Interrupt an active v2 execution immediately.
+
+    With keep_generating, a run_code that is mid-generation first moves to the
+    background, so the turn stops but its generations carry on and their
+    results still reach the chat. After a Stop, background work no longer
+    starts turns of its own; its receipts wait for the user's next message.
 
     Waits for the cancelled run to unwind, so everything it persists lands
     first. Then, with stop_marker, writes the hidden "user interrupted" message,
@@ -2498,6 +2606,12 @@ async def interrupt_execution(
     UI goes idle therefore always follows the marker in history.
     """
     chat_id = chat.id
+
+    from . import background as bg
+    if keep_generating and _chat_key(chat_id) in _active_chat_executions:
+        await bg.request_detach(chat_id, wake=False)
+    for run in bg.list_runs(chat_id, include_finished=False):
+        run.wake = False
 
     was_active = _chat_key(chat_id) in _active_chat_executions
     _mark_interrupted(chat_id)

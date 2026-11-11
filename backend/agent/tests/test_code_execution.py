@@ -29,9 +29,11 @@ async def test_blocking_code_leaves_backend_responsive(session, test_chat, tmp_p
 
     async def sdk_call(self, prompt, images=None):
         calls.append(('sdk', threading.get_ident(), asyncio.get_running_loop()))
-        assert self.session is session
+        # The code runs on a session of its own (it may outlive the turn), on
+        # the same database as the turn's.
+        assert self.session is not session and self.session.bind is session.bind
         # Exercise the actual AsyncSession, rather than only checking thread IDs.
-        assert await self.session.get(type(test_chat), test_chat.id) is test_chat
+        assert (await self.session.get(type(test_chat), test_chat.id)).id == test_chat.id
         return 'SDK reached'
 
     monkeypatch.setattr('numpy.linalg.det', blocking_operation)

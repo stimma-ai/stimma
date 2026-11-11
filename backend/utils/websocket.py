@@ -267,6 +267,8 @@ _CHAT_DETAIL_EVENTS = frozenset({
     "plan_status_changed",
     "plan_node_updated",
     "llm_usage",
+    "background_task_updated",
+    "background_task_finished",
 })
 
 

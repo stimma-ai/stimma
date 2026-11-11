@@ -7,7 +7,6 @@ authored with write_file. Both run in-process with the live `stimma` SDK and the
 would have neither.
 """
 
-from ..code_runtime import run_code_in_sandbox
 from ..tools_registry import tool, ToolParameter
 from ._workspace_files import resolve_workspace_path
 
@@ -55,20 +54,5 @@ async def run_file(file_path: str, **kwargs) -> str:
     except Exception as e:
         return f"Error reading {file_path}: {e}"
 
-    result, llm_usage = await run_code_in_sandbox(
-        code=code,
-        session=session,
-        chat_id=chat_id,
-        workspace_dir=workspace_dir,
-        project_workspace_dir=kwargs.get("project_workspace_dir"),
-        interrupt_checker=kwargs.get("interrupt_checker"),
-        session_media_ids=kwargs.get("session_media_ids"),
-        shown_media_ids=kwargs.get("_shown_media_ids"),
-        enabled_stimpacks=kwargs.get("_enabled_stimpacks"),
-        project_id=kwargs.get("project_id"),
-        effective_model_slug=kwargs.get("_effective_model_slug"),
-    )
-    usage_out = kwargs.get("_llm_usage_out")
-    if usage_out is not None and llm_usage and llm_usage.get("calls", 0) > 0:
-        usage_out["llm_usage"] = llm_usage
-    return result
+    from .run_code import run_code_detachable
+    return await run_code_detachable(code, **kwargs)

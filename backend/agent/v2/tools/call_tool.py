@@ -903,6 +903,11 @@ async def execute_call_tool(
             "output_context_kind": "chat",
             "output_context_id": str(chat_id),
         }
+    # stimma.tasks can cancel a call before it reaches the queue.
+    cancel_checker = kwargs.get("cancel_checker")
+    from ..background import GenerationCancelled
+    if callable(cancel_checker) and cancel_checker():
+        raise GenerationCancelled("Cancelled before it started")
     job_id = await queue.submit_job(
         generator_name=provider.provider_id,
         model_name=tool_descriptor.name,
@@ -919,6 +924,9 @@ async def execute_call_tool(
     # Resolve backend_name for logging and dispatch
     backend_name = queue._resolve_backend_info(tool_id, None, provider.provider_id)[0]
     log.info(f"[call_tool_v2] Submitted job {job_id}, backend_name={backend_name}")
+    on_job_submitted = kwargs.get("on_job_submitted")
+    if callable(on_job_submitted):
+        on_job_submitted(job_id)
 
     interrupt_checker = kwargs.get("interrupt_checker")
 
@@ -955,6 +963,8 @@ async def execute_call_tool(
         raise ToolExecutionFailed(_with_retry_guidance(kwargs.get("workspace_dir"), tool_id, error_msg, task_type))
 
     if cancelled_count > 0 and not media_ids:
+        if callable(cancel_checker) and cancel_checker():
+            raise GenerationCancelled("Cancelled while it was running")
         raise RuntimeError("Generation cancelled by user")
 
     if not media_ids:
