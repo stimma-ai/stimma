@@ -78,6 +78,15 @@ class TestNothingIsDrawnTwiceOrLeftOut:
                             'emit(w, ", with", eyes, "eyes.")\n')
         assert "eyes = pick('eyes', cls='person.eye_color'" in src and "w_eyes" not in src
 
+    def test_a_person_in_an_emitted_f_string_is_described_there(self):
+        src = expand_people('w = person("woman", noun="woman")\nm = person("man", noun="man")\n'
+                            'emit(f"A portrait of {w} and {m} in a kitchen.")\n')
+        emit = src.strip().splitlines()[-1]
+        assert src.count("emit(") == 1    # neither is emitted again where they were made
+        assert emit.index("'A portrait of '") < emit.index("w_face") < emit.index("' and '") < emit.index("m_face") < emit.index("' in a kitchen.'")
+        from prompt_programs.draws import draw
+        assert "A portrait of a slender" in draw(src, 1).prompt
+
     def test_leave_and_a_program_without_people(self):
         src = expand_people('w = person("w", noun="woman", leave=["eyes", "build"])\nemit(w, ", with emerald eyes.")\n')
         assert "w_eyes" not in src and "w_build" not in src and "w_face" in src

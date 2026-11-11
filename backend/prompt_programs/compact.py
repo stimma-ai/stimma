@@ -10,7 +10,9 @@ and (in a draw's revision) per image. So:
   written out again when the program is read, so nothing that reads a program changes. Read
   under another vocabulary version (only a replay or "use these choices" of an older image
   reaches such a program, and a replay draws from its revision's pools, not from these), a
-  choice shows the list as it is now and a filter is dropped.
+  choice shows the list as it is now. A filter stays a filter, because a pool's recorded key
+  says whether its pick was narrowed: a named part (where={...}) is matched again on today's
+  list, and words that narrowed it keep the pick narrowed to the list as it is now.
 
 - **A draw's revision** (draws.py) records each vocabulary pool as the hash of its exact
   contents, and the contents are kept once, beside the generated options (`PoolStore`): every
@@ -99,18 +101,30 @@ def pack_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
 
 def unpack_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
     """A stored program written out again. Under another vocabulary version a choice shows its
-    list as it is now, and a filter the references can't name is dropped (module docstring)."""
+    list as it is now, and a filter stays present (module docstring)."""
     from prompt_programs.vocab import vocabulary
 
     def now(cls: Any) -> List[str]:
         leaf = vocabulary().get(cls)
         return [v.text for v in leaf.values if not v.opt_in] if leaf is not None else []
+    by_id = {c.get("id"): c for c in entry.get("choices") or [] if isinstance(c, dict)}
+
+    def filter_now(cid: str, ref: Any) -> List[str]:
+        """A filter whose reference names another vocabulary version: its named part matched on
+        today's list, else today's list. Never dropped: the pool's key records that it exists."""
+        c = by_id.get(cid) or {}
+        leaf = vocabulary().get(ref.get(REF) or c.get("cls"))
+        if leaf is not None and isinstance(c.get("where"), dict):
+            own = {f: v for f, v in c["where"].items() if f in leaf.local_facets}
+            if own:
+                return [v.text for v in leaf.matching(own)]
+        return now(leaf.id if leaf is not None else None)
     out = dict(entry)
     if isinstance(entry.get("choices"), list):
         out["choices"] = [{**c, "options": got if (got := unpack_values(c["options"])) is not None else now(c.get("cls"))}
                           if isinstance(c, dict) and is_ref(c.get("options")) else c for c in entry["choices"]]
     if isinstance(entry.get("filters"), dict):
-        out["filters"] = {k: got for k, v in entry["filters"].items() if (got := unpack_values(v)) is not None}
+        out["filters"] = {k: got if (got := unpack_values(v)) is not None else filter_now(k, v) for k, v in entry["filters"].items()}
     if isinstance(entry.get("narrow_pending"), dict):
         out["narrow_pending"] = {
             k: {**p, "options": got if (got := unpack_values(p["options"])) is not None else now(p.get("cls"))}

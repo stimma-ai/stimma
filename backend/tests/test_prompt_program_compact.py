@@ -52,12 +52,30 @@ class TestListsByReference:
         on_disk = (tmp_path / KEY[:2] / f"{KEY}.json").stat().st_size
         assert on_disk < 20_000 < size(e) / 10
 
-    def test_under_another_vocabulary_a_choice_shows_todays_list_and_a_filter_is_dropped(self):
-        packed = pack_entry(entry())
+    def test_under_another_vocabulary_a_choice_shows_todays_list_and_a_filter_stays(self):
+        e = entry()
+        packed = pack_entry(e)
         old = json.loads(json.dumps(packed).replace(vocabulary().version, "vocab-000000000000"))
         got = unpack_entry(old)
         face = next(c for c in got["choices"] if c["id"] == "woman.face")
-        assert face["options"] and "woman.face" not in got["filters"]
+        # her face is narrowed by a named part: matched again on today's list
+        assert face["options"] and got["filters"]["woman.face"] == e["filters"]["woman.face"]
+
+    def test_a_narrowed_pick_replays_its_recorded_pool_after_the_vocabulary_changes(self, tmp_path, monkeypatch):
+        # A pool's key says whether its pick was narrowed: losing the filter would miss the recorded pool.
+        e, store, cfg = entry(), OptionStore(tmp_path / "o"), dataclasses.replace(settings(), generate_options=False)
+        freckled = [t for t in e["filters"]["woman.face"] if "freckles" in t]
+        e["filters"]["woman.face"] = freckled
+        next(c for c in e["choices"] if c["id"] == "woman.face")["where"] = "freckles"
+        programs = ProgramStore(tmp_path / "p")
+        programs.put(KEY, e)
+        first = realize(e, seed=5, runtime=runtime_for(e, store=store, cfg=cfg))
+        assert "freckles" in first.prompt
+        monkeypatch.setattr(vocabulary(), "version", "vocab-111111111111")   # a new vocabulary release
+        later = programs.get(KEY)
+        assert "woman.face" in later["filters"]
+        again = realize(later, seed=5, runtime=runtime_for(later, store=store, cfg=cfg, revision=first.to_dict()["draw_revision"]))
+        assert again.prompt == first.prompt
 
 
 class TestRecordedPools:

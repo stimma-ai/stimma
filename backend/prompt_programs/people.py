@@ -85,6 +85,13 @@ def _suffixed(id_node: ast.expr, suffix: str) -> ast.expr:
     return ast.Constant(value=str(_const(id_node) or "person") + suffix)
 
 
+def _formatted(node: ast.AST) -> List[ast.Name]:
+    """The plain names an f-string formats: f"A portrait of {woman}" → [woman]."""
+    if not isinstance(node, ast.JoinedStr):
+        return []
+    return [v.value for v in node.values if isinstance(v, ast.FormattedValue) and isinstance(v.value, ast.Name)]
+
+
 def _is_person(node: ast.AST) -> bool:
     return (isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) and getattr(node.value.func, "id", None) == "person"
             and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name))
@@ -98,8 +105,9 @@ class _People(ast.NodeTransformer):
         self.count = len(made)
         names = {n.targets[0].id for n in made}
         # The people the program places itself, and the listed details it binds picks of its own to.
-        self.placed: Set[str] = {a.id for n in ast.walk(tree) if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "emit"
-                                 for a in n.args if isinstance(a, ast.Name) and a.id in names}
+        # (as an argument of emit(), or inside an f-string that is one)
+        self.placed: Set[str] = {x.id for n in ast.walk(tree) if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "emit"
+                                 for a in n.args for x in ([a] if isinstance(a, ast.Name) else _formatted(a)) if x.id in names}
         # The program's own picks on the lists person() draws from, and whose they are: a pick
         # whose id starts with a person's, or with one person any pick with a plain id.
         ids = [(n.value.args[0] if n.value.args else None) for n in made]
@@ -197,6 +205,15 @@ class _People(ast.NodeTransformer):
             for a in node.args:
                 if isinstance(a, ast.Name) and a.id in self.people:
                     args += self.people[a.id][1]
+                elif any(x.id in self.people for x in _formatted(a)):
+                    # emit(f"A portrait of {woman} in her kitchen."): the text around her, and her description between
+                    for v in a.values:
+                        if isinstance(v, ast.FormattedValue) and isinstance(v.value, ast.Name) and v.value.id in self.people:
+                            args += self.people[v.value.id][1]
+                        elif isinstance(v, ast.Constant):
+                            args.append(v)
+                        else:
+                            args.append(ast.JoinedStr(values=[self.visit(v)]))
                 else:
                     args.append(self.visit(a))
             node.args = args
