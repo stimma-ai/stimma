@@ -178,6 +178,7 @@ def apply_said(entry: Dict[str, Any], found: Dict[str, str]) -> List[str]:
     from prompt_programs.draws import analyze
     from prompt_programs.prepare import emitted_as, realized_text
     from prompt_programs.runtime import LoraInfo, ProgramError, check, run
+    from prompt_programs.vocab import AGE_LIST, vocabulary
     if not found:
         return []
     source, done = add_said(entry["program"], found)
@@ -211,7 +212,8 @@ def apply_said(entry: Dict[str, Any], found: Dict[str, str]) -> List[str]:
         c["options"] = list(dict.fromkeys([words, *(c.get("options") or [])]))
         # Their words, not a kind: a narrowing of the same pick (read beside this) no longer holds,
         # so the whole list is there to tick.
-        if c.get("cls"):
+        # An age keeps what their words were read as: it says whether this person is under 18.
+        if c.get("cls") and getattr(vocabulary().resolve(c.get("cls")), "id", None) != AGE_LIST:
             (entry.get("filters") or {}).pop(str(c.get("id")), None)
             (entry.get("narrow_pending") or {}).pop(str(c.get("id")), None)
             c.pop("where_words", None)

@@ -144,6 +144,16 @@ class TestAForgottenMarkOnAListedDetail:
         assert len(set(d["eyes"].options) & values_of("person.eye_color")) > 10
 
 
+    def test_marking_an_age_keeps_what_it_was_read_as(self):
+        from prompt_programs.said import apply_said
+        src = ('age = pick("man.age", cls="person.age_band", about="his age", seed=["35–39-year-old"], label="Age", phase=1, line=1)\n'
+               'emit("A", age, "man fishing")')
+        e = entry_of(src, "a 30 year old man fishing", filters={"man.age": ["30–34-year-old"]})
+        next(c for c in e["choices"] if c["id"] == "man.age").update(options=["30–34-year-old"], where="30 year old")
+        assert apply_said(e, {"man.age": "30 year old"})
+        assert e["filters"]["man.age"] == ["30–34-year-old"] and not dict(program_minors(e))
+
+
 class TestAnAgeLeftWithoutItsList:
     SRC = '''
 man_age = pick("man.age_band", about="the man's age", seed=["middle-aged"], label="Age", phase=1, added=True)
@@ -174,6 +184,14 @@ emit("A", man_age, "man and his", wife_age, job, "wife at a market,", mood)
         assert fix_age_lists(fixed) == (fixed, [])
         stated = 'a = pick("age", cls="person.age_band", said="30 year old", about="his age", seed=["35–39-year-old"], label="Age", phase=1, line=1)'
         assert fix_age_lists(stated) == (stated, [])
+
+    def test_an_animals_age_is_left_as_written(self):
+        from prompt_programs.prepare import fix_age_lists
+        leaf = next(i for i in vocabulary().leaves if i.startswith("animal."))
+        dog = (f'breed = pick("dog.breed", cls="{leaf}", about="the dog\'s breed", seed=["husky"], label="Breed", phase=1, added=True)\n'
+               'age = pick("dog.age", about="the dog\'s age", seed=["two-year-old"], label="Age", phase=1, added=True)\n'
+               'emit("A", age, breed, "dog")')
+        assert fix_age_lists(dog) == (dog, [])
 
 
 class TestThroughPerson:

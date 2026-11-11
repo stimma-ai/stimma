@@ -1610,6 +1610,31 @@ def fix_age_lists(source: str) -> Tuple[str, List[str]]:
     pos = _offsets(source)
     edits: List[Tuple[int, str]] = []
     notes: List[str] = []
+
+    def owner(first: ast.AST) -> Optional[str]:
+        """Whose detail an id names, as the writer wrote it (`friends[{i}]` for f"friends[{i}].age",
+        "" for a plain id); None when it can't be read."""
+        text = (ast.get_source_segment(source, first) or "").lstrip("fF").strip("\"'")
+        if not isinstance(first, (ast.Constant, ast.JoinedStr)) or not text:
+            return None
+        return text.rsplit(".", 1)[0] if "." in text else ""
+
+    # Only a person has an age band. A subject the program gives a detail from an animal list
+    # (and none from a person list, and no person()) is an animal: its age is left as written.
+    people: Set[str] = set()
+    animals: Set[str] = set()
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and node.args):
+            continue
+        name = getattr(node.func, "id", None)
+        if name == "person":
+            who = (ast.get_source_segment(source, node.args[0]) or "").lstrip("fF").strip("\"'")
+            people.update({who, ""})
+        elif name == "pick":
+            leaf = vocabulary().resolve(_const(_kw(node, "cls"))) if _kw(node, "cls") is not None else None
+            if leaf is not None and owner(node.args[0]) is not None:
+                kind = leaf.id.split(".")[0]
+                (people if kind == AGE_LIST.split(".")[0] else animals if kind == "animal" else set()).add(owner(node.args[0]))
     for node in ast.walk(tree):
         if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "pick" and node.args):
             continue
@@ -1622,7 +1647,7 @@ def fix_age_lists(source: str) -> Tuple[str, List[str]]:
             cid = str(first.values[-1].value)
         else:
             continue
-        if cid.rsplit(".", 1)[-1].strip() not in _AGE_DETAILS:
+        if cid.rsplit(".", 1)[-1].strip() not in _AGE_DETAILS or owner(first) in animals - people:
             continue
         edits.append((pos(first.end_lineno, first.end_col_offset), f', cls="{AGE_LIST}"'))
         notes.append(f"{cid}: bound to {AGE_LIST}")
