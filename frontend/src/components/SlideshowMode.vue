@@ -106,9 +106,10 @@
     </button>
 
     <div
-      v-if="!focusMode && !isViewingSet && !isViewingGrid && !isViewingSource && itemLabels[displayItem?._slideshowItemKey ?? currentPayloadId]"
-      class="app-no-drag absolute top-2.5 compact:top-[calc(var(--safe-top,0px)+68px)] left-1/2 -translate-x-1/2 z-chrome max-w-[50%] truncate rounded-md bg-matte/80 px-3 py-2 text-xs text-content-secondary"
-    >{{ itemLabels[displayItem?._slideshowItemKey ?? currentPayloadId] }}</div>
+      v-if="!slideshowCompact && !focusMode && currentLabel"
+      class="app-no-drag absolute top-1.5 z-chrome flex h-9 max-w-[50%] -translate-x-1/2 items-center truncate text-[13px] text-content-secondary"
+      :style="{ left: showSidebar ? 'calc(50% - 192px)' : '50%' }"
+    ><span class="truncate">{{ currentLabel }}</span></div>
 
     <!-- Grid view title indicator (centered over image area, accounting for sidebar) -->
     <!-- Visible even in focus mode so user can see position and navigate back -->
@@ -337,9 +338,12 @@
       <button class="compact-bar-btn" :aria-label="isViewingSource || isViewingSet || isViewingGrid ? 'Back' : 'Close slideshow'" @click="isViewingSource ? goBackFromSource() : isViewingGrid ? exitGridView() : isViewingSet ? exitSetView() : handleCloseClick()">
         <ArrowLeftIcon v-if="isViewingSource || isViewingSet || isViewingGrid" class="h-icon-canvas w-icon-canvas" /><XMarkIcon v-else class="h-icon-canvas w-icon-canvas" />
       </button>
-      <div class="pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-xs tabular-nums text-content-tertiary">
-        <template v-if="isViewingGrid && currentGridView"><span class="text-content-secondary">{{ gridLinearPosition }}</span> / {{ gridTotalCells }}</template>
-        <template v-else><span class="text-content-secondary">{{ effectiveIndex + 1 }}</span> / {{ effectiveTotalCount }}</template>
+      <div class="pointer-events-none absolute left-1/2 flex max-w-[calc(100%-200px)] -translate-x-1/2 flex-col items-center leading-tight">
+        <span v-if="currentLabel" class="max-w-full truncate text-[12.5px] text-content">{{ currentLabel }}</span>
+        <span class="whitespace-nowrap font-mono text-xs tabular-nums text-content-tertiary">
+          <template v-if="isViewingGrid && currentGridView"><span class="text-content-secondary">{{ gridLinearPosition }}</span> / {{ gridTotalCells }}</template>
+          <template v-else><span class="text-content-secondary">{{ effectiveIndex + 1 }}</span> / {{ effectiveTotalCount }}</template>
+        </span>
       </div>
       <div class="flex items-center">
         <button @click="showSidebar = true" class="compact-bar-btn" aria-label="Info"><InformationCircleIcon class="h-icon-canvas w-icon-canvas" /></button>
@@ -405,7 +409,7 @@
       @touchcancel.capture="cancelSlideshowTouch"
       @click.capture="suppressSlideshowSwipeClick"
       @contextmenu="handleStageContextMenu"
-      :style="{ marginBottom: slideshowCompact ? '0px' : `${(visibleImageStrip ? STRIP_HEIGHT : 0) + (barDocked ? DOCK_BAR_HEIGHT : 0)}px`, marginTop: (!slideshowCompact && !focusMode) ? `${TOP_BAND_HEIGHT}px` : '0px', paddingTop: '0px' }"
+      :style="{ marginBottom: slideshowCompact ? '0px' : `${(visibleImageStrip ? STRIP_HEIGHT : 0) + (barDocked ? DOCK_BAR_HEIGHT : 0)}px`, marginTop: (!slideshowCompact && !focusMode) ? `${TOP_BAND_HEIGHT}px` : '0px', marginRight: `${reviewRailWidth}px`, paddingTop: '0px' }"
     >
       <div v-if="!displayItem" class="text-content">Loading...</div>
       <!-- Placeholder for deleted/trashed items (rare edge case) -->
@@ -720,9 +724,16 @@
         @reject="emit('reject')"
         @unapprove="emit('unapprove')"
       />
-      <!-- Review chrome a host adds in context (a contact sheet's review bar),
-           in the approval bar's place. -->
-      <slot name="review" :item="currentItem" :index="currentIndex" />
+    </div>
+
+    <!-- Review chrome a host adds in context (a contact sheet's review), beside
+         the picture on desktop: a rail of answers that opens into a panel. -->
+    <div
+      v-if="reviewRailWidth"
+      class="absolute z-chrome overflow-y-auto overflow-x-hidden border-l border-edge-subtle bg-slideshow-matt transition-[width] duration-300 custom-scrollbar"
+      :style="{ top: `${TOP_BAND_HEIGHT}px`, bottom: `${(visibleImageStrip ? STRIP_HEIGHT : 0) + (barDocked ? DOCK_BAR_HEIGHT : 0)}px`, right: showSidebar ? `${SIDEBAR_WIDTH}px` : '0px', width: `${reviewRailWidth}px` }"
+    >
+      <slot name="review" :item="currentItem" :index="currentIndex" part="rail" :open="reviewOpen" :toggle="toggleReview" />
     </div>
 
     <!-- Image Strip (shows thumbnails from current dataset, or single source image when viewing source) -->
@@ -948,11 +959,19 @@
          user-draggable). Phones: a fixed full-width strip at the bottom edge
          that takes its own space below the picture, not a bubble over it. -->
     <div
+      v-if="slideshowCompact && hasReview && reviewOpen && !compactImmersive"
+      class="relative order-3 max-h-[45dvh] w-full shrink-0 overflow-y-auto border-t border-edge-subtle bg-slideshow-matt z-chrome custom-scrollbar"
+      :style="{ paddingLeft: 'var(--safe-left, 0px)', paddingRight: 'var(--safe-right, 0px)' }"
+    >
+      <slot name="review" :item="currentItem" :index="currentIndex" part="panel" :open="reviewOpen" :toggle="toggleReview" />
+    </div>
+
+    <div
       v-if="!(slideshowCompact && compactImmersive)"
       ref="controlBar"
       :class="[
         slideshowCompact
-          ? 'slideshow-control-bar relative order-3 w-full shrink-0 min-h-16 flex items-center bg-slideshow-matt z-chrome select-none'
+          ? 'slideshow-control-bar relative order-4 w-full shrink-0 min-h-16 flex items-center gap-1 bg-slideshow-matt z-chrome select-none'
           : (barDocked
               ? 'slideshow-control-bar absolute flex h-12 items-center gap-3 px-2 z-chrome select-none'
               : 'slideshow-control-bar absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none'),
@@ -973,7 +992,13 @@
       :title="slideshowCompact ? undefined : 'Drag to reposition'"
     >
       <!-- Gallery: markers are primary; transport and disclosure are quiet chrome. -->
-      <template v-if="slideshowCompact">
+      <template v-if="slideshowCompact && hasReview">
+        <SlideshowMarkerControls class="flex-none" :markers="currentItem ? availableMarkers : []" :is-active="isMarkerActive" @toggle="toggleMarker" />
+        <span class="mx-1 h-6 w-px flex-none bg-edge-subtle" aria-hidden="true" />
+        <slot name="review" :item="currentItem" :index="currentIndex" part="pill" :open="reviewOpen" :toggle="toggleReview" />
+        <button @click="compactMoreOpen = true" class="compact-bar-btn" aria-label="More"><EllipsisHorizontalIcon class="h-icon-canvas w-icon-canvas" /></button>
+      </template>
+      <template v-else-if="slideshowCompact">
         <button @click="toggleSlideshow" :class="['compact-bar-btn', { '!text-live': isPlaying }]" :aria-label="isPlaying ? 'Pause' : 'Play slideshow'">
           <PauseIcon v-if="isPlaying" class="h-icon-canvas w-icon-canvas" /><PlayIcon v-else class="h-icon-canvas w-icon-canvas" />
         </button>
@@ -1231,12 +1256,13 @@
       <div class="pb-2">
         <button v-if="currentPayloadId" type="button" class="sheet-row" @click="compactMoreOpen = false; openShareLink()"><LinkIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Share link…</span></button>
         <button v-if="nativeShareSupported && currentPayloadId && !isSprite && !isPackage && !isSet && !isGrid && !isLayout" type="button" class="sheet-row" @click="nativeShareMediaId = currentPayloadId; compactMoreOpen = false"><ArrowUpTrayIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Share file…</span></button>
+        <button v-if="hasReview" type="button" class="sheet-row" @click="compactMoreOpen = false; toggleSlideshow()"><PauseIcon v-if="isPlaying" class="sheet-row-icon" /><PlayIcon v-else class="sheet-row-icon" /><span class="flex-1">{{ isPlaying ? 'Pause slideshow' : 'Play slideshow' }}</span></button>
         <button type="button" class="sheet-row" @click="toggleRandomize"><ArrowsRightLeftIcon class="sheet-row-icon" /><span class="flex-1">Shuffle</span><span class="sheet-row-detail" :class="isRandomized ? '!text-live' : ''">{{ isRandomized ? 'on' : 'off' }}</span></button>
         <button type="button" class="sheet-row" @click="toggleLoop"><span class="sheet-row-icon flex items-center justify-center text-[16px] leading-none">↻</span><span class="flex-1">Loop</span><span class="sheet-row-detail" :class="loopEnabled ? '!text-live' : ''">{{ loopEnabled ? 'on' : 'off' }}</span></button>
         <button type="button" class="sheet-row" @click="cycleDuration"><span class="sheet-row-icon flex items-center justify-center text-[11px] font-semibold">{{ currentDuration }}s</span><span class="flex-1">Slideshow interval</span><span class="sheet-row-detail">tap to change</span></button>
         <button v-if="isVideo" type="button" class="sheet-row" @click="toggleMute"><SpeakerXMarkIcon v-if="isMuted" class="sheet-row-icon" /><SpeakerWaveIcon v-else class="sheet-row-icon" /><span class="flex-1">Sound</span><span class="sheet-row-detail" :class="isMuted ? '' : '!text-live'">{{ isMuted ? 'muted' : 'on' }}</span></button>
         <button v-if="isVideo" type="button" class="sheet-row" @click="toggleVideoTransport"><FilmIcon class="sheet-row-icon" /><span class="flex-1">Scrubber</span><span class="sheet-row-detail" :class="showVideoTransport ? '!text-live' : ''">{{ showVideoTransport ? 'shown' : 'hidden' }}</span></button>
-        <button type="button" class="sheet-row" @click="showImageStrip = !showImageStrip; compactMoreOpen = false"><Squares2X2Icon class="sheet-row-icon" /><span class="flex-1">Filmstrip</span><span class="sheet-row-detail" :class="showImageStrip ? '!text-live' : ''">{{ showImageStrip ? 'shown' : 'hidden' }}</span></button>
+        <button type="button" class="sheet-row" @click="toggleImageStrip(); compactMoreOpen = false"><Squares2X2Icon class="sheet-row-icon" /><span class="flex-1">Filmstrip</span><span class="sheet-row-detail" :class="stripWanted ? '!text-live' : ''">{{ stripWanted ? 'shown' : 'hidden' }}</span></button>
         <button type="button" class="sheet-row" @click="compactMoreOpen = false; handleViewLineage()"><ShareIcon class="sheet-row-icon rotate-90" /><span class="flex-1">View lineage</span></button>
         <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('zip')"><ArchiveBoxIcon class="sheet-row-icon" /><span class="flex-1">Download ZIP</span></button>
         <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('pdf')"><DocumentArrowDownIcon class="sheet-row-icon" /><span class="flex-1">Download PDF</span></button>
@@ -1465,6 +1491,11 @@ const props = defineProps({
   itemLabels: {
     type: Object,
     default: () => ({})
+  },
+  // The host fills the review slot (a contact sheet's review of the picture).
+  review: {
+    type: Boolean,
+    default: false
   },
   randomSeed: Number,
   randomized: Boolean,
@@ -1739,7 +1770,28 @@ const STRIP_HEIGHT = slideshowCompact.value ? 74 : 136
 const STRIP_ROW = slideshowCompact.value ? STRIP_TILE.sm + 8 : STRIP_TILE.lg + 8
 const SIDEBAR_WIDTH = slideshowCompact.value ? 0 : 384
 const focusMode = ref(savedSettings.focusMode ?? false)
-const visibleImageStrip = computed(() => showImageStrip.value && !focusMode.value && props.showThumbnailStrip && !isViewingGrid.value && !(slideshowCompact.value && compactImmersive.value))
+// A host's review (a contact sheet) puts its chrome beside or below the
+// picture, never on it. Reviewing on a compact screen starts without the
+// filmstrip: the sheet is the overview, and More brings the strip back for
+// this slideshow without changing the saved setting.
+const hasReview = computed(() => props.review)
+const reviewOpen = ref(false)
+function toggleReview() { reviewOpen.value = !reviewOpen.value }
+const REVIEW_RAIL_WIDTH = 44
+const REVIEW_PANEL_WIDTH = 264
+const reviewRailWidth = computed(() => (hasReview.value && !slideshowCompact.value && !focusMode.value && !isViewingGrid.value && !isViewingSet.value && !isViewingSource.value)
+  ? (reviewOpen.value ? REVIEW_PANEL_WIDTH : REVIEW_RAIL_WIDTH)
+  : 0)
+const reviewStripOverride = ref(null)
+const stripWanted = computed(() => (slideshowCompact.value && hasReview.value) ? (reviewStripOverride.value ?? false) : showImageStrip.value)
+function toggleImageStrip() {
+  if (slideshowCompact.value && hasReview.value) reviewStripOverride.value = !stripWanted.value
+  else showImageStrip.value = !showImageStrip.value
+}
+const currentLabel = computed(() => (isViewingSet.value || isViewingGrid.value || isViewingSource.value)
+  ? ''
+  : props.itemLabels[displayItem.value?._slideshowItemKey ?? currentPayloadId.value] || '')
+const visibleImageStrip = computed(() => stripWanted.value && !focusMode.value && props.showThumbnailStrip && !isViewingGrid.value && !(slideshowCompact.value && compactImmersive.value))
 // Markers and collections state
 const availableMarkers = ref([])
 const mediaProjects = ref([])

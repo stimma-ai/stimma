@@ -1358,10 +1358,11 @@
       :inline="!docked"
       @update:index="onSlideshowIndex"
       @close="closeSlideshow"
+      :review="sheetReviewing"
       @compare-with-source="handleCompareFromSlideshow"
     >
-      <template v-if="sheetSlideshow" #review="{ index }">
-        <SheetSlideshowReviewBar :sheet="sheetSlideshow.sheet" :entry="sheetSlideshow.list[index] ?? null" />
+      <template v-if="sheetReviewing" #review="{ index, part, open, toggle }">
+        <SheetSlideshowReviewBar :sheet="sheetSlideshow.sheet" :entry="sheetSlideshow.list[index] ?? null" :part="part" :open="open" @toggle="toggle" />
       </template>
     </SlideshowMode>
 
@@ -3021,6 +3022,7 @@ function onSlideshowIndex(index) {
 // A contact sheet's slideshow: the app's slideshow over the sheet's media in
 // sheet order, with the sheet's review bar where flow approval sits.
 const sheetSlideshow = shallowRef(null)
+const sheetReviewing = computed(() => !!sheetSlideshow.value && !sheetSlideshow.value.sheet.readonly.value)
 const sheetSlideshowKeys = computed(() => (sheetSlideshow.value?.list || []).map(entry => `sheet:${entry.mediaId}`))
 const sheetSlideshowLabels = computed(() => Object.fromEntries((sheetSlideshow.value?.list || [])
   .map(entry => [`sheet:${entry.mediaId}`, entry.caption || entry.section || ''])))

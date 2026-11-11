@@ -46,68 +46,79 @@
       <span v-if="selected" class="pointer-events-none absolute inset-0 z-chrome rounded-media ring-2 ring-inset ring-selection" />
       <span v-else-if="picked" class="pointer-events-none absolute inset-0 z-chrome rounded-media ring-2 ring-inset ring-accent" />
 
-      <!-- Markers: the profile's own, drawn as OutputImage draws them. Icon and
-           color only; the name is the tooltip. Unset ones wait for hover. -->
-      <div v-if="!small && availableMarkers.length && !sheet.readonly.value" class="absolute bottom-2 left-2 z-chrome flex gap-0.5">
+      <!-- Markers: the profile's own, icon and color only; the name is the
+           tooltip. With a mouse, unset ones wait for hover. On touch and on
+           small tiles only set ones show; they're set in the slideshow. -->
+      <div v-if="!small && !coarse && availableMarkers.length && !sheet.readonly.value" class="absolute bottom-1.5 left-1.5 z-chrome flex gap-0.5">
         <button
           v-for="marker in availableMarkers"
           :key="marker.id"
           type="button"
           :class="[
-            'flex h-7 w-7 items-center justify-center rounded-md border-2 transition-all coarse:h-11 coarse:w-11',
-            hasMarker(mediaId, marker.id) ? 'bg-black/80' : 'border-transparent bg-black/40 text-white/50 hover:bg-black/60 hover:text-white',
-            !hasMarker(mediaId, marker.id) ? 'opacity-0 group-hover/tile:opacity-100 [[data-pointer=coarse]_&]:hidden' : '',
+            'flex h-6 w-6 items-center justify-center rounded-md transition-all',
+            hasMarker(mediaId, marker.id) ? 'bg-black/55 backdrop-blur-md' : 'bg-black/40 text-white/60 opacity-0 hover:bg-black/60 hover:text-white group-hover/tile:opacity-100',
           ]"
-          :style="hasMarker(mediaId, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
+          :style="hasMarker(mediaId, marker.id) ? { color: marker.color } : {}"
           :title="hasMarker(mediaId, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
           @click.stop="toggleMarker(mediaId, marker)"
         >
-          <span class="icon-container flex h-4 w-4 items-center justify-center" v-html="sanitizeSvg(marker.icon_svg)" />
+          <span class="icon-container flex h-3.5 w-3.5 items-center justify-center" v-html="sanitizeSvg(marker.icon_svg)" />
         </button>
       </div>
-      <div v-else-if="small && setMarkers.length" class="pointer-events-none absolute bottom-1 left-1 z-chrome flex gap-0.5">
+      <div v-else-if="setMarkers.length" class="pointer-events-none absolute z-chrome flex gap-0.5" :class="small ? 'bottom-1 left-1' : 'bottom-1.5 left-1.5'">
         <span
           v-for="marker in setMarkers"
           :key="marker.id"
-          class="icon-container flex h-3.5 w-3.5 items-center justify-center drop-shadow"
+          class="icon-container flex items-center justify-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
+          :class="small ? 'h-3.5 w-3.5' : 'h-4 w-4'"
           :style="{ color: marker.color }"
           v-html="sanitizeSvg(marker.icon_svg)"
         />
       </div>
 
-      <!-- A picture a choice is asking about is picked here, where it is seen whole. -->
-      <div v-if="picks.length || (isNew && !showCaption)" class="absolute left-1.5 top-1.5 z-chrome flex items-center gap-1">
+      <!-- A picture a choice is asking about is picked here, where it is seen
+           whole, with the browser's checkbox: a small mark in a hit area big
+           enough for a finger. -->
+      <div v-if="picks.length || (isNew && !showCaption)" class="absolute left-0 top-0 z-chrome flex items-start">
         <button
           v-for="pick in picks"
           :key="`${pick.choiceId}:${pick.value}`"
           type="button"
-          :class="[
-            'flex items-center justify-center rounded-full border-2 shadow transition-colors disabled:cursor-default',
-            small ? 'h-5 w-5' : 'h-7 w-7 coarse:h-11 coarse:w-11',
-            sheet.isPicked(pick.choiceId, pick.value) ? 'border-accent bg-accent text-white' : 'border-white/80 bg-black/40 text-transparent hover:bg-black/60 hover:text-white/70',
-            pick.multiple ? '!rounded-md' : '',
-          ]"
+          class="group/pick flex items-start justify-start disabled:cursor-default"
+          :class="small ? 'p-1' : 'p-1.5 coarse:pb-3 coarse:pr-3'"
           :aria-pressed="sheet.isPicked(pick.choiceId, pick.value)"
+          :aria-label="pick.question ? `${pick.question} ${pick.label}` : pick.label"
           :title="pick.question ? `${pick.question} ${pick.label}` : pick.label"
           :disabled="sheet.readonly.value"
           @click.stop="sheet.togglePick(pick)"
         >
-          <CheckIcon :class="small ? 'h-3 w-3' : 'h-4 w-4'" stroke-width="3" />
+          <span
+            class="flex items-center justify-center border-2 backdrop-blur-md transition-colors"
+            :class="[
+              small ? 'h-4 w-4' : 'h-5 w-5',
+              pick.multiple ? 'rounded-md' : 'rounded-full',
+              sheet.isPicked(pick.choiceId, pick.value) ? 'border-accent bg-accent text-on-accent' : 'border-white/60 bg-black/45 text-transparent group-hover/pick:border-white/90',
+            ]"
+          ><CheckIcon :class="small ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5'" stroke-width="3" /></span>
         </button>
         <Transition leave-active-class="transition-opacity duration-700" leave-to-class="opacity-0">
-          <span v-if="isNew && !showCaption" class="h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-base" title="New" />
+          <span v-if="isNew && !showCaption" class="ml-1.5 mt-1.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-base" title="New" />
         </Transition>
       </div>
-      <div v-if="!small && !sheet.readonly.value" class="absolute right-1.5 top-1.5 z-chrome">
+      <!-- With a caption, Comment sits at the end of it, off the picture.
+           Without one it waits for hover, or shows a quiet count on touch. -->
+      <div v-if="!small && !showCaption && !sheet.readonly.value && (commentCount || !coarse)" class="absolute right-0 top-0 z-chrome">
         <button
           type="button"
-          class="flex h-7 items-center justify-center gap-1 rounded-md bg-black/40 px-1.5 text-white/80 transition-opacity hover:bg-black/60 hover:text-white coarse:h-11 coarse:min-w-11"
-          :class="commentCount ? 'opacity-100' : 'opacity-0 group-hover/tile:opacity-100 coarse:opacity-100'"
+          class="flex items-start justify-end p-1.5 transition-opacity coarse:pb-3 coarse:pl-3"
+          :class="commentCount ? 'opacity-100' : 'opacity-0 group-hover/tile:opacity-100'"
           title="Comment"
           @click.stop="comment"
         >
-          <ChatBubbleLeftIcon class="h-4 w-4" />
-          <span v-if="commentCount" class="font-mono text-[11px] tabular-nums">{{ commentCount }}</span>
+          <span class="flex h-5 items-center gap-0.5 rounded bg-black/55 px-1 text-white/90 backdrop-blur-md">
+            <ChatBubbleLeftIcon class="h-3 w-3" />
+            <span v-if="commentCount" class="font-mono text-[10px] tabular-nums">{{ commentCount }}</span>
+          </span>
         </button>
       </div>
       <span v-if="small && commentCount" class="pointer-events-none absolute bottom-1 right-1 flex items-center gap-0.5 rounded bg-black/55 px-1 font-mono text-[9px] text-white">
@@ -123,11 +134,24 @@
     <figcaption
       v-if="showCaption"
       ref="captionEl"
-      class="break-words pt-1 text-[12px] leading-snug text-content-secondary"
+      class="flex items-start gap-1.5 pt-1 text-[12px] leading-snug text-content-secondary"
     >
-      <Transition leave-active-class="transition-opacity duration-700" leave-to-class="opacity-0">
-        <span v-if="isNew" class="mb-px mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent align-middle" title="New" />
-      </Transition>{{ at.caption }}
+      <span class="min-w-0 flex-1 break-words">
+        <Transition leave-active-class="transition-opacity duration-700" leave-to-class="opacity-0">
+          <span v-if="isNew" class="mb-px mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent align-middle" title="New" />
+        </Transition>{{ at.caption }}
+      </span>
+      <button
+        v-if="!sheet.readonly.value"
+        type="button"
+        class="-my-1 -mr-1 flex flex-none items-center gap-0.5 rounded p-1 transition-opacity hover:text-content coarse:-my-2.5 coarse:py-2.5 coarse:pl-2.5"
+        :class="commentCount ? 'text-content-secondary' : 'text-content-muted opacity-60 hover:opacity-100'"
+        :title="commentCount ? `${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}` : 'Comment'"
+        @click.stop="comment"
+      >
+        <ChatBubbleLeftIcon class="h-3.5 w-3.5" />
+        <span v-if="commentCount" class="font-mono text-[11px] tabular-nums">{{ commentCount }}</span>
+      </button>
     </figcaption>
   </figure>
 </template>
