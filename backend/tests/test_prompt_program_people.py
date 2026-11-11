@@ -214,3 +214,14 @@ class TestPresentationIsContextForOutfits:
     def test_with_no_presentation_said_the_whole_list_is_drawn(self):
         got = self.worn("")
         assert [v for v in got if "sundress" in v or "bikini" in v or "skirt" in v] and [v for v in got if "shorts" in v]
+
+    def test_a_list_narrowed_to_the_other_presentation_is_still_drawn(self):
+        # every romantic casual outfit is tagged feminine: the user's narrowing stands, nothing aborts
+        from prompt_programs.vocab import vocabulary
+        leaf = vocabulary().leaves["person.outfit.casual"]
+        romantic = [(v.text, v.weight) for v in leaf.matching({"style": "romantic"})]
+        assert romantic and all(leaf.context_tags(t, "presentation") == ("feminine",) for t, _ in romantic)
+        assert leaf.weigh(romantic, [("presentation", ("masculine",))]) == romantic
+        mixed = [(v.text, v.weight) for v in leaf.values]
+        after = dict(leaf.weigh(mixed, [("presentation", ("masculine",))]))
+        assert all(after[t] == 0 for t, _ in romantic) and any(w > 0 for w in after.values())
