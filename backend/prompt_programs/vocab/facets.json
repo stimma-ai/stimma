@@ -209,6 +209,15 @@
      "elderly"
     ],
     "about": "the stage of life a person's drawn age is in; on a face value, the stages it is seen at (deep lines from middle age, baby-round cheeks on a child). Values with no tag fit every age."
+   },
+   "presentation": {
+    "scope": "person",
+    "values": [
+     "feminine",
+     "masculine"
+    ],
+    "about": "how a person presents, when the user's words say (person(presentation=...)): given by the program, not drawn. An outfit made for the other presentation is left out; one with no such tag fits everyone.",
+    "given": "program"
    }
   }
  }

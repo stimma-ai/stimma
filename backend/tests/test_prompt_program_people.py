@@ -177,3 +177,40 @@ class TestTheOnePersonOwnsTheirDetails:
         assert prep.fix_lone_subject(two, "a nurse and a doctor")[0] == two
         said = expand_people(self.SRC.replace("added=True)\ncorridor", 'said="weary")\ncorridor'))
         assert "nurse.expression" not in prep.fix_lone_subject(said, "a weary nurse in a corridor")[0]
+
+
+class TestPresentationIsContextForOutfits:
+    """person(presentation=...) is context for that person's outfit lists: a man isn't drawn a sundress."""
+
+    @staticmethod
+    def worn(presentation, n=120):
+        import dataclasses
+        import tempfile
+
+        from prompt_programs import prepare as prep
+        from prompt_programs.fluent import runtime_for
+        from prompt_programs.judge import settings
+        from prompt_programs.options import OptionStore
+        src = expand_people(f'p = person("p", noun="person"{presentation})\n'
+                            'outfit = pick("p.outfit", cls="person.outfit.summer", about="what they wear", '
+                            'seed=["shorts and a T-shirt"], label="Outfit", phase=2, added=True)\n'
+                            'emit(p, ", wearing", outfit, ".")\n')
+        src, _ = prep.fix_written(src, "a person on a beach", [])
+        info = prep.validate(src, "a person on a beach", [], set(), "", True)["info"]
+        entry = {"key": "k" + presentation, "program": src, "choices": info["choices"], "prompt": "a person on a beach", "mode": "prose"}
+        store = OptionStore(tempfile.mkdtemp())
+        cfg = dataclasses.replace(settings(), generate_options=False)
+        out = []
+        for seed in range(n):
+            r = prep.realize(entry, seed=seed, runtime=runtime_for(entry, store=store, cfg=cfg))
+            out.append(str(next(d for d in r.draws if d.id == "p.outfit").value))
+        return out
+
+    def test_a_man_draws_no_outfit_made_for_women_and_the_reverse(self):
+        feminine = ("sundress", "bikini", "skirt")
+        assert not [v for v in self.worn(', presentation="masculine"') if any(w in v for w in feminine)]
+        assert [v for v in self.worn(', presentation="feminine"') if any(w in v for w in feminine)]
+
+    def test_with_no_presentation_said_the_whole_list_is_drawn(self):
+        got = self.worn("")
+        assert [v for v in got if "sundress" in v or "bikini" in v or "skirt" in v] and [v for v in got if "shorts" in v]

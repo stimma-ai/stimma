@@ -155,6 +155,18 @@ class ProgramContext:
                                       for cls, sub in by.items() if isinstance(sub, list)))
 
 
+def _presentation(where_text: str) -> str:
+    """The presentation a pick's facet filter names ("{'presentation': 'masculine'}" as ProgramContext
+    keeps it), or "" when it names none or more than one."""
+    import ast
+    try:
+        got = ast.literal_eval(where_text)
+    except (ValueError, SyntaxError):
+        return ""
+    want = got.get("presentation") if isinstance(got, dict) else None
+    return want if isinstance(want, str) and want in ("feminine", "masculine") else ""
+
+
 def program_minors(entry: Dict[str, Any]) -> Tuple[Tuple[str, Tuple[str, ...]], ...]:
     """Who in a prepared program may be under 18, and at which ages: a person whose age pick
     was narrowed to ages under 18 (the user's words asked for them: where=, or narrowing), or
@@ -797,6 +809,13 @@ class GeneratedOptions:
             for f, fam in given_families(cls, sub).items():
                 have = self.stated_context.setdefault(who if vocabulary().scope(f) == "person" else None, {})
                 have[f] = tuple(sorted(set(have.get(f, ())) | set(fam)))
+        # How a person presents, as the program says it (person(presentation=...) puts it on their face
+        # and build picks as where={"presentation": ...}): context for that person's other details, so a
+        # man isn't drawn a sundress. From the picks' own filters, never from the user's words.
+        for cid, text in program.facets:
+            said = _presentation(text)
+            if said and vocabulary().scope("presentation") == "person":
+                self.stated_context.setdefault(person_of(cid), {})["presentation"] = (said,)
         self.list_context: Dict[str, Dict[str, Dict[str, Tuple[str, ...]]]] = {}
         for cid, value, cls, sub in program.list_context:
             for f, fam in given_families(cls, sub).items():

@@ -102,6 +102,10 @@ class TestTheData:
             assert spec.get("scope") in ("person", "scene"), facet
             givers = [lf for lf in v.leaves.values() if facet in lf.gives]
             takers = [lf for lf in v.leaves.values() if facet in lf.takes]
+            if spec.get("given") == "program":   # no list gives it: the program says it (person(presentation=...))
+                assert takers and not givers, facet
+                assert any(lf.context_tags(x.text, facet) for lf in takers for x in lf.values), f"no taker tags {facet}"
+                continue
             assert givers and takers, facet
             assert any(lf.context_tags(x.text, facet) for lf in givers for x in lf.values), f"no giver tags {facet}"
             assert any(lf.context_tags(x.text, facet) for lf in takers for x in lf.values), f"no taker tags {facet}"

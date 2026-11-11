@@ -2535,6 +2535,9 @@
       "climate": {
         "mismatch": "rare",
         "factor": 0.1
+      },
+      "presentation": {
+        "mismatch": "drop"
       }
     }
   }
