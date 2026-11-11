@@ -141,6 +141,7 @@ class TestNarrowed:
         out = pools(e, tmp_path)
         meta, opts = out["vocab"]["age"], out["options"]["age"]
         assert meta["reach"]["fits"] == e["filters"]["age"]
+        assert meta["reach"]["words"] == "young"   # the user's words name the setting
         assert [o for o in opts if meta["tiers"][o] != "opt_in"] == e["filters"]["age"]   # the default ticks
         assert len(opts) == len(vocabulary().get("person.age_band").values)
 

@@ -28,6 +28,21 @@ const choices: ProgramChoice[] = [
   // The user's own words ("a yellow ferrari"): every image uses them until others are ticked.
   { id: 'car', kind: 'pick', label: 'Car', source: 'text', said: 'yellow ferrari', options: ['yellow ferrari', 'red lamborghini', 'silver porsche'] },
 ]
+// How far a choice reaches (programReach.ts): a stated descent, an age narrowed by "young",
+// an open hairstyle the prompt's context speaks to, and a short gaze where everything fits.
+const descents = ['Korean', 'Japanese', 'Chinese', 'Vietnamese', 'Indian', 'Iranian', 'Turkish', 'Nigerian', 'Kenyan', 'Irish',
+  'Scottish', 'Welsh', 'English', 'French', 'German', 'Italian', 'Greek', 'Swedish', 'Mexican', 'Brazilian']
+const minorAges = ['8–10-year-old', '13–14-year-old']
+const adultAges = ['18–19-year-old', '20–24-year-old', '25–29-year-old', '30–34-year-old', '40–44-year-old', '50–54-year-old', '60–64-year-old', '70–74-year-old']
+const youngAges = adultAges.slice(0, 3)
+const styles = words('hairstyle', 30)
+const gazes = ['at the camera', 'down', 'to one side', 'up', 'over the shoulder']
+choices.push(
+  { id: 'descent', kind: 'pick', label: 'Ethnicity', source: 'text', cls: 'person.ethnicity', said: 'Irish', options: descents },
+  { id: 'young', kind: 'pick', label: 'Age', source: 'text', cls: 'person.age_band', options: [...minorAges, ...adultAges] },
+  { id: 'hairstyle', kind: 'pick', label: 'Hairstyle', source: 'text', cls: 'person.hairstyle', options: styles },
+  { id: 'gaze', kind: 'pick', label: 'Gaze', source: 'text', cls: 'person.gaze', options: gazes },
+)
 for (const index of [1, 2]) {
   for (const label of ['Age', 'Ethnicity', 'Hairstyle', 'Expression']) {
     choices.push({ id: `friends[${index}].${label.toLowerCase()}`, kind: 'pick', label, source: 'added', group: 'friends', index, options: ['first', 'second'] })
@@ -41,7 +56,11 @@ for (const index of [1, 2]) {
 }
 const groups = [{ id: 'friends', label: 'Friends', count: 2, source: 'text' }]
 // 'a kept heritage': the user's own option, kept for the list from an earlier prompt.
-const pools = ref<Record<string, string[]>>({ expression: Object.keys(expressionTiers), ethnicity: [...words('heritage', 20), 'a kept heritage'] })
+const pools = ref<Record<string, string[]>>({
+  expression: Object.keys(expressionTiers), ethnicity: [...words('heritage', 20), 'a kept heritage'],
+  descent: descents, young: [...minorAges, ...adultAges], hairstyle: styles, gaze: gazes,
+})
+const typical = (vs: string[]) => Object.fromEntries(vs.map(v => [v, 'typical' as const]))
 const vocab = ref<Record<string, ChoiceVocab>>({
   expression: { cls: 'person.expression', label: 'Expression', closed: false, tiers: expressionTiers },
   ethnicity: { cls: 'person.ethnicity', label: 'Ethnicity', closed: true, tiers: Object.fromEntries([...words('heritage', 20), 'a kept heritage'].map(v => [v, 'typical' as const])), mine: ['a kept heritage'] },
@@ -52,6 +71,15 @@ const vocab = ref<Record<string, ChoiceVocab>>({
   },
   face: { cls: 'person.face', label: 'Face', closed: true, tiers: {} },
   age: { cls: 'person.age_band', label: 'Age', closed: true, tiers: { '8–10-year-old': 'opt_in', '20–24-year-old': 'typical', '30–34-year-old': 'typical', '40–44-year-old': 'plausible' } },
+  descent: { cls: 'person.ethnicity', label: 'Ethnicity', closed: true, tiers: typical(descents),
+    reach: { said: ['Irish'], fits: ['Irish', 'Scottish', 'Welsh'], any: descents } },
+  // Narrowed: the rest of the list is drawn only once ticked, like the ages under 18.
+  young: { cls: 'person.age_band', label: 'Age', closed: true,
+    tiers: { ...typical(youngAges), ...Object.fromEntries([...minorAges, ...adultAges.slice(3)].map(v => [v, 'opt_in' as const])) },
+    reach: { fits: youngAges, any: adultAges, words: 'young' } },
+  hairstyle: { cls: 'person.hairstyle', label: 'Hairstyle', closed: false, tiers: typical(styles),
+    reach: { fits: styles.slice(0, 24), any: styles } },
+  gaze: { cls: 'person.gaze', label: 'Gaze', closed: true, tiers: typical(gazes), reach: { fits: gazes, any: gazes } },
 })
 const pins = ref<Record<string, string[]>>({})
 const edits = ref<Record<string, ChoiceEdit>>({})

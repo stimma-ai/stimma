@@ -232,10 +232,13 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
             parts = list_parts(leaf, seen)
             if parts:
                 vocab[cid]["parts"] = parts
-            said = next((str(c.get("said") or "") for c in entry.get("choices") or [] if c.get("id") == cid), "")
+            ch = next((c for c in entry.get("choices") or [] if c.get("id") == cid), {})
+            said = str(ch.get("said") or "")
+            where = ch.get("where")
+            words = str(ch.get("where_words") or (where if isinstance(where, str) else "") or "")
             shown = vocab[cid]["tiers"]
             reach = reach_of(leaf, seen, [o for o in seen if shown.get(o) == "opt_in"], [*mine_here, *own_adds(cid)],
-                             said=said, narrowed=narrowed, contexts=contexts)
+                             said=said, narrowed=narrowed, words=words, contexts=contexts)
             if reach:
                 vocab[cid]["reach"] = reach
         elif seen:

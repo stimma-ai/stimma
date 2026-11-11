@@ -25,6 +25,8 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from prompt_programs.vocab import Leaf
 
+WORDS_MAX = 18   # longer narrowing words don't name a setting ("What fits" does)
+
 # The grouping a list's "similar" values share, where its first named part isn't one: a facet
 # of the list, or None for a list whose parts say nothing about likeness (a room's size).
 SIMILAR_BY: Dict[str, Optional[str]] = {
@@ -90,7 +92,7 @@ def similar_values(leaf: Leaf, said: str, options: Sequence[str]) -> List[str]:
 
 
 def reach_of(leaf: Leaf, options: Sequence[str], standby: Iterable[str], own: Iterable[str], *,
-             said: str = "", narrowed: Optional[Sequence[str]] = None,
+             said: str = "", narrowed: Optional[Sequence[str]] = None, words: str = "",
              contexts: Sequence[Tuple[Tuple[str, Tuple[str, ...]], ...]] = ()) -> Optional[Dict[str, Any]]:
     """A bound choice's settings for the picker, or None when it has only one (everything
     fits: the picker keeps its plain All row).
@@ -98,7 +100,8 @@ def reach_of(leaf: Leaf, options: Sequence[str], standby: Iterable[str], own: It
     `options`: what the picker lists, in order; `standby`: those drawn only once ticked one by
     one; `own`: the user's own options. `said`: their stated value; `narrowed`: the subset their
     words narrowed the list to; `contexts`: the context the choice's pool was drawn in, once per
-    sample draw. Returns {"said": [value]?, "fits": [...]?, "any": [...]}, each in the
+    sample draw; `words`: the user's words the list was narrowed by, to name the setting.
+    Returns {"said": [value]?, "fits": [...]?, "any": [...], "words"?}, each list in the
     options' order; "fits" holds the stated value too."""
     mine, held = set(own), set(standby)
     regular = [o for o in options if o not in mine and o not in held]
@@ -114,7 +117,10 @@ def reach_of(leaf: Leaf, options: Sequence[str], standby: Iterable[str], own: It
         fits = [o for o in options if o in keep and o not in mine]
         # What a tick on "Any" draws: the list's values, those drawn only one by one left out.
         any_ = [o for o in options if o not in mine and (o in keep or leaf.value(o) is None or not leaf.value(o).opt_in)]
-        return {"fits": fits, "any": any_} if fits and len(fits) < len(any_) else None
+        if not fits or len(fits) >= len(any_):
+            return None
+        short = " ".join(words.split())
+        return {"fits": fits, "any": any_, **({"words": short} if 0 < len(short) <= WORDS_MAX else {})}
     distinct = {c for c in contexts}
     if len(distinct) != 1 or not next(iter(distinct)):
         return None
