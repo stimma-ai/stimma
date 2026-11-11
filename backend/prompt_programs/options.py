@@ -38,7 +38,8 @@ from core.logging import get_logger
 from prompt_programs.draws import LiteralOptions, PickSpec, Pool, context_suffix, owns, person_of, pool_key
 from prompt_programs.runtime import RANK_DECAY
 from prompt_programs.vocab import (
-    AGE_LIST, OPEN_SHARE, Leaf, fill, given_families, minor_ages, tags_match, template_matches, vocabulary,
+    AGE_LIST, OPEN_SHARE, TIER_WEIGHTS, Leaf, fill, given_families, minor_ages, tags_match, template_matches,
+    vocabulary,
 )
 
 log = get_logger(__name__)
@@ -735,8 +736,14 @@ class GeneratedOptions:
                  edits: Optional[Dict[str, Dict[str, Any]]] = None, filler: Optional[OptionFiller] = None,
                  limits: Optional[Dict[str, Any]] = None,
                  project_id: Optional[int] = None, generate: bool = True,
-                 version: Optional[str] = None, context: bool = True):
+                 version: Optional[str] = None, context: bool = True,
+                 mine: Optional[Dict[str, Sequence[str]]] = None):
         self.store, self.program, self.filler = store, program, filler
+        # The user's own options kept for each vocabulary list (additions.py), offered by every
+        # choice bound to that list; and, per choice read, which of them its pool holds and
+        # whether each is drawn only once ticked (the picker shows those apart).
+        self.mine = {str(k): [str(x) for x in v] for k, v in (mine or {}).items()}
+        self.mine_shown: Dict[str, Dict[str, bool]] = {}
         # The pools' options version: a replay reads the version its revision drew from,
         # and never writes to an older one.
         self.version = version or OPTIONS_VERSION
@@ -879,8 +886,10 @@ class GeneratedOptions:
             # record held them at a positive weight); a kept or pinned value still draws.
             leaf = self._leaf(spec)
             standby = {v.text for v in leaf.pool_values(self._allowed(spec), bool(spec.minor))[1]} if leaf else set()
+            own = frozenset(str(x) for x in [*((self.edits.get(spec.id) or {}).get("add") or []), *self._mine_of(spec)])
             return Pool(key, [str(e[0]) for e in recorded],
-                        [0.0 if str(e[0]) in standby else float(e[1]) for e in recorded], False, True, roles), [], 0
+                        [0.0 if str(e[0]) in standby else float(e[1]) for e in recorded], False, True, roles,
+                        own=own), [], 0
         leaf = self._leaf(spec)
         if leaf is not None:
             return self._read_bound(spec, leaf, key, skey)
@@ -897,9 +906,19 @@ class GeneratedOptions:
         weights = [_weight(i, len(written) + len(adds)) for i in range(len(items))]
         gone = {_norm(x) for x in edit.get("remove") or []}
         kept = [(o, w) for o, w in zip(items, weights) if _norm(o) not in gone]
+        own = {o for o in adds}
+        # A bound pick its words left nothing of (where=) draws unbound: the user's kept options
+        # for its list are offered, drawn only once ticked (after the rest, so a replay's
+        # recorded length leaves them out as it found them).
+        have = {_norm(o) for o, _ in kept} | gone
+        extra = [o for o in self._mine_of(spec) if _norm(o) not in have]
+        if extra:
+            kept += [(o, 0.0) for o in extra]
+            own |= set(extra)
+            self.mine_shown[spec.id] = {o: True for o in extra}
         if isinstance(self.limits.get(key), (int, float)):  # replaying a recorded revision
             kept = kept[: int(self.limits[key])]
-        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False)
+        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, own=frozenset(own))
         rounds = self.store.rounds(skey) if self.store is not None else 0
         return pool, items, rounds
 
@@ -930,8 +949,18 @@ class GeneratedOptions:
             want = {f: list(vals) for f, vals in spec.restrict}
             values = [v for v in values if tags_match(v.tags, want)] or values
         # The user's own words (said=) lead a bound pick's pool, like an unbound pick's seeds.
-        listed = unique(([(spec.said, 1.0)] if spec.said else []) + [(v.text, v.weight) for v in values] +
-                        [(str(x), 1.0) for x in edit.get("add") or [] if str(x).strip()])
+        adds = [(str(x), 1.0) for x in edit.get("add") or [] if str(x).strip()]
+        listed = unique(([(spec.said, 1.0)] if spec.said else []) + [(v.text, v.weight) for v in values] + adds)
+        own = {o for o, _ in adds if _norm(o) not in {_norm(x) for x in edit.get("remove") or []}}
+        # The user's options kept for this list (additions.py), after those added here: each as
+        # one typical value, or drawn only once ticked where words decide (where=, said=) and
+        # on the age list (no age drawn unasked). Their own: never dropped for a minor.
+        held = bool(spec.said) or allowed is not None or leaf.id == AGE_LIST
+        mine = unique([(o, 0.0 if held else TIER_WEIGHTS["typical"]) for o in self._mine_of(spec)])
+        if mine:
+            self.mine_shown[spec.id] = {o: w == 0 for o, w in mine}
+            own |= {o for o, _ in mine}
+        listed += [x for x in mine if x[1] > 0]
         if spec.context:  # weighted by what its scope drew (vocab.py); the user's additions keep theirs
             listed = leaf.weigh(listed, spec.context)
         generated = self.store.options(skey) if self.store is not None and not leaf.closed else []
@@ -943,11 +972,19 @@ class GeneratedOptions:
             lw, gw = sum(w for _, w in listed), sum(w for _, w in gen)
             listed = [(o, w * OPEN_SHARE / lw) for o, w in listed]
             gen = [(o, w * (1 - OPEN_SHARE) / gw) for o, w in gen]
-        kept = [*listed, *gen, *unique([(v.text, 0.0) for v in standby])]
+        kept = [*listed, *gen, *[x for x in mine if x[1] == 0], *unique([(v.text, 0.0) for v in standby])]
         roles = {v.text: dict(v.roles) for v in values if v.roles}
-        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, True, roles)
+        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, True, roles, own=frozenset(own))
         rounds = self.store.rounds(skey) if self.store is not None and not leaf.closed else 0
         return pool, generated, rounds
+
+    def _mine_of(self, spec: PickSpec) -> List[str]:
+        """The user's kept options for the list a pick binds (none for a palette or no list)."""
+        if not self.mine or not spec.cls or spec.source == "list":
+            return []
+        from prompt_programs.additions import list_id
+        lid = list_id(spec.cls)
+        return [o for o in self.mine.get(lid, []) if o.strip()] if lid else []
 
     def _examples(self, leaf: Leaf, spec: PickSpec, key: str) -> List[str]:
         """The generator's examples from a bound pick's list; templates are shown filled

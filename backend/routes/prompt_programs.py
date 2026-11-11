@@ -160,6 +160,51 @@ async def pools(req: PreviewRequest) -> Dict[str, Any]:
     return await asyncio.to_thread(pool_options, entry, req.pins, profile_id=get_current_profile(), project_id=req.project_id)
 
 
+class AdditionRequest(BaseModel):
+    # The vocabulary list the choice is bound to (its `cls`, e.g. "person.hairstyle").
+    cls: str = Field(max_length=200)
+    text: str = Field(max_length=2000)
+
+
+def _addition_list(req: AdditionRequest) -> str:
+    from prompt_programs.additions import list_id
+    lid = list_id(req.cls)
+    if lid is None:
+        raise HTTPException(status_code=422, detail={"code": "not_a_list",
+                                                     "message": "This choice's options aren't kept for later prompts."})
+    return lid
+
+
+@router.get("/additions")
+async def list_additions() -> Dict[str, Any]:
+    """The user's own options kept for each vocabulary list, offered by every later prompt."""
+    from prompt_programs.additions import additions_for
+    return {"lists": additions_for(get_current_profile()).lists()}
+
+
+@router.post("/additions")
+async def add_addition(req: AdditionRequest) -> Dict[str, Any]:
+    """Keep an option the user added to a choice bound to a list, for every later prompt."""
+    from prompt_programs.additions import MAX_TEXT, additions_for, clean_text
+    lid = _addition_list(req)
+    text = clean_text(req.text)
+    if not text or len(text) > MAX_TEXT:
+        raise HTTPException(status_code=422, detail={"code": "bad_option", "message": "An option is a few words."})
+    store = additions_for(get_current_profile())
+    added = store.add(lid, text)
+    return {"list": lid, "added": added, "options": store.of(lid)}
+
+
+@router.post("/additions/remove")
+async def remove_addition(req: AdditionRequest) -> Dict[str, Any]:
+    """Forget an option the user had kept for a list."""
+    from prompt_programs.additions import additions_for
+    lid = _addition_list(req)
+    store = additions_for(get_current_profile())
+    removed = store.remove(lid, req.text)
+    return {"list": lid, "removed": removed, "options": store.of(lid)}
+
+
 @router.get("/vocabulary")
 async def vocabulary_tree() -> Dict[str, Any]:
     """The whole vocabulary (nodes, leaves, values with tiers and facet tags), for the dev browser."""

@@ -676,6 +676,7 @@ class Pool:
     more_coming: bool = False
     snapshot: bool = False       # a revision records the whole pool (vocabulary lists change between versions)
     roles: Dict[str, Dict[str, str]] = field(default_factory=dict)   # a palette pool: each scheme's colors
+    own: frozenset = frozenset()   # the user's own options in it (added in the card, or kept for its list)
 
 
 def pool_key(spec: PickSpec, context: Dict[str, Any]) -> str:
@@ -973,6 +974,7 @@ class _Exec(_Runner):
         d.phase, d.about, d.cls, d.said = site.phase, spec.about, spec.cls, said
         d.where = where if isinstance(where, dict) else (str(where).strip() if isinstance(where, str) else "")
         d.shared = bool(shared)
+        d.own = str(value) in self.eng.own.get(cid, frozenset())
         self._record(d)
         if colors is not None:
             self._record(colors)
@@ -1058,9 +1060,12 @@ class _Exec(_Runner):
             self.eng.pool_roles[cid] = pool.roles
         excl = {str(x) for x in (exclude or []) if x is not None}
         items = [(o, w) for o, w in zip(pool.items, pool.weights) if o not in excl]
+        self.eng.own[cid] = pool.own
         pins = self.eng.pins.get(cid)
         if pins:
-            items = [(o, w) for o, w in items if o in pins]
+            # A ticked option of the user's own is drawn like a typical value, even one their
+            # words held back (weight 0 until ticked, see additions.py).
+            items = [(o, 1.0 if w <= 0 and o in pool.own else w) for o, w in items if o in pins]
         return items
 
     def param(self, name: str, low: Any = None, high: Any = None, label: str = "", source: str = "text",
@@ -1113,6 +1118,7 @@ class _Engine:
         self.param_values: Dict[str, Any] = {}
         self.kept: Set[str] = set()            # replayed (fixed) values: kept as they were
         self.held: Dict[str, str] = {}         # said picks drawing the user's words (as a pin would)
+        self.own: Dict[str, frozenset] = {}    # each pick's own options (Pool.own): the fit check leaves them
         self.pools: Dict[str, Any] = {}   # pool key → its length, or for a vocabulary list the whole pool
         self.labels: Dict[str, str] = {}
         # Pins a pick could break: its site feeds the pinned pick's structure or exclude.

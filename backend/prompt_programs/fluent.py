@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from core.logging import get_logger
+from prompt_programs.additions import profile_additions
 from prompt_programs.draws import CONTEXT_VERSIONS, draw, fixed_text, uses_draws
 from prompt_programs.judge import FluentSettings, settings
 from prompt_programs.options import (
@@ -57,10 +58,13 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
                 profile_id: Optional[str] = None, project_id: Optional[int] = None,
                 revision: Optional[Dict[str, Any]] = None,
                 store: Optional[OptionStore] = None, filler: Optional[OptionFiller] = None,
-                cfg: Optional[FluentSettings] = None) -> Runtime:
+                cfg: Optional[FluentSettings] = None, mine: Optional[Dict[str, List[str]]] = None) -> Runtime:
     """What realize() draws a program with pick specs with. Passing a recorded
-    `revision` replays its pools at their recorded lengths."""
+    `revision` replays its pools at their recorded lengths. `mine`: the user's options kept
+    per vocabulary list (additions.py); the profile's, unless a caller brings its own store."""
     cfg = cfg or settings()
+    if mine is None:
+        mine = profile_additions(profile_id) if store is None else {}
     store = store if store is not None else _profile_store(profile_id)
     if filler is None and store is not None and cfg.generate_options:
         try:
@@ -87,7 +91,7 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
               if isinstance(pools, dict) else None)
     options = GeneratedOptions(store, program_context(entry), edits=edits, filler=filler,
                                limits=limits, project_id=project_id,
-                               generate=cfg.generate_options, version=version, context=context)
+                               generate=cfg.generate_options, version=version, context=context, mine=mine)
     if rev.get("context"):   # a replay records the context version it was drawn with
         options.context_version = str(rev["context"])
     return Runtime(options)
@@ -141,7 +145,7 @@ POOL_DRAWS = 4  # draws per pick: enough to visit the pool its upstream picks ke
 
 def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *, profile_id: Optional[str] = None,
                  project_id: Optional[int] = None, store: Optional[OptionStore] = None,
-                 cfg: Optional[FluentSettings] = None) -> Dict[str, Any]:
+                 cfg: Optional[FluentSettings] = None, mine: Optional[Dict[str, List[str]]] = None) -> Dict[str, Any]:
     """The options each generated pick draws from now: its seeds plus whatever has been
     generated, for the upstream values pinned (or drawn, when nothing upstream is pinned).
     A pick's own pins don't narrow what it shows. Never calls a model (an unseen pool is
@@ -151,7 +155,7 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
     vocab: Dict[str, Dict[str, Any]] = {}
     if not uses_draws(entry.get("program") or ""):
         return {"options": out, "more": more, "vocab": vocab}
-    rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, cfg=cfg)
+    rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, cfg=cfg, mine=mine)
     loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
     params = set(entry.get("params") or {}) or None
     pins = {k: v for k, v in (pins or {}).items() if v}
@@ -178,9 +182,15 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
             # values the user's words didn't ask for are drawn only when picked: their own group.
             asked = set((entry.get("filters") or {}).get(cid) or ())
             tiers = {v.text: ("opt_in" if v.opt_in and v.text not in asked else v.tier) for v in leaf.values}
+            # The user's own options kept for this list (additions.py) sit with the usual values,
+            # or with the values drawn only once picked where the choice's words decide.
+            mine_here = {o: held for o, held in rt.options.mine_shown.get(cid, {}).items() if o in seen}
+            tiers.update({o: "opt_in" if held else "typical" for o, held in mine_here.items()})
             out[cid] = seen
             vocab[cid] = {"cls": leaf.id, "label": leaf.label, "closed": leaf.closed,
                           "tiers": {o: tiers.get(o, "generated") for o in seen}}
+            if mine_here:
+                vocab[cid]["mine"] = list(mine_here)
         elif seen:
             out[cid] = seen[:60]
     return {"options": out, "more": more, "vocab": vocab}

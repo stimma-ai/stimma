@@ -104,6 +104,22 @@ test('a closed list asks no model for options, and still takes your own', async 
   await expect(card.locator('[data-option="my own heritage"]')).toBeVisible()
 })
 
+test('your own option is kept for later prompts; deleting one kept from before forgets it', async t => {
+  const { page, card } = await open(t, 'ethnicity')
+  const own = card.getByPlaceholder('Add your own…')
+  await own.fill('my own heritage')
+  await own.press('Enter')
+  await expect.poll(() => page.evaluate(() => window.state().calls)).toContainEqual({ keep: 'my own heritage', cls: 'person.ethnicity' })
+  await card.getByRole('button', { name: 'Delete a kept heritage' }).click({ force: true })
+  await expect.poll(() => page.evaluate(() => window.state().calls)).toContainEqual({ forget: 'a kept heritage', cls: 'person.ethnicity' })
+  // forgotten everywhere, so not also hidden for this choice alone
+  assert.deepEqual(await page.evaluate(() => JSON.parse(JSON.stringify(window.state().edits.ethnicity))), { add: ['my own heritage'] })
+  await card.getByRole('button', { name: 'Delete heritage 1', exact: true }).click({ force: true })
+  const calls = await page.evaluate(() => window.state().calls)
+  assert.ok(!calls.some(c => c.forget === 'heritage 1'))   // a list value is only hidden here
+  assert.deepEqual(await page.evaluate(() => window.state().edits.ethnicity), { add: ['my own heritage'], remove: ['heritage 1'] })
+})
+
 test('shift-click ticks a range, and unticks one from a ticked option', async t => {
   const { page, option } = await open(t, 'mood')
   const pins = () => page.evaluate(() => window.state().pins.mood)

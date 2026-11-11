@@ -711,6 +711,14 @@ def pins_for_kept_choices(entry: Dict[str, Any], keep: Dict[str, Any]) -> Dict[s
     return pins
 
 
+def _additions_version(profile_id: Optional[str]) -> Optional[str]:
+    try:
+        from prompt_programs.additions import additions_for
+        return additions_for(profile_id).version()
+    except Exception:
+        return None
+
+
 def hot_draw_signature(entry: Dict[str, Any], program_opts: Dict[str, Any], *, triggers: bool,
                        profile_id: Optional[str], project_id: Optional[int]) -> str:
     """Everything a Fluent draw is made from: the prepared program as committed, the
@@ -730,6 +738,8 @@ def hot_draw_signature(entry: Dict[str, Any], program_opts: Dict[str, Any], *, t
         # the judge's version and readiness: draws made before it was ready
         # aren't served once it's ready, and a new judge version never serves old draws
         "judge": judge_identity(cfg),
+        # the user's options kept per list: a draw made before one was added never serves after
+        "additions": _additions_version(profile_id),
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 

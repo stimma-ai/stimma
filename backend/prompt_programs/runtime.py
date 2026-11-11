@@ -126,6 +126,7 @@ class Draw:
     where: Any = ""                # the user's words, or {local facet: value}, narrowing that list (narrow.py)
     said: str = ""                 # the user's own words this pick stands for (said_value): drawn unless they choose others
     shared: bool = False           # shared=True: one value for every subject, as the user asked
+    own: bool = False              # the user's own option (added or kept for its list): never rerolled by the fit check
 
     def to_dict(self) -> Dict[str, Any]:
         d = {"id": self.id, "value": self.value, "kind": self.kind, "label": self.label, "source": self.source}

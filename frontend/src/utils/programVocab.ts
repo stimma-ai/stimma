@@ -13,6 +13,8 @@ export interface ChoiceVocab {
   label: string
   closed: boolean
   tiers: Record<string, VocabTier>
+  /** The user's own options kept for this list from earlier prompts (programAdditions.ts). */
+  mine?: string[]
 }
 
 /** Picks with more options than this get the search-and-scroll picker. */
