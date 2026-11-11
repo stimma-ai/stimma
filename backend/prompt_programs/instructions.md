@@ -229,9 +229,10 @@ Still write `about=` and a seed in the list's form.
   from the list. "an Irish woman with emerald eyes" →
   `eth = pick("ethnicity", cls="person.ethnicity", said="Irish", about="her descent", seed=["Scottish"], label="Ethnicity", phase=1, line=1)`,
   `eyes = pick("eyes", cls="person.eye_color", said="emerald", about="her eye color", seed=["hazel"], label="Eyes", phase=2, line=1)`,
-  `emit("An", eth, "woman with", eyes, "eyes")`. said= is only the value, exactly as written
-  ("Irish", "emerald", "30 year old", "strawberry blonde"); the words around it ("woman",
-  "eyes", "hair") stay in the text. A detail they stated as a kind, which leaves the list
+  `emit("An", eth, "woman with", eyes, "eyes")`; "a 30 year old man" →
+  `age = pick("age", cls="person.age_band", said="30 year old", about="his age", seed=["35–39-year-old"], label="Age", phase=1, line=1)`.
+  said= is only the value, exactly as written ("Irish", "emerald", "30 year old",
+  "strawberry blonde"); the words around it ("woman", "eyes", "man") stay in the text. A detail they stated as a kind, which leaves the list
   several values that fit, is a bound pick narrowed to their words, as below: "a young woman" gets an age pick
   drawn only from young ages; "in a yoga outfit" gets an outfit pick drawn only from yoga
   looks; "long red hair" gets a hair color pick drawn only from red shades.
