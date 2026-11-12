@@ -305,9 +305,14 @@ class TestPins:
             assert d["weather"].value == "rainy" and d["umbrella"].value == "a black umbrella"
 
     def test_an_unsatisfiable_pin_aborts_and_reports_it(self):
+        # a hairstyle the choice offers, but for no era the pinned eras allow
         with pytest.raises(DrawAborted) as e:
-            draw(PORTRAIT, 1, pins={"hair": ["a mohawk"]})
+            draw(PORTRAIT, 1, pins={"hair": ["an afro"], "era": ["1920s", "1990s"]})
         assert e.value.reason == "pin" and e.value.choice_id == "hair" and "Hairstyle" in str(e.value)
+
+    def test_a_pin_the_choice_offers_nowhere_is_ignored(self):
+        # made on an earlier program's options for this choice: the draw is the unticked one
+        assert draw(PORTRAIT, 1, pins={"hair": ["a mohawk"]}).prompt == draw(PORTRAIT, 1).prompt
 
     def test_a_pinned_value_is_not_taken_by_a_looped_peer(self):
         for seed in range(30):

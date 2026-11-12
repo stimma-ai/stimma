@@ -340,3 +340,27 @@ class TestStaleTicks:
                 assert e.reason == "pin" and e.choice_id == "hair"
                 seen.add("refused")
         assert seen == {"refused"}
+
+    ERAS = ('era = pick("era", ["1920s", "1970s"], label="Era", source="list", phase=1, line=1)\n'
+            'hair = pick("hair", {"1920s": ["finger waves", "a bob"], "1970s": ["feathered hair", "an afro"]}, by=era, '
+            'label="Hair", phase=2, line=1)\nemit("A", era, "woman with", hair, ".")\n')
+
+    def test_a_stale_pin_on_a_choice_that_follows_another_is_ignored(self):
+        from prompt_programs.draws import draw
+        got = {draw(self.ERAS, seed, {"hair": ["a mohawk"]}).prompt for seed in range(20)}
+        assert len(got) > 2 and all("mohawk" not in p for p in got)
+
+    def test_a_stale_pin_above_a_valid_one_leaves_the_valid_one_holding(self):
+        from prompt_programs.draws import draw
+        for seed in range(12):
+            assert draw(self.ERAS, seed, {"era": ["1800s"], "hair": ["a bob"]}).prompt == "A 1920s woman with a bob."
+
+    def test_a_draw_made_with_a_stale_pin_replays_from_its_kept_values(self):
+        from prompt_programs.draws import draw
+        stale = {"setting": ["a grand throne room"]}
+        for seed in range(8):
+            first = draw(self.SRC, seed, stale)
+            kept = {d.id: d.value for d in first.draws}
+            assert draw(self.SRC, seed + 100, stale, fixed=kept).prompt == first.prompt
+            assert first.prompt == draw(self.SRC, seed).prompt   # exactly the unticked draw
+

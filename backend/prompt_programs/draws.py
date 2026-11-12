@@ -798,7 +798,6 @@ class _Exec(_Runner):
         self.rng = eng.rng
         self.fixed = {**eng.fixed, **eng.param_values}
         self.pins = {cid: sorted(vs) for cid, vs in eng.pins.items()}  # param() reads these
-        self.stale: Set[str] = set()   # choices whose ticks name none of their options (_eligible)
         self.seen: Dict[str, _Seen] = {}
         self.order: List[str] = []
         self.site_ids: Dict[int, List[str]] = {}
@@ -875,7 +874,7 @@ class _Exec(_Runner):
     def _settle(self, cid: str, site: Site, spec: PickSpec, items: List[Tuple[str, float]],
                 context: Dict[str, Any]) -> Tuple[Any, bool]:
         eng, names = self.eng, [o for o, _ in items]
-        pin = eng.single_pins.get(cid) if cid not in self.stale else None   # a stale pin: unticked (_eligible)
+        pin = eng.single_pins.get(cid)
         seen = _Seen(cid, site.index, site.phase, spec, items, context=context)
         self.seen[cid] = seen
         eng.specs[cid] = seen
@@ -886,8 +885,7 @@ class _Exec(_Runner):
             seen.pin_ok = pin in names
             seen.value = pin
             return pin, True
-        ticks = eng.pins if cid not in self.stale else {}   # stale ticks: the choice is unticked (_eligible)
-        if holds_said(cid, spec.said, names, ticks, eng.fixed):
+        if holds_said(cid, spec.said, names, eng.pins, eng.fixed):
             # The user's own words, as a pin is: placed first, never rerolled. Its pool stays
             # whole, so the picker shows the alternatives they may tick.
             eng.held[cid] = spec.said
@@ -906,7 +904,7 @@ class _Exec(_Runner):
             v = self.proposals.get(cid)
             if v not in names:
                 # Values at weight 0 (opt-in, not asked for) draw only when pinned or kept.
-                if not items or (cid not in ticks and not any(w > 0 for _, w in items)
+                if not items or (cid not in eng.pins and not any(w > 0 for _, w in items)
                                  and eng.fixed.get(cid) not in names):
                     if spec.kind == "pick" and spec.source != "list" and self.probe is None:
                         eng.options.request_more(spec, context, "high")
@@ -932,9 +930,9 @@ class _Exec(_Runner):
             source = "text"
         follows = None
         if isinstance(options, dict):
-            # every option this pick has under any value of `by`: a tick on one of them is a
-            # choice the user made here, whatever `by` is drawn (see _eligible)
-            self.eng.elsewhere[cid] = {str(o) for vs in options.values() if isinstance(vs, (list, tuple)) for o in vs}
+            # every option this pick has under any value of `by` (see _Engine.offered)
+            self.eng.offered.setdefault(cid, set()).update(
+                str(o) for vs in options.values() if isinstance(vs, (list, tuple)) for o in vs)
             if by is None:
                 raise ProgramError(f'pick("{cid}"): options is a dict, so pass by=<the earlier pick it depends on>.')
             follows = self._follow_id(by)
@@ -968,10 +966,7 @@ class _Exec(_Runner):
         context = self._context(site)
         if leaf is not None and leaf.slots:
             self._unfill_kept(cid, leaf)
-        # Whether everything this pick's options hang on is final in this run of the program
-        # (as check_pins asks): only then do its ticks say anything about its options.
-        settled = all(self.eng.an.sites[d].phase < self.k for d in (set(site.deps) | site.exclude_deps))
-        eligible = self._eligible(cid, spec, context, exclude, settled)
+        eligible = self._eligible(cid, spec, context, exclude)
         value, pinned = self._settle(cid, site, spec, eligible, context)
         colors = None
         # Only a look with color slots draws Colors: a fixed-color template ("a white karate gi")
@@ -1059,8 +1054,7 @@ class _Exec(_Runner):
             self.lora_uses.append(LoraUse(info.name, info.weight, info.trigger, info.path, cid))
         return LoraName(value) if isinstance(value, str) else value
 
-    def _eligible(self, cid: str, spec: PickSpec, context: Dict[str, Any], exclude: Any,
-                  settled: bool = True) -> List[Tuple[str, float]]:
+    def _eligible(self, cid: str, spec: PickSpec, context: Dict[str, Any], exclude: Any) -> List[Tuple[str, float]]:
         pool = self.eng.options.get(spec, context)
         if self.record:  # the revision records the pools the final prompt drew from
             self.eng.pools[pool.key] = ([[o, w, *([pool.roles[o]] if o in pool.roles else [])]
@@ -1070,23 +1064,11 @@ class _Exec(_Runner):
                 self.eng.more_coming.append(cid)
         if pool.roles:
             self.eng.pool_roles[cid] = pool.roles
+        self.eng.offered.setdefault(cid, set()).update(pool.items)   # before anything is excluded
         excl = {str(x) for x in (exclude or []) if x is not None}
         items = [(o, w) for o, w in zip(pool.items, pool.weights) if o not in excl]
         self.eng.own[cid] = pool.own
         pins = self.eng.pins.get(cid)
-        if pins and settled and not any(o in pins for o in pool.items) \
-                and not (pins & self.eng.elsewhere.get(cid, set())):
-            # Ticks, or one pinned value, that name no option this choice has (not in its pool
-            # before anything is excluded, nor under another value of what it follows) were made
-            # on an earlier program's options for the same id: the prompt was prepared again and
-            # the options changed. They say nothing about these options, so in this run of the
-            # program the choice has no ticks at all: its pool, the words the user stated for it
-            # and its standby values behave as they do unticked (_settle). Only once what its
-            # options hang on is final: before that they may be computed from placeholders. A
-            # tick this choice does offer, but not beside the other choices drawn, is still
-            # refused at the choice.
-            self.stale.add(cid)
-            pins = None
         if pins:
             # A ticked option of the user's own is drawn like a typical value, even one their
             # words held back (weight 0 until ticked, see additions.py).
@@ -1146,7 +1128,9 @@ class _Engine:
         self.kept: Set[str] = set()            # replayed (fixed) values: kept as they were
         self.held: Dict[str, str] = {}         # said picks drawing the user's words (as a pin would)
         self.own: Dict[str, frozenset] = {}    # each pick's own options (Pool.own): the fit check leaves them
-        self.elsewhere: Dict[str, Set[str]] = {}   # a pick that follows another: its options under every value
+        # Every option each pick was seen to have in this draw: its pool before exclusions, in
+        # every run of the program, and its options under every value of a pick it follows.
+        self.offered: Dict[str, Set[str]] = {}
         self.pools: Dict[str, Any] = {}   # pool key → its length, or for a vocabulary list the whole pool
         self.labels: Dict[str, str] = {}
         # Pins a pick could break: its site feeds the pinned pick's structure or exclude.
@@ -1380,12 +1364,27 @@ def draw(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None
     or a pin can't be satisfied, and ProgramError for a broken program."""
     an = analyze(source, context=getattr(options, "context", True) is not False)
     edits = edits or {}
-    eng = _Engine(an, seed, pins or {}, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params,
-                  dict(fixed or {}), edits, options or LiteralOptions(edits))
-    for k in an.phases:
-        eng.run_phase(k)
-    final = eng.execute(math.inf, {}, record=True)
-    eng.check_pins(final, math.inf)
+    pins = dict(pins or {})
+    while True:
+        eng = _Engine(an, seed, pins, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params,
+                      dict(fixed or {}), edits, options or LiteralOptions(edits))
+        try:
+            for k in an.phases:
+                eng.run_phase(k)
+            final = eng.execute(math.inf, {}, record=True)
+            eng.check_pins(final, math.inf)
+            break
+        except DrawAborted as e:
+            # Ticks or a pinned value that name no option the choice was seen to have were made on
+            # an earlier program's options for the same id (the prompt was prepared again and the
+            # options changed). They say nothing about these options: the draw is made again
+            # without them, exactly as an unticked choice draws. A value the choice does offer,
+            # but not beside the other choices, is still refused at the choice.
+            cid = e.choice_id
+            ticked = {str(v) for v in pins.get(cid) or ()}
+            if not ticked or (ticked & eng.offered.get(cid, set())) or cid not in eng.offered:
+                raise
+            pins = {k: v for k, v in pins.items() if k != cid}
     prompt = tidy_text(final.parts)
     if not prompt:
         raise ProgramError("The program emitted no prompt text. Call emit(...) with the finished prompt.")
