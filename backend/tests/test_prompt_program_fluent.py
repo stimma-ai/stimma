@@ -553,13 +553,13 @@ class TestStructuredOptions:
             assert torn(bad) and clean_option(bad) is None
 
     async def test_an_endpoint_without_tools_falls_back_to_text(self, monkeypatch):
-        from prompt_programs import prepare as prep
+        from prompt_programs import program as prep
         from prompt_programs.options import write_options
         err = RuntimeError('400 Bad Request: "auto" tool choice requires --enable-auto-tool-choice')
         calls = self.fake(monkeypatch, [err, ('["pin curls"]', None)])
-        monkeypatch.setattr(prep, "_PROTOCOL", {})
+        monkeypatch.setattr(prep, "PROTOCOL", {})
         assert await write_options(self.job()) == ["pin curls"]
-        assert prep._PROTOCOL[("e", "m")] == "text" and calls[-1][1] is False
+        assert prep.PROTOCOL[("e", "m")] == "text" and calls[-1][1] is False
 
     async def test_nothing_readable_twice_is_no_options(self, monkeypatch):
         from prompt_programs.options import write_options

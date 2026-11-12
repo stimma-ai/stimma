@@ -709,35 +709,6 @@ class TestProgramSupport:
         assert gen.prompt_enhance_context({}, "t", task, None)["program_supported"] is supported
 
 
-class TestApplyRun:
-    def test_adds_loras_params_and_record(self):
-        from routes.generation import _apply_program_run
-        updated = {"prompt": "x", "loras": [{"lora": "loras/user.safetensors", "weight": 1.0}]}
-        record = {"key": "k", "loras": [{"path": "loras/cb.safetensors", "weight": 0.8}], "params": {"guidance": 12.0, "steps": 3.7}}
-        _apply_program_run(updated, record, {"guidance": {"type": "number", "maximum": 10}, "steps": {"type": "integer"}})
-        assert updated["loras"][1] == {"lora": "loras/cb.safetensors", "weight": 0.8}
-        assert updated["guidance"] == 10 and updated["steps"] == 3
-        assert updated["prompt_program"]["key"] == "k"
-
-
-class TestDrawSeed:
-    async def _run(self, image_seed, draw_seed=None):
-        from routes.generation import _run_prompt_program
-        opts = {"enabled": True, **({"draw_seed": draw_seed} if draw_seed is not None else {})}
-        record, _ = await _run_prompt_program(PROMPT, {"seed": image_seed}, opts, ctx=ctx(SCHEMA), tool_id="t",
-                                              prompt_options={}, project_id=None, profile_id="p")
-        return record
-
-    async def test_draws_are_independent_of_the_image_seed(self, stub):
-        _, replies = stub
-        replies.append(f"```python\n{TRAIN_M}```")
-        same_image = [await self._run(42) for _ in range(12)]
-        assert len({r["draw_seed"] for r in same_image}) > 1  # same image seed, fresh draws
-        a, b = await self._run(1, draw_seed=7), await self._run(999, draw_seed=7)
-        assert a["draw_seed"] == b["draw_seed"] == 7
-        assert [d["value"] for d in a["draws"]] == [d["value"] for d in b["draws"]]
-
-
 class TestSuggestOptions:
     ENTRY = {"key": "k", "prompt": "a woman in {{stylish tank top}}", "example": "a woman in a silk tank top",
              "elaborate": False, "mode": "prose",

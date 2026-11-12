@@ -282,7 +282,7 @@ class TestDraws:
     def test_a_hot_draw_made_before_an_addition_is_not_served_after(self):
         from routes.generation import hot_draw_signature
         e = entry_of(BEACH)
-        before = hot_draw_signature(e, {}, triggers=True, profile_id="a", project_id=None)
+        before = hot_draw_signature(e, pins={}, edits={}, zones={}, profile_id="a", project_id=None)
         additions_for("a").add("person.hairstyle", BRAID)
-        assert hot_draw_signature(e, {}, triggers=True, profile_id="a", project_id=None) != before
-        assert hot_draw_signature(e, {}, triggers=True, profile_id="b", project_id=None) != before  # profile is in it
+        assert hot_draw_signature(e, pins={}, edits={}, zones={}, profile_id="a", project_id=None) != before
+        assert hot_draw_signature(e, pins={}, edits={}, zones={}, profile_id="b", project_id=None) != before  # profile is in it

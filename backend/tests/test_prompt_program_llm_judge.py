@@ -582,7 +582,7 @@ class TestOptionListCheck:
 
     def run(self, monkeypatch, reply):
         import asyncio
-        from prompt_programs import options, prepare as prep
+        from prompt_programs import options, program as prep
         seen = []
 
         async def ask(messages, project_id, max_tokens=4096):
@@ -590,7 +590,7 @@ class TestOptionListCheck:
             if isinstance(reply, Exception):
                 raise reply
             return reply
-        monkeypatch.setattr(prep, "_ask_model", ask)
+        monkeypatch.setattr(prep, "ask_model", ask)
         got = asyncio.run(options.check_options(self.job(), ["a black bob", "an ash brown shag", "jet-black braids", "a dark pixie cut"]))
         return got, seen
 

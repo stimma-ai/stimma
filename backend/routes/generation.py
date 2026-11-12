@@ -5,7 +5,7 @@ import os
 import uuid
 import shutil
 from pathlib import Path
-from typing import Any, List, Optional, Dict
+from typing import Any, List, Optional, Dict, Tuple
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from pydantic import BaseModel, Field
@@ -538,7 +538,7 @@ async def _apply_generation_prompt_pipeline(
     profile_id = get_current_profile()
     db = get_database_registry().get_database(profile_id)
     ctx = prompt_enhance_context(parameters, tool_id, task_type, prompt_options)
-    model, model_vendor, schema_props = ctx["model"], ctx["model_vendor"], ctx["schema_props"]
+    model, model_vendor = ctx["model"], ctx["model_vendor"]
     from lora_notes import lora_context_for, prepend_missing_triggers
     raw = bool((prompt_options or {}).get("raw"))
     # The prompt menu's LoRA choices. Absent (older clients, the agent, builds without
@@ -548,25 +548,27 @@ async def _apply_generation_prompt_pipeline(
     lora_triggers = lora_choice is not False
     add_triggers = lora_choice is True
     lora_notes = (prompt_options or {}).get("loraNotes") is not False
-    enhance_on = not raw and bool(((prompt_options or {}).get("autoImprove") or {}).get("enabled"))
-    # Fluent's Enhance level: an enabled setting without one (older clients) is expand.
-    enhance_level = (("fill" if ((prompt_options or {}).get("autoImprove") or {}).get("level") == "fill" else "expand")
-                     if enhance_on else "off")
+    auto_improve = (prompt_options or {}).get("autoImprove") or {}
+    enhance_on = not raw and bool(auto_improve.get("enabled"))
     program_run = None
+    level: Optional[str] = None
+    fixed_spans: Optional[List[Tuple[int, int, str]]] = None
+    outcome: Optional[Dict[str, Any]] = None
     program_opts = (prompt_options or {}).get("program")
     if not raw and isinstance(program_opts, dict) and program_opts.get("enabled") and ctx["program_supported"]:
-        # Prompt program: prepared once (Enhance on: rich; off: the user's own words);
-        # this generation runs it. No LLM call unless it isn't prepared yet.
-        program_run, prompt = await _run_prompt_program(
-            prompt, parameters, program_opts, ctx=ctx, tool_id=tool_id, prompt_options=prompt_options,
-            project_id=project_id, profile_id=profile_id, elaborate=enhance_on, enhance=enhance_level,
-            lora_triggers=lora_triggers, lora_notes=lora_notes,
+        # Fluent: the prompt's slots and lists are drawn for this image (none: it goes as
+        # written), then the per-image improver writes it for the model at the Detail
+        # level, keeping every drawn value exactly. Its Detail level is Enhance's setting:
+        # off is Yours, "fill" Medium, anything else on High.
+        level = ("fill" if auto_improve.get("level") == "fill" else "expand") if enhance_on else "off"
+        program_run, prompt, fixed_spans = await _run_slots(
+            prompt, program_opts, project_id=project_id, profile_id=profile_id,
             hot_draws_for=generator_instance_id if forever else None,
         )
-        auto_improve = dict((prompt_options or {}).get("autoImprove") or {})
-        auto_improve["enabled"] = False
-        prompt_options = {**(prompt_options or {}), "autoImprove": auto_improve}
-        enhance_on = False
+        prompt_options = {**(prompt_options or {}), "autoImprove": {**auto_improve, "enabled": True, "level": level}}
+        enhance_on = True
+        outcome = {}
+        # A preload was improved without seeing this image's draws: never used for Fluent.
         effective_preload = None
     lora_context = (_shape_lora_context(await lora_context_for(tool_id, parameters, profile_id), lora_triggers, lora_notes)
                     if enhance_on else None)
@@ -581,12 +583,18 @@ async def _apply_generation_prompt_pipeline(
         profile_id=profile_id,
         project_id=project_id,
         prompt_preload=effective_preload,
+        fixed_spans=fixed_spans,
+        level=level,
+        outcome=outcome,
     )
 
     updated = dict(parameters)
     updated["prompt"] = processed_prompt
     if program_run is not None:
-        _apply_program_run(updated, program_run, schema_props)
+        # What the image was made from, stored with it: the draws, the choices, the prompt
+        # sent and what the improver did.
+        updated["prompt_program"] = {**program_run, "level": level, "sent": processed_prompt,
+                                     "improve": outcome or {}}
     # Trigger words for every LoRA this run uses, at the front when missing (Fluent and
     # Direct; never Raw, and never inside a structured format).
     structured = ctx["mode"] == "minimax-h3" or (ctx["mode"] == "ideogram" and enhance_on)
@@ -603,123 +611,80 @@ def _shape_lora_context(context: Optional[List[Dict[str, Any]]], triggers: bool,
             for c in context]
 
 
-async def _run_prompt_program(
+async def _run_slots(
     prompt: str,
-    parameters: Dict[str, Any],
     program_opts: Dict[str, Any],
     *,
-    ctx: Dict[str, Any],
-    tool_id: str,
-    prompt_options: Optional[Dict[str, Any]],
     project_id: Optional[int],
     profile_id: Optional[str],
-    elaborate: bool = True,
-    enhance: Optional[str] = None,
-    lora_triggers: bool = True,
-    lora_notes: bool = True,
     hot_draws_for: Optional[str] = None,
-) -> tuple[Dict[str, Any], str]:
-    """One generation's run of its prompt program. `hot_draws_for`: a forever-mode
+) -> Tuple[Optional[Dict[str, Any]], str, Optional[List[Tuple[int, int, str]]]]:
+    """One image's draw of its prompt's slots and lists: (the record stored with the image,
+    the filled prompt, where each drawn value stands in it). The filled prompt is the
+    user's text with the slots and lists drawn, its comment lines and [exact text] still in
+    place, for the improver. A prompt with nothing that varies has no program: (None, the
+    prompt as written, None). The slots can't be read (the chat model unreachable, or its
+    reading unusable): a 424, and nothing is generated. `hot_draws_for`: a forever-mode
     submit's generator instance, served a draw its pool made ahead when one is current."""
     from llm_resolver import LLMUnavailableError
-    from prompt_programs import fallback
-    from prompt_programs.compact import pack_values
-    from prompt_programs.fix import prompt_view, realize_and_fix
-    from prompt_programs.prepare import (PrepareTimeout, ProgramError, draw_seed, enhance_level, ensure_program,
-                                         writer_failure)
+    from prompt_programs import slots
+    from prompt_programs.choices import expand, kept
+    from prompt_programs.fix import await_judge, prompt_view, realize_and_fix
+    from prompt_programs.fluent import attach_filler
+    from prompt_programs.program import ProgramError, draw_seed, model_failure, spans_of
+    from prompt_programs.reader import ReaderFailed
 
-    # A prompt that couldn't be prepared never stops the run (prompt_programs.fallback): it
-    # runs on a program prepared for the same words under other settings, or on the words as
-    # written, while the prepare is retried in the background.
-    rung: Optional[Dict[str, Any]] = None
+    def failed(e: Exception) -> HTTPException:
+        status, code = (424, getattr(e, "code", "llm_unavailable")) if isinstance(e, (ReaderFailed, LLMUnavailableError)) \
+            else (422, getattr(e, "code", "program_failed"))
+        # Said in the log too: a run that can't start is otherwise only a bare status there.
+        log.info(f"[prompt-program] run not started ({code}): {str(e)[:200]}")
+        return HTTPException(status_code=status, detail={"code": code, "message": f"Generation was not started: {e}"})
+
     try:
-        entry = await ensure_program(
-            prompt=prompt, tool_id=tool_id, ctx=ctx,
-            instructions=(((prompt_options or {}).get("autoImprove") or {}).get("instructions") or "").strip(),
-            lora_items=program_opts.get("loras") or [], project_id=project_id, profile_id=profile_id,
-            elaborate=elaborate, lora_notes=lora_notes, lora_triggers=lora_triggers, enhance=enhance, wait=True,
-            pins=program_opts.get("pins"),
-        )
+        entry = await slots.ensure(prompt, profile_id=profile_id, project_id=project_id)
     except Exception as e:
-        code = fallback.failure_code(e)
-        if code is None:
+        failure = e if isinstance(e, (ReaderFailed, ProgramError, LLMUnavailableError)) else model_failure(e)
+        if failure is None:
             raise
-        message = str(writer_failure(e) or e)
-        entry = fallback.previous_program(prompt, tool_id=tool_id, profile_id=profile_id,
-                                          lora_items=program_opts.get("loras") or [], code=code)
-        log.info(f"[prompt-program] prepare failed ({code}): this run uses "
-                 f"{'an earlier program for the same words' if entry else 'the words as written'}")
-        if entry is None:
-            level = enhance_level(enhance, elaborate)
-            return fallback.words_record(code, level=level, message=message), fallback.words_as_written(prompt, profile_id)
-        rung = fallback.fallback_note("previous", code, message)
-        program_opts = {k: v for k, v in program_opts.items() if k not in ("revision", "fixed")}
+        raise failed(failure) from None
+    if not entry or not entry.get("key"):
+        return None, prompt, None
+    attach_filler(entry, profile_id)
+    choices = dict(program_opts.get("choices") or {})
+    # An agent's keep_choices: the same holds as choices of values, named as its results name them.
+    if program_opts.get("keep_choices"):
+        choices.update(kept(entry, program_opts["keep_choices"]))
+    pins, edits, zones = expand(entry, choices)
+    fixed = program_opts.get("fixed") or None
     try:
-        # Independent of the image seed; an explicit draw_seed repeats the same draws.
-        from prompt_programs.fluent import attach_filler
-        attach_filler(entry, profile_id)
-        # An agent's keep_choices: the same holds as pins, named as its results name them.
-        if program_opts.get("keep_choices"):
-            program_opts = {**program_opts, "pins": {**(program_opts.get("pins") or {}),
-                                                     **pins_for_kept_choices(entry, program_opts["keep_choices"])}}
-        # The judge is how the draws fit together: wait for it while it downloads
-        # (bounded by its progress), before a hot draw is taken, so the pool's
-        # signature sees it ready. An exact replay is never judged, so never waits.
-        if not program_opts.get("revision"):
-            from prompt_programs.fix import await_judge
-            await await_judge(entry, project_id=project_id)
+        # The judge is how the draws fit together: wait for it before a hot draw is taken,
+        # so the pool's signature sees it ready.
+        await await_judge(entry, project_id=project_id)
         hot = None
-        if hot_draws_for and program_opts.get("draw_seed") is None and not program_opts.get("revision"):
-            hot = _take_hot_draw(hot_draws_for, entry, program_opts, triggers=lora_triggers,
+        if hot_draws_for and program_opts.get("draw_seed") is None and not fixed:
+            hot = _take_hot_draw(hot_draws_for, entry, pins=pins, edits=edits, zones=zones,
                                  profile_id=profile_id, project_id=project_id)
         if hot is not None:
             result, fix = hot["result"], hot["fix"]
         else:
             # In a thread: a judge on CPU must not hold up the event loop.
-            # The fix pass (a local judge rerolling flagged picks) runs here when it's set up.
             result, fix = await asyncio.to_thread(
-                realize_and_fix, entry, seed=draw_seed(program_opts.get("draw_seed")), pins=program_opts.get("pins"),
-                fixed=program_opts.get("fixed"), edits=program_opts.get("edits"), triggers=lora_triggers,
-                profile_id=profile_id, project_id=project_id, revision=program_opts.get("revision"))
+                realize_and_fix, entry, seed=draw_seed(program_opts.get("draw_seed")), pins=pins,
+                fixed=fixed, edits=edits, zones=zones, profile_id=profile_id, project_id=project_id)
     except Exception as e:
-        if rung is not None:  # the earlier program doesn't fit this run (its pins, kept choices): the words
-            log.info(f"[prompt-program] the earlier program didn't run ({type(e).__name__}): the words as written")
-            level = enhance_level(enhance, elaborate)
-            return (fallback.words_record(rung.get("code"), level=level, message=rung.get("message", "")),
-                    fallback.words_as_written(prompt, profile_id))
-        # The chat model failing to answer (unreachable, a provider error) is a 424, never a
-        # 500 with a crash report on every submit of a generate-forever lane. The code is the
-        # one /prompt-programs/prepare answers with, so the client says it the same way.
-        failure = e if isinstance(e, (ProgramError, LLMUnavailableError)) else writer_failure(e)
+        failure = e if isinstance(e, (ProgramError, LLMUnavailableError)) else model_failure(e)
         if failure is None:
             raise
-        if isinstance(failure, ProgramError):
-            status, code = 422, getattr(failure, "code", "program_failed")
-            if isinstance(failure, PrepareTimeout):
-                code = "prepare_timeout"
-        else:
-            status, code = 424, getattr(failure, "code", "llm_unavailable")
-        # Said in the log too: a run that can't start is otherwise only a bare 422 there.
-        log.info(f"[prompt-program] run not started ({code}): {str(failure)[:200]}")
-        raise HTTPException(status_code=status,
-                            detail={"code": code, "message": f"Generation was not started: {failure}"}) from None
-    by_name = {lo.get("name"): lo.get("path") for lo in entry.get("loras") or [] if isinstance(lo, dict)}
-    controlled = sorted({by_name[n] for names in (entry.get("lora_choices") or {}).values() for n in names if by_name.get(n)})
-    record = {"key": entry["key"], "mode": entry.get("mode"), "elaborate": entry.get("elaborate", True),
-              "enhance": entry.get("enhance"), **result.to_dict(), "pins": program_opts.get("pins") or {},
-              "lora_controlled": controlled,
-              # Stored with every image: a choice on a vocabulary list names the list, never copies it.
-              "choices": [{**c, "options": pack_values(c.get("cls"), c.get("options"))} if c.get("cls") else c
-                          for c in entry.get("choices") or [] if not c.get("hidden")]}
+        raise failed(failure) from None
+    spans = spans_of(result)
+    record = {"key": entry["key"], "version": entry.get("version"), **result.to_dict(),
+              "choices": choices, "filled": result.prompt, "spans": [list(s) for s in spans]}
     if fix is not None:
         record["fix"] = fix
     if not (fix or {}).get("rounds"):  # the fix record's rounds carry each roll's prompt
         record["view"] = prompt_view(result)
-    if rung is not None:
-        record["fallback"] = rung
-    elif entry.get("partial"):  # kept with problems that cost variety only
-        record["partial"] = True
-    return record, result.prompt
+    return record, result.prompt, spans
 
 
 def pins_for_kept_choices(entry: Dict[str, Any], keep: Dict[str, Any]) -> Dict[str, List[str]]:
@@ -737,12 +702,12 @@ def _additions_version(profile_id: Optional[str]) -> Optional[str]:
         return None
 
 
-def hot_draw_signature(entry: Dict[str, Any], program_opts: Dict[str, Any], *, triggers: bool,
-                       profile_id: Optional[str], project_id: Optional[int]) -> str:
+def hot_draw_signature(entry: Dict[str, Any], *, pins: Dict[str, Any], edits: Dict[str, Any],
+                       zones: Dict[str, Any], profile_id: Optional[str], project_id: Optional[int]) -> str:
     """Everything a Fluent draw is made from: the prepared program as committed, the
-    pins, fixed values and edits, the LoRA trigger choice, the profile and project, and
-    the Fluent settings (judges, cut, rounds, knobs). A hot draw is served only to a
-    submit with the same signature."""
+    pins, edits and zones the choices expand to, the profile and project, and the Fluent
+    settings (judges, cut, rounds, knobs). A hot draw is served only to a submit with the
+    same signature."""
     import dataclasses
     import hashlib
     from prompt_programs.fix import judge_identity
@@ -750,9 +715,8 @@ def hot_draw_signature(entry: Dict[str, Any], program_opts: Dict[str, Any], *, t
 
     cfg = settings()
     payload = {
-        "entry": entry, "pins": program_opts.get("pins") or {}, "fixed": program_opts.get("fixed") or {},
-        "edits": program_opts.get("edits") or {}, "triggers": bool(triggers), "profile_id": profile_id,
-        "project_id": project_id, "settings": dataclasses.asdict(cfg),
+        "entry": entry, "pins": pins or {}, "edits": edits or {}, "zones": zones or {},
+        "profile_id": profile_id, "project_id": project_id, "settings": dataclasses.asdict(cfg),
         # the judge's version and readiness: draws made before it was ready
         # aren't served once it's ready, and a new judge version never serves old draws
         "judge": judge_identity(cfg, project_id),
@@ -762,51 +726,24 @@ def hot_draw_signature(entry: Dict[str, Any], program_opts: Dict[str, Any], *, t
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
 
-def _take_hot_draw(generator_instance_id: str, entry: Dict[str, Any], program_opts: Dict[str, Any], *,
-                   triggers: bool, profile_id: Optional[str], project_id: Optional[int]) -> Optional[Dict[str, Any]]:
+def _take_hot_draw(generator_instance_id: str, entry: Dict[str, Any], *, pins: Dict[str, Any],
+                   edits: Dict[str, Any], zones: Dict[str, Any], profile_id: Optional[str],
+                   project_id: Optional[int]) -> Optional[Dict[str, Any]]:
     """A current hot draw for this forever submit, or None to draw inline. A broken pool
     never costs the submit."""
     import copy
     from generation_queue import get_generation_queue
     try:
-        signature = hot_draw_signature(entry, program_opts, triggers=triggers, profile_id=profile_id,
+        signature = hot_draw_signature(entry, pins=pins, edits=edits, zones=zones, profile_id=profile_id,
                                        project_id=project_id)
 
-
         def spec() -> Dict[str, Any]:  # a copy the pool keeps while this signature is current
-            return copy.deepcopy({"entry": entry, "pins": program_opts.get("pins"), "fixed": program_opts.get("fixed"),
-                                  "edits": program_opts.get("edits"), "triggers": triggers,
+            return copy.deepcopy({"entry": entry, "pins": pins, "edits": edits, "zones": zones,
                                   "profile_id": profile_id, "project_id": project_id})
         return get_generation_queue().take_fluent_draw(generator_instance_id, signature, spec)
     except Exception as e:
         log.warning(f"Fluent hot draws: take failed for {generator_instance_id}: {e}")
         return None
-
-
-def _apply_program_run(updated: Dict[str, Any], record: Dict[str, Any], schema_props: Dict[str, Any]) -> None:
-    """Add the program's LoRAs and parameter values to one job's parameters."""
-    controlled = set(record.get("lora_controlled") or [])
-    picked = {lu.get("path") for lu in record.get("loras") or []}
-    if controlled:  # the prompt owns the LoRAs it chooses among: only the picked ones run
-        updated["loras"] = [x for x in (updated.get("loras") or []) if not isinstance(x, dict)
-                            or str(x.get("lora") or x.get("path") or "") not in controlled - picked]
-    if record.get("loras"):
-        current = list(updated.get("loras") or [])
-        have = {str(x.get("lora") or x.get("path") or "") for x in current if isinstance(x, dict)}
-        for lu in record["loras"]:
-            if lu.get("path") and lu["path"] not in have:
-                current.append({"lora": lu["path"], "weight": lu.get("weight", 1.0)})
-        updated["loras"] = current
-    for name, value in (record.get("params") or {}).items():
-        spec = schema_props.get(name)
-        if not isinstance(spec, dict):
-            continue
-        if isinstance(spec.get("minimum"), (int, float)):
-            value = max(spec["minimum"], value)
-        if isinstance(spec.get("maximum"), (int, float)):
-            value = min(spec["maximum"], value)
-        updated[name] = int(value) if spec.get("type") == "integer" else value
-    updated["prompt_program"] = record
 
 
 # Models for which agent tool calls use model-aware enhancement by default.

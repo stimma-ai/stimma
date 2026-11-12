@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from prompt_programs import prepare as prep
+from prompt_programs import program as prep
 from prompt_programs import slots
 from prompt_programs.choices import bound_zones, expand, group_values, kept, zone_titles, UnknownChoiceError
 from prompt_programs.vocab import vocabulary

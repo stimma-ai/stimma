@@ -376,7 +376,7 @@ async def ensure(prompt: str, *, profile_id: Optional[str], project_id: Optional
     import asyncio
 
     from prompt_pipeline import _profile_wildcards_and_segments
-    from prompt_programs import prepare as prep
+    from prompt_programs import program as prep
     from prompt_programs.reader import READER_VERSION
     from prompt_programs.store import program_key
     from prompt_programs.vocab import vocabulary
@@ -390,10 +390,10 @@ async def ensure(prompt: str, *, profile_id: Optional[str], project_id: Optional
     parsed = parse(masked)
     if not parsed.varies():
         return {"key": None, "slots": [], "choices": []}
-    model = await prep._writer_fingerprint(project_id)
+    model = await prep.model_fingerprint(project_id)
     key = program_key({"v": SLOTS_VERSION, "reader": READER_VERSION, "model": model, "vocab": vocabulary().version,
                        "prompt": masked, "exact": exact})
-    store = prep._store(profile_id)
+    store = prep.store_for(profile_id)
     cached = None if force else store.get(key)
     if cached:
         if cached.get("narrow_pending"):
@@ -415,26 +415,31 @@ async def _prepare(parsed: Parsed, *, key: str, exact: Dict[str, str], model: Op
                    profile_id: Optional[str], project_id: Optional[int], force: bool) -> Dict[str, Any]:
     import time
 
-    from prompt_programs import prepare as prep
+    from prompt_programs import program as prep
     from prompt_programs import reader
     from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, mark_pending, narrow_entry
     from core.logging import get_logger
 
     t0 = time.monotonic()
-    reading = await reader.read(parsed, ask=prep._ask_model, project_id=project_id, model=model,
+    reading = await reader.read(parsed, ask=prep.ask_model, project_id=project_id, model=model,
                                 cache=NarrowCache(store.root / "reader"), force=force)
     source, entry = build(parsed, reading)
     entry.update({"key": key, "exact": exact, "reading": reading, "source": source, "version": SLOTS_VERSION,
                   "created_at": time.time()})
     try:
-        await narrow_entry(entry, NarrowCache(store.root / "narrow"), prep._ask_model, project_id, seconds=NARROW_SECONDS)
+        await narrow_entry(entry, NarrowCache(store.root / "narrow"), prep.ask_model, project_id, seconds=NARROW_SECONDS)
     except Exception as e:   # never fails the prepare: the picks draw from their whole lists until renarrowed
         get_logger(__name__).warning(f"[slots] narrowing {key} failed: {e}")
         mark_pending(entry)
     entry["seconds"] = round(time.monotonic() - t0, 2)
     store.put(key, entry)
-    prep._notify_prepared(entry, project_id, profile_id)
+    prep.on_prepared(entry, project_id=project_id, profile_id=profile_id)
     return entry
+
+
+def preparing() -> bool:
+    """Whether any prompt is being read now (background option writing gives way to it)."""
+    return bool(_in_flight)
 
 
 def raw_spans(prompt: str, entry: Dict[str, Any]) -> List[Optional[Tuple[Span, int]]]:
@@ -449,4 +454,4 @@ def raw_spans(prompt: str, entry: Dict[str, Any]) -> List[Optional[Tuple[Span, i
 
 
 __all__ = ["KINDS", "Parsed", "ReadingError", "SLOT_RE", "SLOTS_VERSION", "Segment", "build", "ensure", "find_slots",
-           "is_comment", "parse", "raw_spans", "slot_ids", "unwrap_slots"]
+           "is_comment", "parse", "preparing", "raw_spans", "slot_ids", "unwrap_slots"]

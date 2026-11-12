@@ -803,7 +803,7 @@ class GenerationQueue:
         """A ready draw for this forever submit if one was made for exactly this
         signature, else None (the caller draws inline). Either way the pool is kept
         filled for this signature. `spec()` gives what realize_and_fix_many needs (entry,
-        pins, fixed, edits, triggers, profile_id, project_id); it's called only when the
+        pins, edits, zones, profile_id, project_id); it's called only when the
         signature is new. Never blocks."""
         slots = self._forever_slots(generator_instance_id)
         if slots <= 0:
@@ -826,7 +826,7 @@ class GenerationQueue:
         batch, until it's full or its intent has moved on (then the work is dropped)."""
         from prompt_programs.fix import await_judge, realize_and_fix_many
         from prompt_programs.fluent import attach_filler
-        from prompt_programs.prepare import draw_seed
+        from prompt_programs.program import draw_seed
 
         spec = intent['spec']
         # Its draws wait for the judge like a submit's (this task is cancelled with the pool).
@@ -841,7 +841,7 @@ class GenerationQueue:
                 attach_filler(spec['entry'], spec.get('profile_id'))
                 made = await asyncio.to_thread(
                     realize_and_fix_many, spec['entry'], seeds=seeds, pins=spec.get('pins'),
-                    fixed=spec.get('fixed'), edits=spec.get('edits'), triggers=spec.get('triggers', True),
+                    edits=spec.get('edits'), zones=spec.get('zones'),
                     profile_id=spec.get('profile_id'), project_id=spec.get('project_id'))
             except asyncio.CancelledError:
                 raise

@@ -506,13 +506,13 @@ async def _ask_options(messages: List[Dict[str, Any]], project_id: Optional[int]
                        tool: bool) -> Tuple[str, Optional[str]]:
     """One option-writing call: (text content, the write_options call's arguments or None).
     With tool=False, a plain completion (the writer's _ask_model). Raises what the call raises."""
-    from prompt_programs import prepare as prep
+    from prompt_programs import program as prep
     if not tool:
-        return await prep._ask_model(messages, project_id, max_tokens=2000), None
+        return await prep.ask_model(messages, project_id, max_tokens=2000), None
     from agent.v2.llm_options import agent_llm_options
     from llm import llm_completion
     from llm_correlation import llm_correlation_context
-    cfg, _ = await prep._writer_endpoint(project_id)
+    cfg, _ = await prep.model_endpoint(project_id)
     with llm_correlation_context("prompt-program"):
         resp = await llm_completion(cfg, messages, tools=[OPTIONS_TOOL], max_tokens=2000, temperature=0.3,
                                     **agent_llm_options(enable_thinking=False))
@@ -523,10 +523,10 @@ async def _ask_options(messages: List[Dict[str, Any]], project_id: Optional[int]
 async def _endpoint(project_id: Optional[int]) -> Tuple[Tuple[str, str], bool]:
     """(endpoint id, whether to offer the write_options tool): unless the writer's endpoint is
     known to speak text only (prepare's protocol) or ignored the tool before."""
-    from prompt_programs import prepare as prep
+    from prompt_programs import program as prep
     try:
-        cfg, protocol = await prep._writer_endpoint(project_id)
-        endpoint = prep._endpoint_id(cfg)
+        cfg, protocol = await prep.model_endpoint(project_id)
+        endpoint = prep.endpoint_id(cfg)
     except Exception:  # no config to look at: plain text
         return ("", ""), False
     return endpoint, protocol == "tools" and endpoint not in _TEXT_ONLY
@@ -537,17 +537,16 @@ async def write_options(job: OptionJob, count: int = BATCH_SIZE) -> List[str]:
     makes tool calls, else a reply that is exactly a JSON list of strings. At most two calls:
     after a broken or missing tool call the second asks for the plain JSON list, after an
     unreadable text reply it is told what was wrong. [] if neither is readable."""
-    from prompt_programs import prepare as prep
-    from prompt_programs.session import _no_tools_error
+    from prompt_programs import program as prep
     endpoint, tool = await _endpoint(job.project_id)
     messages: List[Dict[str, Any]] = generation_messages(job, count, tool)
     for attempt in range(2):
         try:
             content, args = await _ask_options(messages, job.project_id, tool)
         except Exception as e:
-            if not (tool and _no_tools_error(e)):
+            if not (tool and prep.no_tools_error(e)):
                 raise
-            prep._PROTOCOL[endpoint] = "text"  # the endpoint takes no tools: text from now on
+            prep.PROTOCOL[endpoint] = "text"  # the endpoint takes no tools: text from now on
             tool, messages = False, generation_messages(job, count, False)
             content, args = await _ask_options(messages, job.project_id, False)
         if args is not None:
@@ -640,7 +639,7 @@ async def check_options(job: OptionJob, options: List[str]) -> List[str]:
     failure keeps the options as written: the check never costs a pool its options."""
     if not options:
         return options
-    from prompt_programs import prepare as prep
+    from prompt_programs import program as prep
     spec, prog = job.spec, job.program
     what = f'"{spec.label}" ({spec.about})' if spec.about and _norm(spec.about) != _norm(spec.label) else f'"{spec.label}"'
     lines = [f"The prompt, with the details that vary shown as [Label]:\n{prog.template or job.signature}", "",
@@ -649,7 +648,7 @@ async def check_options(job: OptionJob, options: List[str]) -> List[str]:
         lines.append("Already chosen: " + "; ".join(f"{k} = {v}" for k, v in job.context.items()))
     lines += ["", "The options:", *[f"{i + 1}. {o}" for i, o in enumerate(options)]]
     try:
-        reply = await prep._ask_model([{"role": "system", "content": _CHECK_SYSTEM},
+        reply = await prep.ask_model([{"role": "system", "content": _CHECK_SYSTEM},
                                        {"role": "user", "content": "\n".join(lines)}], job.project_id, 40 * len(options) + 80)
     except Exception as e:
         log.info(f"[fluent-options] the check of {spec.label!r} failed, keeping its options as written: {e}")
@@ -1240,9 +1239,8 @@ def filler_for(profile_id: Optional[str]) -> OptionFiller:
     store = store_for(profile_id)
     f = _fillers.get(str(store.root))
     if f is None:
-        from prompt_programs.prepare import is_current, preparing
-        f = _fillers[str(store.root)] = OptionFiller(
-            store, paused=preparing, current=lambda job: is_current(job.program.key, job.program.context_key))
+        from prompt_programs.slots import preparing
+        f = _fillers[str(store.root)] = OptionFiller(store, paused=preparing)
     try:
         f.attach()
     except RuntimeError:

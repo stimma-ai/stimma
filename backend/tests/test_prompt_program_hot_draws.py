@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-from prompt_programs import prepare as prep
+from prompt_programs import program as prep
 from prompt_programs.fix import (
     Item, OnnxJudge, fix_draw, prompt_view, realize_and_fix, realize_and_fix_many,
 )
@@ -282,9 +282,10 @@ class TestPool:
 # --------------------------------------------------------------------------- the submit path
 
 class TestSignature:
-    def _sig(self, entry=None, **opts):
+    def _sig(self, entry=None, pins=None, edits=None, zones=None):
         from routes.generation import hot_draw_signature
-        return hot_draw_signature(entry or entry_for(), opts, triggers=True, profile_id="p", project_id=None)
+        return hot_draw_signature(entry or entry_for(), pins=pins or {}, edits=edits or {}, zones=zones or {},
+                                  profile_id="p", project_id=None)
 
     def test_same_inputs_same_signature(self):
         assert self._sig(pins={"job": ["nun"]}) == self._sig(pins={"job": ["nun"]})
@@ -292,7 +293,7 @@ class TestSignature:
     def test_anything_a_draw_is_made_from_changes_it(self, monkeypatch):
         base = self._sig()
         assert self._sig(pins={"job": ["nun"]}) != base
-        assert self._sig(fixed={"light": "dawn light"}) != base
+        assert self._sig(zones={"light": ["instead"]}) != base
         assert self._sig(edits={"light": {"remove": ["moonlight"]}}) != base
         assert self._sig(entry_for(created_at=2)) != base  # a new prepare committed
         monkeypatch.setenv("STIMMA_FLUENT_FIX_CUT", "0.3")
@@ -304,15 +305,14 @@ class TestSubmit:
         import routes.generation as gen
         entry = entry_for()
 
-        async def ensure(**kw):
+        async def ensure(prompt, **kw):
             return dict(entry)
-        monkeypatch.setattr(prep, "ensure_program", ensure)
+        monkeypatch.setattr("prompt_programs.slots.ensure", ensure)
         monkeypatch.setattr("generation_queue.get_generation_queue", lambda: queue)
 
         async def submit(**opts):
-            record, _ = await gen._run_prompt_program(
-                USER, {}, {"enabled": True, **opts}, ctx={}, tool_id="t", prompt_options={}, project_id=None,
-                profile_id=None, hot_draws_for="gen-1")
+            record, _, _ = await gen._run_slots(
+                USER, {"enabled": True, **opts}, project_id=None, profile_id=None, hot_draws_for="gen-1")
             return record
         cold = await submit()
         await settle(queue, "gen-1")

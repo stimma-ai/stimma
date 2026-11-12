@@ -11,10 +11,10 @@ import pytest
 import routes.generation as gen
 from agent.v2 import prompt_handling as ph
 from agent.v2.prompt_handling import PromptHandlingError, PromptRequest, prepare_prompt
-from prompt_programs import prepare as prep
-from prompt_programs.store import ProgramStore
+from tests.test_slots_build import PORCH_PROMPT as PROMPT, PORCH_READING
+from tests.test_slots_reader import FakeModel, _reply, _use, profile  # noqa: F401 (profile is a fixture)
 
-from tests.test_prompt_programs import LORAS, PROMPT, SCHEMA, TRAIN_M, fake_style, text_endpoint
+SCHEMA = {"prompt": {"type": "string"}}
 
 
 WILDCARDS = [{"name": "outfit", "values": ["a red raincoat"]}]
@@ -139,7 +139,7 @@ class TestSameWhetherOrNotToolViewHasTheFeature:
             raise AssertionError("no program may be prepared without vary")
 
         monkeypatch.setattr(gen, "_apply_generation_prompt_pipeline", spy)
-        monkeypatch.setattr(gen, "_run_prompt_program", no_program)
+        monkeypatch.setattr(gen, "_run_slots", no_program)
         out = await _direct("a [red] {cat|cat}", enhance=enhance)
         assert "prompt_program" not in out.params
         assert all("program" not in (o or {}) for o in seen)
@@ -148,28 +148,36 @@ class TestSameWhetherOrNotToolViewHasTheFeature:
 
 
 @pytest.fixture
-def writer(monkeypatch, tmp_path, prose_model):
-    """The chat model that prepares prompts, stubbed (as tests/test_prompt_programs.py)."""
-    calls = []
-
-    async def fake_ask(messages, project_id, max_tokens=4096):
-        calls.append(messages)
-        return f"```python\n{TRAIN_M}```"
-
-    async def fake_candidates(tool_id, items, profile_id):
-        return list(LORAS), {}
+def writer(monkeypatch, profile, prose_model):  # noqa: F811
+    """The chat model that reads the prompt's slots, stubbed (as tests/test_slots_reader.py),
+    and the improver, which keeps what it is given; returns the reader's calls."""
+    import prompt_programs.fix as fix
+    import routes.prompt_enhancement as pe
 
     async def no_context(tool_id, parameters, profile_id=None):
         return []
 
-    monkeypatch.setattr(prep, "writer_style", fake_style)
-    monkeypatch.setattr(prep, "_ask_model", fake_ask)
-    monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
-    monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
-    monkeypatch.setattr(prep, "_writer_endpoint", text_endpoint)
+    async def no_judge(entry, project_id=None):
+        return None
+
+    async def improve(request, session):
+        return pe.ImprovePromptResponse(improved_prompt=request.prompt)
+
+    class _Session:
+        async def __aenter__(self):
+            return None
+
+        async def __aexit__(self, *exc):
+            return False
+
     monkeypatch.setattr("lora_notes.lora_context_for", no_context)
-    monkeypatch.setattr(gen, "get_database_registry", lambda: type("R", (), {"get_database": lambda self, p: None})())
-    return calls
+    monkeypatch.setattr(fix, "await_judge", no_judge)
+    monkeypatch.setattr(pe, "improve_prompt", improve)
+    monkeypatch.setattr(gen, "get_current_profile", lambda: profile)
+    monkeypatch.setattr(gen, "get_database_registry", lambda: type("R", (), {
+        "get_database": lambda self, p: type("D", (), {"async_session_maker": _Session})()})())
+    model = _use(monkeypatch, FakeModel(*[_reply(PORCH_READING)] * 8))
+    return model.asked
 
 
 async def _vary(**kw):
@@ -182,15 +190,21 @@ class TestVary:
         out = await _vary()
         record = out.params["prompt_program"]
         assert out.draw_seed == record["draw_seed"]
-        assert out.choices and "weather" in out.choices
+        assert out.choices and "pet" in out.choices and "list1" in out.choices
         assert out.params["prompt_metadata"] == {"original_prompt": PROMPT, "auto_improve_enabled": False}
         line = ph.choices_line(out.choices, out.draw_seed)
-        assert line.startswith("choices: ") and f"(draw_seed {out.draw_seed})" in line and "weather = " in line
+        assert line.startswith("choices: ") and f"(draw_seed {out.draw_seed})" in line and "pet = " in line
 
     async def test_unchecked_choices_are_mentioned_only_when_it_happened(self, writer, monkeypatch):
         from prompt_programs import fix as fx
-        assert (await _vary()).note is None  # checked, or no check configured: nothing said
         real = fx.realize_and_fix
+
+        def judged(*a, **k):
+            result, _ = real(*a, **k)
+            return result, None
+
+        monkeypatch.setattr(fx, "realize_and_fix", judged)
+        assert (await _vary()).note is None  # checked, or no check configured: nothing said
 
         def unjudged(*a, **k):  # the judge couldn't be had for this run
             result, _ = real(*a, **k)
@@ -214,52 +228,46 @@ class TestVary:
 
     async def test_keep_choices_hold(self, writer):
         for _ in range(8):
-            out = await _vary(keep_choices={"weather": "foggy"})
-            assert out.choices["weather"] == "foggy"
-            assert out.params["prompt_program"]["pins"]["weather"] == ["foggy"]
-        out = await _vary(keep_choices={"Weather": ["rainy", "bright"]})  # by label, a list limits
-        assert out.choices["weather"] in ("rainy", "bright")
+            out = await _vary(keep_choices={"pet": "grey parrot"})
+            assert out.choices["pet"] == "grey parrot"
+        out = await _vary(keep_choices={"Season": ["summer"]})  # by label
+        assert out.choices["list1"] == "summer"
 
     async def test_unknown_choice_names_the_real_ones(self, writer):
         with pytest.raises(PromptHandlingError) as e:
-            await _vary(keep_choices={"hair": "long"})
+            await _vary(keep_choices={"hat": "bowler"})
         msg = str(e.value)
-        assert msg.startswith('"hair" isn\'t a choice in this prompt. Its choices are: ')
-        assert "weather" in msg and msg.endswith("Nothing was generated.")
+        assert msg.startswith('"hat" isn\'t a choice in this prompt. Its choices are: ')
+        assert "pet" in msg and msg.endswith("Nothing was generated.")
 
     async def test_detail_level_follows_enhance_prompt(self, writer, monkeypatch):
         seen = []
-        real = gen._run_prompt_program
+        import prompt_pipeline
+        real = prompt_pipeline.run_prompt_pipeline
 
         async def spy(*a, **kw):
-            seen.append(kw.get("enhance"))
+            seen.append(kw.get("level"))
             return await real(*a, **kw)
 
-        monkeypatch.setattr(gen, "_run_prompt_program", spy)
+        monkeypatch.setattr(prompt_pipeline, "run_prompt_pipeline", spy)
         await _vary()                       # prose model, omitted: Yours
         await _vary(enhance=False)          # Yours
-        await _vary(enhance=True)           # High: the writer may add choices
+        await _vary(enhance=True)           # High
         monkeypatch.setattr(gen, "native_prompt_format", lambda *a, **k: "FLUX.3 Klein")
         await _vary()                       # a model with its own format, omitted: Medium
         assert seen == ["off", "off", "expand", "fill"]
 
-    async def test_no_chat_model_runs_the_words_as_written_and_says_so(self, prose_model, monkeypatch, tmp_path):
+    async def test_no_chat_model_stops_the_call_and_says_so(self, writer, monkeypatch):
         from llm_resolver import LLMNotConfiguredError
+        from prompt_programs import program
 
-        async def unconfigured(**kw):
+        async def unconfigured(*a, **kw):
             raise LLMNotConfiguredError("No chat model is configured.")
 
-        monkeypatch.setattr("prompt_programs.prepare.ensure_program", unconfigured)
-        monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
-        monkeypatch.setattr(gen, "get_database_registry", lambda: type("R", (), {"get_database": lambda self, p: None})())
-        out = await _vary()
-        record = out.params["prompt_program"]
-        assert record["fallback"]["rung"] == "words" and record["fallback"]["code"] == "llm_not_configured"
-        sent = out.params["prompt"]  # the Direct way: the list picks one, [brackets] unwrap, # lines drop
-        assert sent.split(" morning")[0] in [f"A woman waiting for a train on a {w}" for w in ("rainy", "foggy", "bright")]
-        assert "Shot on Portra 400" in sent and "[" not in sent and "#" not in sent
-        assert "words as written" in out.note and "no chat model is set up" in out.note
-        assert not out.choices
+        monkeypatch.setattr(program, "ask_model", unconfigured)
+        with pytest.raises(PromptHandlingError) as e:
+            await _vary()
+        assert "no chat model is set up" in str(e.value) and "Nothing was generated" in str(e.value)
 
     async def test_models_that_cant_vary_write_each_prompt(self, lists, monkeypatch):
         monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {

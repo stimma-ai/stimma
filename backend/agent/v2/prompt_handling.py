@@ -344,9 +344,7 @@ async def _vary(job_params: Dict[str, Any], prompt: str, *, ctx: Dict[str, Any],
     from routes.generation import _apply_generation_prompt_pipeline
 
     level = _detail_level(request.enhance, format_model)
-    loras = [{"lora": x.get("lora") or x.get("path"), "weight": x.get("weight", 1.0), "enabled": True}
-             for x in job_params.get("loras") or [] if isinstance(x, dict) and (x.get("lora") or x.get("path"))]
-    program: Dict[str, Any] = {"enabled": True, "loras": loras}
+    program: Dict[str, Any] = {"enabled": True}
     if request.keep_choices:
         program["keep_choices"] = request.keep_choices
     if request.draw_seed is not None:
@@ -371,12 +369,6 @@ async def _vary(job_params: Dict[str, Any], prompt: str, *, ctx: Dict[str, Any],
     record = updated.get("prompt_program")
     updated["prompt_metadata"] = _prompt_metadata(prompt, level != "off")
     seed = record.get("draw_seed") if isinstance(record, dict) else None
-    # The prompt couldn't be read: it ran anyway (prompt_programs.fallback), and the result says how.
-    rung = record.get("fallback") if isinstance(record, dict) else None
-    if isinstance(rung, dict):
-        from prompt_programs.fallback import agent_note
-        note = " ".join(n for n in (agent_note(rung), unchecked_note(record)) if n)
-        return PreparedPrompt(updated, note=note, choices=choices_of(record) or None, draw_seed=seed)
     return PreparedPrompt(updated, note=unchecked_note(record), choices=choices_of(record), draw_seed=seed)
 
 
@@ -409,5 +401,5 @@ async def source_prompt_for_vary(session, media_id: Any) -> Optional[Dict[str, A
     written = (gen.get("prompt_metadata") or {}).get("original_prompt") if isinstance(gen.get("prompt_metadata"), dict) else None
     if not isinstance(record, dict) or not isinstance(written, str) or not written.strip():
         return None
-    level = record.get("enhance") or ("expand" if record.get("elaborate", True) else "off")
+    level = record.get("level") or "off"
     return {"prompt": written, "enhance": {"expand": True, "off": False}.get(level, "fill")}

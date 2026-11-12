@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 
 import pytest
 
-from prompt_programs import prepare as prep
+from prompt_programs import program as prep
 from prompt_programs import reader, slots
 from prompt_programs.narrow import NarrowCache
 from prompt_programs.slots import parse
@@ -56,13 +56,13 @@ def profile(tmp_path, monkeypatch):
 
     async def fingerprint(project_id):
         return "fake-model"
-    monkeypatch.setattr(prep, "_writer_fingerprint", fingerprint)
+    monkeypatch.setattr(prep, "model_fingerprint", fingerprint)
     monkeypatch.setattr(slots, "_in_flight", {})
     return "p"
 
 
 def _use(monkeypatch, model: FakeModel) -> FakeModel:
-    monkeypatch.setattr(prep, "_ask_model", model)
+    monkeypatch.setattr(prep, "ask_model", model)
     return model
 
 
@@ -197,7 +197,7 @@ async def test_ensure_reads_builds_narrows_and_stores(profile, monkeypatch):
     assert sorted(entry["filters"]["elderly_african_man.age"]) == sorted(ELDERLY)
     assert sorted(entry["filters"]["elderly_african_man.descent"]) == sorted(AFRICAN)
     assert entry["reading"]["slots"][1]["free"]["kinds"][0] == "ginger tabby cat"
-    assert prep._store(profile).get(entry["key"])["program"] == entry["program"]
+    assert prep.store_for(profile).get(entry["key"])["program"] == entry["program"]
     again = await slots.ensure(PORCH_PROMPT, profile_id=profile)
     assert again["key"] == entry["key"] and len(model.asked) == 1
     assert await slots.ensure("a <cat>", profile_id=profile, cache_only=True) is None
@@ -272,3 +272,23 @@ def test_the_outfit_follows_presentation_and_is_set_off_by_a_comma():
     assert "cls='person.outfit.casual', where={'presentation': 'masculine'}" in src
     assert "opt(', wearing', slot1_outfit, ',')" in src
     assert re.search(r", wearing [^,]+, reading on a porch", entry["example"])
+
+
+def test_lookups_and_cache_hits_start_no_background_work(profile, monkeypatch):
+    started = []
+    monkeypatch.setattr(prep, "on_prepared", lambda entry, **kw: started.append(entry["key"]))
+    model = _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
+    client = _client(monkeypatch, profile)
+    body = {"tool_id": "t", "prompt": PORCH_PROMPT}
+    assert client.post("/api/prompt-programs/prepare", json={**body, "cache_only": True}).json() == {"key": None}
+    first = client.post("/api/prompt-programs/prepare", json=body).json()
+    client.post("/api/prompt-programs/prepare", json={**body, "cache_only": True})
+    client.post("/api/prompt-programs/prepare", json=body)
+    assert started == [first["key"]] and len(model.asked) == 1   # once, for the fresh prepare
+
+
+def test_an_oversized_prompt_is_refused_before_the_reader(profile, monkeypatch):
+    model = _use(monkeypatch, FakeModel())
+    long = "A woman waiting for a <train>, " * 400
+    r = _client(monkeypatch, profile).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": long})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "prompt_too_long" and not model.asked

@@ -114,7 +114,7 @@ def mask(prompt: str, value: str, label: str, first: bool = False) -> Optional[s
     filled. None when the value's text isn't found exactly once. `first`: a user-list
     value that generated text repeats masks its first occurrence, where the user's
     template put it."""
-    from prompt_programs.prepare import emitted_as
+    from prompt_programs.program import emitted_as
     value = emitted_as(value, prompt) or value  # "a olive coat" reads "an olive coat" once tidied
     i = locate(prompt, value, first)
     if i is None:
@@ -132,7 +132,7 @@ def prompt_view(result: Any) -> Dict[str, Any]:
     """A draw as the generation details show it: the prompt the image model read, where
     each visible pick's value stands in it ([start, end, id], in order, never
     overlapping), and each visible pick's value."""
-    from prompt_programs.prepare import emitted_as, realized_text
+    from prompt_programs.program import emitted_as, realized_text
     text = realized_text(result.prompt)
     found: List[Tuple[int, int, str]] = []
     picks = shown_picks(result)
@@ -501,7 +501,7 @@ def _questions(result: Any, user_prompt: str, skip: Sequence[str] = (),
                rerolled: Sequence[str] = ()) -> Tuple[List[Item], List[str], Dict[str, Optional[float]]]:
     """What scoring a finished draw asks the judge: one item per judged pick that can be
     masked, their ids, and None for the ones that can't."""
-    from prompt_programs.prepare import realized_text
+    from prompt_programs.program import realized_text
     text = realized_text(result.prompt)
     items: List[Item] = []
     ids: List[str] = []
@@ -544,7 +544,7 @@ def _unmasked(result: Any, exact: Optional[Dict[str, str]]) -> Any:
     keeps its [EXACT_n] tokens, which is all the judge ever reads)."""
     if not exact:
         return result
-    from prompt_programs.prepare import unmask_exact
+    from prompt_programs.program import unmask_exact
     return dataclasses.replace(result, prompt=unmask_exact(result.prompt, exact))
 
 
@@ -672,7 +672,7 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
     judge can't be had). Blocking, and the judge's model calls run on the event loop: run
     it in a worker thread, after await_judge."""
     if revision:
-        from prompt_programs.prepare import realize
+        from prompt_programs.program import realize
         return realize(entry, seed=seed, pins=pins, fixed=fixed, edits=edits, triggers=triggers,
                        profile_id=profile_id, project_id=project_id, revision=revision, zones=zones), None
     out = realize_and_fix_many(entry, seeds=[seed], pins=pins, fixed=fixed, edits=edits, triggers=triggers,
@@ -696,7 +696,7 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
     step does (entry["prompt"] is already masked); the shipped prompts have it back."""
     from prompt_programs.draws import uses_draws
     from prompt_programs.judge import settings
-    from prompt_programs.prepare import realize
+    from prompt_programs.program import realize
 
     def draw_once(s: int, fx: Optional[Dict[str, Any]], ed: Optional[Dict[str, Any]]) -> Any:
         return realize(entry, seed=s, pins=pins, fixed=fx, edits=ed, triggers=triggers, profile_id=profile_id,

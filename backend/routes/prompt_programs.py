@@ -46,19 +46,14 @@ def program_http_error(e: Exception, failed: str = "program_failed") -> Optional
     that can't be used, is a 424 the client offers Try again or Direct for, never a 500
     with a crash report."""
     from llm_resolver import LLMNotConfiguredError, LLMUnavailableError
-    from prompt_programs.prepare import PrepareTimeout, ProgramError, writer_failure
+    from prompt_programs.program import ProgramError, model_failure
     from prompt_programs.reader import ReaderFailed
 
     if isinstance(e, ReaderFailed):
         return HTTPException(status_code=424, detail={"code": e.code, "message": str(e)})
-    e = writer_failure(e) or e
-    if isinstance(e, PrepareTimeout):
-        return HTTPException(status_code=422, detail={"code": "prepare_timeout", "message": str(e)})
+    e = model_failure(e) or e
     if isinstance(e, ProgramError):
-        detail = {"code": getattr(e, "code", failed), "message": str(e)}
-        if getattr(e, "problems", ""):
-            detail["problems"] = e.problems  # what the writer was told: for the dev panel
-        return HTTPException(status_code=422, detail=detail)
+        return HTTPException(status_code=422, detail={"code": getattr(e, "code", failed), "message": str(e)})
     if isinstance(e, LLMUnavailableError):  # its code says which: not set up, no balance, unreachable
         code = "llm_not_configured" if isinstance(e, LLMNotConfiguredError) else (e.code or "llm_unavailable")
         return HTTPException(status_code=424, detail={"code": code, "message": str(e)})
@@ -140,8 +135,8 @@ class OptionsRequest(PrepareRequest):
 async def _shown(req: PrepareRequest) -> Optional[Dict[str, Any]]:
     """The program the cards are showing (req.key), else the one prepared for these inputs."""
     if req.key:
-        from prompt_programs.prepare import _store
-        entry = _store(get_current_profile()).get(req.key)
+        from prompt_programs.program import store_for
+        entry = store_for(get_current_profile()).get(req.key)
         if entry:
             return entry
     entry = await _prepare(req.model_copy(update={"cache_only": True}))
@@ -245,7 +240,7 @@ async def preview(req: PreviewRequest) -> Dict[str, Any]:
     import asyncio
     from prompt_programs.choices import expand
     from prompt_programs.fix import realize_and_fix
-    from prompt_programs.prepare import DrawAborted, ProgramError, draw_seed
+    from prompt_programs.program import DrawAborted, ProgramError, draw_seed
     entry = await _prepare(req)
     if entry is None or entry.get("unsupported") or not entry.get("key"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})

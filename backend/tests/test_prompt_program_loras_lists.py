@@ -314,32 +314,6 @@ class TestListReviewFixes:
         assert prep.patch_lists(src, old, "A {red|blue|green} car next to a {red | blue} bicycle.") is None
 
 
-class TestPromptOwnsItsLoras:
-    def test_only_the_picked_one_of_the_prompts_loras_runs(self):
-        from routes.generation import _apply_program_run
-        updated = {"prompt": "x", "loras": [
-            {"lora": "k/bobcut.safetensors", "weight": 0.7},      # on in the panel, one the prompt chooses among
-            {"lora": "k/phone.safetensors", "weight": 1.0},     # on in the panel, not the prompt's
-        ]}
-        record = {"key": "k", "loras": [{"path": "k/pixie.safetensors", "weight": 0.6}],
-                  "lora_controlled": ["k/bobcut.safetensors", "k/pixie.safetensors", "k/curly.safetensors"]}
-        _apply_program_run(updated, record, {})
-        assert [x["lora"] for x in updated["loras"]] == ["k/phone.safetensors", "k/pixie.safetensors"]
-
-    def test_a_picked_lora_already_on_stays_once(self):
-        from routes.generation import _apply_program_run
-        updated = {"prompt": "x", "loras": [{"lora": "k/bobcut.safetensors", "weight": 0.7}]}
-        record = {"key": "k", "loras": [{"path": "k/bobcut.safetensors", "weight": 0.7}], "lora_controlled": ["k/bobcut.safetensors"]}
-        _apply_program_run(updated, record, {})
-        assert [x["lora"] for x in updated["loras"]] == ["k/bobcut.safetensors"]
-
-    def test_records_without_the_list_keep_the_old_behavior(self):
-        from routes.generation import _apply_program_run
-        updated = {"prompt": "x", "loras": [{"lora": "k/bobcut.safetensors", "weight": 0.7}]}
-        _apply_program_run(updated, {"key": "k", "loras": [{"path": "k/pixie.safetensors", "weight": 0.6}]}, {})
-        assert [x["lora"] for x in updated["loras"]] == ["k/bobcut.safetensors", "k/pixie.safetensors"]
-
-
 class TestOneLoraPickPerSet:
     PROMPT = "Two friends on a sofa. Pick a hair lora per photo: curly, pixie, braids."
 
