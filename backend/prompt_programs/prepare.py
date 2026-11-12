@@ -1975,7 +1975,11 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     # another prepare. "Try again" (force) prepares now.
     gone_wrong = None if force else _failures.get((str(store.root), key))
     if gone_wrong is not None:
-        retry_failed((str(store.root), key))
+        told = _PINNED.set(pinned_note(pins))   # a retry round started here is told what is pinned now
+        try:
+            retry_failed((str(store.root), key))
+        finally:
+            _PINNED.reset(told)
         raise gone_wrong.error
     # One prepare per key: concurrent runs and the editor share it instead of each
     # asking the model.
