@@ -139,7 +139,7 @@ def prompt_view(result: Any) -> Dict[str, Any]:
     # longer values first, so one that contains another keeps its whole span
     for d in sorted(picks, key=lambda d: -len(str(d.value))):
         v = emitted_as(str(d.value), text) or str(d.value)
-        i = locate(text, v, first=d.source == "list")
+        i = locate(text, v, first=d.source == "list" or bool(getattr(d, "shared", False)))
         if i is None or any(i < e and s < i + len(v) for s, e, _ in found):
             continue
         found.append((i, i + len(v), d.id))
@@ -507,7 +507,7 @@ def _questions(result: Any, user_prompt: str, skip: Sequence[str] = (),
     ids: List[str] = []
     out: Dict[str, Optional[float]] = {}
     for d in judged_picks(result, skip, rerolled):
-        st = mask(text, str(d.value), d.label, first=d.source == "list")
+        st = mask(text, str(d.value), d.label, first=d.source == "list" or bool(getattr(d, "shared", False)))
         if st is None:
             out[d.id] = None
             continue

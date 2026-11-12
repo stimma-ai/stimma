@@ -471,3 +471,55 @@ class TestKin:
     def test_a_family_nobody_shows_the_descent_of_makes_no_pick(self):
         src = expand_people('a = person("a", noun="sister", kin="family", show=["age"])\nemit(a)\n')
         assert "family.descent" not in src
+
+    def test_the_shared_descent_is_judged_and_shown_though_it_reads_twice(self, tmp_path):
+        from prompt_programs import prepare as prep
+        from prompt_programs.fix import _questions, prompt_view
+        from prompt_programs.fluent import runtime_for
+        from prompt_programs.options import OptionStore
+        src = expand_people(self.SRC)
+        info = prep.validate(src, "two sisters", [], set(), "", True)["info"]
+        entry = {"key": "kin", "program": src, "choices": info["choices"], "prompt": "two sisters", "mode": "prose"}
+        r = prep.realize(entry, seed=3, runtime=runtime_for(entry, store=OptionStore(tmp_path), cfg=FluentSettings(generate_options=False)))
+        items, ids, out = _questions(r, "two sisters")
+        assert "family.descent" in ids and out.get("family.descent", 0) is not None
+        assert any(span[2] == "family.descent" for span in prompt_view(r)["spans"])
+
+    def test_a_descent_pick_the_program_wrote_is_the_familys(self):
+        from prompt_programs.draws import draw
+        src = expand_people('d = pick("woman.descent", cls="person.ethnicity", about="her descent", seed=["Irish"], label="Ethnicity", phase=1, added=True)\n'
+                            'w = person("woman", noun="woman", kin="family", show=["age"])\n'
+                            'g = person("girl", noun="girl", kin="family", show=["age", "descent"])\n'
+                            'emit("A", d, w, "and", g, ".")\n')
+        assert "family.descent" not in src and "girl.descent" not in src
+        for seed in range(8):
+            r = draw(src, seed)
+            assert r.prompt.count(str(next(x.value for x in r.draws if x.id == "woman.descent"))) == 2
+
+    def test_a_family_in_a_branch_not_taken_draws_nothing(self):
+        from prompt_programs import prepare as prep
+        from prompt_programs.draws import draw
+        src = expand_people('scene = pick("scene", ["an empty room", "two sisters"], label="Scene", source="list", phase=1, line=1)\n'
+                            'if scene == "two sisters":\n'
+                            '    a = person("sister[1]", noun="sister", kin="family", show=["age", "descent"])\n'
+                            '    b = person("sister[2]", noun="sister", kin="family", show=["age", "descent"])\n'
+                            '    emit("Two sisters:", a, "and", b, ".")\n'
+                            'else:\n'
+                            '    emit("An empty room.")\n')
+        src, _ = prep.fix_written(src, "{an empty room|two sisters}", [])
+        got = prep.validate(src, "{an empty room|two sisters}", [], set(), "", True)
+        assert not [p for p in got["problems"] if "descent" in p]
+        empty = draw(src, 1, {"scene": ["an empty room"]})
+        assert empty.prompt == "An empty room." and not [d for d in empty.draws if d.id == "family.descent"]
+        both = draw(src, 1, {"scene": ["two sisters"]})
+        assert both.prompt.count(str(next(d.value for d in both.draws if d.id == "family.descent"))) == 2
+
+    def test_a_family_made_in_a_loop_has_one_pick_above_it(self):
+        from prompt_programs.draws import draw
+        src = expand_people('n = group("sisters", 3, label="Sisters", line=1)\nemit("Three sisters:")\n'
+                            'for i in range(n):\n'
+                            '    s = person(f"sisters[{i+1}]", noun="sister", kin="family", show=["age", "descent"])\n'
+                            '    emit(s, ";")\n')
+        assert src.count("pick('family.descent'") == 1 and src.index("family.descent") < src.index("for i in range")
+        r = draw(src, 2)
+        assert r.prompt.count(str(next(d.value for d in r.draws if d.id == "family.descent"))) == 3

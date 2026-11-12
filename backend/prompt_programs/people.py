@@ -145,9 +145,20 @@ class _People(ast.NodeTransformer):
         # Every id the program's own picks use: person() never makes a second pick under one of them.
         self.own_ids: Set[str] = {_id_text(n.args[0]) for n in ast.walk(tree)
                                   if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "pick" and n.args}
+        self.kin: Dict[str, str] = {}                             # a family's name -> its shared descent pick's variable
+        self.kin_at: Dict[str, Tuple[Any, ...]] = {}              # ...and the branch it was made in
+        self.arms: List[Any] = []                                 # the if-arms being visited, outermost first
+        self.before_loop: List[ast.stmt] = []                     # shared picks to stand before the loop being visited
         ids = [(n.value.args[0] if n.value.args else None) for n in made]
         texts = [_id_text(i) or n.targets[0].id for i, n in zip(ids, made)]
-        self.kin: Dict[str, str] = {}                             # a family's name -> its shared descent pick's variable
+        # A family one of whose members has a descent pick the program wrote itself: that pick is
+        # the family's, so the others share it rather than a second one.
+        for n, t in zip(made, texts):
+            fam = _family(next((k.value for k in n.value.keywords if k.arg == "kin"), None))
+            own = self.own_vars.get(f"{t}.descent")
+            if fam and own:
+                self.kin.setdefault(fam, own)
+                self.kin_at.setdefault(fam, ())
         self.kept: List[Tuple[str, str]] = []                     # (pick id as written, detail)
         self.adopt: Dict[int, ast.expr] = {}                      # id(pick call) -> the id it takes
         taken: Set[Tuple[int, str]] = set()
@@ -201,9 +212,19 @@ class _People(ast.NodeTransformer):
         var = {k: f"{target}_{k}" for k in keys}
         # Blood relatives share one descent: the family's pick, made once above the program
         # (expand_people), stands where this person's own would. A descent the user stated stays theirs.
-        family = re.sub(r"\W+", "_", str(_const(kw.get("kin")) or "").strip().lower()).strip("_")
+        family = _family(kw.get("kin"))
+        here = tuple(self.arms)
+        made_here: List[ast.stmt] = []
         if family and "descent" in keys and "descent" not in said:
-            var["descent"] = self.kin.setdefault(family, f"kin_{family}_descent")
+            if family not in self.kin:
+                # The family's one descent pick stands where its first member is made: above the
+                # loop when that is in a loop (one pick, not one a pass), in the branch when it is
+                # in a branch (a branch not taken draws nothing).
+                self.kin[family], self.kin_at[family] = f"kin_{family}_descent", here
+                (self.before_loop if self.loops else made_here).append(_shared_descent(family, self.kin[family], call.lineno))
+            if here[:len(self.kin_at[family])] == self.kin_at[family]:   # made on the way here: theirs too
+                var["descent"] = self.kin[family]
+        out += made_here
         for k in keys:
             if k == "descent" and family and var[k] == self.kin.get(family):
                 continue
@@ -254,12 +275,25 @@ class _People(ast.NodeTransformer):
         finally:
             self.loops -= 1
         node.body = node.body or [ast.Pass()]
+        if not self.loops and self.before_loop:   # a family first met in this loop: its pick stands above it
+            first, self.before_loop = self.before_loop, []
+            return [*first, node]
         return node
 
     def visit_If(self, node: ast.If) -> Any:
         self.branches += 1   # a branch may be the only place they stand: never "the woman" there
         try:
-            node = self.generic_visit(node)
+            node.test = self.visit(node.test)
+            for arm in ("body", "orelse"):   # each arm apart: what one makes, the other never ran
+                self.arms.append((id(node), arm))
+                try:
+                    done: List[ast.stmt] = []
+                    for st in getattr(node, arm):
+                        got = self.visit(st)
+                        done += got if isinstance(got, list) else [got] if got is not None else []
+                    setattr(node, arm, done)
+                finally:
+                    self.arms.pop()
         finally:
             self.branches -= 1
         node.body = node.body or [ast.Pass()]
@@ -323,6 +357,20 @@ class _People(ast.NodeTransformer):
         return node
 
 
+def _family(node: Optional[ast.expr]) -> str:
+    return re.sub(r"\W+", "_", str(_const(node) or "").strip().lower()).strip("_")
+
+
+def _shared_descent(family: str, var: str, lineno: int) -> ast.stmt:
+    cls, label, _what, seed, phase = DETAILS["descent"]
+    return ast.Assign(targets=[ast.Name(var, ast.Store())], lineno=lineno, value=ast.Call(
+        func=ast.Name("pick", ast.Load()), args=[ast.Constant(f"{family}.descent")],
+        keywords=[ast.keyword("cls", ast.Constant(cls)), ast.keyword("about", ast.Constant(f"the {family.replace('_', ' ')}'s descent")),
+                  ast.keyword("seed", ast.List(elts=[ast.Constant(seed)], ctx=ast.Load())), ast.keyword("label", ast.Constant(label)),
+                  ast.keyword("phase", ast.Constant(phase)), ast.keyword("added", ast.Constant(True)),
+                  ast.keyword("shared", ast.Constant(True))]))
+
+
 def expand_people(source: str) -> str:
     """The program with each person() written out as its picks and description. A program
     without one, or one that doesn't parse, is returned as written."""
@@ -336,14 +384,6 @@ def expand_people(source: str) -> str:
     if not people.count:
         return source
     tree = people.visit(tree)
-    cls, label, _what, seed, phase = DETAILS["descent"]
-    shared = [ast.Assign(targets=[ast.Name(v, ast.Store())], lineno=1, value=ast.Call(
-        func=ast.Name("pick", ast.Load()), args=[ast.Constant(f"{family}.descent")],
-        keywords=[ast.keyword("cls", ast.Constant(cls)), ast.keyword("about", ast.Constant(f"the {family.replace('_', ' ')}'s descent")),
-                  ast.keyword("seed", ast.List(elts=[ast.Constant(seed)], ctx=ast.Load())), ast.keyword("label", ast.Constant(label)),
-                  ast.keyword("phase", ast.Constant(phase)), ast.keyword("added", ast.Constant(True)),
-                  ast.keyword("shared", ast.Constant(True))])) for family, v in people.kin.items()]
-    tree.body = shared + tree.body
     return ast.unparse(ast.fix_missing_locations(tree)) + "\n"
 
 
