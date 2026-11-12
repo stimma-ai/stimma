@@ -597,9 +597,56 @@ async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Seque
     return out
 
 
+_CHECK_SYSTEM = """You check options written for one detail of an image prompt. Each image draws one option and puts it where the detail stands, shown as [its label] in the prompt.
+
+Give each numbered option one of three answers:
+
+- "no": it is wrong here. It is not the kind of thing the detail asks for, or lies outside a limit the detail's own words set ("dark hair hairstyle" is dark hair, "1970s menswear" is from the 1970s); or it contradicts something the prompt states or undoes what the prompt says is happening; or it brings in a place, a time or a thing that cannot be where the prompt is set.
+- "rare": nothing is wrong, but it is a stretch for this prompt.
+- "yes": it fits.
+
+Unusual is welcome. When unsure between "rare" and "yes", say "yes". Keep "no" for what is actually wrong.
+
+Reply with one JSON object per line and nothing else, in the form {"id": 1, "answer": "yes"}."""
+_CHECK_ANSWER = re.compile(r'"id"\s*:\s*(\d+)[^{}]*"answer"\s*:\s*"(yes|rare|no)"')
+
+
+async def check_options(job: OptionJob, options: List[str]) -> List[str]:
+    """The options that fit, as one more model call reads them against the prompt and the
+    detail's own words: a "no" is left out, a "rare" goes last (a pool weighs its options by
+    their order). A list is read once, when it is written, so a draw never pays for it. Any
+    failure keeps the options as written: the check never costs a pool its options."""
+    if not options:
+        return options
+    from prompt_programs import prepare as prep
+    spec, prog = job.spec, job.program
+    what = f'"{spec.label}" ({spec.about})' if spec.about and _norm(spec.about) != _norm(spec.label) else f'"{spec.label}"'
+    lines = [f"The prompt, with the details that vary shown as [Label]:\n{prog.template or job.signature}", "",
+             f"The detail: {what}"]
+    if job.context:
+        lines.append("Already chosen: " + "; ".join(f"{k} = {v}" for k, v in job.context.items()))
+    lines += ["", "The options:", *[f"{i + 1}. {o}" for i, o in enumerate(options)]]
+    try:
+        reply = await prep._ask_model([{"role": "system", "content": _CHECK_SYSTEM},
+                                       {"role": "user", "content": "\n".join(lines)}], job.project_id, 40 * len(options) + 80)
+    except Exception as e:
+        log.info(f"[fluent-options] the check of {spec.label!r} failed, keeping its options as written: {e}")
+        return options
+    got = {int(m.group(1)): m.group(2) for m in _CHECK_ANSWER.finditer(reply or "")}
+    if len(got) * 2 < len(options):   # an answer that covers too little says nothing
+        return options
+    kept = [o for i, o in enumerate(options) if got.get(i + 1, "yes") == "yes"]
+    rare = [o for i, o in enumerate(options) if got.get(i + 1) == "rare"]
+    dropped = [o for i, o in enumerate(options) if got.get(i + 1) == "no"]
+    if dropped:
+        log.info(f"[fluent-options] {spec.label!r}: left out {dropped}")
+    return (kept + rare) or options
+
+
 async def llm_generator(job: OptionJob) -> Tuple[List[str], str]:
-    """Options from the configured chat model (the same role and plumbing as prepare)."""
-    return await write_options(job), "tool_assistant"
+    """Options from the configured chat model (the same role and plumbing as prepare), read
+    once more against the prompt before they are kept (check_options)."""
+    return await check_options(job, await write_options(job)), "tool_assistant"
 
 
 YIELD_POLL = 0.25   # seconds between looks while the filler gives way to a prepare

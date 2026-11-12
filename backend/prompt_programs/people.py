@@ -235,6 +235,11 @@ class _People(ast.NodeTransformer):
                    ast.keyword("said", ast.Constant(said[k])) if k in said else ast.keyword("added", ast.Constant(True))]
             if k in words and k not in said:
                 kws.insert(1, ast.keyword("where", ast.Constant(words[k])))
+            elif k == "age" and k not in said and _const(noun_part) and noun != "person":
+                # What they are speaks to their age ("boy", "grandmother", "student"), and the age
+                # is read with the whole prompt (narrow.py): the reading of the prompt's own words
+                # comes first, and when it finds none this still narrows the age.
+                kws.insert(1, ast.keyword("where", ast.Constant(noun)))
             elif k in ("face", "build") and presentation in ("feminine", "masculine"):   # the lists with features of one sex
                 kws.insert(1, ast.keyword("where", ast.parse(repr({"presentation": presentation}), mode="eval").body))
             pick = ast.Call(func=ast.Name("pick", ast.Load()), args=[_suffixed(id_node, "." + k)], keywords=kws)
@@ -259,7 +264,9 @@ class _People(ast.NodeTransformer):
             parts += [ast.Constant("with" if i == 0 else ",")] + g
         self.people[target] = (noun, parts)
         self.again[target] = [ast.Constant("the"), noun_part]
-        if target not in self.placed:   # never put in an emit(): they stand where they were made
+        # never put in an emit(): they stand where they were made. Not someone nothing is drawn of
+        # (show=[]): the program's own words are all there is of them, and "a woman;" adds nothing.
+        if target not in self.placed and keys:
             out.append(ast.Expr(ast.Call(func=ast.Name("emit", ast.Load()), args=[*parts, ast.Constant(";")], keywords=[])))
         return out
 

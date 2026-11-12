@@ -160,6 +160,12 @@ phases drew; picks in the same phase are drawn without seeing each other.
    coastal road at sunset, the sea below"), never in a setting pick, an environment pick and a
    light pick drawn apart. And every option of a pick you add stays inside what the user
    stated: a detail of "an empty parking garage ramp" is something found in a parking garage.
+   **A prompt that names only a thing or a place** ("cozy cabin", "red sports car", "a bowl of
+   ramen") leaves the whole picture open, so the pick you add is the view of it, and its seeds
+   are different pictures, not one picture's details: for a cabin, "seen from outside at dusk
+   among pines, smoke rising from the chimney", "its main room with a stone fireplace and a
+   wool rug", "a bunk under the eaves with a quilt and a small window". Write three such seeds,
+   as far apart as the prompt allows.
 2. **Put a pick where each varying part stands:**
    - `{a|b|c}` → a user list pick, its variable in `emit()` where the list stood. Exactly
      those options, in that order. Never add to or replace them, and don't write a second
@@ -198,11 +204,14 @@ phases drew; picks in the same phase are drawn without seeing each other.
    **Every person is a `person()`**, photographed, drawn or painted, with `show=` listing what
    the image shows of them. You add the details that depend on the scene and that the image
    shows: their outfit, hairstyle, accessories, each a pick bound to its list with `cls=` when
-   it has one (see Vocabulary), with an id that starts with the person's (`woman.outfit`). An
-   outfit the image doesn't show (below the frame of a headshot) is not a pick: say what is
-   seen at the collar in your own words. What makes someone what they are (a knight's armor,
-   a surgeon's cap and gown, a firefighter's gear) comes right after their noun, in your own
-   words or as its own pick with no list, before any other detail of them. **What the user said they are doing or how they look
+   it has one (see Vocabulary), with an id that starts with the person's (`woman.outfit`). A
+   headshot is the head and shoulders and nothing below: say so once ("a head-and-shoulders
+   headshot of"), with no framing pick and no outfit pick, and what is seen at the collar is a
+   pick with no list ("a navy blazer over a white shirt") or your own words. What makes someone
+   what they are (a knight's armor, a surgeon's cap and gown, a firefighter's gear) comes
+   right after their noun, in your own words or as its own pick with no list, before any other
+   detail of them; so does what the activity always calls for (a cyclist's helmet, a welder's
+   mask, a diver's wetsuit). **What the user said they are doing or how they look
    is theirs**: "asleep", "laughing", "smiling", "fixing a motorcycle", "dancing", "reading".
    Never add an expression, pose, gaze or activity pick beside it: someone asleep, working or
    laughing already has their expression and pose. Add one only when the user said nothing of

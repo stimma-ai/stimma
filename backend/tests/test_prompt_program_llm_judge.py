@@ -225,6 +225,19 @@ class TestShow:
         age = next(line for line in src.splitlines() if line.startswith("s_age = pick("))
         assert "where='a young boy'" in age and "s_hair = pick(" in src
 
+    def test_someone_nothing_is_drawn_of_and_never_placed_adds_no_words(self):
+        src = expand_people('w = person("w", noun="woman", show=[])\nemit("A photo of Yui Hatano in a cafe.")\n')
+        assert "pick(" not in src and src.count("emit(") == 1 and "woman" not in src
+
+    def test_a_persons_noun_narrows_their_age_when_it_is_their_own_word(self):
+        boy = expand_people('b = person("boy", noun="boy", show=["age"])\nemit(b)\n')
+        assert "where='boy'" in boy
+        listed = expand_people('job = pick("job", ["chef", "nurse"], source="list", label="Job", phase=1, line=1)\n'
+                               'p = person("p", noun=job, show=["age"])\nemit(p)\n')
+        assert "where=" not in next(line for line in listed.splitlines() if "p.age" in line)
+        said = expand_people('b = person("boy", noun="boy", show=["age"], said={"age": "10 year old"})\nemit(b)\n')
+        assert "where=" not in said
+
     def test_an_empty_show_draws_nothing_and_names_them(self):
         src = expand_people('w = person("w", noun="woman", show=[])\nemit("A photo of", w, ", from behind.")\n')
         assert "pick(" not in src and "woman" in src
@@ -523,3 +536,40 @@ class TestKin:
         assert src.count("pick('family.descent'") == 1 and src.index("family.descent") < src.index("for i in range")
         r = draw(src, 2)
         assert r.prompt.count(str(next(d.value for d in r.draws if d.id == "family.descent"))) == 3
+
+
+class TestOptionListCheck:
+    """A written option list is read once against the prompt: wrong options leave, stretches go last."""
+
+    def job(self):
+        from prompt_programs.draws import PickSpec
+        from prompt_programs.options import OptionJob, ProgramContext
+        spec = PickSpec("hairstyle", "Hairstyle", "dark hair hairstyle", 1, "text", "pick", ["a sleek black bob"], [], "")
+        program = ProgramContext.of({"key": "k", "program": 'emit("x")', "prompt": "portrait of a woman with {{dark hair hairstyle}}",
+                                     "choices": [], "mode": "prose"})
+        return OptionJob(key="k", spec=spec, context={}, program=program, signature="portrait of a woman", round=0)
+
+    def run(self, monkeypatch, reply):
+        import asyncio
+        from prompt_programs import options, prepare as prep
+        seen = []
+
+        async def ask(messages, project_id, max_tokens=4096):
+            seen.append(messages)
+            if isinstance(reply, Exception):
+                raise reply
+            return reply
+        monkeypatch.setattr(prep, "_ask_model", ask)
+        got = asyncio.run(options.check_options(self.job(), ["a black bob", "an ash brown shag", "jet-black braids", "a dark pixie cut"]))
+        return got, seen
+
+    def test_a_no_leaves_and_a_rare_goes_last(self, monkeypatch):
+        got, seen = self.run(monkeypatch, '{"id": 1, "answer": "yes"}\n{"id": 2, "answer": "no"}\n{"id": 3, "answer": "rare"}\n{"id": 4, "answer": "yes"}')
+        assert got == ["a black bob", "a dark pixie cut", "jet-black braids"]
+        assert "dark hair hairstyle" in seen[0][1]["content"] and "2. an ash brown shag" in seen[0][1]["content"]
+
+    def test_a_failed_or_thin_answer_keeps_the_list_as_written(self, monkeypatch):
+        whole = ["a black bob", "an ash brown shag", "jet-black braids", "a dark pixie cut"]
+        assert self.run(monkeypatch, RuntimeError("down"))[0] == whole
+        assert self.run(monkeypatch, '{"id": 2, "answer": "no"}')[0] == whole
+        assert self.run(monkeypatch, "\n".join('{"id": %d, "answer": "no"}' % i for i in range(1, 5)))[0] == whole
