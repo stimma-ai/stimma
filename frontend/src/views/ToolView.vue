@@ -5567,7 +5567,7 @@ function noSubmit(options: ForeverSubmitOptions, declineReservation = true): Sub
   }
 }
 
-/** {{names}} in the prompt that aren't saved wildcards or segments (so only a model can fill them). */
+/** {{names}} in the prompt that aren't saved wildcards or segments. */
 const { wildcards: savedWildcards } = useWildcards()
 const { segments: savedSegments } = useSegments()
 function unknownSmartNames(prompt: string): string[] {
@@ -5593,18 +5593,14 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   }
   if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
 
-  // Direct, and any run with no chat model: {a|b}, saved wildcards and # lines still
-  // work, but a {{name}} that isn't a saved wildcard can't be filled. Never send it
-  // through as literal text.
-  const direct = directMode.value
-  const unfillable = runsDirect.value && hasPrompt.value
+  // A {{name}} is a saved wildcard or prompt segment, in every way but Raw; one that isn't
+  // saved can't be filled. Never send it through as literal text.
+  const unfillable = fluentOn.value && !rawMode.value && hasPrompt.value
     ? unknownSmartNames(globalPrefs.value.prompt || '') : []
   // It's a mistake in the prompt, so the editor marks it (like a syntax error) and the
   // run waits; one quiet line says why, no toast.
   if (unfillable.length) {
-    submissionError.value = direct
-      ? `{{${unfillable[0]}}} isn’t a saved wildcard, so nothing ran.`
-      : `${PROMPT_BRAND} needs a chat model for {{${unfillable[0]}}}, so nothing ran.`
+    submissionError.value = `{{${unfillable[0]}}} isn’t a saved wildcard, so nothing ran.`
     return noSubmit(options)
   }
 

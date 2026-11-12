@@ -638,7 +638,7 @@ const brand = PROMPT_BRAND
 // (Copy reviewed for plain, human wording.)
 const fluentIntro = [
   `${PROMPT_BRAND} changes the parts of your prompt you mark, so every image is a little different.`,
-  `Detail level sets how much ${PROMPT_BRAND} adds: Yours keeps your wording, Medium adds what this model needs to read it, High fills in the details you left open.`,
+  'Detail level sets how much is added to each image’s prompt: Yours adds nothing, Medium a little, High a lot.',
   'A new prompt takes a few extra seconds the first time you run it.',
 ]
 const SLOT = 'text-selection bg-selection/10'
@@ -650,14 +650,16 @@ const fluentTips = [
   { title: 'What changes', examples: [{ code: 'a <young man> on a porch, lit by <light>', tone: SLOT }],
     text: ['Words in angle brackets change from image to image. Click them to choose what they can be.',
       'Select any words and choose Vary this, or type < with words selected.'] },
-  { title: 'Wildcards', examples: [{ code: '{red|blue|green}', tone: GREEN }, { code: '{{hairstyle}}', tone: AMBER }],
+  { title: 'Lists and saved wildcards', examples: [{ code: '{red|blue|green}', tone: GREEN }, { code: '{{hairstyle}}', tone: AMBER }],
     text: ['Each image uses one of {red|blue|green}. {{hairstyle}} uses your saved wildcard or prompt segment with that name.'] },
   { title: 'Comments', examples: [{ code: '# she is a marine biologist', tone: GREY }],
     text: [`Start a line with # to tell ${PROMPT_BRAND} more about what you want. Notes never reach the image model.`] },
   { title: 'Verbatim text', examples: [{ code: '[ohwx woman]', tone: BLUE }],
-    text: [`Text in square brackets goes to the image model exactly as written. ${PROMPT_BRAND} never sees it. Use brackets for LoRA trigger words or words you want to appear in the picture.`] },
+    text: [`Text in square brackets goes to the image model exactly as written. ${PROMPT_BRAND} never changes it. Use brackets for LoRA trigger words or words you want to appear in the picture.`] },
   { title: 'Not happy with the options?', examples: [],
-    text: ['Choose Try different… in the Prompting menu.'] },
+    text: ['Open the part in brackets and choose More like these, or type your own.'] },
+  { title: 'Like an image?', examples: [],
+    text: ['Choose Keep from this under it, and tick what the next images should keep.'] },
 ]
 const { wildcards } = useWildcards()
 const { segments } = useSegments()
