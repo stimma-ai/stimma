@@ -101,8 +101,16 @@ def phrase_of(choice: Dict[str, Any], read: Optional[Dict[str, str]] = None) -> 
     """The words a bound choice is narrowed by: its wildcard's own name, else the words read
     from the prompt for it, else the writer's where= (when it's words, not a facet filter)."""
     where = choice.get("where")
-    return str(choice.get("wildcard") or (read or {}).get(choice.get("id"), "")
-               or (where if isinstance(where, str) else "") or "").strip()
+    words = where.strip() if isinstance(where, str) else ""
+    got = str((read or {}).get(choice.get("id"), "") or "").strip()
+    # An age the writer gave for the scene ("a young boy" for a son beside his father) holds beside
+    # what the prompt says of that person's age ("son"): both narrow the list.
+    if got and words and choice.get("cls") == AGE_LIST and not choice.get("wildcard"):
+        if got.lower() in words.lower():
+            return words
+        if words.lower() not in got.lower():
+            return f"{got}, {words}"
+    return str(choice.get("wildcard") or got or words or "").strip()
 
 
 def _shown(text: str) -> str:

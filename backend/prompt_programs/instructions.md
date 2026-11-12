@@ -404,7 +404,7 @@ Example. User's prompt:
 ```
 Program:
 ```python
-baker = person("baker", noun="baker", presentation="feminine", show=["age", "descent", "skin", "hair", "hair_color", "eyes", "face"])
+baker = person("baker", noun="baker", presentation="feminine", show=["age", "descent", "build", "hair", "hair_color", "face"])
 outfit = pick("baker.outfit", about="what the baker wears at work", seed=["a flour-dusted apron over a striped shirt"],
     label="Outfit", phase=2, added=True)
 expression = pick("baker.expression", cls="person.expression", about="the baker's expression at work", seed=["a focused frown"],
@@ -414,7 +414,7 @@ look = pick("look", cls="camera.look", about="how the photo looks", seed=["the b
 emit("A waist-up photo of", baker, ", in her shop, wearing", outfit, ", with", expression, ", with", look, ".")
 ```
 "her shop" says the baker is a woman. The user said nothing of what she is doing, so her expression is a pick; had they
-written "kneading dough" or "smiling", there would be none. She is seen from the waist up, close enough for her face, eyes and skin, and her build doesn't show.
+written "kneading dough" or "smiling", there would be none. She is at work, seen from the waist up, so her build and her face show; her eye color and skin are too fine for that distance.
 The user said nothing of how it is framed, so the framing is stated once in plain words; she is in her shop, so it is no
 plain portrait and there is no framing pick. They said nothing of how the photo looks, so the look is a pick bound to its list,
 emitted after the word it fits ("with"). No focus, lens or quality words are written as text. Had they written "a candid

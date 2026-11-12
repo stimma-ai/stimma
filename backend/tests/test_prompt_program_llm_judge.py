@@ -228,3 +228,26 @@ class TestShow:
     def test_an_empty_show_draws_nothing_and_names_them(self):
         src = expand_people('w = person("w", noun="woman", show=[])\nemit("A photo of", w, ", from behind.")\n')
         assert "pick(" not in src and "woman" in src
+
+
+class TestSceneAge:
+    """An age the writer gave for the scene holds beside what the prompt says of that person."""
+
+    def choice(self, **kw):
+        from prompt_programs.narrow import AGE_LIST
+        return {"id": "son.age", "cls": AGE_LIST, **kw}
+
+    def test_both_narrow_the_age(self):
+        from prompt_programs.narrow import phrase_of
+        assert phrase_of(self.choice(where="a young boy"), {"son.age": "son"}) == "son, a young boy"
+        assert phrase_of(self.choice(where="a young boy")) == "a young boy"
+        assert phrase_of(self.choice(), {"son.age": "son"}) == "son"
+
+    def test_words_that_already_say_it_are_not_repeated(self):
+        from prompt_programs.narrow import phrase_of
+        assert phrase_of(self.choice(where="in her thirties"), {"son.age": "a woman in her thirties"}) == "a woman in her thirties"
+        assert phrase_of(self.choice(where="son, a young boy"), {"son.age": "son"}) == "son, a young boy"
+
+    def test_another_lists_words_are_still_the_prompts(self):
+        from prompt_programs.narrow import phrase_of
+        assert phrase_of({"id": "w.hair", "cls": "person.hair_color", "where": "dark"}, {"w.hair": "red-haired"}) == "red-haired"
