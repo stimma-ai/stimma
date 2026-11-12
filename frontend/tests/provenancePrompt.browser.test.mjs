@@ -103,7 +103,7 @@ test('the editor marks the typed prompt as the read-only view does', async t => 
   for (const kind of ['wildcard', 'named-wildcard', 'verbatim', 'comment']) {
     view[kind] = await panel.locator(`[data-syntax="${kind}"]`).allTextContents()
   }
-  await page.evaluate(() => window.mountEditor(window.TYPED, 'enhance'))
+  await page.evaluate(() => window.mountEditor(window.TYPED, 'enhance', ['hairstyle']))
   const editor = page.locator('[data-editor] .cm-content')
   await editor.waitFor()
   const marks = cls => editor.locator(`.${cls}`).allTextContents()
@@ -114,10 +114,10 @@ test('the editor marks the typed prompt as the read-only view does', async t => 
     'comment': await marks('cm-comment-line'),
   }, view)
 
-  // Plain mode: a name nothing can fill is flagged; raw marks nothing.
+  // A name nothing can fill is flagged; raw marks nothing.
   await page.evaluate(() => window.mountEditor('{{hairstyle}} {{outfit}} {a|b}\n# note', 'plain', ['hairstyle']))
   await expect(page.locator('[data-editor] .cm-named-wildcard')).toHaveText('{{hairstyle}}')
-  await expect(page.locator('[data-editor] .cm-needs-enhance')).toHaveText('{{outfit}}')
+  await expect(page.locator('[data-editor] .cm-unknown-name')).toHaveText('{{outfit}}')
   await expect(page.locator('[data-editor] .cm-comment-line')).toHaveAttribute('title', /No chat model/)
   await page.evaluate(() => window.mountEditor('{{hairstyle}} {a|b} [x]', 'raw'))
   await expect(page.locator('[data-editor] .cm-content')).toHaveText('{{hairstyle}} {a|b} [x]')

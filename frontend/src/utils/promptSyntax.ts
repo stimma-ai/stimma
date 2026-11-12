@@ -97,6 +97,58 @@ function lineSlots(line: string, skip: Span[]): [number, number][] {
   return out
 }
 
+/** A slot found in a whole prompt: its span (brackets included), its words, and `n`, its
+    1-based order among the prompt's slots. */
+export interface FoundSlot { n: number; from: number; to: number; words: string }
+
+/** The slot whose span holds `pos` (from <= pos < to), or null. */
+export function slotAt(text: string, pos: number): FoundSlot | null {
+  const spans = findSlots(text)
+  const i = spans.findIndex(([from, to]) => pos >= from && pos < to)
+  if (i < 0) return null
+  const [from, to] = spans[i]
+  return { n: i + 1, from, to, words: text.slice(from + 1, to - 1) }
+}
+
+/**
+ * Where brackets would go to make the words in [from, to) a slot, or null when they
+ * can't: the range is trimmed of surrounding spaces, must sit on one line that is not a
+ * comment, must not touch a list, a {{name}}, a [verbatim] bracket or another slot, and
+ * the bracketed words must read as a slot by the grammar (so not inside a word, not one
+ * character, none of the reserved characters).
+ */
+export function slotWrapRange(text: string, from: number, to: number): [number, number] | null {
+  if (from > to) [from, to] = [to, from]
+  while (from < to && /\s/.test(text[from])) from++
+  while (to > from && /\s/.test(text[to - 1])) to--
+  if (from >= to || text.slice(from, to).includes('\n')) return null
+  const lineStart = text.lastIndexOf('\n', from - 1) + 1
+  const lineEndAt = text.indexOf('\n', to)
+  const line = text.slice(lineStart, lineEndAt < 0 ? text.length : lineEndAt)
+  if (/^\s*#/.test(line)) return null
+  const a = from - lineStart
+  const b = to - lineStart
+  if (lineSyntaxRanges(line).some(r => a < r.to && b > r.from)) return null
+  const wrapped = `${line.slice(0, a)}<${line.slice(a, b)}>${line.slice(b)}`
+  return findSlots(wrapped).some(([f, t]) => f === a && t === b + 2) ? [from, to] : null
+}
+
+/**
+ * Of the phrases Suggest offered for this exact text, the ones that can still become a
+ * slot as they stand, in order, none overlapping another.
+ */
+export function usableVaryPhrases<T extends { from: number; to: number; text: string }>(text: string, phrases: readonly T[]): T[] {
+  const out: T[] = []
+  for (const p of [...phrases].sort((x, y) => x.from - y.from)) {
+    if (text.slice(p.from, p.to) !== p.text) continue
+    const at = slotWrapRange(text, p.from, p.to)
+    if (!at || at[0] !== p.from || at[1] !== p.to) continue
+    if (out.some(o => p.from < o.to && p.to > o.from)) continue
+    out.push(p)
+  }
+  return out
+}
+
 /** Every slot's span in a whole prompt, brackets included (comment lines skipped). */
 export function findSlots(text: string): [number, number][] {
   const out: [number, number][] = []
@@ -198,7 +250,7 @@ export const PROMPT_SYNTAX_CLASS: Record<PromptSyntaxKind, string> = {
   'wildcard': 'text-green-600 bg-green-500/10 rounded-[2px] px-px',
   'named-wildcard': 'text-amber-600 bg-amber-500/10 rounded-[2px] px-px',
   'unknown-name': 'text-red-500 underline decoration-wavy decoration-red-500/80 underline-offset-[3px]',
-  'slot': 'text-violet-600 bg-violet-500/10 rounded-[2px] px-px',
+  'slot': 'text-selection bg-selection/10 rounded-[3px] shadow-[0_0_0_1px_rgb(var(--color-selection-rgb)/0.25)]',
   'comment': 'text-gray-500 italic',
   'comment-unread': 'text-gray-500 italic',
   'verbatim': 'text-blue-500 bg-blue-500/10 rounded-[2px] px-px',
