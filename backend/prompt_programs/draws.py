@@ -1069,8 +1069,14 @@ class _Exec(_Runner):
             # A ticked option of the user's own is drawn like a typical value, even one their
             # words held back (weight 0 until ticked, see additions.py).
             # A ticked standby value draws at its own weight beside the others.
-            items = [(o, (1.0 if o in pool.own else pool.held.get(o, w)) if w <= 0 else w)
-                     for o, w in items if o in pins]
+            ticked = [(o, (1.0 if o in pool.own else pool.held.get(o, w)) if w <= 0 else w)
+                      for o, w in items if o in pins]
+            # Ticks none of which this pool holds were made on an earlier program's options for the
+            # same choice (the prompt was prepared again and its options changed): they say nothing
+            # about these options, so the pool is drawn as it is. One pinned value is the user's
+            # value: it is placed, and refused at its choice when the pool lacks it (check_pins).
+            if ticked or len(pins) == 1:
+                items = ticked
         return items
 
     def param(self, name: str, low: Any = None, high: Any = None, label: str = "", source: str = "text",

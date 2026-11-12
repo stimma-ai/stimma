@@ -251,3 +251,27 @@ class TestSceneAge:
     def test_another_lists_words_are_still_the_prompts(self):
         from prompt_programs.narrow import phrase_of
         assert phrase_of({"id": "w.hair", "cls": "person.hair_color", "where": "dark"}, {"w.hair": "red-haired"}) == "red-haired"
+
+
+class TestStaleTicks:
+    """Ticks left from an earlier program's options for the same choice never stop a draw."""
+    SRC = ('room = pick("setting", about="the room", seed=["a messy bedroom", "a dim bathroom", "a sunny balcony"], '
+           'label="Setting", phase=1, added=True)\nemit("A photo in", room, ".")\n')
+
+    def test_ticks_the_pool_no_longer_holds_are_ignored(self):
+        from prompt_programs.draws import draw
+        stale = {"setting": ["a grand throne room", "a dark throne room"]}
+        got = {draw(self.SRC, seed, stale).prompt for seed in range(20)}
+        assert len(got) > 1 and all("throne" not in p for p in got)
+
+    def test_ticks_the_pool_holds_still_narrow_it(self):
+        from prompt_programs.draws import draw
+        some = {"setting": ["a dim bathroom", "a sunny balcony", "a grand throne room"]}
+        got = {draw(self.SRC, seed, some).prompt for seed in range(20)}
+        assert got == {"A photo in a dim bathroom.", "A photo in a sunny balcony."}
+
+    def test_one_pinned_value_the_pool_lacks_is_still_refused_at_its_choice(self):
+        from prompt_programs.draws import DrawAborted, draw
+        with pytest.raises(DrawAborted) as e:
+            draw(self.SRC, 3, {"setting": ["a grand throne room"]})
+        assert e.value.reason == "pin" and e.value.choice_id == "setting"

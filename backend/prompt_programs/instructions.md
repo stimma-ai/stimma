@@ -64,7 +64,11 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
     has no `"eyes"`. A head-and-shoulders portrait has no `"build"`. A small figure in a wide
     scene has `"age"`, `"build"` and `"hair"` and no `"face"`, `"eyes"` or `"skin"`. Someone
     at work, seen from the waist up, has `"age"`, `"descent"`, `"build"`, `"hair"`,
-    `"hair_color"` and `"face"`. What you leave out is not drawn.
+    `"hair_color"` and `"face"`. What you leave out is not drawn. When the person is someone
+    in particular whose look is not yours to draw (a character LoRA is on for them, the user
+    names a real or fictional person, or says not to vary or describe the person), pass
+    `show=[]`: nothing of them is drawn, and they are the user's words alone. Never use
+    `hidden=True` to keep a person the same: a hidden pick is still drawn anew for every image.
   - `noun`: what they are, in the user's word: `noun="woman"`, `noun="fisherman"`,
     `noun="friend"`; or the pick of the user's list that names them (`noun=job`).
   - `presentation`: `"feminine"` or `"masculine"` when the user's words say which.
