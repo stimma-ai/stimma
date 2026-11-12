@@ -930,6 +930,9 @@ class _Exec(_Runner):
             source = "text"
         follows = None
         if isinstance(options, dict):
+            # every option this pick has under any value of `by`: a tick on one of them is a
+            # choice the user made here, whatever `by` is drawn (see _eligible)
+            self.eng.elsewhere[cid] = {str(o) for vs in options.values() if isinstance(vs, (list, tuple)) for o in vs}
             if by is None:
                 raise ProgramError(f'pick("{cid}"): options is a dict, so pass by=<the earlier pick it depends on>.')
             follows = self._follow_id(by)
@@ -1065,18 +1068,22 @@ class _Exec(_Runner):
         items = [(o, w) for o, w in zip(pool.items, pool.weights) if o not in excl]
         self.eng.own[cid] = pool.own
         pins = self.eng.pins.get(cid)
+        if pins and len(pins) > 1 and not any(o in pins for o in pool.items) \
+                and not (pins & self.eng.elsewhere.get(cid, set())):
+            # Ticks that name no option this choice has (not in its pool before anything is
+            # excluded, nor under another value of what it follows) were made on an earlier
+            # program's options for the same id: the prompt was prepared again and the options
+            # changed. They say nothing about these options, so for this draw the choice has no
+            # ticks at all: its pool, the words the user stated for it and its standby values
+            # behave as they do unticked. One pinned value keeps its meaning (check_pins).
+            self.eng.pins.pop(cid, None)
+            pins = None
         if pins:
             # A ticked option of the user's own is drawn like a typical value, even one their
             # words held back (weight 0 until ticked, see additions.py).
             # A ticked standby value draws at its own weight beside the others.
-            ticked = [(o, (1.0 if o in pool.own else pool.held.get(o, w)) if w <= 0 else w)
-                      for o, w in items if o in pins]
-            # Ticks none of which this pool holds were made on an earlier program's options for the
-            # same choice (the prompt was prepared again and its options changed): they say nothing
-            # about these options, so the pool is drawn as it is. One pinned value is the user's
-            # value: it is placed, and refused at its choice when the pool lacks it (check_pins).
-            if ticked or len(pins) == 1:
-                items = ticked
+            items = [(o, (1.0 if o in pool.own else pool.held.get(o, w)) if w <= 0 else w)
+                     for o, w in items if o in pins]
         return items
 
     def param(self, name: str, low: Any = None, high: Any = None, label: str = "", source: str = "text",
@@ -1130,6 +1137,7 @@ class _Engine:
         self.kept: Set[str] = set()            # replayed (fixed) values: kept as they were
         self.held: Dict[str, str] = {}         # said picks drawing the user's words (as a pin would)
         self.own: Dict[str, frozenset] = {}    # each pick's own options (Pool.own): the fit check leaves them
+        self.elsewhere: Dict[str, Set[str]] = {}   # a pick that follows another: its options under every value
         self.pools: Dict[str, Any] = {}   # pool key → its length, or for a vocabulary list the whole pool
         self.labels: Dict[str, str] = {}
         # Pins a pick could break: its site feeds the pinned pick's structure or exclude.

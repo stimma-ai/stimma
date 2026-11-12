@@ -270,6 +270,39 @@ class TestStaleTicks:
         got = {draw(self.SRC, seed, some).prompt for seed in range(20)}
         assert got == {"A photo in a dim bathroom.", "A photo in a sunny balcony."}
 
+    def test_ticks_for_another_value_of_what_the_choice_follows_are_not_stale(self):
+        from prompt_programs.draws import DrawAborted, draw
+        src = ('era = pick("era", ["1920s", "1970s"], label="Era", source="list", phase=1, line=1)\n'
+               'hair = pick("hair", {"1920s": ["finger waves", "a bob"], "1970s": ["feathered hair", "an afro"]}, by=era, '
+               'label="Hair", phase=2, line=1)\nemit("A", era, "woman with", hair, ".")\n')
+        ticks = {"hair": ["finger waves", "a bob"]}
+        seen = set()
+        for seed in range(30):
+            try:
+                seen.add(draw(src, seed, ticks).prompt)
+            except DrawAborted as e:
+                assert e.choice_id == "hair"
+                seen.add("refused")
+        assert "refused" in seen and not any("feathered" in p or "afro" in p for p in seen)
+
+    def test_ticked_values_that_are_all_excluded_are_not_stale(self):
+        from prompt_programs.draws import DrawAborted, draw
+        src = ('a = pick("a", ["red", "green"], label="A", source="list", phase=1, line=1)\n'
+               'b = pick("b", ["red", "green", "white"], label="B", source="list", phase=2, line=1, exclude=[a])\n'
+               'emit(a, "and", b)\n')
+        for seed in range(20):
+            try:
+                assert "white" not in draw(src, seed, {"b": ["red", "green"], "a": ["red", "green"]}).prompt
+            except DrawAborted:
+                pass
+
+    def test_stale_ticks_leave_the_users_stated_value_held(self):
+        from prompt_programs.draws import draw
+        src = ('car = pick("car", said="yellow ferrari", about="the car", seed=["red lamborghini", "blue beetle"], label="Car", phase=1)\n'
+               'emit("A photo of a", car, ".")\n')
+        for seed in range(12):
+            assert draw(src, seed, {"car": ["a gray van", "a white truck"]}).prompt == "A photo of a yellow ferrari."
+
     def test_one_pinned_value_the_pool_lacks_is_still_refused_at_its_choice(self):
         from prompt_programs.draws import DrawAborted, draw
         with pytest.raises(DrawAborted) as e:
