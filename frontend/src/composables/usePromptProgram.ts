@@ -1,10 +1,10 @@
 import { computed, nextTick, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
-import { DECLINED_CODE, prepareBody, prepareErrorCode, prepareSettingsSig, type PrepareInputs } from '../utils/fluentSubmit'
+import { prepareBody, prepareErrorCode, prepareSettingsSig, type PrepareInputs } from '../utils/fluentSubmit'
 import { additionList, isOwnOption } from '../utils/programAdditions'
 import { cleanState, isBuilder, optionsOf as optionsIn, resetState } from '../utils/programChoices'
-import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
+import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareResponse, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 
 export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 
@@ -145,11 +145,15 @@ export function usePromptProgram(o: Options) {
     return prepareBody(inputs(), extra)
   }
 
-  function landed(p: PreparedProgram, sig: string) {
-    program.value = p
+  function landed(p: PrepareResponse, sig: string) {
+    const got: PreparedProgram = { ...p, key: p.key ?? null, slots: p.slots || [], choices: p.choices || [] }
+    program.value = got
     preparedSig.value = sig
-    prune(p)
+    prune(got)
   }
+  /** A /prepare answer that holds a program: one with slots, or the empty one of a prompt
+      with nothing that varies. A cache-only miss is `{key: null}` alone. */
+  const holdsProgram = (data: PrepareResponse | null | undefined) => !!data && (!!data.key || Array.isArray(data.slots))
 
   let lookupId = 0
   /** The server no longer has the program we showed as prepared (its cache was
@@ -165,10 +169,10 @@ export function usePromptProgram(o: Options) {
     const sig = signature.value
     const id = ++lookupId
     try {
-      const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true }))
+      const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true }))
       if (id !== lookupId || sig !== signature.value) return
       if (data?.unsupported) { unsupportedSig.value = sig; return }
-      if (!data?.key) {
+      if (!holdsProgram(data)) {
         forget(sig)
         // Nothing prepared for what's here (a tool just opened, a preset, a remix): read it
         // now, so a run doesn't start by waiting. Not while typing (done typing reads it),
@@ -179,11 +183,8 @@ export function usePromptProgram(o: Options) {
       landed(data, sig)
       if (error.value?.sig === sig) error.value = null  // prepared since (the server's background try)
       markReady(sig)
-    } catch (e: any) {
-      // Not prepared yet: the next run prepares. Unless the chat model declined this prompt.
-      if (id !== lookupId || sig !== signature.value || prepareErrorCode(e) !== DECLINED_CODE) return
-      forget(sig)
-      error.value = { sig, code: DECLINED_CODE, message: e?.response?.data?.detail?.message || 'Couldn’t read this prompt.' }
+    } catch {
+      // Not prepared yet: the next run prepares.
     }
   }
 
@@ -211,7 +212,7 @@ export function usePromptProgram(o: Options) {
   async function prepareNow(sig: string, force: boolean): Promise<boolean> {
     busy.value = true
     try {
-      const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ force }))
+      const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`, request({ force }))
       if (data?.unsupported) {
         unsupportedSig.value = sig
         return true
@@ -260,15 +261,16 @@ export function usePromptProgram(o: Options) {
     return true
   }
 
-  async function fetchProgramText(): Promise<{ program: string; enhanced: string }> {
+  /** Dev: the program text and the slot reading it was built from. */
+  async function fetchProgramText(): Promise<{ program: string; reading: unknown }> {
     const sig = signature.value
-    const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true, include_program: true }))
-    if (!data?.key) forget(sig)
-    return { program: data?.program || '', enhanced: data?.enhanced || '' }
+    const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true, include_program: true }))
+    if (!holdsProgram(data)) forget(sig)
+    return { program: data?.program || '', reading: data?.reading ?? null }
   }
 
   /** Dev debugging: a few runs with what is chosen, no model call. */
-  async function previewRuns(n = 5): Promise<Array<{ prompt: string; draws: any[]; params: Record<string, any> }>> {
+  async function previewRuns(n = 5): Promise<Array<{ prompt: string; draws: any[] }>> {
     const out = []
     for (let i = 0; i < n; i++) {
       const { data } = await axios.post(`${getApiBase()}/prompt-programs/preview`, request({
@@ -311,7 +313,8 @@ export function usePromptProgram(o: Options) {
   let poolsId = 0
   async function fetchPools(rounds = 0) {
     if (poolsTimer) { clearTimeout(poolsTimer); poolsTimer = null }
-    if (status.value !== 'ready') return
+    // A prompt with nothing that varies has no pools.
+    if (status.value !== 'ready' || !program.value?.key) return
     const sig = signature.value
     const id = ++poolsId
     try {
@@ -319,7 +322,7 @@ export function usePromptProgram(o: Options) {
         request({ key: program.value?.key, choices: wireChoices.value }))
       if (id !== poolsId || sig !== signature.value) return
       pools.value = data?.choices || {}
-      if (Object.values(pools.value).some(p => p.more) && rounds < 20) poolsTimer = setTimeout(() => { void fetchPools(rounds + 1) }, 3000)
+      if ((data?.more?.length || Object.values(pools.value).some(p => p.more)) && rounds < 20) poolsTimer = setTimeout(() => { void fetchPools(rounds + 1) }, 3000)
     } catch { /* the prepared options still show */ }
   }
   watch([() => program.value?.key, () => JSON.stringify(wireChoices.value)], () => { void fetchPools() })

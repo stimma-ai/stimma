@@ -367,7 +367,7 @@ interface Props {
   /** The prompt runs as a prepared program (Tool View's Fluent with a chat model): its
       <slots> vary, and # lines are read whether Enhance is on or off. */
   programs?: boolean
-  /** Extra fields for Fluent's Suggest and Add requests (tool, project), as Prepare takes them. */
+  /** Extra fields for Fluent's Suggest and Add requests (the project, whose chat model answers). */
   suggestContext?: Record<string, unknown>
   /** The host fills the `mode` slot with its own prompt control (Tool View's Fluent),
       replacing Enhance, Raw and the … help entry. A prop, not a slot check: slots

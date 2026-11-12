@@ -107,8 +107,6 @@
             :unavailable="isUnavailable(item.lora)"
             :group-id="group.id"
             :style="drag.type === 'chip' && drag.loraPath === item.lora && drag.active ? 'opacity: 0.3' : ''"
-            :program-label="programLoras?.[item.lora]?.label || null"
-            @program="$emit('program-lora', item.lora, $event.currentTarget)"
             @toggle="onToggle(item.lora, $event)"
             @update-weight="onUpdateWeight(item.lora, $event)"
             @remove="onRemove(item.lora)"
@@ -141,8 +139,6 @@
             :unavailable="isUnavailable(item.lora)"
             :group-id="null"
             :style="drag.type === 'chip' && drag.loraPath === item.lora && drag.active ? 'opacity: 0.3' : ''"
-            :program-label="programLoras?.[item.lora]?.label || null"
-            @program="$emit('program-lora', item.lora, $event.currentTarget)"
             @toggle="onToggle(item.lora, $event)"
             @update-weight="onUpdateWeight(item.lora, $event)"
             @remove="onRemove(item.lora)"
@@ -247,8 +243,6 @@ interface Props {
   loraNotes?: LoraNotes | null
   /** The prompt as it will be sent when Enhance is off; null when Enhance is on. */
   verbatimPrompt?: string | null
-  /** LoRAs the prompt picks (prompt programs): path → the choice that picks it. */
-  programLoras?: Record<string, { choiceId: string; label: string }> | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -261,14 +255,12 @@ const props = withDefaults(defineProps<Props>(), {
   compact: false,
   loraNotes: null,
   verbatimPrompt: null,
-  programLoras: null,
 })
 
 const emit = defineEmits<{
   (e: 'refresh-loras'): void
   (e: 'upload', files: File[]): void
   (e: 'insert-trigger', word: string): void
-  (e: 'program-lora', path: string, anchor: Element | null): void
 }>()
 
 const {

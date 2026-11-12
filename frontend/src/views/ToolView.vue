@@ -339,6 +339,7 @@
             @update:promptOptions="globalPrefs.promptOptions = $event"
             :placeholder="promptPlaceholder"
             :programs="promptProgram.status.value !== 'off'"
+            :suggest-context="promptSuggestContext"
             :prompt-control="fluentOn"
           >
             <template v-if="fluentOn" #mode="{ openHelp }"><FluentControl
@@ -3419,7 +3420,7 @@ import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptPro
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
-import { DRAWING_LABEL, PREPARING_LABEL, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions, switchDeclinedToDirect, wasDeclined } from '../utils/fluentSubmit'
+import { DRAWING_LABEL, PREPARING_LABEL, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
@@ -3949,6 +3950,8 @@ const promptProgram = usePromptProgram({
   prepareWhenFound: () => !isInitialLoading.value && stageViewActive.value && document.hasFocus()
     && !aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
 })
+// Suggest and Add ask the project's chat model, as Prepare does.
+const promptSuggestContext = computed(() => ({ project_id: projectScopeId.value ?? null }))
 // The tool finished loading: what's in the prompt box now is what to look up (and read).
 watch(isInitialLoading, (loading) => { if (!loading) void promptProgram.lookup() })
 // Fluent's "nothing was run" is about the prompt as it was: once the prompt, its mode or
@@ -5534,9 +5537,6 @@ function noSubmit(options: ForeverSubmitOptions, declineReservation = true): Sub
   }
 }
 
-// The declined prompts the user has been told about (see switchDeclinedToDirect).
-const declinedTold = new Set<string>()
-
 /** {{names}} in the prompt that aren't saved wildcards or segments (so only a model can fill them). */
 const { wildcards: savedWildcards } = useWildcards()
 const { segments: savedSegments } = useSegments()
@@ -5650,10 +5650,6 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     // (or the same words' earlier program) and keeps trying to read it in the background.
     // Fluent's chip says so, quietly; nothing stops, Generate forever included.
   }
-  // The chat model declined this prompt: this run still goes, on its words as written (the
-  // server's fallback reads a {{name}} that isn't saved as its words, which Direct can't),
-  // and then the prompt box switches to Direct, saying why.
-  const declined = wasDeclined({ status: promptProgram.status.value, code: promptProgram.error.value?.code })
 
   let submitted = false
   let declineReservation = noSubmit(options).declineReservation
@@ -5675,18 +5671,6 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     submitted = result.submitted || submitted
     declineReservation = result.declineReservation
   }
-  const declinedPrompt = globalPrefs.value.prompt || ''
-  switchDeclinedToDirect({
-    // still this prompt and these settings: submitting can wait on uploads, and an edit made
-    // meanwhile wasn't declined (the status is the current prompt's alone)
-    declined: declined && wasDeclined({ status: promptProgram.status.value, code: promptProgram.error.value?.code }),
-    direct: directMode.value, promptOptions: globalPrefs.value.promptOptions,
-    // Direct stops on a {{name}} that isn't saved; this prompt keeps running as it just did
-    directCantRun: unknownSmartNames(declinedPrompt).length > 0,
-    told: declinedTold.has(declinedPrompt),
-    set: (next) => { globalPrefs.value.promptOptions = next },
-    notify: (message) => { declinedTold.add(declinedPrompt); addToast(message, 'info', 8000) },
-  })
   return { submitted, declineReservation }
 }
 

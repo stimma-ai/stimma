@@ -117,8 +117,10 @@ export function prepareErrorCode(e: any): string | undefined {
 }
 
 /** The codes a prompt that couldn't be read comes back with, from /prompt-programs/prepare
-    or a submit that prepared itself. */
-const PREPARE_CODES = new Set(['llm_not_configured', 'llm_unavailable', 'prepare_declined', 'prepare_timeout', 'program_failed', 'prompt_too_long'])
+    or a submit that prepared itself: no chat model, or one that didn't answer; a slot
+    reading it got wrong (`reader_failed`, HTTP 424); a prompt too long to read; a run that
+    waited too long for its reading. */
+const PREPARE_CODES = new Set(['llm_not_configured', 'llm_unavailable', 'reader_failed', 'prepare_timeout', 'program_failed', 'prompt_too_long'])
 export function isPrepareFailureCode(code: string | null | undefined): boolean {
   return !!code && (PREPARE_CODES.has(code) || isInsufficientBalanceCode(code) || isLlmSetupCode(code))
 }
@@ -133,43 +135,9 @@ export const WORDS_AS_WRITTEN = 'Using your words as written for now'
 export function fallbackNotice(code: string | null | undefined, brand: string): FallbackNotice {
   if (code === 'llm_not_configured' || isLlmSetupCode(code)) return { head: `${brand} needs a chat model`, body: 'Using your words as written.', action: 'settings' }
   if (isInsufficientBalanceCode(code)) return { head: 'Your chat model has no balance left', body: 'Using your words as written for now.', action: 'settings' }
-  if (code === DECLINED_CODE) return { head: 'Your chat model declined this prompt', body: 'It’s sent as written.', action: 'none' }
   if (code === 'prompt_too_long') return { head: 'This prompt is too long to read', body: 'Using your words as written. Shorten it for variety.', action: 'none' }
   if (code === 'llm_unavailable') return { head: 'Can’t reach your chat model', body: 'Using your words as written for now.', action: 'retry' }
   return { head: WORDS_AS_WRITTEN, action: 'retry' }
-}
-
-/** The chat model declined to read this prompt. It would again (the server remembers), so
-    the prompt box switches to Direct: the run that found out goes out as written, and so
-    does every run after it until the user switches back. */
-export const DECLINED_CODE = 'prepare_declined'
-export const DECLINED_NOTICE = 'Your chat model declined this prompt, so it’s being sent as written.'
-
-export function wasDeclined(o: { status: ProgramStatus; code: string | null | undefined }): boolean {
-  return o.status === 'error' && o.code === DECLINED_CODE
-}
-
-/** The prompt options with Direct on: the same switch as the remix's Use Exact Prompt.
-    Detail level and the rest stay as they were, for when the user switches back. */
-export function withDirect(promptOptions: any): any {
-  return { ...(promptOptions || {}), direct: true, raw: undefined }
-}
-
-/** After a run whose prompt was declined: switch the box to Direct and say so. True when it
-    switched (not when the user is already in Direct). A prompt Direct can't run (a {{name}}
-    that isn't a saved wildcard) stays where it is, since there its runs keep going out as
-    written; it's told once (`told`), not on every run. */
-export function switchDeclinedToDirect(o: { declined: boolean; direct: boolean; promptOptions: any;
-  directCantRun?: boolean; told?: boolean;
-  set: (next: any) => void; notify: (message: string) => void }): boolean {
-  if (!o.declined || o.direct) return false
-  if (o.directCantRun) {
-    if (!o.told) o.notify(DECLINED_NOTICE)
-    return false
-  }
-  o.set(withDirect(o.promptOptions))
-  o.notify(DECLINED_NOTICE)
-  return true
 }
 
 /** What Generation details may offer for an earlier image's draws. */

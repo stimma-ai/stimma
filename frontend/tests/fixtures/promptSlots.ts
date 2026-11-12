@@ -28,7 +28,7 @@ createApp({
       promptControl: true,
       externalChat: true,
       rows: 5,
-      suggestContext: { tool_id: 'test-tool' },
+      suggestContext: { project_id: 7 },
       'onOpen-slot': (e: { n: number; words: string; rect: DOMRect }) => {
         opened.push({ n: e.n, words: e.words, rect: { x: e.rect.x, y: e.rect.y, width: e.rect.width, height: e.rect.height } })
       },

@@ -55,6 +55,15 @@ export function isChanged(s: ChoiceState | null | undefined): boolean {
   return !!s && (!!s.off || !!s.values?.length || !!s.zones?.length || Object.values(s.groups || {}).some(p => p.length))
 }
 
+/** A list longer than this (thousands of faces) comes whole with /prepare, and /pools sends
+    only the options it adds (the server's PARTS_MAX). */
+export const LONG_LIST = 400
+
+function firstZone(c: ProgramChoice, pool: ChoicePool | null | undefined): string[] {
+  if (!pool) return c.options
+  return c.options.length > LONG_LIST ? uniq([...pool.options, ...c.options]) : pool.options
+}
+
 /** A choice's options by zone, as its card lists them, in the order given. The user's own
     options (added here, or kept for its list) lead the first zone. Before its pool arrives,
     the prepared options stand in for the first zone. */
@@ -63,7 +72,7 @@ export function zonesOf(c: ProgramChoice, pool: ChoicePool | null | undefined, s
   const zones: Zone[] = declared.map((z, i) => ({
     id: z.id,
     title: z.title || '',
-    options: pool?.zones ? pool.zones[z.id] || [] : i === 0 ? pool?.options ?? c.options : [],
+    options: pool?.zones ? pool.zones[z.id] || [] : i === 0 ? firstZone(c, pool) : [],
   }))
   const listed = new Set(zones.flatMap(z => z.options))
   const own = uniq([...(s?.add || []), ...(pool?.mine || [])]).filter(o => !listed.has(o))

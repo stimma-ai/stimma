@@ -180,7 +180,7 @@
             <span class="text-[14px] font-semibold text-content">Program</span>
             <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span>
             <span class="text-[11px] text-content-muted font-mono">
-              {{ program.program.value?.key?.slice(0, 10) }} · prepared in {{ program.program.value?.seconds ?? '?' }}s · {{ program.program.value?.attempts ?? 1 }} attempt(s) · {{ program.choices.value.length }} choices
+              {{ program.program.value?.key?.slice(0, 10) }} · prepared in {{ program.program.value?.seconds ?? '?' }}s · {{ program.slots.value.length }} slots · {{ program.choices.value.length }} choices
             </span>
             <span class="flex-1" />
             <button type="button" class="text-[12px] text-content-tertiary hover:text-content px-2 py-1 rounded-md hover:bg-overlay-subtle" @click="copyProgram">{{ copied ? 'Copied' : 'Copy' }}</button>
@@ -191,24 +191,13 @@
             <template v-else><span class="w-3 h-3 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" /> Preparing your prompt…</template>
           </div>
           <template v-else>
-          <div v-if="program.program.value?.warnings?.length" class="mx-4 mb-2 rounded-md bg-amber-500/10 px-3 py-2 text-[12px] text-amber-600 dark:text-amber-400">
-            <div class="font-semibold mb-0.5">Accepted with problems</div>
-            <div v-for="w in program.program.value.warnings" :key="w">{{ w }}</div>
-          </div>
-          <div v-if="enhancedText" class="mx-4 mb-2">
-            <div class="text-xs font-semibold text-content-secondary mb-1">
-              <template v-if="program.program.value?.elaborate === false">Your words, as kept <span class="font-normal text-content-muted">· {{ program.program.value?.mode }} format</span></template>
-              <template v-else>Enhanced example <span class="font-normal text-content-muted">· {{ program.program.value?.mode }} style · {{ program.program.value?.upsample_seconds ?? '?' }}s</span></template>
-            </div>
-            <div class="max-h-[16vh] overflow-y-auto rounded-md bg-surface-overlay border border-edge-subtle px-3 py-2 text-[12px] leading-relaxed text-content-secondary whitespace-pre-wrap">{{ enhancedText }}</div>
-          </div>
           <div class="mx-4 rounded-md border border-edge-subtle bg-surface-overlay h-[40vh] min-h-[200px] overflow-hidden">
             <ReadOnlyCode :text="programText" name="program.py" wrap />
           </div>
           <div class="px-4 pt-3 pb-4 overflow-y-auto min-h-0">
             <div class="flex items-center gap-2 mb-1.5">
               <span class="text-xs font-semibold text-content-secondary">Sample runs</span>
-              <span class="text-[11px] text-content-muted">with your current pins</span>
+              <span class="text-[11px] text-content-muted">with your current choices</span>
               <span class="flex-1" />
               <button type="button" class="text-[12px] text-content-tertiary hover:text-content px-2 py-0.5 rounded-md hover:bg-overlay-subtle" @click="loadSamples">Draw again</button>
             </div>
@@ -463,13 +452,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKey, true))
 const samples = ref<any[]>([])
 const samplesError = ref('')
 const copied = ref(false)
-const enhancedText = ref('')
 const showError = ref('')
 
 /** Open the program, reading the prompt first if needed (the dialog shows the wait). */
 async function showProgram() {
   programText.value = ''
-  enhancedText.value = ''
   showError.value = ''
   samples.value = []
   try {
@@ -484,7 +471,6 @@ async function showProgram() {
       return
     }
     programText.value = got.program
-    enhancedText.value = got.enhanced
   } catch (e: any) {
     if (programText.value !== null) showError.value = e?.response?.data?.detail?.message || 'Couldn’t load the program.'
     return

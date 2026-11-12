@@ -21,8 +21,10 @@ export interface ProgramSlot {
   label: string
   /** The words between the brackets. */
   words: string
-  span?: [number, number]
-  line?: number
+  /** Where it sits in the prompt as typed, brackets included; null when the prompt as read
+      doesn't hold the same slots (a saved segment with slots of its own). */
+  span?: [number, number] | null
+  line?: number | null
   /** Its choices' ids, in the order the builder lists them. */
   details: string[]
   /** For a person: detail -> the slot's own words that settle it ({age: "elderly"}). */
@@ -54,26 +56,36 @@ export interface ProgramChoice {
   when?: string[]
 }
 
-/** POST /prompt-programs/prepare */
+/** POST /prompt-programs/prepare, when it has a program. A prompt with nothing that varies
+    answers `{key: null, slots: [], choices: []}`; a cache-only lookup of a prompt not read
+    yet answers `{key: null}`; a format that isn't prepared `{key: null, unsupported: mode}`.
+    A reading the chat model got wrong is HTTP 424 with code `reader_failed`. */
 export interface PreparedProgram {
-  key: string
+  key: string | null
   slots: ProgramSlot[]
   choices: ProgramChoice[]
   example?: string
   seconds?: number
   /** Dev dialog only (include_program). */
   program?: string
-  enhanced?: string
-  unsupported?: boolean
+  reading?: unknown
 }
 
-/** One choice's options in /prompt-programs/pools. */
+/** What /prepare answers, before it is known which of its forms this is. */
+export type PrepareResponse = Partial<PreparedProgram> & { unsupported?: string }
+
+/** One choice's options in /prompt-programs/pools. A choice bound to a vocabulary list also
+    says which list (`cls`, `label`, `closed`) and each option's tier. */
 export interface ChoicePool {
   options: string[]
   /** zone id -> its options. */
   zones?: Record<string, string[]>
-  /** facet -> part -> its options. An option may sit in several parts. */
+  /** facet -> part -> its options. An option may sit in several parts. The facet `group`
+      holds the list's declared groups (descent's heritages). */
   groups?: Record<string, Record<string, string[]>>
+  cls?: string
+  label?: string
+  closed?: boolean
   tiers?: Record<string, VocabTier>
   /** The user's own options kept for this choice's list from earlier prompts. */
   mine?: string[]
@@ -83,8 +95,8 @@ export interface ChoicePool {
   short?: Record<string, string>
 }
 
-/** POST /prompt-programs/pools */
-export interface PoolsResponse { choices: Record<string, ChoicePool> }
+/** POST /prompt-programs/pools. `more`: the choices whose options are still being written. */
+export interface PoolsResponse { choices: Record<string, ChoicePool>; more?: string[] }
 
 /** What the user chose for one choice. Nothing chosen is no entry at all. */
 export interface ChoiceState {
@@ -99,6 +111,8 @@ export interface ChoiceState {
   /** The user's own options. */
   add?: string[]
 }
+
+/** "Any" is sent as no entry: the server reads `{any: true}` and nothing chosen the same. */
 
 /** choice id -> what is chosen. Stored in promptOptions.programChoices and sent as
     promptOptions.program.choices. */
