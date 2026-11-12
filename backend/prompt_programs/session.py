@@ -726,7 +726,7 @@ async def prepare_session(*, cfg: Any, base: Optional[Dict[str, Any]], context: 
         if turn is None:
             user = {"role": "user", "content": EDIT_TURN.format(
                 prompt=prep._numbered(prompt), changes=prep._describe_changes(prep.prompt_changes(old, prompt)),
-                numbered=prep._numbered_program(base["program"]))}
+                numbered=prep._numbered_program(base["program"])) + prep.pinned()}
             parent: Optional[str] = base.get("session")
             seed: List[Dict[str, Any]] = []
             if history is not None and estimate_tokens(history + [user]) > budget.history_cap:

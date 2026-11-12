@@ -28,11 +28,11 @@ from prompt_programs.runtime import (
 from prompt_programs.draws import DrawAborted, analyze, draw, uses_draws
 from prompt_programs.people import expand_people
 from prompt_programs.store import ProgramStore, program_key
-from prompt_programs.vocab import AGE_LIST, vocabulary
+from prompt_programs.vocab import AGE_LIST, fill, vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-56"   # pp-56: a person who is someone in particular (a character LoRA, a named person) gets show=[] and is never kept the same by hiding picks. pp-55: no framing pick beside an action, place or stated framing; a smart wildcard that says more than a list's kind of thing is unbound, and it owns the person detail it names; person(where={'age': ...}); related people get ages that fit. pp-54: the writer pictures the image and says what it shows of each person (show=), adds no expression or pose beside a stated one; context weighting is off and the Tool View model judges each draw (llm_judge). pp-53: person() yields to the program's own picks and is described once, one person's plain details take her id in code, age words narrow by what they imply (narrow-4). pp-52: stated values are said= choices (person(said=), bound picks), High develops what is stated and lights it with a pick. pp-51: person() describes every person (people.py). pp-50: US word choices (vocabulary, instructions). pp-49: US spelling (vocabulary, instructions, the .colors id). pp-48: animal lists offered to the writer, person + animal ids grouped (fix_subjects). pp-47: the four Fluent branches together (said=, context, subjects, fallback) and one
+PREPARE_VERSION = "pp-56"   # pp-56: the writer is told what the user has pinned and keeps those choices and values; a person who is someone in particular (a character LoRA, a named person) gets show=[] and is never kept the same by hiding picks. pp-55: no framing pick beside an action, place or stated framing; a smart wildcard that says more than a list's kind of thing is unbound, and it owns the person detail it names; person(where={'age': ...}); related people get ages that fit. pp-54: the writer pictures the image and says what it shows of each person (show=), adds no expression or pose beside a stated one; context weighting is off and the Tool View model judges each draw (llm_judge). pp-53: person() yields to the program's own picks and is described once, one person's plain details take her id in code, age words narrow by what they imply (narrow-4). pp-52: stated values are said= choices (person(said=), bound picks), High develops what is stated and lights it with a pick. pp-51: person() describes every person (people.py). pp-50: US word choices (vocabulary, instructions). pp-49: US spelling (vocabulary, instructions, the .colors id). pp-48: animal lists offered to the writer, person + animal ids grouped (fix_subjects). pp-47: the four Fluent branches together (said=, context, subjects, fallback) and one
 # rule for whose detail a pick is (draws.person_of). pp-46 (each branch on its own): said= keeps a thing the user
 # named (said.py); context facets: a stated descent, time or season and user list values read as context; every
 # subject's details name the subject, shared=True (fix_subjects); a program that loses the user's words is never
@@ -331,6 +331,33 @@ async def writer_style(prompt: str, ctx: Dict[str, Any], instructions: str, lora
     return guide, images
 
 
+# What the user has pinned in the app, for the writer of the prepare under way (set by
+# ensure_program around the task it starts, so it never touches a prompt's key or its style guide).
+_PINNED: contextvars.ContextVar[str] = contextvars.ContextVar("fluent_pinned", default="")
+MAX_PINNED = 8
+
+
+def pinned_note(pins: Optional[Dict[str, Any]]) -> str:
+    """The note that tells the writer which choices the user has pinned to one value, so a
+    change to the prompt keeps those choices and their values. Only single pinned values: a
+    set of ticks is a selection among options, not one thing the user asked to keep."""
+    lines = []
+    for cid, values in (pins or {}).items():
+        vals = [str(v).strip() for v in (values if isinstance(values, (list, tuple, set)) else [values]) if str(v).strip()]
+        if len(vals) == 1 and len(lines) < MAX_PINNED:
+            lines.append(f'- {cid}: "{fill(vals[0], None)[:200]}"')
+    if not lines:
+        return ""
+    return ("\n\nThe user has pinned these choices in the app, each to one value:\n" + "\n".join(lines)
+            + "\nKeep each of them as a pick with that same id, emitted in the prompt, and keep its pinned value "
+              "among its options (leave its list as it is, or put the value first in its seed=). Only when the "
+              "prompt no longer has that thing at all is the pick left out.")
+
+
+def pinned() -> str:
+    return _PINNED.get()
+
+
 def writer_messages(prompt: str, guide: str, images: Sequence[Tuple[int, str]], model_name: Optional[str], mode: str,
                     params: Dict[str, Dict[str, Any]], loras: Sequence[LoraInfo], notes: Dict[str, str],
                     elaborate: bool, instructions: str = "", level: str = "") -> List[Dict[str, Any]]:
@@ -338,6 +365,7 @@ def writer_messages(prompt: str, guide: str, images: Sequence[Tuple[int, str]], 
     user = build_user_message(prompt, model_name, mode, params, loras, notes, elaborate, level)
     if instructions.strip():
         user += f"\n\nThe user's standing instructions for prompts: {instructions.strip()}"
+    user += pinned()
     if images:
         content: Any = [{"type": "text", "text": user}]
         for n, b64 in images:
@@ -1862,7 +1890,8 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
                          profile_id: Optional[str], cache_only: bool = False, force: bool = False,
                          elaborate: bool = True, lora_notes: bool = True, lora_triggers: bool = True,
                          base_key: Optional[str] = None, enhance: Optional[str] = None,
-                         wait: bool = False, tell_declined: bool = False) -> Optional[Dict[str, Any]]:
+                         wait: bool = False, tell_declined: bool = False,
+                         pins: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """The prepared program for these inputs, from cache or by asking the model.
     enhance: "expand" (the per-model guide is part of the writer's instructions and the
     program writes a complete, rich prompt with content picks), "fill" (a short per-model
@@ -1958,7 +1987,11 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
         args = dict(key=key, store=store, tool_id=tool_id, ctx=ctx, instructions=instructions, source_prompt=masked_prompt,
                     params=params, loras=loras, notes=notes, lora_context=lora_context, project_id=project_id,
                     profile_id=profile_id, elaborate=bool(elaborate), level=level, exact=exact)
-        running = asyncio.ensure_future(_prepare(context=context, force=force, base_key=base_key, **args))
+        told = _PINNED.set(pinned_note(pins))   # the task copies this context as it is made
+        try:
+            running = asyncio.ensure_future(_prepare(context=context, force=force, base_key=base_key, **args))
+        finally:
+            _PINNED.reset(told)
         _in_flight[flight] = running
         running.add_done_callback(lambda _t, k=flight: _in_flight.pop(k, None) if _in_flight.get(k) is _t else None)
     if not wait:
@@ -2637,7 +2670,7 @@ async def _prepare_patch(*, base: Dict[str, Any], key: str, store: ProgramStore,
                              params, loras, notes, elaborate, instructions, level),
             {"role": "assistant", "content": f"```python\n{program}```"},
             {"role": "user", "content": PATCH_NOTE.format(prompt=_numbered(new), changes=_describe_changes(changes),
-                                                           numbered=_numbered_program(program))},
+                                                           numbered=_numbered_program(program)) + pinned()},
         ]
         t0 = time.monotonic()
         try:

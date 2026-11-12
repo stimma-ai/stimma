@@ -42,13 +42,14 @@ class PrepareRequest(BaseModel):
     lora_triggers: bool = True
     # The program the editor showed before this prompt: an edit of it continues its writer session.
     base_key: Optional[str] = None
+    # What the user has pinned in the app: the writer keeps those choices and their values.
+    pins: Dict[str, Any] = Field(default_factory=dict)
     # The program the cards are showing. Options and pools work on it even while a newer
     # version of the prompt is being prepared (choices that survive keep their edits).
     key: Optional[str] = None
 
 
 class PreviewRequest(PrepareRequest):
-    pins: Dict[str, Any] = Field(default_factory=dict)
     edits: Dict[str, Any] = Field(default_factory=dict)
     seed: Optional[int] = None
 
@@ -87,7 +88,7 @@ async def _prepare(req: PrepareRequest, tell_declined: bool = False) -> Dict[str
             lora_items=req.loras, project_id=req.project_id, profile_id=get_current_profile(),
             cache_only=req.cache_only, force=req.force, elaborate=req.elaborate, lora_notes=req.lora_notes,
             lora_triggers=req.lora_triggers, base_key=req.base_key, enhance=req.enhance,
-            tell_declined=tell_declined,
+            tell_declined=tell_declined, pins=req.pins,
         )
     except Exception as e:
         http = program_http_error(e)

@@ -230,7 +230,8 @@ export function usePromptProgram(o: Options) {
   }
 
   function request(extra: Record<string, any> = {}) {
-    return prepareBody(inputs(), extra)
+    // The writer is told what is pinned, so a change to the prompt keeps those choices and values.
+    return prepareBody(inputs(), { pins: pins.value, ...extra })
   }
 
   let lookupId = 0

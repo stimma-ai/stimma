@@ -385,3 +385,25 @@ class TestStaleTicks:
             assert draw(self.SRC, seed + 100, stale, fixed=kept).prompt == first.prompt
             assert first.prompt == draw(self.SRC, seed).prompt   # exactly the unticked draw
 
+
+
+class TestPinnedNote:
+    """The writer is told what the user has pinned, so a change keeps those choices and values."""
+
+    def test_only_single_pinned_values_are_told_and_templates_read_plainly(self):
+        from prompt_programs.prepare import pinned_note
+        note = pinned_note({"woman.outfit": ["a {main} crochet camisole and {neutral} wide-leg linen pants"],
+                            "setting": ["a throne room", "a dark throne room"], "light": []})
+        assert 'woman.outfit: "a crochet camisole and wide-leg linen pants"' in note
+        assert "setting" not in note and "light" not in note and "{" not in note
+        assert pinned_note({}) == "" and pinned_note(None) == "" and pinned_note({"setting": ["a", "b"]}) == ""
+
+    def test_the_note_reaches_the_writers_message_only_inside_the_prepare_that_set_it(self):
+        from prompt_programs import prepare as prep
+        told = prep._PINNED.set(prep.pinned_note({"woman.outfit": ["a red coat"]}))
+        try:
+            user = prep.writer_messages("a woman", "", [], None, "prose", {}, [], {}, True)[1]["content"]
+        finally:
+            prep._PINNED.reset(told)
+        assert 'woman.outfit: "a red coat"' in user and "Keep each of them as a pick with that same id" in user
+        assert "pinned" not in prep.writer_messages("a woman", "", [], None, "prose", {}, [], {}, True)[1]["content"]
