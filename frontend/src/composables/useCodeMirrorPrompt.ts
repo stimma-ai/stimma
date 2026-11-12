@@ -10,7 +10,7 @@ import {
   drawSelection,
   placeholder as cmPlaceholder,
 } from '@codemirror/view'
-import { EditorState, StateEffect, StateField, Compartment, RangeSetBuilder } from '@codemirror/state'
+import { EditorState, StateEffect, StateField, Compartment, RangeSetBuilder, type Extension } from '@codemirror/state'
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { bracketMatching } from '@codemirror/language'
@@ -110,7 +110,7 @@ const commentDeco = Decoration.mark({ class: 'cm-comment-line' })
 // Plain mode (no chat model reads this prompt): # lines are for a model.
 const unreadCommentDeco = Decoration.mark({ class: 'cm-comment-line', attributes: { title: 'No chat model reads this prompt, so # lines are left out of it.' } })
 // A {{name}} that isn't a saved wildcard or segment: nothing fills it.
-const unknownNameDeco = Decoration.mark({ class: 'cm-needs-enhance', attributes: { title: 'Not a saved wildcard or segment, so nothing fills it.' } })
+const unknownNameDeco = Decoration.mark({ class: 'cm-unknown-name', attributes: { title: 'Not a saved wildcard or segment, so nothing fills it.' } })
 const slotDeco = Decoration.mark({ class: 'cm-slot' })
 const verbatimDeco = Decoration.mark({ class: 'cm-verbatim' })
 const SYNTAX_DECO: Record<PromptSyntaxKind, Decoration> = {
@@ -236,14 +236,21 @@ const stimmaTheme = EditorView.theme({
     borderRadius: '2px',
     padding: '0 1px',
   },
+  // A slot is something you chose to vary: the selected-state indigo, in both themes.
+  // A ring, not padding, so the caret lands where the letters are.
   '.cm-slot': {
-    color: '#7c3aed', // violet-600
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-    borderRadius: '2px',
-    padding: '0 1px',
+    color: 'rgb(var(--color-selection-rgb))',
+    backgroundColor: 'rgb(var(--color-selection-rgb) / 0.12)',
+    boxShadow: '0 0 0 1px rgb(var(--color-selection-rgb) / 0.25)',
+    borderRadius: '3px',
   },
-  '.cm-needs-enhance': {
-    color: '#ef4444', // red-500: an error in the prompt, the run waits on it
+  // Words Suggest says could vary.
+  '.cm-could-vary': {
+    textDecoration: 'underline dotted rgb(var(--color-text-muted-rgb))',
+    textUnderlineOffset: '4px',
+  },
+  '.cm-unknown-name': {
+    color: '#ef4444', // red-500: nothing fills this name
     textDecoration: 'underline wavy rgba(239, 68, 68, 0.8)',
     textUnderlineOffset: '3px',
   },
@@ -305,10 +312,12 @@ interface UseCodeMirrorPromptOptions {
   onBlur: () => void
   /** Vim :w / :wq / :x. */
   onSave?: () => void
+  /** More editor behaviour from the embedder (slot editing). */
+  extensions?: Extension[]
 }
 
 export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
-  const { mountRef, modelValue, placeholder, onChange, onBlur, onSave } = options
+  const { mountRef, modelValue, placeholder, onChange, onBlur, onSave, extensions = [] } = options
 
   let view: EditorView | null = null
   let ignoreNextChange = false
@@ -399,6 +408,7 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
           }
         }),
         EditorView.lineWrapping,
+        ...extensions,
       ],
     })
 
@@ -511,5 +521,6 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
     selectLine,
     setSyntax,
     destroy,
+    getView: () => view,
   }
 }

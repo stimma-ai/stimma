@@ -5,6 +5,21 @@
       <div ref="editorMount"></div>
       <!-- Host-supplied extras: a row under the text. -->
       <slot name="below-editor" />
+      <!-- Fluent: things the prompt doesn't mention that could vary. -->
+      <PromptSlotAdds v-if="slotAdds.length" :adds="slotAdds" :adding="adding" @add="addSlot" />
+
+      <!-- Words that could become a slot: a phrase Fluent underlined, or a selection. -->
+      <Teleport to="body">
+        <div v-if="offer" class="fixed z-menu" :style="offerStyle" data-slot-offer>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-2.5 py-1.5 coarse:px-3 coarse:py-2 text-xs coarse:text-[13px] rounded-lg bg-surface border border-edge-subtle shadow-lg text-content hover:bg-surface-hover transition-colors"
+            data-vary
+            @mousedown.prevent
+            @click="varyOffer"
+          ><ArrowsRightLeftIcon class="w-3.5 h-3.5 text-selection" />Vary this</button>
+        </div>
+      </Teleport>
 
       <!-- Bottom Action Bar (flows below textarea): a single quiet ghost row
            (DESIGN.md §3.3). Every control here is monochrome text/icons, 11px,
@@ -218,7 +233,7 @@
                     <code class="text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded text-xs" v-text="'{{name}}'"></code>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    Picks a random value from a named wildcard list defined in Settings &gt; Wildcards. With a chat model set up, any other name works too: the model writes its options.
+                    Uses your saved wildcard or prompt segment with that name, from Settings &gt; Wildcards.
                   </p>
                 </div>
 
@@ -298,7 +313,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, useSlots } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, useSlots } from 'vue'
+import { EditorView } from '@codemirror/view'
+import { ArrowsRightLeftIcon } from '@heroicons/vue/24/outline'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
 import Caret from '../ui/Caret.vue'
@@ -309,6 +326,10 @@ import type { PromptSyntaxMode } from '../../composables/useCodeMirrorPrompt'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
+import { slotEditing, wrapSlot, replaceDocument, rangeRect, setVaryEffect } from '../../composables/promptSlotEditing'
+import { usePromptSuggestions } from '../../composables/usePromptSuggestions'
+import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
+import PromptSlotAdds from './PromptSlotAdds.vue'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
 import { useViewport } from '../../composables/useViewport'
 import { PROMPT_LANGUAGES, promptLanguageByCode, DEFAULT_TRANSLATE_LANGUAGE } from './promptLanguages'
@@ -327,6 +348,10 @@ interface PromptOptions {
   autoImprove: PromptOptionSetting
   varyPrompt: PromptOptionSetting
   translate?: TranslateSetting
+  /** Tool View's prompt menu: sent exactly as typed. */
+  raw?: boolean
+  /** Tool View's prompt menu: the prompt as written, no model. */
+  direct?: boolean
 }
 
 interface Props {
@@ -339,9 +364,11 @@ interface Props {
   // generate-time pipeline (which silently rewrites the prompt at submit time)
   // would break the execution model. Hide the affordances in those contexts.
   hideAutoImprove?: boolean
-  /** The prompt runs as a prepared program (Tool View with a chat model): {{name}}
-      and # lines are understood whether Enhance is on or off. */
+  /** The prompt runs as a prepared program (Tool View's Fluent with a chat model): its
+      <slots> vary, and # lines are read whether Enhance is on or off. */
   programs?: boolean
+  /** Extra fields for Fluent's Suggest and Add requests (tool, project), as Prepare takes them. */
+  suggestContext?: Record<string, unknown>
   /** The host fills the `mode` slot with its own prompt control (Tool View's Fluent),
       replacing Enhance, Raw and the … help entry. A prop, not a slot check: slots
       aren't reactive, and the host can switch this at runtime. */
@@ -371,6 +398,10 @@ const emit = defineEmits<{
   (e: 'update:promptOptions', value: PromptOptions): void
   /** Vim :w / :wq / :x: the prompt is done. */
   (e: 'save'): void
+  /** Open a slot's choices. `n` is its 1-based order among the prompt's slots (comment
+      lines and [verbatim] left out, as the grammar finds them); `rect` is where its
+      words are on screen. Sent when a slot is clicked and right after one is made. */
+  (e: 'open-slot', value: { n: number; words: string; rect: DOMRect }): void
 }>()
 
 // Box height. Desktop rests at ~5 lines and grows to 408px; phones give the
@@ -485,8 +516,67 @@ function setTranslate(code: string | null) {
   showTranslateMenu.value = false
 }
 
+// --- Slots (Fluent): making one from written words, opening one ---
+// A phrase Fluent underlined was clicked, or words were selected: "Vary this" sits under them.
+const offer = ref<{ from: number; to: number; rect: DOMRect; phrase: boolean } | null>(null)
+const { isCoarsePointer } = useViewport()
+const offerStyle = computed(() => {
+  const r = offer.value?.rect
+  if (!r) return {}
+  // On touch the selection handles hang under the words: clear them.
+  let top = r.bottom + (isCoarsePointer.value ? 28 : 6)
+  if (top + 44 > window.innerHeight) top = r.top - 44
+  const left = Math.max(8, Math.min(window.innerWidth - 120, r.left))
+  return { left: `${Math.round(left)}px`, top: `${Math.round(top)}px` }
+})
+function showOffer(from: number, to: number, phrase: boolean) {
+  const view = getView()
+  const rect = view && rangeRect(view, from, to)
+  offer.value = rect ? { from, to, rect, phrase } : null
+}
+/** Tell the host to open the slot around `pos`. */
+function openSlotAt(pos: number) {
+  const view = getView()
+  if (!view) return
+  const slot = slotAt(view.state.doc.toString(), pos)
+  const rect = slot && rangeRect(view, slot.from, slot.to)
+  if (slot && rect) emit('open-slot', { n: slot.n, words: slot.words, rect })
+}
+function varyOffer() {
+  const view = getView()
+  const o = offer.value
+  offer.value = null
+  if (!view || !o) return
+  const at = wrapSlot(view, o.from, o.to)
+  if (at != null) void nextTick(() => openSlotAt(at))
+}
+function hideOffer() { offer.value = null }
+const slotExtensions = [
+  slotEditing({
+    enabled: () => fluentSlots.value,
+    onSlotClick: (pos) => { offer.value = null; openSlotAt(pos) },
+    onPhraseClick: (p) => showOffer(p.from, p.to, true),
+    onSelection: ({ from, to }) => {
+      if (from === to) {
+        // The click that offered an underlined phrase leaves the cursor in it.
+        const o = offer.value
+        if (!(o?.phrase && from >= o.from && from <= o.to)) offer.value = null
+        return
+      }
+      const at = slotWrapRange(getView()?.state.doc.toString() ?? '', from, to)
+      if (at) showOffer(at[0], at[1], false)
+      else offer.value = null
+    },
+    onWrapped: (from) => { offer.value = null; void nextTick(() => openSlotAt(from)) },
+    onMoved: hideOffer,
+  }),
+  EditorView.domEventHandlers({
+    keydown(e) { if (e.key === 'Escape') offer.value = null; return false },
+  }),
+]
+
 // CodeMirror composable
-const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, applyDiffDecorations, clearDiffDecorations, selectLine, setSyntax } =
+const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, applyDiffDecorations, clearDiffDecorations, selectLine, setSyntax, getView } =
   useCodeMirrorPrompt({
     mountRef: editorMount,
     modelValue: () => props.modelValue,
@@ -494,9 +584,10 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
     onChange: (value: string) => {
       emit('update:modelValue', value)
     },
-    // Blur intentionally does nothing — suggestion refresh is debounce-driven.
-    onBlur: () => {},
+    // Leaving the box asks Fluent for suggestions now rather than after the pause.
+    onBlur: () => { offer.value = null; void suggestNow() },
     onSave: () => emit('save'),
+    extensions: slotExtensions,
   })
 
 // --- How the prompt will be read: Raw, by a model (a program, or Enhance), or plain (no model) ---
@@ -507,28 +598,62 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
 const slots = useSlots()
 const hasMode = computed(() => !!props.promptControl && !!slots.mode)
 const rawMode = computed(() => fluentEnabled.value && hasMode.value && !!props.promptOptions.raw)
+// Slots vary here: Tool View's Fluent, preparing programs (not Direct, Raw or a format it
+// can't prepare).
+const fluentSlots = computed(() => hasMode.value && !!props.programs && !rawMode.value && !props.promptOptions.direct)
+watch(fluentSlots, on => { if (!on) offer.value = null })
+
+// Suggest: phrases that could vary (underlined) and things worth adding (chips under the text).
+const { answer, adding, suggestNow, add } = usePromptSuggestions({
+  prompt: () => props.modelValue,
+  active: () => fluentSlots.value,
+  context: () => props.suggestContext,
+})
+watch([answer, fluentSlots, () => props.modelValue], () => {
+  const view = getView()
+  if (!view) return
+  const text = view.state.doc.toString()
+  if (!fluentSlots.value || !text.trim()) view.dispatch({ effects: setVaryEffect.of([]) })
+  // A fresh answer for the text as it stands; between answers the marks follow the edits.
+  else if (answer.value?.text === text) view.dispatch({ effects: setVaryEffect.of(usableVaryPhrases(text, answer.value.suggestions.vary)) })
+}, { flush: 'post' })
+const slotAdds = computed(() => {
+  const text = props.modelValue
+  if (!fluentSlots.value || !text.trim() || !answer.value) return []
+  // Not something the prompt already has as a slot.
+  const have = new Set(findSlots(text).map(([from, to]) => text.slice(from + 1, to - 1).trim().toLowerCase()))
+  return answer.value.suggestions.adds.filter(a => !have.has(a.name.trim().toLowerCase()))
+})
+/** Have Fluent write `name` into the prompt as a slot (one undo step), then open it. */
+async function addSlot(name: string) {
+  const r = await add(name)
+  const view = getView()
+  if (!r || !view || !slotAt(r.prompt, r.slot.from)) return
+  offer.value = null
+  replaceDocument(view, r.prompt)
+  void nextTick(() => openSlotAt(r.slot.from))
+}
 const brand = PROMPT_BRAND
 // The tips panel in Tool View: what Fluent is, then what to write, in the user's words.
 // (Copy reviewed for plain, human wording.)
 const fluentIntro = [
-  `${PROMPT_BRAND} reads your prompt once and gives every image fresh choices. Your text in the editor never changes.`,
+  `${PROMPT_BRAND} changes the parts of your prompt you mark, so every image is a little different.`,
   `Detail level sets how much ${PROMPT_BRAND} adds: Yours keeps your wording, Medium adds what this model needs to read it, High fills in the details you left open.`,
   'A new prompt takes a few extra seconds the first time you run it.',
 ]
+const SLOT = 'text-selection bg-selection/10'
 const AMBER = 'text-amber-600 bg-amber-500/10'
 const GREEN = 'text-green-600 bg-green-500/10'
 const GREY = 'text-gray-500 italic bg-zinc-500/10'
 const BLUE = 'text-blue-500 bg-blue-500/10'
 const fluentTips = [
-  { title: 'Wildcards', examples: [{ code: '{{hairstyle}}', tone: AMBER }, { code: '{red|blue|green}', tone: GREEN }],
-    text: [`Use {{hairstyle}} to have ${PROMPT_BRAND} write hairstyle options. Each image uses one. If you have a saved wildcard with that name, ${PROMPT_BRAND} uses yours. To supply your own options, write {red|blue|green}.`] },
-  { title: 'Wildcards that work together', examples: [],
-    // Only what's true today: options Fluent writes can follow another pick. Your own
-    // {a|b} lists are still drawn independently (smarter draws are separate work).
-    text: [`The options ${PROMPT_BRAND} writes can follow your other choices, so they fit together. With {sunny|rainy|snowy} and {{outfit}}, a snowy day gets a winter coat, not a t-shirt. Without ${PROMPT_BRAND}, every wildcard is drawn on its own.`] },
-  { title: 'Comments', examples: [{ code: '# vary her expression', tone: GREY }],
-    text: [`Start a line with # to leave ${PROMPT_BRAND} a note about what to vary or keep the same between images. Notes never reach the image model.`,
-      'You can also give instructions about settings: # guidance between 3 and 5 or # use my curtain bangs LoRA.'] },
+  { title: 'What changes', examples: [{ code: 'a <young man> on a porch, lit by <light>', tone: SLOT }],
+    text: ['Words in angle brackets change from image to image. Click them to choose what they can be.',
+      'Select any words and choose Vary this, or type < with words selected.'] },
+  { title: 'Wildcards', examples: [{ code: '{red|blue|green}', tone: GREEN }, { code: '{{hairstyle}}', tone: AMBER }],
+    text: ['Each image uses one of {red|blue|green}. {{hairstyle}} uses your saved wildcard or prompt segment with that name.'] },
+  { title: 'Comments', examples: [{ code: '# she is a marine biologist', tone: GREY }],
+    text: [`Start a line with # to tell ${PROMPT_BRAND} more about what you want. Notes never reach the image model.`] },
   { title: 'Verbatim text', examples: [{ code: '[ohwx woman]', tone: BLUE }],
     text: [`Text in square brackets goes to the image model exactly as written. ${PROMPT_BRAND} never sees it. Use brackets for LoRA trigger words or words you want to appear in the picture.`] },
   { title: 'Not happy with the options?', examples: [],
@@ -692,10 +817,13 @@ watch(() => props.modelValue, (newVal) => {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  // "Vary this" floats over the text: anything scrolling moves the words out from under it.
+  window.addEventListener('scroll', hideOffer, true)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('scroll', hideOffer, true)
 })
 
 defineExpose({
