@@ -41,6 +41,7 @@
   "values": [
     {
       "text": "a light scatter of freckles across the nose",
+      "short": "freckles across the nose",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -53,6 +54,7 @@
     },
     {
       "text": "dense freckles covering the cheeks, nose and forehead",
+      "short": "dense freckles",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -65,6 +67,7 @@
     },
     {
       "text": "a small mole on one cheek",
+      "short": "mole on one cheek",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -74,6 +77,7 @@
     },
     {
       "text": "a mole above the upper lip",
+      "short": "mole above the lip",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -101,6 +105,7 @@
     },
     {
       "text": "several small moles scattered over the face",
+      "short": "scattered small moles",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -110,6 +115,7 @@
     },
     {
       "text": "a few faint freckles under the eyes",
+      "short": "faint freckles",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -122,6 +128,7 @@
     },
     {
       "text": "a raised mole near the jaw",
+      "short": "raised mole by the jaw",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -131,6 +138,7 @@
     },
     {
       "text": "freckles across the cheeks that run together into patches",
+      "short": "patchy cheek freckles",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -143,6 +151,7 @@
     },
     {
       "text": "a flat brown mark on the temple",
+      "short": "brown mark on the temple",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -152,6 +161,7 @@
     },
     {
       "text": "freckles gathered on the cheekbones, the lower face clear of them",
+      "short": "freckled cheekbones",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -164,6 +174,7 @@
     },
     {
       "text": "a small mole beside the mouth",
+      "short": "mole beside the mouth",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -173,6 +184,7 @@
     },
     {
       "text": "a cluster of small raised moles on one cheek",
+      "short": "cluster of raised moles",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -182,6 +194,7 @@
     },
     {
       "text": "smooth, even skin with fine pores",
+      "short": "smooth, fine-pored skin",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -191,6 +204,7 @@
     },
     {
       "text": "visible pores across the nose and cheeks",
+      "short": "visible pores",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -206,6 +220,7 @@
     },
     {
       "text": "slightly rough, uneven skin",
+      "short": "rough, uneven skin",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -221,6 +236,7 @@
     },
     {
       "text": "oily skin that shines on the forehead and nose",
+      "short": "oily, shiny skin",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -236,6 +252,7 @@
     },
     {
       "text": "dry skin with a fine flaky texture",
+      "short": "dry, flaky skin",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -260,6 +277,7 @@
     },
     {
       "text": "thin skin with small veins showing at the temples",
+      "short": "veins at the temples",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -275,6 +293,7 @@
     },
     {
       "text": "smooth, taut skin with no lines",
+      "short": "smooth, taut skin",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -303,6 +322,7 @@
     },
     {
       "text": "weathered skin, rough and creased from the sun",
+      "short": "weathered skin",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -318,6 +338,7 @@
     },
     {
       "text": "a finely pebbled texture on the cheeks",
+      "short": "pebbled cheeks",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -334,6 +355,7 @@
     },
     {
       "text": "small white bumps under the eyes",
+      "short": "milia under the eyes",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -343,6 +365,7 @@
     },
     {
       "text": "tiny pale dots in the pores of the nose",
+      "short": "pale dots in the pores",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -358,6 +381,7 @@
     },
     {
       "text": "dry flakes beside the nostrils",
+      "short": "flakes by the nostrils",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -367,6 +391,7 @@
     },
     {
       "text": "fine, pale down along the jaw and cheeks",
+      "short": "fine down on the face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -376,6 +401,7 @@
     },
     {
       "text": "dry, slightly cracked lips",
+      "short": "dry, cracked lips",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -385,6 +411,7 @@
     },
     {
       "text": "faint horizontal lines across the forehead",
+      "short": "faint forehead lines",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -400,6 +427,7 @@
     },
     {
       "text": "fine lines at the outer corners of the eyes",
+      "short": "crow's feet",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -415,6 +443,7 @@
     },
     {
       "text": "a crease between the eyebrows",
+      "short": "crease between the brows",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -430,6 +459,7 @@
     },
     {
       "text": "a line from each side of the nose to the mouth",
+      "short": "smile lines",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -445,6 +475,7 @@
     },
     {
       "text": "deep horizontal furrows across the forehead",
+      "short": "deep forehead furrows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -459,6 +490,7 @@
     },
     {
       "text": "two deep vertical lines between the eyebrows",
+      "short": "deep frown lines",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -473,6 +505,7 @@
     },
     {
       "text": "lines running down from the corners of the mouth",
+      "short": "marionette lines",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -487,6 +520,7 @@
     },
     {
       "text": "a face covered in fine, crossing wrinkles",
+      "short": "fine crossing wrinkles",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -500,6 +534,7 @@
     },
     {
       "text": "deep wrinkles across the forehead, around the eyes and around the mouth",
+      "short": "deep wrinkles",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -513,6 +548,7 @@
     },
     {
       "text": "creased, folded skin under the eyes",
+      "short": "creased under-eyes",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -526,6 +562,7 @@
     },
     {
       "text": "soft, deeply lined cheeks",
+      "short": "deeply lined cheeks",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -539,6 +576,7 @@
     },
     {
       "text": "a faint line under each eye",
+      "short": "faint under-eye lines",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -554,6 +592,7 @@
     },
     {
       "text": "a horizontal crease across the chin below the lower lip",
+      "short": "chin crease",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -569,6 +608,7 @@
     },
     {
       "text": "forehead lines deeper on one side than the other",
+      "short": "uneven forehead lines",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -584,6 +624,7 @@
     },
     {
       "text": "fine crossing lines on the temples",
+      "short": "lined temples",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -598,6 +639,7 @@
     },
     {
       "text": "fine vertical lines above the upper lip",
+      "short": "lines above the lip",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -612,6 +654,7 @@
     },
     {
       "text": "deep creases beside the chin and across the lower cheeks",
+      "short": "deep lower-face creases",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -625,6 +668,7 @@
     },
     {
       "text": "long vertical creases down the cheeks",
+      "short": "long cheek creases",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -640,6 +684,7 @@
     },
     {
       "text": "deep folds from the nose to the corners of the mouth, the cheek resting on each fold",
+      "short": "deep nasolabial folds",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -654,6 +699,7 @@
     },
     {
       "text": "slight hollows under the eyes",
+      "short": "slight under-eye hollows",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -663,6 +709,7 @@
     },
     {
       "text": "a small pouch of fullness under each eye",
+      "short": "small under-eye pouches",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -678,6 +725,7 @@
     },
     {
       "text": "deep hollows under the eyes",
+      "short": "deep under-eye hollows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -693,6 +741,7 @@
     },
     {
       "text": "heavy bags under the eyes with a crease along their lower edge",
+      "short": "heavy under-eye bags",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -707,6 +756,7 @@
     },
     {
       "text": "thin skin under the eyes with faint veins showing through",
+      "short": "veined under-eyes",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -716,6 +766,7 @@
     },
     {
       "text": "loose, finely wrinkled skin under the eyes",
+      "short": "crepey under-eyes",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -730,6 +781,7 @@
     },
     {
       "text": "a fuller under-eye bag on one side than the other",
+      "short": "uneven under-eye bags",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -739,6 +791,7 @@
     },
     {
       "text": "a flush of color across the cheeks",
+      "short": "flushed cheeks",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -748,6 +801,7 @@
     },
     {
       "text": "skin a little darker under the eyes",
+      "short": "dark under-eyes",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -757,6 +811,7 @@
     },
     {
       "text": "redness around the nostrils and across the nose",
+      "short": "red around the nose",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -766,6 +821,7 @@
     },
     {
       "text": "ruddy cheeks with fine broken veins",
+      "short": "ruddy, veined cheeks",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -782,6 +838,7 @@
     },
     {
       "text": "uneven coloring, darker around the mouth",
+      "short": "darker around the mouth",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -791,6 +848,7 @@
     },
     {
       "text": "brown age spots on the cheeks and temples",
+      "short": "age spots",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -805,6 +863,7 @@
     },
     {
       "text": "scattered age spots across the forehead and cheeks",
+      "short": "scattered age spots",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -818,6 +877,7 @@
     },
     {
       "text": "a tan line across the forehead",
+      "short": "forehead tan line",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -834,6 +894,7 @@
     },
     {
       "text": "sunburn across the nose and cheekbones",
+      "short": "sunburned nose",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -843,6 +904,7 @@
     },
     {
       "text": "pale patches of lighter skin around the eyes or mouth",
+      "short": "pale patches",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -852,6 +914,7 @@
     },
     {
       "text": "fine red veins beside the nostrils",
+      "short": "veins by the nostrils",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -867,6 +930,7 @@
     },
     {
       "text": "redness gathered on the nose, with small veins showing",
+      "short": "red veined nose",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -881,6 +945,7 @@
     },
     {
       "text": "uneven red blotches on the cheeks and chin",
+      "short": "red blotches",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -890,6 +955,7 @@
     },
     {
       "text": "darker patches on the forehead, cheeks and upper lip",
+      "short": "dark patches (melasma)",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -902,6 +968,7 @@
     },
     {
       "text": "small rough, scaly patches on the temples",
+      "short": "scaly temple patches",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -915,6 +982,7 @@
     },
     {
       "text": "a few small pimples on the forehead and chin",
+      "short": "scattered pimples",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -930,6 +998,7 @@
     },
     {
       "text": "a cluster of acne along the jaw",
+      "short": "acne along the jaw",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -945,6 +1014,7 @@
     },
     {
       "text": "red, inflamed acne across the cheeks",
+      "short": "inflamed cheek acne",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -960,6 +1030,7 @@
     },
     {
       "text": "shallow pitted scars on the cheeks",
+      "short": "pitted acne scars",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -976,6 +1047,7 @@
     },
     {
       "text": "dark marks left by healed pimples",
+      "short": "dark acne marks",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -992,6 +1064,7 @@
     },
     {
       "text": "a single blemish on the chin",
+      "short": "single chin blemish",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -1001,6 +1074,7 @@
     },
     {
       "text": "small bumps under the skin of the forehead",
+      "short": "bumpy forehead",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -1010,6 +1084,7 @@
     },
     {
       "text": "blackheads clustered on the nose and inner cheeks",
+      "short": "blackheads on the nose",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -1025,6 +1100,7 @@
     },
     {
       "text": "small deep pits clustered on the cheeks",
+      "short": "deep pitted scars",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -1034,6 +1110,7 @@
     },
     {
       "text": "a thin scar through one eyebrow",
+      "short": "scar through an eyebrow",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -1052,6 +1129,7 @@
     },
     {
       "text": "a small scar on the forehead",
+      "short": "small forehead scar",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -1061,6 +1139,7 @@
     },
     {
       "text": "a faint scar across the bridge of the nose",
+      "short": "faint scar on the nose",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -1079,6 +1158,7 @@
     },
     {
       "text": "a long scar from the cheekbone to the jaw",
+      "short": "long cheek scar",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -1088,6 +1168,7 @@
     },
     {
       "text": "a red birthmark on one cheek",
+      "short": "red birthmark",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -1097,6 +1178,7 @@
     },
     {
       "text": "a dark birthmark near the temple",
+      "short": "dark birthmark",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -1106,6 +1188,7 @@
     },
     {
       "text": "a patch of burn scarring on one side of the face",
+      "short": "burn scarring",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -1115,6 +1198,7 @@
     },
     {
       "text": "a scar that pulls one corner of the mouth",
+      "short": "scar pulling the mouth",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -1124,6 +1208,7 @@
     },
     {
       "text": "a small round scar on the forehead",
+      "short": "round forehead scar",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -1133,6 +1218,7 @@
     },
     {
       "text": "a shallow dent of a scar beside the nose",
+      "short": "dented scar by the nose",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -1142,6 +1228,7 @@
     },
     {
       "text": "a slightly raised scar under the lower lip",
+      "short": "raised scar under lip",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -1151,6 +1238,7 @@
     },
     {
       "text": "a small flat birthmark on one cheek, a little darker than the skin around it",
+      "short": "flat cheek birthmark",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -1160,6 +1248,7 @@
     },
     {
       "text": "a pale, sharply edged patch of lighter skin on the forehead",
+      "short": "pale forehead patch",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -1169,6 +1258,7 @@
     },
     {
       "text": "a few small pale nicks on the cheeks and jaw",
+      "short": "small pale nicks",
       "tier": "plausible",
       "tags": {
         "aspect": [

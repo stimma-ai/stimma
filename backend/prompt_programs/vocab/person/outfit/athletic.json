@@ -27,6 +27,7 @@
   "values": [
     {
       "text": "a {main} technical T-shirt and {accent} running shorts with {neutral} mesh sneakers",
+      "short": "running tee and shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -57,6 +58,7 @@
     },
     {
       "text": "a long-sleeved {main} moisture-wicking top and {neutral} track pants",
+      "short": "long-sleeved track top",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -87,6 +89,7 @@
     },
     {
       "text": "a {main} training tank top and {neutral} stretch leggings",
+      "short": "tank and leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -116,6 +119,7 @@
     },
     {
       "text": "a {main} tennis polo and a {accent} pleated skort",
+      "short": "tennis polo and skort",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -145,6 +149,7 @@
     },
     {
       "text": "a {main} long-sleeved jersey and {neutral} padded cycling tights",
+      "short": "cycling jersey, tights",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -175,6 +180,7 @@
     },
     {
       "text": "a {main} hooded tracksuit with tapered pants",
+      "short": "hooded tracksuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -208,6 +214,7 @@
     },
     {
       "text": "a long-sleeved {main} exercise tunic and {neutral} full-length leggings",
+      "short": "exercise tunic, leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -238,6 +245,7 @@
     },
     {
       "text": "a {main} long-sleeved swim tunic and matching swim leggings",
+      "short": "swim tunic and leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -267,6 +275,7 @@
     },
     {
       "text": "a {main} rash guard and {neutral} swim jammers",
+      "short": "rash guard and jammers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -296,6 +305,7 @@
     },
     {
       "text": "a white cotton karate gi with matching pants",
+      "short": "karate gi",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -331,6 +341,7 @@
     },
     {
       "text": "a {main} compression shirt and {accent} training shorts",
+      "short": "compression shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -361,6 +372,7 @@
     },
     {
       "text": "a {main} cotton yoga tank and {neutral} stretch pants",
+      "short": "yoga tank, stretch pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -391,6 +403,7 @@
     },
     {
       "text": "a {main} wrap-front dance top and {neutral} leggings",
+      "short": "dance top and leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -421,6 +434,7 @@
     },
     {
       "text": "a white fencing jacket and matching knee-length breeches",
+      "short": "fencing whites",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -453,6 +467,7 @@
     },
     {
       "text": "a {main} rugby jersey and {accent} cotton shorts",
+      "short": "rugby kit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -486,6 +501,7 @@
     },
     {
       "text": "a {main} soccer jersey and {accent} shorts with {neutral} knee socks",
+      "short": "soccer kit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -519,6 +535,7 @@
     },
     {
       "text": "a white cricket shirt and matching straight pants",
+      "short": "cricket whites",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -552,6 +569,7 @@
     },
     {
       "text": "a button-front {main} baseball jersey and {neutral} pants with {accent} piping",
+      "short": "baseball uniform",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -582,6 +600,7 @@
     },
     {
       "text": "a {main} basketball jersey and loose matching shorts",
+      "short": "basketball uniform",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -614,6 +633,7 @@
     },
     {
       "text": "a {main} netball dress with matching stretch shorts",
+      "short": "netball dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -643,6 +663,7 @@
     },
     {
       "text": "a {main} boxing tank top and {accent} satin shorts",
+      "short": "boxing tank and shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -675,6 +696,7 @@
     },
     {
       "text": "a {main} hiking shirt and {neutral} stretch cargo pants",
+      "short": "hiking shirt and cargos",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -706,6 +728,7 @@
     },
     {
       "text": "a {main} sleeveless climbing top and reinforced {neutral} climbing pants",
+      "short": "climbing top and pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -738,6 +761,7 @@
     },
     {
       "text": "a {main} windproof running jacket and {neutral} tights with reflective strips",
+      "short": "running jacket, tights",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -769,6 +793,7 @@
     },
     {
       "text": "a {main} seated-cut training jacket and matching stretch pants",
+      "short": "seated-cut training set",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -800,6 +825,7 @@
     },
     {
       "text": "a {main} zip-front jersey and {neutral} adaptive side-opening shorts",
+      "short": "adaptive jersey, shorts",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -830,6 +856,7 @@
     },
     {
       "text": "a white taekwondo dobok with a black V-neck collar",
+      "short": "taekwondo dobok",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -864,6 +891,7 @@
     },
     {
       "text": "a {main} cross-country ski jacket and {neutral} fitted pants",
+      "short": "cross-country ski kit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -898,6 +926,7 @@
     },
     {
       "text": "a {main} insulated ski suit with articulated knees",
+      "short": "ski suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -932,6 +961,7 @@
     },
     {
       "text": "a {main} equestrian jacket and {neutral} stretch breeches",
+      "short": "equestrian jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -962,6 +992,7 @@
     },
     {
       "text": "a {main} sleeveless golf polo and {neutral} tailored shorts",
+      "short": "golf polo and shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -992,6 +1023,7 @@
     },
     {
       "text": "a {main} rowing unisuit with a racerback and {accent} thigh panels",
+      "short": "rowing unisuit",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1021,6 +1053,7 @@
     },
     {
       "text": "a {main} quilted fencing jacket over a {accent} linen shirt and {neutral} hose",
+      "short": "historical fencing kit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1058,6 +1091,7 @@
     },
     {
       "text": "a {main} cotton wrestling jacket and loose {neutral} woven drawstring pants",
+      "short": "wrestling jacket",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1095,6 +1129,7 @@
     },
     {
       "text": "a {main} wool rowing jersey and high-waisted {neutral} flannel slacks",
+      "short": "vintage rowing kit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1132,6 +1167,7 @@
     },
     {
       "text": "a {accent} cotton croquet blouse and an ankle-length {main} wool walking skirt",
+      "short": "croquet blouse, skirt",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1168,6 +1204,7 @@
     },
     {
       "text": "a lightweight {main} mesh singlet and matching split running shorts with {accent} binding",
+      "short": "mesh singlet and shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1197,6 +1234,7 @@
     },
     {
       "text": "a {main} long-sleeved merino base layer and {neutral} thermal running tights",
+      "short": "base layer and tights",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1230,6 +1268,7 @@
     },
     {
       "text": "a {main} racerback tank and {neutral} capri tights with {accent} running shoes",
+      "short": "racerback tank, capris",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1258,6 +1297,7 @@
     },
     {
       "text": "a {main} sports bra and {neutral} high-waisted compression shorts",
+      "short": "sports bra and shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1286,6 +1326,7 @@
     },
     {
       "text": "a sleeveless {main} open-sided training tabard over a {accent} compression top and {neutral} three-quarter tights",
+      "short": "training tabard",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1315,6 +1356,7 @@
     },
     {
       "text": "a {main} sleeveless training hoodie and {accent} knee-length jersey shorts",
+      "short": "sleeveless gym hoodie",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1344,6 +1386,7 @@
     },
     {
       "text": "a {main} stretch crop top and {neutral} fitted yoga shorts",
+      "short": "crop top, yoga shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1372,6 +1415,7 @@
     },
     {
       "text": "a {main} long-sleeved bamboo jersey top and {accent} flared yoga pants",
+      "short": "flared yoga pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1400,6 +1444,7 @@
     },
     {
       "text": "a {main} short-sleeved cycling jersey and {neutral} padded bib shorts with {accent} socks",
+      "short": "cycling jersey, bibs",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1429,6 +1474,7 @@
     },
     {
       "text": "a {main} waterproof cycling shell and {neutral} thermal bib tights",
+      "short": "cycling shell and bibs",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1462,6 +1508,7 @@
     },
     {
       "text": "a {main} stretch tennis dress with {accent} side panels and built-in shorts",
+      "short": "tennis dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1490,6 +1537,7 @@
     },
     {
       "text": "a {main} tennis warm-up jacket and {neutral} straight track pants",
+      "short": "tennis warm-up",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1519,6 +1567,7 @@
     },
     {
       "text": "a {main} volleyball jersey and {neutral} fitted shorts with {accent} knee pads",
+      "short": "volleyball kit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1548,6 +1597,7 @@
     },
     {
       "text": "a racerback {main} one-piece swimsuit with {accent} side panels",
+      "short": "racing swimsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1576,6 +1626,7 @@
     },
     {
       "text": "a pair of {main} racing swim briefs",
+      "short": "swim briefs",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1604,6 +1655,7 @@
     },
     {
       "text": "a two-piece {main} athletic bikini with a cross-back top and drawstring bottoms",
+      "short": "athletic bikini",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1632,6 +1684,7 @@
     },
     {
       "text": "a long-sleeved {main} swim unitard with {accent} side stripes",
+      "short": "swim unitard",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1661,6 +1714,7 @@
     },
     {
       "text": "a {main} quick-dry short-sleeved shirt and {neutral} ripstop hiking shorts",
+      "short": "quick-dry shirt, shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1690,6 +1744,7 @@
     },
     {
       "text": "a {main} fleece zip jacket over a {accent} technical shirt and {neutral} hiking pants",
+      "short": "fleece and hiking pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1723,6 +1778,7 @@
     },
     {
       "text": "a pair of {main} kickboxing shorts with {accent} satin trim",
+      "short": "kickboxing shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1751,6 +1807,7 @@
     },
     {
       "text": "a {main} short-sleeved grappling rash guard and {neutral} compression leggings",
+      "short": "rash guard, leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1780,6 +1837,7 @@
     },
     {
       "text": "a {main} camisole leotard and {neutral} footed dance tights",
+      "short": "leotard and tights",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1808,6 +1866,7 @@
     },
     {
       "text": "a long-sleeved {main} stretch unitard with {accent} shoulder panels",
+      "short": "stretch unitard",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1837,6 +1896,7 @@
     },
     {
       "text": "a stretch-knit {main} wrestling singlet with {accent} side stripes",
+      "short": "wrestling singlet",
       "tier": "plausible",
       "tags": {
         "formality": [

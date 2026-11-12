@@ -1049,3 +1049,41 @@ class TestOutfitsKnowWhoTheyAreFor:
             leaf = v.get(lid)
             for t in texts:
                 assert set(leaf.value(t).tags["presentation"]) == {"feminine", "masculine"}, t
+
+
+class TestShortForms:
+    """The chooser shows a chosen value in a small pill, so every value the person, camera and
+    light builders draw from has a name short enough for one. A face is composed of pieces,
+    each with its own short form, so the composed list is left out."""
+
+    ROOTS = ("person.", "camera.", "lighting.")
+    LIMIT = 24
+
+    def leaves(self):
+        return [lf for lf in vocabulary().leaves.values()
+                if lf.id.startswith(self.ROOTS) and lf.id != "person.face"]
+
+    def test_every_long_value_has_a_short_form_that_fits(self):
+        from prompt_programs.vocab import is_template
+        leaves = self.leaves()
+        assert len(leaves) > 40
+        for leaf in leaves:
+            for v in leaf.values:
+                if v.short:
+                    assert 0 < len(v.short) <= self.LIMIT, (leaf.id, v.short)
+                    assert not is_template(v.short) and "{" not in v.short, (leaf.id, v.short)
+                    assert v.short.split(" ")[0].lower() not in ("a", "an", "the"), (leaf.id, v.short)
+                else:
+                    assert len(v.text) <= self.LIMIT, (leaf.id, v.text)
+
+    def test_the_loader_reads_the_short_form_and_falls_back_to_the_value(self):
+        v = vocabulary()
+        outfit = v.get("person.outfit.casual")
+        assert outfit.short("a {main} flannel shirt and {neutral} denim jeans") == "flannel shirt and jeans"
+        # A drawn outfit is the template filled with colors; its pill names no colors.
+        assert outfit.short("a red flannel shirt and navy denim jeans") == "flannel shirt and jeans"
+        light = v.get("lighting.natural")
+        assert light.short("low golden-hour sun raking across the scene") == "golden hour"
+        assert v.get("person.eye_color").short("hazel") == "hazel"
+        assert outfit.short("something the list never had") == "something the list never had"
+        assert any(x.get("short") for lf in v.to_dict()["leaves"] if lf["id"] == "lighting.natural" for x in lf["values"])

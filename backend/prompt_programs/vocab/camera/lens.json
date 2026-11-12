@@ -38,6 +38,7 @@
     },
     {
       "text": "a 14mm ultra-wide-angle lens",
+      "short": "14mm ultra-wide",
       "tier": "plausible"
     },
     {
@@ -54,6 +55,7 @@
     },
     {
       "text": "a 600mm supertelephoto lens",
+      "short": "600mm supertelephoto",
       "tier": "unusual"
     },
     {
@@ -62,14 +64,17 @@
     },
     {
       "text": "a full-frame diagonal fisheye lens",
+      "short": "diagonal fisheye",
       "tier": "unusual"
     },
     {
       "text": "a tilt-shift lens with the focus plane tilted",
+      "short": "tilt-shift",
       "tier": "plausible"
     },
     {
       "text": "a perspective-control lens shifted upward",
+      "short": "perspective control",
       "tier": "plausible"
     },
     {
@@ -82,10 +87,12 @@
     },
     {
       "text": "an anamorphic lens with oval bokeh",
+      "short": "anamorphic",
       "tier": "plausible"
     },
     {
       "text": "a soft-focus portrait lens",
+      "short": "soft-focus portrait lens",
       "tier": "plausible"
     },
     {
@@ -94,14 +101,17 @@
     },
     {
       "text": "a vintage portrait lens with swirling bokeh",
+      "short": "swirly vintage lens",
       "tier": "unusual"
     },
     {
       "text": "a mirror telephoto lens with ring-shaped bokeh",
+      "short": "mirror lens",
       "tier": "unusual"
     },
     {
       "text": "a split-diopter attachment on a standard lens",
+      "short": "split diopter",
       "tier": "unusual"
     }
   ]

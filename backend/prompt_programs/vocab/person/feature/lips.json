@@ -56,6 +56,7 @@
     },
     {
       "text": "a full lower lip and a thinner upper lip",
+      "short": "full lower lip",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -65,6 +66,7 @@
     },
     {
       "text": "a fuller upper lip than lower lip",
+      "short": "fuller upper lip",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -74,6 +76,7 @@
     },
     {
       "text": "very thin lips, a narrow line when closed",
+      "short": "very thin lips",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -83,6 +86,7 @@
     },
     {
       "text": "thick lips with a clearly outlined edge",
+      "short": "thick defined lips",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -95,6 +99,7 @@
     },
     {
       "text": "lips that have thinned and lost their edge",
+      "short": "thinned lips",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -108,6 +113,7 @@
     },
     {
       "text": "lips fuller in the center and thin toward the corners",
+      "short": "lips full at center",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -117,6 +123,7 @@
     },
     {
       "text": "very full lips that stand well out from the face",
+      "short": "very full lips",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -147,6 +154,7 @@
     },
     {
       "text": "a mouth as wide as the gap between the pupils",
+      "short": "wide mouth",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -156,6 +164,7 @@
     },
     {
       "text": "a small mouth with full lips",
+      "short": "small full-lipped mouth",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -165,6 +174,7 @@
     },
     {
       "text": "a small mouth, its corners not far outside the nostrils",
+      "short": "small mouth",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -174,6 +184,7 @@
     },
     {
       "text": "a very wide mouth that reaches toward the sides of the cheeks",
+      "short": "very wide mouth",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -183,6 +194,7 @@
     },
     {
       "text": "a sharply peaked upper lip",
+      "short": "peaked upper lip",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -192,6 +204,7 @@
     },
     {
       "text": "a softly rounded upper lip with no clear peaks",
+      "short": "rounded upper lip",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -201,6 +214,7 @@
     },
     {
       "text": "corners of the mouth that turn down at rest",
+      "short": "downturned mouth",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -210,6 +224,7 @@
     },
     {
       "text": "corners of the mouth that turn up at rest",
+      "short": "upturned mouth",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -219,6 +234,7 @@
     },
     {
       "text": "a deep groove between the nose and the upper lip",
+      "short": "deep philtrum",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -228,6 +244,7 @@
     },
     {
       "text": "a lower lip that pushes forward",
+      "short": "pushed-out lower lip",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -237,6 +254,7 @@
     },
     {
       "text": "an uneven mouth, fuller on one side",
+      "short": "uneven mouth",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -246,6 +264,7 @@
     },
     {
       "text": "one corner of the mouth sitting higher than the other",
+      "short": "one corner higher",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -255,6 +274,7 @@
     },
     {
       "text": "lips whose edges fade into the skin around them",
+      "short": "faint lip edges",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -269,6 +289,7 @@
     },
     {
       "text": "lips slightly parted at rest, the front teeth just showing",
+      "short": "parted, teeth showing",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -278,6 +299,7 @@
     },
     {
       "text": "front teeth that push the upper lip forward",
+      "short": "prominent front teeth",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -287,6 +309,7 @@
     },
     {
       "text": "a gap between the two front teeth",
+      "short": "gap in the front teeth",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -296,6 +319,7 @@
     },
     {
       "text": "uneven, crowded front teeth",
+      "short": "crowded front teeth",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -305,6 +329,7 @@
     },
     {
       "text": "a small scar crossing the upper lip",
+      "short": "scar on the upper lip",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -314,6 +339,7 @@
     },
     {
       "text": "front teeth that angle outward",
+      "short": "outward-angled teeth",
       "tier": "plausible",
       "tags": {
         "aspect": [

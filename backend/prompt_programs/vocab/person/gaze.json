@@ -10,10 +10,12 @@
   "values": [
     {
       "text": "looking straight into the camera",
+      "short": "into the camera",
       "tier": "typical"
     },
     {
       "text": "looking just beside the camera",
+      "short": "just beside the camera",
       "tier": "typical"
     },
     {
@@ -30,34 +32,42 @@
     },
     {
       "text": "gazing straight ahead past the camera",
+      "short": "straight ahead",
       "tier": "typical"
     },
     {
       "text": "looking down and to one side",
+      "short": "down to one side",
       "tier": "typical"
     },
     {
       "text": "looking up and to one side",
+      "short": "up to one side",
       "tier": "typical"
     },
     {
       "text": "glancing back over one shoulder",
+      "short": "over the shoulder",
       "tier": "plausible"
     },
     {
       "text": "looking sideways while keeping the head facing forward",
+      "short": "sideways glance",
       "tier": "plausible"
     },
     {
       "text": "looking toward the camera with the head turned to one side",
+      "short": "head turned, eyes to us",
       "tier": "plausible"
     },
     {
       "text": "gazing into the distance with the face in profile",
+      "short": "far off, in profile",
       "tier": "plausible"
     },
     {
       "text": "gazing downward with the face in profile",
+      "short": "downward, in profile",
       "tier": "plausible"
     }
   ]

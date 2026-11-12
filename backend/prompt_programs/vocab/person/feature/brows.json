@@ -60,6 +60,7 @@
     },
     {
       "text": "sparse eyebrows with skin showing through",
+      "short": "sparse brows",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -69,6 +70,7 @@
     },
     {
       "text": "bushy eyebrows with long stray hairs",
+      "short": "bushy brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -85,6 +87,7 @@
     },
     {
       "text": "very faint eyebrows, barely visible",
+      "short": "barely-there brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -94,6 +97,7 @@
     },
     {
       "text": "eyebrows thick at the inner end and thinning to nothing",
+      "short": "tapering brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -116,6 +120,7 @@
     },
     {
       "text": "eyebrows with a bare gap through one of them",
+      "short": "gap through one brow",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -125,6 +130,7 @@
     },
     {
       "text": "patchy eyebrows, thick in some stretches and thin in others",
+      "short": "patchy brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -134,6 +140,7 @@
     },
     {
       "text": "eyebrows fuller in the inner half and thin along the tail",
+      "short": "full inner brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -143,6 +150,7 @@
     },
     {
       "text": "thinning eyebrows with a few long stray hairs",
+      "short": "thinning, stray hairs",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -175,6 +183,7 @@
     },
     {
       "text": "eyebrows with a high arch",
+      "short": "high-arched brows",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -184,6 +193,7 @@
     },
     {
       "text": "eyebrows with an angled peak toward the outer end",
+      "short": "peaked brows",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -193,6 +203,7 @@
     },
     {
       "text": "eyebrows that slope down toward the temples",
+      "short": "downward-sloping brows",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -202,6 +213,7 @@
     },
     {
       "text": "eyebrows that slant up toward the temples",
+      "short": "upward-slanting brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -211,6 +223,7 @@
     },
     {
       "text": "short eyebrows that end above the middle of the eye",
+      "short": "short brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -220,6 +233,7 @@
     },
     {
       "text": "long eyebrows that reach past the outer corners of the eyes",
+      "short": "long brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -229,6 +243,7 @@
     },
     {
       "text": "rounded eyebrows in an even half-circle",
+      "short": "rounded brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -238,6 +253,7 @@
     },
     {
       "text": "eyebrows of clearly different shapes",
+      "short": "mismatched brows",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -247,6 +263,7 @@
     },
     {
       "text": "eyebrows with a flat inner half and a curved outer half",
+      "short": "flat-then-curved brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -256,6 +273,7 @@
     },
     {
       "text": "eyebrows that stop short of the outer corners of the eyes",
+      "short": "brows ending short",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -265,6 +283,7 @@
     },
     {
       "text": "low eyebrows sitting close above the eyes",
+      "short": "low-set brows",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -274,6 +293,7 @@
     },
     {
       "text": "high eyebrows with a wide gap above the eyelids",
+      "short": "high-set brows",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -292,6 +312,7 @@
     },
     {
       "text": "eyebrows set close together",
+      "short": "close-set brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -301,6 +322,7 @@
     },
     {
       "text": "eyebrows that nearly meet above the nose",
+      "short": "nearly meeting brows",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -313,6 +335,7 @@
     },
     {
       "text": "eyebrows that meet in a single line across the nose",
+      "short": "unibrow",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -322,6 +345,7 @@
     },
     {
       "text": "one eyebrow sitting higher than the other",
+      "short": "one brow higher",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -331,6 +355,7 @@
     },
     {
       "text": "untidy eyebrows with hairs growing in several directions",
+      "short": "untidy brows",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -340,6 +365,7 @@
     },
     {
       "text": "neat eyebrows with a clean edge",
+      "short": "neat brows",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -349,6 +375,7 @@
     },
     {
       "text": "plucked eyebrows, thin and sharply edged",
+      "short": "thin plucked brows",
       "tier": "plausible",
       "tags": {
         "aspect": [

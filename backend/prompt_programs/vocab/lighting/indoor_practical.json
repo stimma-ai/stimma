@@ -15,6 +15,7 @@
   "values": [
     {
       "text": "the warm glow of a single desk lamp",
+      "short": "desk lamp glow",
       "tier": "typical",
       "tags": {
         "space": [
@@ -75,6 +76,7 @@
     },
     {
       "text": "a ceiling pendant above a table",
+      "short": "pendant over a table",
       "tier": "typical",
       "tags": {
         "space": [
@@ -106,6 +108,7 @@
     },
     {
       "text": "a row of recessed ceiling lights",
+      "short": "recessed ceiling lights",
       "tier": "typical",
       "tags": {
         "space": [
@@ -133,6 +136,7 @@
     },
     {
       "text": "a bright fluorescent ceiling panel",
+      "short": "fluorescent panel",
       "tier": "typical",
       "tags": {
         "space": [
@@ -162,6 +166,7 @@
     },
     {
       "text": "a frosted bathroom mirror light",
+      "short": "bathroom mirror light",
       "tier": "typical",
       "tags": {
         "space": [
@@ -190,6 +195,7 @@
     },
     {
       "text": "under-cabinet kitchen lights",
+      "short": "under-cabinet lights",
       "tier": "typical",
       "tags": {
         "space": [
@@ -217,6 +223,7 @@
     },
     {
       "text": "a warm floor lamp beside an armchair",
+      "short": "floor lamp by a chair",
       "tier": "typical",
       "tags": {
         "space": [
@@ -247,6 +254,7 @@
     },
     {
       "text": "a bare bulb hanging from a cord",
+      "short": "bare hanging bulb",
       "tier": "typical",
       "tags": {
         "space": [
@@ -278,6 +286,7 @@
     },
     {
       "text": "small wall sconces along a corridor",
+      "short": "corridor sconces",
       "tier": "typical",
       "tags": {
         "space": [
@@ -384,6 +393,7 @@
     },
     {
       "text": "a television screen flickering across the room",
+      "short": "flickering TV",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -414,6 +424,7 @@
     },
     {
       "text": "the light inside an open refrigerator",
+      "short": "open refrigerator",
       "tier": "unusual",
       "tags": {
         "space": [
@@ -472,6 +483,7 @@
     },
     {
       "text": "a red photographic darkroom lamp",
+      "short": "darkroom safelight",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -533,6 +545,7 @@
     },
     {
       "text": "rows of makeup mirror bulbs",
+      "short": "makeup mirror bulbs",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -562,6 +575,7 @@
     },
     {
       "text": "the glow of a luminous aquarium",
+      "short": "aquarium glow",
       "tier": "unusual",
       "tags": {
         "space": [
@@ -591,6 +605,7 @@
     },
     {
       "text": "a green emergency exit sign",
+      "short": "green exit sign",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -619,6 +634,7 @@
     },
     {
       "text": "an illuminated vending machine",
+      "short": "vending machine glow",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -646,6 +662,7 @@
     },
     {
       "text": "a string of tiny decorative bulbs",
+      "short": "fairy lights",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -677,6 +694,7 @@
     },
     {
       "text": "a low table lamp with a paper shade",
+      "short": "paper-shade table lamp",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -707,6 +725,7 @@
     },
     {
       "text": "a light fixture beneath a ceiling fan",
+      "short": "ceiling fan light",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -734,6 +753,7 @@
     },
     {
       "text": "the blue light of a laptop screen",
+      "short": "laptop screen glow",
       "tier": "typical",
       "tags": {
         "space": [
@@ -762,6 +782,7 @@
     },
     {
       "text": "warm LED strips beneath a shelf",
+      "short": "under-shelf LED strips",
       "tier": "typical",
       "tags": {
         "space": [
@@ -789,6 +810,7 @@
     },
     {
       "text": "a phone screen held close to the face",
+      "short": "phone screen glow",
       "tier": "plausible",
       "tags": {
         "era": [
@@ -838,6 +860,7 @@
     },
     {
       "text": "a pool of amber streetlamp light",
+      "short": "amber streetlamp",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -872,6 +895,7 @@
     },
     {
       "text": "white floodlights over a playing field",
+      "short": "stadium floodlights",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -905,6 +929,7 @@
     },
     {
       "text": "strings of bulbs above an outdoor market",
+      "short": "market string lights",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -940,6 +965,7 @@
     },
     {
       "text": "lights along a garden path",
+      "short": "garden path lights",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -973,6 +999,7 @@
     },
     {
       "text": "an illuminated bus shelter",
+      "short": "lit bus shelter",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -1005,6 +1032,7 @@
     },
     {
       "text": "overhead lights in a gas station canopy",
+      "short": "gas station canopy",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -1037,6 +1065,7 @@
     },
     {
       "text": "headlights from a parked car",
+      "short": "car headlights",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -1071,6 +1100,7 @@
     },
     {
       "text": "a glowing shop sign across the street",
+      "short": "shop sign glow",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -1143,6 +1173,7 @@
     },
     {
       "text": "a flaming torch fixed to a stone wall",
+      "short": "wall torch",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -1248,6 +1279,7 @@
     },
     {
       "text": "a paper lantern with a candle inside",
+      "short": "candle paper lantern",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1318,6 +1350,7 @@
     },
     {
       "text": "a row of gas street lamps",
+      "short": "gas street lamps",
       "tier": "plausible",
       "tags": {
         "era": [
@@ -1358,6 +1391,7 @@
     },
     {
       "text": "the fire inside a wood-burning stove",
+      "short": "wood stove fire",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -1394,6 +1428,7 @@
     },
     {
       "text": "a candle chandelier above the room",
+      "short": "candle chandelier",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -1460,6 +1495,7 @@
     },
     {
       "text": "a red railroad signal lamp",
+      "short": "railroad signal lamp",
       "tier": "plausible",
       "tags": {
         "era": [
@@ -1517,6 +1553,7 @@
     },
     {
       "text": "purple grow lights above indoor plants",
+      "short": "purple grow lights",
       "tier": "unusual",
       "tags": {
         "space": [
@@ -1545,6 +1582,7 @@
     },
     {
       "text": "a portable work light on a tripod",
+      "short": "portable work light",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -1574,6 +1612,7 @@
     },
     {
       "text": "glowing holographic control panels",
+      "short": "holographic panels",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1595,6 +1634,7 @@
     },
     {
       "text": "luminous floor panels along a spacecraft corridor",
+      "short": "lit spacecraft floor",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1616,6 +1656,7 @@
     },
     {
       "text": "a glowing crystal suspended above a table",
+      "short": "floating glowing crystal",
       "tier": "plausible",
       "tags": {
         "space": [

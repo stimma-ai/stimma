@@ -40,6 +40,7 @@
   "values": [
     {
       "text": "everything in focus from the foreground to the far background",
+      "short": "deep focus",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -49,6 +50,7 @@
     },
     {
       "text": "the background as sharp as the subject",
+      "short": "sharp background",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -58,6 +60,7 @@
     },
     {
       "text": "crisp detail throughout and nothing blurred",
+      "short": "crisp throughout",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -67,6 +70,7 @@
     },
     {
       "text": "sharpness from edge to edge of the frame",
+      "short": "sharp edge to edge",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -76,6 +80,7 @@
     },
     {
       "text": "the whole scene in clear focus, near and far",
+      "short": "clear near and far",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -85,6 +90,7 @@
     },
     {
       "text": "distant details clearly readable behind the subject",
+      "short": "readable distant detail",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -94,6 +100,7 @@
     },
     {
       "text": "fine texture visible in every surface, near and far",
+      "short": "texture near and far",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -103,6 +110,7 @@
     },
     {
       "text": "a clear, detailed background you could read signs in",
+      "short": "readable background",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -112,6 +120,7 @@
     },
     {
       "text": "the foreground, the subject and the horizon all equally sharp",
+      "short": "foreground to horizon",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -121,6 +130,7 @@
     },
     {
       "text": "no blur anywhere in the frame",
+      "short": "no blur anywhere",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -130,6 +140,7 @@
     },
     {
       "text": "every object in view clearly defined",
+      "short": "every object defined",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -139,6 +150,7 @@
     },
     {
       "text": "the surroundings shown in as much detail as the subject",
+      "short": "detailed surroundings",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -148,6 +160,7 @@
     },
     {
       "text": "hard, clear edges on everything in view",
+      "short": "hard, clear edges",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -157,6 +170,7 @@
     },
     {
       "text": "the unposed feel of a moment caught by chance",
+      "short": "unposed moment",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -166,6 +180,7 @@
     },
     {
       "text": "the subject caught mid-gesture, not looking at the camera",
+      "short": "caught mid-gesture",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -175,6 +190,7 @@
     },
     {
       "text": "the look of an in-between moment nobody posed for",
+      "short": "in-between moment",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -184,6 +200,7 @@
     },
     {
       "text": "the feel of a picture taken while the subject was busy with something else",
+      "short": "subject busy",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -193,6 +210,7 @@
     },
     {
       "text": "slightly off-center framing, as if taken in a hurry",
+      "short": "hurried framing",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -202,6 +220,7 @@
     },
     {
       "text": "a slightly tilted horizon and a subject caught mid-step",
+      "short": "tilted, mid-step",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -211,6 +230,7 @@
     },
     {
       "text": "the feel of a picture taken a moment too early",
+      "short": "one moment too early",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -220,6 +240,7 @@
     },
     {
       "text": "the subject mid-laugh, eyes half closed",
+      "short": "mid-laugh",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -229,6 +250,7 @@
     },
     {
       "text": "the subject turning toward the camera, not yet ready",
+      "short": "turning, not ready",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -238,6 +260,7 @@
     },
     {
       "text": "part of someone else's shoulder at the edge of the frame",
+      "short": "stray shoulder in frame",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -247,6 +270,7 @@
     },
     {
       "text": "the look of a picture taken from across the table",
+      "short": "from across the table",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -256,6 +280,7 @@
     },
     {
       "text": "the subject glancing up, just noticing the camera",
+      "short": "just noticing the camera",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -265,6 +290,7 @@
     },
     {
       "text": "the feel of a photo taken by a friend, not a photographer",
+      "short": "taken by a friend",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -274,6 +300,7 @@
     },
     {
       "text": "a loose, uneven crop with the subject a little too low in the frame",
+      "short": "loose, uneven crop",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -283,6 +310,7 @@
     },
     {
       "text": "a plain, observational view in the light that was already there",
+      "short": "observational",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -292,6 +320,7 @@
     },
     {
       "text": "the scene as found, with nothing arranged or styled",
+      "short": "scene as found",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -301,6 +330,7 @@
     },
     {
       "text": "an unstyled, matter-of-fact view of an ordinary moment",
+      "short": "matter-of-fact",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -310,6 +340,7 @@
     },
     {
       "text": "natural color and ordinary daylight, nothing enhanced",
+      "short": "natural color, daylight",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -319,6 +350,7 @@
     },
     {
       "text": "a view wide enough to show what surrounds the subject",
+      "short": "wide, with surroundings",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -328,6 +360,7 @@
     },
     {
       "text": "everyday clutter left in the frame",
+      "short": "everyday clutter",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -337,6 +370,7 @@
     },
     {
       "text": "the look of a picture from a local newspaper",
+      "short": "local newspaper",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -346,6 +380,7 @@
     },
     {
       "text": "a straightforward, level view with no dramatic angle",
+      "short": "level, no drama",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -355,6 +390,7 @@
     },
     {
       "text": "people in the background going about their business",
+      "short": "people going by",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -364,6 +400,7 @@
     },
     {
       "text": "the look of a photo taken to record, not to flatter",
+      "short": "record, not flattery",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -373,6 +410,7 @@
     },
     {
       "text": "true-to-life skin and color, with small flaws left in",
+      "short": "true-to-life skin",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -382,6 +420,7 @@
     },
     {
       "text": "a quiet, patient view from a little distance",
+      "short": "quiet, from a distance",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -391,6 +430,7 @@
     },
     {
       "text": "uneven light as it fell, with some areas in shade",
+      "short": "light as it fell",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -400,6 +440,7 @@
     },
     {
       "text": "the flat, even sharpness of an ordinary phone photo",
+      "short": "plain phone photo",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -409,6 +450,7 @@
     },
     {
       "text": "the look of a quick phone snapshot, slightly crooked",
+      "short": "crooked phone snapshot",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -418,6 +460,7 @@
     },
     {
       "text": "the plain color of an unedited phone picture",
+      "short": "unedited phone color",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -427,6 +470,7 @@
     },
     {
       "text": "the look of a photo sent in a chat, taken without much thought",
+      "short": "chat photo",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -436,6 +480,7 @@
     },
     {
       "text": "a little noise in the shadows, as phone photos have indoors",
+      "short": "noisy indoor phone",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -445,6 +490,7 @@
     },
     {
       "text": "bright areas slightly washed out, as in a casual phone picture",
+      "short": "washed-out phone",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -454,6 +500,7 @@
     },
     {
       "text": "the slightly too-bright, too-sharp look of a phone's automatic processing",
+      "short": "phone processing",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -463,6 +510,7 @@
     },
     {
       "text": "the wide view of a phone held at chest height",
+      "short": "phone at chest height",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -472,6 +520,7 @@
     },
     {
       "text": "the yellow cast of indoor bulbs in an uncorrected phone picture",
+      "short": "yellow indoor phone",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -481,6 +530,7 @@
     },
     {
       "text": "the grainy, soft look of a phone photo taken in low light",
+      "short": "low-light phone",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -490,6 +540,7 @@
     },
     {
       "text": "the slightly compressed look of a picture saved from a chat",
+      "short": "saved from a chat",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -499,6 +550,7 @@
     },
     {
       "text": "the tall, narrow framing of a phone held upright",
+      "short": "vertical phone frame",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -508,6 +560,7 @@
     },
     {
       "text": "a smeared softness, as from a phone lens that needs wiping",
+      "short": "smudged phone lens",
       "tier": "unusual",
       "tags": {
         "intent": [
@@ -517,6 +570,7 @@
     },
     {
       "text": "the clean, even finish of a magazine page",
+      "short": "magazine finish",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -526,6 +580,7 @@
     },
     {
       "text": "careful composition and nothing stray in the frame",
+      "short": "careful composition",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -535,6 +590,7 @@
     },
     {
       "text": "accurate color and precise, controlled detail",
+      "short": "accurate color",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -544,6 +600,7 @@
     },
     {
       "text": "the tidy, well-lit look of a catalog picture",
+      "short": "catalog look",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -553,6 +610,7 @@
     },
     {
       "text": "rich, controlled contrast and a deliberate arrangement",
+      "short": "deliberate contrast",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -562,6 +620,7 @@
     },
     {
       "text": "clean lines, even exposure and a tidy frame",
+      "short": "clean and tidy",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -571,6 +630,7 @@
     },
     {
       "text": "smooth, even tones and carefully balanced color",
+      "short": "smooth, balanced tones",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -580,6 +640,7 @@
     },
     {
       "text": "a restrained palette of two or three colors",
+      "short": "restrained palette",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -589,6 +650,7 @@
     },
     {
       "text": "the bold, graphic look of a fashion spread",
+      "short": "fashion spread",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -598,6 +660,7 @@
     },
     {
       "text": "the bright, clean look of an advertisement",
+      "short": "advertising look",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -607,6 +670,7 @@
     },
     {
       "text": "a calm, symmetrical composition",
+      "short": "calm symmetry",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -616,6 +680,7 @@
     },
     {
       "text": "the considered look of a formal portrait sitting",
+      "short": "formal portrait sitting",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -625,6 +690,7 @@
     },
     {
       "text": "a spare, uncluttered frame with a lot of plain space",
+      "short": "spare, uncluttered",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -634,6 +700,7 @@
     },
     {
       "text": "soft color and fine visible grain, like a 35mm print",
+      "short": "35mm print",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -643,6 +710,7 @@
     },
     {
       "text": "slightly faded color and warm highlights, like an old family print",
+      "short": "old family print",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -652,6 +720,7 @@
     },
     {
       "text": "gentle color and soft contrast, like a print from a film lab",
+      "short": "film-lab print",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -661,6 +730,7 @@
     },
     {
       "text": "muted color, gentle contrast and soft blacks",
+      "short": "muted film",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -670,6 +740,7 @@
     },
     {
       "text": "strong color and soft corners, like a disposable camera",
+      "short": "disposable camera",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -679,6 +750,7 @@
     },
     {
       "text": "the pale, slightly washed-out color of an instant print",
+      "short": "instant print",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -688,6 +760,7 @@
     },
     {
       "text": "rich, saturated color like a slide held up to the light",
+      "short": "slide film",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -697,6 +770,7 @@
     },
     {
       "text": "a green tint in the shadows, like cheaply developed film",
+      "short": "cheap film, green tint",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -706,6 +780,7 @@
     },
     {
       "text": "a warm orange streak of leaked light along one edge",
+      "short": "light leak",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -715,6 +790,7 @@
     },
     {
       "text": "coarse grain and deep shadows, like fast film used at night",
+      "short": "fast film at night",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -724,6 +800,7 @@
     },
     {
       "text": "the square frame and soft focus of an old box camera",
+      "short": "box camera",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -733,6 +810,7 @@
     },
     {
       "text": "dust specks and a fine scratch, like a scanned negative",
+      "short": "scanned negative",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -742,6 +820,7 @@
     },
     {
       "text": "an orange date stamp in the corner, like a 1990s print",
+      "short": "1990s date stamp",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -751,6 +830,7 @@
     },
     {
       "text": "soft pastel color, like overexposed film on a bright day",
+      "short": "overexposed pastel film",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -760,6 +840,7 @@
     },
     {
       "text": "the brown tone of a very old studio photograph",
+      "short": "old studio sepia",
       "tier": "unusual",
       "tags": {
         "intent": [
@@ -769,6 +850,7 @@
     },
     {
       "text": "black and white with a full range of soft grays",
+      "short": "full-range B&W",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -778,6 +860,7 @@
     },
     {
       "text": "black and white with strong contrast and deep blacks",
+      "short": "high-contrast B&W",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -787,6 +870,7 @@
     },
     {
       "text": "heavy grain in black and white",
+      "short": "grainy B&W",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -796,6 +880,7 @@
     },
     {
       "text": "soft, low-contrast black and white, mostly mid-grays",
+      "short": "low-contrast B&W",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -805,6 +890,7 @@
     },
     {
       "text": "black and white with bright whites and little shadow",
+      "short": "high-key B&W",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -814,6 +900,7 @@
     },
     {
       "text": "black and white with a faint warm tone",
+      "short": "warm-toned B&W",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -823,6 +910,7 @@
     },
     {
       "text": "stark black and white with almost no gray",
+      "short": "stark B&W",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -832,6 +920,7 @@
     },
     {
       "text": "black and white with the sky darkened nearly to black",
+      "short": "B&W with dark sky",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -841,6 +930,7 @@
     },
     {
       "text": "direct flash from the camera, a bright subject and a dark background",
+      "short": "direct flash",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -850,6 +940,7 @@
     },
     {
       "text": "a hard flash shadow on the wall just behind the subject",
+      "short": "flash shadow on the wall",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -859,6 +950,7 @@
     },
     {
       "text": "flash at night, the surroundings falling away into black",
+      "short": "night flash",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -868,6 +960,7 @@
     },
     {
       "text": "the flat, bright look of a compact-camera flash at a party",
+      "short": "party flash",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -877,6 +970,7 @@
     },
     {
       "text": "flash in daylight, the subject brighter than the sky behind",
+      "short": "daylight fill flash",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -886,6 +980,7 @@
     },
     {
       "text": "shiny highlights on skin from a close flash",
+      "short": "flash shine on skin",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -895,6 +990,7 @@
     },
     {
       "text": "flash bounced off a low ceiling, soft and even",
+      "short": "bounced flash",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -904,6 +1000,7 @@
     },
     {
       "text": "a flash that lights the nearest things and leaves the rest dim",
+      "short": "flash falloff",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -913,6 +1010,7 @@
     },
     {
       "text": "flash with a long exposure, a sharp subject and smeared lights behind",
+      "short": "flash and drag",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -922,6 +1020,7 @@
     },
     {
       "text": "the red pupils of a direct flash",
+      "short": "red-eye",
       "tier": "unusual",
       "tags": {
         "intent": [
@@ -931,6 +1030,7 @@
     },
     {
       "text": "the subject sharp against a softly out-of-focus background",
+      "short": "soft background",
       "tier": "typical",
       "tags": {
         "intent": [
@@ -940,6 +1040,7 @@
     },
     {
       "text": "the distance melting into soft blur behind a close subject",
+      "short": "melting distance",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -949,6 +1050,7 @@
     },
     {
       "text": "blurred objects at the edge of the frame and the subject sharp behind them",
+      "short": "blurred foreground edges",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -958,6 +1060,7 @@
     },
     {
       "text": "background lights turned into soft round discs",
+      "short": "bokeh discs",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -967,6 +1070,7 @@
     },
     {
       "text": "only the eyes sharp, the ears and shoulders already soft",
+      "short": "only the eyes sharp",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -976,6 +1080,7 @@
     },
     {
       "text": "a thin slice of focus across the subject, soft before and behind",
+      "short": "thin slice of focus",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -985,6 +1090,7 @@
     },
     {
       "text": "the background reduced to soft patches of color",
+      "short": "background color patches",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -994,6 +1100,7 @@
     },
     {
       "text": "a softly blurred foreground leading to a sharp subject",
+      "short": "soft foreground lead-in",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1003,6 +1110,7 @@
     },
     {
       "text": "the slightly harsh color and soft detail of an early digital camera",
+      "short": "early digital camera",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1012,6 +1120,7 @@
     },
     {
       "text": "the low-resolution look of a mid-2000s compact camera",
+      "short": "2000s compact camera",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1021,6 +1130,7 @@
     },
     {
       "text": "the blocky, compressed look of an old webcam picture",
+      "short": "old webcam",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1030,6 +1140,7 @@
     },
     {
       "text": "the washed-out highlights and purple fringes of a cheap digital camera",
+      "short": "cheap digital fringing",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1039,6 +1150,7 @@
     },
     {
       "text": "the small, noisy look of an early camera-phone photo",
+      "short": "early camera phone",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1048,6 +1160,7 @@
     },
     {
       "text": "the look of a still frame from a home video",
+      "short": "home-video still",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1057,6 +1170,7 @@
     },
     {
       "text": "a little motion blur in the hands and hair",
+      "short": "motion blur in hair",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1066,6 +1180,7 @@
     },
     {
       "text": "the background streaking past a sharp subject",
+      "short": "panning blur",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1075,6 +1190,7 @@
     },
     {
       "text": "movement frozen mid-action, every detail sharp",
+      "short": "frozen action",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1084,6 +1200,7 @@
     },
     {
       "text": "a slight overall shake, as from a hand-held camera in dim light",
+      "short": "camera shake",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1093,6 +1210,7 @@
     },
     {
       "text": "passers-by blurred into streaks around a still subject",
+      "short": "blurred passers-by",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1102,6 +1220,7 @@
     },
     {
       "text": "water or fabric caught as a soft blur while the rest stays sharp",
+      "short": "soft-blurred water",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1111,6 +1230,7 @@
     },
     {
       "text": "a ghosted double outline where the subject moved",
+      "short": "ghosted double outline",
       "tier": "plausible",
       "tags": {
         "intent": [
@@ -1120,6 +1240,7 @@
     },
     {
       "text": "light trails drawn through the frame by a long exposure",
+      "short": "light trails",
       "tier": "plausible",
       "tags": {
         "intent": [

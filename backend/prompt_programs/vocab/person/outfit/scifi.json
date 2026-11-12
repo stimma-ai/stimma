@@ -28,6 +28,7 @@
   "values": [
     {
       "text": "a {main} pressure suit with {neutral} articulated knee panels",
+      "short": "pressure suit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -53,6 +54,7 @@
     },
     {
       "text": "a {main} flight jumpsuit with {accent} reinforced seams",
+      "short": "flight jumpsuit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -78,6 +80,7 @@
     },
     {
       "text": "a {main} utility coverall with {accent} quilted shoulder panels",
+      "short": "utility coverall",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -103,6 +106,7 @@
     },
     {
       "text": "a {main} high-collared jacket and matching seamless pants",
+      "short": "high-collared jacket set",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -133,6 +137,7 @@
     },
     {
       "text": "a {main} polymer-paneled jacket and {neutral} fitted pants",
+      "short": "polymer-paneled jacket",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -157,6 +162,7 @@
     },
     {
       "text": "a {neutral} ribbed undersuit beneath {main} segmented body armor",
+      "short": "segmented body armor",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -188,6 +194,7 @@
     },
     {
       "text": "a {main} woven-fiber robe over {neutral} tailored pants",
+      "short": "woven-fiber robe",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -220,6 +227,7 @@
     },
     {
       "text": "a {main} formal jacket with metallic piping and matching pants",
+      "short": "piped formal jacket",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -253,6 +261,7 @@
     },
     {
       "text": "a {main} pleated gown with a structured {accent} polymer collar",
+      "short": "polymer-collar gown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -279,6 +288,7 @@
     },
     {
       "text": "a {main} modular coat and {neutral} articulated pants",
+      "short": "modular coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -304,6 +314,7 @@
     },
     {
       "text": "a {neutral} thermal jumpsuit beneath a {main} insulated parka",
+      "short": "thermal jumpsuit, parka",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -332,6 +343,7 @@
     },
     {
       "text": "a {main} sealed coverall with ribbed {neutral} flexible joint sections",
+      "short": "sealed coverall",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -357,6 +369,7 @@
     },
     {
       "text": "a {main} vinyl trench coat and {accent} technical pants",
+      "short": "vinyl trench coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -382,6 +395,7 @@
     },
     {
       "text": "a {main} reflective bomber and {neutral} coated denim jeans",
+      "short": "reflective bomber",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -407,6 +421,7 @@
     },
     {
       "text": "a silver mesh top over a {main} undershirt and {neutral} pants",
+      "short": "silver mesh top",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -431,6 +446,7 @@
     },
     {
       "text": "a {main} asymmetric coat and {neutral} strapped utility pants",
+      "short": "asymmetric coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -456,6 +472,7 @@
     },
     {
       "text": "a {main} translucent raincoat over a {neutral} technical jumpsuit",
+      "short": "clear raincoat, jumpsuit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -481,6 +498,7 @@
     },
     {
       "text": "a {main} neoprene dress with {accent} polymer side panels",
+      "short": "neoprene dress",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -504,6 +522,7 @@
     },
     {
       "text": "a {main} segmented vest over a {neutral} shirt and pants",
+      "short": "segmented vest",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -535,6 +554,7 @@
     },
     {
       "text": "a {main} oversized technical hoodie and {neutral} paneled leggings",
+      "short": "tech hoodie, leggings",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -560,6 +580,7 @@
     },
     {
       "text": "a metallic {main} pantsuit with a {neutral} mesh underlayer",
+      "short": "metallic pantsuit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -592,6 +613,7 @@
     },
     {
       "text": "a {main} holographic-fabric gown with angular shoulder panels",
+      "short": "holographic gown",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -618,6 +640,7 @@
     },
     {
       "text": "a {main} quilted kimono-cut jacket and {neutral} technical pants",
+      "short": "kimono-cut jacket",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -643,6 +666,7 @@
     },
     {
       "text": "a {main} ripstop poncho over a {neutral} jumpsuit",
+      "short": "ripstop poncho",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -668,6 +692,7 @@
     },
     {
       "text": "a {main} quilted jacket and mismatched denim patchwork pants",
+      "short": "quilted, patched denim",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -700,6 +725,7 @@
     },
     {
       "text": "a {main} linen wrap coat and loose patched {neutral} cotton pants",
+      "short": "linen wrap coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -738,6 +764,7 @@
     },
     {
       "text": "a {main} short-sleeved salvage coverall with a cutaway overskirt of {accent} tool-pocket panels and {neutral} reinforced boots",
+      "short": "salvage coverall",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -770,6 +797,7 @@
     },
     {
       "text": "a {main} salvaged-fabric poncho over a {accent} wool tunic and {neutral} pants",
+      "short": "salvaged poncho",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -804,6 +832,7 @@
     },
     {
       "text": "a {main} quilted robe over a patched {neutral} jumpsuit",
+      "short": "quilted robe, jumpsuit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -836,6 +865,7 @@
     },
     {
       "text": "a {main} rubberized rain cape and reinforced {neutral} pants",
+      "short": "rubberized rain cape",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -868,6 +898,7 @@
     },
     {
       "text": "a {main} reinforced duster over a {accent} quilted tunic and {neutral} pants",
+      "short": "reinforced duster",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -900,6 +931,7 @@
     },
     {
       "text": "a patched {main} wool hooded cloak over a {accent} linen tunic and {neutral} pants",
+      "short": "patched hooded cloak",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -937,6 +969,7 @@
     },
     {
       "text": "a {main} rigid torso flight shell with a broad circular neck ring over {neutral} ribbed pressure leggings and {accent} gauntlets",
+      "short": "rigid flight shell",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -960,6 +993,7 @@
     },
     {
       "text": "a {main} short-sleeved flight coverall with {accent} seam tape and {neutral} knee panels",
+      "short": "flight coverall",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -986,6 +1020,7 @@
     },
     {
       "text": "a {main} double-breasted flight jacket over a {accent} high-neck shirt and {neutral} uniform pants",
+      "short": "flight jacket, uniform",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1018,6 +1053,7 @@
     },
     {
       "text": "a {main} ceramic-plated combat coat over a {neutral} flexible armored bodysuit",
+      "short": "ceramic combat coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1047,6 +1083,7 @@
     },
     {
       "text": "a {main} ballistic vest over a {neutral} short-sleeved shirt and {accent} reinforced cargo pants",
+      "short": "ballistic vest, cargos",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1080,6 +1117,7 @@
     },
     {
       "text": "a {main} insulated combat suit with {neutral} reinforced elbows and {accent} identification stripes",
+      "short": "insulated combat suit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1106,6 +1144,7 @@
     },
     {
       "text": "a {main} short-sleeved utility shirt and {neutral} articulated work pants with {accent} pocket flaps",
+      "short": "utility shirt and pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1132,6 +1171,7 @@
     },
     {
       "text": "a {main} protective welding jacket over {neutral} reinforced coveralls with {accent} heat-resistant cuffs",
+      "short": "welding jacket",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1155,6 +1195,7 @@
     },
     {
       "text": "a {main} rubberized maintenance suit with {accent} seam welds and {neutral} integrated boots",
+      "short": "maintenance suit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1178,6 +1219,7 @@
     },
     {
       "text": "a white lab coat over a {main} high-neck tunic and {neutral} polymer-weave pants",
+      "short": "lab coat over tunic",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1209,6 +1251,7 @@
     },
     {
       "text": "a {main} transparent bell-shaped isolation smock over a {accent} sealed tunic and {neutral} cropped laboratory pants",
+      "short": "isolation smock",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1232,6 +1275,7 @@
     },
     {
       "text": "a {main} knitted research jacket over a {accent} collarless shirt and {neutral} technical pants",
+      "short": "knitted research jacket",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1263,6 +1307,7 @@
     },
     {
       "text": "a short-sleeved white laboratory smock over {main} cropped scrubs and {neutral} polymer clogs",
+      "short": "lab smock and scrubs",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1297,6 +1342,7 @@
     },
     {
       "text": "a {main} sharply tailored jacket with {accent} lapel insets over a {neutral} shirt and matching suit pants",
+      "short": "tailored suit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1332,6 +1378,7 @@
     },
     {
       "text": "a sleeveless {main} sculpted sheath dress with a {accent} bonded waist panel and {neutral} polymer shoes",
+      "short": "sculpted sheath dress",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1366,6 +1413,7 @@
     },
     {
       "text": "a {main} high-collared tunic with rigid wing-shaped shoulders and a sculpted peplum over {neutral} narrow tailored pants",
+      "short": "winged-shoulder tunic",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1398,6 +1446,7 @@
     },
     {
       "text": "a {main} vinyl bandeau and {neutral} technical shorts with {accent} luminous seam piping",
+      "short": "vinyl bandeau, shorts",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1424,6 +1473,7 @@
     },
     {
       "text": "a cropped {main} mesh hoodie over a {accent} stretch bralette and {neutral} micro-pleated miniskirt",
+      "short": "mesh hoodie, miniskirt",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1450,6 +1500,7 @@
     },
     {
       "text": "a sleeveless {main} polymer vest and {neutral} knee-length utility shorts with {accent} webbing panels",
+      "short": "polymer vest, shorts",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1476,6 +1527,7 @@
     },
     {
       "text": "a {main} padded cocoon coat over a {accent} ribbed top and {neutral} zip-panel pants",
+      "short": "padded cocoon coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1502,6 +1554,7 @@
     },
     {
       "text": "a {main} patched canvas vest over a {neutral} cotton shirt and {accent} cropped cargo pants",
+      "short": "canvas vest, cargos",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1539,6 +1592,7 @@
     },
     {
       "text": "a {main} knotted salvage-cloth top and {neutral} cut-off cargo shorts with {accent} repair patches",
+      "short": "salvage top, cut-offs",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1575,6 +1629,7 @@
     },
     {
       "text": "a {main} blanket-wool coat over a {accent} patched sweater and {neutral} quilted pants",
+      "short": "blanket-wool coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1612,6 +1667,7 @@
     },
     {
       "text": "a {main} seamless halter top and {neutral} stretch shorts with {accent} bonded hems",
+      "short": "halter top and shorts",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1637,6 +1693,7 @@
     },
     {
       "text": "a sleeveless {main} woven-fiber wrap dress with {accent} laser-cut pleats and {neutral} flat shoes",
+      "short": "laser-pleated wrap dress",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1670,6 +1727,7 @@
     },
     {
       "text": "a {main} magnetic-fastened cardigan over a {accent} jersey top and {neutral} adaptive side-opening pants",
+      "short": "magnetic cardigan",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1701,6 +1759,7 @@
     },
     {
       "text": "a {main} insulated modular cape over a {accent} ribbed tunic and {neutral} thermal leggings",
+      "short": "insulated modular cape",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1727,6 +1786,7 @@
     },
     {
       "text": "a polished aluminum pressure shell with articulated bellows joints and gold thermal-film panels",
+      "short": "aluminum pressure suit",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1750,6 +1810,7 @@
     },
     {
       "text": "a {main} translucent polymer tunic with {accent} fiber-optic seams over {neutral} stretch briefs",
+      "short": "translucent tunic",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1777,6 +1838,7 @@
     },
     {
       "text": "a {main} pleated ceremonial mantle over a {accent} bonded tunic and {neutral} seamless pants",
+      "short": "ceremonial mantle",
       "tier": "plausible",
       "tags": {
         "genre": [

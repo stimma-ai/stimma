@@ -123,6 +123,7 @@ class Value:
     group: str = ""            # the leaf's declared group it takes its shared tags from
     less_common: Dict[str, Any] = field(default_factory=dict)   # context facet -> families it gives as less common
     scale: float = 1.0         # its branch's share over the branch's tier weights (a leaf's `shares`)
+    short: str = ""            # a pill-sized name for the chooser ("flannel shirt and jeans"); never drawn
 
     @property
     def weight(self) -> float:
@@ -163,6 +164,15 @@ class Leaf:
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
+
+    def short(self, text: str) -> str:
+        """A value's short form for a small pill: its `short` when the list gives one, else the
+        value itself. A filled template ("a navy cotton T-shirt and ...") reads as its template's
+        short form, which names no colors."""
+        v = self.value(text)
+        if v is None and not is_template(text):
+            v = next((x for x in self.values if is_template(x.text) and template_matches(x.text, text)), None)
+        return (v.short if v is not None else "") or text
 
     @cached_property
     def _by_text(self) -> Dict[str, Value]:
@@ -393,7 +403,7 @@ class Vocabulary:
                 "values": [{"text": v.text, "tier": v.tier, **({"tags": v.tags} if v.tags else {}),
                             **({"roles": v.roles} if v.roles else {}), **({"palette": v.palette} if v.palette else {}),
                             **({"opt_in": True} if v.opt_in else {}), **({"adult_only": True} if v.adult_only else {}),
-                            **({"group": v.group} if v.group else {}),
+                            **({"group": v.group} if v.group else {}), **({"short": v.short} if v.short else {}),
                             **({"less_common": v.less_common} if v.less_common else {})}
                            for v in lf.values],
             } for lf in sorted(self.leaves.values(), key=lambda lf: lf.id)],
@@ -427,7 +437,8 @@ def _value(lid: str, v: Dict[str, Any], groups: Dict[str, Any]) -> Value:
     return Value(str(v["text"]), str(v.get("tier") or "plausible"), {**(g.get("tags") or {}), **(v.get("tags") or {})},
                  {str(k): str(x) for k, x in (v.get("roles") or {}).items()}, dict(v.get("palette") or {}),
                  v.get("opt_in") is True, v.get("adult_only") is True, name,
-                 {**(g.get("less_common") or {}), **(v.get("less_common") or {})})
+                 {**(g.get("less_common") or {}), **(v.get("less_common") or {})},
+                 short=str(v.get("short") or "").strip())
 
 
 def _shared(lid: str, vals: Tuple[Value, ...], shares: Dict[str, Dict[str, float]]) -> Tuple[Value, ...]:

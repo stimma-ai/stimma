@@ -27,6 +27,7 @@
   "values": [
     {
       "text": "a {main} linen shirt and {neutral} cotton shorts",
+      "short": "linen shirt and shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -64,6 +65,7 @@
     },
     {
       "text": "a {main} cotton tank and {neutral} drawstring shorts",
+      "short": "tank, drawstring shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -101,6 +103,7 @@
     },
     {
       "text": "a {main} linen tunic and loose {neutral} pants",
+      "short": "linen tunic, loose pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -150,6 +153,7 @@
     },
     {
       "text": "a {main} cotton sundress with a gathered waist",
+      "short": "gathered sundress",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -185,6 +189,7 @@
     },
     {
       "text": "a {main} sleeveless jersey dress with a straight hem",
+      "short": "sleeveless jersey dress",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -218,6 +223,7 @@
     },
     {
       "text": "a {main} cotton blouse and {neutral} linen culottes",
+      "short": "blouse and culottes",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -252,6 +258,7 @@
     },
     {
       "text": "a short-sleeved shirt with {main} and {accent} stripes and {neutral} chino shorts",
+      "short": "striped shirt, shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -288,6 +295,7 @@
     },
     {
       "text": "a {main} linen jumpsuit with cropped wide legs",
+      "short": "cropped linen jumpsuit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -323,6 +331,7 @@
     },
     {
       "text": "a {accent} eyelet blouse and a {main} cotton skirt",
+      "short": "eyelet blouse and skirt",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -358,6 +367,7 @@
     },
     {
       "text": "a {main} cotton wrap dress with short sleeves",
+      "short": "cotton wrap dress",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -392,6 +402,7 @@
     },
     {
       "text": "a {accent} crochet top and loose {neutral} linen pants",
+      "short": "crochet top, linen pants",
       "tier": "plausible",
       "tags": {
         "climate": [
@@ -425,6 +436,7 @@
     },
     {
       "text": "a {main} seersucker shirt and matching cotton shorts",
+      "short": "seersucker set",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -460,6 +472,7 @@
     },
     {
       "text": "a {main} cotton tank and {neutral} drawstring pants",
+      "short": "tank, drawstring pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -496,6 +509,7 @@
     },
     {
       "text": "a {main} sleeveless blouse and {neutral} cropped jeans",
+      "short": "blouse and cropped jeans",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -529,6 +543,7 @@
     },
     {
       "text": "a {main} cotton romper with {accent} floral print and an elastic waist",
+      "short": "floral romper",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -563,6 +578,7 @@
     },
     {
       "text": "a {main} cotton playsuit with short legs",
+      "short": "playsuit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -601,6 +617,7 @@
     },
     {
       "text": "a {main} and white gingham sundress with broad shoulder straps",
+      "short": "gingham sundress",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -634,6 +651,7 @@
     },
     {
       "text": "a {main} linen shirt dress with rolled sleeves",
+      "short": "linen shirt dress",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -669,6 +687,7 @@
     },
     {
       "text": "a {main} cotton polo and {accent} shorts",
+      "short": "polo and shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -705,6 +724,7 @@
     },
     {
       "text": "an oversized {main} muslin poncho top with fringed edges over {neutral} fitted cycling shorts",
+      "short": "poncho top, bike shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -738,6 +758,7 @@
     },
     {
       "text": "a {main} cotton kurta with {accent} printed motifs and {neutral} linen pants",
+      "short": "kurta and linen pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -788,6 +809,7 @@
     },
     {
       "text": "a {main} cotton sari with a {accent} blouse",
+      "short": "cotton sari",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -835,6 +857,7 @@
     },
     {
       "text": "a white linen thobe with loose long sleeves",
+      "short": "thobe",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -879,6 +902,7 @@
     },
     {
       "text": "a {neutral} cotton caftan with {main} woven borders",
+      "short": "caftan",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -931,6 +955,7 @@
     },
     {
       "text": "a {main} aloha shirt with {accent} leaf motifs and {neutral} linen shorts",
+      "short": "aloha shirt and shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -969,6 +994,7 @@
     },
     {
       "text": "a {accent} sleeveless blouse and a {main} batik sarong",
+      "short": "blouse and batik sarong",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1007,6 +1033,7 @@
     },
     {
       "text": "a {main} cotton ao ba ba with loose {neutral} pants",
+      "short": "ao ba ba",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1045,6 +1072,7 @@
     },
     {
       "text": "a {main} pareo with {accent} printed motifs over a {neutral} swimsuit",
+      "short": "pareo over swimsuit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1083,6 +1111,7 @@
     },
     {
       "text": "a {main} one-piece swimsuit with a square neckline",
+      "short": "square-neck swimsuit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1118,6 +1147,7 @@
     },
     {
       "text": "a {main} strapless one-piece swimsuit with a sculpted bandeau top and high-cut legs",
+      "short": "bandeau swimsuit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1154,6 +1184,7 @@
     },
     {
       "text": "a {main} long-sleeved swimsuit with full-length legs",
+      "short": "full-length swimsuit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1189,6 +1220,7 @@
     },
     {
       "text": "a {main} asymmetric one-shoulder swimsuit with a broad waist cutout",
+      "short": "one-shoulder swimsuit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1224,6 +1256,7 @@
     },
     {
       "text": "a {main} tankini top and matching swim shorts",
+      "short": "tankini",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1258,6 +1291,7 @@
     },
     {
       "text": "a {main} bikini with a high-waisted bottom",
+      "short": "high-waisted bikini",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1292,6 +1326,7 @@
     },
     {
       "text": "a {main} string bikini with a triangle top and tie-side bottoms",
+      "short": "string bikini",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1327,6 +1362,7 @@
     },
     {
       "text": "a rash guard with {main} and {accent} stripes and {neutral} knee-length swim shorts",
+      "short": "rash guard, swim shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1361,6 +1397,7 @@
     },
     {
       "text": "a {main} swim tunic and {neutral} ankle-length swim pants",
+      "short": "swim tunic and pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1394,6 +1431,7 @@
     },
     {
       "text": "a {main} swim shirt and {accent} elastic-waist swim shorts",
+      "short": "swim shirt and shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1432,6 +1470,7 @@
     },
     {
       "text": "a pair of {main} knee-length swim trunks",
+      "short": "swim trunks",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1467,6 +1506,7 @@
     },
     {
       "text": "a pair of {main} low-rise swim briefs with {accent} side panels",
+      "short": "swim briefs",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1502,6 +1542,7 @@
     },
     {
       "text": "a {accent} linen cover-up over a {main} one-piece swimsuit",
+      "short": "cover-up over swimsuit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1537,6 +1578,7 @@
     },
     {
       "text": "a {accent} cotton overshirt and {main} swim shorts",
+      "short": "overshirt, swim shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1573,6 +1615,7 @@
     },
     {
       "text": "a {main} swim dress with attached fitted shorts",
+      "short": "swim dress",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1608,6 +1651,7 @@
     },
     {
       "text": "a {main} linen vest and matching loose shorts",
+      "short": "linen vest and shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1643,6 +1687,7 @@
     },
     {
       "text": "a {main} smocked top and {neutral} cotton pants",
+      "short": "smocked top and pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1677,6 +1722,7 @@
     },
     {
       "text": "a {accent} cotton peasant blouse and a {main} tiered skirt",
+      "short": "peasant blouse, tiered",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1721,6 +1767,7 @@
     },
     {
       "text": "a {main} chambray halter top and matching wrap-front skort with {accent} topstitching",
+      "short": "halter top and skort",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1755,6 +1802,7 @@
     },
     {
       "text": "a {main} sleeveless tunic and {neutral} ankle-length pants",
+      "short": "sleeveless tunic, pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1803,6 +1851,7 @@
     },
     {
       "text": "a cotton T-shirt dress with {main} and {accent} stripes and side slits",
+      "short": "striped T-shirt dress",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1838,6 +1887,7 @@
     },
     {
       "text": "a {main} cotton crop top and high-waisted {neutral} linen shorts",
+      "short": "crop top, linen shorts",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -1872,6 +1922,7 @@
     },
     {
       "text": "a sleeveless undyed linen tunic and loose knee-length linen breeches",
+      "short": "tunic and breeches",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1906,6 +1957,7 @@
     },
     {
       "text": "a pale flax gown with short sleeves and a woven girdle",
+      "short": "flax gown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1939,6 +1991,7 @@
     },
     {
       "text": "a lightweight {main} cotton wrap tunic and loosely gathered {neutral} linen pants",
+      "short": "wrap tunic, linen pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1980,6 +2033,7 @@
     },
     {
       "text": "a thin cream linen shift beneath a {main} sleeveless overdress",
+      "short": "linen shift, overdress",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -2020,6 +2074,7 @@
     },
     {
       "text": "a cotton seaside dress with {main} and {accent} stripes and a broad sailor collar",
+      "short": "striped seaside dress",
       "tier": "typical",
       "tags": {
         "genre": [

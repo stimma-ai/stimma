@@ -27,6 +27,7 @@
   "values": [
     {
       "text": "a {main} cotton T-shirt and straight blue jeans",
+      "short": "T-shirt and jeans",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -60,6 +61,7 @@
     },
     {
       "text": "a {main} jersey T-shirt and {neutral} cargo pants",
+      "short": "T-shirt and cargo pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -93,6 +95,7 @@
     },
     {
       "text": "a cotton shirt with {main} and {accent} stripes and faded denim shorts",
+      "short": "striped shirt, cut-offs",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -125,6 +128,7 @@
     },
     {
       "text": "a {main} sweatshirt and {neutral} cotton joggers",
+      "short": "sweatshirt and joggers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -157,6 +161,7 @@
     },
     {
       "text": "a {main} cable-knit sweater and {neutral} corduroy pants",
+      "short": "cable-knit and corduroys",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -190,6 +195,7 @@
     },
     {
       "text": "a {main} cardigan and dark straight-leg jeans",
+      "short": "cardigan and jeans",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -223,6 +229,7 @@
     },
     {
       "text": "a {main} flannel shirt and {neutral} denim jeans",
+      "short": "flannel shirt and jeans",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -255,6 +262,7 @@
     },
     {
       "text": "a {main} polo shirt and {neutral} chinos",
+      "short": "polo shirt and chinos",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -288,6 +296,7 @@
     },
     {
       "text": "a {main} linen blouse and wide {neutral} pants",
+      "short": "linen blouse, wide pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -319,6 +328,7 @@
     },
     {
       "text": "a {main} ribbed top and loose {neutral} jeans",
+      "short": "ribbed top, loose jeans",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -351,6 +361,7 @@
     },
     {
       "text": "a {main} short-sleeved cotton tunic and {neutral} leggings",
+      "short": "tunic and leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -382,6 +393,7 @@
     },
     {
       "text": "a cotton shirt with {main} and {accent} checks and stonewashed denim overalls",
+      "short": "checked shirt, overalls",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -414,6 +426,7 @@
     },
     {
       "text": "a {main} sweatshirt and {neutral} jersey leggings",
+      "short": "sweatshirt and leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -445,6 +458,7 @@
     },
     {
       "text": "a {main} henley shirt and {neutral} canvas pants",
+      "short": "henley and canvas pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -479,6 +493,7 @@
     },
     {
       "text": "a {main} cotton blouse and a blue denim skirt",
+      "short": "blouse and denim skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -510,6 +525,7 @@
     },
     {
       "text": "a {main} knee-length jersey dress with short sleeves",
+      "short": "jersey dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -541,6 +557,7 @@
     },
     {
       "text": "a {main} cotton midi shirt dress with a fabric belt",
+      "short": "shirt dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -573,6 +590,7 @@
     },
     {
       "text": "a {main} T-shirt and a {accent} pleated midi skirt",
+      "short": "T-shirt and midi skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -605,6 +623,7 @@
     },
     {
       "text": "a {main} cardigan and a {neutral} jersey maxi skirt",
+      "short": "cardigan and maxi skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -636,6 +655,7 @@
     },
     {
       "text": "a {main} short-sleeved linen top and {neutral} drawstring pants",
+      "short": "linen top, drawstrings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -681,6 +701,7 @@
     },
     {
       "text": "a {main} fleece pullover and {neutral} hiking pants",
+      "short": "fleece and hiking pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -712,6 +733,7 @@
     },
     {
       "text": "a {main} cotton jumpsuit with wide legs",
+      "short": "wide-leg jumpsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -745,6 +767,7 @@
     },
     {
       "text": "a {main} canvas coverall with rolled sleeves",
+      "short": "canvas coverall",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -778,6 +801,7 @@
     },
     {
       "text": "a {main} hoodie and {neutral} cargo pants",
+      "short": "hoodie and cargo pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -810,6 +834,7 @@
     },
     {
       "text": "a {main} jersey wrap dress with elbow-length sleeves",
+      "short": "jersey wrap dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -841,6 +866,7 @@
     },
     {
       "text": "a faded {main} T-shirt and patchwork denim jeans",
+      "short": "faded tee, patched jeans",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -873,6 +899,7 @@
     },
     {
       "text": "a {main} knit vest over a {accent} shirt with {neutral} pants",
+      "short": "knit vest and shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -906,6 +933,7 @@
     },
     {
       "text": "a {main} suede vest over a {accent} shirt and blue jeans",
+      "short": "suede vest and jeans",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -939,6 +967,7 @@
     },
     {
       "text": "a {neutral} short-sleeved blouse and a {main} cotton pinafore dress",
+      "short": "blouse and pinafore",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -971,6 +1000,7 @@
     },
     {
       "text": "an embroidered {main} kurta and loose {neutral} cotton pajama pants",
+      "short": "kurta and pajama pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1010,6 +1040,7 @@
     },
     {
       "text": "a cotton {main} salwar kameez with straight sleeves and {accent} embroidery",
+      "short": "salwar kameez",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1048,6 +1079,7 @@
     },
     {
       "text": "a {main} cotton sari with a {accent} short-sleeved blouse",
+      "short": "cotton sari",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1084,6 +1116,7 @@
     },
     {
       "text": "a {main} thobe with a simple buttoned neckline",
+      "short": "thobe",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1122,6 +1155,7 @@
     },
     {
       "text": "a {main} abaya over a {neutral} ankle-length dress",
+      "short": "abaya",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1160,6 +1194,7 @@
     },
     {
       "text": "a cotton djellaba with {main} and {accent} stripes over loose {neutral} pants",
+      "short": "striped djellaba",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1208,6 +1243,7 @@
     },
     {
       "text": "a wax-print blouse in {main} and {accent} with a matching straight skirt",
+      "short": "wax-print blouse, skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1242,6 +1278,7 @@
     },
     {
       "text": "a {main} boubou over matching cotton pants",
+      "short": "boubou and pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1290,6 +1327,7 @@
     },
     {
       "text": "an embroidered {main} dashiki with {accent} stitching and {neutral} pants",
+      "short": "dashiki and pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1325,6 +1363,7 @@
     },
     {
       "text": "a {main} guayabera and {neutral} linen pants",
+      "short": "guayabera, linen pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1360,6 +1399,7 @@
     },
     {
       "text": "a {main} huipil and a {neutral} skirt",
+      "short": "huipil and skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1407,6 +1447,7 @@
     },
     {
       "text": "a cotton kebaya with {main} and {accent} floral motifs and a patterned {neutral} batik skirt",
+      "short": "kebaya and batik skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1445,6 +1486,7 @@
     },
     {
       "text": "a {main} samue jacket and matching loose pants",
+      "short": "samue",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1479,6 +1521,7 @@
     },
     {
       "text": "a {main} cotton yukata with a {accent} obi",
+      "short": "yukata",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1519,6 +1562,7 @@
     },
     {
       "text": "a loose {main} long-sleeved tunic and {neutral} harem pants",
+      "short": "tunic and harem pants",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1555,6 +1599,7 @@
     },
     {
       "text": "a {main} cropped canvas chore vest over a {accent} T-shirt and {neutral} barrel-leg pants",
+      "short": "chore vest, barrel pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1583,6 +1628,7 @@
     },
     {
       "text": "a {main} quilted pinafore with a square bib over a {accent} jersey turtleneck and {neutral} tights",
+      "short": "quilted pinafore, tights",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1610,6 +1656,7 @@
     },
     {
       "text": "a {main} sleeveless hooded jersey dress with a stepped hem over {neutral} cycling shorts",
+      "short": "hooded jersey dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1637,6 +1684,7 @@
     },
     {
       "text": "a {main} crew-neck T-shirt and {neutral} cotton chino shorts",
+      "short": "crew-neck tee and shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1666,6 +1714,7 @@
     },
     {
       "text": "a {main} cotton turtleneck and {neutral} straight wool pants",
+      "short": "turtleneck, wool pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1695,6 +1744,7 @@
     },
     {
       "text": "a {main} boat-neck jersey top and {neutral} cropped cotton pants",
+      "short": "boat-neck top, crops",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1724,6 +1774,7 @@
     },
     {
       "text": "a {main} chambray shirt with rolled sleeves and {neutral} linen shorts",
+      "short": "chambray shirt, shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1753,6 +1804,7 @@
     },
     {
       "text": "a {main} jersey tank and {neutral} drawstring sweat shorts",
+      "short": "tank and sweat shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1782,6 +1834,7 @@
     },
     {
       "text": "a {main} velour zip hoodie and matching flared track pants",
+      "short": "velour tracksuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1810,6 +1863,7 @@
     },
     {
       "text": "a raglan {main} baseball T-shirt with {accent} sleeves and {neutral} joggers",
+      "short": "raglan tee and joggers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1839,6 +1893,7 @@
     },
     {
       "text": "a {main} zip-neck jersey pullover and {neutral} cropped sweatpants",
+      "short": "zip-neck pullover",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1868,6 +1923,7 @@
     },
     {
       "text": "an oversized {main} cotton T-shirt and {neutral} parachute pants",
+      "short": "tee and parachute pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1897,6 +1953,7 @@
     },
     {
       "text": "a {main} denim overshirt over a {accent} T-shirt and {neutral} wide-leg jeans",
+      "short": "overshirt, wide jeans",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1926,6 +1983,7 @@
     },
     {
       "text": "a {main} cropped jersey top and {neutral} low-rise cargo pants",
+      "short": "crop top, low-rise cargo",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1954,6 +2012,7 @@
     },
     {
       "text": "a {main} mesh long-sleeved top over a {accent} tank with {neutral} baggy jeans",
+      "short": "mesh top, baggy jeans",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1983,6 +2042,7 @@
     },
     {
       "text": "a patchwork {main} sweatshirt with {accent} panels and {neutral} carpenter jeans",
+      "short": "patchwork sweatshirt",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -2012,6 +2072,7 @@
     },
     {
       "text": "a {main} gathered cotton peasant blouse and a {neutral} tiered maxi skirt",
+      "short": "peasant blouse, maxi",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2040,6 +2101,7 @@
     },
     {
       "text": "a {main} crochet camisole and {neutral} wide-leg linen pants",
+      "short": "crochet cami, wide pants",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -2068,6 +2130,7 @@
     },
     {
       "text": "a gathered {main} cotton midi dress with {accent} block-printed flowers",
+      "short": "block-print midi dress",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -2096,6 +2159,7 @@
     },
     {
       "text": "a {main} linen vest over a {accent} long-sleeved blouse and {neutral} palazzo pants",
+      "short": "linen vest, palazzos",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2124,6 +2188,7 @@
     },
     {
       "text": "a {main} cotton chore jacket over a {accent} henley and {neutral} canvas pants",
+      "short": "chore jacket and henley",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2153,6 +2218,7 @@
     },
     {
       "text": "a {main} ribbed tank and {neutral} denim bib overalls",
+      "short": "tank and bib overalls",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2182,6 +2248,7 @@
     },
     {
       "text": "a {main} cotton twill shop coat over a {accent} T-shirt and {neutral} straight jeans",
+      "short": "shop coat and jeans",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -2211,6 +2278,7 @@
     },
     {
       "text": "a {main} side-fastening seated-cut overshirt and {neutral} elastic-waist canvas pants",
+      "short": "seated-cut overshirt",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -2240,6 +2308,7 @@
     },
     {
       "text": "a long-sleeved {main} cotton rugby shirt with {accent} horizontal bands and {neutral} chinos",
+      "short": "rugby shirt and chinos",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2269,6 +2338,7 @@
     },
     {
       "text": "a {main} sleeveless cable-knit vest over a {accent} polo and {neutral} Bermuda shorts",
+      "short": "sweater vest, Bermudas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2298,6 +2368,7 @@
     },
     {
       "text": "a button-front {main} cardigan with {accent} tipping over a white Oxford shirt and {neutral} chinos",
+      "short": "cardigan, Oxford, chinos",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2327,6 +2398,7 @@
     },
     {
       "text": "a {main} short-sleeved knit polo and a {accent} knee-length pleated skirt",
+      "short": "knit polo, pleated skirt",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -2355,6 +2427,7 @@
     },
     {
       "text": "a {main} fine-knit crew-neck sweater and matching straight jersey pants",
+      "short": "knit sweater set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2384,6 +2457,7 @@
     },
     {
       "text": "a {main} sleeveless linen shift dress with patch pockets",
+      "short": "linen shift dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2412,6 +2486,7 @@
     },
     {
       "text": "a {main} boxy cotton top and {neutral} cropped culottes",
+      "short": "boxy top and culottes",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2440,6 +2515,7 @@
     },
     {
       "text": "a {main} long-sleeved jersey tunic and matching wide-leg pants",
+      "short": "tunic, wide-leg pants",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -2469,6 +2545,7 @@
     },
     {
       "text": "a {main} puff-sleeved cotton blouse and a {neutral} A-line midi skirt",
+      "short": "puff blouse, A-line midi",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2497,6 +2574,7 @@
     },
     {
       "text": "a sleeveless {main} cotton sundress with a shirred bodice and {accent} floral embroidery",
+      "short": "embroidered sundress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2525,6 +2603,7 @@
     },
     {
       "text": "a lace-trimmed {main} long-sleeved blouse under a {accent} knitted vest with a {neutral} gathered maxi skirt",
+      "short": "prairie blouse and vest",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -2553,6 +2632,7 @@
     },
     {
       "text": "a {main} thobe beneath a cropped {accent} sleeveless brocade vest",
+      "short": "thobe and brocade vest",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2590,6 +2670,7 @@
     },
     {
       "text": "a {main} synthetic-leather jacket and {neutral} pleated midi skirt",
+      "short": "faux leather, midi skirt",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -2618,6 +2699,7 @@
     },
     {
       "text": "a patched {main} canvas coat and faded {neutral} cargo pants",
+      "short": "patched coat, cargos",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -2658,6 +2740,7 @@
     },
     {
       "text": "a {main} hooded coat sewn from mismatched canvas panels and blue jeans",
+      "short": "patchwork canvas coat",
       "tier": "typical",
       "tags": {
         "genre": [

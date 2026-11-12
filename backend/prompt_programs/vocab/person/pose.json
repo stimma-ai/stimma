@@ -10,46 +10,57 @@
   "values": [
     {
       "text": "standing with arms relaxed at the sides",
+      "short": "arms at the sides",
       "tier": "typical"
     },
     {
       "text": "standing with arms crossed",
+      "short": "arms crossed",
       "tier": "typical"
     },
     {
       "text": "standing with hands clasped in front",
+      "short": "hands clasped in front",
       "tier": "typical"
     },
     {
       "text": "standing with hands clasped behind the back",
+      "short": "hands behind the back",
       "tier": "typical"
     },
     {
       "text": "standing with one hand on one hip",
+      "short": "hand on hip",
       "tier": "typical"
     },
     {
       "text": "standing with weight on one leg",
+      "short": "weight on one leg",
       "tier": "typical"
     },
     {
       "text": "standing with feet shoulder-width apart",
+      "short": "feet apart",
       "tier": "typical"
     },
     {
       "text": "standing with torso turned three-quarters sideways",
+      "short": "three-quarter turn",
       "tier": "typical"
     },
     {
       "text": "standing in profile with back straight",
+      "short": "standing in profile",
       "tier": "typical"
     },
     {
       "text": "standing with back turned and head slightly rotated",
+      "short": "back turned",
       "tier": "typical"
     },
     {
       "text": "standing with head tilted to one side",
+      "short": "head tilted",
       "tier": "typical"
     },
     {
@@ -58,94 +69,117 @@
     },
     {
       "text": "sitting with ankles crossed",
+      "short": "ankles crossed",
       "tier": "typical"
     },
     {
       "text": "sitting with legs extended straight ahead",
+      "short": "legs out straight",
       "tier": "typical"
     },
     {
       "text": "sitting with one knee drawn toward the chest",
+      "short": "one knee drawn up",
       "tier": "typical"
     },
     {
       "text": "sitting with hands resting on knees",
+      "short": "hands on knees",
       "tier": "typical"
     },
     {
       "text": "sitting with torso inclined slightly forward",
+      "short": "leaning forward, seated",
       "tier": "typical"
     },
     {
       "text": "sitting with back upright and feet apart",
+      "short": "sitting upright",
       "tier": "typical"
     },
     {
       "text": "sitting with chin resting on one hand",
+      "short": "chin on hand",
       "tier": "typical"
     },
     {
       "text": "standing with one forearm across the waist",
+      "short": "forearm across waist",
       "tier": "plausible"
     },
     {
       "text": "standing with one elbow raised and a hand behind the head",
+      "short": "hand behind the head",
       "tier": "plausible"
     },
     {
       "text": "standing with one arm extended overhead",
+      "short": "arm raised overhead",
       "tier": "plausible"
     },
     {
       "text": "standing with upper body folded forward",
+      "short": "folded forward",
       "tier": "plausible"
     },
     {
       "text": "standing on tiptoe with arms at the sides",
+      "short": "on tiptoe",
       "tier": "plausible"
     },
     {
       "text": "sitting with knees hugged against the chest",
+      "short": "hugging knees",
       "tier": "plausible"
     },
     {
       "text": "sitting with one knee raised and an elbow resting on it",
+      "short": "knee up, elbow on it",
       "tier": "plausible"
     },
     {
       "text": "sitting with legs crossed at the knees",
+      "short": "legs crossed",
       "tier": "plausible"
     },
     {
       "text": "kneeling upright with hands on thighs",
+      "short": "kneeling upright",
       "tier": "plausible"
     },
     {
       "text": "kneeling with one knee raised",
+      "short": "kneeling on one knee",
       "tier": "plausible"
     },
     {
       "text": "crouching with heels raised and elbows near knees",
+      "short": "crouching",
       "tier": "plausible"
     },
     {
       "text": "squatting with heels down and hands clasped",
+      "short": "squatting",
       "tier": "plausible"
     },
     {
       "text": "lying face up with arms at the sides",
+      "short": "lying face up",
       "tier": "plausible"
     },
     {
       "text": "lying on one side with knees loosely bent",
+      "short": "lying on one side",
       "tier": "plausible"
     },
     {
       "text": "lying face down with forearms folded beneath the chin",
+      "short": "lying face down",
       "tier": "plausible"
     },
     {
       "text": "reclining with weight supported on both elbows",
+      "short": "reclining on elbows",
       "tier": "plausible"
     }
   ]
