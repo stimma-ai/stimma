@@ -332,6 +332,7 @@
             v-model="globalPrefs.prompt"
             @focusout="handlePromptFocusOut"
             @save="preparePromptNow"
+            @open-slot="openPromptSlot"
             :rows="drawerMode ? 2 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
             external-chat
             :promptOptions="globalPrefs.promptOptions"
@@ -665,8 +666,6 @@
           :upload-config="loraUploadConfig"
           :lora-notes="loraNotes"
           :verbatim-prompt="((globalPrefs.promptOptions?.autoImprove?.enabled && !runsDirect) || promptProgram.status.value !== 'off') && !rawMode ? null : (globalPrefs.prompt || '')"
-          :program-loras="promptProgram.loraControl.value"
-          @program-lora="(path, el) => promptProgram.open(promptProgram.loraControl.value[path]?.choiceId, el)"
           @refresh-loras="refreshLoras"
           @upload="uploadLora"
           @insert-trigger="insertTriggerWord"
@@ -679,8 +678,6 @@
           :values="constraintValues"
           :is-group-collapsed="getGroupCollapsed"
           :on-toggle-group-collapsed="toggleGroupCollapsed"
-          :program-params="promptProgram.paramControl.value"
-          @program-param="(name, el) => promptProgram.open(promptProgram.paramControl.value[name]?.choiceId, el)"
           @update:param="(name, value) => { modelParams[name] = value }"
         />
 
@@ -1297,7 +1294,6 @@ import {
   buildCapturedState,
   getPreUploadTasks,
   hasPromptFeature,
-  lineageMediaId,
   type PayloadBuilderState,
   type PayloadBuilderConfig,
 } from '../composables/useJobPayloadBuilder'
@@ -3423,7 +3419,7 @@ import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptPro
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
-import { DRAWING_LABEL, PREPARING_LABEL, fallbackNotice, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, programRunActions, shapePromptOptions, switchDeclinedToDirect, wasDeclined } from '../utils/fluentSubmit'
+import { DRAWING_LABEL, PREPARING_LABEL, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions, switchDeclinedToDirect, wasDeclined } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
@@ -3945,39 +3941,6 @@ const promptProgram = usePromptProgram({
   toolId: computed(() => fullToolIdFromProps || null),
   prompt: computed(() => globalPrefs.value.prompt || ''),
   enabled: computed(() => fluentOn.value && !!hasPrompt.value && !rawMode.value && !runsDirect.value),
-  enhance: enhanceLevel,
-  loraNotes: computed(() => loraChoices(globalPrefs.value.promptOptions).loraNotes),
-  loraTriggers: computed(() => loraChoices(globalPrefs.value.promptOptions).loraTriggers),
-  loraItems: computed(() => hasLoras.value
-    ? _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)).map(i => ({ lora: i.lora, weight: i.weight, enabled: !!i.enabled }))
-    : []),
-  contextParams: computed(() => {
-    // Only what the enhancer's style depends on; never the images themselves. What one
-    // job sends: in batch mode, one of the batched images.
-    const imgs: any[] = jobContextImages({
-      inputImages: globalPrefs.value.inputImages || [],
-      refImages: globalPrefs.value.inpaintRefImages || [],
-      batchMode: !!globalPrefs.value.batchMode,
-      batchField: globalPrefs.value.batchField,
-    })
-    const p: Record<string, any> = {}
-    if (imgs.length) {
-      p.input_images = imgs.map(() => 'ref')
-      const ids = imgs.map(i => (i ? lineageMediaId(i) : undefined) ?? null)
-      if (ids.some(x => x != null)) p.input_media_ids = ids
-    }
-    // Video tools: the start frame (the enhancer sees it, so it's part of the key).
-    const startId = videoImages.startImage ? lineageMediaId(videoImages.startImage as any) : undefined
-    if (startId != null && !imgs.length) p.input_media_ids = [startId]
-    // A driving audio track changes the enhancer's style too (see enhanceAudioConditioned).
-    if (audioInputConfig.value && audioInputConfig.value.audioRole !== 'reference' && (globalPrefs.value.inputAudios?.length ?? 0) > 0) {
-      p.input_audios = globalPrefs.value.inputAudios.map(() => 'ref')
-    }
-    if (modelParams.value.width) p.width = Number(modelParams.value.width)
-    if (modelParams.value.height) p.height = Number(modelParams.value.height)
-    return p
-  }),
-  instructions: computed(() => globalPrefs.value.promptOptions?.autoImprove?.instructions || ''),
   projectId: projectScopeId,
   promptOptions: computed(() => globalPrefs.value.promptOptions),
   setPromptOptions: (next: any) => { globalPrefs.value.promptOptions = next },
@@ -3998,10 +3961,7 @@ function programRunActionsFor(run: any) {
   return programRunActions(run, {
     key: promptProgram.program.value?.key ?? null,
     status: promptProgram.status.value,
-    optionsOf: (id) => {
-      const c = promptProgram.byId.value[id]
-      return c ? promptProgram.optionsOf(c) : null
-    },
+    has: (id) => !!promptProgram.byId.value[id],
   })
 }
 
@@ -4014,7 +3974,12 @@ function replayProgramRun(run: any) {
 
 function useProgramRunChoices(run: any) {
   const { pins } = programRunActionsFor(run)
-  if (Object.keys(pins).length) promptProgram.setManyPins(pins)
+  if (Object.keys(pins).length) promptProgram.setStates(Object.fromEntries(Object.entries(pins).map(([id, values]) => [id, { values }])))
+}
+
+// The prompt editor's slot was clicked, or just made: its card opens there.
+function openPromptSlot(e: { n: number; words: string; rect: DOMRect }) {
+  if (promptProgram.status.value !== 'off') promptProgram.openEditorSlot(e)
 }
 
 
@@ -6669,11 +6634,11 @@ function getStateContext(): Record<string, any> {
 
   // The prepared prompt's choices: what each image draws (see generate's draw_seed).
   if (promptProgram.status.value === 'ready' && promptProgram.choices.value.length) {
-    ctx.prompt_choices = promptProgram.choices.value.filter(c => !c.hidden).map(c => ({
+    ctx.prompt_choices = promptProgram.choices.value.map(c => ({
       id: c.id,
       label: c.label,
       options: promptProgram.optionsOf(c).slice(0, 12),
-      ...(promptProgram.pins.value[c.id]?.length ? { limited_to: promptProgram.pins.value[c.id] } : {}),
+      ...(promptProgram.states.value[c.id]?.values?.length ? { limited_to: promptProgram.states.value[c.id].values } : {}),
     }))
   }
 
@@ -7168,7 +7133,7 @@ async function runTool(name: string, args: any): Promise<string> {
       return said.length ? said.join(', ') : 'Pass mode, detail, or both.'
     }
     case 'set_choice': {
-      const visible = promptProgram.choices.value.filter(c => !c.hidden)
+      const visible = promptProgram.choices.value
       if (promptProgram.status.value !== 'ready' || !visible.length) {
         return 'The prompt has no choices right now: it has none, or it is still being read.'
       }
@@ -7177,12 +7142,11 @@ async function runTool(name: string, args: any): Promise<string> {
       if (!c) return `"${args.choice}" isn't a choice in this prompt. Its choices are: ${visible.map(x => x.id).join(', ')}.`
       const wanted = (Array.isArray(args.values) ? args.values : args.values != null ? [args.values] : []).map((v: any) => String(v))
       const opts = promptProgram.optionsOf(c)
-      // A number between a parameter's bounds is a value of its own; anything else is one of the options.
-      const stray = c.kind === 'param' ? wanted.filter((v: string) => Number.isNaN(Number(v))) : wanted.filter((v: string) => !opts.includes(v))
+      const stray = wanted.filter((v: string) => !opts.includes(v))
       if (stray.length) {
         return `"${stray[0]}" isn't one of ${c.label}'s options: ${opts.slice(0, 12).join(' | ')}. To offer it, add it to the prompt's list.`
       }
-      promptProgram.setPins(c.id, c.kind === 'param' ? wanted : opts.filter(o => wanted.includes(o)))
+      promptProgram.setValues(c.id, opts.filter(o => wanted.includes(o)))
       return !wanted.length ? `${c.label} varies freely` : wanted.length === 1 ? `pinned ${c.label}` : `limited ${c.label}`
     }
 

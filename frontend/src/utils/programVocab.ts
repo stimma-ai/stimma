@@ -3,68 +3,29 @@
  * dev vocabulary browser shows. Pure functions only, so they test without a DOM.
  */
 
-import type { ChoiceReach } from './programReach'
-
-/** `opt_in`: a value drawn only when asked for (an age under 18 the prompt didn't ask for):
- *  the picker offers it unticked, and ticking it draws it. */
+/** `opt_in`: a value drawn only when asked for (an age under 18 the prompt didn't ask for). */
 export type VocabTier = 'typical' | 'plausible' | 'unusual' | 'generated' | 'opt_in'
 
-/** A bound pick's list, as the pools endpoint describes it (keyed by choice id). */
-export interface ChoiceVocab {
-  cls: string
-  label: string
-  closed: boolean
-  tiers: Record<string, VocabTier>
-  /** The user's own options kept for this list from earlier prompts (programAdditions.ts). */
-  mine?: string[]
-  /** The list's named parts (hair color: black, brunette, blonde…), for lists short enough
-   *  to carry them: `of` maps an option to its part, and leaves out options without one. */
-  parts?: ListParts
-  /** How far the choice reaches: what the user said, what fits, and any (programReach.ts). */
-  reach?: ChoiceReach
-}
-
-export interface ListParts { name: string; values: string[]; of: Record<string, string> }
-
-/** Picks with more options than this get the search-and-scroll picker. */
+/** Choices with more options than this get a search field. */
 export const MANY_OPTIONS = 12
 
-/** The most rows the picker renders at once; a longer list is narrowed by searching. */
+/** The most rows a card renders at once; a longer list is narrowed by searching. */
 export const MAX_ROWS = 150
 
 export const TIER_ORDER: VocabTier[] = ['typical', 'plausible', 'unusual', 'generated', 'opt_in']
 
-/** Case-insensitive; every word in the query must appear somewhere in the option. */
 /** A list value as the picker shows it: a template's color slots ({main}, {accent},
  *  {neutral}) read as "…", since its colors come from the Colors choice. */
 export function shownOption(text: string): string {
   return text.replace(/\{(?:main|accent|neutral)\}/g, '…').replace(/\s{2,}/g, ' ').trim()
 }
 
+/** Case-insensitive; every word in the query must appear somewhere in the option. */
 export function matchesQuery(text: string, query: string): boolean {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   if (!words.length) return true
   const t = text.toLowerCase()
   return words.every(w => t.includes(w))
-}
-
-/** The options the picker shows: those passing the search, and the part chosen (if any). */
-export function shownOptions(options: string[], query: string, part?: string | null, parts?: ListParts | null): string[] {
-  const q = query.trim()
-  if (!q && !part) return options
-  return options.filter(o => (!q || matchesQuery(o, q)) && (!part || parts?.of[o] === part))
-}
-
-/** A part's name as its chip reads. */
-export function partLabel(part: string): string {
-  return part.replace(/_/g, ' ')
-}
-
-/** Values drawn only when ticked (a list's opt-in values): they start unticked. */
-export function standbyOf(vocab: Pick<ChoiceVocab, 'tiers'> | null | undefined): Set<string> {
-  const out = new Set<string>()
-  for (const [text, tier] of Object.entries(vocab?.tiers || {})) if (tier === 'opt_in') out.add(text)
-  return out
 }
 
 // The whole vocabulary (GET /prompt-programs/vocabulary), for the dev browser -------------

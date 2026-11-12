@@ -1,59 +1,88 @@
 <template>
+  <!-- Under the prompt: one pill per slot and per {a|b} list. An untouched pill is its label;
+       a chosen one is "Label value" with the value kept short (the whole of it in the
+       tooltip), and its × puts it back. A person's chosen details are pills of their own,
+       folding into the person's pill at three. -->
   <div
-    v-if="program.status.value !== 'off' && program.sections.value.length"
-    :class="['px-3 pt-1 pb-2 space-y-3 transition-opacity', program.status.value === 'ready' ? '' : 'opacity-50']"
+    v-if="program.status.value !== 'off' && pills.length"
+    :class="['px-3 pt-1 pb-2 flex flex-wrap items-center gap-1.5 transition-opacity', program.status.value === 'ready' ? '' : 'opacity-50']"
     data-program-choices
   >
-    <section v-for="section in program.sections.value" :key="section.id" :aria-label="section.label || 'General'" :data-program-section="section.id">
-      <h3 v-if="section.label" class="mb-1.5 text-ctl font-semibold text-content-secondary">{{ section.label }}</h3>
-      <div class="flex flex-wrap gap-1.5">
-        <button
-          v-for="choice in section.choices"
-          :key="choice.id"
-          type="button"
-          :class="pillClass(program.isPinned(choice), program.isNone(choice), openId === choice.id)"
-          :title="pillTitle(choice)"
-          :data-choice="choice.id"
-          @click="program.open(choice.id, $event.currentTarget as Element)"
-        >
-          <span v-if="choice.parent" class="text-content-muted -mr-0.5">↳</span>
-          <WandSparklesIcon v-if="choice.source === 'added'" class="w-3 h-3 shrink-0 text-content-tertiary" />
-          <span :class="['truncate max-w-[10rem]', program.isPinned(choice) ? 'text-selection/80' : '', program.isNone(choice) ? 'line-through' : '']">{{ programLabel(choice.label) }}<template v-if="program.showsValue(choice)">:</template></span>
-          <span v-if="program.showsValue(choice)" class="truncate max-w-[16rem]">{{ program.valueText(choice) }}</span>
-        </button>
-      </div>
-    </section>
+    <span
+      v-for="p in pills"
+      :key="p.id"
+      :class="pillClass(p.changed, isOpen(p))"
+      :title="p.title"
+    >
+      <button
+        type="button"
+        :class="['inline-flex items-center gap-1 min-w-0 py-1 coarse:py-1.5 coarse:text-[13px] pl-2.5 rounded-full outline-none focus-visible:ring-1 focus-visible:ring-selection/60', p.changed ? 'pr-0.5' : 'pr-2.5']"
+        :data-choice="p.id"
+        @click="open(p, $event.currentTarget as Element)"
+      >
+        <UserIcon v-if="p.folded" class="w-3 h-3 shrink-0 opacity-70" />
+        <span :class="['shrink-0', p.value || p.swatches ? 'opacity-70' : '']">{{ p.label }}</span>
+        <span v-if="p.swatches" class="shrink-0 flex -space-x-1" data-swatches>
+          <span v-for="(c, i) in p.swatches" :key="i" class="w-3 h-3 rounded-full border border-surface" :style="{ background: c }" />
+        </span>
+        <span v-else-if="p.value" :class="['truncate', p.folded ? 'max-w-[9rem]' : 'max-w-[7.5rem]']">{{ p.value }}</span>
+      </button>
+      <button
+        v-if="p.changed"
+        type="button"
+        class="shrink-0 mr-1 p-0.5 coarse:p-1.5 coarse:mr-0.5 rounded-full opacity-70 hover:opacity-100 hover:bg-selection/20 outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
+        :aria-label="`Reset ${p.label}`"
+        :data-reset="p.id"
+        @click="program.reset(p.resets)"
+      >
+        <XMarkIcon class="w-3 h-3" />
+      </button>
+    </span>
+
+    <button
+      v-if="changed > 1"
+      type="button"
+      class="ml-auto px-1.5 py-0.5 coarse:py-1.5 rounded-md text-[11px] coarse:text-xs text-content-muted hover:text-content hover:bg-overlay-subtle"
+      data-reset-all
+      @click="program.resetAll()"
+    >Reset</button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
-import { PROMPT_BRAND } from './promptBrand'
-import { programLabel } from '../../utils/programChoiceLayout'
-import type { PromptProgram, ProgramChoice } from '../../composables/usePromptProgram'
+import { UserIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { changedCount, pillsOf, type ChoiceWorld, type Pill } from '../../utils/programChoices'
+import type { PromptProgram } from '../../composables/usePromptProgram'
 
 const props = defineProps<{ program: PromptProgram }>()
 
-const openId = computed(() => props.program.openCard.value?.id || null)
+const world = computed<ChoiceWorld>(() => ({
+  slots: props.program.slots.value,
+  choices: props.program.choices.value,
+  states: props.program.states.value,
+  pools: props.program.pools.value,
+}))
+const pills = computed(() => pillsOf(world.value))
+const changed = computed(() => changedCount(world.value))
 
-// Indigo once narrowed; muted and struck through with nothing ticked (left out of the prompt).
-function pillClass(pinned: boolean, none: boolean, open: boolean) {
+function open(p: Pill, el: Element) {
+  if ('slot' in p.open) props.program.openSlot(p.open.slot, el)
+  else props.program.openChoice(p.open.choice, el)
+}
+function isOpen(p: Pill): boolean {
+  const t = props.program.openCard.value?.target
+  if (!t) return false
+  if ('choice' in t) return 'choice' in p.open && p.open.choice === t.choice
+  return 'slot' in p.open && props.program.slotFor(t.slot)?.id === p.open.slot
+}
+
+// Indigo once chosen.
+function pillClass(changed: boolean, open: boolean) {
   return [
-    'inline-flex max-w-full items-center gap-1 px-2.5 py-1 rounded-full text-xs whitespace-nowrap shrink-0 border transition-colors outline-none focus-visible:ring-1 focus-visible:ring-selection/60 coarse:py-1.5 coarse:text-[13px]',
-    pinned ? 'bg-selection/15 text-selection'
-      : none ? 'bg-surface-raised text-content-muted hover:bg-surface-hover'
-        : 'bg-surface-raised text-content hover:bg-surface-hover',
+    'inline-flex items-center max-w-full rounded-full text-xs whitespace-nowrap border transition-colors',
+    changed ? 'bg-selection/15 text-selection' : 'bg-surface-raised text-content hover:bg-surface-hover',
     open ? 'border-selection/40' : 'border-transparent',
   ]
 }
-
-function pillTitle(c: ProgramChoice) {
-  if (props.program.isNone(c)) return 'Left out'
-  if (c.said && !props.program.isPinned(c)) return `Every image uses “${c.said}”. Click to choose others.`
-  const n = props.program.optionsOf(c).length
-  const base = c.kind === 'param' ? 'Each image picks a value in this range. Click to see it.' : `Each image picks one of ${n}. Click to choose.`
-  return c.source === 'added' ? `Added by ${PROMPT_BRAND}. ${base}` : base
-}
-
 </script>

@@ -1,118 +1,39 @@
-import { computed, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
-import type { ChoiceVocab } from '../utils/programVocab'
-import { shownOption, standbyOf } from '../utils/programVocab'
-import { programSections } from '../utils/programChoiceLayout'
 import { DECLINED_CODE, prepareBody, prepareErrorCode, prepareSettingsSig, type PrepareInputs } from '../utils/fluentSubmit'
-import { createChoiceCard } from '../utils/choiceCard'
-import { isLimited, stateFor, ticksOf, wireEdits, type TickState } from '../utils/programTicks'
 import { additionList, isOwnOption } from '../utils/programAdditions'
+import { cleanState, isBuilder, optionsOf as optionsIn, resetState } from '../utils/programChoices'
+import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 
-export type { ChoiceVocab } from '../utils/programVocab'
+export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 
 /**
- * Prompt programs: in Fluent (not Direct or Raw) the prompt is prepared once into a small
- * program (the model is called once, cached on the server) and every generation runs it.
- * Detail level decides how much the program adds: Yours keeps the user's words, Medium
- * adds what the model needs, High fills in the rest. This holds
- * the prepared program for the current prompt, its status, and the user's pins and
- * edits to its choices. Pins and edits live in promptOptions, so they persist per
- * tool and ride presets like the rest of the prompt's settings.
+ * Prompt programs: in Fluent (not Direct or Raw) the user marks what varies with slots,
+ * `<young man>`, and the prompt is prepared once into a small program (one model call, cached
+ * on the server) that every generation runs. This holds the prepared program for the current
+ * prompt (its slots and choices), its status, each choice's options (/pools), what the user
+ * chose (utils/programChoices.ts), and which card is open.
  *
- * In a choice's card a tick means the option can be drawn. The ticks are stored as the
- * shorter of the ticked values (pins) and the unticked ones (the edit's `out`); see
- * utils/programTicks.ts. The server reads `out` as removed and `none` as off (wireEdits).
+ * What is chosen lives in promptOptions.programChoices, keyed by choice id, so it persists
+ * per tool (the tool's shared workspace state) and rides presets with the rest of the
+ * prompt's settings. A choice whose slot survives an edit of the prompt keeps it.
  */
-
-export interface ProgramChoice {
-  id: string
-  kind: 'pick' | 'lora' | 'param'
-  label: string
-  source: 'text' | 'list' | 'added'
-  line?: number
-  options: string[]
-  hidden?: boolean
-  follows?: string
-  parent?: string
-  when?: string[]
-  group?: string
-  index?: number
-  attr?: string
-  /** One value for every subject (the user asked for the same: matching outfits). */
-  shared?: boolean
-  /** The user's own {{name}} smart wildcard this choice fills. */
-  wildcard?: string
-  /** The vocabulary list this pick draws from; its options are the list's values. */
-  cls?: string
-  /** The user's own words this choice stands for ("yellow ferrari"): every image uses them
-      until the user ticks other options. */
-  said?: string
-}
-
-export interface ProgramGroup { id: string; count: number; label: string; source: string; line?: number }
-
-export interface ProgramLora { name: string; path: string; weight: number; trigger: string }
-
-export interface PreparedProgram {
-  /** false: prepared at Detail level Yours or Medium (the user's words kept). Dev dialog only. */
-  elaborate?: boolean
-  enhance?: EnhanceLevel
-  key: string
-  choices: ProgramChoice[]
-  groups: ProgramGroup[]
-  params: Record<string, { type?: string; minimum?: number; maximum?: number }>
-  loras: ProgramLora[]
-  lora_choices: Record<string, string[]>
-  example: string
-  warnings?: string[]
-  seconds?: number
-  program?: string
-  // Dev details the program dialog shows.
-  attempts?: number
-  mode?: string
-  upsample_seconds?: number
-}
-
-/** POST /prompt-programs/pools. Bound picks carry the whole list (uncapped) and a `vocab` entry. */
-export interface PoolsResponse {
-  options: Record<string, string[]>
-  more: string[]
-  vocab?: Record<string, ChoiceVocab>
-}
-
-export interface ChoiceEdit {
-  add?: string[]
-  /** Options deleted from the choice: not shown, not drawn. */
-  remove?: string[]
-  /** The choice itself removed: its pill goes and the image model decides the detail. */
-  off?: boolean
-  /** Options unticked in the card: still shown, left out of the draw. */
-  out?: string[]
-  /** Nothing ticked: the detail is left out of the prompt; the pill stays, to get back in. */
-  none?: boolean
-}
 
 export type ProgramStatus = 'off' | 'ready' | 'stale' | 'busy' | 'error'
 
-/** Detail level, by its wire values: off is Yours (the user's words), fill is Medium (adds
-    only what the model needs), expand is High (fills in the details left open). */
+/** Detail level, by its wire values: off is Yours, fill is Medium, expand is High. */
 export type EnhanceLevel = 'off' | 'fill' | 'expand'
+
+/** What a card is open on: a slot (by its place in the prompt and its words, so a slot just
+    typed opens before it is prepared), or one choice. */
+export type CardTarget = { slot: { n: number; words: string } } | { choice: string }
+export interface OpenCard { target: CardTarget; anchor: DOMRect }
 
 interface Options {
   toolId: Ref<string | null>
   prompt: Ref<string>
   enabled: ComputedRef<boolean>
-  /** Detail level. */
-  enhance: ComputedRef<EnhanceLevel>
-  /** Tell the model the user's LoRA notes. */
-  loraNotes: ComputedRef<boolean>
-  /** The prompt menu's "Trigger words": tell the writer the on LoRAs' trigger words. */
-  loraTriggers: ComputedRef<boolean>
-  loraItems: ComputedRef<Array<{ lora: string; weight: number; enabled?: boolean }>>
-  /** What the enhancer's style depends on: input images (count and ids), canvas size. */
-  contextParams: ComputedRef<Record<string, any>>
-  instructions: ComputedRef<string>
   projectId: Ref<number | null | undefined>
   promptOptions: Ref<any>
   setPromptOptions: (next: any) => void
@@ -123,8 +44,6 @@ interface Options {
 
 /** How often the editor looks for a program the server prepared in the background after a failure. */
 const ERROR_POLL_MS = 15_000
-
-const count = (n: number) => n.toLocaleString('en-US')
 
 export function usePromptProgram(o: Options) {
   const program = ref<PreparedProgram | null>(null)
@@ -137,12 +56,6 @@ export function usePromptProgram(o: Options) {
   const inputs = (): PrepareInputs => ({
     toolId: o.toolId.value,
     prompt: o.prompt.value || '',
-    loras: o.loraItems.value,
-    parameters: o.contextParams.value,
-    instructions: o.instructions.value || '',
-    enhance: o.enhance.value,
-    loraNotes: o.loraNotes.value,
-    loraTriggers: o.loraTriggers.value,
     projectId: o.projectId.value,
   })
   /** Everything but the prompt text: a prompt prepared under the same settings can still run. */
@@ -171,70 +84,71 @@ export function usePromptProgram(o: Options) {
     return program.value && preparedSig.value === signature.value ? 'ready' : 'stale'
   })
 
-  /** This tool's prompt format can't be prepared (Ideogram JSON, MiniMax H3): each image's
-      prompt is written fuller instead, and Detail level isn't offered. */
+  /** This tool's prompt format can't be prepared (Ideogram JSON, MiniMax H3). */
   const unsupported = computed(() => unsupportedSig.value !== null && unsupportedSig.value === signature.value)
 
-  const pins = computed<Record<string, string[]>>(() => o.promptOptions.value?.programPins || {})
-  const edits = computed<Record<string, ChoiceEdit>>(() => o.promptOptions.value?.programEdits || {})
+  // What is chosen ---------------------------------------------------------------------
 
-  function writeOptions(patch: Record<string, any>) {
-    o.setPromptOptions({ ...(o.promptOptions.value || {}), ...patch })
+  const states = computed<ProgramChoices>(() => o.promptOptions.value?.programChoices || {})
+
+  function writeStates(next: ProgramChoices) {
+    o.setPromptOptions({ ...(o.promptOptions.value || {}), programChoices: next })
   }
-  /** Edits without the ticks stored in them for these choices, when any are: pins set
-      from outside a card (an image's choices, the agent) say what is ticked on their own. */
-  function withoutTicks(ids: string[]): Record<string, any> {
-    if (!ids.some(id => edits.value[id]?.out?.length || edits.value[id]?.none)) return {}
-    const next = { ...edits.value }
-    for (const id of ids) {
-      if (!next[id]) continue
-      const { out: _out, none: _none, ...rest } = next[id]
-      if (Object.keys(rest).length) next[id] = rest
+  /** Set what one choice has chosen (null: nothing). */
+  function setState(id: string, s: ChoiceState | null) {
+    const c = byId.value[id]
+    const clean = c ? cleanState(c, s) : s
+    const next = { ...states.value }
+    if (clean) next[id] = clean
+    else delete next[id]
+    writeStates(next)
+  }
+  /** Set several at once (an image's choices, the agent): one write. */
+  function setStates(patch: Record<string, ChoiceState | null>) {
+    const next = { ...states.value }
+    for (const [id, s] of Object.entries(patch)) {
+      const c = byId.value[id]
+      const clean = c ? cleanState(c, s) : s
+      if (clean) next[id] = clean
       else delete next[id]
     }
-    return { programEdits: next }
+    writeStates(next)
   }
-  /** Limit a choice to these values; none of them: it draws from every option again. */
-  function setPins(id: string, values: string[]) {
-    const next = { ...pins.value }
-    if (values.length) next[id] = values
-    else delete next[id]
-    writeOptions({ programPins: next, ...withoutTicks([id]) })
+  /** Limit a choice to these values; none of them: back to how it starts. */
+  function setValues(id: string, values: string[]) {
+    const s = states.value[id]
+    setState(id, values.length ? { values, ...(s?.add?.length ? { add: s.add } : {}) } : resetState(s))
   }
-  function setManyPins(values: Record<string, string[]>) {
-    writeOptions({ programPins: { ...pins.value, ...values }, ...withoutTicks(Object.keys(values)) })
+  function reset(ids: string[]) {
+    setStates(Object.fromEntries(ids.map(id => [id, resetState(states.value[id])])))
   }
-  function withEdit(id: string, edit: ChoiceEdit): Record<string, ChoiceEdit> {
-    const next = { ...edits.value }
-    const clean: ChoiceEdit = {}
-    if (edit.add?.length) clean.add = edit.add
-    if (edit.remove?.length) clean.remove = edit.remove
-    if (edit.off) clean.off = true
-    if (edit.out?.length) clean.out = edit.out
-    if (edit.none) clean.none = true
-    if (Object.keys(clean).length) next[id] = clean
-    else delete next[id]
-    return next
+  function resetAll() {
+    reset(Object.keys(states.value))
   }
-  function setEdit(id: string, edit: ChoiceEdit) {
-    writeOptions({ programEdits: withEdit(id, edit) })
-  }
-  /** Store a choice's ticks (programTicks.stateFor), with its edit when that changes too:
-      one write, so the pins and the edit never disagree. */
-  function setTicks(id: string, state: TickState, edit: ChoiceEdit = edits.value[id] || {}) {
-    const patch: Record<string, any> = { programEdits: withEdit(id, { ...edit, out: state.out, none: state.none }) }
-    if (state.pins.length || pins.value[id]) {
-      const next = { ...pins.value }
-      if (state.pins.length) next[id] = state.pins
-      else delete next[id]
-      patch.programPins = next
-    }
-    writeOptions(patch)
+  /** What is sent: the choices this program has. */
+  const wireChoices = computed<ProgramChoices>(() => {
+    const out: ProgramChoices = {}
+    for (const [id, s] of Object.entries(states.value)) if (byId.value[id] && s) out[id] = s
+    return out
+  })
+  /** A prepare for the prompt in the box landed: choices for slots that went with an edit go. */
+  function prune(p: PreparedProgram) {
+    const have = new Set((p.choices || []).map(c => c.id))
+    const gone = Object.keys(states.value).filter(id => !have.has(id))
+    if (!gone.length) return
+    const next = { ...states.value }
+    for (const id of gone) delete next[id]
+    writeStates(next)
   }
 
   function request(extra: Record<string, any> = {}) {
-    // The writer is told what is pinned, so a change to the prompt keeps those choices and values.
-    return prepareBody(inputs(), { pins: pins.value, ...extra })
+    return prepareBody(inputs(), extra)
+  }
+
+  function landed(p: PreparedProgram, sig: string) {
+    program.value = p
+    preparedSig.value = sig
+    prune(p)
   }
 
   let lookupId = 0
@@ -256,19 +170,17 @@ export function usePromptProgram(o: Options) {
       if (data?.unsupported) { unsupportedSig.value = sig; return }
       if (!data?.key) {
         forget(sig)
-        // Nothing prepared for what's here (a tool just opened, a preset, a remix, a changed
-        // setting): read it now, so a run doesn't start by waiting. Not while typing (done
-        // typing reads it), and not a prompt that failed (the server retries those).
+        // Nothing prepared for what's here (a tool just opened, a preset, a remix): read it
+        // now, so a run doesn't start by waiting. Not while typing (done typing reads it),
+        // and not a prompt that failed (the server retries those).
         if (status.value === 'stale' && o.prepareWhenFound?.()) void prepare()
         return
       }
-      program.value = data
-      preparedSig.value = sig
+      landed(data, sig)
       if (error.value?.sig === sig) error.value = null  // prepared since (the server's background try)
       markReady(sig)
     } catch (e: any) {
-      // Not prepared yet: the next run prepares. Unless the chat model declined this prompt
-      // (the server's background try may have met that since we last heard): then say so.
+      // Not prepared yet: the next run prepares. Unless the chat model declined this prompt.
       if (id !== lookupId || sig !== signature.value || prepareErrorCode(e) !== DECLINED_CODE) return
       forget(sig)
       error.value = { sig, code: DECLINED_CODE, message: e?.response?.data?.detail?.message || 'Couldn’t read this prompt.' }
@@ -277,8 +189,7 @@ export function usePromptProgram(o: Options) {
 
   // The prepare in flight, so concurrent runs wait on it instead of starting another.
   let inFlight: { sig: string; force: boolean; done: Promise<boolean> } | null = null
-  // At most one more, for the newest prompt: a prompt that changes again while one is
-  // being prepared waits its turn rather than piling another model call on top.
+  // At most one more, for the newest prompt.
   let queued: { done: Promise<boolean> } | null = null
 
   /** Prepare for the current inputs (the model call happens here, if needed). */
@@ -300,9 +211,7 @@ export function usePromptProgram(o: Options) {
   async function prepareNow(sig: string, force: boolean): Promise<boolean> {
     busy.value = true
     try {
-      // The program shown now is what this prompt edits: its writer session continues from it.
-      const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`,
-        request({ force, base_key: force ? null : program.value?.key ?? null }))
+      const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ force }))
       if (data?.unsupported) {
         unsupportedSig.value = sig
         return true
@@ -313,8 +222,7 @@ export function usePromptProgram(o: Options) {
         setTimeout(() => { void lookup() }, 0)
         return true
       }
-      program.value = data
-      preparedSig.value = sig
+      landed(data, sig)
       error.value = null
       return true
     } catch (e: any) {
@@ -328,21 +236,9 @@ export function usePromptProgram(o: Options) {
     }
   }
 
-  /** New ideas: read the prompt again from scratch. What the user ticked or added
-      survives: anything the new set lacks comes back as their own option. */
-  async function rethink(): Promise<boolean> {
-    const keep = choices.value.map(c => ({ id: c.id, values: [...(edits.value[c.id]?.add || []), ...(pins.value[c.id] || [])] }))
-    if (!(await prepare(true))) return false
-    for (const k of keep) {
-      const c = byId.value[k.id]
-      if (!c) continue
-      const have = new Set(optionsOf(c))
-      const missing = [...new Set(k.values)].filter(v => !have.has(v))
-      if (!missing.length) continue
-      const e = edits.value[c.id] || {}
-      setEdit(c.id, { ...e, add: [...(e.add || []), ...missing], remove: (e.remove || []).filter(v => !missing.includes(v)) })
-    }
-    return true
+  /** New ideas: read the prompt again from scratch. */
+  function rethink(): Promise<boolean> {
+    return prepare(true)
   }
 
   /** True when a run would have to wait for preparing first. */
@@ -351,22 +247,18 @@ export function usePromptProgram(o: Options) {
   }
 
   /** Before a run: prepare if out of date. Returns false when no program is ready, so the
-      run goes on its words as written: after a failure for this prompt it doesn't prepare
-      again here (the server is already trying again; Try again prepares now). */
+      run goes on its words as written. */
   async function ensureReady(): Promise<boolean> {
-    // "Ready" is what the editor last saw; confirm the server still has it (cheap, no model).
     if (status.value === 'ready') await lookup()
     if (status.value === 'error') {
       await lookup()  // the server's background try may have landed
       if (status.value === 'error') return false
     }
-    // Re-check after each prepare: the prompt may have changed while it ran.
     for (let i = 0; i < 3 && needsPrepare(); i++) {
       if (!(await prepare())) return false
     }
     return true
   }
-
 
   async function fetchProgramText(): Promise<{ program: string; enhanced: string }> {
     const sig = signature.value
@@ -375,63 +267,46 @@ export function usePromptProgram(o: Options) {
     return { program: data?.program || '', enhanced: data?.enhanced || '' }
   }
 
-  /** The card's More like these (adds options) and Reroll all (replaces every option,
-      and clears the pins on it). One small model call; the result lives in the edits. */
-  async function suggestOptions(c: ProgramChoice, mode: 'more' | 'reroll', count = 6): Promise<void> {
-    const current = optionsOf(c)
-    const { data } = await axios.post(`${getApiBase()}/prompt-programs/options`, request({
-      cache_only: true, choice_id: c.id, existing: current, count, key: program.value?.key,
-    }))
-    const fresh: string[] = (data?.options || []).filter((x: string) => !current.includes(x))
-    if (!fresh.length) return
-    const e = edits.value[c.id] || {}
-    if (mode === 'more') {
-      const add = [...(e.add || []), ...fresh]
-      // New options arrive ticked like the rest, except where a tick is the user's to give:
-      // a choice that stands for their own words, or one with nothing ticked.
-      if (c.said || e.none) setEdit(c.id, { ...e, add })
-      else setTicks(c.id, stateFor(c, [...ticks(c), ...fresh], [...current, ...fresh], standbyFor(c)), { ...e, add })
-    } else {
-      setTicks(c.id, { pins: [], out: [], none: false }, { ...e, remove: [...c.options], add: fresh })
-    }
-  }
-
-  /** Dev debugging: a few runs with the current pins and edits, no model call. */
+  /** Dev debugging: a few runs with what is chosen, no model call. */
   async function previewRuns(n = 5): Promise<Array<{ prompt: string; draws: any[]; params: Record<string, any> }>> {
     const out = []
     for (let i = 0; i < n; i++) {
       const { data } = await axios.post(`${getApiBase()}/prompt-programs/preview`, request({
-        cache_only: true, pins: pins.value, edits: wireEdits(edits.value), seed: Math.floor(Math.random() * 2 ** 31),
+        cache_only: true, choices: wireChoices.value, seed: Math.floor(Math.random() * 2 ** 31),
       }))
       out.push(data)
     }
     return out
   }
 
-  /** What a submit carries. `fixed` replays an earlier image's draws exactly. */
+  /** What a submit carries as promptOptions.program. `fixed` replays an earlier image's draws exactly. */
   function payload(fixed?: Record<string, any>, drawSeed?: number) {
     if (status.value === 'off') return undefined
     return {
       enabled: true,
-      pins: pins.value,
-      edits: wireEdits(edits.value),
-      loras: o.loraItems.value.map(i => ({ lora: i.lora, weight: i.weight, enabled: !!i.enabled })),
+      choices: wireChoices.value,
       ...(fixed ? { fixed } : {}),
       // Its own seed, never the image's. Absent: each image draws fresh.
       ...(drawSeed != null ? { draw_seed: drawSeed } : {}),
     }
   }
 
-  // Choices as the editor shows them -------------------------------------------------
+  // Slots and choices -----------------------------------------------------------------
 
+  const slots = computed<ProgramSlot[]>(() => [...(program.value?.slots || [])].sort((a, b) => a.n - b.n))
   const choices = computed(() => (program.value?.choices || []).filter(c => !c.hidden))
-  const byId = computed(() => Object.fromEntries(choices.value.map(c => [c.id, c])))
+  const byId = computed<Record<string, ProgramChoice>>(() => Object.fromEntries(choices.value.map(c => [c.id, c])))
+  const slotById = computed<Record<string, ProgramSlot>>(() => Object.fromEntries(slots.value.map(s => [s.id, s])))
+  /** The choices that go with another (an outfit's colors), by the one they follow. */
+  const followers = computed(() => {
+    const out: Record<string, ProgramChoice[]> = {}
+    for (const c of choices.value) if (c.follows && byId.value[c.follows]) (out[c.follows] ||= []).push(c)
+    return out
+  })
 
-  // What each generated choice draws from now: its seeds plus the options generated in the
-  // background (they keep arriving for a while after preparing).
-  const pools = ref<Record<string, string[]>>({})
-  // Bound picks' lists: name, closed or open, and each value's tier.
-  const vocab = ref<Record<string, ChoiceVocab>>({})
+  // Each choice's options now: its zones, groups, tiers and short forms, plus the options
+  // written in the background (they keep arriving for a while after preparing).
+  const pools = ref<Record<string, ChoicePool>>({})
   let poolsTimer: ReturnType<typeof setTimeout> | null = null
   let poolsId = 0
   async function fetchPools(rounds = 0) {
@@ -440,31 +315,43 @@ export function usePromptProgram(o: Options) {
     const sig = signature.value
     const id = ++poolsId
     try {
-      const { data } = await axios.post<PoolsResponse>(`${getApiBase()}/prompt-programs/pools`, request({ pins: pins.value, key: program.value?.key }))
+      const { data } = await axios.post<PoolsResponse>(`${getApiBase()}/prompt-programs/pools`,
+        request({ key: program.value?.key, choices: wireChoices.value }))
       if (id !== poolsId || sig !== signature.value) return
-      pools.value = data?.options || {}
-      vocab.value = data?.vocab || {}
-      if ((data?.more || []).length && rounds < 20) poolsTimer = setTimeout(() => { void fetchPools(rounds + 1) }, 3000)
-    } catch { /* the seeds still show */ }
+      pools.value = data?.choices || {}
+      if (Object.values(pools.value).some(p => p.more) && rounds < 20) poolsTimer = setTimeout(() => { void fetchPools(rounds + 1) }, 3000)
+    } catch { /* the prepared options still show */ }
   }
-  watch([() => program.value?.key, pins], () => { void fetchPools() })
+  watch([() => program.value?.key, () => JSON.stringify(wireChoices.value)], () => { void fetchPools() })
+  watch(() => program.value?.key, () => { pools.value = {} })
   onUnmounted(() => { if (poolsTimer) clearTimeout(poolsTimer) })
 
-  /** What a choice's card lists: values left out (`out`) stay, only deleted ones go. */
+  function poolOf(c: ProgramChoice): ChoicePool | null {
+    return pools.value[c.id] || null
+  }
   function optionsOf(c: ProgramChoice): string[] {
-    const e = edits.value[c.id] || {}
-    const removed = new Set(e.remove || [])
-    // Sets: a bound pick's list runs to hundreds of values.
-    const seeds = new Set(c.options)
-    const base = [...c.options, ...(pools.value[c.id] || []).filter(x => !seeds.has(x))]
-    const have = new Set(base)
-    return [...base.filter(x => !removed.has(x)), ...(e.add || []).filter(x => !have.has(x))]
+    return optionsIn(c, poolOf(c), states.value[c.id])
+  }
+
+  /** More like these: one small model call, for the choice's default zone. The new options
+      join the user's own, so they stay in its list and are sent with it. */
+  async function suggestOptions(c: ProgramChoice, count = 6): Promise<number> {
+    const current = optionsOf(c)
+    const { data } = await axios.post(`${getApiBase()}/prompt-programs/options`, request({
+      cache_only: true, choice_id: c.id, existing: current, count, key: program.value?.key,
+      ...(c.zones?.length ? { zone: c.zones[0].id } : {}),
+    }))
+    const fresh: string[] = (data?.options || []).filter((x: string) => !current.includes(x))
+    if (!fresh.length) return 0
+    const s = states.value[c.id] || {}
+    setState(c.id, { ...s, add: [...fresh, ...(s.add || [])] })
+    return fresh.length
   }
 
   /** An option the user typed into a list-bound choice's card is kept for that list, so
       later prompts offer it too; forgetting one of their own options forgets it there. */
   async function keepAddition(c: ProgramChoice, text: string, keep = true) {
-    const cls = additionList(c, vocab.value[c.id])
+    const cls = additionList(c)
     if (!cls) return
     try {
       await axios.post(`${getApiBase()}/prompt-programs/additions${keep ? '' : '/remove'}`, { cls, text })
@@ -472,96 +359,81 @@ export function usePromptProgram(o: Options) {
     } catch { /* still added (or deleted) here */ }
   }
   function isOwn(c: ProgramChoice, option: string): boolean {
-    return isOwnOption(option, edits.value[c.id], vocab.value[c.id])
+    return isOwnOption(option, states.value[c.id], poolOf(c))
+  }
+  /** Add the user's own option and choose it. */
+  function addOwn(c: ProgramChoice, text: string) {
+    const v = text.trim()
+    if (!v) return
+    const s = states.value[c.id] || {}
+    const base = s.off ? { add: s.add } : s
+    const known = optionsOf(c).includes(v)
+    setState(c.id, { ...base, add: known ? base.add : [v, ...(base.add || [])], values: [...(base.values || []).filter(x => x !== v), v] })
+    if (!known) void keepAddition(c, v)
+  }
+  /** Forget one of the user's own options. */
+  function forgetOwn(c: ProgramChoice, option: string) {
+    const s = states.value[c.id] || {}
+    setState(c.id, { ...s, add: (s.add || []).filter(x => x !== option), values: (s.values || []).filter(x => x !== option) })
+    void keepAddition(c, option, false)
   }
 
-  /** The list a bound pick draws from, once the pools have said (null for other picks). */
-  function vocabOf(c: ProgramChoice): ChoiceVocab | null {
-    return vocab.value[c.id] || null
+  // The open card ---------------------------------------------------------------------
+
+  const openCard = ref<OpenCard | null>(null)
+
+  /** The slot a card target names, in the program prepared now: by its place and words,
+      else by its words when only one slot has them. Null while it is still being read. */
+  function slotFor(t: { n: number; words: string }): ProgramSlot | null {
+    const exact = slots.value.find(s => s.n === t.n && s.words === t.words)
+    if (exact) return exact
+    const same = slots.value.filter(s => s.words === t.words)
+    return same.length === 1 ? same[0] : null
   }
 
-  // A bound pick's values drawn only when ticked (its list's opt-in values).
-  const standby = computed(() => Object.fromEntries(Object.entries(vocab.value).map(([id, v]) => [id, standbyOf(v)])))
-  function standbyFor(c: ProgramChoice): Set<string> | undefined {
-    return standby.value[c.id]
+  function anchorOf(at: Element | DOMRect | null | undefined): DOMRect | null {
+    if (!at) return null
+    return at instanceof Element ? at.getBoundingClientRect() : at
   }
-  /** The options ticked in a choice's card: the ones it can draw. */
-  function ticks(c: ProgramChoice): Set<string> {
-    return ticksOf(c, pins.value[c.id], edits.value[c.id], optionsOf(c), standbyFor(c))
+  /** Open a slot's card: its builder (a person, a camera) or its chooser. */
+  function openSlot(slotId: string, at: Element | DOMRect | null | undefined) {
+    const s = slotById.value[slotId]
+    const anchor = anchorOf(at)
+    if (!s || !anchor) return
+    openCard.value = { target: { slot: { n: s.n, words: s.words } }, anchor }
   }
-
-  function visible(c: ProgramChoice): boolean {
-    if (edits.value[c.id]?.off) return false
-    if (!c.parent) return true
-    const parent = byId.value[c.parent]
-    if (!parent || edits.value[parent.id]?.off) return false
-    if (!isChanged(parent)) return true
-    const on = ticks(parent)
-    return (c.when || []).some(v => on.has(v))
+  /** Open one choice's chooser. */
+  function openChoice(id: string | null | undefined, at: Element | DOMRect | null | undefined) {
+    const anchor = anchorOf(at)
+    if (!id || !anchor || !byId.value[id]) return
+    openCard.value = { target: { choice: id }, anchor }
   }
-
-  const sections = computed(() => programSections(
-    choices.value.filter(visible), program.value?.groups || [],
-  ))
-
-  function valueText(c: ProgramChoice): string {
-    if (c.kind === 'param') return `${c.options[0]}–${c.options[1]}`
-    const all = optionsOf(c)
-    const p = [...ticks(c)]
-    if (p.length === 1) return shownOption(p[0])
-    if (p.length === all.length) return all.length === 1 ? '1 option' : `${count(all.length)} options`
-    return `${count(p.length)} of ${count(all.length)}`
+  /** The editor's slot was clicked, or just made: open its card. A slot not prepared yet
+      opens on "Writing options…" and fills in when the prompt is read. */
+  function openEditorSlot(e: { n: number; words: string; rect: DOMRect }) {
+    openCard.value = { target: { slot: { n: e.n, words: e.words } }, anchor: e.rect }
   }
-  /** The ticks differ from how the choice starts. */
-  function isChanged(c: ProgramChoice) {
-    return c.kind !== 'param' && isLimited(c, pins.value[c.id], edits.value[c.id], optionsOf(c), standbyFor(c))
-  }
-  /** Nothing is ticked: the detail is left out of the prompt. */
-  function isNone(c: ProgramChoice) {
-    return c.kind !== 'param' && isChanged(c) && !ticks(c).size
-  }
-  /** The user narrowed what this choice draws (ticks other than its own default). */
-  function isPinned(c: ProgramChoice) {
-    return isChanged(c) && !isNone(c)
-  }
-  /** The pill shows its value: when limited, or when it draws the user's own words. */
-  function showsValue(c: ProgramChoice) {
-    return isPinned(c) || (c.kind === 'pick' && !!c.said && optionsOf(c).includes(c.said))
-  }
-
-  /** LoRA rows the prompt controls: path → the choice that picks it. */
-  const loraControl = computed<Record<string, { choiceId: string; label: string }>>(() => {
-    const out: Record<string, { choiceId: string; label: string }> = {}
-    const p = program.value
-    if (!p || status.value === 'off') return out
-    for (const [cid, names] of Object.entries(p.lora_choices || {})) {
-      const c = byId.value[cid]
-      for (const n of names) {
-        const lo = p.loras.find(l => l.name === n)
-        if (lo) out[lo.path] = { choiceId: cid, label: c?.label || cid }
-      }
-    }
-    return out
+  function close() { openCard.value = null }
+  // A card waiting on a slot that isn't read yet reads the prompt as soon as the prompt with
+  // the slot has reached us (the editor may say so before or after the text changes).
+  watch([openCard, status], () => {
+    const t = openCard.value?.target
+    if (t && 'slot' in t && status.value === 'stale' && !slotFor(t.slot)) void nextTick(() => { if (status.value === 'stale') void prepare() })
   })
+  // A choice card closes itself when its choice goes (a prepare without it).
+  watch(() => {
+    const t = openCard.value?.target
+    return !!t && 'choice' in t && status.value === 'ready' && !byId.value[t.choice]
+  }, (gone) => { if (gone) close() }, { flush: 'sync' })
 
-  /** Parameters the prompt controls: name → the choice and its range. */
-  const paramControl = computed<Record<string, { choiceId: string; range: string }>>(() => {
-    const out: Record<string, { choiceId: string; range: string }> = {}
-    if (status.value === 'off') return out
-    for (const c of choices.value) {
-      if (c.kind === 'param') out[c.id.replace(/^param\./, '')] = { choiceId: c.id, range: valueText(c) }
-    }
-    return out
-  })
-
-  // Which choice card is open, and where it hangs from. It closes itself when its choice
-  // goes (a new prepare without it), and never opens on one that isn't shown.
-  const { openCard, open, close } = createChoiceCard(byId)
+  /** A builder slot's details as its card lists them: an outfit's colors sit inside the outfit. */
+  function detailsOf(slot: ProgramSlot): ProgramChoice[] {
+    return slot.details.map(id => byId.value[id]).filter((c): c is ProgramChoice => !!c && !(c.follows && slot.details.includes(c.follows)))
+  }
 
   // Look up a prepared program when the tool or prompt settles (cheap, no model).
   let t: ReturnType<typeof setTimeout> | null = null
-  // Look again when the inputs change, and when programs turn back on (back to Fluent
-  // from Direct or Raw): a lookup that landed while they were off was skipped.
+  // Look again when the inputs change, and when programs turn back on.
   watch([signature, () => o.enabled.value], () => {
     if (t) clearTimeout(t)
     t = setTimeout(lookup, 400)
@@ -580,10 +452,10 @@ export function usePromptProgram(o: Options) {
   onUnmounted(() => { if (errorPoll) clearInterval(errorPoll) })
 
   return {
-    program, status, error, unsupported, pins, edits, choices, sections, byId, openCard,
-    lookup, prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns, suggestOptions,
-    setPins, setManyPins, setEdit, setTicks, optionsOf, vocabOf, valueText, isPinned, isNone, showsValue, keepAddition, isOwn,
-    loraControl, paramControl, open, close,
+    program, status, error, unsupported, slots, choices, byId, slotById, followers, pools, states, openCard,
+    lookup, prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns,
+    poolOf, optionsOf, suggestOptions, isOwn, addOwn, forgetOwn, setState, setStates, setValues, reset, resetAll,
+    slotFor, detailsOf, isBuilder, openSlot, openChoice, openEditorSlot, close,
   }
 }
 

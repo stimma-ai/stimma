@@ -1,6 +1,8 @@
 <template>
-  <!-- A choice's card. Each image draws one of the ticked options; everything starts
-       ticked. The model can write more options or a whole new set. -->
+  <!-- A slot's card. A person or a camera opens on its details, one row each with what it is
+       set to; a row leads to that detail's chooser, with a back arrow. Anything else opens
+       its chooser directly. A slot just typed shows "Writing options…" until it is read.
+       Anchored to its pill (or the slot in the text) on desktop; a bottom sheet on touch. -->
   <Teleport to="body">
     <div v-if="card" class="fixed inset-0 z-menu" @click="program.close()">
       <div
@@ -8,81 +10,185 @@
         data-escape-layer
         data-program-card
         role="dialog"
-        :aria-label="choiceTitle || undefined"
-        :class="['fixed z-menu bg-surface border border-edge-subtle rounded-lg shadow-lg max-w-[calc(100vw-16px)] flex flex-col max-h-[70vh]', wide ? 'w-[420px]' : 'w-[340px]']"
+        :aria-label="title || undefined"
+        :class="['fixed z-menu bg-surface border border-edge-subtle rounded-lg shadow-lg max-w-[calc(100vw-16px)] flex flex-col', wide ? 'w-[420px]' : 'w-[340px]']"
         :style="menuStyle"
         @click.stop
       >
-        <template v-if="choice">
-          <CardHeader
-            :title="choiceTitle"
-            :note="note"
-            :added="choice.source === 'added'"
-            :choice="choice.kind === 'param' ? undefined : choice"
-            :program="program"
-          />
-          <div v-if="choice.kind === 'param'" class="px-3 pb-3 text-xs text-content-secondary">
-            Each image draws a value from <span class="font-mono text-selection">{{ choice.options[0] }} – {{ choice.options[1] }}</span>.
+        <div class="shrink-0 px-3 pt-2.5 pb-1.5 flex items-center gap-1.5">
+          <button
+            v-if="stack.length"
+            type="button"
+            class="-ml-1.5 flex items-center gap-0.5 pl-0.5 pr-1.5 py-0.5 coarse:py-1.5 rounded-md text-xs text-content-secondary hover:text-content hover:bg-overlay-subtle"
+            data-back
+            :aria-label="`Back to ${backLabel}`"
+            @click="back"
+          >
+            <ChevronLeftIcon class="w-3.5 h-3.5" />{{ backLabel }}
+          </button>
+          <span class="flex-1 min-w-0 truncate text-[13px] font-semibold text-content">{{ title }}</span>
+        </div>
+
+        <!-- Not read yet -->
+        <div v-if="view.kind === 'pending'" class="px-3 pb-3 flex items-center gap-2 text-xs text-content-muted" data-writing>
+          <template v-if="program.status.value === 'error'">{{ program.error.value?.message || 'Couldn’t read this prompt.' }}</template>
+          <template v-else><Spinner size="sm" /> Writing options…</template>
+        </div>
+
+        <!-- A builder: its details -->
+        <template v-else-if="view.kind === 'panel'">
+          <div :style="panelStyle" class="shrink-0 overflow-y-auto overscroll-contain px-1.5 pb-1.5 flex flex-col gap-px" data-panel>
+            <button v-for="d in details" :key="d.id" type="button" :class="rowClass" :data-row="d.id" @click="drill(d.id)">
+              <span class="w-24 shrink-0 text-content">{{ d.label }}</span>
+              <span :class="['flex-1 min-w-0 truncate', rowChanged(d) ? 'text-selection' : 'text-content-muted']">{{ rowText(d) }}</span>
+              <span
+                v-if="rowChanged(d)"
+                role="button"
+                tabindex="0"
+                class="shrink-0 p-0.5 coarse:p-2 coarse:-my-1.5 rounded-full text-selection hover:bg-selection/20"
+                :aria-label="`Reset ${d.label}`"
+                :data-reset="d.id"
+                @click.stop="resetRow(d)"
+                @keydown.enter.stop.prevent="resetRow(d)"
+              >
+                <XMarkIcon class="w-3 h-3" />
+              </span>
+              <ChevronRightIcon class="w-3.5 h-4 shrink-0 text-content-muted" />
+            </button>
           </div>
-          <template v-else>
-            <PromptProgramOptions
-              :choice="choice"
-              :program="program"
-              :addable="editable"
-            />
-            <div v-if="writable || choice.source === 'added'" class="border-t border-edge-subtle px-2 py-1.5 flex items-center gap-1">
-              <template v-if="writable">
-                <button type="button" :class="footClass" :disabled="!!writing" @click="write('more')">
-                  <Spinner v-if="writing === 'more'" size="sm" /><SparklesIcon v-else class="w-3.5 h-3.5" />
-                  More like these
-                </button>
-                <button v-if="!bound && !choice.said" type="button" :class="footClass" :disabled="!!writing" title="Replace every option with a new set" @click="write('reroll')">
-                  <Spinner v-if="writing === 'reroll'" size="sm" /><ArrowPathIcon v-else class="w-3.5 h-3.5" />
-                  New set
-                </button>
-              </template>
-              <span class="flex-1" />
-              <button v-if="choice.source === 'added'" type="button" :class="[footClass, 'hover:!text-red-400']" title="Stop varying this; the image model decides it" @click="removeChoice">
-                <TrashIcon class="w-3.5 h-3.5" /> Remove
-              </button>
-            </div>
-            <div v-if="writeError" class="px-3 pb-2 text-[11px] text-red-400">{{ writeError }}</div>
-          </template>
+          <div class="shrink-0 border-t border-edge-subtle px-2 py-1.5 flex items-center gap-1">
+            <span class="flex-1" />
+            <button type="button" :class="[footClass, slotAsWritten ? 'text-selection' : '']" :aria-pressed="slotAsWritten" data-as-written @click="toggleSlotAsWritten">As written</button>
+          </div>
         </template>
+
+        <!-- One choice -->
+        <PromptProgramOptions
+          v-else
+          ref="optionsRef"
+          :key="view.choice.id"
+          :choice="view.choice"
+          :own-slot="view.slot"
+          :program="program"
+          :anchor-bottom="card.anchor.bottom"
+          @drill="drill"
+          @left-out="afterLeaveOut"
+        />
       </div>
     </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, nextTick, onUnmounted, ref, watch } from 'vue'
-import { ArrowPathIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
-import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
-import { programLabel, programSections } from '../../utils/programChoiceLayout'
-import { PROMPT_BRAND } from './promptBrand'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import Spinner from '../ui/Spinner.vue'
 import PromptProgramOptions from './PromptProgramOptions.vue'
 import { useAnchoredMenuPosition } from '../../composables/useContextMenuPosition'
-import type { PromptProgram, ProgramChoice } from '../../composables/usePromptProgram'
-import { ticksOf } from '../../utils/programTicks'
-import { standbyOf } from '../../utils/programVocab'
+import { useViewport } from '../../composables/useViewport'
+import { isChanged, offLabel, pillValue, resetState } from '../../utils/programChoices'
+import type { PromptProgram, ProgramChoice, ProgramSlot } from '../../composables/usePromptProgram'
 
 const props = defineProps<{ program: PromptProgram }>()
 
-const footClass = 'flex items-center gap-1.5 px-2 py-1 coarse:py-2 text-xs rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle disabled:opacity-50 disabled:pointer-events-none'
+const rowClass = 'w-full flex items-start gap-2 px-2 py-1.5 coarse:py-2.5 rounded-md text-left text-xs coarse:text-[13px] cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60'
+const footClass = 'flex items-center gap-1.5 px-2 py-1 coarse:py-2 text-xs rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle'
 
 const card = computed(() => props.program.openCard.value)
 const menuRef = ref<HTMLElement | null>(null)
+const optionsRef = ref<InstanceType<typeof PromptProgramOptions> | null>(null)
 const anchorRect = computed(() => card.value?.anchor ?? null)
 const visible = computed(() => !!card.value)
 const { menuStyle } = useAnchoredMenuPosition(menuRef, anchorRect, visible, { gap: 6 })
 
-watch(() => card.value?.id, () => { writeError.value = '' })
+const { isCoarsePointer } = useViewport()
+const panelStyle = computed(() => ({
+  maxHeight: isCoarsePointer.value ? 'calc(var(--sheet-menu-max-h) - 80px)'
+    : `max(12rem, min(32rem, calc(100dvh - ${Math.round((anchorRect.value?.bottom || 0) + 80)}px)))`,
+}))
+
+// Where the card opened, and what was stepped through to get here (choice ids).
+const stack = ref<string[]>([])
+watch(() => card.value, () => { stack.value = [] })
+
+type View =
+  | { kind: 'pending'; words: string }
+  | { kind: 'panel'; slot: ProgramSlot }
+  | { kind: 'choice'; choice: ProgramChoice; slot: ProgramSlot | null }
+
+function choiceView(c: ProgramChoice): View {
+  const slot = c.slot ? props.program.slotById.value[c.slot] : null
+  // A slot that is this one choice can be drawn as written.
+  return { kind: 'choice', choice: c, slot: slot && !props.program.isBuilder(slot) ? slot : null }
+}
+const topView = computed<View | null>(() => {
+  const t = card.value?.target
+  if (!t) return null
+  if ('choice' in t) {
+    const c = props.program.byId.value[t.choice]
+    return c ? choiceView(c) : null
+  }
+  const slot = props.program.slotFor(t.slot)
+  if (!slot) return { kind: 'pending', words: t.slot.words }
+  if (props.program.isBuilder(slot)) return { kind: 'panel', slot }
+  const c = props.program.byId.value[slot.details[0]]
+  return c ? choiceView(c) : { kind: 'pending', words: t.slot.words }
+})
+const view = computed<View>(() => {
+  const id = stack.value[stack.value.length - 1]
+  const c = id ? props.program.byId.value[id] : null
+  return c ? choiceView(c) : topView.value || { kind: 'pending', words: '' }
+})
+const labelOf = (v: View | null) => !v ? '' : v.kind === 'pending' ? v.words : v.kind === 'panel' ? v.slot.label : (v.slot?.label || v.choice.label)
+const title = computed(() => labelOf(view.value))
+const backLabel = computed(() => {
+  const prev = stack.value[stack.value.length - 2]
+  const c = prev ? props.program.byId.value[prev] : null
+  return c ? c.label : labelOf(topView.value)
+})
+const wide = computed(() => view.value.kind === 'choice' && props.program.optionsOf(view.value.choice).some(o => o.length > 32))
+
+function drill(id: string) {
+  stack.value = [...stack.value, id]
+}
+function back() {
+  stack.value = stack.value.slice(0, -1)
+}
+function afterLeaveOut() {
+  if (stack.value.length) back()
+  else props.program.close()
+}
+
+// The builder's rows ---------------------------------------------------------------------
+const panelSlot = computed(() => (view.value.kind === 'panel' ? view.value.slot : null))
+const details = computed(() => (panelSlot.value ? props.program.detailsOf(panelSlot.value) : []))
+/** A detail with what goes with it (an outfit and its colors). */
+const withFollowers = (d: ProgramChoice) => [d, ...(props.program.followers.value[d.id] || [])]
+const rowChanged = (d: ProgramChoice) => withFollowers(d).some(c => isChanged(props.program.states.value[c.id]))
+function rowText(d: ProgramChoice): string {
+  const s = props.program.states.value[d.id]
+  if (s?.off) return offLabel(d.label).toLowerCase()
+  const said = pillValue(d, props.program.poolOf(d), s)
+  if (said) return said
+  if (rowChanged(d)) return 'Any'
+  // Untouched: the slot's own words for it, when they settle it.
+  const key = panelSlot.value ? d.id.slice(panelSlot.value.id.length + 1) : ''
+  return panelSlot.value?.stated?.[key] || ''
+}
+function resetRow(d: ProgramChoice) {
+  props.program.reset(withFollowers(d).map(c => c.id))
+}
+// As written: every detail left out, which leaves the slot's own words.
+const allIds = computed(() => panelSlot.value?.details.filter(id => props.program.byId.value[id]) || [])
+const slotAsWritten = computed(() => allIds.value.length > 0 && allIds.value.every(id => props.program.states.value[id]?.off))
+function toggleSlotAsWritten() {
+  const st = props.program.states.value
+  props.program.setStates(Object.fromEntries(allIds.value.map(id => [id, slotAsWritten.value ? resetState(st[id]) : { off: true, ...(st[id]?.add?.length ? { add: st[id].add } : {}) }])))
+}
 
 // Keyboard: the card is teleported to the end of the page, so focus moves into it when
-// it opens, Tab stays inside, Escape closes it, and focus goes back to what opened it.
-// Escape listens on the window in the bubble phase, so a search or draft that clears
-// itself on Escape (and stops it) keeps that one.
+// it opens, Tab stays inside, and focus goes back to what opened it. Escape steps back out:
+// the search, then the chooser, then the card.
 let returnTo: HTMLElement | null = null
 function focusables(): HTMLElement[] {
   return [...(menuRef.value?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])]
@@ -90,7 +196,9 @@ function focusables(): HTMLElement[] {
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     e.preventDefault()
-    props.program.close()
+    if (optionsRef.value?.clearQuery()) return
+    if (stack.value.length) back()
+    else props.program.close()
   } else if (e.key === 'Tab') {
     const all = focusables()
     if (!all.length) return
@@ -104,103 +212,13 @@ watch(visible, (open) => {
   if (open) {
     returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
     window.addEventListener('keydown', onKey)
-    void nextTick(() => { if (!menuRef.value?.contains(document.activeElement)) focusables()[0]?.focus() })
+    void nextTick(() => { if (!menuRef.value?.contains(document.activeElement)) focusables()[0]?.focus({ preventScroll: true }) })
   } else {
     window.removeEventListener('keydown', onKey)
-    const back = returnTo
+    const to = returnTo
     returnTo = null
-    if (back?.isConnected) back.focus()
+    if (to?.isConnected) to.focus()
   }
 })
 onUnmounted(() => window.removeEventListener('keydown', onKey))
-
-const choice = computed(() => {
-  const id = card.value?.id
-  return id ? props.program.byId.value[id] : null
-})
-const choiceTitle = computed(() => {
-  const c = choice.value
-  if (!c) return ''
-  const section = programSections(props.program.choices.value, props.program.program.value?.groups || [])
-    .find(s => s.label && s.choices.some(member => member.id === c.id))
-  return [section?.label, programLabel(c.label)].filter(Boolean).join(' · ')
-})
-// Phrase-length options get a wider card so they wrap less.
-const wide = computed(() => {
-  const c = choice.value
-  return !!c && props.program.optionsOf(c).some(o => o.length > 32)
-})
-
-// The user's own {a|b} list and LoRA choices keep exactly what the user gave.
-const editable = computed(() => !!choice.value && choice.value.source !== 'list' && choice.value.kind === 'pick')
-// Drawn from a vocabulary list: its values are the options.
-const bound = computed(() => !!choice.value && (!!choice.value.cls || !!props.program.vocabOf(choice.value)))
-// The model writes options for plain picks (not ones whose options depend on another
-// pick), and adds to an open list; a closed list is complete as it is. A whole new set
-// would throw the list away, so list-drawn picks only get More like these.
-const writable = computed(() => editable.value && !choice.value!.follows && !props.program.vocabOf(choice.value!)?.closed)
-const note = computed(() => {
-  const c = choice.value
-  if (!c) return ''
-  const parts: string[] = []
-  if (c.source === 'added') parts.push(`Added by ${PROMPT_BRAND}`)
-  if (c.kind === 'lora') parts.push('each turns on its LoRA')
-  if (c.parent) {
-    const p = props.program.byId.value[c.parent]
-    parts.push(`only when ${programLabel(p?.label || c.parent)} is ${(c.when || []).join(' or ')}`)
-  }
-  if (c.follows) parts.push(`follows ${programLabel(props.program.byId.value[c.follows]?.label || c.follows)}`)
-  return parts.join(' · ')
-})
-
-const writing = ref<'' | 'more' | 'reroll'>('')
-const writeError = ref('')
-async function write(mode: 'more' | 'reroll') {
-  const c = choice.value
-  if (!c || writing.value) return
-  writing.value = mode
-  writeError.value = ''
-  try {
-    // New set replaces the options with as many new ones; More adds six.
-    await props.program.suggestOptions(c, mode, mode === 'reroll' ? props.program.optionsOf(c).length : 6)
-  } catch (e: any) {
-    const d = e?.response?.data?.detail
-    writeError.value = (typeof d === 'string' ? d : d?.message) || 'Couldn’t write new options.'
-  } finally {
-    writing.value = ''
-  }
-}
-
-function removeChoice() {
-  const c = choice.value
-  if (!c) return
-  props.program.setTicks(c.id, { pins: [], out: [], none: false }, { ...(props.program.edits.value[c.id] || {}), off: true })
-  props.program.close()
-}
-// Header: the choice's name, and how many of its options are ticked ("35", or "3 of 35").
-const CardHeader = defineComponent({
-  props: { title: String, note: String, added: Boolean, choice: Object, program: Object },
-  setup(p) {
-    const n = (x: number) => x.toLocaleString('en-US')
-    return () => {
-      const prog = p.program as PromptProgram | undefined
-      const c = p.choice as ProgramChoice | undefined
-      let count = ''
-      if (prog && c) {
-        const all = prog.optionsOf(c)
-        const on = ticksOf(c, prog.pins.value[c.id], prog.edits.value[c.id], all, standbyOf(prog.vocabOf(c))).size
-        count = on < all.length ? `${n(on)} of ${n(all.length)}` : n(all.length)
-      }
-      return h('div', { class: 'px-3 pt-2.5 pb-1.5 flex items-start gap-2' }, [
-        h('div', { class: 'min-w-0 flex-1' }, [
-          h('div', { class: 'flex items-center gap-1 text-[13px] font-semibold text-content' }, [
-            p.added ? h(WandSparklesIcon, { class: 'w-3 h-3 text-content-tertiary' }) : null, p.title,
-          ]),
-          p.note ? h('div', { class: 'text-[11px] text-content-muted break-words leading-snug' }, p.note) : null,
-        ]),
-        count ? h('div', { class: 'shrink-0 mt-0.5 text-[11px] text-content-muted font-mono tabular-nums', 'data-count': '' }, count) : null,
-      ])
-    }
-  },
-})
 </script>
