@@ -722,32 +722,11 @@ async def _run_prompt_program(
     return record, result.prompt
 
 
-class UnknownChoiceError(ValueError):
-    """keep_choices named a choice the prepared prompt doesn't have."""
-
-
 def pins_for_kept_choices(entry: Dict[str, Any], keep: Dict[str, Any]) -> Dict[str, List[str]]:
     """keep_choices ({choice: value or [values]}) as pins on the prepared program's
-    choice ids. A choice is named by its id (as results report it) or its label."""
-    from prompt_programs.runtime import current_id
-    visible = [c for c in entry.get("choices") or [] if not c.get("hidden")]
-    by_name: Dict[str, str] = {}
-    for c in visible:
-        by_name.setdefault(str(c.get("id")), str(c.get("id")))
-    for c in visible:
-        by_name.setdefault(str(c.get("id")).lower(), str(c.get("id")))
-        if c.get("label"):
-            by_name.setdefault(str(c["label"]).strip().lower(), str(c.get("id")))
-    pins: Dict[str, List[str]] = {}
-    for name, value in (keep or {}).items():
-        cid = by_name.get(str(name)) or by_name.get(str(name).strip().lower()) or by_name.get(current_id(name))
-        if cid is None:
-            names = ", ".join(str(c.get("id")) for c in visible) or "none"
-            raise UnknownChoiceError(f'"{name}" isn\'t a choice in this prompt. Its choices are: {names}.')
-        values = [str(v) for v in (value if isinstance(value, (list, tuple)) else [value]) if v is not None and str(v) != ""]
-        if values:
-            pins[cid] = values
-    return pins
+    choice ids (prompt_programs.choices.kept). A choice is named by its id or its label."""
+    from prompt_programs.choices import expand, kept
+    return expand(entry, kept(entry, keep))[0]
 
 
 def _additions_version(profile_id: Optional[str]) -> Optional[str]:

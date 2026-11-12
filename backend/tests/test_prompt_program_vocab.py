@@ -96,15 +96,15 @@ class TestTheVocabulary:
         season = vocabulary().get("scene.season")
         assert sorted(v.text for v in season.values if v.tier == "typical") == ["autumn", "spring", "summer", "winter"]
 
-    def test_every_place_sits_under_one_area_chip(self):
-        from prompt_programs.fluent import list_parts
+    def test_every_place_sits_under_an_area_chip(self):
+        from prompt_programs.fluent import list_groups
         for lid in ("place.country", "place.city", "place.us_state"):
             leaf = vocabulary().get(lid)
             texts = [v.text for v in leaf.values]
-            parts = list_parts(leaf, texts)
-            assert parts["name"] == "area" and set(parts["of"]) == set(texts), lid
-        parts = list_parts(vocabulary().get("place.country"), [v.text for v in vocabulary().get("place.country").values])
-        south = {o for o, r in parts["of"].items() if r == "South America"}
+            areas = list_groups(leaf, texts)["area"]
+            assert {o for os in areas.values() for o in os} == set(texts), lid
+        country = vocabulary().get("place.country")
+        south = set(list_groups(country, [v.text for v in country.values])["area"]["South America"])
         assert {"Brazil", "Argentina", "Peru", "Guyana"} <= south
 
     def test_the_writer_reads_the_catalog(self):
@@ -274,40 +274,41 @@ class TestThePicker:
         assert set(meta["tiers"].values()) <= {"typical", "plausible", "unusual", "generated"}
         assert out["vocab"]["expr"]["closed"] is False
 
-    def test_pool_options_carry_the_lists_parts(self, tmp_path):
+    def test_pool_options_carry_every_group_an_option_is_in(self, tmp_path):
         info = discover(PORTRAIT)
         entry = {"key": "p", "program": PORTRAIT, "loras": [], "params": {}, "mode": "prose",
                  "choices": info["choices"]}
         out = pool_options(entry, store=OptionStore(tmp_path), cfg=OFF)
         leaf = vocabulary().get("person.eye_color")
-        facet, names = next(iter(leaf.local_facets.items()))
-        parts = out["vocab"]["eyes"]["parts"]
-        assert parts["name"] == facet
-        assert parts["values"] and [n for n in names if n in parts["values"]] == parts["values"]  # the list's order
-        assert set(parts["of"].values()) == set(parts["values"])
+        groups = out["vocab"]["eyes"]["groups"]
         shown = out["options"]["eyes"]
-        for text, part in parts["of"].items():
-            assert text in shown and leaf.value(text).tags[facet] == [part]
-        # an option in several parts has no single one: it is left out of the map
-        several = [v.text for v in leaf.values if len(v.tags.get(facet) or []) > 1 and v.text in shown]
-        assert several and not any(t in parts["of"] for t in several)
-        # a list with no parts of its own carries none
-        assert not vocabulary().get("person.ethnicity").local_facets and "parts" not in out["vocab"]["eth"]
+        assert set(groups) == {f for f in leaf.local_facets if any(f in (leaf.value(o).tags or {}) for o in shown)}
+        for facet, parts in groups.items():
+            names = leaf.local_facets[facet]
+            assert [n for n in names if n in parts] == list(parts)   # the list's order
+            for part, options in parts.items():
+                assert options and all(part in leaf.value(o).tags[facet] for o in options)
+        # an option in several parts sits in each of them
+        facet = next(iter(groups))
+        several = [o for o in shown if len(leaf.value(o).tags.get(facet) or []) > 1]
+        assert several and all(sum(o in os for os in groups[facet].values()) > 1 for o in several)
+        # descent has no local facets: its declared heritages are its groups
+        eth = out["vocab"]["eth"]["groups"]
+        assert list(eth) == ["group"] and "Korean" in eth["group"]["east_asian"]
 
-    def test_list_parts_skip_long_lists_and_untagged_facets(self):
-        from prompt_programs.fluent import PARTS_MAX, list_parts
+    def test_list_groups_skip_long_lists_and_untagged_values(self):
+        from prompt_programs.fluent import PARTS_MAX, list_groups
         from prompt_programs.vocab import Leaf, Value
         values = (Value("jet black", "typical", {"shade": ["black"]}), Value("ash brown", "typical", {"shade": ["brunette"]}),
                   Value("salt and pepper", "typical", {"shade": ["black", "gray"]}), Value("shaved", "typical"))
         leaf = Leaf("x.hair", "Hair", "", "", "", "", (), True, {}, values,
                     local_facets={"length": ("short", "long"), "shade": ("black", "brunette", "gray")})
         texts = [v.text for v in values]
-        # no value is tagged on the first facet, so the next one gives the parts
-        assert list_parts(leaf, [*texts, "my own"]) == {
-            "name": "shade", "values": ["black", "brunette"], "of": {"jet black": "black", "ash brown": "brunette"}}
-        assert list_parts(leaf, ["shaved"]) is None
-        assert list_parts(leaf, [*texts, *(f"more {i}" for i in range(PARTS_MAX))]) is None
-        assert list_parts(Leaf("x.plain", "Plain", "", "", "", "", (), True, {}, values), texts) is None
+        assert list_groups(leaf, [*texts, "my own"]) == {
+            "shade": {"black": ["jet black", "salt and pepper"], "brunette": ["ash brown"], "gray": ["salt and pepper"]}}
+        assert list_groups(leaf, ["shaved"]) == {}
+        assert list_groups(leaf, [*texts, *(f"more {i}" for i in range(PARTS_MAX))]) == {}
+        assert list_groups(Leaf("x.plain", "Plain", "", "", "", "", (), True, {}, values), texts) == {}
 
 
 class TestArticles:
@@ -1100,7 +1101,7 @@ class TestDogBreeds:
         assert len({t.lower() for t in texts}) == len(texts)
 
     def test_every_breed_sits_in_one_group_with_a_size(self):
-        from prompt_programs.fluent import list_parts
+        from prompt_programs.fluent import list_groups
         leaf = vocabulary().get("animal.dog_breed")
         groups, sizes = leaf.local_facets["breed_group"], leaf.local_facets["size"]
         assert {"herding", "hound", "sighthound", "terrier", "toy", "working", "sporting"} <= set(groups)
@@ -1108,8 +1109,8 @@ class TestDogBreeds:
             assert len(v.tags["breed_group"]) == 1 and v.tags["breed_group"][0] in groups, v.text
             assert len(v.tags["size"]) == 1 and v.tags["size"][0] in sizes, v.text
         texts = [v.text for v in leaf.values]
-        parts = list_parts(leaf, texts)
-        assert parts["name"] == "breed_group" and len(parts["of"]) == len(texts)
+        by_group = list_groups(leaf, texts)["breed_group"]
+        assert sorted(o for os in by_group.values() for o in os) == sorted(texts)
 
     def test_common_breeds_are_typical_and_rare_ones_are_not(self):
         leaf = vocabulary().get("animal.dog_breed")

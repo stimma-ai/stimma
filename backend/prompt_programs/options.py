@@ -578,18 +578,26 @@ async def write_options(job: OptionJob, count: int = BATCH_SIZE) -> List[str]:
 
 
 async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Sequence[str], count: int,
-                          project_id: Optional[int]) -> List[str]:
+                          project_id: Optional[int], zone: Optional[str] = None) -> List[str]:
     """New options for one choice of a prepared program (the card's More like these and
-    Reroll all), written the way background generation writes them. Never during a run."""
+    Reroll all), written the way background generation writes them. Never during a run.
+    `zone`: one of a slot choice's zones (choices.py), written as that zone's pool is."""
+    from prompt_programs.choices import bound_zones, free_zones
     from prompt_programs.runtime import ProgramError
     choice = next((c for c in entry.get("choices") or [] if c.get("id") == choice_id), None)
     if not choice or choice.get("kind") != "pick":
         raise ProgramError(f"No choice {choice_id} to write options for.")
     count = max(1, min(24, int(count)))
     have = list(dict.fromkeys(str(x) for x in existing if str(x).strip()))
+    seeds = [str(o) for o in (choice.get("options") or [])[:3]]
+    zoned: Dict[str, List[str]] = free_zones(entry, choice_id) or dict(zip(("kinds", "instead"), bound_zones(entry, choice_id) or ()))
+    if zone and zone not in zoned:
+        raise ProgramError(f"{choice.get('label') or choice_id} has no {zone} options to write.")
+    if zone:
+        seeds = list(zoned[zone])[:3]
     spec = PickSpec(str(choice_id), str(choice.get("label") or choice_id), str(choice.get("about") or ""),
                     int(choice.get("phase") or 1), str(choice.get("source") or "text"), "pick",
-                    seeds=[str(o) for o in (choice.get("options") or [])[:3]], cls=str(choice.get("cls") or ""))
+                    seeds=seeds, cls=str(choice.get("cls") or ""), zone=zone or "")
     program = ProgramContext.of(entry)
     if spec.cls != AGE_LIST and spec.id not in program.wildcards:
         p = person_of(spec.id)

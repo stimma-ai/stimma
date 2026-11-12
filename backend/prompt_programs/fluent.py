@@ -155,39 +155,46 @@ POOL_DRAWS = 4  # draws per pick: enough to visit the pool its upstream picks ke
 PARTS_MAX = 400  # a longer list sends no parts: the option-to-part map would be large
 
 
-def list_parts(leaf: Any, options: List[str]) -> Optional[Dict[str, Any]]:
-    """A list's named parts for the picker's chips: its first local facet that sorts the
-    options ({"name": facet, "values": the parts in use, in the list's order, "of": {option:
-    its part}}). An option tagged with several parts, or none, is left out of `of`. None for
-    a list with no such facet, or with more than PARTS_MAX options."""
+def list_groups(leaf: Any, options: List[str]) -> Dict[str, Dict[str, List[str]]]:
+    """A list's groups for the picker's chips: {facet: {part: [options]}} for each of its local
+    facets, an option in every part it is tagged with, and the list's declared groups (descent's
+    heritages) as facet "group". Parts in the list's order, options in the order given; parts
+    no option is in are left out. Empty for a list with more than PARTS_MAX options."""
+    from prompt_programs.choices import GROUP, _tags
     if len(options) > PARTS_MAX:
-        return None
-    for facet, names in leaf.local_facets.items():
-        of: Dict[str, str] = {}
-        for o in options:
-            v = leaf.value(o)
-            tagged = v.tags.get(facet) if v is not None else None
-            if isinstance(tagged, (list, tuple)) and len(tagged) == 1 and str(tagged[0]) in names:
-                of[o] = str(tagged[0])
-        if of:
-            used = set(of.values())
-            return {"name": facet, "values": [n for n in names if n in used], "of": of}
-    return None
+        return {}
+    out: Dict[str, Dict[str, List[str]]] = {}
+    facets = [*leaf.local_facets.items(), *([(GROUP, tuple(leaf.groups))] if leaf.groups else [])]
+    for facet, names in facets:
+        parts = {str(n): [o for o in options if str(n) in _tags(leaf, o, facet)] for n in names}
+        parts = {n: os for n, os in parts.items() if os}
+        if parts:
+            out[facet] = parts
+    return out
 
 
 def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *, profile_id: Optional[str] = None,
                  project_id: Optional[int] = None, store: Optional[OptionStore] = None,
-                 cfg: Optional[FluentSettings] = None, mine: Optional[Dict[str, List[str]]] = None) -> Dict[str, Any]:
+                 cfg: Optional[FluentSettings] = None, mine: Optional[Dict[str, List[str]]] = None,
+                 edits: Optional[Dict[str, Dict[str, Any]]] = None,
+                 zones: Optional[Dict[str, List[str]]] = None) -> Dict[str, Any]:
     """The options each generated pick draws from now: its seeds plus whatever has been
     generated, for the upstream values pinned (or drawn, when nothing upstream is pinned).
     A pick's own pins don't narrow what it shows. Never calls a model (an unseen pool is
-    queued to fill, like any draw); `more` lists picks whose pools are still filling."""
+    queued to fill, like any draw); `more` lists picks whose pools are still filling.
+    `zones` (choices.expand) are the zones chosen per slot pick: its options are theirs, and
+    `zones` in the answer holds every zone's options, for a free slot and for a bound pick
+    its slot's words narrowed (choices.bound_zones)."""
+    from prompt_programs.choices import bound_zones, free_zones
     out: Dict[str, List[str]] = {}
     more: List[str] = []
     vocab: Dict[str, Dict[str, Any]] = {}
+    by_zone: Dict[str, Dict[str, List[str]]] = {}
     if not uses_draws(entry.get("program") or ""):
-        return {"options": out, "more": more, "vocab": vocab}
-    rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, cfg=cfg, mine=mine)
+        return {"options": out, "more": more, "vocab": vocab, "zones": by_zone}
+    rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, cfg=cfg, mine=mine,
+                     edits=edits, zones=zones)
+    chosen = dict(rt.options.zones)
     loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
     params = set(entry.get("params") or {}) or None
     pins = {k: v for k, v in (pins or {}).items() if v}
@@ -197,10 +204,8 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
 
     def own_adds(cid: str) -> List[str]:   # options the user added in this choice's card
         return [str(x) for x in ((rt.options.edits.get(cid) or {}).get("add") or [])]
-    for cid in generated:
-        others = {k: v for k, v in pins.items() if k != cid}
+    def options_of(cid: str, others: Dict[str, Any], contexts: Optional[List[Any]] = None) -> List[str]:
         seen: List[str] = []
-        contexts: List[Any] = []   # the context the pick's pool was drawn in, per draw (reach.py)
         for seed in range(POOL_DRAWS):
             try:
                 res = draw(entry["program"], 7919 * seed + 3, others, loras, params, None, None, options=rt.options)
@@ -211,8 +216,21 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
             for d in res.draws:
                 if d.id == cid:
                     seen.extend(o for o in d.options if o not in seen)
-            contexts.extend(rt.options.drawn_context(cid))
+            if contexts is not None:
+                contexts.extend(rt.options.drawn_context(cid))
             rt.options.reset()
+        return seen
+
+    for cid in generated:
+        others = {k: v for k, v in pins.items() if k != cid}
+        contexts: List[Any] = []   # the context the pick's pool was drawn in, per draw (reach.py)
+        seen = options_of(cid, others, contexts)
+        free = free_zones(entry, cid)
+        if free is not None:   # each zone's pool on its own, then back to the zones chosen
+            for z in free:
+                rt.options.zones = {**chosen, cid: [z]}
+                by_zone.setdefault(cid, {})[z] = options_of(cid, others)[:60]
+            rt.options.zones = chosen
         leaf = vocabulary().get(bound_cls.get(cid))
         if leaf is not None and seen:
             # A bound pick shows its whole list (the picker searches and groups it), each
@@ -238,9 +256,18 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
                 vocab[cid]["tiers"] = {o: t for o, t in vocab[cid]["tiers"].items() if t != "typical"}
             if mine_here:
                 vocab[cid]["mine"] = list(mine_here)
-            parts = list_parts(leaf, seen)
-            if parts:
-                vocab[cid]["parts"] = parts
+            groups = list_groups(leaf, seen)
+            if groups:
+                vocab[cid]["groups"] = groups
+            short = {o: leaf.short(o) for o in out[cid] if leaf.short(o) != o}
+            if short:
+                vocab[cid]["short"] = short
+            if bound_zones(entry, cid) is not None:
+                # Kinds: what the slot's words narrowed the list to; instead: the rest, as reach's "any".
+                keep = set(narrowed)
+                by_zone[cid] = {"kinds": [o for o in seen if o in keep and o not in mine_here],
+                                "instead": [o for o in seen if o not in keep and o not in mine_here
+                                            and (leaf.value(o) is None or not leaf.value(o).opt_in)]}
             ch = next((c for c in entry.get("choices") or [] if c.get("id") == cid), {})
             said = str(ch.get("said") or "")
             where = ch.get("where")
@@ -254,7 +281,7 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
                 vocab[cid]["reach"] = reach
         elif seen:
             out[cid] = seen[:60]
-    return {"options": out, "more": more, "vocab": vocab}
+    return {"options": out, "more": more, "vocab": vocab, "zones": by_zone}
 
 
-__all__ = ["Runtime", "attach_filler", "pool_options", "program_context", "runtime_for", "start_options"]
+__all__ = ["Runtime", "attach_filler", "list_groups", "pool_options", "program_context", "runtime_for", "start_options"]

@@ -167,13 +167,13 @@ class TestTheRoutes:
         body = {"tool_id": "t", "prompt": "a barista", "key": cafe["key"]}
         async with _app(monkeypatch, {"id": "a"}) as c:
             before = (await c.post("/api/prompt-programs/pools", json=body)).json()
-            assert BRAID not in before["options"]["barista.hair"]
+            assert BRAID not in before["choices"]["barista.hair"]["options"]
             await c.post("/api/prompt-programs/additions", json={"cls": "person.hairstyle", "text": BRAID})
             after = (await c.post("/api/prompt-programs/pools", json=body)).json()
-        assert BRAID in after["options"]["barista.hair"]
-        meta = after["vocab"]["barista.hair"]
+        meta = after["choices"]["barista.hair"]
+        assert BRAID in meta["options"]
         assert meta["mine"] == [BRAID] and meta["tiers"][BRAID] == "typical"
-        assert "mine" not in after["vocab"]["barista.expr"]   # another list's choice is untouched
+        assert "mine" not in after["choices"]["barista.expr"]   # another list's choice is untouched
         drawn = {d["barista.hair"].value for d in draws(cafe, "a")}
         assert BRAID in drawn
         assert cafe == entry_of(CAFE, key="c" * 32)   # the prepared program itself never changes

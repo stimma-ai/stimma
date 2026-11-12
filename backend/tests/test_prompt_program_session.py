@@ -706,7 +706,7 @@ class TestCardsUseTheShownProgram:
         monkeypatch.setattr(route, "get_current_profile", lambda: "p")
         seen = {}
 
-        async def suggest(e, choice_id, existing, count, project_id):
+        async def suggest(e, choice_id, existing, count, project_id, zone=None):
             seen["key"] = e["key"]
             return ["windy"]
 

@@ -35,8 +35,8 @@ class PrepareRequest(BaseModel):
 
 
 class PreviewRequest(PrepareRequest):
-    pins: Dict[str, Any] = Field(default_factory=dict)
-    edits: Dict[str, Any] = Field(default_factory=dict)
+    # What the user chose in the chooser, per choice (prompt_programs.choices).
+    choices: Dict[str, Any] = Field(default_factory=dict)
     seed: Optional[int] = None
 
 
@@ -85,6 +85,7 @@ async def _prepare(req: PrepareRequest) -> Optional[Dict[str, Any]]:
 def public(entry: Dict[str, Any], prompt: str) -> Dict[str, Any]:
     """A prepared slot program as the editor reads it: its slots (spans in the prompt as typed),
     their choices and the user's lists, and an example."""
+    from prompt_programs.choices import zone_titles
     from prompt_programs.slots import raw_spans
     slots = []
     for s, raw in zip(entry.get("slots") or [], raw_spans(prompt, entry)):
@@ -97,6 +98,9 @@ def public(entry: Dict[str, Any], prompt: str) -> Dict[str, Any]:
         if c.get("hidden"):
             continue
         out = {k: c[k] for k in _CHOICE_KEYS if k in c}
+        zones = zone_titles(entry, c["id"])
+        if zones:
+            out["zones"] = zones
         if c["id"] in owner:
             out["slot"] = owner[c["id"]]
         elif c.get("source") == "list":
@@ -129,6 +133,8 @@ class OptionsRequest(PrepareRequest):
     # The options the card shows now (after the user's edits), so new ones differ.
     existing: List[str] = Field(default_factory=list, max_length=200)
     count: int = 6
+    # One of the choice's zones ("kinds", "instead"): options for that zone.
+    zone: Optional[str] = None
 
 
 async def _shown(req: PrepareRequest) -> Optional[Dict[str, Any]]:
@@ -150,7 +156,7 @@ async def options(req: OptionsRequest) -> Dict[str, Any]:
     if entry is None or entry.get("unsupported"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
     try:
-        out = await suggest_options(entry, req.choice_id, req.existing, req.count, req.project_id)
+        out = await suggest_options(entry, req.choice_id, req.existing, req.count, req.project_id, zone=req.zone)
     except Exception as e:
         http = program_http_error(e, failed="options_failed")
         if http is None:
@@ -161,14 +167,25 @@ async def options(req: OptionsRequest) -> Dict[str, Any]:
 
 @router.post("/pools")
 async def pools(req: PreviewRequest) -> Dict[str, Any]:
-    """What each generated choice's picker shows: its seeds plus the options generated so far."""
+    """What each generated choice's picker shows, per choice: its options (seeds plus those
+    generated so far, for the zones chosen), each zone's options, its list's groups, tiers, the
+    user's own options and short forms, and whether more are being written."""
     import asyncio
+    from prompt_programs.choices import expand
     from prompt_programs.fluent import attach_filler, pool_options
     entry = await _shown(req)
     if entry is None or entry.get("unsupported"):
-        return {"options": {}, "more": []}
+        return {"choices": {}, "more": []}
     attach_filler(entry, get_current_profile())
-    return await asyncio.to_thread(pool_options, entry, req.pins, profile_id=get_current_profile(), project_id=req.project_id)
+    pins, edits, zones = expand(entry, req.choices)
+    got = await asyncio.to_thread(pool_options, entry, pins, edits=edits, zones=zones, profile_id=get_current_profile(),
+                                  project_id=req.project_id)
+    out: Dict[str, Any] = {}
+    for cid, options in got["options"].items():
+        out[cid] = {"options": options, "more": cid in got["more"], **got["vocab"].get(cid, {})}
+        if got["zones"].get(cid):
+            out[cid]["zones"] = got["zones"][cid]
+    return {"choices": out, "more": got["more"]}
 
 
 class AdditionRequest(BaseModel):
@@ -226,6 +243,7 @@ async def vocabulary_tree() -> Dict[str, Any]:
 @router.post("/preview")
 async def preview(req: PreviewRequest) -> Dict[str, Any]:
     import asyncio
+    from prompt_programs.choices import expand
     from prompt_programs.fix import realize_and_fix
     from prompt_programs.prepare import DrawAborted, ProgramError, draw_seed
     entry = await _prepare(req)
@@ -237,8 +255,9 @@ async def preview(req: PreviewRequest) -> Dict[str, Any]:
         attach_filler(entry, get_current_profile())
         await await_judge(entry, project_id=req.project_id)
         # In a thread: a judge on CPU must not hold up the event loop.
-        result, fix = await asyncio.to_thread(realize_and_fix, entry, seed=draw_seed(req.seed), pins=req.pins,
-                                              edits=req.edits, profile_id=get_current_profile(),
+        pins, edits, zones = expand(entry, req.choices)
+        result, fix = await asyncio.to_thread(realize_and_fix, entry, seed=draw_seed(req.seed), pins=pins,
+                                              edits=edits, zones=zones, profile_id=get_current_profile(),
                                               project_id=req.project_id)
     except DrawAborted as e:  # e.g. "Nothing left to draw for Hairstyle": shown at the choice
         raise HTTPException(status_code=422, detail=e.to_dict()) from None

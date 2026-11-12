@@ -340,7 +340,8 @@ async def _vary(job_params: Dict[str, Any], prompt: str, *, ctx: Dict[str, Any],
                               project_id=project_id, target=None, note=NO_CHOICES_NOTE)
 
     from fastapi import HTTPException
-    from routes.generation import UnknownChoiceError, _apply_generation_prompt_pipeline
+    from prompt_programs.choices import UnknownChoiceError
+    from routes.generation import _apply_generation_prompt_pipeline
 
     level = _detail_level(request.enhance, format_model)
     loras = [{"lora": x.get("lora") or x.get("path"), "weight": x.get("weight", 1.0), "enabled": True}
