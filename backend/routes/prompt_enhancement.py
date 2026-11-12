@@ -1,6 +1,6 @@
 """Prompt enhancement routes for AI-assisted prompt editing."""
 from core.logging import get_logger
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
@@ -162,6 +162,56 @@ def _length_target_guidance(target: Optional[Tuple[int, int, str]], *, late: boo
     if late:
         text += " If the prompt is already about that long, return it with only the changes this model's format needs."
     return text
+
+
+# Modes whose form is prose: a prompt already at length can go as it is. Tag,
+# JSON and H3 forms are a conversion, so they always run.
+_PROSE_FORM_MODES = frozenset({"prose", "krea-2", "flux3-klein", "qwen-image-2.1", "cinematography", "ltx-2.5"})
+# Rough output tokens per unit, for the max_tokens clamp.
+_TOKENS_PER_UNIT = {"words": 1.3, "tags": 4, "sentences": 35}
+_SENTENCE_END_RE = re.compile(r"[.!?]+(?=\s|$)")
+
+
+def _has_comment_lines(prompt: str) -> bool:
+    return any(line.lstrip().startswith("#") for line in prompt.splitlines())
+
+
+def prompt_length(prompt: str, unit: str) -> int:
+    """The prompt's length in the target's unit, comment lines and value marks left out:
+    words split on whitespace, tags on commas, sentences at their closing stop."""
+    text = "\n".join(line for line in prompt.splitlines() if not line.lstrip().startswith("#"))
+    text = text.replace("⟦", "").replace("⟧", "")
+    if unit == "tags":
+        return sum(1 for item in text.split(",") if item.strip())
+    if unit == "sentences":
+        return sum(1 for piece in _SENTENCE_END_RE.split(text) if piece.strip())
+    return len(text.split())
+
+
+def improve_needed(prompt: str, mode: str, level: Optional[str], family: Optional[str] = None) -> bool:
+    """Whether the per-image improver should call the model. It reads only length and
+    line starts. Classic Improve (no level) always runs; "off" runs only where the
+    model needs its format (H3); a prose-form prompt already at the low end of its
+    target, with no comment lines asking for something, goes as it is."""
+    if not level:
+        return True
+    if level == "off":
+        return mode == "minimax-h3"
+    if mode not in _PROSE_FORM_MODES or _has_comment_lines(prompt):
+        return True
+    target = length_target(mode, level, family)
+    if not target:
+        return True
+    low, _high, unit = target
+    return prompt_length(prompt, unit) < low
+
+
+def improve_max_tokens(target: Optional[Tuple[int, int, str]]) -> int:
+    """About 2.5 times the target's top end in tokens, between 256 and 8192."""
+    if not target:
+        return 8192
+    _low, high, unit = target
+    return max(256, min(8192, round(2.5 * high * _TOKENS_PER_UNIT[unit])))
 
 
 def _qwen_image_refs_phrase(n: int) -> str:
@@ -455,7 +505,7 @@ _DIALOGUE_QUOTE_RE = re.compile(r'["“][^"“”]+["”]')
 
 def _protected_text_guidance(
     prompt: str, *, keyword_mode: bool = False, cinematography: bool = False,
-    audio_conditioned: bool = False, audio_disabled: bool = False,
+    audio_conditioned: bool = False, audio_disabled: bool = False, marked: bool = False,
 ) -> str:
     """Build the 'PRESERVING PROTECTED TEXT' block for the spans actually present.
 
@@ -470,9 +520,16 @@ def _protected_text_guidance(
     the video prompt's motion-only framing otherwise drops the words and keeps only
     the lip movement. ``audio_conditioned`` keeps that bullet but drops the claim
     that the model voices the line: with a supplied track it doesn't, and the words
-    are there to align the visible performance.
+    are there to align the visible performance. ``marked``: the prompt carries
+    ⟦marked⟧ values, the user's choices, to be copied exactly.
     """
     bullets: List[str] = []
+    if marked:
+        bullets.append(
+            "- Text inside ⟦ ⟧ marks: each is the user's choice. Copy it with its marks, character for "
+            "character, where it reads naturally, and write around it; never restate it in other words "
+            "or contradict it elsewhere."
+        )
     if cinematography and _DIALOGUE_QUOTE_RE.search(prompt):
         if audio_disabled:
             bullets.append(
@@ -668,6 +725,12 @@ class ImprovePromptRequest(BaseModel):
     # Trigger words and notes for the LoRAs this generation uses:
     # [{name, trigger_words, notes}]. See lora_notes.py.
     lora_context: List[Dict[str, Any]] = Field(default_factory=list)
+    # The detail level of the per-image improver: "off" (Yours), "fill" (Medium)
+    # or "expand" (High). Absent for classic Improve, which aims for High but
+    # never accepts the prompt back unchanged.
+    level: Optional[Literal["off", "fill", "expand"]] = None
+    # Whether the prompt carries ⟦marked⟧ values to be copied exactly.
+    marked: bool = False
 
 
 class ImprovePromptResponse(BaseModel):
@@ -970,13 +1033,15 @@ async def style_guide(request: "ImprovePromptRequest", session,
         _protected_text_guidance(
             request.prompt,
             keyword_mode=(mode == "keyword"),
+            marked=request.marked,
             cinematography=(mode in {"cinematography", "minimax-h3", "ltx-2.5"}),
             audio_conditioned=request.audio_conditioned,
             audio_disabled=(mode == "minimax-h3" and not request.h3_generate_audio),
         ),
     )
     system_prompt = system_prompt.replace(
-        "{length_target}", _length_target_guidance(length_target(mode, None, family))
+        "{length_target}", _length_target_guidance(
+            length_target(mode, request.level, family), late=request.level is not None)
     )
     # Per-request parts close the guide, so the text before them stays the same
     # across requests and can be cached; empty slots leave only blank lines.
@@ -991,11 +1056,18 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
     Auto-improve an image generation prompt using AI.
 
     Fleshes out sparse requests and refines detailed descriptions while
-    preserving the original intent. Retries unchanged model responses.
+    preserving the original intent. Classic Improve retries unchanged model
+    responses; the per-image improver (``level`` set) accepts them, and makes no
+    call at all for a prompt already at its length (``improve_needed``).
     """
     if not request.prompt.strip():
         # Nothing to improve (e.g. a tool with no prompt input) — don't spend
         # an LLM call asking the model to improve an empty string.
+        return ImprovePromptResponse(improved_prompt=request.prompt)
+    family = model_family(request.model)
+    request_mode = enhancement_mode(
+        family, is_video=request.is_video, is_image_edit=request.input_image_count > 0, is_audio=request.is_audio)
+    if not improve_needed(request.prompt, request_mode, request.level, family):
         return ImprovePromptResponse(improved_prompt=request.prompt)
 
     from llm_resolver import LLMUnavailableError, get_effective_llm_config
@@ -1008,7 +1080,9 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             detail={"code": e.code, "message": str(e)},
         )
 
-    system_prompt, source_images_b64, mode = await style_guide(request, session)
+    # "off" reaches the model only where it needs its format, and keeps the user's words.
+    system_prompt, source_images_b64, mode = await style_guide(request, session, fill=request.level == "off")
+    max_tokens = improve_max_tokens(length_target(mode, request.level, family)) if request.level else 8192
     log.info(
         f"Prompt improve mode={mode} images={len(source_images_b64)} "
         f"audio_conditioned={request.audio_conditioned}"
@@ -1138,7 +1212,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                 improved_prompt = await llm_complete_text(
                     config=llm_config,
                     messages=messages,
-                    max_tokens=8192,
+                    max_tokens=max_tokens,
                     temperature=0.7,
                 )
 
@@ -1150,7 +1224,8 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                         "message": "The tool assistant returned an empty prompt. Generation was not started. "
                                    "Retry or check the tool assistant model in Settings.",
                     })
-                if " ".join(improved_prompt.split()) != " ".join(request.prompt.split()):
+                # A prompt already at length comes back unchanged on purpose.
+                if request.level or " ".join(improved_prompt.split()) != " ".join(request.prompt.split()):
                     break
                 log.warning("Prompt improve returned unchanged text", attempt=attempt + 1)
                 if attempt == 2:
