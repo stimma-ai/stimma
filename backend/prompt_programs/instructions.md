@@ -52,7 +52,7 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   `girl[1].hair`, `girl[2].hair` and the label of the detail alone ("Hair"), and the rest
   fixed text. The app shows each person's details together.
 - `person(id, noun=..., show=[...], presentation=..., said={...}, where={...}, leave=[...])` describes one
-  person and returns the whole phrase for them, noun included ("a stocky 60–64-year-old
+  person and returns the whole phrase for them, noun included ("a stocky 62-year-old
   Korean man with short gray hair"): put it in `emit()` where the person stands, and write
   no "a man" of your own before it. It draws the details you list in `show`, so no two people
   are alike: never write those picks yourself, and never describe a face in your own words.
@@ -84,7 +84,7 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   - `leave`: only for a detail the user described in words no list holds, kept as fixed text
     ("eyes like a winter sea" → `leave=["eyes"]`, and those words stay in your text).
   The details are `age`, `descent`, `skin`, `hair`, `hair_color`, `eyes`, `face`, `build`.
-  The description reads "a slender 30–34-year-old Korean woman with warm beige skin,
+  The description reads "a slender 32-year-old Korean woman with warm beige skin,
   shoulder-length wavy dark brown hair, hazel eyes, a long, narrow nose and freckles across
   the nose": write your text around it, starting after it with a comma.
 - `emit(*parts)` appends text to the finished prompt. Spacing and stray commas are tidied.

@@ -42,7 +42,7 @@ emit("A woman with", eyes, "eyes")
 '''
 
 YOUNG = '''
-age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24-year-old"], label="Age", phase=1, line=1)
+age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20-year-old"], label="Age", phase=1, line=1)
 expr = pick("expr", cls="person.expression", about="her expression", seed=["a soft smile"], label="Expression", phase=2, line=1)
 emit("A", age, "woman with", expr)
 '''
@@ -77,8 +77,8 @@ class TestSimilar:
         assert all("blonde" in hair.value(x).tags["shade"] for x in got)
         age = v.get("person.age_band")
         adults = [x.text for x in age.values if not x.opt_in]
-        old = similar_values(age, "70–74-year-old", adults)
-        assert old[0] == "70–74-year-old" and len(old) == 7
+        old = similar_values(age, "70-year-old", adults)
+        assert old[0] == "70-year-old" and len(old) == 41   # every year from 70 to 110
         assert all("elderly" in age.value(x).tags["life_stage"] for x in old)
 
     def test_build_has_its_groups_declared_beside_the_list(self):
@@ -148,7 +148,7 @@ class TestNarrowed:
     def test_any_never_holds_values_drawn_only_when_asked(self, tmp_path):
         reach = pools(self.narrowed(), tmp_path)["vocab"]["age"]["reach"]
         assert not set(reach["any"]) & minors("person.age_band")
-        assert set(reach["fits"]) < set(reach["any"]) and "70–74-year-old" in reach["any"]
+        assert set(reach["fits"]) < set(reach["any"]) and "70-year-old" in reach["any"]
 
     def test_draws_keep_to_the_subset_until_any_is_ticked(self, tmp_path):
         e = self.narrowed()
@@ -160,10 +160,10 @@ class TestNarrowed:
 
     def test_the_minors_policy_is_unaffected(self, tmp_path):
         e = entry_of(YOUNG, "a 10-year-old girl")
-        e["filters"] = {"age": ["8–10-year-old"]}
+        e["filters"] = {"age": ["8-year-old"]}
         assert program_minors(e)
         reach = pools(e, tmp_path / "p")["vocab"]["age"]["reach"]
-        assert reach["fits"] == ["8–10-year-old"]
+        assert reach["fits"] == ["8-year-old"]
         adult_only = {v.text for v in vocabulary().get("person.expression").values if v.adult_only}
         assert adult_only   # the policy's adult-coded looks exist on this list
         drawn = set(values(e, tmp_path, "expr", range(300), pins={"age": reach["any"]}))

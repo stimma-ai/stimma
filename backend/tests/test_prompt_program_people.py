@@ -152,10 +152,10 @@ class TestAGroupsWordsAreEveryMembers:
             import json
             if "find the words" in messages[0]["content"]:   # the reading names the first kid and stops
                 return json.dumps({"kids[1].age": "kids"})
-            return json.dumps(["5–7-year-old", "8–10-year-old", "11–12-year-old"])
+            return json.dumps(["5-year-old", "8-year-old", "11-year-old"])
         await narrow_entry(entry, NarrowCache(tmp_path), ask)
         for i in (1, 2, 3):
-            assert entry["filters"][f"kids[{i}].age"] == ["5–7-year-old", "8–10-year-old", "11–12-year-old"]
+            assert entry["filters"][f"kids[{i}].age"] == ["5-year-old", "8-year-old", "11-year-old"]
 
 
 class TestTheOnePersonOwnsTheirDetails:

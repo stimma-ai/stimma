@@ -34,7 +34,7 @@ hair = pick("hair", cls="person.hairstyle", about="her hairstyle", said="a high 
 emit("A woman with", hair, ".")
 '''
 AGED = '''
-age = pick("age", cls="person.age_band", about="her age", seed=["25–29-year-old"], label="Age", phase=1, line=1)
+age = pick("age", cls="person.age_band", about="her age", seed=["25-year-old"], label="Age", phase=1, line=1)
 hair = pick("hair", cls="person.hairstyle", about="her hairstyle", seed=["a bob"], label="Hairstyle", phase=1, line=1)
 outfit = pick("outfit", cls="person.outfit.summer", about="what she wears", seed=["a swimsuit"], label="Outfit", phase=1, line=1)
 emit("A", age, "person with", hair, "wearing", outfit, ".")
@@ -233,7 +233,7 @@ class TestDraws:
     def test_never_left_out_for_a_person_under_18(self):
         leotard = "a sequined showgirl leotard"
         additions_for("a").add("person.outfit.summer", leotard)
-        d = next(draws(entry_of(AGED), "a", range(1), pins={"age": ["8–10-year-old"]}))
+        d = next(draws(entry_of(AGED), "a", range(1), pins={"age": ["8-year-old"]}))
         assert leotard in d["outfit"].options
 
     def test_the_age_lists_additions_are_drawn_only_once_ticked(self):

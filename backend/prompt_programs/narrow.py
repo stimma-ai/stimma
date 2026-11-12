@@ -1,6 +1,6 @@
 """where=: a bound pick's list narrowed to what the user's words allow.
 
-    age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24-year-old"], ...)
+    age = pick("age", cls="person.age_band", where="young", about="her age", seed=["22-year-old"], ...)
 
 "A young woman" doesn't fix her age, it narrows it: the age list should draw only the
 young adult ranges. After a program is prepared, two steps find and apply such words:

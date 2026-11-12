@@ -112,34 +112,34 @@ class TestOnePersonRule:
                                 f"c = {bound('daughter_age', AGE)}", f"d = {bound('daughter_outfit', OUTFIT)}"])
         fixed, checked, _ = written(src, "a mother and her 8-year-old daughter")
         choices = checked["info"]["choices"]
-        entry = {"choices": choices, "filters": {"daughter.age": ["8–10-year-old"]}}
-        assert dict(program_minors(entry)) == {"daughter": ("8–10-year-old",)}
+        entry = {"choices": choices, "filters": {"daughter.age": ["8-year-old"]}}
+        assert dict(program_minors(entry)) == {"daughter": ("8-year-old",)}
         assert {person_of(c["id"]) for c in choices if c.get("cls") == OUTFIT} == {"mother", "daughter"}
 
     def test_a_shared_age_speaks_for_every_subject(self, tmp_path):
-        src = ('age = pick("age", cls="person.age_band", about="their age", seed=["8–10-year-old"], label="Age", phase=1, line=1, shared=True)\n'
+        src = ('age = pick("age", cls="person.age_band", about="their age", seed=["8-year-old"], label="Age", phase=1, line=1, shared=True)\n'
                'a = pick("twin1.outfit", cls="person.outfit.summer", about="what she wears", seed=["a swimsuit"], label="Outfit", phase=1, line=1)\n'
                'b = pick("twin2.outfit", cls="person.outfit.summer", about="what she wears", seed=["a swimsuit"], label="Outfit", phase=1, line=1)\n'
                'emit("Two", age, "twins at the beach, one in", a, "and one in", b)')
-        e = entry_of(src, "two 8-year-old twins at the beach", filters={"age": ["8–10-year-old"]})
+        e = entry_of(src, "two 8-year-old twins at the beach", filters={"age": ["8-year-old"]})
         adult = {v.text for v in vocabulary().get("person.outfit.summer").eligible() if v.adult_only}
         assert adult
         for _, d in draws_of(e, tmp_path, range(40)):
             assert not adult & set(d["twin1.outfit"].options) and not adult & set(d["twin2.outfit"].options)
 
     def test_a_shared_detail_is_fit_for_the_youngest(self, tmp_path):
-        src = ('ka = pick("kid.age", cls="person.age_band", about="the child\'s age", seed=["8–10-year-old"], label="Age", phase=1, line=1)\n'
-               'ma = pick("mother.age", cls="person.age_band", about="the mother\'s age", seed=["35–39-year-old"], label="Age", phase=1, line=1)\n'
+        src = ('ka = pick("kid.age", cls="person.age_band", about="the child\'s age", seed=["8-year-old"], label="Age", phase=1, line=1)\n'
+               'ma = pick("mother.age", cls="person.age_band", about="the mother\'s age", seed=["35-year-old"], label="Age", phase=1, line=1)\n'
                'o = pick("outfit", cls="person.outfit.summer", about="what they both wear", seed=["a swimsuit"], label="Outfit", phase=1, line=1, shared=True)\n'
                'emit("A", ka, "child and her", ma, "mother at the beach, both in", o)')
-        e = entry_of(src, "a child and her mother in matching swimsuits", filters={"kid.age": ["8–10-year-old"]})
+        e = entry_of(src, "a child and her mother in matching swimsuits", filters={"kid.age": ["8-year-old"]})
         adult = {v.text for v in vocabulary().get("person.outfit.summer").eligible() if v.adult_only}
         for _, d in draws_of(e, tmp_path, range(40)):
             assert not adult & set(d["outfit"].options)
 
     def test_a_said_age_nothing_narrowed_still_limits_its_person(self, tmp_path):
         adult = {v.text for v in vocabulary().get("person.outfit.summer").eligible() if v.adult_only}
-        for said in ("8–10-year-old", "eight year old"):   # a list value, and words nothing read
+        for said in ("8-year-old", "eight year old"):   # a list value, and words nothing read
             src = (f'ga = pick("girl.age", cls="person.age_band", said="{said}", about="her age", label="Age", phase=1, line=1)\n'
                    'o = pick("girl.outfit", cls="person.outfit.summer", about="what she wears", seed=["a swimsuit"], label="Outfit", phase=2, line=1)\n'
                    's = pick("outfit", cls="person.outfit.summer", about="what they all wear", seed=["a swimsuit"], label="Outfit", phase=2, line=1, shared=True)\n'
@@ -150,7 +150,7 @@ class TestOnePersonRule:
                 assert d["girl.age"].value == said
                 assert not adult & set(d["girl.outfit"].options) and not adult & set(d["outfit"].options)
         # an adult age in the list's own words stays an adult
-        e = entry_of(src.replace(f'said="{said}"', 'said="35–39-year-old"'), "a 35-year-old woman at the beach")
+        e = entry_of(src.replace(f'said="{said}"', 'said="35-year-old"'), "a 35-year-old woman at the beach")
         assert not dict(program_minors(e))
 
     def test_a_shared_descent_gives_each_subject_context(self, tmp_path):
@@ -166,7 +166,7 @@ class TestOnePersonRule:
         assert miss < 30
 
     async def test_a_shared_age_pick_means_no_one_is_read_again(self, tmp_path):
-        src = ('age = pick("age", cls="person.age_band", about="their age", seed=["25–29-year-old"], label="Age", phase=1, line=1, shared=True)\n'
+        src = ('age = pick("age", cls="person.age_band", about="their age", seed=["25-year-old"], label="Age", phase=1, line=1, shared=True)\n'
                'a = pick("twin1.outfit", cls="person.outfit.summer", about="what she wears", seed=["a swimsuit"], label="Outfit", phase=1, line=1)\n'
                'b = pick("twin2.outfit", cls="person.outfit.summer", about="what she wears", seed=["a swimsuit"], label="Outfit", phase=1, line=1)\n'
                'emit("Two", age, "twins, one in", a, "and one in", b)')

@@ -297,9 +297,9 @@ class TestArticles:
         ("grade A eggs", "Grade A eggs"), ('He said "a apple"', 'He said "an apple"'),
         ('a sign reading "A is for apple"', 'A sign reading "A is for apple"'),
         ("a diagram with labels (A and B)", "A diagram with labels (A and B)"),
-        ("a 80–84-year-old man", "An 80–84-year-old man"), ("an 65–69-year-old man", "A 65–69-year-old man"),
-        ("a 8–10-year-old girl", "An 8–10-year-old girl"), ("a 11–12-year-old", "An 11–12-year-old"),
-        ("a 18–19-year-old", "An 18–19-year-old"), ("an 13–14-year-old", "A 13–14-year-old"),
+        ("a 80-year-old man", "An 80-year-old man"), ("an 65-year-old man", "A 65-year-old man"),
+        ("a 8-year-old girl", "An 8-year-old girl"), ("a 11-year-old", "An 11-year-old"),
+        ("a 18-year-old", "An 18-year-old"), ("an 13-year-old", "A 13-year-old"),
         ("a 1980s car", "A 1980s car"), ("a 18,000-seat arena", "An 18,000-seat arena"), ("an 110 km road", "A 110 km road"),
         ("An honest, elderly woman.", "An honest, elderly woman."), ("an hour, then", "An hour, then"),
         ("a 8, then a 9", "An 8, then a 9"),
@@ -313,7 +313,7 @@ class TestArticles:
 from prompt_programs.narrow import NarrowCache, narrow_entry, parse_subset  # noqa: E402
 
 YOUNG = '''
-age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20–24-year-old"], label="Age", phase=1, line=1)
+age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20-year-old"], label="Age", phase=1, line=1)
 eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["hazel"], label="Eyes", phase=1, line=1)
 emit("A young", age, "woman with", eyes, "eyes.")
 '''
@@ -353,7 +353,7 @@ class FakeAsk:
 
 
 def young(v):
-    return v.split("–")[0].isdigit() and 18 <= int(v.split("–")[0]) < 35
+    return v.split("-")[0].isdigit() and 18 <= int(v.split("-")[0]) < 35
 
 
 class TestWhere:
@@ -890,7 +890,7 @@ class TestSharesAndComposedLists:
 
         def at(band):
             return {o for o, w in face.weigh(pool, [("life_stage", age.context_tags(band, "life_stage"))]) if w > 0}
-        child, old = at("5–7-year-old"), at("75–79-year-old")
+        child, old = at("5-year-old"), at("75-year-old")
         lines = {x.text for x in face.values if "deep wrinkles" in x.text or "age spots" in x.text}
         assert lines and not lines & child and lines <= old
         assert {x.text for x in face.values if "baby-round" in x.text}.isdisjoint(old)
@@ -927,15 +927,15 @@ class TestGrayingFollowsAge:
         return sum(w for k, w in self.pool(band).items() if k in names)
 
     def test_nobody_under_thirty_is_gray(self):
-        for band in ("15–17-year-old", "18–19-year-old", "20–24-year-old", "25–29-year-old"):
+        for band in ("15-year-old", "18-year-old", "20-year-old", "25-year-old"):
             assert self.share(band, self.SOME | self.FULL) == 0
 
     def test_it_grows_with_age(self):
-        thirties, forties = self.share("30–34-year-old", self.SOME | self.FULL), self.share("40–44-year-old", self.SOME | self.FULL)
-        fifties, sixties = self.share("50–54-year-old", self.SOME | self.FULL), self.share("60–64-year-old", self.SOME | self.FULL)
-        eighties = self.share("80–84-year-old", self.FULL)
+        thirties, forties = self.share("30-year-old", self.SOME | self.FULL), self.share("40-year-old", self.SOME | self.FULL)
+        fifties, sixties = self.share("50-year-old", self.SOME | self.FULL), self.share("60-year-old", self.SOME | self.FULL)
+        eighties = self.share("80-year-old", self.FULL)
         assert 0 < thirties < 0.05 < forties < fifties < sixties and eighties > 0.5
-        assert self.share("35–39-year-old", self.FULL) == 0
+        assert self.share("35-year-old", self.FULL) == 0
 
     def test_the_users_words_for_gray_hair_win_at_any_age(self):
         """A list narrowed to gray for a young person keeps it: a context never empties a pool."""

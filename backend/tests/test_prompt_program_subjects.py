@@ -20,7 +20,7 @@ def P(cid, cls=None, about="a detail", seed="x", label="Detail", phase=1, extra=
 
 AGE, ETH, HAIR, STYLE, OUTFIT, DOG = ("person.age_band", "person.ethnicity", "person.hair_color", "person.hairstyle",
                                       "person.outfit.casual", "animal.dog_breed")
-SEEDS = {"person.expression": "a frown", "person.outfit.formal": "a navy suit", AGE: "25–29-year-old", ETH: "Korean", HAIR: "black", STYLE: "a low ponytail", OUTFIT: "a denim jacket",
+SEEDS = {"person.expression": "a frown", "person.outfit.formal": "a navy suit", AGE: "25-year-old", ETH: "Korean", HAIR: "black", STYLE: "a low ponytail", OUTFIT: "a denim jacket",
          DOG: "French bulldog", "person.outfit.summer": "a swimsuit", "animal.cat_coat": "orange tabby", "person.eye_color": "hazel"}
 
 
@@ -151,10 +151,10 @@ class TestShapes:
         assert sections(info) == [("mother", None), ("father", None), ("children", 1), ("children", 2)]
         people = {person_of(c["id"]) for c in info["choices"] if c.get("cls") == AGE}
         assert people == {"mother", "father", "children[1]", "children[2]"}
-        entry = {"choices": info["choices"], "filters": {"children[1].age_band": ["5–7-year-old"],
-                                                         "children[2].age_band": ["11–12-year-old"],
-                                                         "mother.age": ["35–39-year-old"]}}
-        assert dict(program_minors(entry)) == {"children[1]": ("5–7-year-old",), "children[2]": ("11–12-year-old",)}
+        entry = {"choices": info["choices"], "filters": {"children[1].age_band": ["5-year-old"],
+                                                         "children[2].age_band": ["11-year-old"],
+                                                         "mother.age": ["35-year-old"]}}
+        assert dict(program_minors(entry)) == {"children[1]": ("5-year-old",), "children[2]": ("11-year-old",)}
 
     def test_a_person_and_an_animal(self):
         src, checked, _ = written(hand(("woman", [STYLE, OUTFIT]), ("dog", [DOG])), "a woman walking her dog")

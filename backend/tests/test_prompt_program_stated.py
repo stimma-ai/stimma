@@ -73,7 +73,7 @@ class TestPegged:
 
 
 AGE = '''
-age = pick("{who}.age", cls="person.age_band", said="{said}", about="{whose} age", seed=["25–29-year-old"], label="Age", phase=1, line=1)
+age = pick("{who}.age", cls="person.age_band", said="{said}", about="{whose} age", seed=["25-year-old"], label="Age", phase=1, line=1)
 outfit = pick("{who}.outfit", about="what {who} wears outdoors", seed=["a windbreaker and jeans"], label="Outfit", phase=2, line=1, added=True)
 emit("A", age, "{who}", "{doing}, wearing", outfit)
 '''
@@ -88,9 +88,9 @@ class TestStatedAgeAndMinors:
     async def test_a_stated_age_is_read_even_with_nothing_else_of_theirs_bound(self, tmp_path):
         # The man's only bound pick is his own stated age: it is read, so he is an adult.
         e = age_entry("man", "30 year old", "fishing at dawn")
-        ask = Ask(read={"man.stated_age": "30 year old"}, keep={"30 year old": ["30–34-year-old"]})
+        ask = Ask(read={"man.stated_age": "30 year old"}, keep={"30 year old": ["30-year-old"]})
         await narrow_entry(e, NarrowCache(tmp_path), ask)
-        assert e["ages"] == {"man": ["30–34-year-old"]}
+        assert e["ages"] == {"man": ["30-year-old"]}
         assert not dict(program_minors(e))
         assert "man.age" not in (e.get("filters") or {})   # their words are never narrowed away
         for _, d in draws_of(e, tmp_path / "d", range(10)):
@@ -98,15 +98,15 @@ class TestStatedAgeAndMinors:
 
     async def test_a_stated_childs_age_limits_her_pools_even_when_ticked_to_adults(self, tmp_path):
         e = age_entry("girl", "12 year old", "flying a kite on a hill")
-        ask = Ask(read={"girl.stated_age": "12 year old"}, keep={"12 year old": ["11–12-year-old"]})
+        ask = Ask(read={"girl.stated_age": "12 year old"}, keep={"12 year old": ["11-year-old"]})
         await narrow_entry(e, NarrowCache(tmp_path), ask)
-        assert dict(program_minors(e)) == {"girl": ("11–12-year-old",)}
+        assert dict(program_minors(e)) == {"girl": ("11-year-old",)}
         for _, d in draws_of(e, tmp_path / "d", range(10)):
             assert d["girl.age"].value == "12 year old"
         # ticking adult ages is the user's own choice of value; her pools stay a minor's
-        for _, d in draws_of(e, tmp_path / "t", range(10), pins={"girl.age": ["25–29-year-old"]}):
-            assert d["girl.age"].value == "25–29-year-old"
-        assert dict(program_minors(e)) == {"girl": ("11–12-year-old",)}
+        for _, d in draws_of(e, tmp_path / "t", range(10), pins={"girl.age": ["25-year-old"]}):
+            assert d["girl.age"].value == "25-year-old"
+        assert dict(program_minors(e)) == {"girl": ("11-year-old",)}
 
     def test_unread_the_childs_age_still_counts_as_a_minors(self):
         e = age_entry("girl", "12 year old", "flying a kite on a hill")   # narrowing never ran
@@ -146,12 +146,12 @@ class TestAForgottenMarkOnAListedDetail:
 
     def test_marking_an_age_keeps_what_it_was_read_as(self):
         from prompt_programs.said import apply_said
-        src = ('age = pick("man.age", cls="person.age_band", about="his age", seed=["35–39-year-old"], label="Age", phase=1, line=1)\n'
+        src = ('age = pick("man.age", cls="person.age_band", about="his age", seed=["35-year-old"], label="Age", phase=1, line=1)\n'
                'emit("A", age, "man fishing")')
-        e = entry_of(src, "a 30 year old man fishing", filters={"man.age": ["30–34-year-old"]})
-        next(c for c in e["choices"] if c["id"] == "man.age").update(options=["30–34-year-old"], where="30 year old")
+        e = entry_of(src, "a 30 year old man fishing", filters={"man.age": ["30-year-old"]})
+        next(c for c in e["choices"] if c["id"] == "man.age").update(options=["30-year-old"], where="30 year old")
         assert apply_said(e, {"man.age": "30 year old"})
-        assert e["filters"]["man.age"] == ["30–34-year-old"] and not dict(program_minors(e))
+        assert e["filters"]["man.age"] == ["30-year-old"] and not dict(program_minors(e))
 
 
 class TestAnAgeLeftWithoutItsList:
@@ -182,7 +182,7 @@ emit("A", man_age, "man and his", wife_age, job, "wife at a market,", mood)
         fixed, _ = fix_age_lists(loop)
         assert 'pick(f"friends[{i+1}].age", cls="person.age_band", about=' in fixed
         assert fix_age_lists(fixed) == (fixed, [])
-        stated = 'a = pick("age", cls="person.age_band", said="30 year old", about="his age", seed=["35–39-year-old"], label="Age", phase=1, line=1)'
+        stated = 'a = pick("age", cls="person.age_band", said="30 year old", about="his age", seed=["35-year-old"], label="Age", phase=1, line=1)'
         assert fix_age_lists(stated) == (stated, [])
 
     def test_an_animals_age_is_left_as_written(self):
@@ -218,6 +218,6 @@ class TestThroughPerson:
         src = expand_people('g = person("girl", noun="girl", presentation="feminine", said={"age": "12 year old"})\n'
                             'emit(g, ", flying a kite on a hill")')
         e = entry_of(src, "a 12 year old girl flying a kite on a hill")
-        ask = Ask(read={"girl.stated_age": "12 year old"}, keep={"12 year old": ["11–12-year-old"]})
+        ask = Ask(read={"girl.stated_age": "12 year old"}, keep={"12 year old": ["11-year-old"]})
         await narrow_entry(e, NarrowCache(tmp_path), ask)
-        assert dict(program_minors(e)).get("girl") == ("11–12-year-old",)
+        assert dict(program_minors(e)).get("girl") == ("11-year-old",)

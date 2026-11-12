@@ -40,7 +40,7 @@ def coded(value, cls):
 
 
 ONE = '''
-age = pick("age", cls="person.age_band", about="her age", seed=["25–29-year-old"], label="Age", phase=1, line=1)
+age = pick("age", cls="person.age_band", about="her age", seed=["25-year-old"], label="Age", phase=1, line=1)
 outfit = pick("outfit", cls="person.outfit.summer", about="what she wears at the beach", seed=["a swimsuit"], label="Outfit", phase=1, line=1)
 expr = pick("expr", cls="person.expression", about="her expression", seed=["a smile"], label="Expression", phase=1, line=1)
 emit("A", age, "person at the beach wearing", outfit, "with", expr, ".")
@@ -53,10 +53,10 @@ emit("A 10-year-old at the beach wearing", outfit, "with", expr, ".")
 '''
 
 TWO = '''
-kage = pick("kid.age", cls="person.age_band", about="the child's age", seed=["8–10-year-old"], label="Age", phase=1, line=1)
+kage = pick("kid.age", cls="person.age_band", about="the child's age", seed=["8-year-old"], label="Age", phase=1, line=1)
 kout = pick("kid.outfit", cls="person.outfit.summer", about="what the child wears", seed=["a swimsuit"], label="Outfit", phase=1, line=1)
 kexp = pick("kid.expr", cls="person.expression", about="the child's expression", seed=["a smile"], label="Expression", phase=1, line=1)
-mage = pick("mother.age", cls="person.age_band", about="the mother's age", seed=["35–39-year-old"], label="Age", phase=1, line=1)
+mage = pick("mother.age", cls="person.age_band", about="the mother's age", seed=["35-year-old"], label="Age", phase=1, line=1)
 mout = pick("mother.outfit", cls="person.outfit.summer", about="what the mother wears", seed=["a swimsuit"], label="Outfit", phase=1, line=1)
 mexp = pick("mother.expr", cls="person.expression", about="the mother's expression", seed=["a smile"], label="Expression", phase=1, line=1)
 emit("A", kage, "child in", kout, "with", kexp, "beside a", mage, "mother in", mout, "with", mexp, ".")
@@ -94,7 +94,7 @@ class ModelAsk:
 
 
 def start(v):
-    return int(v.split("–")[0])
+    return 0 if v == "newborn" else int(v.split("-")[0])
 
 
 ADULT = lambda v: start(v) >= 18                    # noqa: E731  "a woman", "a girl" alone
@@ -111,7 +111,7 @@ class TestTheMarkers:
         for v in ages().values:
             assert v.opt_in == v.minor, v.text
         assert minor_ages([v.text for v in ages().values]) == tuple(v.text for v in ages().values if v.minor)
-        assert not is_minor("18–19-year-old") and is_minor("15–17-year-old") and is_minor("0–2-year-old")
+        assert not is_minor("18-year-old") and is_minor("15-year-old") and is_minor("2-year-old")
 
     def test_adult_coded_values_are_tagged_in_the_person_lists_only(self):
         v = vocabulary()
@@ -219,9 +219,9 @@ class TestUnasked:
             got.append(next(d.value for d in r.draws if d.id == "age"))
         assert not any(map(is_minor, got))
         # an image that really had an age under 18 (the record keeps it) replays it exactly
-        r = draw(ONE, 3, None, [], None, {"age": "8–10-year-old"}, None,
+        r = draw(ONE, 3, None, [], None, {"age": "8-year-old"}, None,
                  options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=rev).options)
-        assert next(d.value for d in r.draws if d.id == "age") == "8–10-year-old"
+        assert next(d.value for d in r.draws if d.id == "age") == "8-year-old"
 
 
 # --------------------------------------------------------------------------- narrowing: asked, and "a girl"
@@ -276,8 +276,8 @@ class TestNarrowing:
         e = entry_of(NO_AGE, "a 10-year-old at the beach")
         ask = ModelAsk({"10-year-old": TEN}, read={"stated_age": "10-year-old"})
         await narrow_entry(e, NarrowCache(tmp_path / "n"), ask)
-        assert e["ages"] == {"": ["8–10-year-old"]} and "stated_age" not in e["filters"]
-        assert dict(program_minors(e)) == {"": ("8–10-year-old",)}
+        assert e["ages"] == {"": ["8-year-old"]} and "stated_age" not in e["filters"]
+        assert dict(program_minors(e)) == {"": ("8-year-old",)}
         for d in draws_of(e, tmp_path / "o", range(150)):
             assert not coded(d["outfit"].value, "person.outfit.summer") and not coded(d["expr"].value, "person.expression")
         # a woman's stated age is read too, and limits nothing
@@ -312,10 +312,10 @@ class TestPerPerson:
 
     def test_a_picked_age_under_18_draws_and_counts_as_asking(self, tmp_path):
         e = entry_of(ONE, "a person at the beach")
-        for d in draws_of(e, tmp_path, range(60), pins={"age": ["11–12-year-old"]}):
-            assert d["age"].value == "11–12-year-old"
+        for d in draws_of(e, tmp_path, range(60), pins={"age": ["11-year-old"]}):
+            assert d["age"].value == "11-year-old"
             assert not set(adult_only("person.outfit.summer")) & set(d["outfit"].options)
-        out = pool_options(e, {"age": ["11–12-year-old"]}, store=OptionStore(tmp_path / "p"), cfg=OFF)
+        out = pool_options(e, {"age": ["11-year-old"]}, store=OptionStore(tmp_path / "p"), cfg=OFF)
         tiers = out["vocab"]["age"]["tiers"]
         assert {o for o, t in tiers.items() if t == "opt_in"} == {v.text for v in ages().values if v.minor}
         assert not set(adult_only("person.outfit.summer")) & set(out["options"]["outfit"])
@@ -324,7 +324,7 @@ class TestPerPerson:
 
     def test_an_added_or_kept_age_under_18_counts_too(self, tmp_path):
         e = entry_of(ONE, "a person at the beach")
-        for kw in ({"edits": {"age": {"add": ["5–7-year-old"]}}}, {"fixed": {"age": "5–7-year-old"}}):
+        for kw in ({"edits": {"age": {"add": ["5-year-old"]}}}, {"fixed": {"age": "5-year-old"}}):
             for d in draws_of(e, tmp_path, range(40), **kw):
                 assert not set(adult_only("person.expression")) & set(d["expr"].options)
 
@@ -340,12 +340,12 @@ class TestPerPerson:
         opts = GeneratedOptions(store, program_context(e), filler=filler)
         draw(NO_AGE, 1, None, [], None, None, None, options=opts)
         jobs = [j for _, j in filler._jobs.values()]
-        assert jobs and all(j.spec.minor == ("8–10-year-old",) for j in jobs)
+        assert jobs and all(j.spec.minor == ("8-year-old",) for j in jobs)
         text = generation_messages(jobs[0])[1]["content"]
-        assert "a person under 18 (8–10 years old)" in text
+        assert "a person under 18 (8 years old)" in text
         assert not any(coded(x, j.spec.cls) for j in jobs for x in j.examples)
         adult = PickSpec("outfit", "Outfit", "what she wears", 1, "text", "pick", [], [], "person.outfit.summer")
-        kid = PickSpec(**{**vars(adult), "minor": ("8–10-year-old",)})
+        kid = PickSpec(**{**vars(adult), "minor": ("8-year-old",)})
         assert gen_key(adult, {}, "s", "prose", True, cls=adult.cls) != gen_key(kid, {}, "s", "prose", True, cls=kid.cls,
                                                                                  minor=kid.minor)
         assert gen_key(adult, {}, "s", "prose", True, cls=adult.cls) == gen_key(adult, {}, "s", "prose", True,
@@ -372,7 +372,7 @@ class TestTheUsersOwn:
                f'look = pick("look", ["{bikini}", "a sundress"], source="list", label="Look", phase=1, line=1)\n'
                'emit("A", age, "girl in", look)')
         e = entry_of(src)
-        seen = {d["look"].value for d in draws_of(e, tmp_path, range(60), pins={"age": ["8–10-year-old"]})}
+        seen = {d["look"].value for d in draws_of(e, tmp_path, range(60), pins={"age": ["8-year-old"]})}
         assert bikini in seen
 
     async def test_a_bound_wildcard_is_never_filtered(self, tmp_path):
@@ -390,7 +390,7 @@ class TestTheUsersOwn:
     def test_a_users_added_value_stays(self, tmp_path):
         mine = "a sequined showgirl leotard"
         e = entry_of(ONE)
-        d = next(draws_of(e, tmp_path, range(1), pins={"age": ["8–10-year-old"]},
+        d = next(draws_of(e, tmp_path, range(1), pins={"age": ["8-year-old"]},
                           edits={"outfit": {"add": [mine]}}))
         assert mine in d["outfit"].options
 
@@ -405,7 +405,7 @@ class TestTheUsersOwn:
         e = entry_of(src, "a {13-year-old|30-year-old} girl")
         ask = ModelAsk({"13-year-old": lambda v: start(v) == 13, "30-year-old": lambda v: start(v) == 30})
         await narrow_entry(e, NarrowCache(tmp_path / "n"), ask)
-        assert e["list_ages"] == {"age": {"13-year-old": ["13–14-year-old"]}} and not program_minors(e)
+        assert e["list_ages"] == {"age": {"13-year-old": ["13-year-old"]}} and not program_minors(e)
         seen = {}
         for d in draws_of(e, tmp_path / "o", range(80)):
             seen.setdefault(d["age"].value, set()).update(d["expr"].options)

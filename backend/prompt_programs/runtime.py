@@ -631,8 +631,8 @@ _A_WORDS = ("unic", "unif", "unio", "uniq", "unis", "unit", "univ", "use", "usu"
 
 
 def _number_wants_an(digits: str) -> bool:
-    """A number said with a vowel sound: eight…, eleven, eighteen ("an 8–10-year-old",
-    "an 11-year-old", "an 18,000-seat arena", "an 80–84-year-old")."""
+    """A number said with a vowel sound: eight…, eleven, eighteen ("an 8-year-old",
+    "an 11-year-old", "an 18,000-seat arena", "an 80-year-old")."""
     digits = digits.replace(",", "")
     return digits.startswith("8") or (len(digits) % 3 == 2 and digits[:2] in ("11", "18"))
 

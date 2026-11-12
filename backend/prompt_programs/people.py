@@ -47,7 +47,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 # detail name -> (list, label, what it is of the person, a seed, phase)
 DETAILS: Dict[str, Tuple[str, str, str, str, int]] = {
     "build": ("person.build", "Build", "build", "slender", 2),
-    "age": ("person.age_band", "Age", "age", "30–34-year-old", 1),
+    "age": ("person.age_band", "Age", "age", "32-year-old", 1),
     "descent": ("person.ethnicity", "Ethnicity", "descent", "Korean", 1),
     "skin": ("person.skin_tone", "Skin", "skin tone", "warm beige", 2),
     "hair": ("person.hair_length_texture", "Hair", "hair length and texture", "shoulder-length wavy", 2),
@@ -215,7 +215,7 @@ class _People(ast.NodeTransformer):
         def name(k: str) -> ast.expr:
             return ast.Name(var[k], ast.Load())
         var = {k: v for k, v in var.items() if k not in placed_by_hand}   # the description: what the program didn't place
-        # "a slender 30–34-year-old Korean woman with warm beige skin, shoulder-length wavy dark brown hair, hazel eyes, ..."
+        # "a slender 32-year-old Korean woman with warm beige skin, shoulder-length wavy dark brown hair, hazel eyes, ..."
         parts: List[ast.expr] = [ast.Constant("a")] + [name(k) for k in ("build", "age", "descent") if k in var] + [noun_part]
         groups = [g for g in ([name("skin"), ast.Constant("skin")] if "skin" in var else [],
                               [*(name(k) for k in ("hair", "hair_color") if k in var), ast.Constant("hair")]
