@@ -509,6 +509,37 @@ class TestKin:
             r = draw(src, seed)
             assert r.prompt.count(str(next(x.value for x in r.draws if x.id == "woman.descent"))) == 2
 
+    def test_an_adopted_descent_is_marked_shared_and_one_out_of_reach_is_not_adopted(self):
+        top = expand_people('d = pick("woman.descent", cls="person.ethnicity", about="her descent", seed=["Irish"], label="Ethnicity", phase=1, added=True)\n'
+                            'w = person("woman", noun="woman", kin="family", show=["age"])\n'
+                            'g = person("girl", noun="girl", kin="family", show=["age", "descent"])\nemit("A", d, w, "and", g, ".")\n')
+        assert "shared=True" in next(line for line in top.splitlines() if "woman.descent" in line)
+        from prompt_programs.draws import draw
+        late = expand_people('g = person("girl", noun="girl", kin="family", show=["age", "descent"])\n'
+                             'w = person("woman", noun="woman", kin="family", show=["age"])\n'
+                             'd = pick("woman.descent", cls="person.ethnicity", about="her descent", seed=["Irish"], label="Ethnicity", phase=1, added=True)\n'
+                             'emit("A", d, w, "and", g, ".")\n')
+        assert draw(late, 1).prompt   # the girl has the family's own pick; nothing reads a name not yet made
+        branch = expand_people('s = pick("scene", ["home", "away"], source="list", label="Scene", phase=1, line=1)\n'
+                               'if s == "home":\n    d = pick("woman.descent", cls="person.ethnicity", about="her descent", seed=["Irish"], label="Ethnicity", phase=2, added=True)\n'
+                               '    emit(d)\n'
+                               'g = person("girl", noun="girl", kin="family", show=["age", "descent"])\nw = person("woman", noun="woman", kin="family", show=["age"])\n'
+                               'emit(s, w, "and", g, ".")\n')
+        for seed in range(6):
+            assert draw(branch, seed).prompt
+
+    def test_a_family_first_met_in_a_branch_inside_a_loop_is_not_hoisted(self):
+        from prompt_programs.draws import draw
+        src = expand_people('n = group("people", 2, label="People", line=1)\nemit("Two people:")\n'
+                            'for i in range(n):\n'
+                            '    if False:\n'
+                            '        s = person(f"people[{i+1}]", noun="sister", kin="family", show=["age", "descent"])\n'
+                            '        emit(s, ";")\n'
+                            '    else:\n'
+                            '        emit("someone;")\n')
+        assert "family.descent" not in src
+        assert not [d for d in draw(src, 1).draws if "descent" in d.id]
+
     def test_a_family_in_a_branch_not_taken_draws_nothing(self):
         from prompt_programs import prepare as prep
         from prompt_programs.draws import draw

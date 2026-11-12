@@ -149,16 +149,28 @@ class _People(ast.NodeTransformer):
         self.kin_at: Dict[str, Tuple[Any, ...]] = {}              # ...and the branch it was made in
         self.arms: List[Any] = []                                 # the if-arms being visited, outermost first
         self.before_loop: List[ast.stmt] = []                     # shared picks to stand before the loop being visited
+        self.arms_in_loops = 0                                    # if-arms being visited that are inside a loop
         ids = [(n.value.args[0] if n.value.args else None) for n in made]
         texts = [_id_text(i) or n.targets[0].id for i, n in zip(ids, made)]
         # A family one of whose members has a descent pick the program wrote itself: that pick is
         # the family's, so the others share it rather than a second one.
+        # Only a pick that stands at the top of the program, above every member of the family: one
+        # in a branch or a loop, or written after a member, isn't there for the others to read.
+        top = {st.targets[0].id: st for st in tree.body
+               if isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name)
+               and isinstance(st.value, ast.Call) and getattr(st.value.func, "id", None) == "pick"}
+        first: Dict[str, int] = {}
+        for n in made:
+            fam = _family(next((k.value for k in n.value.keywords if k.arg == "kin"), None))
+            if fam:
+                first[fam] = min(first.get(fam, n.lineno), n.lineno)
+        self.kin_own: Set[int] = set()                            # id() of a writer's pick call that is a family's
         for n, t in zip(made, texts):
             fam = _family(next((k.value for k in n.value.keywords if k.arg == "kin"), None))
             own = self.own_vars.get(f"{t}.descent")
-            if fam and own:
-                self.kin.setdefault(fam, own)
-                self.kin_at.setdefault(fam, ())
+            if fam and own in top and top[own].lineno < first[fam] and fam not in self.kin:
+                self.kin[fam], self.kin_at[fam] = own, ()
+                self.kin_own.add(id(top[own].value))
         self.kept: List[Tuple[str, str]] = []                     # (pick id as written, detail)
         self.adopt: Dict[int, ast.expr] = {}                      # id(pick call) -> the id it takes
         taken: Set[Tuple[int, str]] = set()
@@ -216,13 +228,16 @@ class _People(ast.NodeTransformer):
         here = tuple(self.arms)
         made_here: List[ast.stmt] = []
         if family and "descent" in keys and "descent" not in said:
-            if family not in self.kin:
+            if family not in self.kin and not (self.loops and self.arms_in_loops):
+                # (A family first met in a branch inside a loop keeps each member's own descent:
+                # its pick could stand neither above the loop, where the branch may never run,
+                # nor inside it, where it would be made once a pass.)
                 # The family's one descent pick stands where its first member is made: above the
                 # loop when that is in a loop (one pick, not one a pass), in the branch when it is
                 # in a branch (a branch not taken draws nothing).
                 self.kin[family], self.kin_at[family] = f"kin_{family}_descent", here
                 (self.before_loop if self.loops else made_here).append(_shared_descent(family, self.kin[family], call.lineno))
-            if here[:len(self.kin_at[family])] == self.kin_at[family]:   # made on the way here: theirs too
+            if family in self.kin and here[:len(self.kin_at[family])] == self.kin_at[family]:   # made on the way here: theirs too
                 var["descent"] = self.kin[family]
         out += made_here
         for k in keys:
@@ -291,6 +306,7 @@ class _People(ast.NodeTransformer):
         self.branches += 1   # a branch may be the only place they stand: never "the woman" there
         try:
             node.test = self.visit(node.test)
+            self.arms_in_loops += 1 if self.loops else 0
             for arm in ("body", "orelse"):   # each arm apart: what one makes, the other never ran
                 self.arms.append((id(node), arm))
                 try:
@@ -302,6 +318,7 @@ class _People(ast.NodeTransformer):
                 finally:
                     self.arms.pop()
         finally:
+            self.arms_in_loops -= 1 if self.loops else 0
             self.branches -= 1
         node.body = node.body or [ast.Pass()]
         return node
@@ -332,6 +349,8 @@ class _People(ast.NodeTransformer):
             return node
         if id(node) in self.adopt:
             node.args[0] = self.adopt[id(node)]
+        if id(node) in self.kin_own and not any(k.arg == "shared" for k in node.keywords):
+            node.keywords.append(ast.keyword("shared", ast.Constant(True)))   # one value, read once per member
         return self.generic_visit(node)
 
     def _stand(self, target: str) -> List[ast.expr]:
