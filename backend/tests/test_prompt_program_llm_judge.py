@@ -285,6 +285,19 @@ class TestStaleTicks:
                 seen.add("refused")
         assert "refused" in seen and not any("feathered" in p or "afro" in p for p in seen)
 
+    def test_ticks_wait_for_computed_options_to_settle(self):
+        """Options computed from an earlier pick are placeholders until that pick is drawn: ticks
+        for the value it draws later hold, whatever an earlier run of the program saw."""
+        from prompt_programs.draws import draw
+        src = ('styles = {"1920s": ["finger waves", "a bob", "long straight hair"], "1970s": ["feathered hair", "an afro", "long straight hair"]}\n'
+               'sky = pick("sky", ["a clear sky", "a gray sky"], label="Sky", source="list", phase=1, line=1)\n'
+               'era = pick("era", ["1920s", "1970s"], label="Era", source="list", phase=2, line=1)\n'
+               'hair = pick("hair", styles[era], by=era, label="Hair", phase=3, line=1)\n'
+               'emit("Under", sky, ", a", era, "woman with", hair, ".")\n')
+        ticks = {"hair": ["feathered hair", "an afro"], "era": ["1970s"]}
+        got = {draw(src, seed, ticks).prompt for seed in range(30)}
+        assert got and all("1970s" in p and ("feathered hair" in p or "an afro" in p) for p in got)
+
     def test_ticked_values_that_are_all_excluded_are_not_stale(self):
         from prompt_programs.draws import DrawAborted, draw
         src = ('a = pick("a", ["red", "green"], label="A", source="list", phase=1, line=1)\n'

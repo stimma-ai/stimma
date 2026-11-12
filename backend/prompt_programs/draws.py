@@ -798,6 +798,7 @@ class _Exec(_Runner):
         self.rng = eng.rng
         self.fixed = {**eng.fixed, **eng.param_values}
         self.pins = {cid: sorted(vs) for cid, vs in eng.pins.items()}  # param() reads these
+        self.stale: Set[str] = set()   # choices whose ticks name none of their options (_eligible)
         self.seen: Dict[str, _Seen] = {}
         self.order: List[str] = []
         self.site_ids: Dict[int, List[str]] = {}
@@ -885,7 +886,8 @@ class _Exec(_Runner):
             seen.pin_ok = pin in names
             seen.value = pin
             return pin, True
-        if holds_said(cid, spec.said, names, eng.pins, eng.fixed):
+        ticks = eng.pins if cid not in self.stale else {}   # stale ticks: the choice is unticked (_eligible)
+        if holds_said(cid, spec.said, names, ticks, eng.fixed):
             # The user's own words, as a pin is: placed first, never rerolled. Its pool stays
             # whole, so the picker shows the alternatives they may tick.
             eng.held[cid] = spec.said
@@ -904,7 +906,7 @@ class _Exec(_Runner):
             v = self.proposals.get(cid)
             if v not in names:
                 # Values at weight 0 (opt-in, not asked for) draw only when pinned or kept.
-                if not items or (cid not in eng.pins and not any(w > 0 for _, w in items)
+                if not items or (cid not in ticks and not any(w > 0 for _, w in items)
                                  and eng.fixed.get(cid) not in names):
                     if spec.kind == "pick" and spec.source != "list" and self.probe is None:
                         eng.options.request_more(spec, context, "high")
@@ -1068,15 +1070,17 @@ class _Exec(_Runner):
         items = [(o, w) for o, w in zip(pool.items, pool.weights) if o not in excl]
         self.eng.own[cid] = pool.own
         pins = self.eng.pins.get(cid)
-        if pins and len(pins) > 1 and not any(o in pins for o in pool.items) \
+        if pins and len(pins) > 1 and spec.phase <= self.k and not any(o in pins for o in pool.items) \
                 and not (pins & self.eng.elsewhere.get(cid, set())):
             # Ticks that name no option this choice has (not in its pool before anything is
             # excluded, nor under another value of what it follows) were made on an earlier
             # program's options for the same id: the prompt was prepared again and the options
-            # changed. They say nothing about these options, so for this draw the choice has no
-            # ticks at all: its pool, the words the user stated for it and its standby values
-            # behave as they do unticked. One pinned value keeps its meaning (check_pins).
-            self.eng.pins.pop(cid, None)
+            # changed. They say nothing about these options, so in this run of the program the
+            # choice has no ticks at all: its pool, the words the user stated for it and its
+            # standby values behave as they do unticked (_settle). Only once the choice's own
+            # phase is reached: before that its options may be computed from placeholders, and
+            # say nothing yet. One pinned value keeps its meaning (check_pins).
+            self.stale.add(cid)
             pins = None
         if pins:
             # A ticked option of the user's own is drawn like a typical value, even one their
