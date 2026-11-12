@@ -93,12 +93,15 @@
                 @update:model-value="(v) => emit('mode', v as EnhanceLevel)"
               />
             </div>
+            <div v-if="!program.unsupported.value" :class="['px-3 -mt-1 pb-2 text-[11px] leading-snug text-content-tertiary', llmUnconfigured ? 'opacity-40' : '']" data-detail-line>{{ LEVEL_LINES[enhance] }}</div>
             <template v-if="hasLoras">
               <label class="flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer">
                 <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA trigger words</span>
                 <Toggle :model-value="!!loraTriggers" label="LoRA trigger words" @update:model-value="(v) => emit('lora', 'loraTriggers', v)" />
               </label>
+              <!-- Notes reach the model that writes each image's prompt; Yours has none. -->
               <label
+                v-if="enhance !== 'off' || program.unsupported.value"
                 :inert="llmUnconfigured || undefined"
                 :aria-disabled="llmUnconfigured || undefined"
                 :class="['flex items-center gap-3 px-3 py-2 coarse:py-3', llmUnconfigured ? 'opacity-40' : 'hover:bg-overlay-subtle cursor-pointer']"
@@ -134,14 +137,6 @@
               <Caret :open="languagesOpen" class="opacity-70" />
             </button>
           </template>
-          <button
-            v-if="tab === 'fluent' && retake"
-            type="button"
-            class="w-full text-left flex items-center gap-2 px-3 py-2 coarse:py-3 text-[12px] coarse:text-[13px] text-content hover:bg-overlay-subtle"
-            @click="menuOpen = false; program.rethink()"
-          >
-            <ArrowPathIcon class="w-3.5 h-3.5 text-content-tertiary" />{{ retake.label }}
-          </button>
         </div>
         <!-- Translate's languages: a dropdown under the row, over the menu. -->
         <div
@@ -191,6 +186,10 @@
             <template v-else><span class="w-3 h-3 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" /> Preparing your prompt…</template>
           </div>
           <template v-else>
+          <div v-if="lastPrompt" class="mx-4 mb-2" data-last-prompt>
+            <div class="text-xs font-semibold text-content-secondary mb-1">Last image’s prompt</div>
+            <div class="max-h-[16vh] overflow-y-auto rounded-md bg-surface-overlay border border-edge-subtle px-3 py-2 text-[12px] leading-relaxed text-content-secondary whitespace-pre-wrap select-text">{{ lastPrompt }}</div>
+          </div>
           <div class="mx-4 rounded-md border border-edge-subtle bg-surface-overlay h-[40vh] min-h-[200px] overflow-hidden">
             <ReadOnlyCode :text="programText" name="program.py" wrap />
           </div>
@@ -223,7 +222,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon, LanguageIcon } from '@heroicons/vue/24/solid'
-import { ArrowPathIcon, Bars3BottomLeftIcon, BookOpenIcon, CodeBracketIcon, CodeBracketSquareIcon, QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
+import { Bars3BottomLeftIcon, BookOpenIcon, CodeBracketIcon, CodeBracketSquareIcon, QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
 import SegmentedControl from '../ui/SegmentedControl.vue'
 import Toggle from '../ui/Toggle.vue'
 import type { EnhanceLevel, PromptProgram } from '../../composables/usePromptProgram'
@@ -257,6 +256,8 @@ const props = defineProps<{
   previousRunning?: boolean
   /** Translate the prompt before generating (not in Raw). */
   translate?: { enabled: boolean; language: string }
+  /** What the newest image made in this mode was sent with, for the developer dialog. */
+  lastPrompt?: string | null
 }>()
 const emit = defineEmits<{
   (e: 'mode', level: EnhanceLevel): void
@@ -302,19 +303,23 @@ const running = computed<Way>(() => effectiveWay({ raw: props.raw, direct: props
 const peek = ref<Way | null>(null)
 const tab = computed<Way>(() => peek.value ?? running.value)
 watch([menuOpen, () => props.llmUnconfigured], () => { peek.value = null })
-// What Fluent honestly does with the current setting: fresh choices always; the
-// model's own style only when it upsamples.
+// What the brand's tab does, in a line; the detail level's own line says how much it adds.
 const tagline = computed(() => {
   // Name the features plainly; don't explain them.
   const model = props.modelName || 'the model'
   if (tab.value === 'raw') return `Your prompt goes to ${model} exactly as you typed it.`
   if (tab.value === 'direct') return 'Fills in your lists and saved wildcards.'
-  if (props.enhance === 'expand' || props.program.unsupported.value)
-    return `AI fills in your wildcards, follows your comments, and expands your prompt into the detailed style ${model} works best with.`
-  return props.enhance === 'fill'
-    ? `AI fills in your wildcards and follows your comments, keeping your wording and adding only what ${model} needs.`
-    : 'AI fills in your wildcards and follows your comments, keeping your wording.'
+  if (props.program.unsupported.value) return `Writes each image’s prompt in the form ${model} needs, following your comments.`
+  return props.enhance === 'off'
+    ? 'Fills in your slots and lists for every image, keeping your wording.'
+    : `Fills in your slots and lists for every image, then writes its prompt the way ${model} reads best, following your comments.`
 })
+/** How much each detail level adds, in a short line. Tag models get tags, other models sentences. */
+const LEVEL_LINES: Record<EnhanceLevel, string> = {
+  off: 'Your words as written, nothing added.',
+  fill: 'Adds a little: a few sentences, or a short list of tags.',
+  expand: 'Adds a lot: a full paragraph, or a long list of tags.',
+}
 const translating = computed(() => !props.raw && !props.llmUnconfigured && !!props.translate?.enabled)
 const languageCode = computed(() => props.translate?.language ?? DEFAULT_TRANSLATE_LANGUAGE)
 const languageLabel = computed(() => promptLanguageByCode(languageCode.value)?.label ?? languageCode.value)
@@ -373,18 +378,6 @@ const notice = computed<Notice | null>(() => {
     return { head: f.head, body: f.body, detail: devModeRef.value ? props.program.error.value?.message : undefined, actions }
   }
   return null
-})
-
-// "Try different …": a fresh take on exactly what was written (the choices' options and,
-// at High, the wording), named for what changes.
-const retake = computed(() => {
-  if (!on.value || props.program.status.value !== 'ready') return null
-  const names = props.program.choices.value.filter(c => !c.hidden && c.kind === 'pick' && c.source !== 'list').map(c => c.label)
-  const words = detail.value
-  if (!names.length && !words) return null
-  // Phrased as why you'd want it: you don't like what you got.
-  const label = names.length && words ? 'Try different choices and wording' : names.length ? 'Try different choices' : 'Try different wording'
-  return { label }
 })
 
 function pickWay(id: Way) {

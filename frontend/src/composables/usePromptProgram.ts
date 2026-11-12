@@ -237,11 +237,6 @@ export function usePromptProgram(o: Options) {
     }
   }
 
-  /** New ideas: read the prompt again from scratch. */
-  function rethink(): Promise<boolean> {
-    return prepare(true)
-  }
-
   /** True when a run would have to wait for preparing first. */
   function needsPrepare(): boolean {
     return status.value !== 'off' && status.value !== 'ready'
@@ -456,7 +451,7 @@ export function usePromptProgram(o: Options) {
 
   return {
     program, status, error, unsupported, slots, choices, byId, slotById, followers, pools, states, openCard,
-    lookup, prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns,
+    lookup, prepare, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns,
     poolOf, optionsOf, suggestOptions, isOwn, addOwn, forgetOwn, setState, setStates, setValues, reset, resetAll,
     slotFor, detailsOf, isBuilder, openSlot, openChoice, openEditorSlot, close,
   }

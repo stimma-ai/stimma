@@ -354,6 +354,7 @@
               :lora-notes="globalPrefs.promptOptions?.loraNotes !== false"
               :previous-running="uiState.generateForeverMode && promptProgram.needsPrepare() && promptProgram.readyPrompt() != null"
               :translate="globalPrefs.promptOptions?.translate"
+              :last-prompt="lastFluentPrompt"
               @translate="(code) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, translate: { enabled: !!code, language: code ?? globalPrefs.promptOptions?.translate?.language ?? 'zh-Hans' } }"
               @lora="(key, on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, [key]: on ? undefined : false }"
               @way="(w) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined }"
@@ -3950,6 +3951,14 @@ const promptProgram = usePromptProgram({
   prepareWhenFound: () => !isInitialLoading.value && stageViewActive.value && document.hasFocus()
     && !aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
 })
+// The prompt the newest image made in Fluent was sent with (the prompt menu's developer view).
+const lastFluentPrompt = computed<string | null>(() => {
+  for (const job of stageCompletedJobs.value.slice(0, 20)) {
+    const params = generationJobParams(job)
+    if (params?.prompt_program && typeof params.prompt === 'string') return params.prompt
+  }
+  return null
+})
 // Suggest and Add ask the project's chat model, as Prepare does.
 const promptSuggestContext = computed(() => ({ project_id: projectScopeId.value ?? null }))
 // The tool finished loading: what's in the prompt box now is what to look up (and read).
@@ -4175,7 +4184,6 @@ function setDetailLevel(level: EnhanceLevel) {
     ...globalPrefs.value.promptOptions,
     autoImprove: { ...globalPrefs.value.promptOptions?.autoImprove, enabled: level !== 'off', ...(level !== 'off' ? { level } : {}) },
   }
-  void nextTick(preparePromptNow)
 }
 
 // The prompt is done (Vim :w, Cmd/Ctrl+Enter, a pause): read it now. A prepare in
