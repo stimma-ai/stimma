@@ -1,0 +1,153 @@
+"""The per-image improver's levels: length targets, the skip rule, the token clamp,
+and an unchanged answer accepted when the prompt is already at length."""
+from unittest.mock import AsyncMock
+
+import pytest
+
+import routes.prompt_enhancement as pe
+from routes.prompt_enhancement import (
+    ImprovePromptRequest,
+    improve_max_tokens,
+    improve_needed,
+    length_target,
+    prompt_length,
+    style_guide,
+)
+
+SHORT = "a woman reading in a laundromat at night"
+LONG = " ".join(["word"] * 150)
+
+
+@pytest.fixture
+def llm(monkeypatch):
+    import llm_resolver
+
+    async def fake_llm_config(role, project_id=None):
+        return {"provider": "test"}
+
+    complete = AsyncMock(return_value="a rewritten prompt")
+    monkeypatch.setattr(llm_resolver, "get_effective_llm_config", fake_llm_config)
+    monkeypatch.setattr(pe, "llm_complete_text", complete)
+    return complete
+
+
+def test_targets_by_mode_and_level():
+    assert length_target("prose", "fill") == (50, 80, "words")
+    assert length_target("prose", "expand", "flux-1-dev") == (80, 120, "words")
+    assert length_target("krea-2", "expand") == (120, 180, "words")
+    assert length_target("keyword", "fill") == (15, 25, "tags")
+    assert length_target("ltx-2.5", "fill") == (2, 4, "sentences")
+    assert length_target("prose", None) == length_target("prose", "expand")
+    assert length_target("prose", "off") is None
+    assert length_target("edit", "expand") is None
+
+
+def test_length_counts_words_tags_and_sentences_without_comments_or_marks():
+    assert prompt_length("a ⟦young woman⟧ reads\n# keep it dim", "words") == 4
+    assert prompt_length("1girl, red hair, , forest", "tags") == 3
+    assert prompt_length("She walks in. The camera holds! Rain falls", "sentences") == 3
+
+
+def test_short_prose_prompt_is_improved():
+    assert improve_needed(SHORT, "prose", "expand")
+    assert improve_needed(SHORT, "krea-2", "fill")
+
+
+def test_prose_prompt_at_length_is_sent_as_is():
+    assert not improve_needed(LONG, "prose", "expand")
+    assert not improve_needed(LONG, "qwen-image-2.1", "fill")
+    # Under the low end of the High target it still runs.
+    assert improve_needed(LONG, "qwen-image-2.1", "expand")
+
+
+def test_a_comment_line_always_calls_the_improver():
+    assert improve_needed(LONG + "\n# keep the kitchen dim", "prose", "expand")
+
+
+def test_tag_json_and_h3_forms_always_run():
+    assert improve_needed(LONG, "keyword", "expand")
+    assert improve_needed(LONG, "minimax-h3", "fill")
+    assert improve_needed(LONG, "edit", "expand")
+
+
+def test_off_runs_only_where_the_model_needs_its_format():
+    assert not improve_needed(SHORT, "prose", "off")
+    assert not improve_needed(SHORT, "keyword", "off")
+    assert improve_needed(SHORT, "minimax-h3", "off")
+
+
+def test_classic_improve_always_runs():
+    assert improve_needed(LONG, "prose", None)
+
+
+def test_max_tokens_follow_the_target():
+    assert improve_max_tokens((50, 80, "words")) == 260
+    assert improve_max_tokens((30, 45, "tags")) == 450
+    assert improve_max_tokens((2, 4, "sentences")) == 350
+    assert improve_max_tokens((1, 2, "words")) == 256
+    assert improve_max_tokens(None) == 8192
+
+
+async def test_long_prompt_at_high_makes_no_call(llm):
+    result = await pe.improve_prompt(ImprovePromptRequest(prompt=LONG, model="flux1-dev", level="expand"), None)
+    assert result.improved_prompt == LONG
+    llm.assert_not_awaited()
+
+
+async def test_short_prompt_is_improved_with_a_clamped_budget(llm):
+    result = await pe.improve_prompt(ImprovePromptRequest(prompt=SHORT, model="krea-2-turbo", level="fill"), None)
+    assert result.improved_prompt == "a rewritten prompt"
+    assert llm.await_args.kwargs["max_tokens"] == improve_max_tokens((50, 80, "words"))
+    system = llm.await_args.kwargs["messages"][0]["content"]
+    assert system.endswith("Length: aim for about 50 to 80 words. If the prompt is already about that long, "
+                           "return it with only the changes this model's format needs.")
+
+
+async def test_classic_improve_keeps_the_full_budget(llm):
+    await pe.improve_prompt(ImprovePromptRequest(prompt=SHORT, model="krea-2-turbo"), None)
+    assert llm.await_args.kwargs["max_tokens"] == 8192
+    system = llm.await_args.kwargs["messages"][0]["content"]
+    assert system.endswith("Length: aim for about 120 to 180 words.")
+
+
+async def test_unchanged_answer_is_accepted_on_the_late_path(llm):
+    prompt = SHORT + "\n# keep it dim"
+    llm.return_value = prompt
+    result = await pe.improve_prompt(ImprovePromptRequest(prompt=prompt, model="flux1-dev", level="expand"), None)
+    assert result.improved_prompt == prompt
+    assert llm.await_count == 1
+
+
+async def test_prose_at_off_makes_no_call(llm):
+    result = await pe.improve_prompt(ImprovePromptRequest(prompt=SHORT, model="flux1-dev", level="off"), None)
+    assert result.improved_prompt == SHORT
+    llm.assert_not_awaited()
+
+
+async def test_h3_at_off_keeps_the_users_words_in_its_format(llm, monkeypatch):
+    seen = []
+
+    async def recording_style_guide(request, session, fill=False, exact_canvas=True):
+        seen.append(fill)
+        return await style_guide(request, session, fill=fill, exact_canvas=exact_canvas)
+
+    monkeypatch.setattr(pe, "style_guide", recording_style_guide)
+    await pe.improve_prompt(ImprovePromptRequest(
+        prompt=SHORT, model="minimax-h3", is_video=True, h3_task="t2va", h3_duration=5, level="off"), None)
+    assert seen == [True] and llm.await_count == 1
+    assert llm.await_args.kwargs["max_tokens"] == 8192
+    system = llm.await_args.kwargs["messages"][0]["content"]
+    assert "integrated_multimodal_description" in system
+
+
+def test_level_is_validated():
+    with pytest.raises(ValueError):
+        ImprovePromptRequest(prompt="x", level="loud")
+
+
+async def test_marked_values_get_their_rule_only_when_present():
+    marked, _images, _mode = await style_guide(ImprovePromptRequest(
+        prompt="a ⟦young woman⟧ reading", model="sdxl", marked=True), None)
+    plain, _images, _mode = await style_guide(ImprovePromptRequest(prompt="a young woman reading", model="sdxl"), None)
+    assert "⟦ ⟧ marks" in marked and "own comma-separated tag" in marked
+    assert "⟦" not in plain

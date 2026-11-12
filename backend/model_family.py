@@ -51,6 +51,8 @@ _QUANT_SUFFIX_RE = re.compile(
 # public image/video/LLM lines. Update via the normal catalog process.
 # ---------------------------------------------------------------------------
 SEED_RULES: List[Tuple[str, str]] = [
+    # --- Krea 2 (its own line, not FLUX.1 Krea) ---
+    (r"krea[ ._-]?2(?!\d)", "krea-2"),
     # --- FLUX lines ---
     (r"flux[ ._-]?1[ ._-]?1.*pro|flux.*1\.1.*pro", "flux-1.1-pro"),
     (r"flux.*kontext", "flux-kontext"),

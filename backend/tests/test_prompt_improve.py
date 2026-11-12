@@ -669,3 +669,24 @@ def test_fill_guide_mirrors_the_models_guide_and_falls_back_to_prose():
     assert prose_fill.startswith("You are completing a prompt for an image generation model")
     prose_expand, _ = asyncio.run(guide(None, False))
     assert prose_expand.startswith("You are writing the prompt an image generation model will read")
+
+
+def test_krea_2_has_its_own_mode_and_guide():
+    from routes.prompt_enhancement import _IMPROVE_PROMPT_BY_MODE, guide_template
+
+    family = model_family("krea2_turbo_fp8_scaled.safetensors")
+    assert family == "krea-2"
+    assert enhancement_mode(family) == "krea-2"
+    assert _IMPROVE_PROMPT_BY_MODE["krea-2"] == "improve_krea2_system_prompt"
+    assert guide_template("krea-2").startswith("You are writing the prompt Krea 2")
+    # With input images it is an edit like any prose model; FLUX.1 Krea stays prose.
+    assert enhancement_mode(family, is_image_edit=True) == "edit"
+    assert enhancement_mode(model_family("flux1-krea-dev")) == "prose"
+
+
+async def test_krea_2_gets_the_prose_request(prompt_variant_probe):
+    import routes.prompt_enhancement as pe
+
+    await pe.improve_prompt(ImprovePromptRequest(prompt="a fox in snow", model="krea-2-turbo"), session=None)
+    assert prompt_variant_probe["prompt_keys"] == ["improve_krea2_system_prompt"]
+    assert prompt_variant_probe["messages"][1]["content"].startswith("Rewrite this image request as a concrete")
