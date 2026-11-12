@@ -704,6 +704,7 @@ def request_headers(access_token: str) -> dict[str, str]:
 FALLBACK_MODELS: list[dict[str, Any]] = [
     {"id": "gpt-6-astra", "name": "GPT-6 Astra"},
     {"id": "gpt-6.1-sol", "name": "GPT-6.1 Sol"},
+    {"id": "gpt-6.1-terra", "name": "GPT-6.1 Terra"},
     {"id": "gpt-6-luna", "name": "GPT-6 Luna"},
 ]
 

@@ -172,6 +172,7 @@ def test_branded_provider_contracts_match_current_model_series():
     assert [model.model_id for model in openai] == [
         "gpt-6-astra",
         "gpt-6.1-sol",
+        "gpt-6.1-terra",
         "gpt-6-luna",
     ]
     assert openai[0].reasoning.levels == ["low", "medium", "high", "xhigh", "max"]
@@ -183,8 +184,8 @@ def test_branded_provider_contracts_match_current_model_series():
     assert [model.model_id for model in anthropic] == [
         "claude-sonnet-5",
         "claude-opus-5-5",
-        "claude-fable-5-1",
-        "claude-haiku-4-5-20251001",
+        "claude-fable-5-2",
+        "claude-haiku-5-5",
     ]
     assert anthropic[2].reasoning.mode == "required"
     assert anthropic[2].reasoning.quick_task == "low"
@@ -844,7 +845,7 @@ async def test_adding_openai_key_checks_models_and_stores_branded_contracts(monk
     monkeypatch.setattr(models_route, "_save_providers", lambda providers: saved.extend(providers))
 
     async def discover(_provider):
-        return [{"id": model_id} for model_id in ("gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna")]
+        return [{"id": model_id} for model_id in ("gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna")]
 
     monkeypatch.setattr(models_route, "_discover_provider_models", discover)
     response = await models_route.create_llm_provider(
@@ -855,6 +856,7 @@ async def test_adding_openai_key_checks_models_and_stores_branded_contracts(monk
     assert [model["model_id"] for model in response["models"]] == [
         "gpt-6-astra",
         "gpt-6.1-sol",
+        "gpt-6.1-terra",
         "gpt-6-luna",
     ]
     assert len(saved) == 1
@@ -1305,7 +1307,7 @@ def test_saved_openai_provider_gains_astra_and_migrates_retired_models():
                     "name": "Old Sol", "enabled": False,
                     "extra_system_prompt": "Keep this instruction"}],
     })
-    assert [m.model_id for m in provider.models] == ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]
+    assert [m.model_id for m in provider.models] == ["gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna"]
     assert provider.models[0].reasoning.mode == "required"
     assert provider.models[1].enabled is False
     assert provider.models[1].extra_system_prompt == "Keep this instruction"

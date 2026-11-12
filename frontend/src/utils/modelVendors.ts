@@ -249,6 +249,7 @@ function modelOrder(model: ModelLike): number {
   if (name.includes('claude-haiku') || name.includes('claude haiku')) return 3
   if (name.includes('gpt-6-astra')) return 9
   if (name.includes('gpt-6.1-sol')) return 10
+  if (name.includes('gpt-6.1-terra')) return 11
   if (name.includes('gpt-6-luna')) return 12
   if (name.includes('gemini-3.1-pro') || name.includes('gemini 3.1 pro')) return 20
   if (name.includes('gemini-3.5-flash') || name.includes('gemini 3.5 flash')) return 21

@@ -18,9 +18,14 @@ LEGACY_LLM_MODEL_SLUGS = {
     "stimma:claude-opus-4.8": "stimma:claude-opus-5-5",
     "stimma:claude-opus-5": "stimma:claude-opus-5-5",
     "stimma:gpt-5.6-sol": "stimma:gpt-6.1-sol",
-    "stimma:gpt-5.6-terra": "stimma:gpt-6.1-sol",
+    "stimma:gpt-5.6-terra": "stimma:gpt-6.1-terra",
     "stimma:gpt-5.6-luna": "stimma:gpt-6-luna",
-    "stimma:claude-fable-5": "stimma:claude-fable-5.1",
+    "stimma:claude-fable-5": "stimma:claude-fable-5-2",
+    "stimma:claude-fable-5.1": "stimma:claude-fable-5-2",
+    # Direct Anthropic keys saved the hyphenated model id.
+    "stimma:claude-fable-5-1": "stimma:claude-fable-5-2",
+    "stimma:claude-haiku-4.5": "stimma:claude-haiku-5-5",
+    "stimma:claude-haiku-4-5-20251001": "stimma:claude-haiku-5-5",
 }
 
 # Reasoning levels each replacement model accepts, used when migrating a saved
@@ -29,9 +34,11 @@ LEGACY_LLM_REASONING_LEVELS = {
     "stimma:minimax-m3": {"off", "high"},
     "stimma:claude-opus-5-5": {"low", "medium", "high", "xhigh", "max"},
     "stimma:gpt-6.1-sol": {"low", "medium", "high", "xhigh", "max"},
+    "stimma:gpt-6.1-terra": {"off", "low", "medium", "high", "xhigh", "max"},
     "stimma:gpt-6-luna": {"off", "low", "medium", "high", "xhigh", "max"},
-    # Fable 5.1 inherits Fable 5's ladder exactly, so every saved level carries.
-    "stimma:claude-fable-5.1": {"low", "medium", "high", "xhigh", "max"},
+    # Fable kept one ladder across 5, 5.1 and 5.2, so every saved level carries.
+    "stimma:claude-fable-5-2": {"low", "medium", "high", "xhigh", "max"},
+    "stimma:claude-haiku-5-5": {"off", "low", "medium", "high", "xhigh", "max"},
 }
 
 def generate_profile_id() -> str:
@@ -360,9 +367,12 @@ class LLMProviderConfig(BaseModel):
             return self
         from llm_provider_catalog import branded_models
         previous = {model.model_id: model for model in self.models}
-        replacements = {"gpt-6.1-sol": ("gpt-5.6-sol", "gpt-5.6-terra"),
+        replacements = {"gpt-6.1-sol": ("gpt-5.6-sol",),
+                        "gpt-6.1-terra": ("gpt-5.6-terra",),
+                        "claude-fable-5-2": ("claude-fable-5-1", "claude-fable-5"),
                         "gpt-6-luna": ("gpt-5.6-luna",),
-                        "claude-opus-5-5": ("claude-opus-5", "claude-opus-4.8")}
+                        "claude-opus-5-5": ("claude-opus-5", "claude-opus-4.8"),
+                        "claude-haiku-5-5": ("claude-haiku-4-5-20251001",)}
         refreshed = branded_models(self.kind, self.id)
         for model in refreshed:
             prior = previous.get(model.model_id)

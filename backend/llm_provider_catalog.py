@@ -161,6 +161,7 @@ BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
     "openai": [
         {"model_id": "gpt-6-astra", "name": "GPT-6 Astra", "context": 1_050_000, "reasoning": ASTRA_REASONING},
         {"model_id": "gpt-6.1-sol", "name": "GPT-6.1 Sol", "context": 1_050_000, "reasoning": ASTRA_REASONING},
+        {"model_id": "gpt-6.1-terra", "name": "GPT-6.1 Terra", "context": 1_050_000, "reasoning": OPENAI_REASONING},
         {"model_id": "gpt-6-luna", "name": "GPT-6 Luna", "context": 1_050_000, "reasoning": OPENAI_REASONING},
     ],
     "anthropic": [
@@ -181,10 +182,9 @@ BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
             ),
         },
         {
-            # Succeeds Claude Fable 5 in the same tier at the same price. Like
-            # its predecessor it always thinks: there is no off rung, and both
-            # thinking:disabled and budget_tokens are rejected outright.
-            "model_id": "claude-fable-5-1", "name": "Claude Fable 5.1", "context": 1_000_000,
+            # Always thinks: there is no off rung, and both thinking:disabled
+            # and budget_tokens are rejected outright.
+            "model_id": "claude-fable-5-2", "name": "Claude Fable 5.2", "context": 1_000_000,
             "reasoning": _reasoning(
                 "required", ["low", "medium", "high", "xhigh", "max"],
                 "high", "low", "anthropic_adaptive_required",
@@ -192,10 +192,13 @@ BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
             ),
         },
         {
-            "model_id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "context": 200_000,
+            # Adaptive thinking with effort, like the other Claude 5 models;
+            # a manual thinking budget is rejected. Thinking can be turned off.
+            "model_id": "claude-haiku-5-5", "name": "Claude Haiku 5.5", "context": 1_000_000,
             "reasoning": _reasoning(
-                "optional", ["off", "low", "medium", "high"], "off", "off",
-                "anthropic_budget_tokens", {"off": 0, "low": 1024, "medium": 4096, "high": 16384},
+                "optional", ["off", "low", "medium", "high", "xhigh", "max"],
+                "medium", "off", "anthropic_adaptive_default",
+                {"off": "off", "low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "max"},
             ),
         },
     ],
@@ -234,10 +237,10 @@ BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
 # each additional family is another effort ladder to keep verified against an
 # undocumented surface, and they are superseded for every role Stimma uses.
 # Restricting the route keeps one ladder true instead of four drifting ones.
-CHATGPT_SUPPORTED_PREFIXES = ("gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna")
+CHATGPT_SUPPORTED_PREFIXES = ("gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna")
 
 # Supported effort ladders from the official model contracts. The plan catalog
-# may narrow these per account. Astra and Sol require thinking; Luna permits off.
+# may narrow these per account. Astra and Sol require thinking; Terra and Luna permit off.
 # Keep these aligned with the API contracts above.
 CHATGPT_REASONING_LEVELS = ["off", "low", "medium", "high", "xhigh", "max"]
 CHATGPT_REASONING_WIRE = {
@@ -252,6 +255,7 @@ CHATGPT_ASTRA_REASONING_LEVELS = ["low", "medium", "high", "xhigh", "max"]
 CHATGPT_MODEL_DEFAULTS: tuple[tuple[str, list[str], int], ...] = (
     ("gpt-6-astra", CHATGPT_ASTRA_REASONING_LEVELS, 1_050_000),
     ("gpt-6.1-sol", CHATGPT_ASTRA_REASONING_LEVELS, 1_050_000),
+    ("gpt-6.1-terra", CHATGPT_REASONING_LEVELS, 1_050_000),
     ("gpt-6-luna", CHATGPT_REASONING_LEVELS, 1_050_000),
 )
 # Wire value -> Stimma level, for reading a reported default back.

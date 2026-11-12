@@ -402,7 +402,7 @@ tones = llm(
 )
 
 # A cheap model, deliberately, for a trivial per-item call inside a foreach.
-label = llm("One word for the dominant color.", model="stimma:claude-haiku-4.5")
+label = llm("One word for the dominant color.", model="stimma:claude-haiku-5-5")
 ```
 
 ``think`` is the other latency/quality control, independent of the model:

@@ -21,7 +21,7 @@ class TestTierFor:
     @pytest.mark.parametrize("slug,expected", [
         ("stimma:claude-opus-5-5", DEEP),
         ("stimma:claude-sonnet-5", BALANCED),
-        ("stimma:claude-haiku-4.5", FAST),
+        ("stimma:claude-haiku-5-5", FAST),
         ("stimma:gpt-6-astra", DEEP),
         ("stimma:gpt-6.1-sol", BALANCED),
         ("stimma:gpt-6-luna", FAST),
@@ -33,9 +33,9 @@ class TestTierFor:
         assert tier_for(c(slug)) == expected
 
     def test_branded_provider_ids_use_model_id(self):
-        # A BYO Anthropic key produces id "anthropic:claude-haiku-4-5-20251001".
-        assert tier_for(c("anthropic:claude-haiku-4-5-20251001",
-                          model_id="claude-haiku-4-5-20251001")) == FAST
+        # A BYO Anthropic key produces id "anthropic:claude-haiku-5-5".
+        assert tier_for(c("anthropic:claude-haiku-5-5",
+                          model_id="claude-haiku-5-5")) == FAST
         assert tier_for(c("anthropic:claude-opus-5-5", model_id="claude-opus-5-5")) == DEEP
 
     @pytest.mark.parametrize("model_id,expected", [
@@ -93,21 +93,21 @@ class TestSelectAutoModels:
         chosen = select_auto_models([
             c("stimma:claude-opus-5-5", vendor="anthropic"),
             c("stimma:claude-sonnet-5", vendor="anthropic"),
-            c("stimma:claude-haiku-4.5", vendor="anthropic"),
+            c("stimma:claude-haiku-5-5", vendor="anthropic"),
             c("stimma:gpt-6.1-sol", vendor="openai"),
             c("stimma:minimax-m3", vendor="minimax"),
         ])
         assert chosen["chat"] == "stimma:claude-opus-5-5"
         assert chosen["tool_assistant"] == "stimma:claude-sonnet-5"
         assert chosen["flow"] == "stimma:claude-sonnet-5"
-        assert chosen["quick_task"] == "stimma:claude-haiku-4.5"
+        assert chosen["quick_task"] == "stimma:claude-haiku-5-5"
 
     def test_fable_never_auto_selected(self):
         chosen = select_auto_models([
             c("stimma:claude-fable-5.1", vendor="anthropic",
               model_id="anthropic:claude-fable-5-1"),
             c("stimma:claude-sonnet-5", vendor="anthropic"),
-            c("stimma:claude-haiku-4.5", vendor="anthropic"),
+            c("stimma:claude-haiku-5-5", vendor="anthropic"),
         ])
         assert "stimma:claude-fable-5.1" not in chosen.values()
         assert chosen["chat"] == "stimma:claude-sonnet-5"
@@ -143,10 +143,10 @@ class TestSelectAutoModels:
     def test_deep_role_never_downgrades_when_deep_exists(self):
         chosen = select_auto_models([
             c("stimma:claude-opus-5-5", vendor="anthropic"),
-            c("stimma:claude-haiku-4.5", vendor="anthropic"),
+            c("stimma:claude-haiku-5-5", vendor="anthropic"),
         ])
         assert chosen["chat"] == "stimma:claude-opus-5-5"
-        assert chosen["quick_task"] == "stimma:claude-haiku-4.5"
+        assert chosen["quick_task"] == "stimma:claude-haiku-5-5"
         # No balanced model in the family; tool assistant biases up, not down.
         assert chosen["tool_assistant"] == "stimma:claude-opus-5-5"
 

@@ -72,7 +72,7 @@ def test_config_migration_rewrites_retired_model_aliases(tmp_path):
 
 
 def test_config_migration_carries_fable_reasoning_to_its_successor(tmp_path):
-    """Fable 5.1 replaced Fable 5 with an identical ladder, so 'xhigh' carries.
+    """Fable 5.2 kept Fable 5's ladder, so 'xhigh' carries.
 
     The Opus 4.8 case above proved the mechanism; this pins the Fable mapping,
     where the saved level must survive rather than fall back to the default.
@@ -91,8 +91,8 @@ def test_config_migration_carries_fable_reasoning_to_its_successor(tmp_path):
     assert _migrate_legacy_llm_model_slugs(config_path) is True
     migrated = yaml.safe_load(config_path.read_text())
 
-    assert migrated["default_model"] == "stimma:claude-fable-5.1"
-    assert migrated["llm_reasoning_levels"] == {"stimma:claude-fable-5.1": "xhigh"}
+    assert migrated["default_model"] == "stimma:claude-fable-5-2"
+    assert migrated["llm_reasoning_levels"] == {"stimma:claude-fable-5-2": "xhigh"}
 
 
 def test_retired_global_model_keys_are_dropped_not_migrated(tmp_path):
@@ -108,7 +108,7 @@ def test_retired_global_model_keys_are_dropped_not_migrated(tmp_path):
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         "default_model: stimma:claude-opus-5-5\n"
-        "quick_task_model: stimma:claude-haiku-4.5\n"
+        "quick_task_model: stimma:claude-haiku-5-5\n"
         "profiles:\n"
         "  - id: default\n"
         "    name: Default\n"
@@ -216,7 +216,7 @@ async def test_auto_draws_the_whole_lineup_from_one_family(monkeypatch):
     llm_resolver.set_catalog_cache([
         {"slug": "stimma:claude-opus-5-5", "name": "Claude Opus 5.5", "model_vendor": "anthropic"},
         {"slug": "stimma:claude-sonnet-5", "name": "Claude Sonnet 5", "model_vendor": "anthropic"},
-        {"slug": "stimma:claude-haiku-4.5", "name": "Claude Haiku 4.5", "model_vendor": "anthropic"},
+        {"slug": "stimma:claude-haiku-5-5", "name": "Claude Haiku 5.5", "model_vendor": "anthropic"},
         {"slug": "stimma:minimax-m3", "name": "MiniMax M3", "model_vendor": "minimax"},
         {"slug": "stimma:gpt-6.1-sol", "name": "GPT-6.1 Sol", "model_vendor": "openai"},
     ])
@@ -231,7 +231,7 @@ async def test_auto_draws_the_whole_lineup_from_one_family(monkeypatch):
     assert chosen["chat"] == "stimma:claude-opus-5-5"
     assert chosen["tool_assistant"] == "stimma:claude-sonnet-5"
     assert chosen["flow"] == "stimma:claude-sonnet-5"
-    assert chosen["quick_task"] == "stimma:claude-haiku-4.5"
+    assert chosen["quick_task"] == "stimma:claude-haiku-5-5"
 
 
 @pytest.mark.asyncio
@@ -926,11 +926,11 @@ class TestCatalogAlias:
     def _catalog(self):
         import llm_resolver
         llm_resolver.set_catalog_cache([{
-            "slug": "stimma:claude-haiku-4.5",
-            "name": "Claude Haiku 4.5",
-            "agent_model": "stimma:claude-haiku-4.5",
-            "agent_fast_model": "stimma:claude-haiku-4.5",
-            "max_context_tokens": 200_000,
+            "slug": "stimma:claude-haiku-5-5",
+            "name": "Claude Haiku 5.5",
+            "agent_model": "stimma:claude-haiku-5-5",
+            "agent_fast_model": "stimma:claude-haiku-5-5",
+            "max_context_tokens": 1_000_000,
         }])
 
     def test_fast_role_resolves_to_the_model_not_the_role_name(self, monkeypatch):
@@ -943,9 +943,9 @@ class TestCatalogAlias:
         try:
             for role in ("agent-fast", "agent"):
                 resolved = llm_resolver._resolve_catalog_alias(
-                    "stimma:claude-haiku-4.5", role
+                    "stimma:claude-haiku-5-5", role
                 )
-                assert resolved == "stimma:claude-haiku-4.5", role
+                assert resolved == "stimma:claude-haiku-5-5", role
         finally:
             llm_resolver.set_catalog_cache([])
 
@@ -983,8 +983,8 @@ async def test_auto_row_names_the_model_the_resolver_picks(monkeypatch):
          "model_vendor": "minimax", "canonical_model_id": "minimax-m3"},
         {"slug": "stimma:claude-opus-5-5", "name": "Claude Opus 5.5",
          "model_vendor": "anthropic", "canonical_model_id": "claude-opus-5-5"},
-        {"slug": "stimma:claude-haiku-4.5", "name": "Claude Haiku 4.5",
-         "model_vendor": "anthropic", "canonical_model_id": "claude-haiku-4-5"},
+        {"slug": "stimma:claude-haiku-5-5", "name": "Claude Haiku 5.5",
+         "model_vendor": "anthropic", "canonical_model_id": "claude-haiku-5-5"},
     ]
 
     settings = _stub_settings(
@@ -1229,7 +1229,7 @@ def test_retired_api_key_selection_uses_same_provider(monkeypatch):
     monkeypatch.setattr(llm_resolver, "get_settings", lambda: SimpleNamespace(
         llm_providers=[SimpleNamespace(id="key", kind="openai")]))
     assert llm_resolver.normalize_model_slug("key:gpt-5.6-sol") == "key:gpt-6.1-sol"
-    assert llm_resolver.normalize_model_slug("key:gpt-5.6-terra") == "key:gpt-6.1-sol"
+    assert llm_resolver.normalize_model_slug("key:gpt-5.6-terra") == "key:gpt-6.1-terra"
     assert llm_resolver.normalize_model_slug("key:gpt-5.6-luna") == "key:gpt-6-luna"
 
 
@@ -1322,7 +1322,7 @@ async def test_picker_leads_with_chatgpt_then_key_then_stimma(monkeypatch):
     payload, models = await _available_models_with_cloud(monkeypatch, [
         _route_provider("openrouter", "openai/gpt-6.1-sol"),
         _route_provider("openai", "gpt-6.1-sol"),
-        _route_provider("chatgpt", "gpt-6-astra", "gpt-6.1-sol"),
+        _route_provider("chatgpt", "gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra"),
     ])
 
     assert not models["chatgpt-1:gpt-6.1-sol"].get("collapsed")

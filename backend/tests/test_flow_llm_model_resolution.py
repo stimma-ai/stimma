@@ -97,9 +97,9 @@ class TestFrozenFlow:
     async def test_concrete_slug_beats_the_captured_one(self, patched_resolvers):
         resolve = pe.make_frozen_flow_llm_resolve_config("stimma:claude-opus-5-5")
 
-        cfg = await resolve("stimma:claude-haiku-4.5")
+        cfg = await resolve("stimma:claude-haiku-5-5")
 
-        assert cfg == {"model": "chat-stimma:claude-haiku-4.5"}
+        assert cfg == {"model": "chat-stimma:claude-haiku-5-5"}
 
     @pytest.mark.asyncio
     async def test_unnamed_and_legacy_agent_use_the_captured_model(

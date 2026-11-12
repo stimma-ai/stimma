@@ -2115,7 +2115,7 @@ class TestFlowAgentPrompt:
         # from the authoring docs so new programs stop emitting them.
         assert 'model="agent-fast"' not in FLOW_SYSTEM_PROMPT
         assert 'model="agent"' not in FLOW_SYSTEM_PROMPT
-        assert 'model="stimma:claude-haiku-4.5"' in FLOW_SYSTEM_PROMPT
+        assert 'model="stimma:claude-haiku-5-5"' in FLOW_SYSTEM_PROMPT
         assert "do not write" in FLOW_SYSTEM_PROMPT and "think=True" in FLOW_SYSTEM_PROMPT
         assert "Be extremely brief" in FLOW_SYSTEM_PROMPT
         assert "The flow UI is the status report" in FLOW_SYSTEM_PROMPT
