@@ -5531,14 +5531,14 @@ type ForeverSubmitOptions = {
     sidebar's spinner. `close` is safe to call twice. */
 type RunTile = { id: string; close: () => void }
 function openRunTile(label: string | null, prompt: string = globalPrefs.value.prompt,
-  size: { width?: any; height?: any } = modelParams.value, posted = false): RunTile {
+  size: { width?: any; height?: any } = modelParams.value): RunTile {
   const id = jobsManager.addPendingJob(prompt, {
     model_name: tool.value!.model,
     generator_name: tool.value!.generator,
     // The requested resolution, so the tile is already the shape of the result.
     width: size.width,
     height: size.height,
-  }, label, { posted })
+  }, label)
   const finish = beginInstanceWork(generatorInstanceId)
   let open = true
   return {
@@ -5854,11 +5854,10 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
     (enhanceOn && !promptOptions?.program) ||
     promptOptions?.translate?.enabled
   )
-  // A Fluent run brought its tile from the click (submitJob). Either way the submit goes
-  // out now, so the job it queues retires this tile.
+  // A Fluent run brought its tile from the click (submitJob). The submit names its tile
+  // (client_ref), so the job it queues retires this tile and no other.
   const runTile = options.runTile
-    ?? (needsEnhancing ? openRunTile(null, prompt, capturedState.parameters || {}, true) : null)
-  if (runTile) jobsManager.markPendingJobPosted(runTile.id)
+    ?? (needsEnhancing ? openRunTile(null, prompt, capturedState.parameters || {}) : null)
   const removePendingEnhancementJob = () => runTile?.close()
   // The tile was cancelled after its submit went out: the job it queued is cancelled.
   const tileCancelled = () => !!runTile && jobsManager.wasPendingJobCancelled(runTile.id)
@@ -5916,6 +5915,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         prompt_options: promptOptions || undefined,
         forever_work_reserved: options.foreverReserved === true,
         forever_reservation_id: options.foreverReservationId,
+        client_ref: runTile?.id,
         batch_input: { field: batchField, media_ids: mediaIds },
         constant_inputs: constantInputs,
         parameters: { ...batchParameters, ...(toolHasPrompt ? { prompt: processedPrompt } : {}) },
@@ -5995,6 +5995,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         prompt_options: promptOptions || undefined,
         forever_work_reserved: options.foreverReserved === true,
         forever_reservation_id: options.foreverReservationId,
+        client_ref: runTile?.id,
         parameters: {
           ...batchParameters,
           ...(toolHasPrompt ? { prompt: processedPrompt } : {}),
@@ -6043,6 +6044,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         prompt_options: promptOptions || undefined,
         forever_work_reserved: options.foreverReserved === true,
         forever_reservation_id: options.foreverReservationId,
+        client_ref: runTile?.id,
         parameters: {
           ...capturedState.parameters,
           ...(toolHasPrompt ? { prompt: processedPrompt } : {}),  // Override with processed prompt

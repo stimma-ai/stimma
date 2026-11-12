@@ -463,29 +463,15 @@ export function useGenerationJobs(options = {}) {
     return true
   }
 
-  // Batches whose first arriving job already consumed a placeholder — one
-  // submit shows one placeholder but a batch submit queues N jobs.
-  const placeholderConsumedBatches = new Set()
-
-  // A submit that does LLM prompt work shows a client-side 'enhancing'
-  // placeholder until the real job exists. The queued-job broadcast lands
-  // BEFORE the submit HTTP response resolves, so without this the strip shows
-  // both the placeholder and its own queued bar for that window. Placeholders
-  // can't be correlated to job ids (the id doesn't exist at placeholder time),
-  // so retire the oldest one per newly arrived job/batch; the submit's own
-  // removePendingJob on HTTP completion stays as the backstop.
-  function consumePendingPlaceholder(job) {
-    if (pendingJobs.value.length === 0) return
-    if (job.batch_id) {
-      if (placeholderConsumedBatches.has(job.batch_id)) return
-      placeholderConsumedBatches.add(job.batch_id)
-    }
-    // Only a placeholder whose submit has reached the server can be this job's: one
-    // still preparing its prompt stays (a job from an earlier run isn't its job).
-    // addPendingJob unshifts, so the oldest placeholder is the last element.
-    const at = pendingJobs.value.findLastIndex(j => j.posted)
-    if (at < 0) return
-    pendingJobs.value = pendingJobs.value.filter((_, i) => i !== at)
+  // A submit that does prompt work before its job exists (a Fluent draw, an enhance)
+  // shows a placeholder from the click. The submit names its placeholder (client_ref) and
+  // the queued event echoes it, so the job retires exactly its own placeholder: the event
+  // lands before the submit's HTTP response, and without this the strip would show both.
+  // A batch's jobs all carry the one ref. A job with no ref (another client's, the
+  // agent's) retires nothing; the submit's own close on HTTP completion is the backstop.
+  function consumePendingPlaceholder(clientRef) {
+    if (!clientRef || !pendingJobs.value.some(j => j.id === clientRef)) return
+    pendingJobs.value = pendingJobs.value.filter(j => j.id !== clientRef)
   }
 
   function handleJobProgress(data) {
@@ -573,7 +559,7 @@ export function useGenerationJobs(options = {}) {
     const existingIndex = jobs.value.findIndex(j => j.id === data.job.id)
     if (existingIndex === -1) {
       jobs.value.unshift(data.job)
-      consumePendingPlaceholder(data.job)
+      consumePendingPlaceholder(data.client_ref)
     } else {
       jobs.value.splice(existingIndex, 1, data.job)
     }
@@ -587,7 +573,7 @@ export function useGenerationJobs(options = {}) {
       jobs.value.splice(index, 1, data.job)
     } else {
       jobs.value.unshift(data.job)
-      consumePendingPlaceholder(data.job)
+      consumePendingPlaceholder(data.client_ref)
     }
   }
 
@@ -639,7 +625,7 @@ export function useGenerationJobs(options = {}) {
       jobs.value.splice(index, 1, data.job)
     } else {
       jobs.value.unshift(data.job)
-      consumePendingPlaceholder(data.job)
+      consumePendingPlaceholder(data.client_ref)
     }
   }
 
@@ -1035,15 +1021,13 @@ export function useGenerationJobs(options = {}) {
 
   // Add a pending job (shown while enhancing prompt via LLM). `label` replaces the
   // tile's "Enhancing prompt…" for other pre-submit work (preparing a prompt program).
-  // `posted: false`: the tile opens before its submit is sent (a run that prepares first);
-  // markPendingJobPosted says when it is, so an arriving job can retire it.
-  function addPendingJob(prompt, params = {}, label = null, { posted = true } = {}) {
+  // The returned id goes on the submit as its client_ref.
+  function addPendingJob(prompt, params = {}, label = null) {
     const pendingId = `pending-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const pendingJob = {
       id: pendingId,
       status: 'enhancing',
       pending_label: label,
-      posted,
       parameters: JSON.stringify({
         prompt: prompt,
         ...params
@@ -1069,11 +1053,6 @@ export function useGenerationJobs(options = {}) {
 
   function hasPendingJob(pendingId) {
     return pendingJobs.value.some(j => j.id === pendingId)
-  }
-
-  function markPendingJobPosted(pendingId) {
-    const job = pendingJobs.value.find(j => j.id === pendingId)
-    if (job) job.posted = true
   }
 
   // Cancel a pending job (user clicked cancel before submission). Remembered, so the run
@@ -1404,7 +1383,6 @@ export function useGenerationJobs(options = {}) {
     setPendingJobLabel,
     removePendingJob,
     cancelPendingJob,
-    markPendingJobPosted,
     wasPendingJobCancelled,
     hasPendingJob,
 

@@ -1935,6 +1935,11 @@ async def ensure_program(*, prompt: str, tool_id: str, ctx: Dict[str, Any], inst
     # every other model one program serves every size.
     from routes.prompt_enhancement import canvas_shape, guide_template, guide_uses_canvas
     enhance = {k: v for k, v in (ctx.get("enhance") or {}).items() if k not in ("width", "height")}
+    # The source frame reaches the writer only where it's shown one (the video guides): for
+    # every other model it isn't part of the key, so whichever media field a run happens to
+    # carry can't give it a different program from the one the editor prepared.
+    if str(ctx.get("mode") or "") not in ("cinematography", "ltx-2.5") and "media_id" in enhance:
+        enhance["media_id"] = None
     if level != "off" and guide_uses_canvas(str(ctx.get("mode") or ""), fill=(level == "fill")):
         enhance["canvas"] = canvas_shape((ctx.get("enhance") or {}).get("width"), (ctx.get("enhance") or {}).get("height"))
     parts = {

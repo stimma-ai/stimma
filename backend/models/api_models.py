@@ -161,6 +161,9 @@ class GenerationJobRequest(BaseModel):
     project_id: Optional[int] = None  # Project to associate generated media with
     forever_work_reserved: Optional[bool] = None
     forever_reservation_id: Optional[str] = None
+    # The submitting client's placeholder for this submit; echoed on the queued event so
+    # the client retires exactly that placeholder. Never stored.
+    client_ref: Optional[str] = Field(default=None, max_length=100)
 
     # Where the generated Media lands. Defaults to a library Asset. The editor
     # submits candidates with 'context' rooted at its working document so they
@@ -202,6 +205,9 @@ class BatchJobRequest(BaseModel):
     project_id: Optional[int] = None  # Project to associate generated media with
     forever_work_reserved: Optional[bool] = None
     forever_reservation_id: Optional[str] = None
+    # The submitting client's placeholder for this submit; echoed on the queued event so
+    # the client retires exactly that placeholder. Never stored.
+    client_ref: Optional[str] = Field(default=None, max_length=100)
 
     # Batch-specific options
     output_set_title: Optional[str] = None  # Title for the output set
@@ -265,6 +271,9 @@ class MediaBatchJobRequest(BaseModel):
     project_id: Optional[int] = None
     forever_work_reserved: Optional[bool] = None
     forever_reservation_id: Optional[str] = None
+    # The submitting client's placeholder for this submit; echoed on the queued event so
+    # the client retires exactly that placeholder. Never stored.
+    client_ref: Optional[str] = Field(default=None, max_length=100)
 
 
 class GenerationJobResponse(BaseModel):

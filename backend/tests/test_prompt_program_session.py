@@ -224,6 +224,19 @@ class TestNewPrompt:
         assert "Valid" in log[-1]["content"] and "1: w = pick(" in log[-1]["content"]
         assert model.store.get(entry["key"])["session"] == entry["session"]
 
+    async def test_a_media_id_the_writer_is_not_shown_is_not_in_the_key(self, model):
+        # A run can carry a media id the editor's lookup doesn't (a mask, a remix source).
+        # Outside the video guides the writer never sees it: both find the one program.
+        def ctx(media_id, mode="prose"):
+            return {"model": "m", "mode": mode, "schema_props": {}, "enhance": {"media_id": media_id}}
+        kw = dict(prompt=PROMPT, tool_id="t", instructions="", lora_items=[], project_id=None, profile_id="p")
+        model.replies = [reply(write(GOOD))]
+        ran = await prep.ensure_program(ctx=ctx(5), **kw)
+        seen = await prep.ensure_program(ctx=ctx(None), cache_only=True, **kw)
+        assert seen is not None and seen["key"] == ran["key"]
+        # The video guides show the writer the frame: another frame is another program.
+        assert await prep.ensure_program(ctx=ctx(5, "cinematography"), cache_only=True, **kw) is None
+
     async def test_a_bound_pick_is_narrowed_by_its_words_after_the_write(self, model, monkeypatch):
         import json as _json
         src = ('w = pick("weather", ["rainy", "foggy"], source="list", label="Weather", phase=1, line=1)\n'

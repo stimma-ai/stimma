@@ -411,6 +411,37 @@ def _prompt_preload_for_batch_index(request, idx: int) -> Optional[Dict[str, Any
     return preload if isinstance(preload, dict) else None
 
 
+# A batch's children at once: each one's prompt work (a Fluent draw read by the chat model,
+# or an enhance) is its own model call, so one after another they add up before anything queues.
+_BATCH_PROMPT_CONCURRENCY = 4
+
+
+async def _apply_prompt_pipeline_to_children(children: List[Dict[str, Any]], request) -> List[Dict[str, Any]]:
+    """Every child's parameters through the generate-time prompt pipeline, in order. One
+    failing fails the batch before any child is queued (the rest are cancelled)."""
+    gate = asyncio.Semaphore(_BATCH_PROMPT_CONCURRENCY)
+
+    async def one(idx: int, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        async with gate:
+            return await _apply_generation_prompt_pipeline(
+                parameters,
+                tool_id=request.tool_id,
+                task_type=request.task_type,
+                prompt_options=request.prompt_options,
+                prompt_preload=_prompt_preload_for_batch_index(request, idx),
+                generator_instance_id=request.generator_instance_id,
+                project_id=request.project_id,
+            )
+
+    tasks = [asyncio.ensure_future(one(idx, parameters)) for idx, parameters in enumerate(children)]
+    try:
+        return list(await asyncio.gather(*tasks))
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        raise
+
+
 _PROGRAM_UNSUPPORTED_MODES = ("minimax-h3", "ideogram", "audio", "edit", "qwen-image-2.1-edit", "flux3-klein-edit")
 
 
@@ -2066,6 +2097,7 @@ async def submit_generation_job(
             output_disposition=disposition,
             output_context_kind=context_kind,
             output_context_id=context_id,
+            client_ref=request.client_ref,
             consume_pending_request=False,
         )
 
@@ -2221,23 +2253,14 @@ async def submit_batch_jobs(
             # Store batch index for output ordering (0-based position in input)
             parameters["_batch_index"] = idx
 
-            parameters = await _apply_generation_prompt_pipeline(
-                parameters,
-                tool_id=request.tool_id,
-                task_type=request.task_type,
-                prompt_options=request.prompt_options,
-                prompt_preload=_prompt_preload_for_batch_index(request, idx),
-                generator_instance_id=request.generator_instance_id,
-                project_id=request.project_id,
-            )
+            prepared_jobs.append(parameters)
 
-            # Add prompt metadata if provided
+        prepared_jobs = await _apply_prompt_pipeline_to_children(prepared_jobs, request)
+        for parameters in prepared_jobs:
             if request.prompt_metadata:
                 parameters["prompt_metadata"] = request.prompt_metadata.model_dump()
             if request.auto_marker_ids:
                 parameters["auto_marker_ids"] = request.auto_marker_ids
-
-            prepared_jobs.append(parameters)
 
         retained_ids = set(input_set_ids)
         for parameters in prepared_jobs:
@@ -2272,6 +2295,7 @@ async def submit_batch_jobs(
                 output_context_kind="batch",
                 output_context_id=batch_id,
                 consume_pending_request=False,
+                client_ref=request.client_ref,
             )
             job_ids.append(job_id)
 
@@ -2532,22 +2556,14 @@ async def submit_media_batch_jobs(
             # Presentation-only grouping: keep individuals in the library, no set.
             parameters["_batch_presentation_only"] = True
 
-            parameters = await _apply_generation_prompt_pipeline(
-                parameters,
-                tool_id=request.tool_id,
-                task_type=request.task_type,
-                prompt_options=request.prompt_options,
-                prompt_preload=_prompt_preload_for_batch_index(request, idx),
-                generator_instance_id=request.generator_instance_id,
-                project_id=request.project_id,
-            )
+            prepared_jobs.append(parameters)
 
+        prepared_jobs = await _apply_prompt_pipeline_to_children(prepared_jobs, request)
+        for parameters in prepared_jobs:
             if request.prompt_metadata:
                 parameters["prompt_metadata"] = request.prompt_metadata.model_dump()
             if request.auto_marker_ids:
                 parameters["auto_marker_ids"] = request.auto_marker_ids
-
-            prepared_jobs.append(parameters)
 
         retained_ids = set(media_ids)
         retained_ids.update(request.constant_inputs.values())
@@ -2578,6 +2594,7 @@ async def submit_media_batch_jobs(
                 batch_output_title=None,
                 batch_input_set_ids=None,
                 consume_pending_request=False,
+                client_ref=request.client_ref,
             )
             job_ids.append(job_id)
 

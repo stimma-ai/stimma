@@ -819,6 +819,29 @@ class TestJobProcessing:
             # Reset provider config
             test_provider.reset_configs()
 
+    async def test_queued_event_echoes_the_client_ref(
+        self,
+        generation_client: httpx.AsyncClient,
+        mock_ws,
+        output_folder: str,
+    ):
+        """The submitting client names its placeholder; the queued event names it back,
+        so the client retires that placeholder and no other."""
+        mock_ws.clear()
+        response = await generation_client.post(
+            "/api/generate/submit",
+            json={
+                "tool_id": "test:text-to-image:test-model",
+                "folder_path": output_folder,
+                "task_type": "text-to-image",
+                "parameters": {"prompt": "ref test", "steps": 5, "seed": 112},
+                "client_ref": "pending-abc",
+            },
+        )
+        assert response.status_code == 200
+        mock_ws.assert_broadcast("generation_job_queued", {"client_ref": "pending-abc"})
+        assert "client_ref" not in json.dumps(response.json())
+
     async def test_websocket_events_broadcast(
         self,
         generation_client: httpx.AsyncClient,

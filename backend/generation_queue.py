@@ -1919,6 +1919,7 @@ class GenerationQueue:
         output_context_kind: Optional[str] = None,
         output_context_id: Optional[str] = None,
         consume_pending_request: bool = True,
+        client_ref: Optional[str] = None,
     ) -> int:
         """Shared implementation for creating and submitting a generation job.
 
@@ -2018,6 +2019,8 @@ class GenerationQueue:
                 }
                 if batch_id:
                     broadcast_data['batch_id'] = batch_id
+                if client_ref:
+                    broadcast_data['client_ref'] = client_ref
                 await self._websocket_manager.broadcast('generation_job_queued', broadcast_data)
 
             # Track tool usage telemetry (toolRef/toolSource/modelFamily via the
@@ -2060,6 +2063,7 @@ class GenerationQueue:
         output_context_kind: Optional[str] = None,
         output_context_id: Optional[str] = None,
         consume_pending_request: bool = True,
+        client_ref: Optional[str] = None,
     ) -> int:
         """Submit a new generation job to the queue.
 
@@ -2081,6 +2085,7 @@ class GenerationQueue:
             output_context_kind=output_context_kind,
             output_context_id=output_context_id,
             consume_pending_request=consume_pending_request,
+            client_ref=client_ref,
         )
 
     async def submit_batch_job(
@@ -2104,6 +2109,7 @@ class GenerationQueue:
         output_context_kind: Optional[str] = None,
         output_context_id: Optional[str] = None,
         consume_pending_request: bool = True,
+        client_ref: Optional[str] = None,
     ) -> int:
         """Submit a generation job that is part of a batch.
 
@@ -2125,6 +2131,7 @@ class GenerationQueue:
             output_context_kind=output_context_kind,
             output_context_id=output_context_id,
             consume_pending_request=consume_pending_request,
+            client_ref=client_ref,
         )
 
     async def get_job(self, job_id: int, profile_id: str = None) -> Optional[Dict[str, Any]]:
