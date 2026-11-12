@@ -68,12 +68,12 @@ class TestEveryPersonIsFullyDescribed:
         src = expand_people('w = person("woman", noun="woman")\n'
                             'hat = pick("hat", about=f"a hat for {w.hair} hair", seed=["a beret"], phase=3, added=True)\n'
                             'emit(w, "wearing", hat)\n')
-        assert "w_hair, w_hair_color, 'hair'" in src.strip().splitlines()[-1]
+        assert "opt(opt(w_hair), opt(w_hair_color), 'hair')" in src.strip().splitlines()[-1]
 
     def test_the_description_stands_where_the_program_put_the_person(self):
         emit = expand_people(ONE).strip().splitlines()[-1]
-        assert emit.startswith("emit('A portrait of', 'a', woman_build, woman_age, woman_descent, 'woman', 'with', woman_skin, 'skin'")
-        assert emit.endswith("woman_face, ', in her kitchen, wearing', outfit, '.')")
+        assert emit.startswith("emit('A portrait of', 'a', woman_build, woman_age, woman_descent, 'woman', opt('with', opt(woman_skin, 'skin')")
+        assert emit.endswith("opt(',', opt(woman_face))), ', in her kitchen, wearing', outfit, '.')")
         assert "what the {'woman'} wears" in expand_people(ONE)   # elsewhere the person is their noun
 
     def test_a_man_gets_facial_hair_and_the_lists_with_features_of_one_sex_are_told(self):
@@ -96,7 +96,7 @@ class TestEveryPersonIsFullyDescribed:
     def test_the_noun_may_be_the_users_list(self):
         src = expand_people('job = pick("job", ["chef", "firefighter"], label="Job", source="list", phase=1, line=1)\n'
                             'man = person("man", noun=job)\nemit(man, ", walking home.")\n')
-        assert "man_descent, job, 'with'" in src
+        assert "man_descent, job, opt('with'" in src
 
 
 class TestNothingIsDrawnTwiceOrLeftOut:

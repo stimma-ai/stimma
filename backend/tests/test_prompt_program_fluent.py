@@ -403,7 +403,7 @@ class TestRealize:
                                  runtime=self._runtime(tmp_path, entry, revision=r.revision)[1])
             assert again.prompt == r.prompt and again.revision["id"] == r.revision["id"]
         new = prep.realize(entry, seed=0, runtime=self._runtime(tmp_path, entry)[1])
-        assert new.revision["options"] == "opts-5"
+        assert new.revision["options"] == "opts-6"
         with pytest.raises(ProgramError, match="options version opts-9"):
             self._runtime(tmp_path, entry, revision={**new.revision, "options": "opts-9"})
 

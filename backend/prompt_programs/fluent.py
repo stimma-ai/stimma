@@ -60,10 +60,12 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
                 profile_id: Optional[str] = None, project_id: Optional[int] = None,
                 revision: Optional[Dict[str, Any]] = None,
                 store: Optional[OptionStore] = None, filler: Optional[OptionFiller] = None,
-                cfg: Optional[FluentSettings] = None, mine: Optional[Dict[str, List[str]]] = None) -> Runtime:
+                cfg: Optional[FluentSettings] = None, mine: Optional[Dict[str, List[str]]] = None,
+                zones: Optional[Dict[str, List[str]]] = None) -> Runtime:
     """What realize() draws a program with pick specs with. Passing a recorded
     `revision` replays its pools at their recorded lengths. `mine`: the user's options kept
-    per vocabulary list (additions.py); the profile's, unless a caller brings its own store."""
+    per vocabulary list (additions.py); the profile's, unless a caller brings its own store.
+    `zones`: the zones chosen per slot pick (options.GeneratedOptions)."""
     cfg = cfg or settings()
     if mine is None:
         mine = profile_additions(profile_id) if store is None else {}
@@ -101,7 +103,8 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
               if isinstance(pools, dict) else None)
     options = GeneratedOptions(store, program_context(entry), edits=edits, filler=filler,
                                limits=limits, project_id=project_id,
-                               generate=cfg.generate_options, version=version, context=context, mine=mine)
+                               generate=cfg.generate_options, version=version, context=context, mine=mine,
+                               zones=zones)
     if rev.get("context"):   # a replay records the context version it was drawn with
         options.context_version = str(rev["context"])
     return Runtime(options)

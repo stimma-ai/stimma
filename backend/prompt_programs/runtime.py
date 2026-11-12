@@ -66,7 +66,7 @@ _SAFE_BUILTINS: Dict[str, Any] = {
     "round": round, "sorted": sorted, "list": list, "dict": dict, "set": set, "enumerate": enumerate,
     "zip": zip, "abs": abs, "any": any, "all": all, "True": True, "False": False, "None": None,
 }
-API_NAMES = {"pick", "pick_lora", "param", "group", "emit"}
+API_NAMES = {"pick", "pick_lora", "param", "group", "emit", "opt"}
 # Methods the sandbox checks at the call (they grow a value, or compare or hash their argument)
 _GROWING_METHODS = ("join", "replace", "extend")
 _COMPARING_METHODS = ("index", "count", "get")
@@ -127,6 +127,7 @@ class Draw:
     said: str = ""                 # the user's own words this pick stands for (said_value): drawn unless they choose others
     shared: bool = False           # shared=True: one value for every subject, as the user asked
     own: bool = False              # the user's own option (added or kept for its list): never rerolled by the fit check
+    template: str = ""             # a look with colors: the list's template it was filled from
 
     def to_dict(self) -> Dict[str, Any]:
         d = {"id": self.id, "value": self.value, "kind": self.kind, "label": self.label, "source": self.source}
@@ -150,6 +151,8 @@ class Draw:
             d["said"] = self.said
         if self.shared:
             d["shared"] = True
+        if self.template:
+            d["template"] = self.template
         return d
 
 
@@ -206,6 +209,12 @@ class LoraInfo:
     weight: float = 1.0
     trigger: str = ""
     on: bool = False   # switched on in the LoRA panel (runs unless the prompt chooses among it)
+
+
+class Opt(tuple):
+    """What opt() returns: parts of the prompt that stand or go together. emit() leaves the
+    whole group out when a pick in it has no value (turned off), so the words that lead to it
+    go with it: emit("a kitchen", opt(", lit by", light), ".")."""
 
 
 class LoraName(str):
@@ -380,13 +389,17 @@ class _Runner:
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
              about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None,
-             cls: Optional[str] = None, where: Any = None, said: Any = None, shared: bool = False) -> Optional[str]:
+             cls: Optional[str] = None, where: Any = None, said: Any = None, shared: bool = False,
+             zones: Any = None) -> Optional[str]:
         cid = str(id)
         if shared:
-            value = self.pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed, cls, where, said)
+            value = self.pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed, cls, where, said,
+                              zones=zones)
             if cid in self.by_id:
                 self.by_id[cid].shared = True
             return value
+        if zones is not None and seed is None:   # a zoned pick's own options are its zones' seeds
+            seed = zone_seeds(zones, f'pick("{cid}")')
         if about is not None or phase is not None or seed is not None or cls is not None or said is not None:
             return self._spec_pick(cid, options, label, by, source, line, exclude, hidden, added, about, phase, seed, cls,
                                    where, said)
@@ -469,6 +482,7 @@ class _Runner:
         d.where = where if isinstance(where, dict) else (str(where).strip() if isinstance(where, str) else "")
         d.said = said
         if leaf is not None and leaf.slots and value is not None and "{" in str(value):
+            d.template = str(value)
             value = self._palette(cid, d, leaf, value, source, line, hidden)
         elif isinstance(value, str) and "{" in value:
             from prompt_programs.vocab import fill
@@ -559,23 +573,69 @@ class _Runner:
     def emit(self, *parts: Any) -> None:
         self.parts.extend(flatten_parts(parts, sum(map(len, self.parts))))
 
+    def opt(self, *parts: Any) -> Opt:
+        return Opt(parts)
+
+
+def zone_seeds(zones: Any, where: str) -> List[str]:
+    """A zoned pick's seeds: each zone's, in order, once."""
+    if not isinstance(zones, dict):
+        raise ProgramError(f"{where}: zones= takes a dict of zone name to example options.")
+    return list(dict.fromkeys(str(o) for v in zones.values() for o in _as_list(v, f"{where} zones")))
+
+
+def _opt_parts(o: Opt, used: int, depth: int) -> Optional[List[str]]:
+    """An opt()'s text, or None when it goes: a part in it has no value, or every opt() inside
+    it went ("with" and the hair group go when both hair picks are off, stay when one is on).
+    A "," leading an opt() inside it separates it from one kept before it, so it goes when none was."""
+    if any(p is None for p in o):
+        return None
+    if depth > 32:
+        raise _limit("emit() was given lists nested too deeply.")
+    out: List[str] = []
+    inner = kept = 0
+    for p in o:
+        if isinstance(p, Opt):
+            inner += 1
+            got = _opt_parts(p, used, depth + 1)
+            if got is None:
+                continue
+            if not kept and got and got[0] == ",":
+                got = got[1:]
+            kept += 1
+        else:
+            got = flatten_parts([p], used)
+        out += got
+        used += sum(map(len, got))
+    return None if inner and not kept else out
+
 
 def flatten_parts(parts: Sequence[Any], used: int = 0) -> List[str]:
     """What emit() writes for its arguments: each value as text, lists and tuples in
     order, None and LoRA names skipped (a LoRA is turned on, never written into the
-    prompt). `used` is the prompt text already emitted: the whole prompt is capped."""
+    prompt), an opt() whole or not at all. A part ending a line keeps its newline. `used`
+    is the prompt text already emitted: the whole prompt is capped."""
     out: List[str] = []
     stack = [iter(parts)]
     while stack:
         for p in stack[-1]:
             if p is None or isinstance(p, LoraName):
                 continue
+            if isinstance(p, Opt):
+                got = _opt_parts(p, used, len(stack))
+                for s in got or []:
+                    used += len(s)
+                    out.append(s)
+                if used > MAX_PROMPT_CHARS:
+                    raise _limit(f"the prompt is too long (over {MAX_PROMPT_CHARS:,} characters).")
+                continue
             if isinstance(p, (list, tuple)):
                 if len(stack) > 32:
                     raise _limit("emit() was given lists nested too deeply.")
                 stack.append(iter(p))
                 break
-            s = _text(p).strip()
+            t = _text(p)
+            s = t.strip() + ("\n" if t.rstrip(" \t").endswith("\n") else "")
             if s:
                 used += len(s)
                 if used > MAX_PROMPT_CHARS:
@@ -668,7 +728,7 @@ def _seams(parts: List[str]) -> List[str]:
     out: List[str] = []
     for part in parts:
         part = str(part)
-        if out:
+        if out and not out[-1].endswith("\n"):
             last, first = _LAST_WORD.search(out[-1]), _FIRST_WORD.match(part)
             if (last and first and last.group(1).lower() == first.group(1).lower() and len(out[-1].split()) <= 3
                     and last.group(1).lower() not in ("a", "an", "the")):   # articles: _ARTICLE, below
@@ -678,8 +738,13 @@ def _seams(parts: List[str]) -> List[str]:
 
 
 def tidy_text(parts: List[str]) -> str:
-    s = " ".join(_seams(parts))
-    s = re.sub(r"\s+", " ", s)
+    """The emitted parts as the prompt: each line tidied, line breaks kept."""
+    lines = " ".join(_seams(parts)).split("\n")
+    return "\n".join(_tidy_line(line) for line in lines).strip()
+
+
+def _tidy_line(s: str) -> str:
+    s = re.sub(r"\s+", " ", s).strip()
     # "a" written before a value that brings its own ("A a candid snapshot"): keep the value's
     s = _ARTICLE.sub("", s)
     s = _A_AN.sub(_fix_article, s)

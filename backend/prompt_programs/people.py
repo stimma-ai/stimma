@@ -31,6 +31,7 @@ passes no narrowing words of its own, so it has none to invent.
   age: what the user said of any other detail is read from their prompt, so the writer has no
   words of its own to invent for those.
 - `leave`: details the user gave in words no list holds, which the program keeps as fixed text.
+- `article=False`: no "a" before them; the prompt's own words lead to them ("with a", "an").
 
 Nothing is drawn twice. A pick the program writes itself on a list person() draws from (its
 own `woman.hair_color`, or with one person any pick on the hair color list) keeps its place
@@ -268,15 +269,21 @@ class _People(ast.NodeTransformer):
             return ast.Name(var[k], ast.Load())
         var = {k: v for k, v in var.items() if k not in placed_by_hand}   # the description: what the program didn't place
         # "a slender 32-year-old Korean woman with warm beige skin, shoulder-length wavy dark brown hair, hazel eyes, ..."
-        parts: List[ast.expr] = [ast.Constant("a")] + [name(k) for k in ("build", "age", "descent") if k in var] + [noun_part]
-        groups = [g for g in ([name("skin"), ast.Constant("skin")] if "skin" in var else [],
-                              [*(name(k) for k in ("hair", "hair_color") if k in var), ast.Constant("hair")]
-                              if "hair" in var or "hair_color" in var else [],
-                              [name("eyes"), ast.Constant("eyes")] if "eyes" in var else [],
-                              [name("facial_hair")] if "facial_hair" in var else [],
-                              [name("face")] if "face" in var else []) if g]
-        for i, g in enumerate(groups):
-            parts += [ast.Constant("with" if i == 0 else ",")] + g
+        # Each group is an opt(): a detail turned off takes its joining words with it.
+        article = _const(kw.get("article")) is not False   # article=False: the prompt's own words lead to them
+        parts: List[ast.expr] = ([ast.Constant("a")] if article else []) + [
+            name(k) for k in ("build", "age", "descent") if k in var] + [noun_part]
+
+        def opt(*items: ast.expr) -> ast.expr:
+            return ast.Call(func=ast.Name("opt", ast.Load()), args=list(items), keywords=[])
+        groups = [g for g in (opt(name("skin"), ast.Constant("skin")) if "skin" in var else None,
+                              opt(*(opt(name(k)) for k in ("hair", "hair_color") if k in var), ast.Constant("hair"))
+                              if "hair" in var or "hair_color" in var else None,
+                              opt(name("eyes"), ast.Constant("eyes")) if "eyes" in var else None,
+                              opt(name("facial_hair")) if "facial_hair" in var else None,
+                              opt(name("face")) if "face" in var else None) if g is not None]
+        if groups:
+            parts.append(opt(ast.Constant("with"), groups[0], *(opt(ast.Constant(","), g) for g in groups[1:])))
         self.people[target] = (noun, parts)
         self.again[target] = [ast.Constant("the"), noun_part]
         # never put in an emit(): they stand where they were made. Not someone nothing is drawn of

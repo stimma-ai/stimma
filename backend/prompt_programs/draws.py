@@ -42,7 +42,7 @@ from typing import Any, Dict, FrozenSet, List, Optional, Protocol, Sequence, Set
 from prompt_programs.runtime import (
     COLORS, COLORS_ABOUT, RANK_DECAY, SOURCES, Draw, LoraInfo, LoraUse, ProgramError, RunResult, _Runner, LoraName, _as_list,
     _label_from_id, _lora_key, check, compile_program, execute, flatten_parts, holds_said, lora_names, said_value,
-    subject_of, tidy_text,
+    subject_of, tidy_text, zone_seeds,
 )
 from prompt_programs.vocab import AGE_LIST, fill, is_template, minor_ages, tags_match, template_matches, vocabulary
 
@@ -53,13 +53,13 @@ DRAW_VERSION = "draws-2"
 # revision recorded its weighted vocabulary pools, so it still replays exactly.
 CONTEXT_VERSION = "ctx-2"
 CONTEXT_VERSIONS = ("ctx-1", CONTEXT_VERSION)   # what a replay can read
-SPEC_ARGS = ("about", "phase", "seed", "cls")
+SPEC_ARGS = ("about", "phase", "seed", "cls", "zones")
 BATCH = 16             # proposals per re-proposal batch, when a value breaks a pin
 MAX_BATCHES = 3        # batches before a pick gives up
 MAX_POOLS = 32         # pools a generated pick may have: one per combination of the lists it names
 
 _PICK_PARAMS = ("id", "options", "label", "by", "source", "line", "exclude", "hidden", "added", "about", "phase", "seed",
-                "cls", "where", "said", "shared")
+                "cls", "where", "said", "shared", "zones")
 _LORA_PARAMS = ("id", "names", "label", "source", "line", "phase")
 
 
@@ -144,7 +144,7 @@ class Analysis:
         return [s for s in self.sites if s.id_re.fullmatch(cid)]
 
 
-_KEEP_BUILTINS = {"str", "list", "sorted", "min", "max", "enumerate", "zip", "dict", "set"}
+_KEEP_BUILTINS = {"str", "list", "sorted", "min", "max", "enumerate", "zip", "dict", "set", "opt"}
 _KEEP_METHODS = {"join", "lower", "upper", "capitalize", "title", "strip", "replace", "split",
                  "items", "keys", "values"}
 
@@ -210,7 +210,7 @@ class _Analyzer:
         if node is None or isinstance(node, ast.Constant):
             return _EMPTY
         if isinstance(node, ast.Name):
-            if node.id in ("pick", "pick_lora", "param", "group", "emit"):
+            if node.id in ("pick", "pick_lora", "param", "group", "emit", "opt"):
                 raise _err(node, f"call {node.id}(...) directly; don't store or pass it around.")
             if node.id in local:
                 return local[node.id]
@@ -659,6 +659,11 @@ class PickSpec:
     # The context its pool is drawn in (vocab.py): (facet, families) for each facet its list
     # takes that a giver in its scope drew. Empty for the user's lists, wildcards, pins and said picks.
     context: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()
+    # A slot's option pools (slots.py): zone id -> its seeds ("kinds" of the thing the words name,
+    # things to have "instead"). The options service draws from the chosen zones' pools, each a
+    # spec of its own with `zone` set.
+    zones: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()
+    zone: str = ""
 
 
 def context_suffix(spec: PickSpec) -> str:
@@ -686,6 +691,8 @@ def pool_key(spec: PickSpec, context: Dict[str, Any]) -> str:
     """A pool is the pick's spec plus the values of the picks it depends on:
     `hair: her hairstyle | era=1920s` is not `hair: her hairstyle | era=1970s`."""
     head = f"{spec.id}: {spec.about}" if spec.about else spec.id
+    if spec.zone:
+        head += f" | {spec.zone}"
     return head + ("".join(f" | {k}={v}" for k, v in context.items()))
 
 
@@ -919,7 +926,8 @@ class _Exec(_Runner):
     def pick(self, id: str, options: Any = None, label: str = "", by: Any = None, source: str = "text",
              line: Optional[int] = None, exclude: Any = None, hidden: bool = False, added: bool = False,
              about: Optional[str] = None, phase: Optional[int] = None, seed: Any = None, cls: Optional[str] = None,
-             where: Any = None, said: Any = None, shared: bool = False, _site: int = -1) -> Optional[str]:
+             where: Any = None, said: Any = None, shared: bool = False, zones: Any = None,
+             _site: int = -1) -> Optional[str]:
         cid = str(id)
         if added:
             source = "added"
@@ -954,10 +962,15 @@ class _Exec(_Runner):
         # by it) and otherwise draws as an unbound pick: seeds and generated options, never a failure.
         leaf = vocabulary().resolve(cls) if cls and source != "list" else None
         seeds = _as_list(seed if seed is not None else [], f'pick("{cid}") seed')
+        zoned = ()
+        if zones is not None:
+            every = zone_seeds(zones, f'pick("{cid}")')
+            seeds = seeds if seed is not None else every
+            zoned = tuple((str(z), tuple(_as_list(v, f'pick("{cid}") zones'))) for z, v in zones.items())
         spec = PickSpec(cid, lbl, str(about or ""), site.phase, source, "pick",
                         list(dict.fromkeys([said, *seeds])) if said else seeds, opts,
                         leaf.id if leaf is not None else (str(cls).strip() if cls and source != "list" else ""),
-                        said=said)
+                        said=said, zones=zoned)
         if source != "list" and spec.cls != AGE_LIST and cid not in self.eng.theirs:
             spec.minor = self._minor(cid, site)
         # A said pick is the user's own words: it gives context (its drawn value is read like any
@@ -970,11 +983,12 @@ class _Exec(_Runner):
             self._unfill_kept(cid, leaf)
         eligible = self._eligible(cid, spec, context, exclude)
         value, pinned = self._settle(cid, site, spec, eligible, context)
-        colors = None
+        colors, template = None, ""
         # Only a look with color slots draws Colors: a fixed-color template ("a white karate gi")
         # or a generated option (written with its colors) has none to fill.
         if leaf is not None and leaf.slots and vocabulary().get(leaf.slots) is not None and is_template(str(value)):
             colors = self._palette(cid, site, spec, leaf, value, source, line, hidden)
+            template = str(value)
             value = fill(str(value), self.eng.roles.get(cid))  # the image model reads the filled look
         elif isinstance(value, str) and "{" in value:  # a replayed template whose list is gone: never show slots
             value = fill(value, None)
@@ -982,6 +996,7 @@ class _Exec(_Runner):
         d.phase, d.about, d.cls, d.said = site.phase, spec.about, spec.cls, said
         d.where = where if isinstance(where, dict) else (str(where).strip() if isinstance(where, str) else "")
         d.shared = bool(shared)
+        d.template = template
         d.own = str(value) in self.eng.own.get(cid, frozenset())
         self._record(d)
         if colors is not None:

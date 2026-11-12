@@ -27,6 +27,7 @@ import heapq
 import itertools
 import json
 import os
+import dataclasses
 import re
 import threading
 import time
@@ -44,9 +45,9 @@ from prompt_programs.vocab import (
 
 log = get_logger(__name__)
 
-OPTIONS_VERSION = "opts-5"     # bump to invalidate every generated pool on purpose. opts-5: a smart wildcard's options name its things, no description added. opts-4: US words. opts-3: US spelling
+OPTIONS_VERSION = "opts-6"     # bump to invalidate every generated pool on purpose. opts-6: a slot's pools by zone (kinds of its words, things instead), each option in the form of the slot's words. opts-5: a smart wildcard's options name its things, no description added. opts-4: US words. opts-3: US spelling
 FIRST_OPTIONS_VERSION = "opts-1"   # what a revision that records no options version drew with
-OPTIONS_VERSIONS = (FIRST_OPTIONS_VERSION, "opts-2", "opts-3", "opts-4", OPTIONS_VERSION)   # versions a recorded revision can replay
+OPTIONS_VERSIONS = (FIRST_OPTIONS_VERSION, "opts-2", "opts-3", "opts-4", "opts-5", OPTIONS_VERSION)   # versions a recorded revision can replay
 BATCH_SIZE = 12                # options asked for per generation call
 GEN_DECAY = 0.96               # rank decay across generated options (gentler than the writer's lists)
 THIN = 6                       # a generated pool with fewer usable options asks for more, high priority
@@ -135,6 +136,10 @@ class ProgramContext:
             where = c.get("where")
             return str(c.get("wildcard") or c.get("where_words") or (where if isinstance(where, str) else "") or "")
         intents = tuple((str(c.get("id")), words(c)) for c in entry.get("choices") or [] if words(c))
+        # A slot's own words (slots.py) for a pick with no list: the rule its kinds are written within.
+        listed = {str(c.get("id")) for c in entry.get("choices") or [] if c.get("cls")}
+        intents += tuple((str(k), str(v)) for k, v in (entry.get("slot_words") or {}).items()
+                         if str(v).strip() and str(k) not in listed and str(k) not in dict(intents))
         filters = tuple((str(k), tuple(str(x) for x in v)) for k, v in (entry.get("filters") or {}).items()
                         if isinstance(v, list))
         facets = tuple((str(c.get("id")), str(c["where"])) for c in entry.get("choices") or []
@@ -204,7 +209,8 @@ def program_minors(entry: Dict[str, Any]) -> Tuple[Tuple[str, Tuple[str, ...]], 
 
 def gen_key(spec: PickSpec, context: Dict[str, Any], signature: str, mode: str, elaborate: bool,
             lists: Sequence[Tuple[str, str, Sequence[str]]] = (), version: str = OPTIONS_VERSION,
-            lineage: str = "", intent: str = "", cls: str = "", minor: Sequence[str] = (), said: str = "") -> str:
+            lineage: str = "", intent: str = "", cls: str = "", minor: Sequence[str] = (), said: str = "",
+            zone: str = "") -> str:
     """The generated pool's identity across prompts: what the pick is, the values of the
     picks it depends on, the context signature, the user's lists it is shown (those it
     doesn't depend on), and the style options are written in. `version` names an older
@@ -221,6 +227,7 @@ def gen_key(spec: PickSpec, context: Dict[str, Any], signature: str, mode: str, 
         **({"cls": cls} if cls else {}),   # a bound pick's generated options extend its list
         **({"minor": sorted(minor)} if minor else {}),   # written for a person under 18
         **({"said": _norm(said)} if said else {}),   # alternatives to the user's own words
+        **({"zone": zone} if zone else {}),   # a slot's pool: kinds of its words, or things instead
         "mode": mode, "elaborate": bool(elaborate), **({"lists": shown} if shown else {}),
     }, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
@@ -401,11 +408,18 @@ def generation_messages(job: OptionJob, count: int = BATCH_SIZE, tool: bool = Fa
         lines += ["", "These were judged to contradict this prompt; write options that fit it instead:",
                   *[f"- {o}" for o in job.avoid]]
     intent = dict(job.program.intents).get(job.spec.id)
-    if intent:
+    if intent and job.spec.zone == "instead":
+        lines += ["", f'The user wrote "{intent}" here. Write other options they might choose instead: other things '
+                      "that could stand in the same place in the prompt, each a specific one, in the same form as "
+                      "their words."]
+    elif intent:
         lines += ["", f'The user asked for this detail in their own words: "{intent}". That is a rule, not an example: '
                       "every option must be within it (\"1970s or 1980s cars\" means only cars from those two decades). "
                       "Each option is one of the things their words name, named the way a person would say it, and "
                       "nothing added: for \"country\", \"Japan\", never \"Japan, with misty mountains and temples\"."]
+    if job.spec.zone:
+        lines += ["", f"Each option replaces exactly [{spec.label}] in the prompt: the same form as the user's words, "
+                      "no article unless they have one."]
     if job.removed:
         lines += ["", "The user deleted these: never write them or any wording of them:", *[f"- {o}" for o in job.removed]]
     if job.spec.said:
@@ -830,8 +844,10 @@ class GeneratedOptions:
                  limits: Optional[Dict[str, Any]] = None,
                  project_id: Optional[int] = None, generate: bool = True,
                  version: Optional[str] = None, context: bool = True,
-                 mine: Optional[Dict[str, Sequence[str]]] = None):
+                 mine: Optional[Dict[str, Sequence[str]]] = None, zones: Optional[Dict[str, Sequence[str]]] = None):
         self.store, self.program, self.filler = store, program, filler
+        # The zones chosen per slot pick (drawn from together); a pick with none chosen draws its kinds.
+        self.zones = {str(k): [str(z) for z in v] for k, v in (zones or {}).items()}
         # The user's own options kept for each vocabulary list (additions.py), offered by every
         # choice bound to that list; and, per choice read, which of them its pool holds and
         # whether each is drawn only once ticked (the picker shows those apart).
@@ -941,9 +957,11 @@ class GeneratedOptions:
         lineage = "" if specific else self.program.lineage
         return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate,
                             self.program.lists, self.version, lineage, intent, spec.cls, spec.minor,
-                            spec.said), signature
+                            spec.said, spec.zone), signature
 
     def get(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
+        if spec.zones and not spec.zone:
+            return self._zoned(spec, context)
         if not self._grows(spec) and self._leaf(spec) is None and not isinstance(self.limits.get(self._where(spec, context)[0]), list):
             return self.literal.get(spec, context)
         key, skey, signature = self._where(spec, context)
@@ -957,6 +975,40 @@ class GeneratedOptions:
             elif len(pool.items) < THIN:
                 self._submit(spec, context, skey, signature, "high", items)
         pool.more_coming = bool(self.filler is not None and self.filler.busy(skey))
+        self._pools[key] = pool
+        return pool
+
+    def zone_specs(self, spec: PickSpec) -> List[PickSpec]:
+        """A slot pick's chosen zones, each as the spec its pool is read with: kinds when none is chosen."""
+        have = dict(spec.zones)
+        chosen = [z for z in self.zones.get(spec.id, ()) if z in have] or (["kinds"] if "kinds" in have else list(have)[:1])
+        return [dataclasses.replace(spec, zone=z, seeds=list(have[z]), zones=()) for z in dict.fromkeys(chosen)]
+
+    def _zoned(self, spec: PickSpec, context: Dict[str, Any]) -> Pool:
+        """One pool from the chosen zones' pools. Several zones together are recorded whole
+        on a revision (the zones grow apart), and a replay reads that record."""
+        parts = self.zone_specs(spec)
+        if len(parts) == 1:
+            return self.get(parts[0], context)
+        key = pool_key(spec, context) + " | " + "+".join(p.zone for p in parts)
+        if key in self._pools:
+            return self._pools[key]
+        if isinstance(self.limits.get(key), list):
+            pool = self._read(spec, context, key, "")[0]
+        else:
+            items: List[str] = []
+            weights: List[float] = []
+            own: set = set()
+            more = False
+            for p in parts:
+                got = self.get(p, context)
+                for o, w in zip(got.items, got.weights):
+                    if o not in items:
+                        items.append(o)
+                        weights.append(w)
+                own |= set(got.own)
+                more = more or got.more_coming
+            pool = Pool(key, items, weights, more, True, own=frozenset(own))
         self._pools[key] = pool
         return pool
 
@@ -1112,6 +1164,10 @@ class GeneratedOptions:
         return out
 
     def request_more(self, spec: PickSpec, context: Dict[str, Any], priority: str) -> None:
+        if spec.zones and not spec.zone:
+            for p in self.zone_specs(spec):
+                self.request_more(p, context, priority)
+            return
         if not self._grows(spec):
             return  # a user list is never expanded
         key, skey, signature = self._where(spec, context)
