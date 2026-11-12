@@ -1382,11 +1382,14 @@ def draw(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None
     def with_edits(now: Dict[str, Dict[str, Any]]) -> None:
         if options is not None and service_edits is not None:
             options.edits = now
+            literal = getattr(options, "literal", None)   # its pools of the program's own options
+            if literal is not None and hasattr(literal, "edits"):
+                literal.edits = now
             reset = getattr(options, "reset", None)
             if callable(reset):   # pools read so far were built from the other edits
                 reset()
     try:
-        for attempt in range(3):
+        for _attempt in range(2 * len(pins) + 2):
             eng = _Engine(an, seed, pins, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params,
                           dict(fixed or {}), edits, options or LiteralOptions(edits))
             try:
@@ -1396,19 +1399,25 @@ def draw(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None
                 eng.check_pins(final, math.inf)
                 break
             except ProgramError:
-                unknown = [cid for cid in pins if cid in eng.offered
+                unknown = [cid for cid in pins if cid not in held and cid in eng.offered
                            and not ({str(v) for v in pins[cid]} & eng.offered[cid])]
-                if attempt == 0 and unknown:
-                    held = {cid for cid in unknown if len(pins[cid]) == 1 and cid not in eng.lists}
-                    pins = {k: v for k, v in pins.items() if k not in unknown or k in held}
+                keep = {cid for cid in unknown if len(pins[cid]) == 1 and cid not in eng.lists}
+                if unknown:      # found now (a failure can hide the choices after it): kept or dropped
+                    held |= keep
+                    pins = {k: v for k, v in pins.items() if k not in unknown or k in keep}
                     edits = {**edits, **{cid: {**(edits.get(cid) or {}),
                                                "add": [*((edits.get(cid) or {}).get("add") or []), *map(str, pins[cid])]}
-                                         for cid in held}}
-                elif attempt == 1 and held:
-                    pins, edits, held = {k: v for k, v in pins.items() if k not in held}, given_edits, set()
+                                         for cid in keep}}
+                elif held:       # a kept value the program can't take: those pins go, and their options
+                    pins = {k: v for k, v in pins.items() if k not in held}
+                    edits = {k: (given_edits[k] if k in given_edits else v) for k, v in edits.items()
+                             if k not in held or k in given_edits}
+                    held = set()
                 else:
                     raise
                 with_edits(edits)
+        else:
+            raise ProgramError("The program couldn't be drawn with these pinned choices.")
     finally:
         if edits is not given_edits:
             with_edits(given_edits)

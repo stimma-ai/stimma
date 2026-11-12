@@ -387,6 +387,38 @@ class TestStaleTicks:
 
 
 
+class TestKeptPinsInTheApp:
+    """The same holds through the app's own options service, and for stale pins found one after another."""
+
+    def service(self, tmp_path, src, prompt="a woman"):
+        from prompt_programs import prepare as prep
+        from prompt_programs.fluent import runtime_for
+        from prompt_programs.options import OptionStore
+        info = prep.validate(src, prompt, [], set(), "", True)["info"]
+        entry = {"key": "kp", "program": src, "choices": info["choices"], "prompt": prompt, "mode": "prose"}
+        return entry, lambda: runtime_for(entry, store=OptionStore(tmp_path), cfg=FluentSettings(generate_options=False))
+
+    def test_a_pinned_value_is_kept_for_a_pick_with_options_of_its_own(self, tmp_path):
+        from prompt_programs import prepare as prep
+        src = ('fit = pick("outfit", ["a wool coat", "a linen dress"], label="Outfit", phase=1, line=1)\n'
+               'emit("A woman in", fit, ".")\n')
+        entry, runtime = self.service(tmp_path, src)
+        for seed in range(6):
+            r = prep.realize(entry, seed=seed, pins={"outfit": ["a pinned camisole"]}, runtime=runtime())
+            assert r.prompt == "A woman in a pinned camisole."
+        assert "camisole" not in prep.realize(entry, seed=1, runtime=runtime()).prompt   # nothing is left behind
+
+    def test_stale_pins_found_one_after_another_are_each_handled(self):
+        from prompt_programs.draws import draw
+        src = ('weather = pick("weather", ["rainy", "bright"], label="Weather", source="list", phase=1, line=1)\n'
+               'coat = {"rainy": "a trench coat", "bright": "a linen shirt"}[weather]\n'
+               'fit = pick("outfit", about="what else she wears", seed=["a wool scarf", "a straw hat"], label="Outfit", phase=2, added=True)\n'
+               'emit("A woman wearing", coat, "and", fit, ".")\n')
+        for seed in range(8):
+            p = draw(src, seed, {"weather": ["snowy"], "outfit": ["a pinned camisole"]}).prompt
+            assert p.endswith("and a pinned camisole.") and ("trench coat" in p or "linen shirt" in p)
+
+
 class TestPinnedNote:
     """The writer is told what the user has pinned, so a change keeps those choices and values."""
 
