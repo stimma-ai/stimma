@@ -44,6 +44,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -65,6 +69,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -86,6 +94,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -106,6 +118,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -132,6 +148,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -153,6 +173,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -179,6 +203,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -210,6 +238,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -263,6 +295,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -287,6 +323,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -308,6 +348,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -329,6 +373,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -350,6 +398,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -370,6 +422,10 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -391,6 +447,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -412,6 +472,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -456,6 +520,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -483,6 +551,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -506,6 +578,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -559,6 +634,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -580,6 +659,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -601,6 +684,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -635,6 +722,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -663,6 +754,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -693,6 +788,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -721,6 +820,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -749,6 +852,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -777,6 +884,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -810,6 +921,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -836,6 +951,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -858,6 +977,10 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -880,6 +1003,10 @@
         ],
         "formality": [
           "smart"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -905,6 +1032,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -933,6 +1064,10 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -962,6 +1097,10 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -984,6 +1123,10 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -1003,6 +1146,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -1022,6 +1169,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -1041,6 +1192,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1068,6 +1223,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -1087,6 +1246,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1117,6 +1280,10 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1150,6 +1317,10 @@
         ],
         "budget": [
           "luxury"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1212,6 +1383,10 @@
         ],
         "formality": [
           "smart"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1292,6 +1467,10 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -1314,6 +1493,10 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -1340,6 +1523,10 @@
         ],
         "budget": [
           "modest"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1409,6 +1596,10 @@
         ],
         "budget": [
           "modest"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1493,6 +1684,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1523,6 +1718,10 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -1542,6 +1741,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -1564,6 +1767,10 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "adult_only": true
@@ -1587,6 +1794,10 @@
         ],
         "formality": [
           "formal"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     }
@@ -1608,6 +1819,10 @@
       "light",
       "moderate",
       "full"
+    ],
+    "presentation": [
+      "feminine",
+      "masculine"
     ]
   },
   "context": {

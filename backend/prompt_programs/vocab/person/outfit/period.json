@@ -130,6 +130,10 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -192,6 +196,9 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -227,6 +234,10 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -300,6 +311,10 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -401,6 +416,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -435,6 +453,10 @@
         ],
         "region": [
           "european"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -467,6 +489,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -575,6 +600,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -838,6 +866,10 @@
         ],
         "period": [
           "18th century"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -906,6 +938,9 @@
         ],
         "period": [
           "18th century"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -942,6 +977,9 @@
         ],
         "period": [
           "18th century"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -1184,6 +1222,10 @@
         ],
         "period": [
           "victorian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1398,6 +1440,10 @@
         ],
         "period": [
           "1920s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1459,6 +1505,10 @@
         ],
         "period": [
           "1930s–40s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1594,6 +1644,10 @@
         ],
         "period": [
           "1960s–70s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1625,6 +1679,9 @@
         ],
         "period": [
           "1960s–70s"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -1657,6 +1714,10 @@
         ],
         "period": [
           "1980s–90s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1690,6 +1751,10 @@
         ],
         "period": [
           "1980s–90s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1760,6 +1825,9 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -1862,6 +1930,10 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1936,6 +2008,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2085,6 +2160,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2116,6 +2194,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2147,6 +2228,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2226,6 +2310,9 @@
         ],
         "period": [
           "renaissance"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2416,6 +2503,10 @@
         ],
         "period": [
           "18th century"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2451,6 +2542,10 @@
         ],
         "period": [
           "victorian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2527,6 +2622,9 @@
         ],
         "period": [
           "victorian"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2779,6 +2877,9 @@
         ],
         "period": [
           "1920s"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2811,6 +2912,10 @@
         ],
         "period": [
           "1950s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2843,6 +2948,10 @@
         ],
         "period": [
           "1980s–90s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2874,6 +2983,10 @@
         ],
         "period": [
           "renaissance"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2907,6 +3020,10 @@
         ],
         "period": [
           "renaissance"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2977,6 +3094,9 @@
         ],
         "period": [
           "regency"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -3011,6 +3131,9 @@
         ],
         "period": [
           "regency"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -3045,6 +3168,9 @@
         ],
         "period": [
           "edwardian"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -3079,6 +3205,10 @@
         ],
         "period": [
           "edwardian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -3148,6 +3278,10 @@
         ],
         "period": [
           "1920s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -3181,6 +3315,10 @@
         ],
         "period": [
           "1930s–40s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -3214,6 +3352,10 @@
         ],
         "period": [
           "1950s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -3247,6 +3389,9 @@
         ],
         "period": [
           "1950s"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -3324,6 +3469,9 @@
         ],
         "region": [
           "european"
+        ],
+        "presentation": [
+          "masculine"
         ]
       }
     }
@@ -3353,6 +3501,10 @@
       "1950s",
       "1960s–70s",
       "1980s–90s"
+    ],
+    "presentation": [
+      "feminine",
+      "masculine"
     ]
   },
   "context": {

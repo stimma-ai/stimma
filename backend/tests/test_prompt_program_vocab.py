@@ -997,3 +997,55 @@ class TestRetiredAgeRanges:
         ages = [0 if v.text == "newborn" else int(v.text.split("-")[0]) for v in leaf.values]
         assert ages == list(range(111))
         assert all(v.opt_in == (a < 18) and v.minor == (a < 18) for v, a in zip(leaf.values, ages))
+
+
+class TestOutfitsKnowWhoTheyAreFor:
+    """Every outfit says who it is conventionally worn by, so a man asked for by name isn't
+    drawn a dress. An outfit anyone wears carries both parts."""
+
+    OUTFITS = ("athletic", "casual", "cold_weather", "fantasy", "formal", "period", "scifi", "sleep_lounge", "smart", "summer")
+    # Checked by hand against the lists: worn by women, never left for a man.
+    FEMININE = {
+        "person.outfit.casual": ["a {main} knee-length jersey dress with short sleeves",
+                                 "a {main} sweatshirt and {neutral} jersey leggings"],
+        "person.outfit.cold_weather": ["a {main} teddy-fleece coat over a {accent} long-sleeved jersey dress and {neutral} wool tights"],
+        "person.outfit.smart": ["a {main} blouse and a {neutral} pencil skirt", "a {accent} jersey top and a {main} pantsuit"],
+        "person.outfit.formal": ["a {main} satin gown with a full skirt", "a {main} crepe jumpsuit with wide tailored legs"],
+        "person.outfit.summer": ["a {main} cotton sundress with a gathered waist"],
+        "person.outfit.sleep_lounge": ["a white cotton nightgown with long sleeves"],
+        "person.outfit.period": ["a {main} wool kirtle over a cream linen shift"],
+        "person.outfit.fantasy": ["a {main} hooded cloak over a {neutral} wool dress"],
+    }
+    # Worn by anyone: left for both.
+    ANYONE = {
+        "person.outfit.casual": ["a {main} cotton T-shirt and straight blue jeans"],
+        "person.outfit.smart": ["a {main} wool suit with a {accent} shirt"],
+        "person.outfit.athletic": ["a white cotton karate gi with matching pants"],
+        "person.outfit.scifi": ["a {main} flight jumpsuit with {accent} reinforced seams"],
+    }
+
+    def leaves(self):
+        v = vocabulary()
+        return [v.get(f"person.outfit.{n}") for n in self.OUTFITS]
+
+    def test_every_outfit_carries_a_presentation(self):
+        for leaf in self.leaves():
+            assert leaf.local_facets["presentation"] == ("feminine", "masculine"), leaf.id
+            for x in leaf.values:
+                got = x.tags.get("presentation")
+                assert got and set(got) <= {"feminine", "masculine"}, (leaf.id, x.text)
+
+    def test_the_masculine_part_leaves_no_dresses(self):
+        from prompt_programs.vocab import tags_match
+        v = vocabulary()
+        for lid, texts in self.FEMININE.items():
+            leaf = v.get(lid)
+            men = {x.text for x in leaf.values if tags_match(x.tags, {"presentation": "masculine"})}
+            women = {x.text for x in leaf.values if tags_match(x.tags, {"presentation": "feminine"})}
+            for t in texts:
+                assert leaf.value(t) is not None, t
+                assert t not in men and t in women, t
+        for lid, texts in self.ANYONE.items():
+            leaf = v.get(lid)
+            for t in texts:
+                assert set(leaf.value(t).tags["presentation"]) == {"feminine", "masculine"}, t

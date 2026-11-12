@@ -95,6 +95,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -167,6 +171,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -245,6 +253,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -468,6 +480,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -718,6 +733,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1879,6 +1897,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -1933,6 +1954,10 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
@@ -2069,6 +2094,9 @@
           "black tie",
           "gala",
           "wedding guest"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
@@ -2324,6 +2352,10 @@
       "light",
       "moderate",
       "full"
+    ],
+    "presentation": [
+      "feminine",
+      "masculine"
     ]
   },
   "context": {

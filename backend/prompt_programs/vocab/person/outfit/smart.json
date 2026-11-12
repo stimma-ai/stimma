@@ -54,6 +54,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -95,6 +99,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -135,6 +143,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -212,6 +224,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -250,6 +266,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -288,6 +308,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -328,6 +352,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -408,6 +436,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -449,6 +481,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -489,6 +525,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -527,6 +567,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -650,6 +693,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -809,6 +856,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -888,6 +939,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -969,6 +1023,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1055,6 +1113,10 @@
         ],
         "region": [
           "south_asian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1092,6 +1154,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1310,6 +1376,10 @@
         ],
         "region": [
           "southeast_asian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1439,6 +1509,10 @@
         ],
         "region": [
           "latin_american"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1480,6 +1554,10 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1521,6 +1599,10 @@
         ],
         "region": [
           "african"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1562,6 +1644,10 @@
         ],
         "region": [
           "african"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1633,6 +1719,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1741,6 +1830,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1812,6 +1904,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1847,6 +1943,9 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1872,6 +1971,10 @@
         "occasion": [
           "business formal",
           "client meeting"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1897,6 +2000,10 @@
         "occasion": [
           "business casual",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1922,6 +2029,9 @@
         "occasion": [
           "smart casual",
           "creative workplace"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -2040,6 +2150,9 @@
         "occasion": [
           "creative workplace",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -2121,6 +2234,9 @@
         "occasion": [
           "business formal",
           "client meeting"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -2146,6 +2262,10 @@
         "occasion": [
           "business formal",
           "interview"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2171,6 +2291,10 @@
         "occasion": [
           "business casual",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2224,6 +2348,10 @@
         "occasion": [
           "business formal",
           "client meeting"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2277,6 +2405,10 @@
         "occasion": [
           "creative workplace",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2311,6 +2443,9 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -2395,6 +2530,10 @@
         "occasion": [
           "business casual",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2476,6 +2615,10 @@
         "occasion": [
           "business formal",
           "client meeting"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2501,6 +2644,10 @@
         "occasion": [
           "creative workplace",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2528,6 +2675,10 @@
       "light",
       "moderate",
       "full"
+    ],
+    "presentation": [
+      "feminine",
+      "masculine"
     ]
   },
   "context": {
