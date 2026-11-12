@@ -82,9 +82,9 @@ class TestEveryPersonIsFullyDescribed:
         assert "pick('man.face', cls='person.face', where={'presentation': 'masculine'}" in src
         assert "pick('man.build', cls='person.build', where={'presentation': 'masculine'}" in src
 
-    def test_the_writer_passes_no_narrowing_words(self):
-        src = expand_people('w = person("w", noun="woman", where={"age": "in her early thirties"})\nemit(w)\n')
-        assert "early thirties" not in src and "where" not in src
+    def test_the_writer_passes_narrowing_words_only_for_an_age(self):
+        src = expand_people('w = person("w", noun="woman", where={"age": "in her early thirties", "hair_color": "red"})\nemit(w)\n')
+        assert "where='in her early thirties'" in src and "red" not in src
 
     def test_a_person_in_a_loop_is_brief_and_keeps_the_loops_id(self):
         src = expand_people('friends = group("friends", 3, label="Friends", line=1)\nfor i in range(friends):\n'

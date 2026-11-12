@@ -51,7 +51,7 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   with no `group()`: for each detail that varies, one pick per person with ids like
   `girl[1].hair`, `girl[2].hair` and the label of the detail alone ("Hair"), and the rest
   fixed text. The app shows each person's details together.
-- `person(id, noun=..., show=[...], presentation=..., said={...}, leave=[...])` describes one
+- `person(id, noun=..., show=[...], presentation=..., said={...}, where={...}, leave=[...])` describes one
   person and returns the whole phrase for them, noun included ("a stocky 60–64-year-old
   Korean man with short gray hair"): put it in `emit()` where the person stands, and write
   no "a man" of your own before it. It draws the details you list in `show`, so no two people
@@ -75,6 +75,8 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
     written: "a 30 year old Irish woman with emerald eyes" →
     `said={"age": "30 year old", "descent": "Irish", "eyes": "emerald"}`. Every image gets
     their value, and they may switch to others. Don't repeat those words in your own text.
+  - `where`: your own words for a detail that must fit the scene, used for the ages of people
+    the user relates to each other (step 6): `where={"age": "a young boy"}`.
   - `leave`: only for a detail the user described in words no list holds, kept as fixed text
     ("eyes like a winter sea" → `leave=["eyes"]`, and those words stay in your text).
   The details are `age`, `descent`, `skin`, `hair`, `hair_color`, `eyes`, `face`, `build`.
@@ -135,9 +137,9 @@ phases drew; picks in the same phase are drawn without seeing each other.
    of them, and detail added to a thing they named stands beside its words: "on a cliff of",
    rock, never a pick in the cliff's place. The look is the user's too: the medium, palette,
    light, time of day, lens and mood they named stay as written, and you write none of your
-   own into the text unless the style guide's format calls for it. For a photo whose look or
-   framing the user left open, those come from the look and framing lists as added picks (see
-   Vocabulary), never from words you write. When the style guide asks for light the user
+   own into the text unless the style guide's format calls for it. For a photo whose look the
+   user left open, it comes from the look list as an added pick (see Vocabulary), never from
+   words you write. When the style guide asks for light the user
    didn't name, it is one added pick, in a later phase than the place and time it lights and
    naming them in its `about` (`about="the light on her in the cafe"`), never fixed text: light written once is the same
    light in every image. A setting, sky or weather you add describes the things there, not the
@@ -152,9 +154,15 @@ phases drew; picks in the same phase are drawn without seeing each other.
      seed=[...], label=<short name>, phase=N, line=N)`, emitted where it stood. The name is
      the user's request in their own words, and it sets the limits: every option must be
      inside it (`{{1970s or 1980s cars}}` means only cars from those two decades, not
-     "1970s" and "1980s" as two options). Keep their words in `about`. It is never a user
+     "1970s" and "1980s" as two options). Keep their words, all of them, in `about`. It is never a user
      list: no `source="list"` and no list of options, only `about=` and `seed=`; more
-     options are written later. The label is one or two
+     options are written later. Bind it to a vocabulary list (`cls=`) only when its words name
+     just that list's kind of thing (`{{hairstyle}}`, `{{outfit}}`); when they say more
+     (`{{dark hair hairstyle}}`, `{{1970s menswear}}`) give it no `cls=`, so its options are
+     written for its own words and each seed carries all of them ("a sleek black bob"). When it
+     describes a detail of a person (their hair, their age, their face), that detail is the
+     wildcard's: leave it out of the person's `show` (`{{dark hair hairstyle}}` → no `"hair"`
+     and no `"hair_color"` in `show`). The label is one or two
      words for what varies, and each seed is a concrete instance of it, never the name itself:
      `{{35mm photographic details, no shallow dof}}` → `label="Photo look"`,
      `seed=["Kodak Portra 400 grain, f/8, everything in focus"]`.
@@ -179,10 +187,13 @@ phases drew; picks in the same phase are drawn without seeing each other.
    laughing already has their expression and pose. Add one only when the user said nothing of
    what the person is doing or how they look. An
    animal or a creature is not a `person()`. A photo gets a look pick bound to `camera.look`.
-   When the user stated no framing, state one in your own words that fits what you show
-   ("a waist-up photo of", "a wide view of"), or for a portrait or selfie of one person add a
-   framing pick bound to `camera.portrait_framing` or `camera.selfie_framing` and show only
-   what every framing shows (no `"build"`).
+   When the user stated no framing, state one once in plain words that fit the request and what
+   you show ("a waist-up photo of", "a wide view of"). Add a framing pick (bound to
+   `camera.portrait_framing` or `camera.selfie_framing`) only when the prompt is nothing but
+   a portrait or selfie of one person, with no action, no place and no framing of the user's
+   ("old man portrait", "selfie of a girl"), and then show only what every framing shows (no
+   `"build"`). A framing the user stated ("headshot", "extreme close-up", "seen from behind",
+   "wide shot") stays in their words, with no framing, gaze, pose or expression pick beside it.
    **What the user stated stays in every image**: the subject ("a girl", "a dog", "a
    knight"), what it does ("running", "waving"), the weather ("in a snowstorm"), a place, a
    color, a blue frock, an owl on her shoulder. Their words stay in the text, and never
@@ -202,7 +213,10 @@ phases drew; picks in the same phase are drawn without seeing each other.
    another pick (her trench coat when the weather varies; skin and eyes when ethnicity
    varies), make that phrase a pick too, `hidden=True`, in a later phase. Nothing fixed may
    contradict a drawn value, and nothing is said twice: each pick and each phrase appears once.
-6. **Every subject is their own.** With more than one subject (people, animals, a knight and
+6. **Every subject is their own.** People the user relates to each other (a father and son, a
+   grandmother and her granddaughter, sisters) get ages that fit: pass the younger one
+   `where={"age": "a young boy"}` (or "a teenage girl", "in her twenties") and, when the elder
+   must be old enough, the elder one too (`where={"age": "in his forties or fifties"}`). With more than one subject (people, animals, a knight and
    a dragon), each subject's details are their own picks, never one pick for the whole group:
    no "four [Age] friends", no "friends of [Ethnicity] descent". A number of people ("four
    friends", "a couple", "three nurses") is a `group()` with a loop that gives each person their
@@ -284,13 +298,12 @@ Still write `about=` and a seed in the list's form.
   `person.eye_color`. With more than one subject, every pick bound to a `person.` or `animal.`
   list has an id that names whose detail it is (`man.outfit`, `girl.outfit`, `couple[1].age`,
   `dog.breed`), so each subject's details stay their own.
-- How a photo looks (`camera.look`), how a portrait or selfie is framed
-  (`camera.portrait_framing`, `camera.selfie_framing`) and what style a drawn or painted image
-  is in (`art.style`) have lists too. These are the details a writer repeats: left as fixed
+- How a photo looks (`camera.look`), how a plain portrait or selfie is framed
+  (`camera.portrait_framing`, `camera.selfie_framing`: see step 4 for when) and what style a
+  drawn or painted image is in (`art.style`) have lists too. These are the details a writer repeats: left as fixed
   text, every prompt gets the same blurred background, "cinematic" and "ultra-realistic", and
   every image comes out alike. A bound pick gives each image a different, concrete look. So
-  for a photo, add a look pick, and for a portrait or selfie of one person a framing pick,
-  and don't write focus, depth of field, camera or quality words as fixed text. Choose the
+  for a photo, add a look pick, and don't write focus, depth of field, camera or quality words as fixed text. Choose the
   part from the user's prompt when it points to one (`where={"intent": "polished"}` for a
   product shot or an advert, `"candid"` for an everyday moment, `"flash"` for a party at
   night); leave `where=` off when it doesn't, and the list's own spread applies. Bind
@@ -396,17 +409,15 @@ outfit = pick("baker.outfit", about="what the baker wears at work", seed=["a flo
     label="Outfit", phase=2, added=True)
 expression = pick("baker.expression", cls="person.expression", about="the baker's expression at work", seed=["a focused frown"],
     label="Expression", phase=2, added=True)
-framing = pick("framing", cls="camera.portrait_framing", about="how the baker is framed", seed=["a waist-up portrait with the hands in the frame"],
-    label="Framing", phase=1, added=True)
 look = pick("look", cls="camera.look", about="how the photo looks", seed=["the background as sharp as the subject"],
     label="Photo look", phase=1, added=True)
-emit("A photo of", baker, ", in her shop, wearing", outfit, ", with", expression, ", framed as", framing, ", with", look, ".")
+emit("A waist-up photo of", baker, ", in her shop, wearing", outfit, ", with", expression, ", with", look, ".")
 ```
 "her shop" says the baker is a woman. The user said nothing of what she is doing, so her expression is a pick; had they
-written "kneading dough" or "smiling", there would be none. It is a portrait, so her face, eyes and skin show and her build doesn't.
-It is a photo of one person and the user said nothing of how it is framed or how it looks, so
-both are picks bound to their lists, emitted after the words each list fits ("framed as",
-"with"). No focus, lens or quality words are written as text. Had they written "a candid
+written "kneading dough" or "smiling", there would be none. She is seen from the waist up, close enough for her face, eyes and skin, and her build doesn't show.
+The user said nothing of how it is framed, so the framing is stated once in plain words; she is in her shop, so it is no
+plain portrait and there is no framing pick. They said nothing of how the photo looks, so the look is a pick bound to its list,
+emitted after the word it fits ("with"). No focus, lens or quality words are written as text. Had they written "a candid
 photo", the look pick would be narrowed: `where={"intent": "candid"}`.
 
 Example. User's prompt:

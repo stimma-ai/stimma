@@ -219,6 +219,12 @@ class TestShow:
         assert self.details('person("w", noun="woman")') == {"age", "descent", "hair", "hair_color", "face"}
         assert {"eyes", "skin", "build"} <= self.details('person("w", noun="woman", detail="full")')
 
+    def test_the_writers_words_narrow_a_detail_and_draw_it(self):
+        src = expand_people('s = person("son", noun="son", presentation="masculine", show=["hair"], where={"age": "a young boy"})\n'
+                            'emit("A father and", s, ".")\n')
+        age = next(line for line in src.splitlines() if line.startswith("s_age = pick("))
+        assert "where='a young boy'" in age and "s_hair = pick(" in src
+
     def test_an_empty_show_draws_nothing_and_names_them(self):
         src = expand_people('w = person("w", noun="woman", show=[])\nemit("A photo of", w, ", from behind.")\n')
         assert "pick(" not in src and "woman" in src

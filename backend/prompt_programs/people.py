@@ -24,6 +24,10 @@ passes no narrowing words of its own, so it has none to invent.
 - `show`: the details this picture shows of them, the writer's choice after picturing the image
   (a sleeper has no eye color, a close portrait no build). Only these are drawn. Without it the
   short set is (age, descent, hair, hair color, face), or everything with `detail="full"`.
+- `where`: the writer's own words for an age the scene needs ({"age": "a young boy"} for a son
+  beside his father): the age list is narrowed to them, as a bound pick's `where=` is. Only an
+  age: what the user said of any other detail is read from their prompt, so the writer has no
+  words of its own to invent for those.
 - `leave`: details the user gave in words no list holds, which the program keeps as fixed text.
 
 Nothing is drawn twice. A pick the program writes itself on a list person() draws from (its
@@ -179,12 +183,15 @@ class _People(ast.NodeTransformer):
         stated = _const(kw.get("said"))
         said = {n: v.strip() for k, v in (stated.items() if isinstance(stated, dict) else ())
                 if (n := _name(k)) and isinstance(v, str) and v.strip()}
+        narrowed = _const(kw.get("where"))   # the writer's words for a detail: {"age": "a young boy"} for a son
+        words = {n: v.strip() for k, v in (narrowed.items() if isinstance(narrowed, dict) else ())
+                 if (n := _name(k)) == "age" and isinstance(v, str) and v.strip()}   # only an age: the rest is read from the prompt
         shown = _const(kw.get("show"))
         show = {n for k in (shown if isinstance(shown, (list, tuple, set)) else [shown] if shown else []) if (n := _name(k))}
         # No show=: a program that asks for everything (detail="full") gets it, any other the short set.
         detail = str(_const(kw.get("detail")) or "brief").lower()
         wanted = show if kw.get("show") is not None else set(DETAILS) if detail == "full" else set(BRIEF)
-        keys = [k for k in DETAILS if k not in leave and (k in wanted or k in said)
+        keys = [k for k in DETAILS if k not in leave and (k in wanted or k in said or k in words)
                 and (k != "facial_hair" or presentation == "masculine" or k in said)]
         out: List[ast.stmt] = []
         var = {k: f"{target}_{k}" for k in keys}
@@ -194,7 +201,9 @@ class _People(ast.NodeTransformer):
                    ast.keyword("seed", ast.List(elts=[ast.Constant(seed)], ctx=ast.Load())),
                    ast.keyword("label", ast.Constant(label)), ast.keyword("phase", ast.Constant(phase)),
                    ast.keyword("said", ast.Constant(said[k])) if k in said else ast.keyword("added", ast.Constant(True))]
-            if k in ("face", "build") and presentation in ("feminine", "masculine"):   # the lists with features of one sex
+            if k in words and k not in said:
+                kws.insert(1, ast.keyword("where", ast.Constant(words[k])))
+            elif k in ("face", "build") and presentation in ("feminine", "masculine"):   # the lists with features of one sex
                 kws.insert(1, ast.keyword("where", ast.parse(repr({"presentation": presentation}), mode="eval").body))
             pick = ast.Call(func=ast.Name("pick", ast.Load()), args=[_suffixed(id_node, "." + k)], keywords=kws)
             out.append(ast.Assign(targets=[ast.Name(var[k], ast.Store())], value=pick, lineno=call.lineno))
