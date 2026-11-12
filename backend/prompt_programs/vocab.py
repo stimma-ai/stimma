@@ -157,6 +157,9 @@ class Leaf:
     less: Dict[str, float] = field(default_factory=dict)   # facet -> factor for a less-common family (module docstring)
     listed: bool = True        # shown to the writer; a part of a composed list isn't ("catalog": false)
     strict: bool = False       # never drawn without the list: words nothing in it fits leave it whole (narrow.py)
+    # Values the list held once ("retired" in its file): never drawn, offered or narrowed to, but
+    # still read by value(), so a revision that recorded one finds its tags and replays exactly.
+    retired: Tuple[Value, ...] = ()
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
@@ -164,7 +167,7 @@ class Leaf:
     @cached_property
     def _by_text(self) -> Dict[str, Value]:
         out: Dict[str, Value] = {}
-        for v in self.values:
+        for v in (*self.values, *self.retired):
             out.setdefault(v.text, v)
         return out
 
@@ -508,7 +511,8 @@ def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
                 str(d.get("frame") or ""), str(d.get("notes") or ""), tuple(d.get("facets") or ()),
                 bool(d.get("closed")), {k: tuple(v) for k, v in (d.get("untagged") or {}).items()}, vals,
                 {k: tuple(v) for k, v in (d.get("local_facets") or {}).items()}, str(d.get("slots") or ""),
-                gives, takes, stated, less=less, groups=groups)
+                gives, takes, stated, less=less, groups=groups,
+                retired=tuple(_value(lid, v, groups) for v in d.get("retired") or [] if str(v.get("text") or "").strip()))
 
 
 def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
@@ -587,7 +591,7 @@ def minor_ages(values: Sequence[str]) -> Tuple[str, ...]:
     if leaf is None:
         return ()
     want = {str(x) for x in values}
-    return tuple(v.text for v in leaf.values if v.text in want and v.minor)
+    return tuple(v.text for v in (*leaf.values, *leaf.retired) if v.text in want and v.minor)
 
 
 __all__ = ["AGE_LIST", "LESS", "Leaf", "Node", "Value", "Vocabulary", "given_families", "load", "minor_ages", "vocabulary",

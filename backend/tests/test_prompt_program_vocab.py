@@ -951,3 +951,25 @@ class TestGrayingFollowsAge:
         for word in ("hooked", "points downward", "prominent", "slit-like", "widens a lot"):
             assert word not in noses
 
+
+
+class TestRetiredAgeRanges:
+    """The ranges the age list held before stay readable, so an image made with one replays exactly."""
+
+    def test_a_retired_range_keeps_its_tags_and_is_never_offered(self):
+        from prompt_programs.vocab import minor_ages, vocabulary
+        leaf = vocabulary().get("person.age_band")
+        old = leaf.value("60–64-year-old")
+        assert old is not None and old.tags["graying"] == ["some", "full"] and old.tags["life_stage"] == ["older"]
+        assert leaf.context_tags("60–64-year-old", "graying")
+        texts = {v.text for v in leaf.values}
+        assert "60–64-year-old" not in texts and "62-year-old" in texts and len(texts) == 111
+        assert "60–64-year-old" not in {v.text for v in leaf.eligible()}
+        assert minor_ages(["8–10-year-old", "9-year-old", "30–34-year-old"]) == ("9-year-old", "8–10-year-old")
+
+    def test_every_year_is_unique_and_only_minors_are_opt_in(self):
+        from prompt_programs.vocab import vocabulary
+        leaf = vocabulary().get("person.age_band")
+        ages = [0 if v.text == "newborn" else int(v.text.split("-")[0]) for v in leaf.values]
+        assert ages == list(range(111))
+        assert all(v.opt_in == (a < 18) and v.minor == (a < 18) for v, a in zip(leaf.values, ages))

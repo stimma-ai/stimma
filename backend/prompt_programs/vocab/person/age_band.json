@@ -4,7 +4,7 @@
   "description": "A person's age in years.",
   "pos": "adjective",
   "frame": "a ___ person",
-  "notes": "One age in years, as an adjective before the person: “a 23-year-old woman” (“a newborn” for the first year). Covers babies, children, teens and adults, from newborn to 110. A person is drawn as an adult unless asked: the ages under 18 are opt_in, drawn only when the user's words narrow the list to them (where=) or the user picks one. Adult ages up to 59 are typical, 18 to 19 and 60 to 84 plausible, and those above unusual. Each value carries its age facet (child, teen, adult, elderly) so a context can narrow it, its life stage, and how gray hair is at that age (graying).",
+  "notes": "One age in years, as an adjective before the person: “a 23-year-old woman” (“a newborn” for the first year). Covers babies, children, teens and adults, from newborn to 110. A person is drawn as an adult unless asked: the ages under 18 are opt_in, drawn only when the user's words narrow the list to them (where=) or the user picks one. Adult ages up to 59 are typical, 18 to 19 and 60 to 84 plausible, and those above unusual. Each value carries its age facet (child, teen, adult, elderly) so a context can narrow it, its life stage, and how gray hair is at that age (graying). The age ranges this list held before (“20–24-year-old”) are kept as retired values: never drawn or offered, they keep their tags so an image made with one replays exactly.",
   "facets": [
     "age"
   ],
@@ -2201,5 +2201,479 @@
       "graying"
     ]
   },
-  "strict": true
+  "strict": true,
+  "retired": [
+    {
+      "text": "0–2-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "child"
+        ],
+        "life_stage": [
+          "baby"
+        ],
+        "graying": [
+          "none"
+        ]
+      },
+      "opt_in": true
+    },
+    {
+      "text": "3–4-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "child"
+        ],
+        "life_stage": [
+          "child"
+        ],
+        "graying": [
+          "none"
+        ]
+      },
+      "opt_in": true
+    },
+    {
+      "text": "5–7-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "child"
+        ],
+        "life_stage": [
+          "child"
+        ],
+        "graying": [
+          "none"
+        ]
+      },
+      "opt_in": true
+    },
+    {
+      "text": "8–10-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "child"
+        ],
+        "life_stage": [
+          "child"
+        ],
+        "graying": [
+          "none"
+        ]
+      },
+      "opt_in": true
+    },
+    {
+      "text": "11–12-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "child"
+        ],
+        "life_stage": [
+          "child"
+        ],
+        "graying": [
+          "none"
+        ]
+      },
+      "opt_in": true
+    },
+    {
+      "text": "13–14-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "teen"
+        ],
+        "life_stage": [
+          "teen"
+        ],
+        "graying": [
+          "none"
+        ]
+      },
+      "opt_in": true
+    },
+    {
+      "text": "15–17-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "teen"
+        ],
+        "life_stage": [
+          "teen"
+        ],
+        "graying": [
+          "none"
+        ]
+      },
+      "opt_in": true
+    },
+    {
+      "text": "18–19-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult"
+        ],
+        "life_stage": [
+          "teen",
+          "young adult"
+        ],
+        "graying": [
+          "none"
+        ]
+      }
+    },
+    {
+      "text": "20–24-year-old",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ],
+        "life_stage": [
+          "young adult"
+        ],
+        "graying": [
+          "none"
+        ]
+      }
+    },
+    {
+      "text": "25–29-year-old",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ],
+        "life_stage": [
+          "young adult"
+        ],
+        "graying": [
+          "none"
+        ]
+      }
+    },
+    {
+      "text": "30–34-year-old",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ],
+        "life_stage": [
+          "young adult"
+        ],
+        "graying": [
+          "none"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some"
+        ]
+      }
+    },
+    {
+      "text": "35–39-year-old",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ],
+        "life_stage": [
+          "young adult",
+          "middle-aged"
+        ],
+        "graying": [
+          "none"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some"
+        ]
+      }
+    },
+    {
+      "text": "40–44-year-old",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ],
+        "life_stage": [
+          "middle-aged"
+        ],
+        "graying": [
+          "none",
+          "some"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "45–49-year-old",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ],
+        "life_stage": [
+          "middle-aged"
+        ],
+        "graying": [
+          "none",
+          "some"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "50–54-year-old",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ],
+        "life_stage": [
+          "middle-aged"
+        ],
+        "graying": [
+          "none",
+          "some",
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "55–59-year-old",
+      "tier": "typical",
+      "tags": {
+        "age": [
+          "adult"
+        ],
+        "life_stage": [
+          "middle-aged",
+          "older"
+        ],
+        "graying": [
+          "none",
+          "some",
+          "full"
+        ]
+      }
+    },
+    {
+      "text": "60–64-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult"
+        ],
+        "life_stage": [
+          "older"
+        ],
+        "graying": [
+          "some",
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "none"
+        ]
+      }
+    },
+    {
+      "text": "65–69-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult"
+        ],
+        "life_stage": [
+          "older"
+        ],
+        "graying": [
+          "some",
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "none"
+        ]
+      }
+    },
+    {
+      "text": "70–74-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
+        ]
+      }
+    },
+    {
+      "text": "75–79-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
+        ]
+      }
+    },
+    {
+      "text": "80–84-year-old",
+      "tier": "plausible",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
+        ]
+      }
+    },
+    {
+      "text": "85–89-year-old",
+      "tier": "unusual",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
+        ]
+      }
+    },
+    {
+      "text": "90–94-year-old",
+      "tier": "unusual",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
+        ]
+      }
+    },
+    {
+      "text": "95–99-year-old",
+      "tier": "unusual",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
+        ]
+      }
+    },
+    {
+      "text": "100–109-year-old",
+      "tier": "unusual",
+      "tags": {
+        "age": [
+          "adult",
+          "elderly"
+        ],
+        "life_stage": [
+          "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
+        ]
+      }
+    }
+  ]
 }
