@@ -36,7 +36,7 @@
                prompt as it is now. -->
           <div v-if="runActions" class="mt-3 flex flex-wrap items-center gap-2">
             <Button size="sm" :disabled="!runActions.replay" :title="runActions.reason" @click="$emit('program-replay', programRun); $emit('close')">Same draws, new seed</Button>
-            <Button v-if="hasRunPins" size="sm" variant="secondary" @click="$emit('program-use', programRun); $emit('close')">Use these choices</Button>
+            <Button v-if="runActions.keep" size="sm" variant="secondary" aria-haspopup="dialog" data-keep-button @click="$emit('program-keep', programRun, $event.currentTarget)">Keep from this</Button>
             <span v-if="runActions.reason" class="text-[11px] text-content-muted">{{ runActions.reason }}</span>
           </div>
         </div>
@@ -95,7 +95,7 @@ const props = defineProps<{
 defineEmits<{
   (e: 'close'): void
   (e: 'program-replay', run: any): void
-  (e: 'program-use', run: any): void
+  (e: 'program-keep', run: any, anchor: Element): void
 }>()
 
 const { cachedTools, cachedProviders, fetchProvidersAndTools } = useProvidersApi()
@@ -145,7 +145,6 @@ const madeFromWords = computed(() => {
   return meta?.prompt_program?.fallback?.rung === 'words'
 })
 const runActions = computed(() => (programRun.value && props.programActions ? props.programActions(programRun.value) : null))
-const hasRunPins = computed(() => !!runActions.value && Object.keys(runActions.value.pins).length > 0)
 function openMedia(mediaId: number) {
   mediaDetails.open(mediaId)
 }

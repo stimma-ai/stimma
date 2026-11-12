@@ -23,7 +23,7 @@ async function open(t, pageOptions = { viewport: { width: 700, height: 800 } }) 
   const page = await browser.newPage(pageOptions)
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.route('**/*', route => route.fulfill({ contentType: 'text/html', body: '<html class="dark"><head><meta name="viewport" content="width=device-width"></head><body><div id="app"></div></body></html>' }))
+  await page.route('**/*', route => route.fulfill({ contentType: 'text/html', body: '<html data-theme="dark"><head><meta name="viewport" content="width=device-width"></head><body><div id="app"></div></body></html>' }))
   await page.goto('http://fluent-menu.test/')
   if (css) await page.addStyleTag({ content: String(css.source) })
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })

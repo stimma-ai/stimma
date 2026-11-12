@@ -3,6 +3,7 @@
 
 import type { ProgramStatus } from '../composables/usePromptProgram'
 import { isInsufficientBalanceCode, isLlmSetupCode } from './llmErrorCodes.ts'
+import { keepGroups, type KeepWorld } from './keepFromThis.ts'
 
 /** How the prompt is read for this run. With no chat model, everything but Raw is Direct:
     lists, saved wildcards and segments fill, brackets unwrap, # lines drop, no model. */
@@ -140,33 +141,29 @@ export function fallbackNotice(code: string | null | undefined, brand: string): 
   return { head: WORDS_AS_WRITTEN, action: 'retry' }
 }
 
-/** What Generation details may offer for an earlier image's draws. */
+/** What an earlier image's draws may still do here. */
 export interface RunActions {
   /** "Same draws, new seed": only against the program the image was made from. */
   replay: boolean
   /** Why replay isn't offered, when it isn't. */
   reason?: string
-  /** "Use these choices": the image's values for the choices the current prompt still has. */
-  pins: Record<string, string[]>
+  /** "Keep from this": the image was made from slots, and some of what it drew is still a
+      choice in the prompt. */
+  keep: boolean
 }
 
 export function programRunActions(
   run: any,
-  current: { key: string | null; status: ProgramStatus; has: (id: string) => boolean },
+  current: { key: string | null; status: ProgramStatus; world: KeepWorld | null },
 ): RunActions {
-  const pins: Record<string, string[]> = {}
-  for (const d of run?.draws || []) {
-    if (d.hidden || d.value == null || !current.has(d.id)) continue
-    // An outfit is kept as its list's template, its colors as their own choice.
-    pins[d.id] = [String(d.template || d.value)]
-  }
-  if (current.status === 'off') return { replay: false, reason: 'Not available with your current prompt settings.', pins }
+  const keep = current.status === 'ready' && !!current.world && keepGroups(run, current.world).length > 0
+  if (current.status === 'off') return { replay: false, reason: 'Not available with your current prompt settings.', keep }
   // Made while the prompt couldn't be read: from the words as written there are no draws to
   // repeat; from the same words' earlier settings, only its picks that still apply.
-  if (run?.fallback?.rung === 'words') return { replay: false, reason: 'Made from your words as written.', pins }
-  if (run?.fallback?.rung === 'previous') return { replay: false, reason: 'Made with this prompt’s earlier settings.', pins }
+  if (run?.fallback?.rung === 'words') return { replay: false, reason: 'Made from your words as written.', keep }
+  if (run?.fallback?.rung === 'previous') return { replay: false, reason: 'Made with this prompt’s earlier settings.', keep }
   if (!run?.key || current.status !== 'ready' || run.key !== current.key) {
-    return { replay: false, reason: 'Your prompt has changed since this image was made.', pins }
+    return { replay: false, reason: 'Your prompt has changed since this image was made.', keep }
   }
-  return { replay: true, pins }
+  return { replay: true, keep }
 }

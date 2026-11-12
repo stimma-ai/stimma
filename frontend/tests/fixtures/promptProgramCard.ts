@@ -3,6 +3,7 @@ import axios from 'axios'
 import '../../src/style.css'
 import PromptProgramChoices from '../../src/components/generation/PromptProgramChoices.vue'
 import PromptProgramCard from '../../src/components/generation/PromptProgramCard.vue'
+import KeepFromThisCard from '../../src/components/generation/KeepFromThisCard.vue'
 import { usePromptProgram } from '../../src/composables/usePromptProgram'
 import type { ChoicePool, PreparedProgram, ProgramChoice, ProgramSlot } from '../../src/utils/programWire'
 
@@ -122,8 +123,15 @@ const pp = usePromptProgram({
   pp.openEditorSlot({ n: 4, words: 'cat', rect })
 }
 
+// Keep from this, opened on an image's run record (`prompt_program` in its job's parameters).
+const keepOpen = ref<{ run: any; anchor: DOMRect } | null>(null)
+;(window as any).keep = (run: any) => {
+  keepOpen.value = { run, anchor: document.querySelector('[data-editor]')!.getBoundingClientRect() }
+}
+
 createApp({
   render: () => h('div', { class: 'w-[520px] p-4' }, [
+    h(KeepFromThisCard, { open: keepOpen.value, program: pp, onClose: () => { keepOpen.value = null } }),
     h('div', { 'data-editor': '', class: 'h-16 rounded-md bg-surface-raised p-2 text-xs text-content' }, prompt.value),
     h(PromptProgramChoices, { program: pp }),
     h(PromptProgramCard, { program: pp }),

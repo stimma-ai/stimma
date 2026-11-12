@@ -109,37 +109,42 @@ test('a prompt that couldn’t be read says so quietly, by cause, with one actio
   }
 })
 
-test('an image made while the prompt couldn’t be read offers no Same draws', () => {
-  const words = programRunActions({ key: null, draws: [], fallback: { rung: 'words', code: 'prepare_timeout' } },
-    { key: 'k1', status: 'ready', has: () => false })
-  assert.deepEqual(words, { replay: false, reason: 'Made from your words as written.', pins: {} })
-  const earlier = programRunActions({ key: 'k0', draws: [{ id: 'hair', value: 'bob' }], fallback: { rung: 'previous' } },
-    { key: 'k0', status: 'ready', has: (id) => id === 'hair' })
-  assert.equal(earlier.replay, false)
-  assert.deepEqual(earlier.pins, { hair: ['bob'] })  // Use these choices still offers what applies
-})
-
-const run = { key: 'k1', draws: [
+const world = {
+  slots: [{ id: 'man', n: 1, kind: 'person' as const, label: 'Man', words: 'man', details: ['man.hair', 'man.outfit'] }],
+  choices: [{ id: 'man.hair', slot: 'man', kind: 'pick' as const, label: 'Hair', options: [] },
+    { id: 'man.outfit', slot: 'man', kind: 'pick' as const, label: 'Outfit', options: [] }],
+  states: {}, pools: {},
+}
+const run = { key: 'k1', version: 'slots-1', draws: [
   { id: 'man.hair', value: 'bob' }, { id: 'gone', value: 'x' },
   { id: 'man.outfit', value: 'a navy parka over white jeans', template: 'a {main} parka over {neutral} jeans' },
-  { id: 'detail', hidden: true, value: 'lamp' },
 ] }
-const has = (id: string) => ['man.hair', 'man.outfit', 'detail'].includes(id)
 
-test('Same draws, new seed only against the program the image used', () => {
-  assert.equal(programRunActions(run, { key: 'k1', status: 'ready', has }).replay, true)
-  const moved = programRunActions(run, { key: 'k2', status: 'ready', has })
-  assert.equal(moved.replay, false)
-  assert.ok(moved.reason)
-  assert.equal(programRunActions(run, { key: 'k1', status: 'stale', has }).replay, false)
-  assert.equal(programRunActions(run, { key: null, status: 'off', has }).replay, false)
-  assert.equal(programRunActions({ draws: run.draws }, { key: 'k1', status: 'ready', has }).replay, false)
+test('an image made while the prompt couldn’t be read offers no Same draws and nothing to keep', () => {
+  const words = programRunActions({ key: null, draws: [], fallback: { rung: 'words', code: 'prepare_timeout' } },
+    { key: 'k1', status: 'ready', world })
+  assert.deepEqual(words, { replay: false, reason: 'Made from your words as written.', keep: false })
+  const earlier = programRunActions({ ...run, key: 'k0', fallback: { rung: 'previous' } }, { key: 'k1', status: 'ready', world })
+  assert.equal(earlier.replay, false)
+  assert.equal(earlier.keep, true)  // Keep from this still offers what applies
 })
 
-test('Use these choices keeps what the prompt still has; an outfit as its template', () => {
-  assert.deepEqual(programRunActions(run, { key: 'k2', status: 'ready', has }).pins,
-    { 'man.hair': ['bob'], 'man.outfit': ['a {main} parka over {neutral} jeans'] })
-  assert.deepEqual(programRunActions(run, { key: null, status: 'off', has: () => false }).pins, {})
+test('Same draws, new seed only against the program the image used', () => {
+  assert.equal(programRunActions(run, { key: 'k1', status: 'ready', world }).replay, true)
+  const moved = programRunActions(run, { key: 'k2', status: 'ready', world })
+  assert.equal(moved.replay, false)
+  assert.ok(moved.reason)
+  assert.equal(programRunActions(run, { key: 'k1', status: 'stale', world }).replay, false)
+  assert.equal(programRunActions(run, { key: null, status: 'off', world }).replay, false)
+  assert.equal(programRunActions({ draws: run.draws }, { key: 'k1', status: 'ready', world }).replay, false)
+})
+
+test('Keep from this only for images made from slots, and only while the prompt is read', () => {
+  assert.equal(programRunActions(run, { key: 'k2', status: 'ready', world }).keep, true)
+  assert.equal(programRunActions(run, { key: 'k1', status: 'stale', world }).keep, false)
+  // The old writer's images carry no slot version.
+  assert.equal(programRunActions({ ...run, version: undefined }, { key: 'k1', status: 'ready', world }).keep, false)
+  assert.equal(programRunActions(run, { key: 'k1', status: 'ready', world: { ...world, choices: [] } }).keep, false)
 })
 
 test('a program depends on the prompt and the tool only', () => {

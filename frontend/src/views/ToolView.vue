@@ -960,6 +960,16 @@
               @toggle="toggleStageAudition"
               @click.stop
             />
+            <!-- Fluent: keep parts of what this image drew for the next ones. -->
+            <button
+              v-if="stageKeep"
+              type="button"
+              class="inline-flex h-9 flex-none items-center rounded-md px-2 text-xs text-content-tertiary transition-colors duration-150 hover:bg-overlay-subtle hover:text-accent-hi focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:h-11"
+              :class="keepOpen?.stage ? 'bg-overlay-subtle text-content' : ''"
+              aria-haspopup="dialog"
+              data-keep-button
+              @click.stop="openKeep(stageRun, $event.currentTarget as Element, true)"
+            >Keep from this</button>
             <button
               @click.stop="handleRemixMedia(stageCurrentMediaId)"
               :class="[RESULT_ACTION, 'hover:bg-overlay-subtle hover:text-accent-hi']"
@@ -1196,11 +1206,12 @@
       :program-actions="fluentOn ? programRunActionsFor : null"
       @close="closeInfoModal"
       @program-replay="replayProgramRun"
-      @program-use="useProgramRunChoices"
+      @program-keep="openKeep"
     />
 
-    <!-- Prompt programs: the open choice's card -->
+    <!-- Prompt programs: the open choice's card, and an image's Keep from this -->
     <PromptProgramCard :program="promptProgram" />
+    <KeepFromThisCard :open="keepOpen" :program="promptProgram" @close="keepOpen = null" />
 
     <!-- Mask Editor Modal -->
     <MaskEditorModal
@@ -3424,6 +3435,7 @@ import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBran
 import { DRAWING_LABEL, PREPARING_LABEL, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
+import KeepFromThisCard from '../components/generation/KeepFromThisCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
 import { disableUnavailableLoras } from '../utils/availableLoras'
 const _loraPool = useLoraPool()
@@ -3968,25 +3980,35 @@ watch(isInitialLoading, (loading) => { if (!loading) void promptProgram.lookup()
 watch(() => [globalPrefs.value.prompt, globalPrefs.value.promptOptions?.raw, globalPrefs.value.promptOptions?.direct, enhanceLevel.value],
   () => { if (submissionError.value?.endsWith('so nothing ran.')) submissionError.value = null })
 
-// Generation details on an earlier image: what its draws can still do here.
+// An earlier image's draws: what they can still do here.
 function programRunActionsFor(run: any) {
   return programRunActions(run, {
     key: promptProgram.program.value?.key ?? null,
     status: promptProgram.status.value,
-    has: (id) => !!promptProgram.byId.value[id],
+    world: {
+      slots: promptProgram.slots.value,
+      choices: promptProgram.choices.value,
+      states: promptProgram.states.value,
+      pools: promptProgram.pools.value,
+    },
   })
 }
+// Keep from this: the image on stage, Generation details, or wherever an image offers it.
+const keepOpen = ref<{ run: any; anchor: DOMRect; stage?: boolean } | null>(null)
+function openKeep(run: any, at: Element | DOMRect, stage = false) {
+  if (!run) return
+  keepOpen.value = { run, anchor: at instanceof Element ? at.getBoundingClientRect() : at, stage }
+}
+const stageRun = computed<any | null>(() => generationJobParams(stageCurrentJob.value)?.prompt_program ?? null)
+const stageKeep = computed(() => fluentOn.value && !!stageRun.value && programRunActionsFor(stageRun.value).keep)
+// Another image on stage: the card opened from the one before closes.
+watch(() => stageCurrentJob.value?.id, () => { if (keepOpen.value?.stage) keepOpen.value = null })
 
 function replayProgramRun(run: any) {
   // Only against the program the image was made from: anything else isn't "same draws".
   if (!programRunActionsFor(run).replay) return
   const fixed = Object.fromEntries((run?.draws || []).map((d: any) => [d.id, d.value]))
   void submitJob({ countOverride: 1, programFixed: fixed })
-}
-
-function useProgramRunChoices(run: any) {
-  const { pins } = programRunActionsFor(run)
-  if (Object.keys(pins).length) promptProgram.setStates(Object.fromEntries(Object.entries(pins).map(([id, values]) => [id, { values }])))
 }
 
 // The prompt editor's slot was clicked, or just made: its card opens there.
