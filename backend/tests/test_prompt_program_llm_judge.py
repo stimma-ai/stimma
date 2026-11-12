@@ -316,15 +316,36 @@ class TestStaleTicks:
         for seed in range(12):
             assert draw(src, seed, {"car": ["a gray van", "a white truck"]}).prompt == "A photo of a yellow ferrari."
 
-    def test_one_pinned_value_the_choice_no_longer_offers_is_ignored_too(self):
+    def test_one_pinned_value_is_kept_when_the_choices_options_changed(self):
+        """The user pinned it: it is still what they want there, as an option of their own."""
         from prompt_programs.draws import draw
-        got = {draw(self.SRC, seed, {"setting": ["a grand throne room"]}).prompt for seed in range(20)}
-        assert len(got) > 1 and all("throne" not in p for p in got)
+        for seed in range(8):
+            assert draw(self.SRC, seed, {"setting": ["a grand throne room"]}).prompt == "A photo in a grand throne room."
         later = ('sky = pick("sky", ["a clear sky", "a gray sky"], label="Sky", source="list", phase=1, line=1)\n'
                  'fit = pick("outfit", about="what she wears", seed=["a linen dress", "a wool coat"], label="Outfit", phase=2, added=True)\n'
                  'emit("Under", sky, ", in", fit, ".")\n')
-        got = {draw(later, seed, {"outfit": ["a {main} crochet camisole and {neutral} wide-leg linen pants"]}).prompt for seed in range(20)}
-        assert got and all("crochet" not in p and ("linen dress" in p or "wool coat" in p) for p in got)
+        got = {draw(later, seed, {"outfit": ["a crochet camisole and wide-leg linen pants"]}).prompt for seed in range(12)}
+        assert got and all(p.endswith("in a crochet camisole and wide-leg linen pants.") for p in got)
+
+    def test_a_pinned_value_the_program_cannot_take_is_dropped(self):
+        """A pin that isn't an item of the user's own list: the list is their words, exactly, so
+        the draw is the unpinned one rather than a failure."""
+        from prompt_programs.draws import draw
+        src = ('weather = pick("weather", ["rainy", "bright"], label="Weather", source="list", phase=1, line=1)\n'
+               'coat = {"rainy": "a trench coat", "bright": "a linen shirt"}[weather]\n'
+               'emit("A woman wearing", coat)\n')
+        for seed in range(8):
+            assert draw(src, seed, {"weather": ["snowy"]}).prompt == draw(src, seed).prompt
+
+    def test_a_stale_pin_beside_a_valid_one_is_found_whichever_is_reported(self):
+        from prompt_programs.draws import draw
+        src = ('era = pick("era", ["1920s", "1970s"], label="Era", source="list", phase=1, line=1)\n'
+               'hair = pick("hair", {"1920s": ["a bob", "finger waves"], "1970s": ["a bob", "an afro"]}, by=era, label="Hair", phase=2, line=1)\n'
+               'fit = pick("outfit", {"1920s": ["a beaded dress"], "1970s": ["a wide-collared suit"]}, by=era, label="Outfit", phase=2, line=1)\n'
+               'emit("A", era, "woman with", hair, "in", fit, ".")\n')
+        for seed in range(8):
+            p = draw(src, seed, {"hair": ["a bob"], "outfit": ["an old outfit"]}).prompt
+            assert "with a bob" in p
 
     def test_one_pinned_value_the_choice_offers_but_not_here_is_still_refused(self):
         from prompt_programs.draws import DrawAborted, draw
@@ -345,19 +366,19 @@ class TestStaleTicks:
             'hair = pick("hair", {"1920s": ["finger waves", "a bob"], "1970s": ["feathered hair", "an afro"]}, by=era, '
             'label="Hair", phase=2, line=1)\nemit("A", era, "woman with", hair, ".")\n')
 
-    def test_a_stale_pin_on_a_choice_that_follows_another_is_ignored(self):
+    def test_a_kept_pin_on_a_choice_that_follows_another_is_drawn(self):
         from prompt_programs.draws import draw
         got = {draw(self.ERAS, seed, {"hair": ["a mohawk"]}).prompt for seed in range(20)}
-        assert len(got) > 2 and all("mohawk" not in p for p in got)
+        assert got == {"A 1920s woman with a mohawk.", "A 1970s woman with a mohawk."}
 
     def test_a_stale_pin_above_a_valid_one_leaves_the_valid_one_holding(self):
         from prompt_programs.draws import draw
         for seed in range(12):
             assert draw(self.ERAS, seed, {"era": ["1800s"], "hair": ["a bob"]}).prompt == "A 1920s woman with a bob."
 
-    def test_a_draw_made_with_a_stale_pin_replays_from_its_kept_values(self):
+    def test_a_draw_made_with_stale_ticks_replays_from_its_kept_values(self):
         from prompt_programs.draws import draw
-        stale = {"setting": ["a grand throne room"]}
+        stale = {"setting": ["a grand throne room", "a dark throne room"]}
         for seed in range(8):
             first = draw(self.SRC, seed, stale)
             kept = {d.id: d.value for d in first.draws}

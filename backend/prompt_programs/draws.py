@@ -928,6 +928,8 @@ class _Exec(_Runner):
         said = said_value(said) if source != "list" else ""
         if said:  # the user's words: a choice from their text, whatever else it was marked
             source = "text"
+        if source == "list":
+            self.eng.lists.add(cid)   # the user's own list: its items are theirs, exactly
         follows = None
         if isinstance(options, dict):
             # every option this pick has under any value of `by` (see _Engine.offered)
@@ -1131,6 +1133,7 @@ class _Engine:
         # Every option each pick was seen to have in this draw: its pool before exclusions, in
         # every run of the program, and its options under every value of a pick it follows.
         self.offered: Dict[str, Set[str]] = {}
+        self.lists: Set[str] = set()   # picks that are the user's own lists
         self.pools: Dict[str, Any] = {}   # pool key → its length, or for a vocabulary list the whole pool
         self.labels: Dict[str, str] = {}
         # Pins a pick could break: its site feeds the pinned pick's structure or exclude.
@@ -1365,26 +1368,50 @@ def draw(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None
     an = analyze(source, context=getattr(options, "context", True) is not False)
     edits = edits or {}
     pins = dict(pins or {})
-    while True:
-        eng = _Engine(an, seed, pins, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params,
-                      dict(fixed or {}), edits, options or LiteralOptions(edits))
-        try:
-            for k in an.phases:
-                eng.run_phase(k)
-            final = eng.execute(math.inf, {}, record=True)
-            eng.check_pins(final, math.inf)
-            break
-        except DrawAborted as e:
-            # Ticks or a pinned value that name no option the choice was seen to have were made on
-            # an earlier program's options for the same id (the prompt was prepared again and the
-            # options changed). They say nothing about these options: the draw is made again
-            # without them, exactly as an unticked choice draws. A value the choice does offer,
-            # but not beside the other choices, is still refused at the choice.
-            cid = e.choice_id
-            ticked = {str(v) for v in pins.get(cid) or ()}
-            if not ticked or (ticked & eng.offered.get(cid, set())) or cid not in eng.offered:
-                raise
-            pins = {k: v for k, v in pins.items() if k != cid}
+    # Pins are kept by a choice's id, so after a prompt is prepared again they can name values
+    # the choice no longer offers. A draw that fails with such pins is made again, twice at most:
+    # first with each single pinned value kept as the user's own option of that choice (they
+    # pinned it: it is still what they want there, whatever the options became), and with sets
+    # of ticks that match nothing, or a pin on the user's own list that isn't one of its items,
+    # dropped; then, if that still fails (a value the program can't take), without those pins
+    # at all. A value
+    # the choice does offer, but not beside the other choices drawn, is refused as before.
+    given_edits, held = edits, set()
+    service_edits = getattr(options, "edits", None)   # the options service reads the user's edits too
+
+    def with_edits(now: Dict[str, Dict[str, Any]]) -> None:
+        if options is not None and service_edits is not None:
+            options.edits = now
+            reset = getattr(options, "reset", None)
+            if callable(reset):   # pools read so far were built from the other edits
+                reset()
+    try:
+        for attempt in range(3):
+            eng = _Engine(an, seed, pins, {_lora_key(lo.name): lo for lo in (loras or [])}, tool_params,
+                          dict(fixed or {}), edits, options or LiteralOptions(edits))
+            try:
+                for k in an.phases:
+                    eng.run_phase(k)
+                final = eng.execute(math.inf, {}, record=True)
+                eng.check_pins(final, math.inf)
+                break
+            except ProgramError:
+                unknown = [cid for cid in pins if cid in eng.offered
+                           and not ({str(v) for v in pins[cid]} & eng.offered[cid])]
+                if attempt == 0 and unknown:
+                    held = {cid for cid in unknown if len(pins[cid]) == 1 and cid not in eng.lists}
+                    pins = {k: v for k, v in pins.items() if k not in unknown or k in held}
+                    edits = {**edits, **{cid: {**(edits.get(cid) or {}),
+                                               "add": [*((edits.get(cid) or {}).get("add") or []), *map(str, pins[cid])]}
+                                         for cid in held}}
+                elif attempt == 1 and held:
+                    pins, edits, held = {k: v for k, v in pins.items() if k not in held}, given_edits, set()
+                else:
+                    raise
+                with_edits(edits)
+    finally:
+        if edits is not given_edits:
+            with_edits(given_edits)
     prompt = tidy_text(final.parts)
     if not prompt:
         raise ProgramError("The program emitted no prompt text. Call emit(...) with the finished prompt.")
