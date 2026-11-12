@@ -9,7 +9,6 @@ emit("A portrait of", woman, ", in her kitchen, wearing", outfit, ".")
 '''
 
 
-
 def bound(source):
     """{pick id: list} of the expanded program's bound picks, read from its text."""
     import ast
@@ -158,27 +157,6 @@ class TestAGroupsWordsAreEveryMembers:
             assert entry["filters"][f"kids[{i}].age"] == ["5-year-old", "8-year-old", "11-year-old"]
 
 
-class TestTheOnePersonOwnsTheirDetails:
-    SRC = ('nurse = person("nurse", noun="nurse", presentation="feminine")\n'
-           "expression = pick('expression', cls='person.expression', about=\"the nurse's expression\", seed=['a weary look'], label='Expression', phase=2, added=True)\n"
-           "corridor = pick('corridor', about='the hospital setting', seed=['a bright corridor'], label='Setting', phase=1, added=True)\n"
-           "emit('A photo of', nurse, ', with', expression, ', in', corridor, '.')\n")
-
-    def test_a_plain_person_detail_takes_the_one_persons_id(self):
-        from prompt_programs import prepare as prep
-        out, notes = prep.fix_lone_subject(expand_people(self.SRC), "a nurse in a corridor")
-        assert 'pick("nurse.expression"' in out and "pick('corridor'" in out   # the scene's detail stays the scene's
-        assert notes == ["expression: nurse's, so its id is nurse.expression"]
-        assert not prep.validate(out, "a nurse in a corridor", [], set(), "", True)["problems"]
-
-    def test_two_subjects_or_the_users_words_are_left_alone(self):
-        from prompt_programs import prepare as prep
-        two = expand_people(self.SRC + 'doctor = person("doctor", noun="doctor")\nemit(doctor)\n')
-        assert prep.fix_lone_subject(two, "a nurse and a doctor")[0] == two
-        said = expand_people(self.SRC.replace("added=True)\ncorridor", 'said="weary")\ncorridor'))
-        assert "nurse.expression" not in prep.fix_lone_subject(said, "a weary nurse in a corridor")[0]
-
-
 class TestPresentationIsContextForOutfits:
     """person(presentation=...) is context for that person's outfit lists: a man isn't drawn a sundress."""
 
@@ -187,7 +165,7 @@ class TestPresentationIsContextForOutfits:
         import dataclasses
         import tempfile
 
-        from prompt_programs import prepare as prep
+        from prompt_programs import program as prep
         from prompt_programs.fluent import runtime_for
         from prompt_programs.judge import settings
         from prompt_programs.options import OptionStore
@@ -195,8 +173,7 @@ class TestPresentationIsContextForOutfits:
                             'outfit = pick("p.outfit", cls="person.outfit.summer", about="what they wear", '
                             'seed=["shorts and a T-shirt"], label="Outfit", phase=2, added=True)\n'
                             'emit(p, ", wearing", outfit, ".")\n')
-        src, _ = prep.fix_written(src, "a person on a beach", [])
-        info = prep.validate(src, "a person on a beach", [], set(), "", True)["info"]
+        info = __import__("prompt_programs.runtime", fromlist=["discover"]).discover(src)
         entry = {"key": "k" + presentation, "program": src, "choices": info["choices"], "prompt": "a person on a beach", "mode": "prose"}
         store = OptionStore(tempfile.mkdtemp())
         cfg = dataclasses.replace(settings(), generate_options=False)

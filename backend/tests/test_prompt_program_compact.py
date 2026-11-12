@@ -9,7 +9,7 @@ from prompt_programs.fluent import runtime_for
 from prompt_programs.judge import settings
 from prompt_programs.options import OptionStore
 from prompt_programs.people import expand_people
-from prompt_programs.prepare import realize
+from prompt_programs.program import realize
 from prompt_programs.runtime import ProgramError, discover
 from prompt_programs.store import ProgramStore
 from prompt_programs.vocab import vocabulary

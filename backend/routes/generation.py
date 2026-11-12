@@ -453,7 +453,7 @@ def prompt_enhance_context(
 ) -> Dict[str, Any]:
     """Everything the enhancer needs to know about this generation, in one place:
     the model and its style, video/audio, the input images, the canvas. Used by the
-    per-image enhancer and by prompt-program preparation alike."""
+    per-image enhancer and by the slots path alike."""
     from model_family import model_family
     from prompt_pipeline import is_ideogram4
     from routes.prompt_enhancement import enhancement_mode
@@ -478,10 +478,9 @@ def prompt_enhance_context(
         "effective_task": effective_task,
         "schema_props": schema_props,
         "mode": mode,
-        # Structured formats (MiniMax H3's Context-IR, Ideogram JSON) are still enhanced
-        # per image; programs write prose-like formats only for now. Image edits and audio
-        # too: the writer's instructions add variety to describe a still image, which an
-        # edit instruction ("remove the man on the left") or a sound must not get.
+        # Structured formats (MiniMax H3's Context-IR, Ideogram JSON) are enhanced per
+        # image without slots for now; so are image edits and audio, whose prompt is an
+        # instruction ("remove the man on the left") or a sound, not a picture to vary.
         "program_supported": mode not in _PROGRAM_UNSUPPORTED_MODES,
         "enhance": {
             "is_video": is_video,

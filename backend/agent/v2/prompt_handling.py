@@ -9,10 +9,11 @@ The agent uses the surface a person uses in Tool View, with the same syntax:
   text. Structured prompts (MiniMax H3, a JSON prompt) are left untouched.
   ``enhance_prompt`` keeps its meaning: omitted rewrites only for models with their
   own prompt format, True rewrites for any model, False never rewrites.
-* ``vary=True`` opts into the person's prepared prompt (Fluent in the UI): the
-  prompt is prepared once, with the same program cache as Tool View, and each image
-  draws its own choices. ``keep_choices`` are the person's pins and ``draw_seed`` the
-  person's *Same draws*. How much the writer adds follows ``enhance_prompt``.
+* ``vary=True`` opts into the person's Fluent handling: the prompt's ``<slots>`` and
+  ``{a|b}`` lists are read once, with the same program cache as Tool View, and each image
+  draws its own choices, then has its prompt written for the model at the detail level
+  ``enhance_prompt`` gives. ``keep_choices`` are the person's chosen values and
+  ``draw_seed`` the person's *Same draws*.
 
 Every path goes through the person's own pipeline (``routes.generation`` and
 ``prompt_pipeline``); nothing here prepares or draws on its own.
@@ -32,13 +33,14 @@ log = get_logger(__name__)
 
 # Model-facing text. Plain words, no feature names: weak local models read these too.
 VARY_DOC = (
-    "Give each image its own fresh choices from this prompt. Write options in the prompt "
-    "as {a|b|c}, or name an open choice as {{hairstyle}} and suitable options are found for "
-    "you. Lines starting with # are notes on how to choose; they never reach the image "
-    "model. Choices are made to fit together, and the result lists what each image got. "
-    "The first call with a new prompt takes a few seconds longer; calls with the same "
-    "prompt share that work. Without vary, each {a|b|c} picks one option at random and the "
-    "rest is sent as written."
+    "Give each image its own fresh choices from this prompt. Put angle brackets around each "
+    "part that should change from image to image, as <young woman> or <pet>: options are "
+    "found for it within its words. Write your own options as {a|b|c}. Lines starting with "
+    "# are notes for choosing and writing; they never reach the image model. Choices are "
+    "made to fit together, and the result lists what each image got. The first call with a "
+    "new prompt takes a few seconds longer; calls with the same prompt share that work. "
+    "Without vary, each {a|b|c} picks one option at random, <words> are sent as their words "
+    "and the rest is sent as written."
 )
 KEEP_CHOICES_DOC = (
     "Only with vary. Hold choices from an earlier result while the rest vary: a choice's "
@@ -55,8 +57,9 @@ ENHANCE_DOC = (
     "Rewrite the prompt for the selected model before generating. Omit for the default: "
     "on for models with their own prompt format, off otherwise. False keeps your wording, "
     "with the prompt syntax applied ({a|b} picks one, [brackets] unwrap, # lines drop); "
-    "true rewrites for any model. With vary, true also lets the rewrite add choices of its "
-    "own; omit or false keeps your wording and adds none."
+    "true rewrites for any model. With vary, each image's prompt is rewritten after its "
+    "choices are made, keeping them word for word: true writes it fuller, omitted writes it "
+    "in the model's format, false sends your wording with the choices filled in."
 )
 
 UNCHECKED_NOTE = (
@@ -180,7 +183,7 @@ def unknown_names(prompt: str, profile_id: Optional[str]) -> List[str]:
 def _unknown_name_error(name: str) -> PromptHandlingError:
     return PromptHandlingError(
         f"{{{{{name}}}}} isn't one of your saved lists. Write its options as {{a|b|c}}, "
-        "or pass vary=True and options will be found. Nothing was generated."
+        f"or write it as <{name}> and pass vary=True for options to be found. Nothing was generated."
     )
 
 
@@ -276,14 +279,15 @@ async def prepare_prompt(
     format_label = native_prompt_format(tool_id, task_type)
     structured = _structured(ctx["mode"], prompt)
 
-    if request.vary:
-        return await _vary(job_params, prompt, ctx=ctx, format_model=format_label is not None,
-                           tool_id=tool_id, task_type=task_type, request=request, project_id=project_id)
-
+    # Nothing fills a {{name}} that isn't saved, with vary or without.
     if not structured:
         missing = unknown_names(prompt, profile_id)
         if missing:
             raise _unknown_name_error(missing[0])
+
+    if request.vary:
+        return await _vary(job_params, prompt, ctx=ctx, format_model=format_label is not None,
+                           tool_id=tool_id, task_type=task_type, request=request, project_id=project_id)
 
     enhance = request.enhance
     if enhance == "fill":

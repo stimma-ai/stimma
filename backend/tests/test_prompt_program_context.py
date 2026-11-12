@@ -20,6 +20,12 @@ from prompt_programs.options import GeneratedOptions, OptionStore, ProgramContex
 from prompt_programs.runtime import ProgramError, discover
 from prompt_programs.vocab import LESS, given_families, vocabulary
 
+async def narrow_read(entry, cache, ask, *args, **kw):
+    """narrow_entry with the fake model's reading as the slots' words (slots.build writes them)."""
+    entry.setdefault("slot_words", dict(getattr(ask, "read", None) or {}))
+    return await narrow_entry(entry, cache, ask, *args, **kw)
+
+
 OFF = FluentSettings(generate_options=False)
 
 
@@ -318,14 +324,6 @@ class TestTheUsersOwn:
             entry_of(ONE), tmp_path, range(200), pins={"descent": ["Japanese"], "hair": ["golden blonde", "black"]}))
         assert 70 < got["golden blonde"] < 130, got
 
-    def test_a_wildcard_is_never_weighted(self, tmp_path):
-        e = entry_of(ONE, "a {{descent}} woman with {{hair}}")
-        for c in e["choices"]:
-            if c["id"] == "hair":
-                c["wildcard"] = "hair"
-        assert ProgramContext.of(e).wildcards == ("hair",)
-        r, d = next(draws_of(e, tmp_path, range(1), pins={"descent": ["Japanese"]}))
-        assert not any(k.startswith("hair:") and "| context" in k for k in r.revision["pools"])
 
     def test_a_users_added_value_keeps_its_weight(self, tmp_path):
         mine = "silver-blue ombre"
@@ -372,16 +370,13 @@ class TestStated:
 
 
 class Ask:
-    """Narrowing as a model following the instructions would answer it: `read` is the prompt
-    reading; `keep` maps a phrase to the values it keeps (default: the whole list)."""
+    """Narrowing as a model following the instructions would answer it: `read` is the
+    slots' words for each choice (narrow_read); `keep` maps a phrase to the values it keeps (default: the whole list)."""
 
     def __init__(self, read=None, keep=None):
         self.read, self.keep, self.calls = read or {}, keep or {}, []
 
     async def __call__(self, messages, project_id, max_tokens):
-        if "find the words in it" in messages[0]["content"]:
-            self.calls.append(("read", messages[1]["content"]))
-            return json.dumps(self.read)
         values = json.loads(re.search(r"\n(\[.*?\])\n", messages[1]["content"], re.S).group(1))
         phrase = re.search(r'Which of these fit "(.*?)"', messages[1]["content"]).group(1)
         self.calls.append(("subset", phrase))
@@ -390,26 +385,18 @@ class Ask:
 
 
 class TestNarrowing:
-    async def test_the_prompts_descent_is_read_for_a_person_without_a_descent_pick(self, tmp_path):
-        src = ('eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=1)\n'
-               'emit("A Japanese woman with", eyes, "eyes")')
-        e = entry_of(src, "a Japanese woman")
-        ask = Ask(read={"stated_ethnicity": "Japanese woman"}, keep={"Japanese woman": ["Japanese"]})
-        await narrow_entry(e, NarrowCache(tmp_path), ask)
-        assert e["stated_context"] == [{"of": "", "cls": "person.ethnicity", "values": ["Japanese"]}]
-        assert any(kind == "read" and "stated_ethnicity" in text for kind, text in ask.calls)
 
     async def test_words_that_keep_the_whole_list_say_nothing(self, tmp_path):
         src = ('eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=1)\n'
                'emit("A woman with", eyes, "eyes")')
         e = entry_of(src, "a woman")
-        await narrow_entry(e, NarrowCache(tmp_path), Ask(read={"stated_ethnicity": "woman"}))
+        await narrow_read(e, NarrowCache(tmp_path), Ask(read={"stated_ethnicity": "woman"}))
         assert "stated_context" not in e
 
     async def test_a_person_with_a_descent_pick_is_not_read_again(self, tmp_path):
         e = entry_of(ONE, "a woman")
         ask = Ask()
-        await narrow_entry(e, NarrowCache(tmp_path), ask)
+        await narrow_read(e, NarrowCache(tmp_path), ask)
         assert not any("stated_ethnicity" in text for kind, text in ask.calls if kind == "read")
 
     async def test_a_users_list_values_are_read_on_the_descent_list(self, tmp_path):
@@ -417,7 +404,7 @@ class TestNarrowing:
                'eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=2)\n'
                'emit("A", who, "woman with", eyes, "eyes")')
         e = entry_of(src, "a {Japanese|in a red coat} woman")
-        await narrow_entry(e, NarrowCache(tmp_path), Ask(keep={"Japanese": ["Japanese"]}))
+        await narrow_read(e, NarrowCache(tmp_path), Ask(keep={"Japanese": ["Japanese"]}))
         assert e["list_context"] == {"who": {"Japanese": {"person.ethnicity": ["Japanese"]}}}
 
 

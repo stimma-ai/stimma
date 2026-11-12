@@ -232,7 +232,11 @@ def canvas_shape(width: Optional[int], height: Optional[int]) -> Optional[str]:
     return "landscape" if ratio > 1.15 else "portrait" if ratio < 1 / 1.15 else "square"
 
 
-_CANVAS_SLOTS = ("{canvas_guidance}", "{flux3_canvas_guidance}")
+def _fill_key(key: str) -> str:
+    """The "off" level's guide for a mode, where one exists (MiniMax H3's: its format is
+    required), else the mode's own guide. Other modes make no call at "off" (improve_needed)."""
+    fill = "fill_" + key.removeprefix("improve_")
+    return fill if get_prompt("prompt_enhancement", fill) else key
 
 
 def guide_template(mode: str, fill: bool = False) -> str:
@@ -240,18 +244,9 @@ def guide_template(mode: str, fill: bool = False) -> str:
     cinematography variants aside), with style_guide's fallbacks."""
     key = _IMPROVE_PROMPT_BY_MODE.get(mode, "improve_system_prompt")
     if fill:
-        key = "fill_" + key.removeprefix("improve_")
-        if not get_prompt("prompt_enhancement", key):
-            key = "fill_system_prompt"
+        key = _fill_key(key)
     return (get_prompt("prompt_enhancement", key) or get_prompt("prompt_enhancement", "improve_system_prompt")
             or DEFAULT_IMPROVE_SYSTEM_PROMPT)
-
-
-def guide_uses_canvas(mode: str, fill: bool = False) -> bool:
-    """Whether this mode's style guide composes for the canvas (Fluent keys its programs on
-    the canvas's shape only then)."""
-    text = guide_template(mode, fill)
-    return any(slot in text for slot in _CANVAS_SLOTS)
 
 
 def _qwen_canvas_guidance(width: Optional[int], height: Optional[int], exact: bool = True) -> str:
@@ -938,11 +933,10 @@ async def style_guide(request: "ImprovePromptRequest", session,
     """How to write a prompt for this request's image model: the per-model system prompt
     with this request's slots filled (images, canvas, audio, protected text, LoRAs), the
     source images the writer should see, and the mode. The enhancer rewrites one prompt
-    with it; Fluent's program writer uses it to write the program's text.
-    fill: the Fill in guide (fill_*), which keeps the user's words and adds only what the
-    model needs to read them, instead of the full enhancer (improve_*).
-    exact_canvas=False: the canvas by its shape alone, not its size (Fluent's programs are
-    keyed on the shape, see guide_uses_canvas)."""
+    with it.
+    fill: the "off" level's guide where the mode has one (fill_*: MiniMax H3's format),
+    keeping the user's words, instead of the full improver (improve_*).
+    exact_canvas=False: the canvas by its shape alone, not its size."""
     # Pick the enhancement style. Task drives video (cinematography) and edits
     # (input images on a natural-language model); model family drives the rest
     # (keyword / ideogram / prose). Falls back to prose for unknown families and
@@ -984,9 +978,7 @@ async def style_guide(request: "ImprovePromptRequest", session,
     elif source_images_b64 and mode == "ltx-2.5":
         prompt_key = "improve_ltx_25_image_system_prompt"
     if fill:
-        prompt_key = "fill_" + prompt_key.removeprefix("improve_")
-        if not get_prompt("prompt_enhancement", prompt_key):
-            prompt_key = "fill_system_prompt"
+        prompt_key = _fill_key(prompt_key)
     prompt_from_file = get_prompt("prompt_enhancement", prompt_key)
     if not prompt_from_file and prompt_key != "improve_system_prompt":
         # A family-specific prompt isn't configured — fall back to prose.

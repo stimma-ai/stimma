@@ -104,7 +104,7 @@ import sys  # noqa: E402
 
 import pytest  # noqa: E402
 
-from prompt_programs import prepare as prep  # noqa: E402
+from prompt_programs import program as prep  # noqa: E402
 from prompt_programs.draws import (  # noqa: E402
     DrawAborted, DrawResult, LiteralOptions, analyze, draw, fixed_text, uses_draws,
 )
@@ -138,8 +138,6 @@ emit("Friends:", ", ".join(ages))
 
 HAIRS = HAIR_ERAS = {"1920s": {"finger waves", "a sleek bob"}, "1970s": {"feathered hair", "an afro"},
                      "1990s": {"a pixie cut", "a messy bun"}}
-
-
 
 
 def by_id(result):
@@ -214,26 +212,11 @@ class TestDependencyRule:
             analyze(src)
         assert 'give "era" a lower phase than "hair"' in str(e.value)
 
-    def test_validate_accepts_a_phased_program(self):
-        checked = prep.validate(PORTRAIT, "A portrait of a woman", [], set())
-        assert {c["id"] for c in checked["info"]["choices"]} == {"era", "role", "hair", "light"}
-
-    def test_validate_sends_it_back(self):
-        src = PORTRAIT.replace('phase=2, options', 'phase=1, options')
-        with pytest.raises(ProgramError, match="lower phase"):
-            prep.validate(src, "A portrait", [], set())
-
 
 class TestDispatch:
     def _entry(self, program, **kw):
         return {"key": "k", "program": program, "loras": [], "params": {}, **kw}
 
-    def test_older_programs_run_exactly_as_before(self):
-        entry = self._entry(PARITY_TRAIN, loras=[vars(lo) for lo in PARITY_LORAS], params={"guidance": {}, "steps": {}})
-        for seed in range(10):
-            got = prep.realize(entry, seed=seed, pins={"weather": "rainy"})
-            want = run(PARITY_TRAIN, seed, {"weather": ["rainy"]}, PARITY_LORAS, {"guidance", "steps"})
-            assert type(got) is not DrawResult and got.to_dict() == want.to_dict()
 
     def test_programs_with_specs_take_the_draw_path(self):
         got = prep.realize(self._entry(PORTRAIT), seed=4)

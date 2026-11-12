@@ -96,8 +96,7 @@ def test_default_means_the_tool_view_model_and_without_it_a_draw_ships_unjudged(
     assert fix_mode(cfg.fix_model) == "default" and judge_identity(cfg) == "llm"
     src = ('sky = pick("sky", about="the sky", seed=["a clear sky", "a stormy sky"], label="Sky", phase=1, added=True)\n'
            'emit("A field under", sky, ".")\n')
-    from prompt_programs import prepare as prep
-    info = prep.validate(src, "a field", [], set(), "", True)["info"]
+    info = __import__("prompt_programs.runtime", fromlist=["discover"]).discover(src)
     entry = {"key": "k", "program": src, "choices": info["choices"], "prompt": "a field", "mode": "prose"}
     r, rec = realize_and_fix(entry, seed=3, cfg=cfg)
     assert "A field under" in r.prompt and rec == {"judge": "llm", "skipped": "unavailable"}
@@ -109,8 +108,7 @@ def test_everything_refused_in_a_round_is_rerolled_together(monkeypatch, loop, t
     src = ('sky = pick("sky", about="the sky", seed=["a stormy sky", "a clear sky", "a pale sky"], label="Sky", phase=1, added=True)\n'
            'crop = pick("crop", about="what grows", seed=["wheat", "barley", "rye"], label="Crop", phase=1, added=True)\n'
            'emit("A field of", crop, "under", sky, ".")\n')
-    from prompt_programs import prepare as prep
-    info = prep.validate(src, "a field", [], set(), "", True)["info"]
+    info = __import__("prompt_programs.runtime", fromlist=["discover"]).discover(src)
     entry = {"key": "k2", "program": src, "choices": info["choices"], "prompt": "a field", "mode": "prose"}
     cfg = FluentSettings(generate_options=False)
     seen = 0
@@ -399,20 +397,18 @@ class TestStaleTicks:
             assert first.prompt == draw(self.SRC, seed).prompt   # exactly the unticked draw
 
 
-
 class TestKeptPinsInTheApp:
     """The same holds through the app's own options service, and for stale pins found one after another."""
 
     def service(self, tmp_path, src, prompt="a woman"):
-        from prompt_programs import prepare as prep
         from prompt_programs.fluent import runtime_for
         from prompt_programs.options import OptionStore
-        info = prep.validate(src, prompt, [], set(), "", True)["info"]
+        info = __import__("prompt_programs.runtime", fromlist=["discover"]).discover(src)
         entry = {"key": "kp", "program": src, "choices": info["choices"], "prompt": prompt, "mode": "prose"}
         return entry, lambda: runtime_for(entry, store=OptionStore(tmp_path), cfg=FluentSettings(generate_options=False))
 
     def test_a_pinned_value_is_kept_for_a_pick_with_options_of_its_own(self, tmp_path):
-        from prompt_programs import prepare as prep
+        from prompt_programs import program as prep
         src = ('fit = pick("outfit", ["a wool coat", "a linen dress"], label="Outfit", phase=1, line=1)\n'
                'emit("A woman in", fit, ".")\n')
         entry, runtime = self.service(tmp_path, src)
@@ -432,26 +428,6 @@ class TestKeptPinsInTheApp:
             assert p.endswith("and a pinned camisole.") and ("trench coat" in p or "linen shirt" in p)
 
 
-class TestPinnedNote:
-    """The writer is told what the user has pinned, so a change keeps those choices and values."""
-
-    def test_only_single_pinned_values_are_told_and_templates_read_plainly(self):
-        from prompt_programs.prepare import pinned_note
-        note = pinned_note({"woman.outfit": ["a {main} crochet camisole and {neutral} wide-leg linen pants"],
-                            "setting": ["a throne room", "a dark throne room"], "light": []})
-        assert 'woman.outfit: "a crochet camisole and wide-leg linen pants"' in note
-        assert "setting" not in note and "light" not in note and "{" not in note
-        assert pinned_note({}) == "" and pinned_note(None) == "" and pinned_note({"setting": ["a", "b"]}) == ""
-
-    def test_the_note_reaches_the_writers_message_only_inside_the_prepare_that_set_it(self):
-        from prompt_programs import prepare as prep
-        told = prep._PINNED.set(prep.pinned_note({"woman.outfit": ["a red coat"]}))
-        try:
-            user = prep.writer_messages("a woman", "", [], None, "prose", {}, [], {}, True)[1]["content"]
-        finally:
-            prep._PINNED.reset(told)
-        assert 'woman.outfit: "a red coat"' in user and "Keep each of them as a pick with that same id" in user
-        assert "pinned" not in prep.writer_messages("a woman", "", [], None, "prose", {}, [], {}, True)[1]["content"]
 class TestKin:
     SRC = ('a = person("sister[1]", noun="sister", presentation="feminine", kin="family", show=["age", "descent", "hair"])\n'
            'b = person("sister[2]", noun="sister", presentation="feminine", kin="family", show=["age", "descent", "hair"])\n'
@@ -468,11 +444,6 @@ class TestKin:
             descent = next(d.value for d in r.draws if d.id == "family.descent")
             assert r.prompt.count(str(descent)) == 2
 
-    def test_the_shared_descent_passes_validation_with_several_subjects(self):
-        from prompt_programs import prepare as prep
-        src = expand_people(self.SRC)
-        got = prep.validate(src, "two sisters", [], set(), "", True)
-        assert not [p for p in got["problems"] if "descent" in p]
 
     def test_a_stated_descent_stays_that_persons_and_no_kin_means_no_sharing(self):
         src = expand_people('a = person("mother", noun="mother", kin="family", said={"descent": "Irish"}, show=["age"])\n'
@@ -486,12 +457,12 @@ class TestKin:
         assert "family.descent" not in src
 
     def test_the_shared_descent_is_judged_and_shown_though_it_reads_twice(self, tmp_path):
-        from prompt_programs import prepare as prep
+        from prompt_programs import program as prep
         from prompt_programs.fix import _questions, prompt_view
         from prompt_programs.fluent import runtime_for
         from prompt_programs.options import OptionStore
         src = expand_people(self.SRC)
-        info = prep.validate(src, "two sisters", [], set(), "", True)["info"]
+        info = __import__("prompt_programs.runtime", fromlist=["discover"]).discover(src)
         entry = {"key": "kin", "program": src, "choices": info["choices"], "prompt": "two sisters", "mode": "prose"}
         r = prep.realize(entry, seed=3, runtime=runtime_for(entry, store=OptionStore(tmp_path), cfg=FluentSettings(generate_options=False)))
         items, ids, out = _questions(r, "two sisters")
@@ -540,23 +511,6 @@ class TestKin:
         assert "family.descent" not in src
         assert not [d for d in draw(src, 1).draws if "descent" in d.id]
 
-    def test_a_family_in_a_branch_not_taken_draws_nothing(self):
-        from prompt_programs import prepare as prep
-        from prompt_programs.draws import draw
-        src = expand_people('scene = pick("scene", ["an empty room", "two sisters"], label="Scene", source="list", phase=1, line=1)\n'
-                            'if scene == "two sisters":\n'
-                            '    a = person("sister[1]", noun="sister", kin="family", show=["age", "descent"])\n'
-                            '    b = person("sister[2]", noun="sister", kin="family", show=["age", "descent"])\n'
-                            '    emit("Two sisters:", a, "and", b, ".")\n'
-                            'else:\n'
-                            '    emit("An empty room.")\n')
-        src, _ = prep.fix_written(src, "{an empty room|two sisters}", [])
-        got = prep.validate(src, "{an empty room|two sisters}", [], set(), "", True)
-        assert not [p for p in got["problems"] if "descent" in p]
-        empty = draw(src, 1, {"scene": ["an empty room"]})
-        assert empty.prompt == "An empty room." and not [d for d in empty.draws if d.id == "family.descent"]
-        both = draw(src, 1, {"scene": ["two sisters"]})
-        assert both.prompt.count(str(next(d.value for d in both.draws if d.id == "family.descent"))) == 2
 
     def test_a_family_made_in_a_loop_has_one_pick_above_it(self):
         from prompt_programs.draws import draw

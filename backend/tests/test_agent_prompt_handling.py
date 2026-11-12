@@ -75,7 +75,7 @@ class TestDirectByDefault:
         with pytest.raises(PromptHandlingError) as e:
             await _direct("a woman in {{hairstyle}}")
         assert str(e.value) == ("{{hairstyle}} isn't one of your saved lists. Write its options as {a|b|c}, "
-                                "or pass vary=True and options will be found. Nothing was generated.")
+                                "or write it as <hairstyle> and pass vary=True for options to be found. Nothing was generated.")
 
     async def test_unknown_name_in_a_note_is_fine(self, prose_model):
         out = await _direct("a harbour\n# maybe {{weather}} later")

@@ -201,44 +201,23 @@ def _stringify_message_content(content: Any) -> str:
 
 
 def _acceptance_program(messages: List[Dict[str, Any]]) -> Optional[str]:
-    """Tool View's prompt-program writer expects a program back. Answer with the
-    smallest valid one, emitting the user's own prompt, so runs work end to end."""
+    """Fluent's slot reader expects a reading back as JSON. Answer with the plainest valid
+    one: every slot something whose only kind is its own words, every list a label, so runs
+    work end to end."""
     system = next((_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "system"), "")
-    if not system.startswith("You turn a user's image prompt into a small program."):
+    if not system.startswith("You read the parts of an image prompt"):
         return None
-    # the latest prompt: the first user message, or a later edit turn ("It now reads (lines numbered):")
-    users = [_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "user"]
-    user = next((u for u in reversed(users) if "(lines numbered):" in u), users[0] if users else "")
-    m = re.search(r"\(lines numbered\):\n(.*?)(?:\n\n|$)", user, flags=re.S)
-    lines = [re.sub(r"^\d+: ", "", ln) for ln in (m.group(1).splitlines() if m else [])]
-    picks: List[str] = []
-    parts: List[str] = []
-    for n, line in enumerate(lines, start=1):  # each {a|b} list becomes a list pick, drawn first
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        at = 0
-        for spot in re.finditer(r"(?<!\{)\{([^{}]+\|[^{}]+)\}(?!\})", line):
-            parts.append(repr(line[at:spot.start()]))
-            var = f"list_{len(picks) + 1}"
-            options = [o.strip() for o in spot.group(1).split("|")]
-            picks.append(f"{var} = pick({var!r}, {options!r}, source='list', phase=1, line={n})")
-            parts.append(var)
-            at = spot.end()
-        parts.append(repr(line[at:]))
-    code = "\n".join([*picks, f"emit({', '.join(p for p in parts if p != repr('')) or repr('an image')})"])
-    return f"```python\n{code}\n```"
+    user = next((_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "user"), "")
+    slots = [{"n": int(n), "kind": "free", "label": words.strip()[:40] or "Slot", "lead": "",
+              "free": {"about": words.strip(), "kinds": [words.strip()], "instead": []}}
+             for n, words in re.findall(r"⟨(\d+): ([^⟩]*)⟩", user)]
+    lists = [{"n": int(n), "label": f"List {n}"} for n in dict.fromkeys(re.findall(r"\{L(\d+): ", user))]
+    return json.dumps({"slots": slots, "lists": lists})
 
 
 def _acceptance_response(config: LLMConfig, messages: List[Dict[str, Any]],
                          tools: Optional[List[Dict]] = None) -> LLMResponse:
     program = _acceptance_program(messages)
-    if program and any((t.get("function") or {}).get("name") == "write_program" for t in tools or []):
-        source = program.removeprefix("```python\n").removesuffix("\n```") + "\n"
-        return LLMResponse(
-            tool_calls=[ToolCall(id=f"acceptance-{len(messages)}", name="write_program",
-                                 arguments=json.dumps({"source": source}))],
-            finish_reason=FinishReason.TOOL_CALLS, usage=Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
-            model=config.get_model() or "acceptance-llm", elapsed_seconds=0.001)
     last_user = ""
     for message in reversed(messages):
         if message.get("role") == "user":

@@ -3,7 +3,7 @@ view of them, the writer's catalog, and article agreement in emitted text."""
 
 import pytest
 
-from prompt_programs import prepare as prep
+from prompt_programs import program as prep
 from prompt_programs.draws import PickSpec, draw
 from prompt_programs.fluent import pool_options
 from prompt_programs.judge import FluentSettings
@@ -12,6 +12,12 @@ from prompt_programs.options import (
 )
 from prompt_programs.runtime import ProgramError, discover, run, tidy_text
 from prompt_programs.vocab import OPEN_SHARE, TIER_WEIGHTS, load, vocabulary
+
+async def narrow_read(entry, cache, ask, *args, **kw):
+    """narrow_entry with the fake model's reading as the slots' words (slots.build writes them)."""
+    entry.setdefault("slot_words", dict(getattr(ask, "read", None) or {}))
+    return await narrow_entry(entry, cache, ask, *args, **kw)
+
 
 PORTRAIT = '''
 eth = pick("eth", cls="person.ethnicity", about="her ethnicity", seed=["Korean"], label="Ethnicity", phase=1, line=1)
@@ -107,8 +113,6 @@ class TestTheVocabulary:
         south = set(list_groups(country, [v.text for v in country.values])["area"]["South America"])
         assert {"Brazil", "Argentina", "Peru", "Guyana"} <= south
 
-    def test_the_writer_reads_the_catalog(self):
-        assert "{vocabulary}" not in prep._INSTRUCTIONS and "person.eye_color" in prep._INSTRUCTIONS
 
     def test_a_leaf_defined_twice_is_an_error(self, tmp_path):
         for root in ("a", "b"):
@@ -365,10 +369,6 @@ class FakeAsk:
         self.keep, self.reply, self.read, self.calls, self.reads = keep, reply, read or {}, [], []
 
     async def __call__(self, messages, project_id, max_tokens):
-        import json
-        if "find the words in it" in messages[0]["content"]:
-            self.reads.append(messages)
-            return json.dumps(self.read)
         self.calls.append(messages)
         if self.reply is not None:
             return self.reply
@@ -393,19 +393,19 @@ class TestWhere:
 
     async def test_an_entry_is_narrowed_and_the_answer_cached(self, tmp_path):
         entry, ask = young_entry(), FakeAsk(young)
-        await narrow_entry(entry, NarrowCache(tmp_path), ask)
+        await narrow_read(entry, NarrowCache(tmp_path), ask)
         assert entry["filters"]["age"] == [v for v in [x.text for x in vocabulary().get("person.age_band").eligible()] if young(v)]
         assert "eyes" not in entry["filters"]  # no where=, no narrowing
         by = {c["id"]: c for c in entry["choices"]}
         assert by["age"]["options"] == entry["filters"]["age"]
         again = young_entry()
-        await narrow_entry(again, NarrowCache(tmp_path), ask)
+        await narrow_read(again, NarrowCache(tmp_path), ask)
         assert len(ask.calls) == 1 and again["filters"] == entry["filters"]  # "young" on ages: asked once
 
     async def test_nothing_fitting_or_an_unreadable_answer_leaves_the_pick_unbound(self, tmp_path):
         for ask in (FakeAsk(lambda v: False), FakeAsk(reply="I can't tell.")):
             entry = pretty_entry()
-            notes = await narrow_entry(entry, NarrowCache(tmp_path / str(id(ask))), ask)
+            notes = await narrow_read(entry, NarrowCache(tmp_path / str(id(ask))), ask)
             by = {c["id"]: c for c in entry["choices"]}
             assert entry["filters"]["eyes"] == [] and "cls" not in by["eyes"] and notes
 
@@ -413,55 +413,16 @@ class TestWhere:
         # Ages generated to fit words nothing in the list fits include children: the age list stays.
         assert vocabulary().get("person.age_band").strict and not vocabulary().get("person.eye_color").strict
         entry = pretty_entry()
-        notes = await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(lambda v: False))
+        notes = await narrow_read(entry, NarrowCache(tmp_path), FakeAsk(lambda v: False))
         by = {c["id"]: c for c in entry["choices"]}
         assert "age" not in entry["filters"] and by["age"]["cls"] == "person.age_band"
         assert any("whole list" in n for n in notes)
 
-    async def test_the_prompts_own_words_narrow_a_pick_the_writer_left_open(self, tmp_path):
-        src = YOUNG.replace(', where="young"', "")  # the writer forgot where=
-        entry = {"key": "b", "program": src, "loras": [], "params": {}, "mode": "prose",
-                 "choices": discover(src)["choices"], "prompt": "a young woman with brown eyes"}
-        ask = FakeAsk(lambda v: "brown" in v or young(v), read={"age": "young woman", "eyes": "brown eyes"})
-        await narrow_entry(entry, NarrowCache(tmp_path), ask)
-        assert entry["filters"]["eyes"] and all("brown" in v for v in entry["filters"]["eyes"])
-        assert entry["filters"]["age"] and all(young(v) for v in entry["filters"]["age"])
-        by = {c["id"]: c for c in entry["choices"]}
-        assert by["age"]["where"] == "young woman" and by["eyes"]["where"] == "brown eyes"
-        assert len(ask.reads) == 1  # one reading per prompt
-
-    async def test_words_the_prompt_doesnt_contain_are_ignored(self, tmp_path):
-        entry = young_entry("a woman reading")
-        ask = FakeAsk(young, read={"eyes": "green eyes"})  # invented: not in the prompt
-        await narrow_entry(entry, NarrowCache(tmp_path), ask)
-        assert "eyes" not in entry["filters"] and entry["filters"]["age"]  # age still narrowed by where=
-
-    def test_the_reading_keeps_only_stretches_of_the_prompt(self):
-        from prompt_programs.narrow import parse_read
-        prompt = "A Young  Woman with red hair, smiling, in a yoga outfit"
-        reply = ('{"age": "young woman", "hair": "red hair", "expr": "smiling woman", '
-                 '"outfit": ["yoga outfit", "Woman"], "eyes": null}')
-        got = parse_read(reply, ["age", "hair", "expr", "outfit", "eyes"], prompt)
-        # case and spacing aside, each is copied; "smiling woman" has every word in the prompt but isn't in it
-        assert got == {"age": "young woman", "hair": "red hair", "outfit": "yoga outfit, Woman"}
-        assert parse_read('{"outfit": ["yoga outfit", "pink leggings"]}', ["outfit"], prompt) == {}
-        assert parse_read("no object", ["age"], prompt) is None
-        # a {{wildcard}}'s words are its own pick's: never another detail's reading
-        hat = "An elderly man wearing {{a summer hat}} on a pier"
-        assert parse_read('{"outfit": "a summer hat", "age": "elderly man"}', ["outfit", "age"], hat) == {"age": "elderly man"}
-
-    async def test_a_bound_wildcard_narrows_by_its_own_words(self, tmp_path):
-        entry = young_entry()
-        for c in entry["choices"]:
-            if c["id"] == "eyes":
-                c["wildcard"] = "dark eyes"
-        await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(lambda v: "brown" in v))
-        assert entry["filters"]["eyes"] and all("brown" in v for v in entry["filters"]["eyes"])
 
     async def test_draws_and_pools_keep_to_the_subset(self, tmp_path):
         from prompt_programs.fluent import runtime_for
         entry = young_entry()
-        await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(young))
+        await narrow_read(entry, NarrowCache(tmp_path), FakeAsk(young))
         rt = runtime_for(entry, store=OptionStore(tmp_path / "o"), cfg=OFF)
         for seed in range(8):
             r = draw(YOUNG, seed, None, [], None, None, None, options=rt.options)
@@ -476,7 +437,7 @@ class TestWhere:
     async def test_an_unbound_fallback_generates_within_the_words(self, tmp_path):
         from prompt_programs.fluent import program_context
         entry = pretty_entry()
-        await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(lambda v: False))
+        await narrow_read(entry, NarrowCache(tmp_path), FakeAsk(lambda v: False))
         store = OptionStore(tmp_path / "o")
         filler = OptionFiller(store, FakeGen())
         opts = GeneratedOptions(store, program_context(entry), filler=filler)
@@ -491,7 +452,7 @@ class TestWhere:
         src = YOUNG.replace('cls="person.age_band", where="young"', 'cls="person.expression", where="happy"')
         info = discover(src)
         entry = {"key": "h", "program": src, "loras": [], "params": {}, "mode": "prose", "choices": info["choices"]}
-        await narrow_entry(entry, NarrowCache(tmp_path), FakeAsk(lambda v: "smile" in v or "grin" in v))
+        await narrow_read(entry, NarrowCache(tmp_path), FakeAsk(lambda v: "smile" in v or "grin" in v))
         store = OptionStore(tmp_path / "o")
         filler = OptionFiller(store, FakeGen())
         opts = GeneratedOptions(store, program_context(entry), filler=filler)
@@ -685,17 +646,6 @@ class TestTemplates:
 
 
 class TestLocalFacetWhere:
-    async def test_words_still_narrow_within_a_facet_filter(self, dressed, tmp_path):
-        src = DRESSED.replace('label="Outfit"', 'label="Outfit", where={"sport": "running"}')
-        entry = {"key": "w2", "program": src, "loras": [], "params": {}, "mode": "prose",
-                 "choices": discover(src)["choices"], "prompt": "a woman in a technical running T-shirt"}
-        ask = FakeAsk(lambda v: "T-shirt" in v, read={"outfit": "technical running T-shirt"})
-        await narrow_entry(entry, NarrowCache(tmp_path), ask)
-        assert ask.reads and entry["filters"]["outfit"] == ["a {main} technical T-shirt and {accent} running shorts"]
-        by = {c["id"]: c for c in entry["choices"]}
-        assert by["outfit"]["where"] == {"sport": "running"} and by["outfit"]["where_words"] == "technical running T-shirt"
-        from prompt_programs.fluent import program_context
-        assert dict(program_context(entry).intents)["outfit"] == "technical running T-shirt"  # never the dict
 
     def test_generator_examples_respect_a_templates_palette(self, dressed):
         opts = GeneratedOptions(None, program())
@@ -711,7 +661,7 @@ class TestLocalFacetWhere:
         entry = {"key": "w", "program": src, "loras": [], "params": {}, "mode": "prose",
                  "choices": discover(src)["choices"], "prompt": "a woman in blue running kit"}
         ask = FakeAsk(lambda v: True)
-        await narrow_entry(entry, NarrowCache(tmp_path), ask)
+        await narrow_read(entry, NarrowCache(tmp_path), ask)
         assert not ask.calls  # no narrowing call: the tags decide
         # running looks whose main garment takes the color asked for: the white karate gi drops out
         assert entry["filters"]["outfit"] == [v["text"] for v in OUTFITS["values"]
@@ -744,25 +694,10 @@ class TestArticleTidy:
         monkeypatch.setitem(v.leaves, "person.outfit.test", _leaf("person.outfit.test", COATS))
         return v
 
-    def test_a_filled_value_after_a_reads_as_emitted(self, olive):
-        from prompt_programs import prepare as prep
-        from prompt_programs.runtime import run
-        r = run(DRESSED, 11)
-        outfit = next(d for d in r.draws if d.id == "outfit")
-        assert outfit.value == "a olive trench coat over a cream sweater"
-        assert "an olive trench coat" in r.prompt and outfit.value not in r.prompt.lower()
-        out = prep.validate(DRESSED, "a woman in a coat", [], set())
-        assert not any("never appears" in p for p in out["problems"]), out["problems"]
-
-    def test_a_value_missing_from_the_prompt_is_still_sent_back(self, olive):
-        from prompt_programs import prepare as prep
-        src = DRESSED.replace('emit("A woman wearing", outfit, ".")', 'emit("A woman wearing a coat.")')
-        out = prep.validate(src, "a woman in a coat", [], set())
-        assert any('pick("outfit") drew' in p and "never appears" in p for p in out["problems"]), out["problems"]
 
     def test_the_judge_and_the_highlight_find_the_value_as_emitted(self, olive):
         from prompt_programs.fix import mask, prompt_view
-        from prompt_programs.prepare import realized_text
+        from prompt_programs.program import realized_text
         from prompt_programs.runtime import run
         r = run(DRESSED, 11)
         text = realized_text(r.prompt)
@@ -876,7 +811,6 @@ class TestOldColorsIds:
             assert r.prompt and "{" not in r.prompt
 
 
-
 class TestSharesAndComposedLists:
     """A list may give its parts fixed shares of the draws, and a list may be composed of
     other lists' values (a face is two or three features)."""
@@ -975,7 +909,6 @@ class TestGrayingFollowsAge:
         noses = " ".join(x.text for x in vocabulary().get("person.feature.nose").values)
         for word in ("hooked", "points downward", "prominent", "slit-like", "widens a lot"):
             assert word not in noses
-
 
 
 class TestRetiredAgeRanges:

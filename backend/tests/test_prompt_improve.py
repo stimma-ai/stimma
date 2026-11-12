@@ -655,7 +655,7 @@ def test_flux3_canvas_guidance_composes_without_naming_the_canvas():
     assert "never mention the ratio" in _flux3_canvas_guidance(1024, 1024)
 
 
-def test_fill_guide_mirrors_the_models_guide_and_falls_back_to_prose():
+def test_only_h3_has_a_guide_of_its_own_at_off():
     import asyncio
     from routes.prompt_enhancement import ImprovePromptRequest, style_guide
 
@@ -663,10 +663,9 @@ def test_fill_guide_mirrors_the_models_guide_and_falls_back_to_prose():
         text, _images, mode = await style_guide(ImprovePromptRequest(prompt="a cat", model=model), None, fill=fill)
         return text, mode
 
+    # "off" has its own guide only where the format is required (H3); elsewhere it is the mode's own
     keyword_fill, mode = asyncio.run(guide("sdxl", True))
-    assert mode == "keyword" and "masterpiece, best quality" in keyword_fill and "Add no tags" in keyword_fill
-    prose_fill, _ = asyncio.run(guide(None, True))
-    assert prose_fill.startswith("You are completing a prompt for an image generation model")
+    assert mode == "keyword" and keyword_fill == asyncio.run(guide("sdxl", False))[0]
     prose_expand, _ = asyncio.run(guide(None, False))
     assert prose_expand.startswith("You are writing the prompt an image generation model will read")
 

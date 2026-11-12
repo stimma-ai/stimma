@@ -662,7 +662,7 @@ def fix_draw(result: Any, *, judge: Any, redraw: Redraw, seed: int, user_prompt:
 
 def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] = None,
                     fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
-                    triggers: bool = True, profile_id: Optional[str] = None, project_id: Optional[int] = None,
+                    profile_id: Optional[str] = None, project_id: Optional[int] = None,
                     revision: Optional[Dict[str, Any]] = None, cfg: Any = None,
                     judge: Any = None, cancelled: Optional[Callable[[], bool]] = None,
                     zones: Optional[Dict[str, List[str]]] = None) -> Tuple[Any, Optional[Dict[str, Any]]]:
@@ -673,9 +673,9 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
     it in a worker thread, after await_judge."""
     if revision:
         from prompt_programs.program import realize
-        return realize(entry, seed=seed, pins=pins, fixed=fixed, edits=edits, triggers=triggers,
+        return realize(entry, seed=seed, pins=pins, fixed=fixed, edits=edits,
                        profile_id=profile_id, project_id=project_id, revision=revision, zones=zones), None
-    out = realize_and_fix_many(entry, seeds=[seed], pins=pins, fixed=fixed, edits=edits, triggers=triggers,
+    out = realize_and_fix_many(entry, seeds=[seed], pins=pins, fixed=fixed, edits=edits,
                                profile_id=profile_id, project_id=project_id, cfg=cfg, judge=judge,
                                cancelled=cancelled, zones=zones)[0]
     if isinstance(out, Exception):
@@ -685,7 +685,7 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
 
 def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: Optional[Dict[str, Any]] = None,
                          fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
-                         triggers: bool = True, profile_id: Optional[str] = None, project_id: Optional[int] = None,
+                         profile_id: Optional[str] = None, project_id: Optional[int] = None,
                          cfg: Any = None, judge: Any = None,
                          cancelled: Optional[Callable[[], bool]] = None,
                          zones: Optional[Dict[str, List[str]]] = None) -> List[Any]:
@@ -699,7 +699,7 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
     from prompt_programs.program import realize
 
     def draw_once(s: int, fx: Optional[Dict[str, Any]], ed: Optional[Dict[str, Any]]) -> Any:
-        return realize(entry, seed=s, pins=pins, fixed=fx, edits=ed, triggers=triggers, profile_id=profile_id,
+        return realize(entry, seed=s, pins=pins, fixed=fx, edits=ed, profile_id=profile_id,
                        project_id=project_id, unmask=False, zones=zones)
 
     exact = entry.get("exact") or {}

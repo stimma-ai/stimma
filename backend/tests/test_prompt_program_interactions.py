@@ -9,6 +9,12 @@ from tests.test_prompt_program_context import Ask, draws_of, entry_of, mismatche
 
 # --------------------------------------------------------------------------- said x context
 
+async def narrow_read(entry, cache, ask, *args, **kw):
+    """narrow_entry with the fake model's reading as the slots' words (slots.build writes them)."""
+    entry.setdefault("slot_words", dict(getattr(ask, "read", None) or {}))
+    return await narrow_entry(entry, cache, ask, *args, **kw)
+
+
 SAID_DESCENT = '''
 descent = pick("descent", cls="person.ethnicity", said="Japanese", about="her descent", label="Descent", phase=1, line=1)
 eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["brown"], label="Eyes", phase=1, line=1)
@@ -36,7 +42,7 @@ class TestSaidGivesContext:
     async def test_a_said_descent_has_the_prompt_read_for_its_person(self, tmp_path):
         e = entry_of(SAID_DESCENT, "a Japanese woman")
         ask = Ask(read={"stated_ethnicity": "Japanese woman"}, keep={"Japanese woman": ["Japanese"]})
-        await narrow_entry(e, NarrowCache(tmp_path), ask)
+        await narrow_read(e, NarrowCache(tmp_path), ask)
         assert e["stated_context"] == [{"of": "", "cls": "person.ethnicity", "values": ["Japanese"]}]
         assert not any(kind == "subset" and "descent" == phrase for kind, phrase in ask.calls)
 
@@ -55,45 +61,10 @@ class TestSaidGivesContext:
         assert seen == {"green", "blue"}
 
 
-# --------------------------------------------------------------------------- said x groups
-
 from prompt_programs.draws import person_of  # noqa: E402
 from prompt_programs.options import program_minors  # noqa: E402
 from prompt_programs.runtime import subject_of  # noqa: E402
 from prompt_programs.vocab import vocabulary  # noqa: E402
-
-from tests.test_prompt_program_subjects import (  # noqa: E402
-    AGE, ETH, OUTFIT, STYLE, bound, by_id, hand, sections, subject_problems, written,
-)
-
-
-SAID_DRESS, SAID_MATCHING = ', said="red dress"', ', said="matching red dresses"'
-
-
-class TestSaidInsideASubject:
-    def test_a_said_pick_is_grouped_under_its_subject(self):
-        src = hand(("mother", [AGE, STYLE]), ("daughter", [AGE, STYLE]),
-                   extra_lines=[f"o = {bound('mother.outfit', OUTFIT, extra=SAID_DRESS)}"])
-        src, checked, _ = written(src, "a mother in a red dress and her daughter")
-        info = checked["info"]
-        assert not subject_problems(checked) and not [p for p in checked["problems"] if "said" in p]
-        c = by_id(info)["mother.outfit"]
-        assert c["said"] == "red dress" and c["group"] == "mother"
-        assert sections(info) == [("mother", None), ("daughter", None)]
-
-    def test_a_flat_id_said_pick_is_repaired_under_its_subject_too(self):
-        src = hand(extra_lines=[f"a = {bound('mother_age', AGE)}", f"b = {bound('mother_outfit', OUTFIT, extra=SAID_DRESS)}",
-                                f"c = {bound('daughter_age', AGE)}", f"d = {bound('daughter_hairstyle', STYLE)}"])
-        fixed, checked, _ = written(src, "a mother in a red dress and her daughter")
-        assert '"mother.outfit"' in fixed and by_id(checked["info"])["mother.outfit"]["said"] == "red dress"
-
-    def test_a_said_pick_naming_no_subject_is_not_rejected_as_partly_grouped(self):
-        src = hand(("twin1", [STYLE]), ("twin2", [STYLE]),
-                   extra_lines=[f"o = {bound('outfit', OUTFIT, extra=SAID_MATCHING)}"])
-        assert not subject_problems(written(src, "twins in matching red dresses")[1])
-        plain = hand(("twin1", [STYLE]), ("twin2", [STYLE]), extra_lines=[f"o = {bound('outfit', OUTFIT)}"])
-        assert subject_problems(written(plain, "twins in matching red dresses")[1])   # unchanged without said
-
 
 # --------------------------------------------------------------------------- groups x context x age policy
 
@@ -106,15 +77,6 @@ class TestOnePersonRule:
         for cid in ("outfit", "outfit.colors", "param.steps"):
             assert subject_of(cid) is None and person_of(cid) == "", cid
         assert person_of("friends[{}].age") == "friends[{}]"   # a loop's site: its member
-
-    def test_flat_ids_are_repaired_before_the_age_policy_reads_them(self):
-        src = hand(extra_lines=[f"a = {bound('mother_age', AGE)}", f"b = {bound('mother_outfit', OUTFIT)}",
-                                f"c = {bound('daughter_age', AGE)}", f"d = {bound('daughter_outfit', OUTFIT)}"])
-        fixed, checked, _ = written(src, "a mother and her 8-year-old daughter")
-        choices = checked["info"]["choices"]
-        entry = {"choices": choices, "filters": {"daughter.age": ["8-year-old"]}}
-        assert dict(program_minors(entry)) == {"daughter": ("8-year-old",)}
-        assert {person_of(c["id"]) for c in choices if c.get("cls") == OUTFIT} == {"mother", "daughter"}
 
     def test_a_shared_age_speaks_for_every_subject(self, tmp_path):
         src = ('age = pick("age", cls="person.age_band", about="their age", seed=["8-year-old"], label="Age", phase=1, line=1, shared=True)\n'
@@ -172,40 +134,5 @@ class TestOnePersonRule:
                'emit("Two", age, "twins, one in", a, "and one in", b)')
         e = entry_of(src, "two twins at the beach")
         ask = Ask()
-        await narrow_entry(e, NarrowCache(tmp_path), ask)
+        await narrow_read(e, NarrowCache(tmp_path), ask)
         assert not any("stated_age" in text for kind, text in ask.calls if kind == "read")
-
-
-# --------------------------------------------------------------------------- fallback x said / groups validation
-
-SAID_CAR = '''car = pick("car", said="{said}", about="the car", seed=["red lamborghini"], label="Car", phase=1, line=1)
-emit("{before}", car, "on a coastal road")
-'''
-
-
-def checked(src, prompt):
-    return written(src, prompt)[1]
-
-
-class TestWhatTheFirstRungTolerates:
-    def test_said_words_the_user_didnt_write_block(self):
-        got = checked(SAID_CAR.format(said="blue sports car", before="A cinematic shot of a"),
-                      "a cinematic shot of a yellow ferrari on a coastal road")
-        assert [p for p in got["blocking"] if "said=" in p]
-
-    def test_said_on_the_users_wildcard_blocks(self):
-        src = ('car = pick("car", said="ferrari", about="the car", seed=["a ferrari"], label="Car", phase=1, line=1)\n'
-               'emit("A cinematic shot of a", car, "on a coastal road")\n')
-        got = checked(src, "a cinematic shot of a {{car}} on a coastal road, a ferrari")
-        assert [p for p in got["blocking"] if "smart wildcard" in p]
-
-    def test_said_twice_costs_polish_only(self):
-        got = checked(SAID_CAR.format(said="yellow ferrari", before="A cinematic shot of a yellow ferrari:"),
-                      "a cinematic shot of a yellow ferrari on a coastal road")
-        assert [p for p in got["problems"] if "said once" in p]
-        assert not [p for p in got["blocking"] if "said" in p]
-
-    def test_a_grouping_problem_only_costs_structure(self):
-        src = hand(("woman1", [AGE, OUTFIT]), ("woman2", [AGE, OUTFIT]), extra_lines=[f"h = {bound('hairstyle', STYLE)}"])
-        got = checked(src, "two women at a cafe")
-        assert subject_problems(got) and not [p for p in got["blocking"] if "names no one" in p]

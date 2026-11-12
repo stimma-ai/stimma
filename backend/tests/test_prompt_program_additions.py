@@ -8,7 +8,7 @@ import pytest
 from fastapi import FastAPI
 
 from prompt_programs import additions as adds
-from prompt_programs import prepare as prep
+from prompt_programs import program as prep
 from prompt_programs.additions import AdditionStore, additions_for, list_id
 from prompt_programs.fix import fix_draw, judged_picks
 from prompt_programs.fluent import pool_options, runtime_for
@@ -160,7 +160,7 @@ class TestTheRoutes:
     async def test_added_in_one_prompt_offered_in_another(self, monkeypatch):
         """End to end through the routes: add the braid to one prompt's hairstyle, then a
         different prompt's pools offer it as the user's own, and its draws draw it."""
-        store = prep._store("a")
+        store = prep.store_for("a")
         beach, cafe = entry_of(BEACH, key="b" * 32), entry_of(CAFE, key="c" * 32)
         store.put(beach["key"], beach)
         store.put(cafe["key"], cafe)

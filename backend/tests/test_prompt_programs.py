@@ -3,13 +3,10 @@ per-job application of a run."""
 
 import pytest
 
-from prompt_programs import prepare as prep
+from prompt_programs import program as prep
 from prompt_programs.runtime import LoraInfo, ProgramError, discover, run
 from prompt_programs.store import ProgramStore
 
-
-async def fake_style(*a, **kw):
-    return "STYLE GUIDE: write rich prose.", []
 
 TRAIN = '''
 weather = pick("weather", ["rainy", "foggy", "bright"], label="Weather", source="list", line=1)
@@ -22,9 +19,6 @@ clothing = pick("clothing", by=weather, label="Clothing", line=2, options={
 param("guidance", 3.5, 5.5, line=4)
 emit("A woman waiting for a train on a", weather, "morning, wearing", clothing, ",", umbrella, ". [Shot on Portra 400]")
 '''
-# What the program writer replies now that it only ever sees [EXACT_1] for the user's
-# protected text (see prepare.mask_exact).
-TRAIN_M = TRAIN.replace("[Shot on Portra 400]", "[EXACT_1]")
 LORAS = [LoraInfo("Curtain bangs", "loras/cb.safetensors", 0.8, "cbangs"), LoraInfo("Wolf cut", "loras/wc.safetensors", 0.9, "wolfcut")]
 PARAMS = {"guidance", "steps"}
 
@@ -119,174 +113,8 @@ class TestDiscover:
         assert info["params"] == ["guidance"]
 
 
-PROMPT = "A woman waiting for a train on a {rainy|foggy|bright} morning. [Shot on Portra 400]\n# Vary her clothing.\n# Hairstyle: use the curtain bangs or wolf cut LoRA.\n# Vary guidance between 3.5 and 5.5."
-
-
-
-async def text_endpoint(project_id):
-    """A writer endpoint without tool calls: the text protocol."""
-    return None, "text"
-
-
-@pytest.fixture
-def stub(monkeypatch, tmp_path):
-    calls = []
-
-    async def fake_ask(messages, project_id, max_tokens=4096):
-        calls.append(messages)
-        return replies.pop(0)
-
-    async def fake_candidates(tool_id, items, profile_id):
-        return list(LORAS), {}
-
-    replies = []
-    monkeypatch.setattr(prep, "writer_style", fake_style)
-    monkeypatch.setattr(prep, "_ask_model", fake_ask)
-    monkeypatch.setattr(prep, "lora_candidates", fake_candidates)
-    monkeypatch.setattr(prep, "_store", lambda profile_id: ProgramStore(tmp_path))
-    monkeypatch.setattr(prep, "_writer_endpoint", text_endpoint)  # these fake the text protocol's _ask_model
-    monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
-    return calls, replies
-
-
-def ctx(schema):
-    return {"model": "m", "mode": "prose", "schema_props": schema, "enhance": {}}
-
-
-SCHEMA = {"guidance": {"type": "number", "minimum": 1, "maximum": 10}, "seed": {"type": "integer"}, "prompt": {"type": "string"}}
-
-
 class TestPrepare:
-    async def _ensure(self):
-        return await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="",
-                                         lora_items=[], project_id=None, profile_id="p")
 
-    async def test_prepares_once_then_caches(self, stub):
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_M}```")
-        entry = await self._ensure()
-        assert entry["params"] == {"guidance": {"type": "number", "minimum": 1, "maximum": 10}}
-        assert {c["id"] for c in entry["choices"]} >= {"weather", "umbrella", "clothing", "hairstyle"}
-        assert "[" not in entry["example"]
-        again = await self._ensure()
-        assert again["key"] == entry["key"] and len(calls) == 1  # one model call writes the program
-
-    async def test_concurrent_runs_share_one_prepare(self, stub):
-        import asyncio
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_M}```")
-        first, second = await asyncio.gather(self._ensure(), self._ensure())
-        assert first["key"] == second["key"] and len(calls) == 1
-
-    async def test_canvas_size_does_not_change_the_key(self, stub):
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_M}```")
-        sized = {**ctx(SCHEMA), "enhance": {"is_video": False, "width": 1024, "height": 1024}}
-        unsized = {**ctx(SCHEMA), "enhance": {"is_video": False, "width": None, "height": None}}
-        a = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=sized, instructions="", lora_items=[], project_id=None, profile_id="p")
-        b = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=unsized, instructions="", lora_items=[], project_id=None, profile_id="p")
-        assert a["key"] == b["key"] and len(calls) == 1
-
-    async def test_canvas_shape_is_in_the_key_where_the_guide_composes_for_it(self, stub):
-        calls, replies = stub
-        replies += [f"```python\n{TRAIN_M}```"] * 2
-
-        def sized(w, h):
-            return {**ctx(SCHEMA), "mode": "qwen-image-2.1", "enhance": {"is_video": False, "width": w, "height": h}}
-
-        async def at(w, h):
-            return await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=sized(w, h), instructions="",
-                                             lora_items=[], project_id=None, profile_id="p")
-        wide, wider, tall = await at(1344, 768), await at(1600, 900), await at(768, 1344)
-        assert wide["key"] == wider["key"]  # one program per shape, whatever the size
-        assert tall["key"] != wide["key"] and len(calls) == 2
-
-    async def test_an_instructions_edit_is_a_new_program(self, stub, monkeypatch):
-        calls, replies = stub
-        replies += [f"```python\n{TRAIN_M}```"] * 2
-        before = await self._ensure()
-        monkeypatch.setattr(prep, "_INSTRUCTIONS", prep._INSTRUCTIONS + "\nOne more rule.")
-        after = await self._ensure()
-        assert before["key"] != after["key"] and len(calls) == 2
-
-    def test_fluents_guide_names_the_canvas_shape_not_its_size(self):
-        from routes.prompt_enhancement import _flux3_canvas_guidance, _qwen_canvas_guidance, guide_uses_canvas
-        assert "1344x768" in _qwen_canvas_guidance(1344, 768)  # the per-image enhancer: exact
-        assert "1344" not in _qwen_canvas_guidance(1344, 768, exact=False)
-        assert _qwen_canvas_guidance(1344, 768, exact=False) == _qwen_canvas_guidance(1600, 900, exact=False)
-        assert "tall frame" in _flux3_canvas_guidance(768, 1344, exact=False)
-        assert guide_uses_canvas("qwen-image-2.1") and guide_uses_canvas("flux3-klein")
-        assert not guide_uses_canvas("prose") and not guide_uses_canvas("qwen-image-2.1", fill=True)
-
-    async def test_retries_with_the_problem(self, stub):
-        calls, replies = stub
-        replies.append('```python\nemit("A woman on a platform")\n```')  # drops the user list + protected text
-        replies.append(f"```python\n{TRAIN_M}```")
-        entry = await self._ensure()
-        assert entry["attempts"] == 2 and not entry["warnings"]
-        feedback = calls[1][-1]["content"]
-        assert "EXACT_1" in feedback and "{rainy|foggy|bright}" in feedback
-
-    async def test_a_pick_that_never_reaches_the_prompt_is_sent_back(self, stub):
-        calls, replies = stub
-        replies.append("```python\n" + TRAIN_M.replace('"morning, wearing", clothing,', '"morning,"') + "```")
-        replies.append(f"```python\n{TRAIN_M}```")
-        entry = await self._ensure()
-        assert entry["attempts"] == 2
-        assert 'pick("clothing")' in calls[1][-1]["content"]
-
-    async def test_a_pick_from_a_hash_line_is_from_text_even_marked_added(self, stub):
-        _, replies = stub
-        replies.append("```python\n" + TRAIN_M.replace('label="Clothing", line=2', 'label="Clothing", line=2, added=True') + "```")
-        entry = await self._ensure()
-        clothing = next(c for c in entry["choices"] if c["id"] == "clothing")
-        assert clothing["source"] == "text" and clothing["line"] == 2
-
-    async def test_one_call_writes_the_program_with_the_models_style_guide(self, stub):
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_M}```")
-        await self._ensure()
-        assert len(calls) == 1
-        assert "STYLE GUIDE" in calls[0][0]["content"] and "[EXACT_1]" in calls[0][1]["content"]
-        assert "Enhanced prompt" not in calls[0][1]["content"]
-
-    async def test_enhance_off_keeps_the_users_words(self, stub):
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_M}```")
-        kept = await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="",
-                                         lora_items=[], project_id=None, profile_id="p", elaborate=False)
-        assert len(calls) == 1 and "STYLE GUIDE" not in calls[0][0]["content"]
-        assert "keeping the user's words" in calls[0][1]["content"]
-        assert kept["elaborate"] is False
-        replies.append(f"```python\n{TRAIN_M}```")
-        rich = await self._ensure()
-        assert rich["key"] != kept["key"]  # a separate program per mode
-
-    async def test_keyword_models_keep_words_as_tags(self, stub):
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_M}```")
-        await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx={**ctx(SCHEMA), "mode": "keyword"}, instructions="",
-                                  lora_items=[], project_id=None, profile_id="p", elaborate=False)
-        assert "comma-separated tags" in calls[0][1]["content"]
-
-    async def test_a_pick_emitted_twice_is_sent_back(self, stub):
-        calls, replies = stub
-        replies.append("```python\n" + TRAIN_M.replace('", umbrella, ". [EXACT_1]', '", umbrella, ", in", clothing, ". [EXACT_1]') + "```")
-        replies.append(f"```python\n{TRAIN_M}```")
-        entry = await self._ensure()
-        assert entry["attempts"] == 1 and any('pick("clothing") appears more than once' in w for w in entry["warnings"])
-
-    def test_plain_example_drops_instruction_lines(self):
-        assert prep.plain_example("a {{hair}} woman\n# vary her mood\non a {red|blue} wall") == "a [{{hair}}] woman\non a [{red|blue}] wall"
-
-    async def test_no_model_ever_sees_exact_text(self, stub):
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_M}```")
-        entry = await self._ensure()
-        seen = " ".join(m["content"] for c in calls for m in c)
-        assert "Shot on Portra 400" not in seen and "[EXACT_1]" in seen
-        assert entry["exact"] == {"EXACT_1": "Shot on Portra 400"}
-        assert all("Shot on Portra 400" in prep.realize(entry, seed=s).prompt for s in range(5))
 
     def test_masking_round_trips(self):
         masked, exact = prep.mask_exact("a [sign that says OPEN] on {a|b}, [{{x}}] and [neon]")
@@ -310,15 +138,6 @@ class TestPrepare:
                                            {"translate": {"enabled": True, "language": "es"}})
         assert "OPEN ALL NIGHT" not in " ".join(seen) and out == "una mujer under a sign that says OPEN ALL NIGHT"
 
-    def test_protects_variable_spots(self):
-        out = prep.protect_variable_spots("a {{hair style}} on a {red|blue} wall, [keep] {single}")
-        assert out == "a [{{hair style}}] on a [{red|blue}] wall, [keep] {single}"
-
-    def test_lora_lookup_only_named(self):
-        cands = LORAS + [LoraInfo("Anime lineart", "x", 1.0, "")]
-        assert [lo.name for lo in prep.match_loras(PROMPT, cands)] == ["Curtain bangs", "Wolf cut"]
-        assert prep.match_loras("a cat on a mat", cands) == []
-        assert len(prep.match_loras("use one of my LoRAs", cands)) == 3
 
     def test_named_wildcards_become_lists(self):
         out = prep.expand_named_lists("a {{color}} car, {{style}}", [{"name": "color", "values": ["red", "blue"]}],
@@ -326,199 +145,13 @@ class TestPrepare:
         assert out == "a {red|blue} car, film photo"
 
 
-SMART_PROMPT = "A portrait of a woman with {{hair style}} on a {{color}} background."
-SMART_GOOD = '''
-hair = pick("hair_style", ["a sleek bun", "loose waves", "a pixie cut"], label="Hair style", line=1)
-color = pick("color", ["teal", "ochre", "pale pink"], label="Color", line=1)
-emit("A portrait of a woman with", hair, "on a", color, "background.")
-'''
-
-
-class TestSmartWildcards:
-    async def _ensure(self, prompt):
-        return await prep.ensure_program(prompt=prompt, tool_id="t", ctx=ctx({}), instructions="",
-                                         lora_items=[], project_id=None, profile_id="p")
-
-    async def test_unknown_double_braces_become_user_choices(self, stub):
-        _, replies = stub
-        replies.append(f"```python\n{SMART_GOOD}```")
-        entry = await self._ensure(SMART_PROMPT)
-        by = {c["id"]: c for c in entry["choices"]}
-        assert by["hair_style"]["wildcard"] == "hair style" and by["hair_style"]["source"] == "text"
-        assert by["hair_style"]["line"] == 1 and by["color"]["wildcard"] == "color"
-        assert entry["attempts"] == 1
-
-    async def test_missing_or_leaked_smart_wildcard_is_sent_back(self, stub):
-        calls, replies = stub
-        replies.append('```python\nemit("A portrait of a woman with {{hair style}} on a teal background.")\n```')
-        replies.append(f"```python\n{SMART_GOOD}```")
-        entry = await self._ensure(SMART_PROMPT)
-        assert entry["attempts"] == 2
-        feedback = calls[1][-1]["content"]
-        assert 'pick("hair_style"' in feedback and "Don't emit {{" in feedback
-
-    async def test_long_wildcard_names_get_short_labels(self, stub):
-        calls, replies = stub
-        prompt = "A woman on a platform. {{35mm photographic details, no shallow dof}}"
-        long = '''
-look = pick("35mm_photographic_details_no_shallow_dof", ["grainy film, deep focus", "crisp 35mm, f/8"], label="{label}", line=1)
-emit("A woman on a platform.", look)
-'''
-        replies.append("```python\n" + long.replace("{label}", "35mm photographic details, no shallow dof") + "```")
-        replies.append("```python\n" + long.replace("{label}", "Photo look") + "```")
-        entry = await self._ensure(prompt)
-        assert entry["attempts"] == 1 and any("too long" in w for w in entry["warnings"])
-        replies.clear()
-        return
-        assert entry["choices"][0]["wildcard"] == "35mm photographic details, no shallow dof"
-
-    async def test_descriptive_name_is_not_an_option(self, stub):
-        calls, replies = stub
-        prompt = "A woman. {{film look}}"
-        replies.append('```python\nlook = pick("film_look", ["film look", "film look"], label="Look", line=1)\nemit("A woman.", look)\n```')
-        replies.append('```python\nlook = pick("film_look", ["Portra grain", "HP5 black and white"], label="Look", line=1)\nemit("A woman.", look)\n```')
-        entry = await self._ensure(prompt)
-        assert entry["attempts"] == 1 and any('never the word "film look" itself' in w for w in entry["warnings"])
-        replies.clear()
-
-    def test_descriptive_name_is_cut_from_its_options(self):
-        src = 'note = "it’s – fine"\nlook = pick("film_look", ["“Portra” grain", "film look", "HP5"], label="Look")\nemit(note, look)\n'
-        out = prep.drop_name_options(src, "A woman. {{film look}}")
-        assert '["“Portra” grain", "HP5"]' in out
-        assert prep.drop_name_options(src, "A woman, no wildcards.") == src
-
-    async def test_global_wildcards_still_win(self, stub, monkeypatch):
-        _, replies = stub
-        monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments",
-                            lambda profile_id: ([{"name": "color", "values": ["red", "blue"]}], []))
-        replies.append('''```python
-hair = pick("hair_style", ["a sleek bun", "loose waves"], label="Hair style", line=1)
-color = pick("color", ["red", "blue"], label="Color", source="list", line=1)
-emit("A portrait of a woman with", hair, "on a", color, "background.")
-```''')
-        entry = await self._ensure(SMART_PROMPT)
-        by = {c["id"]: c for c in entry["choices"]}
-        assert by["color"]["source"] == "list" and "wildcard" not in by["color"]
-        assert by["hair_style"]["wildcard"] == "hair style"
-
-
-# A structure-only program (pick specs): what the writer replies since pp-20.
-TRAIN_S = '''
-weather = pick("weather", ["rainy", "foggy", "bright"], label="Weather", source="list", phase=1, line=1)
-clothing = pick("clothing", about="her coat in this weather", seed=["a belted olive trench coat"], label="Clothing", phase=2, line=2)
-hair = pick_lora("hairstyle", ["Curtain bangs", "Wolf cut"], label="Hairstyle", line=3)
-param("guidance", 3.5, 5.5, line=4)
-emit("A woman waiting for a train on a", weather, "morning, wearing", clothing, ". [EXACT_1]")
-'''
-
-
-class TestFixInPlace:
-    def test_phases_are_added_and_raised_to_fit_the_rule(self):
-        from prompt_programs.draws import analyze
-        src = ('job = pick("job", about="her job", seed=["nurse"], phase=1)\n'
-               'w = pick("w", ["rain", "sun"], source="list")\n'
-               'if job == "nurse":\n'
-               '    hat = pick("hat", about="a hat", seed=["a cap"], phase=1,\n'
-               '    )\n'
-               'emit("A", job, w, hat)\n')
-        out, notes = prep.fix_phases(src)
-        analyze(out)  # passes the dependency rule now
-        assert 'source="list", phase=1)' in out and "phase=2," in out
-        assert len(notes) == 2
-        assert prep.fix_phases(TRAIN_M) == (TRAIN_M, [])  # older programs are left alone
-
-    def test_a_seed_left_in_the_fixed_text_is_cut_only_where_it_stands_alone(self):
-        src = ('l = pick("light", about="the light", seed=["dramatic light"], phase=1)\n'
-               'emit("a knight, dramatic light, 8k,", l)\n'
-               'emit("glints under the dramatic light, posing", l)\n')
-        out, notes = prep.fix_duplicates(src)
-        assert 'emit("a knight, , 8k,", l)' in out and "under the dramatic light" in out and len(notes) == 1
-
-    def test_line_edits(self):
-        src = 'a = pick("a", about="x", seed=["one"],\n    phase=1)\nemit("A", a, "and", a)\n'
-        assert prep.apply_line_edits(src, '3: emit("A", a)') == 'a = pick("a", about="x", seed=["one"],\n    phase=1)\nemit("A", a)\n'
-        # a whole statement given for its first line replaces all of its lines; prose is ignored
-        out = prep.apply_line_edits(src, 'Sure.\n1: a = pick("a", about="x", seed=["one", "two"], phase=1)\nThat fixes it.')
-        assert out == 'a = pick("a", about="x", seed=["one", "two"], phase=1)\nemit("A", a, "and", a)\n'
-        assert prep.apply_line_edits(src, "2.5: b = 1\n1:") .startswith("    phase=1)\nb = 1\n")
-        assert prep.apply_line_edits(src, "No edits needed.") is None
-
-
 class TestFixInCode:
-    def test_an_unplaced_pick_goes_where_its_seed_stands_and_an_unused_hidden_or_added_one_goes(self):
-        src = ('e = pick("expr", about="x", seed=["smiling broadly"], phase=1, line=2)\n'
-               'h = pick("h", about="x", seed=["red hair"], phase=1,\n    hidden=True)\n'
-               'v = pick("v", about="x", seed=["a scarf"], phase=1, added=True)\n'
-               'u = pick("u", about="x", seed=["a hat"], phase=1, line=1)\n'
-               'emit("A man smiling broadly at a dog.")\n')
-        out, notes = prep.fix_unplaced(src)
-        assert 'emit("A man ", e, " at a dog.")' in out and "red hair" not in out
-        assert "a scarf" not in out  # variety nobody asked for: the program is whole without it
-        assert 'u = pick("u"' in out  # a choice that may be the user's goes back to the writer
-        assert len(notes) == 3
 
-    def test_syntax_slips_are_put_right_where_the_parser_points(self):
-        src = ('a = pick("a", about="x", seed=["one"], phase=1, added=True)\n'
-               'emit("A woman with", a, ". The scene is shot with a shallow depth of field, \n'
-               '     emphasizing the fabric. High-resolution,\n'
-               '     8k.")\n')
-        out, notes = prep.fix_quotes(src)
-        compile(out, "<program>", "exec")
-        assert "field, emphasizing the fabric. High-resolution, 8k." in out and notes
-        src = ('# The user wants a portrait. I will add picks for her features,\n'
-               'formed by the "detailed face" request.\n'
-               'a = pick("a", about="x", seed=["one"], phase=1)\nemit(a)\n')
-        out, notes = prep.fix_quotes(src)
-        compile(out, "<program>", "exec")
-        assert 'a = pick("a"' in out and notes
-        broken = 'a = pick("a, about="x", seed=["one"], phase=1)\nemit(a)\n'
-        assert prep.fix_quotes(broken)[0] == broken  # nothing it can tell for sure: left for validation
 
     def test_an_unclosed_fence_still_gives_the_program(self):
         from prompt_programs.runtime import extract_code
         assert extract_code('```python\na = 1\nemit("x")\n') == 'a = 1\nemit("x")\n'
 
-    def test_what_a_hash_line_asks_to_vary_is_shown_and_an_unused_group_goes(self):
-        src = ('people = group("people", 3, label="People", line=1)\n'
-               'o1 = pick("o1", about="x", seed=["a coat"], phase=2, line=2, hidden=True)\n'
-               'o2 = pick("o2", about="x", seed=["a dress"], phase=2,\n    line=2, added=True)\n'
-               'h = pick("h", about="x", seed=["gray hair"], phase=2, line=1, hidden=True)\n'
-               'emit("Three friends,", o1, o2, h)\n')
-        out, notes = prep.fix_requested(src, "Three friends on a bench\n# vary their outfits")
-        assert "group(" not in out and "hidden=True" in out.splitlines()[-2] and len(notes) == 3
-        assert 'line=2)\n' in out and "added" not in out
-
-    def test_a_generated_pick_named_in_about_is_described_instead(self):
-        from prompt_programs.draws import analyze
-        src = ('age = pick("people[1].age", about="the first friend\'s age", seed=["an old man"], phase=1)\n'
-               'job = pick("job", ["nun", "nurse"], source="list", phase=1)\n'
-               'o = pick("o", about=f"what {age} wears as a {job}", seed=["a coat"], phase=2)\n'
-               'o2 = pick("o2", about=f"what {age} wears", seed=["a coat"], phase=2)\nemit(age, job, o, o2)\n')
-        out, notes = prep.fix_generated_refs(src)
-        assert 'about=f"what [the first friend\'s age] wears as a {job}"' in out
-        assert 'about="what [the first friend\'s age] wears"' in out and len(notes) == 2
-        analyze(out)
-
-    def test_placeholder_brackets_around_a_pick_go(self):
-        out, notes = prep.fix_brackets('job = pick("job", ["a", "b"], source="list", phase=1)\nemit("A [", job, "] at work")\n')
-        assert 'emit("A ", job, " at work")' in out and notes
-
-    def test_adjacent_bracketed_picks_share_the_literal_between_them(self):
-        src = ('a = pick("a", ["x", "y"], source="list", phase=1)\nb = pick("b", ["p", "q"], source="list", phase=1)\n'
-               'emit("A [", a, "] in [", b, "]")\n')
-        out, notes = prep.fix_brackets(src)
-        assert 'emit("A ", a, " in ", b, " ")' in out and notes == ["2 placeholder bracket pair(s) taken out of emit()"]
-        compile(out, "<program>", "exec")
-
-    def test_a_wildcards_own_name_is_not_a_seed(self):
-        src = 'brand = pick("brand", about="the brand", seed=["Brand.", "Acme"], phase=1)\nemit(brand)\n'
-        assert 'seed=["Acme"]' in prep.drop_name_options(src, "a {{brand}} laptop")
-        assert prep.is_name_of(" BRAND. ", "brand") and prep.is_name_of("35mm  film look", "35mm film look")
-
-    def test_only_the_name_itself_is_its_name(self):
-        # exact, never by words: an article, a plural or a longer phrase is an option in its own right
-        assert not prep.is_name_of("a brand", "brand") and not prep.is_name_of("brands", "brand")
-        assert not prep.is_name_of("a brand new laptop", "brand")
 
     # What the writer wrote for "young woman in a yoga outfit" (canary, pp-37): an age narrowed to
     # young adults, an outfit narrowed to yoga looks, and the details the prompt leaves open.
@@ -533,166 +166,6 @@ class TestFixInCode:
         'setting = pick("setting", about="the yoga setting", seed=["a sun-drenched, minimalist studio"], label="Setting", phase=1, added=True)\n'
         'emit("A photograph of a young", ethnicity, "woman, aged", age, ", with", hair_color, "hair in", hair_style, ", with",\n'
         '     expression, ",", pose, "in", setting, ". She is wearing", outfit, ".")\n')
-
-    def test_every_pick_the_writer_wrote_stays_a_pick(self):
-        prompt = "young woman in a yoga outfit"
-        out, notes = prep.fix_written(self.YOGA, prompt, [])
-        assert out == self.YOGA and notes == []
-        checked = prep.validate(out, prompt, [], set(), "")
-        assert checked["problems"] == []  # the outfit's Colors fill its template: never "missing" by name
-        info = checked["info"]
-        assert {c["id"] for c in info["choices"]} == {"ethnicity", "age", "hair_color", "hair_style", "expression",
-                                                    "outfit", "outfit.colors", "pose", "setting"}
-
-    def test_a_pick_the_writer_added_stays_added_whatever_the_prompt_says(self):
-        prompt = "young woman in a yoga outfit"
-        info = prep.validate(self.YOGA, prompt, [], set(), "")["info"]
-        prep.normalize_sources(info, prompt)
-        source = {c["id"]: c["source"] for c in info["choices"]}
-        assert source["pose"] == "added" and source["hair_style"] == "added"
-        assert source["outfit"] == "text" and source["age"] == "text"  # the writer gave them the user's line
-
-
-    def test_two_people_drawing_the_same_value_is_not_a_repeat(self):
-        src = ('n = group("friends", 2, label="Friends", line=1)\n'
-               'for i in range(n):\n'
-               '    h = pick(f"friends[{i+1}].hairstyle", about="this friend\'s hairstyle", seed=["a low ponytail"], '
-               'label="Hairstyle", phase=1, added=True)\n'
-               '    emit("a friend with her hair in", h, ";")\n')
-        notes = prep.validate(src, "two friends", [], set(), "")["notes"]
-        assert not any("more than once" in n for n in notes)
-        once = 'h = pick("h", about="her hairstyle", seed=["a low ponytail"], phase=1, added=True)\nemit("A woman,", h, ",", h)\n'
-        assert any("more than once" in n for n in prep.validate(once, "a woman", [], set(), "")["notes"])
-
-
-    def test_a_person_detail_shared_by_several_people_is_a_problem(self):
-        loop = ('couple = group("couple", 2, label="Couple", line=1)\n'
-                'eth = pick("eth", cls="person.ethnicity", about="their descent", seed=["Korean"], label="Ethnicity", phase=1, added=True)\n'
-                'for i in range(couple):\n'
-                '    pose = pick(f"couple[{i+1}].pose", about="this partner\'s pose", seed=["spinning"], label="Pose", phase=1, added=True)\n'
-                '    emit("a", eth, "partner", pose, ";")\n')
-        problems = prep.validate(loop, "a couple dancing", [], set(), "")["problems"]
-        assert any('pick("eth") names no one' in p and 'pick(f"couple[{i+1}].eth"' in p for p in problems)
-        own = loop.replace('eth = pick("eth", cls="person.ethnicity", about="their descent", seed=["Korean"], label="Ethnicity", phase=1, added=True)\n', '') \
-                  .replace('    emit("a", eth,', '    eth = pick(f"couple[{i+1}].ethnicity", cls="person.ethnicity", about="this partner\'s descent", '
-                           'seed=["Korean"], label="Ethnicity", phase=1, added=True)\n    emit("a", eth,')
-        assert not any("no one, but" in p for p in prep.validate(own, "a couple dancing", [], set(), "")["problems"])
-        named = own.replace('couple = group', 'hair = pick("teacher.hair", cls="person.hair_color", about="the teacher\'s hair color", '
-                            'seed=["black"], label="Hair color", phase=1, added=True)\nemit("A teacher with", hair, "hair;")\ncouple = group')
-        assert not any("no one, but" in p for p in prep.validate(named, "a teacher and two students", [], set(), "")["problems"])
-        assert not any("no one, but" in p for p in prep.validate(self.YOGA, "young woman in a yoga outfit", [], set(), "")["problems"])
-        hand = ('eth = pick("eth", cls="person.ethnicity", about="their descent", seed=["Korean"], label="Ethnicity", phase=1, added=True)\n'
-                'e1 = pick("girl[1].expression", cls="person.expression", about="her expression", seed=["a smile"], label="Expression", phase=1, added=True)\n'
-                'e2 = pick("girl[2].expression", cls="person.expression", about="her expression", seed=["a frown"], label="Expression", phase=1, added=True)\n'
-                'emit("Two", eth, "girls, one with", e1, "and one with", e2)\n')
-        said = [p for p in prep.validate(hand, "two girls", [], set(), "")["problems"] if "no one, but" in p]
-        assert said and "girl[1].eth, girl[2].eth" in said[0] and "range(" not in said[0]  # no loop variable to name
-
-
-class TestFastPrepare:
-    async def _ensure(self, prompt=PROMPT, **kw):
-        return await prep.ensure_program(prompt=prompt, tool_id="t", ctx=ctx(SCHEMA), instructions="",
-                                         lora_items=[], project_id=None, profile_id="p", **kw)
-
-    async def test_structure_only_program(self, stub):
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_S}```")
-        entry = await self._ensure()
-        by = {c["id"]: c for c in entry["choices"]}
-        assert by["clothing"]["about"] == "her coat in this weather" and by["clothing"]["phase"] == 2
-        assert by["clothing"]["options"] == ["a belted olive trench coat"] and not entry["warnings"]
-        assert entry["attempts"] == 1 and entry["timing"]["calls"][0]["kind"] == "write"
-        assert "seed=" in calls[0][0]["content"] and "check every combination" not in calls[0][0]["content"]
-
-    async def test_a_problem_is_fixed_with_line_edits(self, stub):
-        calls, replies = stub
-        broken = TRAIN_S.replace('"morning, wearing", clothing,', '"morning, wearing a coat"')
-        replies.append(f"```python\n{broken}```")
-        line = next(i for i, ln in enumerate(broken.strip("\n").splitlines(), 1) if ln.startswith("emit("))
-        replies.append(f'{line}: emit("A woman waiting for a train on a", weather, "morning, wearing", clothing, ". [EXACT_1]")')
-        entry = await self._ensure()
-        assert not entry["warnings"] and [c["kind"] for c in entry["timing"]["calls"]] == ["write", "repair"]
-        repair = calls[1][-1]["content"]
-        assert 'pick("clothing")' in repair and f"{line}: emit(" in repair  # the problem, and the numbered program
-
-    async def test_a_repair_that_does_not_settle_it_is_followed_by_a_rewrite(self, stub):
-        calls, replies = stub
-        broken = TRAIN_S.replace('"morning, wearing", clothing,', '"morning, wearing a coat"')
-        replies += [f"```python\n{broken}```", "1:", f"```python\n{TRAIN_S}```"]  # the repair deletes a line
-        entry = await self._ensure()
-        assert [c["kind"] for c in entry["timing"]["calls"]] == ["write", "repair", "write"] and not entry["warnings"]
-        assert "Reply with the corrected program only." in calls[2][-1]["content"]
-
-    async def test_a_runaway_reply_is_written_again(self, stub):
-        _, replies = stub
-        replies += ["```python\nx = 1\n" + "emit('and again')\n" * 5, f"```python\n{TRAIN_S}```"]
-        entry = await self._ensure()
-        assert entry["attempts"] == 2 and not entry["warnings"]
-
-    async def test_list_and_exact_text_edits_patch_without_the_model(self, stub):
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_S}```")
-        first = await self._ensure()
-        n = len(calls)
-        lists = await self._ensure(PROMPT.replace("{rainy|foggy|bright}", "{rainy|foggy|bright|snowy}"))
-        assert lists["patch"] == "lists" and lists["patched_from"] == first["key"] and len(calls) == n
-        assert '["rainy", "foggy", "bright", "snowy"]' in lists["program"]
-        exact = await self._ensure(PROMPT.replace("Portra 400", "Ektar 100").replace("{rainy|foggy|bright}", "{rainy|foggy|bright|snowy}"))
-        assert exact["patch"] == "same" and exact["program"] == lists["program"] and len(calls) == n
-        assert prep.realize(exact, seed=3).prompt.endswith("[Shot on Ektar 100]")
-
-    async def test_a_small_text_edit_is_patched_with_one_call(self, stub):
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_S}```")
-        await self._ensure()
-        n = len(calls)
-        edited = PROMPT.replace("A woman waiting", "A man waiting")
-        line = next(i for i, ln in enumerate(TRAIN_S.strip("\n").splitlines(), 1) if ln.startswith("emit("))
-        replies.append(f'{line}: emit("A man waiting for a train on a", weather, "morning, wearing", clothing, ". [EXACT_1]")')
-        entry = await self._ensure(edited)
-        assert entry["patch"] == "text" and len(calls) == n + 1 and not entry["warnings"]
-        note = calls[-1][-1]["content"]
-        assert '"woman" became "man"' in note and "1: A man waiting" in note
-        assert "A man waiting" in prep.realize(entry, seed=1).prompt
-
-    async def test_the_patch_writer_can_say_this_is_a_different_prompt(self, stub):
-        calls, replies = stub
-        replies.append(f"```python\n{TRAIN_S}```")
-        first = await self._ensure()
-        n = len(calls)
-        other = PROMPT.replace("A woman waiting for a train", "A man fishing off a pier")
-        replies.append("START OVER")                 # the patch call
-        replies.append(f"```python\n{TRAIN_S}```")  # then a fresh write
-        entry = await self._ensure(other)
-        assert len(calls) == n + 2 and "patched_from" not in entry
-        assert "START OVER" in calls[n][-1]["content"]          # it was offered the way out
-        assert entry["lineage"] == entry["key"] != first["key"]  # its own options, not the old prompt's
-        assert "previous version" not in calls[n + 1][1]["content"]
-
-    async def test_try_different_choices_never_patches(self, stub):
-        _, replies = stub
-        replies.append(f"```python\n{TRAIN_S}```")
-        await self._ensure()
-        replies.append(f"```python\n{TRAIN_S}```")
-        entry = await self._ensure(PROMPT.replace("{rainy|foggy|bright}", "{rainy|foggy}"), force=True)
-        assert "patch" not in entry and entry["attempts"] == 1
-
-    async def test_the_options_hook_hears_of_each_new_program(self, stub, monkeypatch):
-        _, replies = stub
-        heard = []
-        monkeypatch.setattr(prep, "on_prepared", lambda entry, **kw: heard.append(entry["key"]))
-        replies.append(f"```python\n{TRAIN_S}```")
-        first = await self._ensure()
-        await self._ensure()  # cached: nothing new
-        patched = await self._ensure(PROMPT.replace("{rainy|foggy|bright}", "{rainy|bright}"))
-        assert heard == [first["key"], patched["key"]]
-
-    def test_edit_kinds(self):
-        assert prep.edit_kind("a {red|blue} car", "a {red|blue|green} car") == "lists"
-        assert prep.edit_kind("a woman in a red coat at night", "a man in a red coat at night") == "text"
-        # an unrelated prompt is still the writer's call (it answers START OVER): never judged by its words
-        assert prep.edit_kind("a woman", "a dog on a skateboard in the city at dusk with fireworks") == "text"
-        assert prep.edit_kind("a woman", "a woman") == "same" and prep.edit_kind("a woman", "  ") is None
 
 
 class TestProgramSupport:
@@ -710,11 +183,12 @@ class TestProgramSupport:
 
 
 class TestSuggestOptions:
-    ENTRY = {"key": "k", "prompt": "a woman in {{stylish tank top}}", "example": "a woman in a silk tank top",
+    ENTRY = {"key": "k", "prompt": "a woman in <stylish tank top>", "example": "a woman in a silk tank top",
+             "slot_words": {"stylish_tank_top": "stylish tank top"},
              "elaborate": False, "mode": "prose",
              "program": 't = pick("stylish_tank_top", about="a stylish tank top", seed=["a silk tank top"], '
                         'label="Tank Top", phase=1)\nemit("a woman in", t)\n',
-             "choices": [{"id": "stylish_tank_top", "kind": "pick", "label": "Tank Top", "wildcard": "stylish tank top",
+             "choices": [{"id": "stylish_tank_top", "kind": "pick", "label": "Tank Top",
                           "about": "a stylish tank top", "options": ["a silk tank top", "a linen tank top"]},
                          {"id": "look", "kind": "lora", "label": "Look", "options": ["A"]}]}
 
@@ -779,13 +253,6 @@ async def _protected(text, lang, pid, translate):
 
 
 class TestLoraChoices:
-    def test_trigger_words_can_be_left_out_of_picked_loras(self):
-        entry = {"program": 'hair = pick_lora("hairstyle", ["Curtain bangs", "Wolf cut"], label="Hairstyle")\nemit("a woman")\n',
-                 "loras": [vars(lo) for lo in LORAS], "params": {}}
-        with_t = {prep.realize(entry, seed=s).prompt.lower() for s in range(8)}
-        without = {prep.realize(entry, seed=s, triggers=False).prompt.lower() for s in range(8)}
-        assert any("cbangs" in p or "wolfcut" in p for p in with_t)
-        assert not any("cbangs" in p or "wolfcut" in p for p in without)
 
     def test_notes_and_triggers_shape_what_the_model_is_told(self):
         from routes.generation import _shape_lora_context
@@ -794,18 +261,6 @@ class TestLoraChoices:
         assert _shape_lora_context(ctx, False, True)[0]["trigger_words"] == []
         assert _shape_lora_context(ctx, True, False)[0]["notes"] == ""
         assert _shape_lora_context([], False, False) == []
-
-    async def test_notes_off_keeps_them_from_the_program_writer(self, stub, monkeypatch):
-        calls, replies = stub
-
-        async def noted(tool_id, items, profile_id):
-            return list(LORAS), {"Wolf cut": "SECRET-NOTE"}
-
-        monkeypatch.setattr(prep, "lora_candidates", noted)
-        replies.append(f"```python\n{TRAIN_M}```")
-        await prep.ensure_program(prompt=PROMPT, tool_id="t", ctx=ctx(SCHEMA), instructions="", lora_items=[],
-                                  project_id=None, profile_id="p", lora_notes=False)
-        assert "SECRET-NOTE" not in " ".join(m["content"] for c in calls for m in c)
 
 
 class TestTriggerWordsAreOptIn:
@@ -862,102 +317,28 @@ class TestEditorAndRunAgreeOnTheKey:
         assert not _prompt_audio_conditioned({"input_audios": ["ref"]}, ref)  # the editor doesn't send it either
 
 
-class TestAcceptanceFakeWritesPrograms:
-    """The acceptance sandbox's fake chat model must answer the program writer with a
-    program, or every Tool View run on a fresh app is blocked."""
+class TestAcceptanceFakeReadsSlots:
+    """The acceptance sandbox's fake chat model must answer the slot reader with a reading
+    it can use, or every Fluent run of a prompt with slots on a fresh app is blocked."""
 
-    def test_the_fake_reply_is_a_runnable_program(self):
+    async def test_the_fake_reply_is_a_usable_reading(self, tmp_path):
         from llm import _acceptance_program
-        from prompt_programs.runtime import check, extract_code
-        msg = prep.build_user_message("acceptance test image\n# keep it simple", "m", "prose", {}, [], {})
-        reply = _acceptance_program([{"role": "system", "content": prep._INSTRUCTIONS}, {"role": "user", "content": msg}])
-        source = extract_code(reply)
-        check(source)
-        assert run(source, 1, None, [], set()).prompt.lower() == "acceptance test image"
+        from prompt_programs import reader
+        from prompt_programs.narrow import NarrowCache
+        from prompt_programs.slots import build, parse
 
-    def test_user_lists_become_list_picks(self):
-        from llm import _acceptance_program
-        from prompt_programs.runtime import extract_code
-        prompt = "a {red|blue} car on a {sunny|rainy} day"
-        msg = prep.build_user_message(prompt, "m", "prose", {}, [], {})
-        source = extract_code(_acceptance_program([{"role": "system", "content": prep._INSTRUCTIONS},
-                                                   {"role": "user", "content": msg}]))
-        checked = prep.validate(source, prompt, [], set())
-        assert not checked["problems"]
-        assert {run(source, s, None, [], set()).prompt.lower() for s in range(30)} >= {"a red car on a sunny day", "a blue car on a rainy day"}
+        async def ask(messages, project_id, max_tokens):
+            return _acceptance_program(messages)
+
+        parsed = parse("# at dusk\na <young man> on a {red|blue} bench by the <lake>")
+        got = await reader.read(parsed, ask=ask, project_id=None, model="m", cache=NarrowCache(tmp_path))
+        _, entry = build(parsed, got)
+        assert [s["kind"] for s in entry["slots"]] == ["free", "free"]
+        assert {c["id"] for c in entry["choices"]} == {"young_man", "lake", "list1"}
 
     def test_other_requests_keep_the_dummy_reply(self):
         from llm import _acceptance_program
         assert _acceptance_program([{"role": "system", "content": "You are helpful."}, {"role": "user", "content": "hi"}]) is None
-
-
-def test_a_smart_wildcard_written_as_a_list_is_a_problem():
-    src = ('season = pick("season", ["spring", "summer"], label="Season", source="list", phase=1, line=1)\n'
-           'emit("A girl on a bicycle in", season)\n')
-    problems = prep.validate(src, "A girl on a bicycle, {{season}}", [], set())["problems"]
-    assert any('has source="list", but the user\'s prompt has no list {spring|summer}' in p
-               and "{{season}} is a smart wildcard" in p for p in problems)
-    src = ('e = pick("cars", ["1970s or 1980s cars"], source="list", phase=1, line=1)\n'
-           'street = pick("street", about=f"the street where {e} are parked", seed=["a quiet suburb"], phase=2, added=True)\n'
-           'emit("A photo of a street,", e, ",", street)\n')
-    problems = prep.validate(src, "Photo of a street, {{1970s or 1980s cars}}", [], set())["problems"]
-    assert any('pick("cars") has source="list"' in p for p in problems)
-    listed = 'season = pick("season", ["spring", "summer"], label="Season", phase=1, line=1)\nemit("A girl,", season)\n'
-    assert any("{{season}} is a smart wildcard, not a list" in p
-               for p in prep.validate(listed, "A girl, {{season}}", [], set())["problems"])
-    ok = 'season = pick("season", about="the season", seed=["spring"], label="Season", phase=1, line=1)\nemit("A girl,", season)\n'
-    assert not prep.validate(ok, "A girl, {{season}}", [], set())["problems"]
-
-
-class TestWildcardPicksAreNamedById:
-    PROMPT = "A man on a pier, {{a summer hat}}"
-
-    def test_the_pick_with_the_wildcards_id_holds_it(self):
-        src = ('hat = pick("a_summer_hat", about="a summer hat", seed=["a straw boater"], label="Hat", phase=1, line=1)\n'
-               'emit("A man on a pier, wearing", hat)\n')
-        checked = prep.validate(src, self.PROMPT, [], set())
-        assert not checked["problems"]
-        prep.normalize_sources(checked["info"], self.PROMPT)
-        hat = checked["info"]["choices"][0]
-        assert hat["wildcard"] == "a summer hat" and hat["source"] == "text"
-
-    def test_one_per_person_ends_with_the_id(self):
-        prompt = "Three friends at a campfire, each in {{a winter hat}}"
-        src = ('friends = group("friends", 3, label="Friends", line=1)\n'
-               'emit("Three friends at a campfire:")\n'
-               'for i in range(friends):\n'
-               '    hat = pick(f"friends[{i+1}].a_winter_hat", about="a winter hat", seed=["a red bobble hat"], '
-               'label="Hat", phase=1, line=1)\n'
-               '    emit("one in", hat, ";")\n')
-        checked = prep.validate(src, prompt, [], set())
-        assert not any("smart wildcard" in p for p in checked["problems"])
-        prep.normalize_sources(checked["info"], prompt)
-        assert [c.get("wildcard") for c in checked["info"]["choices"] if c["kind"] == "pick"] == ["a winter hat"] * 3
-
-    def test_a_pick_under_another_id_is_not_guessed(self):
-        # its about and label say "summer hat", but only the id names the wildcard
-        src = ('hat = pick("hat", about="a summer hat", seed=["a straw boater"], label="Summer hat", phase=1, line=1)\n'
-               'emit("A man on a pier, wearing", hat)\n')
-        checked = prep.validate(src, self.PROMPT, [], set())
-        assert any('{{a summer hat}} is a smart wildcard, but no pick has the id "a_summer_hat"' in p
-                   and 'rename that pick to "a_summer_hat"' in p for p in checked["problems"])
-        prep.normalize_sources(checked["info"], self.PROMPT)
-        assert "wildcard" not in checked["info"]["choices"][0]
-
-    def test_the_writer_is_told_each_wildcards_id(self):
-        msg = prep.build_user_message(self.PROMPT, "m", "prose", {}, [], {})
-        assert 'a_summer_hat = pick("a_summer_hat"' in msg and "exactly the id shown" in msg
-
-
-def test_a_one_item_list_is_fixed_text():
-    src = ('flower = pick("flower", ["lilacs"], label="Flower", source="list", phase=1, line=1)\n'
-           'light = pick("light", about="the light", seed=["soft light"], phase=1, added=True)\n'
-           'emit("A vase of", flower, ",", light)\n')
-    out, notes = prep.fix_one_item_lists(src)
-    assert out.startswith('flower = "lilacs"\n') and "light = pick(" in out and len(notes) == 1
-    assert not prep.validate(out, "A vase of lilacs", [], set())["problems"]
-    wild = 'e = pick("cars", ["1970s or 1980s cars"], source="list", phase=1, line=1)\nemit("A street of", e)\n'
-    assert prep.fix_one_item_lists(wild, "A street of {{1970s or 1980s cars}}") == (wild, [])
 
 
 # --------------------------------------------------------------------------- the sandbox
@@ -1164,15 +545,8 @@ class TestStoreKeys:
         for bad in ["../secret", "../../secret", "/etc/passwd", "ab/../../secret", "A" * 32, "0" * 31, "", None, 7,
                     "0" * 32 + "/../x", "..%2fsecret"]:
             assert store.get(bad) is None
-            assert store.recent(bad) == []
-            assert store.get_node(bad) is None
         with pytest.raises(ValueError):
             store.put("../secret", {"x": 1})
-        with pytest.raises(ValueError):
-            store.remember("../secret", program_key({"a": 1}))
-        key, context = program_key({"prompt": "a cat"}), program_key({})
+        key = program_key({"prompt": "a cat"})
         store.put(key, {"key": key})
-        store.remember(context, key)
-        assert store.get(key) == {"key": key} and store.recent(context) == [key]
-        node = store.put_node({"messages": []})
-        assert store.get_node(node)["id"] == node
+        assert store.get(key) == {"key": key}

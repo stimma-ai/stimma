@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from prompt_programs import prepare as prep
+from prompt_programs import program as prep
 from prompt_programs.fix import (
     FixJudgeUnavailable, OnnxJudge, fix_draw, fix_judge, judged_picks, mask, realize_and_fix, score_draw,
 )

@@ -45,7 +45,7 @@ from prompt_programs.vocab import (
 
 log = get_logger(__name__)
 
-OPTIONS_VERSION = "opts-6"     # bump to invalidate every generated pool on purpose. opts-6: a slot's pools by zone (kinds of its words, things instead), each option in the form of the slot's words. opts-5: a smart wildcard's options name its things, no description added. opts-4: US words. opts-3: US spelling
+OPTIONS_VERSION = "opts-6"     # bump to invalidate every generated pool on purpose. opts-6: a slot's pools by zone (kinds of its words, things instead), each option in the form of the slot's words. opts-5: options name their things, no description added. opts-4: US words. opts-3: US spelling
 FIRST_OPTIONS_VERSION = "opts-1"   # what a revision that records no options version drew with
 OPTIONS_VERSIONS = (FIRST_OPTIONS_VERSION, "opts-2", "opts-3", "opts-4", "opts-5", OPTIONS_VERSION)   # versions a recorded revision can replay
 BATCH_SIZE = 12                # options asked for per generation call
@@ -98,8 +98,8 @@ class ProgramContext:
     # The program's edit lineage: a prompt edit patched into a program keeps its lineage,
     # so every pick the edit didn't touch keeps its options.
     lineage: str = ""
-    # {{wildcards}} in the user's words, and where= on picks, by pick id: what that pick's
-    # options must stay within
+    # the user's words for a pick (a slot's words, where= on picks), by pick id: what that
+    # pick's options must stay within
     intents: Tuple[Tuple[str, str], ...] = ()
     # a bound pick's list narrowed by where= (narrow.py), by pick id; an empty subset means
     # nothing in the list fits and the pick draws unbound
@@ -113,8 +113,6 @@ class ProgramContext:
     # (person, ages under 18) for each person who may be a minor: an age pick narrowed to such
     # ages, or the age the prompt states for a person with no age pick (narrow.py, entry["ages"])
     minors: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()
-    # picks that are the user's own {{wildcards}}: never filtered by a person's age
-    wildcards: Tuple[str, ...] = ()
     # (list pick, ((value, ages under 18), ...)) for the user's list values that read as an age
     # under 18 (narrow.py, entry["list_ages"]): a draw of one makes its person a minor
     list_ages: Tuple[Tuple[str, Tuple[Tuple[str, Tuple[str, ...]], ...]], ...] = ()
@@ -134,7 +132,7 @@ class ProgramContext:
                       if c.get("source") == "list" and c.get("kind", "pick") == "pick" and c.get("options"))
         def words(c: Dict[str, Any]) -> str:  # the user's own words for a choice (never a facet filter)
             where = c.get("where")
-            return str(c.get("wildcard") or c.get("where_words") or (where if isinstance(where, str) else "") or "")
+            return str(c.get("where_words") or (where if isinstance(where, str) else "") or "")
         intents = tuple((str(c.get("id")), words(c)) for c in entry.get("choices") or [] if words(c))
         # A slot's own words (slots.py) for a pick with no list: the rule its kinds are written within.
         listed = {str(c.get("id")) for c in entry.get("choices") or [] if c.get("cls")}
@@ -148,7 +146,6 @@ class ProgramContext:
                    entry.get("elaborate") is not False, lists, str(entry.get("tool_id") or ""),
                    str(entry.get("lineage") or ""), intents, filters, facets, str(entry.get("context_key") or ""),
                    minors=program_minors(entry),
-                   wildcards=tuple(str(c.get("id")) for c in entry.get("choices") or [] if c.get("wildcard")),
                    list_ages=tuple((str(k), tuple((str(v), tuple(a)) for v, a in vals.items()))
                                    for k, vals in (entry.get("list_ages") or {}).items() if isinstance(vals, dict)),
                    stated=tuple((s.get("of") if isinstance(s.get("of"), str) else None, str(s.get("cls") or ""),
@@ -598,7 +595,7 @@ async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Seque
                     int(choice.get("phase") or 1), str(choice.get("source") or "text"), "pick",
                     seeds=seeds, cls=str(choice.get("cls") or ""), zone=zone or "")
     program = ProgramContext.of(entry)
-    if spec.cls != AGE_LIST and spec.id not in program.wildcards:
+    if spec.cls != AGE_LIST:
         p = person_of(spec.id)
         spec.minor = tuple(dict.fromkeys(a for who, ages in program.minors if owns(who, p) for a in ages))
     job = OptionJob(key="", spec=spec, context={}, program=program, signature=program.signature, round=0,
@@ -873,7 +870,6 @@ class GeneratedOptions:
         self.filters = {k: v for k, v in program.filters}
         self.minor_ages = dict(program.minors)    # read by the draw engine (draws._Engine._minors)
         self.list_ages = {k: dict(v) for k, v in program.list_ages}   # read by the draw engine too
-        self.theirs = program.wildcards
         # Context (vocab.py), read by the draw engine: off to replay a revision drawn before it.
         self.context = context
         self.stated_context: Dict[Optional[str], Dict[str, Tuple[str, ...]]] = {}

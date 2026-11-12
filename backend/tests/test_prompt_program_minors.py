@@ -10,12 +10,18 @@ import pytest
 from prompt_programs.draws import LiteralOptions, PickSpec, draw, person_of
 from prompt_programs.fluent import pool_options, program_context, runtime_for
 from prompt_programs.judge import FluentSettings
-from prompt_programs.narrow import _SYSTEM, NarrowCache, mark_pending, messages_for, narrow_entry
+from prompt_programs.narrow import _SYSTEM, NarrowCache, messages_for, narrow_entry
 from prompt_programs.options import (
     GeneratedOptions, OptionFiller, OptionStore, ProgramContext, gen_key, generation_messages, program_minors,
 )
 from prompt_programs.runtime import discover
 from prompt_programs.vocab import AGE_LIST, load, minor_ages, template_matches, vocabulary
+
+async def narrow_read(entry, cache, ask, *args, **kw):
+    """narrow_entry with the fake model's reading as the slots' words (slots.build writes them)."""
+    entry.setdefault("slot_words", dict(getattr(ask, "read", None) or {}))
+    return await narrow_entry(entry, cache, ask, *args, **kw)
+
 
 OFF = FluentSettings(generate_options=False)
 SEEDS = range(300)
@@ -78,14 +84,12 @@ def draws_of(entry, tmp_path, seeds=SEEDS, pins=None, edits=None, fixed=None):
 
 class ModelAsk:
     """Answers narrowing the way a model following the instructions should: `ages` maps the
-    words to the age bands it would keep; `read` is the prompt reading's reply."""
+    words to the age bands it would keep; `read` is the slots' words for each choice (narrow_read)."""
 
     def __init__(self, ages_for=None, read=None):
         self.ages_for, self.read, self.subsets = ages_for or {}, read or {}, []
 
     async def __call__(self, messages, project_id, max_tokens):
-        if "find the words in it" in messages[0]["content"]:
-            return json.dumps(self.read)
         self.subsets.append(messages)
         values = json.loads(re.search(r"\n(\[.*?\])\n", messages[1]["content"], re.S).group(1))
         phrase = re.search(r'Which of these fit "(.*?)"', messages[1]["content"]).group(1)
@@ -171,18 +175,6 @@ class TestUnasked:
             r = draw(ONE, seed, None, [], None, None, None, options=LiteralOptions())
             assert not is_minor(next(d.value for d in r.draws if d.id == "age"))
 
-    async def test_skipped_or_failed_narrowing_draws_adults(self, tmp_path):
-        skipped = entry_of(ONE, "a person at the beach")
-        assert mark_pending(skipped)
-        unreadable = entry_of(ONE, "a person at the beach")
-
-        async def broken(messages, project_id, max_tokens):
-            raise RuntimeError("down")
-        await narrow_entry(unreadable, NarrowCache(tmp_path / "n"), broken)
-        assert unreadable["narrow_pending"]
-        for e in (skipped, unreadable):
-            assert not program_minors(e)
-            assert not any(is_minor(d["age"].value) for d in draws_of(e, tmp_path / "o", range(120)))
 
     def test_standby_ages_are_in_the_pool_at_weight_zero(self, tmp_path):
         opts = GeneratedOptions(OptionStore(tmp_path), program_context(entry_of(ONE)))
@@ -252,27 +244,6 @@ class TestNarrowing:
         asyncio.run(subset(ages(), "girl", None, ask, None, "her age", "a girl with dark eyes"))
         assert "The whole prompt" not in seen[0] and "The whole prompt:\na girl with dark eyes" in seen[1]
 
-    def test_a_prompt_with_exact_text_is_never_read_whole_for_an_age(self):
-        """No model reads [exact text], so what it hides could make a child-looking prompt an
-        adult one: the age is then read from its own words, where "a girl" alone is an adult."""
-        import asyncio
-        from prompt_programs import narrow
-        seen = []
-
-        async def ask(messages, project_id, max_tokens):
-            seen.append(messages[1]["content"])
-            return "[]" if "Which of these fit" in messages[1]["content"] else '{"girl.age": "a girl"}'
-        src = ('age = pick("girl.age", cls="person.age_band", about="the girl\'s age", seed=["22-year-old"], label="Age", phase=1, added=True)\n'
-               'emit("A", age, "girl walking to the store with her mom, [EXACT_1]")\n')
-        for exact in ({"EXACT_1": "wearing lingerie"}, {}):
-            seen.clear()
-            entry = {"key": "x", "program": src, "prompt": "a girl walking to the store with her mom, [EXACT_1]", "exact": exact,
-                     "choices": [{"id": "girl.age", "kind": "pick", "label": "Age", "cls": "person.age_band", "about": "the girl's age",
-                                  "source": "added", "options": [], "phase": 1}]}
-            asyncio.run(narrow.narrow_entry(entry, None, ask))
-            told = [m for m in seen if "Which of these fit" in m]
-            assert told and all(("The whole prompt" in m) == (not exact) for m in told)
-        assert "or you are given no prompt, they are a young adult" in _SYSTEM
 
     def test_the_opt_in_ages_are_still_named_as_such(self):
         user = messages_for(ages(), "girl", [v.text for v in ages().eligible()], "her age")[1]["content"]
@@ -281,15 +252,6 @@ class TestNarrowing:
         assert "kept only when called for" in user
         assert "only when asked" not in messages_for(vocabulary().get("person.eye_color"), "dark", ["brown"])[1]["content"]
 
-    def test_the_reader_quotes_the_kind_of_person_for_their_age(self):
-        from prompt_programs.narrow import _READ_SYSTEM
-        assert '"two kids"' in _READ_SYSTEM and "copy it for their age" in _READ_SYSTEM
-
-    def test_the_writer_is_told_too(self):
-        from prompt_programs import prepare as prep
-        assert '"A girl"\n  or "a boy" alone says neither, and the rest of the prompt decides' in prep._INSTRUCTIONS
-        assert "makes them a young adult, always" in prep._INSTRUCTIONS
-        assert 'never choose those for anyone else' in prep._INSTRUCTIONS
 
     @pytest.mark.parametrize("prompt,words,keep,minor", [
         ("a girl in a cafe", "girl", YOUNG_ADULT, False),
@@ -300,7 +262,7 @@ class TestNarrowing:
     ])
     async def test_asked_for_ages_and_a_girl(self, tmp_path, prompt, words, keep, minor):
         e = entry_of(ONE, prompt)
-        await narrow_entry(e, NarrowCache(tmp_path / "n"), ModelAsk({words: keep}, read={"age": words}))
+        await narrow_read(e, NarrowCache(tmp_path / "n"), ModelAsk({words: keep}, read={"age": words}))
         assert bool(program_minors(e)) is minor
         got = [d for d in draws_of(e, tmp_path / "o", range(150))]
         assert all(keep(d["age"].value) for d in got)
@@ -314,30 +276,22 @@ class TestNarrowing:
     async def test_a_life_stage_where_asks_in_code(self, tmp_path):
         src = ONE.replace('about="her age"', 'where={"life_stage": "child"}, about="her age"')
         e = entry_of(src, "a child at the beach")
-        await narrow_entry(e, NarrowCache(tmp_path / "n"), ModelAsk({}, read={}))
+        await narrow_read(e, NarrowCache(tmp_path / "n"), ModelAsk({}, read={}))
         assert e["filters"]["age"] and all(is_minor(v) for v in e["filters"]["age"])
         assert dict(program_minors(e))[""] == tuple(e["filters"]["age"])
 
     async def test_a_stated_age_with_no_age_pick_is_read(self, tmp_path):
         e = entry_of(NO_AGE, "a 10-year-old at the beach")
         ask = ModelAsk({"10-year-old": TEN}, read={"stated_age": "10-year-old"})
-        await narrow_entry(e, NarrowCache(tmp_path / "n"), ask)
+        await narrow_read(e, NarrowCache(tmp_path / "n"), ask)
         assert e["ages"] == {"": ["8-year-old"]} and "stated_age" not in e["filters"]
         assert dict(program_minors(e)) == {"": ("8-year-old",)}
         for d in draws_of(e, tmp_path / "o", range(150)):
             assert not coded(d["outfit"].value, "person.outfit.summer") and not coded(d["expr"].value, "person.expression")
         # a woman's stated age is read too, and limits nothing
         w = entry_of(NO_AGE, "a woman at the beach")
-        await narrow_entry(w, NarrowCache(tmp_path / "n"), ModelAsk({"woman": ADULT}, read={"stated_age": "woman"}))
+        await narrow_read(w, NarrowCache(tmp_path / "n"), ModelAsk({"woman": ADULT}, read={"stated_age": "woman"}))
         assert not program_minors(w)
-
-    async def test_an_unfinished_stated_age_is_tried_again(self, tmp_path):
-        e = entry_of(NO_AGE, "a 10-year-old at the beach")
-
-        async def no_read(messages, project_id, max_tokens):
-            return "no idea"
-        await narrow_entry(e, NarrowCache(tmp_path / "n"), no_read)
-        assert e["narrow_pending"]["stated_age"]["age_of"] == "" and "ages" not in e
 
 
 # --------------------------------------------------------------------------- rule 2: one person's age, their pools
@@ -346,7 +300,7 @@ class TestPerPerson:
     async def test_a_minor_loses_adult_coded_looks_and_the_adult_beside_them_does_not(self, tmp_path):
         e = entry_of(TWO, "a child and her mother at the pool")
         ask = ModelAsk({"child": CHILD, "mother": ADULT}, read={"kid.age": "child", "mother.age": "mother"})
-        await narrow_entry(e, NarrowCache(tmp_path / "n"), ask)
+        await narrow_read(e, NarrowCache(tmp_path / "n"), ask)
         assert set(dict(program_minors(e))) == {"kid"}
         mother_pools = set()
         for d in draws_of(e, tmp_path / "o", range(200)):
@@ -376,7 +330,7 @@ class TestPerPerson:
 
     async def test_generated_options_are_written_for_the_age_in_their_own_pool(self, tmp_path):
         e = entry_of(NO_AGE, "a 10-year-old at the beach")
-        await narrow_entry(e, NarrowCache(tmp_path / "n"), ModelAsk({"10-year-old": TEN}, read={"stated_age": "10-year-old"}))
+        await narrow_read(e, NarrowCache(tmp_path / "n"), ModelAsk({"10-year-old": TEN}, read={"stated_age": "10-year-old"}))
         store = OptionStore(tmp_path / "o")
 
         class Gen:
@@ -399,7 +353,7 @@ class TestPerPerson:
 
     async def test_a_revision_replays_the_filtered_pool(self, tmp_path):
         e = entry_of(ONE, "a little girl at the beach")
-        await narrow_entry(e, NarrowCache(tmp_path / "n"), ModelAsk({"little girl": CHILD}, read={"age": "little girl"}))
+        await narrow_read(e, NarrowCache(tmp_path / "n"), ModelAsk({"little girl": CHILD}, read={"age": "little girl"}))
         rt = runtime_for(e, store=OptionStore(tmp_path / "o"), cfg=OFF)
         first = draw(ONE, 5, None, [], None, None, None, options=rt.options)
         keys = [k for k in first.revision["pools"] if k.startswith(("outfit:", "expr:"))]
@@ -421,17 +375,6 @@ class TestTheUsersOwn:
         seen = {d["look"].value for d in draws_of(e, tmp_path, range(60), pins={"age": ["8-year-old"]})}
         assert bikini in seen
 
-    async def test_a_bound_wildcard_is_never_filtered(self, tmp_path):
-        e = entry_of(ONE, "a little girl at the beach in {{beachwear}}")
-        for c in e["choices"]:
-            if c["id"] == "outfit":
-                c["wildcard"] = "beachwear"
-        await narrow_entry(e, NarrowCache(tmp_path / "n"),
-                           ModelAsk({"little girl": CHILD, "beachwear": lambda v: True}, read={"age": "little girl"}))
-        assert program_minors(e) and program_context(e).wildcards == ("outfit",)
-        d = next(draws_of(e, tmp_path / "o", range(1)))
-        assert set(adult_only("person.outfit.summer")) <= set(d["outfit"].options)
-        assert not set(adult_only("person.expression")) & set(d["expr"].options)  # her other details still are
 
     def test_a_users_added_value_stays(self, tmp_path):
         mine = "a sequined showgirl leotard"
@@ -450,7 +393,7 @@ class TestTheUsersOwn:
                'emit("A", age, "girl with", expr, ".")')
         e = entry_of(src, "a {13-year-old|30-year-old} girl")
         ask = ModelAsk({"13-year-old": lambda v: start(v) == 13, "30-year-old": lambda v: start(v) == 30})
-        await narrow_entry(e, NarrowCache(tmp_path / "n"), ask)
+        await narrow_read(e, NarrowCache(tmp_path / "n"), ask)
         assert e["list_ages"] == {"age": {"13-year-old": ["13-year-old"]}} and not program_minors(e)
         seen = {}
         for d in draws_of(e, tmp_path / "o", range(80)):
@@ -462,7 +405,7 @@ class TestTheUsersOwn:
         assert set(adult_only("person.expression")) <= seen["30-year-old"]
         # drawn after her expression, the list's age isn't known yet: she may be 13 in every draw
         late = entry_of(src.replace('label="Age", phase=1', 'label="Age", phase=2'), e["prompt"])
-        await narrow_entry(late, NarrowCache(tmp_path / "n"), ask)
+        await narrow_read(late, NarrowCache(tmp_path / "n"), ask)
         for d in draws_of(late, tmp_path / "p", range(40)):
             assert not set(adult_only("person.expression")) & set(d["expr"].options)
 

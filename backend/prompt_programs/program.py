@@ -246,7 +246,7 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
             fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
             profile_id: Optional[str] = None, project_id: Optional[int] = None,
             revision: Optional[Dict[str, Any]] = None, runtime: Any = None, unmask: bool = True,
-            zones: Optional[Dict[str, List[str]]] = None, **_ignored: Any) -> RunResult:
+            zones: Optional[Dict[str, List[str]]] = None) -> RunResult:
     """One generation's prompt from a prepared program, drawn with generated options
     (prompt_programs.fluent). Pass a recorded `revision` to replay its pools, or a `runtime`
     to draw with a given options service (evaluations, tests). unmask=False leaves [exact

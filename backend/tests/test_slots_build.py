@@ -246,7 +246,7 @@ def test_a_realized_prompt_says_where_each_drawn_value_stands():
     user's [exact text] is back; the user's own words are never a span."""
     from prompt_programs.fluent import runtime_for as rt_for
     from prompt_programs.runtime import tidy_text
-    from prompt_programs.prepare import mask_exact, realize
+    from prompt_programs.program import mask_exact, realize
 
     masked, exact = mask_exact(PORCH_PROMPT.replace("evening", "evening, [Kodak Portra 400]"))
     _, entry = build(parse(masked), PORCH_READING)

@@ -88,7 +88,7 @@ async def _varied_image(session, tmp_path, *, varied=True):
         "prompt_metadata": {"original_prompt": "a {nun|nurse} in {{setting}}", "auto_improve_enabled": True},
     }
     if varied:
-        meta["prompt_program"] = {"key": "k", "enhance": "fill", "draw_seed": 44,
+        meta["prompt_program"] = {"key": "k", "level": "fill", "draw_seed": 44,
                                   "draws": [{"id": "role", "value": "nun"}, {"id": "setting", "value": "a cloister garden"}]}
     item = await create_media_item(session, file_path=path, file_hash=file_hash, tool_id="mock:gen",
                                    generation_metadata=json.dumps(meta))

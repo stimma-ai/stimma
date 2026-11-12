@@ -7,7 +7,7 @@ import threading
 
 import pytest
 
-from prompt_programs import prepare as prep
+from prompt_programs import program as prep
 from prompt_programs.draws import DrawResult, PickSpec, fixed_text
 from prompt_programs.runtime import ProgramError
 from prompt_programs.fluent import program_context, runtime_for, start_options
@@ -337,13 +337,6 @@ class TestOptionFiller:
         await f.drain()
         assert sorted(j.spec.about for j in gen.calls) == ["thing b", "thing c"] and f.dropped == 1
         assert not f.busy(old.key)
-
-    def test_prepare_tracks_the_latest_program_per_context(self, monkeypatch):
-        monkeypatch.setattr(prep, "_latest", {})
-        assert prep.is_current("k1", "ctx") and prep.is_current("k1", "")
-        prep._latest["ctx"] = "k2"
-        assert not prep.is_current("k1", "ctx") and prep.is_current("k2", "ctx")
-        assert ProgramContext.of({"key": "k1", "program": 'emit("x")', "context_key": "ctx"}).context_key == "ctx"
 
 
 # --------------------------------------------------------------------------- realize

@@ -1,19 +1,14 @@
 """where=: a bound pick's list narrowed to what the user's words allow.
 
-    age = pick("age", cls="person.age_band", where="young", about="her age", seed=["22-year-old"], ...)
+    age = pick("young_man.age", cls="person.age_band", about="his age", ...)
 
-"A young woman" doesn't fix her age, it narrows it: the age list should draw only the
-young adult ranges. After a program is prepared, two steps find and apply such words:
-
-1. Read: one call per prompt asks which of the user's own words describe each bound
-   detail ("young woman" for age, "blonde" for hair color, nothing for her outfit), as
-   stretches copied from the prompt. An answer that isn't a stretch of the prompt as written
-   (case and spacing aside) is dropped: code never judges which words "count". A bound smart wildcard uses its own name
-   (`{{red or auburn hair}}`); the writer's `where=` is used when the reading finds
-   nothing. Writers forget `where=` about half the time, so the reading is what counts.
-2. Narrow: each distinct (list, words) pair is resolved once, by asking which of the
-   list's values fit the words, cached on disk across prompts: "young woman" on the age
-   list is asked once per vocabulary version, ever.
+"A young man" doesn't fix his age, it narrows it: the age list should draw only the young
+adult ranges. The slot reader (reader.py) says which of a slot's words state each detail
+(`entry["slot_words"]`: choice id -> words copied from the slot or a comment line); then each
+distinct (list, words) pair is resolved once, by asking which of the list's values fit the
+words, cached on disk across prompts: "young man" on the age list is asked once per
+vocabulary version, ever. A pick's where= words, when it has them, narrow it when the slot's
+words say nothing of it.
 
 The prepared entry records the subset per pick (`entry["filters"]`). A closed list then
 draws only from it; an open list starts from it, and its generated options are told the
@@ -23,7 +18,7 @@ the words, rather than from a list that ignores them.
 
 A narrowing that didn't finish (the reading or a subset call failed, timed out or came back
 unreadable, or there was no time to try) is not final: `entry["narrow_pending"]` holds each
-such pick's list and options as they were, and prepare.renarrow tries again later.
+such pick's list and options as they were, and program.renarrow tries again later.
 
 Ages. A person is an adult unless asked: the age list's bands under 18 are opt-in (vocab.py),
 so an age pick these steps leave unnarrowed (no words, a failed or skipped call) draws adults
@@ -95,34 +90,19 @@ alike. For an age you are also given the whole prompt, and the prompt decides:
 Decide which of the three it is first. The ages you keep for "a girl" or "a boy" are then all
 under 18 or all 18 and over, never some of each."""
 
-_READ_SYSTEM = """You read an image prompt and find the words in it that describe certain details.
-
-For each detail, copy the prompt's own words about that detail: a stretch of the prompt copied
-character for character, with the person or thing they describe ("young woman", "his dark hair",
-"a smiling girl"). When those words stand apart in the prompt, give a list of the stretches. Give
-null when the prompt says nothing about the detail. Don't guess, infer or reword: every stretch
-must appear in the prompt exactly as you copy it.
-The word that says what kind of person someone is speaks to their age too ("two kids", "a
-toddler", "a teenage boy", "a woman", "her young daughter", "a girl"): copy it for their age.
-Reply with only a JSON object mapping each detail's id to a stretch, a list of stretches, or null."""
-
-READ_VERSION = "read-3"   # read-3: exact stretches, and the kind-of-person word copied for an age
-
-
 def phrase_of(choice: Dict[str, Any], read: Optional[Dict[str, str]] = None) -> str:
-    """The words a bound choice is narrowed by: its wildcard's own name, else the words read
-    from the prompt for it, else the writer's where= (when it's words, not a facet filter)."""
+    """The words a bound choice is narrowed by: the slot's words for it, else the pick's own
+    where= (when it's words, not a facet filter)."""
     where = choice.get("where")
     words = where.strip() if isinstance(where, str) else ""
     got = str((read or {}).get(choice.get("id"), "") or "").strip()
-    # An age the writer gave for the scene ("a young boy" for a son beside his father) holds beside
-    # what the prompt says of that person's age ("son"): both narrow the list.
-    if got and words and choice.get("cls") == AGE_LIST and not choice.get("wildcard"):
+    # An age written for the scene beside what the slot says of that person's age: both narrow the list.
+    if got and words and choice.get("cls") == AGE_LIST:
         if got.lower() in words.lower():
             return words
         if words.lower() not in got.lower():
             return f"{got}, {words}"
-    return str(choice.get("wildcard") or got or words or "").strip()
+    return str(got or words or "").strip()
 
 
 def _shown(text: str) -> str:
@@ -135,50 +115,10 @@ def _spaced(text: str) -> str:
 
 
 def _span(words: str, prompt: str) -> bool:
-    """`words` is a stretch of the prompt as written (case and runs of spaces aside): the
+    """`words` is a stretch of the prompt as written (case and runs of spaces aside): a
     reading copies, it doesn't invent or reword."""
     want = _spaced(words)
     return bool(want) and want in _spaced(prompt)
-
-
-def read_messages(prompt: str, details: Sequence[Tuple[str, str]]) -> List[Dict[str, str]]:
-    lines = "\n".join(f"- {cid}: {what}" for cid, what in details)
-    return [{"role": "system", "content": _READ_SYSTEM},
-            {"role": "user", "content": f"The prompt:\n{prompt}\n\nThe details:\n{lines}"}]
-
-
-def _outside_wildcards(prompt: str) -> str:
-    """The prompt with each {{wildcard}} cut out: a wildcard's words are its own pick's, never
-    another detail's ("{{a summer hat}}" isn't what he wears)."""
-    return re.sub(r"\{\{[^{}]*\}\}", " \u2026 ", prompt)
-
-
-def _read_value(value: Any, prompt: str) -> str:
-    """A detail's answer: a stretch of the prompt or a list of them, joined. Empty when any
-    stretch isn't in the prompt as written (the answer is the model's, not the user's), or
-    lies inside a {{wildcard}}."""
-    prompt = _outside_wildcards(prompt)
-    spans = value if isinstance(value, list) else [value]
-    spans = [str(x).strip() for x in spans if isinstance(x, str) and x.strip()]
-    if not spans or not all(_span(x, prompt) for x in spans):
-        return ""
-    return ", ".join(dict.fromkeys(spans))
-
-
-def parse_read(reply: str, ids: Sequence[str], prompt: str) -> Optional[Dict[str, str]]:
-    """{id: words} from the reply's JSON object, keeping only answers that are stretches of
-    the prompt as written; None when the reply holds no JSON object."""
-    m = re.search(r"\{.*\}", reply or "", re.S)
-    if not m:
-        return None
-    try:
-        got = json.loads(m.group(0))
-    except ValueError:
-        return None
-    if not isinstance(got, dict):
-        return None
-    out = {cid: _read_value(got.get(cid), prompt) for cid in ids}
-    return {cid: words for cid, words in out.items() if words}
 
 
 def _norm(s: str) -> str:
@@ -282,42 +222,13 @@ async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask
     return got
 
 
-async def read_words(prompt: str, choices: Sequence[Dict[str, Any]], cache: Optional[NarrowCache], ask: Ask,
-                     project_id: Optional[int] = None) -> Optional[Dict[str, str]]:
-    """The user's own words about each bound choice's detail, from one call per prompt
-    (cached by the prompt and the details asked about). None when the call fails or its
-    answer can't be read (never cached)."""
-    vocab = vocabulary()
-    details = [(c["id"], f'{vocab.leaves[c["cls"]].label} ({c.get("about") or vocab.leaves[c["cls"]].description})')
-               for c in choices]
-    if not details or not prompt.strip():
-        return {}
-    key = hashlib.sha256(json.dumps(["read", NARROW_VERSION, READ_VERSION, prompt, details], ensure_ascii=False).encode()).hexdigest()[:32]
-    if cache is not None:
-        hit = cache.get_raw(key)
-        if isinstance(hit, dict):
-            return {str(k): str(v) for k, v in hit.items()}
-    try:
-        reply = await ask(read_messages(prompt, details), project_id, 600)
-    except Exception as e:
-        log.warning(f"[prompt-program] reading the prompt's words for its lists failed: {e}")
-        return None
-    got = parse_read(reply, [cid for cid, _ in details], prompt)
-    if got is None:
-        return None
-    if cache is not None:
-        cache.put_raw(key, got)
-    return got
-
-
 async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask: Ask,
                        project_id: Optional[int] = None, seconds: float = NARROW_SECONDS) -> List[str]:
     """Narrow every bound choice to what the user's words allow, in place: `entry["filters"]`
     maps the choice id to its subset, the choice shows only those options, and a choice whose
     subset is empty loses its list. Picks whose narrowing didn't finish are recorded in
-    `entry["narrow_pending"]` (see the module docstring). A slot program's words come from
-    `entry["slot_words"]` (choice id -> the slot's words for it) instead of a reading of the
-    prompt. Returns notes for the log."""
+    `entry["narrow_pending"]` (see the module docstring). The words come from
+    `entry["slot_words"]` (choice id -> the slot's words for it). Returns notes for the log."""
     vocab = vocabulary()
     # A pick with said= is the user's own words, not a kind to narrow to: its list holds alternatives.
     bound = [c for c in entry.get("choices") or [] if vocab.get(c.get("cls")) is not None and not c.get("said")]
@@ -365,35 +276,19 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     whole = "" if entry.get("exact") else str(entry.get("prompt") or "")
     stated = stated_ages(entry, bound, said_ages)
     stated_ctx = stated_context(entry, bound)
-    readable = [c for c in bound if not c.get("wildcard")] + stated + stated_ctx
     listed = list_age_values(entry, bound)
     listed_ctx = list_context_values(entry, bound)
     context_only = {id(c) for c in [*stated_ctx, *listed_ctx]}
-    # The narrowings whose words don't come from the reading (a wildcard's own name, a user list's
-    # value) start now, beside it: one wait fewer for a prompt with lists or wildcards.
+    # The narrowings whose words don't come from the slots (a user list's value) start first.
     early: Dict[Tuple[str, str, str], Tuple[str, str, "asyncio.Task[Optional[List[str]]]"]] = {}
-    for c in [c for c in bound if c.get("wildcard")] + listed + listed_ctx:
+    for c in listed + listed_ctx:
         phrase = phrase_of(c)
         k = (c["cls"], _norm(phrase), _norm(c.get("about") or ""))
         if phrase and k not in early:
             early[k] = (phrase, c.get("about") or "", asyncio.ensure_future(
                 subset(vocab.leaves[c["cls"]], phrase, cache, ask, project_id, c.get("about") or "", whole)))
-    if isinstance(entry.get("slot_words"), dict):
-        # A slot program (slots.py): the slot reader already said which of its words state each detail.
-        read = {str(k): str(v) for k, v in entry["slot_words"].items() if str(v).strip()}
-    else:
-        try:
-            read = await asyncio.wait_for(read_words(str(entry.get("prompt") or ""), readable, cache, ask, project_id),
-                                          seconds)
-        except asyncio.TimeoutError:
-            read = None
-        except BaseException:
-            for *_, task in early.values():
-                task.cancel()
-            raise
-    if read is None:  # not read: the words found later may narrow these picks
-        unfinished |= {c["id"] for c in readable}
-        read = {}
+    # The slot reader already said which of a slot's words state each detail (slots.build).
+    read = {str(k): str(v) for k, v in (entry.get("slot_words") or {}).items() if str(v).strip()}
     seconds = max(1.0, seconds - (asyncio.get_running_loop().time() - t0))
     # The members of one group() ("kids playing football": four of them) are the same words'
     # people. A reading that names the first member's age and stops leaves the others adults:
@@ -679,5 +574,5 @@ def reopen_pending(entry: Dict[str, Any]) -> None:
     entry["filters"] = filters
 
 
-__all__ = ["NarrowCache", "READ_VERSION", "mark_pending", "narrow_entry", "parse_read", "parse_subset", "phrase_of", "read_words",
+__all__ = ["NarrowCache", "mark_pending", "narrow_entry", "parse_subset", "phrase_of",
            "reopen_pending", "subset", "messages_for"]
