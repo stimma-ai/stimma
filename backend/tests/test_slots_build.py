@@ -133,7 +133,7 @@ DORM_READING = {"slots": [
      "light": {"list": "", "examples": ["warm desk-lamp light", "grey morning light through blinds", "blue screen glow"]}},
 ]}
 DORM_SOURCE = '''slot1 = person('young_man', noun='man', presentation='masculine', show=['age', 'descent', 'build', 'hair', 'hair_color'], article=False)
-slot1_outfit = pick('young_man.outfit', cls='person.outfit.casual', about="Young man's outfit", label='Outfit', phase=2)
+slot1_outfit = pick('young_man.outfit', cls='person.outfit.casual', where={'presentation': 'masculine'}, about="Young man's outfit", label='Outfit', phase=2)
 slot2 = pick('light', about='light', seed=['warm desk-lamp light', 'grey morning light through blinds', 'blue screen glow'], label='Light', phase=1)
 emit('dorm room with a ', slot1, opt(', wearing', slot1_outfit), opt(', lit by', slot2))
 '''
@@ -149,10 +149,10 @@ PORCH_READING = {"slots": [
               "instead": ["stack of library books", "mug of coffee", "transistor radio"]}},
 ], "lists": [{"n": 1, "label": "Season"}]}
 PORCH_SOURCE = '''slot1 = person('elderly_african_man', noun='man', presentation='masculine', show=['age', 'descent', 'build', 'hair', 'hair_color', 'facial_hair'], article=False)
-slot1_outfit = pick('elderly_african_man.outfit', cls='person.outfit.casual', about="Elderly African man's outfit", label='Outfit', phase=2)
+slot1_outfit = pick('elderly_african_man.outfit', cls='person.outfit.casual', where={'presentation': 'masculine'}, about="Elderly African man's outfit", label='Outfit', phase=2)
 slot2 = pick('pet', about='his pet, with him on the porch', seed=['ginger tabby cat', 'old basset hound', 'grey parrot'], zones={'kinds': ['ginger tabby cat', 'old basset hound', 'grey parrot'], 'instead': ['stack of library books', 'mug of coffee', 'transistor radio']}, label='Pet', phase=2)
 list1 = pick('list1', ['summer', 'autumn'], label='Season', source='list', phase=1, line=2)
-emit('# she is his granddaughter, visiting', '\\n', 'an ', slot1, opt(', wearing', slot1_outfit), ' reading on a porch', opt(' with his', slot2), ', ', list1, ' evening')
+emit('# she is his granddaughter, visiting', '\\n', 'an ', slot1, opt(', wearing', slot1_outfit, ','), ' reading on a porch', opt(' with his', slot2), ', ', list1, ' evening')
 '''
 
 ELDERLY = ["71-year-old", "74-year-old", "79-year-old"]

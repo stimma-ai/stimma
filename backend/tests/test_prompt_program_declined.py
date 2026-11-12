@@ -146,16 +146,6 @@ class TestRemembered:
         with pytest.raises(prep.PrepareDeclined):
             await ensure()
 
-    def test_the_editors_lookup_hears_what_a_background_retry_met(self, tools, monkeypatch):
-        client = _route_client(monkeypatch)
-        body = {"tool_id": "t", "prompt": PROMPT, "cache_only": True}
-        assert client.post("/api/prompt-programs/prepare", json=body).json() == {"key": None}
-        tools.replies = [prose(), prose()]
-        client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PROMPT})
-        r = client.post("/api/prompt-programs/prepare", json=body)
-        assert r.status_code == 422 and r.json()["detail"]["code"] == "prepare_declined"
-        assert len(tools.seen) == 2
-
 
 class TestRunsGoOutAsWritten:
     async def test_a_run_uses_the_words_and_says_why(self, tools):
@@ -173,13 +163,6 @@ class TestRunsGoOutAsWritten:
         tools.replies = [prose(), prose()]
         record, prompt = await _submit(enhance="expand")
         assert record["fallback"]["rung"] == "words" and prompt == PROMPT
-
-    def test_the_prepare_route_answers_with_its_own_code(self, tools, monkeypatch):
-        tools.replies = [prose(), prose()]
-        r = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PROMPT})
-        detail = r.json()["detail"]
-        assert r.status_code == 422 and detail["code"] == "prepare_declined"
-        assert NO not in str(detail)
 
     def test_the_agent_is_told_plainly(self):
         note = fallback.agent_note(fallback.fallback_note("words", "prepare_declined"))

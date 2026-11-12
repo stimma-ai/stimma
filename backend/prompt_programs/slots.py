@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 SLOT_RE = re.compile(r"(?<![<\w])<(?![/\s])([^<>{}\[\]|#:=\n]{2,80})(?<!\s)>")
 
@@ -180,7 +180,10 @@ def slot_ids(parsed: Parsed) -> List[str]:
     used = {f"list{i}" for i in range(1, len(parsed.lists()) + 1)}
     out: List[str] = []
     for s in parsed.slots():
-        base = re.sub(r"\W+", "_", s.words.lower()).strip("_") or "slot"
+        # ASCII and starting with a letter: the runtime reads whose detail a pick is from its id.
+        base = re.sub(r"[^a-z0-9]+", "_", s.words.lower()).strip("_") or "slot"
+        if not base[0].isalpha():
+            base = f"slot_{base}"
         cid, k = base, 1
         while cid in used:
             k += 1
@@ -243,7 +246,14 @@ def build(parsed: Parsed, readings: Dict[str, Any]) -> Tuple[str, Dict[str, Any]
         return lead
 
     slot_n = list_n = 0
+    outfit_at = None   # the parts index of a person's outfit, until the text after it is seen
     for seg in parsed.segments:
+        if outfit_at is not None:
+            # Words right after the outfit ("... jeans reading on a porch") are set off by a comma
+            # that goes with the outfit; punctuation, a line's end or another mark need none.
+            if seg.kind == "text" and re.match(r"[ \t]*\w", seg.text):
+                parts[outfit_at] = parts[outfit_at][:-1] + ", ',')"
+            outfit_at = None
         if seg.kind == "text":
             lines = seg.text.split("\n")
             for piece in lines[:-1]:
@@ -292,11 +302,18 @@ def build(parsed: Parsed, readings: Dict[str, Any]) -> Tuple[str, Dict[str, Any]
             if outfit:
                 about = f"{label}'s outfit"
                 if outfit == "written":
-                    stmts.append(f"{var}_outfit = " + _call("pick", f"{cid}.outfit", about=about, label="Outfit", phase=2))
+                    seeds = _strings(got.get("outfit_examples") or [], "outfit_examples")
+                    stmts.append(f"{var}_outfit = " + _call("pick", f"{cid}.outfit", about=about, seed=seeds or None,
+                                                            label="Outfit", phase=2))
                 else:
-                    stmts.append(f"{var}_outfit = " + _call("pick", f"{cid}.outfit", cls=listed(outfit, label),
+                    leaf = vocab.get(listed(outfit, label))
+                    # How the person presents narrows their outfit list, as person() does for face and build.
+                    where = ({"presentation": presentation}
+                             if presentation and presentation in leaf.local_facets.get("presentation", ()) else None)
+                    stmts.append(f"{var}_outfit = " + _call("pick", f"{cid}.outfit", cls=outfit, where=where,
                                                             about=about, label="Outfit", phase=2))
                 parts.append(_opt(repr(", wearing"), f"{var}_outfit"))
+                outfit_at = len(parts) - 1
         elif kind == "camera":
             lead = flush(lead)
             vary = [d for d in got.get("vary") or [] if d in CAMERA and vocab.get(f"camera.{d}") is not None]
@@ -329,6 +346,7 @@ def build(parsed: Parsed, readings: Dict[str, Any]) -> Tuple[str, Dict[str, Any]
                 stmts.append(f"{var} = " + _call("pick", cid, about=str(got.get("about") or seg.words), seed=kinds,
                                                  zones={"kinds": kinds, "instead": instead}, label=label, phase=2))
                 slot_words[cid] = seg.words
+                info["zones"] = {"kinds": kinds, "instead": instead}
             parts.append(_opt(*([repr(lead)] if lead else []), var))
         meta.append(info)
     flush()
@@ -340,3 +358,95 @@ def build(parsed: Parsed, readings: Dict[str, Any]) -> Tuple[str, Dict[str, Any]
     entry = {"program": program, "choices": found["choices"], "groups": found["groups"], "example": found["example"],
              "prompt": parsed.prompt, "mode": "prose", "slot_words": slot_words, "slots": meta}
     return source, entry
+
+
+# --------------------------------------------------------------------------- prepared and stored
+
+SLOTS_VERSION = "slots-1"
+
+_in_flight: Dict[Tuple[str, str], Any] = {}
+
+
+async def ensure(prompt: str, *, profile_id: Optional[str], project_id: Optional[int] = None,
+                 cache_only: bool = False, force: bool = False) -> Optional[Dict[str, Any]]:
+    """The slot program for a prompt: from the store, or parsed, read (reader.py), built,
+    narrowed and stored. None for a cache_only lookup of a prompt not prepared yet. A prompt
+    with no slots and no lists has no program: {"key": None, "slots": [], "choices": []}.
+    Raises reader.ReaderFailed when the chat model's reading can't be used."""
+    import asyncio
+
+    from prompt_pipeline import _profile_wildcards_and_segments
+    from prompt_programs import prepare as prep
+    from prompt_programs.reader import READER_VERSION
+    from prompt_programs.store import program_key
+    from prompt_programs.vocab import vocabulary
+
+    wildcards, segments = _profile_wildcards_and_segments(profile_id)
+    source = prep.expand_named_lists(prompt, wildcards, segments).strip()
+    if len(source) > prep.MAX_PROMPT_CHARS:
+        raise prep.PromptTooLong(f"This prompt is too long to prepare ({len(source):,} characters with its lists "
+                                 f"and segments filled in; the limit is {prep.MAX_PROMPT_CHARS:,}). Shorten it, or use Direct.")
+    masked, exact = prep.mask_exact(source)
+    parsed = parse(masked)
+    if not parsed.varies():
+        return {"key": None, "slots": [], "choices": []}
+    model = await prep._writer_fingerprint(project_id)
+    key = program_key({"v": SLOTS_VERSION, "reader": READER_VERSION, "model": model, "vocab": vocabulary().version,
+                       "prompt": masked, "exact": exact})
+    store = prep._store(profile_id)
+    cached = None if force else store.get(key)
+    if cached:
+        if cached.get("narrow_pending"):
+            prep.renarrow(cached, store, project_id)   # in the background; this run draws from it as it is
+        return cached
+    if cache_only:
+        return None
+    flight = (str(store.root), key)
+    running = None if force else _in_flight.get(flight)
+    if running is None:
+        running = asyncio.ensure_future(_prepare(parsed, key=key, exact=exact, model=model, store=store,
+                                                 profile_id=profile_id, project_id=project_id, force=force))
+        _in_flight[flight] = running
+        running.add_done_callback(lambda t, k=flight: _in_flight.pop(k, None) if _in_flight.get(k) is t else None)
+    return await asyncio.shield(running)
+
+
+async def _prepare(parsed: Parsed, *, key: str, exact: Dict[str, str], model: Optional[str], store: Any,
+                   profile_id: Optional[str], project_id: Optional[int], force: bool) -> Dict[str, Any]:
+    import time
+
+    from prompt_programs import prepare as prep
+    from prompt_programs import reader
+    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, mark_pending, narrow_entry
+    from core.logging import get_logger
+
+    t0 = time.monotonic()
+    reading = await reader.read(parsed, ask=prep._ask_model, project_id=project_id, model=model,
+                                cache=NarrowCache(store.root / "reader"), force=force)
+    source, entry = build(parsed, reading)
+    entry.update({"key": key, "exact": exact, "reading": reading, "source": source, "version": SLOTS_VERSION,
+                  "created_at": time.time()})
+    try:
+        await narrow_entry(entry, NarrowCache(store.root / "narrow"), prep._ask_model, project_id, seconds=NARROW_SECONDS)
+    except Exception as e:   # never fails the prepare: the picks draw from their whole lists until renarrowed
+        get_logger(__name__).warning(f"[slots] narrowing {key} failed: {e}")
+        mark_pending(entry)
+    entry["seconds"] = round(time.monotonic() - t0, 2)
+    store.put(key, entry)
+    prep._notify_prepared(entry, project_id, profile_id)
+    return entry
+
+
+def raw_spans(prompt: str, entry: Dict[str, Any]) -> List[Optional[Tuple[Span, int]]]:
+    """Each slot's span and line in the prompt as the user typed it (the entry's are in the
+    prompt as parsed: saved wildcards filled in, exact text masked). None for every slot when
+    the two don't hold the same slots (a segment inlined with slots of its own)."""
+    found = find_slots(prompt)
+    slots = entry.get("slots") or []
+    if len(found) != len(slots) or any(prompt[a + 1:b - 1] != s.get("words") for (a, b), s in zip(found, slots)):
+        return [None for _ in slots]
+    return [((a, b), prompt.count("\n", 0, a) + 1) for a, b in found]
+
+
+__all__ = ["KINDS", "Parsed", "ReadingError", "SLOT_RE", "SLOTS_VERSION", "Segment", "build", "ensure", "find_slots",
+           "is_comment", "parse", "raw_spans", "slot_ids", "unwrap_slots"]

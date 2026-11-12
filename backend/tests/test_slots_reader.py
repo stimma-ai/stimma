@@ -1,0 +1,274 @@
+"""The slot reader with a fake model: the numbered prompt, the reply's checks, one retry, the
+two-level cache; slots.ensure and POST /prompt-programs/prepare on top of it."""
+
+import copy
+import json
+import re
+from typing import Any, Dict, List
+
+import pytest
+
+from prompt_programs import prepare as prep
+from prompt_programs import reader, slots
+from prompt_programs.narrow import NarrowCache
+from prompt_programs.slots import parse
+
+from test_slots_build import AFRICAN, DORM_PROMPT, DORM_READING, ELDERLY, PORCH_PROMPT, PORCH_READING
+
+DORM_LIGHT = DORM_READING["slots"][1]
+
+
+class FakeModel:
+    """Answers the reader with queued replies (a reply may be a function of the messages) and
+    narrowing with fixed subsets; records what the reader was asked."""
+
+    def __init__(self, *replies: Any):
+        self.replies: List[Any] = list(replies)
+        self.asked: List[List[Dict[str, Any]]] = []
+
+    async def __call__(self, messages, project_id, max_tokens):
+        user = messages[-1]["content"]
+        if messages[0]["content"].startswith("You read the parts of an image prompt"):
+            self.asked.append(messages)
+            got = self.replies.pop(0)
+            return got(messages) if callable(got) else got
+        if user.startswith('The list "Age"'):
+            return json.dumps(ELDERLY)
+        if user.startswith('The list "Descent"'):
+            return json.dumps(AFRICAN)
+        return "[]"
+
+
+def _reply(reading: Dict[str, Any], **changes: Any) -> str:
+    out = copy.deepcopy(reading)
+    for n, change in changes.items():
+        out["slots"][int(n[1:]) - 1].update(change)
+    return json.dumps(out)
+
+
+@pytest.fixture
+def profile(tmp_path, monkeypatch):
+    import app_dirs
+    import prompt_programs.fluent as fl
+    monkeypatch.setattr(app_dirs, "get_profile_dir", lambda pid="default": tmp_path / str(pid))
+    monkeypatch.setattr(fl, "filler_for", lambda pid: (_ for _ in ()).throw(RuntimeError("no filler in tests")))
+    monkeypatch.setattr(fl, "_profile_store", lambda pid: None)
+
+    async def fingerprint(project_id):
+        return "fake-model"
+    monkeypatch.setattr(prep, "_writer_fingerprint", fingerprint)
+    monkeypatch.setattr(slots, "_in_flight", {})
+    return "p"
+
+
+def _use(monkeypatch, model: FakeModel) -> FakeModel:
+    monkeypatch.setattr(prep, "_ask_model", model)
+    return model
+
+
+# --------------------------------------------------------------------------- the reader itself
+
+def test_the_prompt_is_numbered_in_place():
+    shown = reader.numbered(parse(PORCH_PROMPT))
+    assert shown == ("# she is his granddaughter, visiting\n"
+                     "an ⟨1: elderly African man⟩ reading on a porch with his ⟨2: pet⟩, {L1: summer|autumn} evening")
+
+
+def test_the_prompt_carries_the_person_guidance_and_the_catalogs():
+    text = reader.system_text()
+    for words in ("Lines starting with # are notes", "Leave out expression", "accessories", "need not include every",
+                  "already says what they wear", "- hair_color:", "- person.outfit.casual:", "- person.hairstyle:"):
+        assert words in text
+    assert "EXACT" in text and "{catalog}" not in text and "{details}" not in text
+
+
+async def test_bad_json_gets_one_retry_that_says_why():
+    model = FakeModel("Sure! Here is the reading: {", _reply(PORCH_READING))
+    got = await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m")
+    assert len(model.asked) == 2
+    retry = model.asked[1]
+    assert retry[-2] == {"role": "assistant", "content": "Sure! Here is the reading: {"}
+    assert "isn't valid JSON" in retry[-1]["content"]
+    assert [s["kind"] for s in got["slots"]] == ["person", "free"] and got["lists"] == [{"n": 1, "label": "Season"}]
+
+
+async def test_a_second_bad_reply_fails_with_the_reason():
+    model = FakeModel(_reply(PORCH_READING, n2={"kind": "thing"}), _reply(PORCH_READING, n2={"kind": "thing"}))
+    with pytest.raises(reader.ReaderFailed, match="kind must be one of"):
+        await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m")
+    assert len(model.asked) == 2
+
+
+async def test_a_missing_part_or_a_list_that_doesnt_exist_is_retried():
+    short = {"slots": PORCH_READING["slots"][:1], "lists": PORCH_READING["lists"]}
+    model = FakeModel(json.dumps(short), _reply(PORCH_READING))
+    await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m")
+    assert "no answer for ⟨2⟩" in model.asked[1][-1]["content"]
+    bound = {"n": 1, "kind": "list", "label": "Thing", "lead": "", "list": {"list": "no.such.list", "stated": ""}}
+    model = FakeModel(json.dumps({"slots": [bound]}), json.dumps({"slots": [{**bound, "list": {"list": "animal.dog_breed",
+                                                                                                "stated": ""}}]}))
+    got = await reader.read(parse("a <thing> on a rug"), ask=model, project_id=None, model="m")
+    assert "is not one of the lists" in model.asked[1][-1]["content"]
+    assert got["slots"][0]["list"]["list"] == "animal.dog_breed"
+
+
+async def test_a_lead_that_isnt_in_the_text_is_cleared():
+    model = FakeModel(_reply(DORM_READING, n2={"lead": ", lighted with"}))
+    got = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m")
+    assert got["slots"][1]["lead"] == ""
+    model = FakeModel(_reply(DORM_READING))
+    got = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m")
+    assert got["slots"][1]["lead"] == ", lit by"
+
+
+async def test_words_that_arent_the_users_are_dropped_and_unknown_details_too():
+    person = copy.deepcopy(PORCH_READING["slots"][0])
+    person["person"]["stated"] = {"age": "elderly", "descent": "Kenyan", "hair": "granddaughter", "mood": "calm"}
+    person["person"]["vary"] = ["age", "build", "expression", "hair"]
+    model = FakeModel(json.dumps({"slots": [person, PORCH_READING["slots"][1]], "lists": PORCH_READING["lists"]}))
+    got = await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m")
+    p = got["slots"][0]["person"]
+    # "granddaughter" is copied from a comment line, so it is the user's words (what it means is the model's call)
+    assert p["stated"] == {"age": "elderly", "hair": "granddaughter"}
+    assert p["vary"] == ["age", "build", "hair"]
+
+
+async def test_unknown_numbers_are_dropped():
+    reading = copy.deepcopy(PORCH_READING)
+    reading["slots"].append({**reading["slots"][1], "n": 7})
+    reading["lists"].append({"n": 4, "label": "Nothing"})
+    got = await reader.read(parse(PORCH_PROMPT), ask=FakeModel(json.dumps(reading)), project_id=None, model="m")
+    assert [s["n"] for s in got["slots"]] == [1, 2] and [x["n"] for x in got["lists"]] == [1]
+
+
+async def test_a_written_outfit_brings_its_examples_as_seeds():
+    person = copy.deepcopy(DORM_READING["slots"][0])
+    person["person"].update(outfit="written", outfit_examples=["a hoodie and track pants", "a band T-shirt and jeans",
+                                                               "a flannel shirt and chinos"])
+    model = FakeModel(json.dumps({"slots": [person, DORM_LIGHT]}))
+    got = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m")
+    src, _ = slots.build(parse(DORM_PROMPT), got)
+    assert "pick('young_man.outfit', about=\"Young man's outfit\", seed=['a hoodie and track pants'," in src
+    person["person"]["outfit_examples"] = []
+    model = FakeModel(json.dumps({"slots": [person, DORM_LIGHT]}), _reply(DORM_READING))
+    await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m")
+    assert "needs three outfit_examples" in model.asked[1][-1]["content"]
+
+
+async def test_the_reading_is_cached_whole_and_per_slot(tmp_path):
+    cache = NarrowCache(tmp_path)
+    model = FakeModel(_reply(DORM_READING))
+    first = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m", cache=cache)
+    again = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m", cache=cache)
+    assert first == again and len(model.asked) == 1
+    # another reader model reads again
+    await reader.read(parse(DORM_PROMPT), ask=FakeModel(_reply(DORM_READING)), project_id=None, model="other", cache=cache)
+
+
+async def test_an_edit_on_another_line_asks_only_for_the_slot_whose_line_changed(tmp_path):
+    cache = NarrowCache(tmp_path)
+    before = "a <young man> on a bench\nnear a <dog> in the park"
+    reading = {"slots": [DORM_READING["slots"][0],
+                         {"n": 2, "kind": "free", "label": "Dog", "lead": "",
+                          "free": {"about": "a dog in the park", "kinds": ["beagle", "whippet", "corgi"],
+                                   "instead": ["pigeon", "kite", "bicycle"]}}]}
+    await reader.read(parse(before), ask=FakeModel(json.dumps(reading)), project_id=None, model="m", cache=cache)
+
+    def only_the_dog(messages):
+        assert "Answer only for: ⟨2⟩." in messages[-1]["content"]
+        assert "⟨1: young man⟩" in messages[-1]["content"]   # still shown the whole prompt
+        return json.dumps({"slots": [{**reading["slots"][1], "label": "Dog"}]})
+    model = FakeModel(only_the_dog)
+    got = await reader.read(parse("a <young man> on a bench\nnear a <dog> by the lake"), ask=model, project_id=None,
+                            model="m", cache=cache)
+    assert len(model.asked) == 1 and [s["kind"] for s in got["slots"]] == ["person", "free"]
+    assert got["slots"][0] == {**reader.check_slot(DORM_READING["slots"][0], parse(before).slots()[0], "a ", []), "n": 1}
+    # a new note is context for every slot: all are read again
+    model = FakeModel(json.dumps(reading))
+    await reader.read(parse("# at dawn\n" + before), ask=model, project_id=None, model="m", cache=cache)
+    assert "Answer only" not in model.asked[0][-1]["content"]
+
+
+# --------------------------------------------------------------------------- ensure and /prepare
+
+async def test_ensure_reads_builds_narrows_and_stores(profile, monkeypatch):
+    model = _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
+    entry = await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    assert sorted(entry["filters"]["elderly_african_man.age"]) == sorted(ELDERLY)
+    assert sorted(entry["filters"]["elderly_african_man.descent"]) == sorted(AFRICAN)
+    assert entry["reading"]["slots"][1]["free"]["kinds"][0] == "ginger tabby cat"
+    assert prep._store(profile).get(entry["key"])["program"] == entry["program"]
+    again = await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    assert again["key"] == entry["key"] and len(model.asked) == 1
+    assert await slots.ensure("a <cat>", profile_id=profile, cache_only=True) is None
+    assert (await slots.ensure("a plain prompt", profile_id=profile)) == {"key": None, "slots": [], "choices": []}
+
+
+async def test_a_stated_age_still_reaches_the_minors_policy(profile, monkeypatch):
+    from prompt_programs.options import program_minors
+    from prompt_programs.vocab import vocabulary
+    young = [v.text for v in vocabulary().get("person.age_band").values if v.minor][:3]
+    reading = {"slots": [{"n": 1, "kind": "person", "label": "Boy", "lead": "",
+                          "person": {"noun": "boy", "presentation": "masculine", "stated": {"age": "10-year-old"},
+                                     "vary": ["hair", "hair_color"], "outfit": ""}}]}
+
+    class Young(FakeModel):
+        async def __call__(self, messages, project_id, max_tokens):
+            if messages[-1]["content"].startswith('The list "Age"'):
+                assert '"10-year-old"' in messages[-1]["content"]
+                return json.dumps(young)
+            return await super().__call__(messages, project_id, max_tokens)
+    _use(monkeypatch, Young(json.dumps(reading)))
+    entry = await slots.ensure("a <10-year-old boy> flying a kite", profile_id=profile)
+    assert entry["ages"] == {"slot_10_year_old_boy": young}
+    assert dict(program_minors(entry)) == {"slot_10_year_old_boy": tuple(young)}
+
+
+def _client(monkeypatch, profile):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from routes import prompt_programs as route
+    monkeypatch.setattr(route, "get_current_profile", lambda: profile)
+    app = FastAPI()
+    app.include_router(route.router)
+    return TestClient(app, raise_server_exceptions=False)
+
+
+def test_the_prepare_route_answers_with_slots_and_choices(profile, monkeypatch):
+    _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
+    client = _client(monkeypatch, profile)
+    typed = "  " + PORCH_PROMPT   # spans are in the prompt as typed
+    assert client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": typed, "cache_only": True}).json() == {"key": None}
+    out = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": typed}).json()
+    assert set(out) == {"key", "slots", "choices", "example", "seconds"}
+    man, pet = out["slots"]
+    assert man["id"] == "elderly_african_man" and man["kind"] == "person" and man["words"] == "elderly African man"
+    assert typed[man["span"][0]:man["span"][1]] == "<elderly African man>" and man["line"] == 2
+    assert man["stated"] == {"age": "elderly", "descent": "African"}
+    assert "elderly_african_man.outfit" in man["details"] and "elderly_african_man.outfit.colors" in man["details"]
+    assert pet == {"id": "pet", "n": 2, "kind": "free", "label": "Pet", "words": "pet",
+                   "span": [typed.index("<pet>"), typed.index("<pet>") + 5], "line": 2, "details": ["pet"]}
+    by_id = {c["id"]: c for c in out["choices"]}
+    assert by_id["pet"]["slot"] == "pet" and "source" not in by_id["pet"]
+    assert by_id["elderly_african_man.age"]["slot"] == "elderly_african_man"
+    assert sorted(by_id["elderly_african_man.age"]["options"]) == sorted(ELDERLY)
+    assert by_id["list1"] == {"id": "list1", "kind": "pick", "label": "Season", "options": ["summer", "autumn"],
+                              "source": "list", "line": 2}
+    assert by_id["elderly_african_man.outfit.colors"]["follows"] == "elderly_african_man.outfit"
+    assert "program" not in out and "wildcard" not in str(out) and "said" not in str(out)
+    nothing = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": "a cat on a mat"}).json()
+    assert nothing == {"key": None, "slots": [], "choices": []}
+
+
+def test_a_reading_that_cant_be_used_is_a_424(profile, monkeypatch):
+    _use(monkeypatch, FakeModel("no", "still no"))
+    r = _client(monkeypatch, profile).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": DORM_PROMPT})
+    assert r.status_code == 424 and r.json()["detail"]["code"] == "reader_failed"
+    assert "isn't valid JSON" in r.json()["detail"]["message"]
+
+
+def test_the_outfit_follows_presentation_and_is_set_off_by_a_comma():
+    src, entry = slots.build(parse(PORCH_PROMPT), PORCH_READING)
+    assert "cls='person.outfit.casual', where={'presentation': 'masculine'}" in src
+    assert "opt(', wearing', slot1_outfit, ',')" in src
+    assert re.search(r", wearing [^,]+, reading on a porch", entry["example"])

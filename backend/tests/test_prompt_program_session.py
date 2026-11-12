@@ -761,11 +761,6 @@ class TestWriterDown:
         with pytest.raises(LLMUnavailableError):
             asyncio.run(ensure())
 
-    def test_the_prepare_route_answers_424(self, model, monkeypatch):
-        model.replies = [self._down()]
-        r = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PROMPT})
-        assert r.status_code == 424 and r.json()["detail"]["code"] == "llm_unavailable"
-
     def test_a_submit_runs_on_the_words_as_written(self, model):
         from routes.generation import _run_prompt_program
         model.replies = [self._down()]
@@ -777,14 +772,6 @@ class TestWriterDown:
 
 
 class TestPlainFailures:
-    def test_no_program_says_so_plainly_and_keeps_the_problems_for_the_dev_panel(self, model, monkeypatch):
-        model.replies = [reply(write("emit(")) for _ in range(ses.MAX_CALLS)]
-        r = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PROMPT})
-        detail = r.json()["detail"]
-        assert r.status_code == 422 and detail["code"] == "program_failed"
-        assert detail["message"] == "The chat model couldn't prepare this prompt. Try again, or simplify the prompt."
-        assert "emit(" not in detail["message"] and detail["problems"]
-
     def test_an_oversized_prompt_is_refused_before_the_writer(self, model, monkeypatch):
         long = "A woman waiting for a train, " * 400
         r = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": long})
@@ -953,22 +940,6 @@ class TestUnfinishedNarrowingIsRetried:
             e = entry()
             await narrow_entry(e, NarrowCache(tmp_path / str(i)), asker(read, subset))
             assert ("age" in (e.get("narrow_pending") or {})) is pending, (read, subset)
-
-
-class TestEditorAndSubmitShareAKey:
-    def test_a_submit_after_the_editors_prepare_is_a_cache_hit(self, model, monkeypatch):
-        from routes.generation import _run_prompt_program, prompt_enhance_context
-        model.replies = [reply(write(GOOD))]
-        params = {"prompt": PROMPT, "width": 1344, "height": 768}
-        body = {"tool_id": "t", "prompt": PROMPT, "parameters": params, "enhance": "expand", "lora_triggers": False}
-        prepared = _route_client(monkeypatch).post("/api/prompt-programs/prepare", json=body).json()
-        prompt_options = {"autoImprove": {"enabled": True, "level": "expand"}, "loraTriggers": False,
-                          "program": {"enabled": True}}
-        record, _ = asyncio.run(_run_prompt_program(
-            PROMPT, params, {"enabled": True}, ctx=prompt_enhance_context(params, "t", None, prompt_options),
-            tool_id="t", prompt_options=prompt_options, project_id=None, profile_id="p", elaborate=True,
-            enhance="expand", lora_triggers=False))
-        assert record["key"] == prepared["key"] and len(model.seen) == 1
 
 
 class TestValidationIsOffTheEventLoop:
