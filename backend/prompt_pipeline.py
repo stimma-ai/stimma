@@ -30,7 +30,8 @@ from __future__ import annotations
 import random
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from collections import Counter
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
 from lora_notes import lora_context_signature, prepend_missing_triggers
@@ -77,6 +78,60 @@ def restore_verbatim(
 def verify_verbatim_preserved(output: str, segments: List[Dict[str, str]]) -> bool:
     """True when every placeholder survived the LLM rewrite."""
     return all(segment["placeholder"] in output for segment in segments)
+
+
+# Fixed values (a slot's drawn value) stay visible to the improver, wrapped in
+# marks it must copy exactly; unlike [verbatim] placeholders it can still see
+# who the person is and write around them.
+_MARK_OPEN, _MARK_CLOSE = "⟦", "⟧"
+_MARKED_RE = re.compile(r"⟦([^⟦⟧]*)⟧")
+
+
+def mark_values(prompt: str, spans: Sequence[Sequence[Any]]) -> str:
+    """Wrap each (start, end, ...) span of the prompt in ⟦ ⟧. A span that is empty,
+    out of range or overlaps an earlier one is left unmarked."""
+    out: List[str] = []
+    pos = 0
+    for span in sorted(spans or [], key=lambda s: (int(s[0]), int(s[1]))):
+        start, end = int(span[0]), int(span[1])
+        if start < pos or end <= start or end > len(prompt) or not prompt[start:end].strip():
+            log.warning(f"[prompt-pipeline] Skipped a fixed span that does not fit the prompt ({start}, {end})")
+            continue
+        out += [prompt[pos:start], _MARK_OPEN, prompt[start:end], _MARK_CLOSE]
+        pos = end
+    out.append(prompt[pos:])
+    return "".join(out)
+
+
+def marked_values(text: str) -> List[str]:
+    """The values inside ⟦ ⟧ marks, in order."""
+    return _MARKED_RE.findall(text)
+
+
+def spans_of_marks(text: str) -> Tuple[str, List[Tuple[int, int]]]:
+    """The text with its marks removed, and where each marked value now sits."""
+    out: List[str] = []
+    spans: List[Tuple[int, int]] = []
+    length = pos = 0
+    for match in _MARKED_RE.finditer(text):
+        before = text[pos:match.start()]
+        out += [before, match.group(1)]
+        length += len(before)
+        spans.append((length, length + len(match.group(1))))
+        length += len(match.group(1))
+        pos = match.end()
+    out.append(text[pos:])
+    return "".join(out), spans
+
+
+def verify_and_unmark(output: str, values: Sequence[str]) -> Optional[str]:
+    """The output without its marks when every value came back exactly, inside its
+    marks, and nothing else was marked; None otherwise."""
+    found = Counter(marked_values(output))
+    expected = Counter(values)
+    if any(found[v] < n for v, n in expected.items()) or any(v not in expected for v in found):
+        return None
+    return output.replace(_MARK_OPEN, "").replace(_MARK_CLOSE, "")
 
 
 def strip_comments(prompt: str) -> str:
@@ -198,19 +253,48 @@ async def _improve_with_verbatim_protection(
     width: Optional[int] = None,
     height: Optional[int] = None,
     lora_context: Optional[List[Dict[str, Any]]] = None,
+    fixed_spans: Optional[Sequence[Sequence[Any]]] = None,
+    level: Optional[str] = None,
+    outcome: Optional[Dict[str, Any]] = None,
 ) -> str:
-    from routes.prompt_enhancement import ImprovePromptRequest, improve_prompt
+    """Improve one prompt, keeping [verbatim] text and the values at `fixed_spans`
+    ((start, end, ...) in `prompt`) exactly. `level` makes this the per-image
+    improver: a prompt already at length is sent as it is, and a rewrite that
+    keeps changing a fixed value is dropped for the prompt as given. `outcome`,
+    when passed, records what happened: improved "true", "skipped" or "fallback",
+    the length target, and the reason for a fallback."""
+    from model_family import model_family
+    from routes.prompt_enhancement import (
+        ImprovePromptRequest,
+        enhancement_mode,
+        improve_needed,
+        improve_prompt,
+        length_target,
+    )
 
+    family = model_family(model)
+    mode = enhancement_mode(family, is_video=is_video, is_image_edit=input_image_count > 0, is_audio=is_audio)
+    report = outcome if outcome is not None else {}
+    target = length_target(mode, level, family) if level else None
+    report.update(improved="true", target=list(target) if target else None)
+    if level and not improve_needed(prompt, mode, level, family):
+        log.info(f"[prompt-pipeline] Improve skipped: the prompt is already at length for {mode} ({level})")
+        report["improved"] = "skipped"
+        return prompt
+
+    source = mark_values(prompt, fixed_spans) if fixed_spans else prompt
     prompt_with_placeholders, segments = extract_verbatim(
-        prompt,
+        source,
         preserve_h3_structure=(
-            h3_task is not None and "integrated_multimodal_description:" in prompt
+            h3_task is not None and "integrated_multimodal_description:" in source
         ),
     )
+    values = marked_values(prompt_with_placeholders)
 
     failure_reason = "the rewrite did not preserve protected text"
     failure_advice = _DEFAULT_FAILURE_ADVICE
     retry_hint: Optional[str] = None
+    span_failures = 0
     for attempt in range(_MAX_LLM_RETRIES):
         request = ImprovePromptRequest(
             prompt=prompt_with_placeholders,
@@ -231,6 +315,8 @@ async def _improve_with_verbatim_protection(
             height=height,
             project_id=project_id,
             lora_context=lora_context or [],
+            level=level,
+            marked=bool(values),
         )
         async with db.async_session_maker() as session:
             candidate = (await improve_prompt(request, session)).improved_prompt
@@ -267,6 +353,21 @@ async def _improve_with_verbatim_protection(
                 f"[prompt-pipeline] Improve attempt {attempt + 1}: referenced a missing <imageN>, retrying..."
             )
             continue
+        if values:
+            unmarked = verify_and_unmark(candidate, values)
+            if unmarked is None:
+                span_failures += 1
+                # One retry; then the prompt goes as given, its values intact, only
+                # without the added detail.
+                if span_failures > 1 or attempt == _MAX_LLM_RETRIES - 1:
+                    reason = "the rewrite changed or dropped a fixed value"
+                    log.warning(f"[prompt-pipeline] Improve fallback: {reason}; sending the prompt unimproved")
+                    report.update(improved="fallback", reason=reason)
+                    return prompt
+                log.warning(f"[prompt-pipeline] Improve attempt {attempt + 1}: a fixed value was changed, retrying...")
+                retry_hint = _SPAN_RETRY_HINT + ", ".join(f"{_MARK_OPEN}{v}{_MARK_CLOSE}" for v in values)
+                continue
+            candidate = unmarked
         if not segments:
             return candidate
         if verify_verbatim_preserved(candidate, segments):
@@ -287,6 +388,11 @@ async def _improve_with_verbatim_protection(
 
 
 _DEFAULT_FAILURE_ADVICE = "Retry or check the tool assistant model in Settings."
+
+_SPAN_RETRY_HINT = (
+    "Your previous rewrite changed or dropped a marked value. Copy each of these exactly as given, "
+    "marks included, and write around it: "
+)
 
 # problem -> (failure reason, advice for whoever wrote the prompt, hint for the
 # next enhancement attempt). Reasons and advice are plain language: they reach
@@ -590,6 +696,7 @@ def _validated_prompt_preload(
     audio_conditioned: bool,
     source_signature: str,
     lora_signature: str = "",
+    level: Optional[str] = None,
 ) -> Optional[str]:
     if not isinstance(prompt_preload, dict):
         return None
@@ -622,7 +729,8 @@ def _validated_prompt_preload(
         return None
     if not isinstance(improved_prompt, str) or not improved_prompt.strip():
         return None
-    if " ".join(improved_prompt.split()) == " ".join(processed_prompt.split()):
+    # The per-image improver may return a prompt already at length unchanged.
+    if not level and " ".join(improved_prompt.split()) == " ".join(processed_prompt.split()):
         return None
     return improved_prompt
 
@@ -667,6 +775,9 @@ async def run_prompt_pipeline(
     project_id: Optional[int] = None,
     prompt_preload: Optional[Dict[str, Any]] = None,
     lora_context: Optional[List[Dict[str, Any]]] = None,
+    fixed_spans: Optional[Sequence[Sequence[Any]]] = None,
+    level: Optional[str] = None,
+    outcome: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Run the full generate-time pipeline on a prompt, server-side.
 
@@ -678,6 +789,8 @@ async def run_prompt_pipeline(
     LLM failures propagate (the caller fails the step, like the interactive
     submit surfaces the error). Enabled enhancement must succeed, including
     validation, before generation can start.
+    `fixed_spans`, `level` and `outcome` are for the per-image improver; see
+    _improve_with_verbatim_protection. The spans index `prompt` as given.
     """
     if not prompt:
         return prompt
@@ -716,11 +829,18 @@ async def run_prompt_pipeline(
             audio_conditioned=audio_conditioned,
             source_signature=source_signature,
             lora_signature=lora_context_signature(lora_context),
+            level=level,
         )
 
+    spans = fixed_spans
     if preloaded_improved is not None:
         log.debug("[prompt-pipeline] Using preloaded prompt enhancement")
         processed = preloaded_improved
+    elif fixed_spans:
+        # Resolving wildcards moves text, so the values travel as marks and are
+        # located again afterwards.
+        processed, spans = spans_of_marks(
+            resolve_wildcards_for_llm(mark_values(prompt, fixed_spans), wildcards, segments))
     else:
         processed = resolve_wildcards_for_llm(prompt, wildcards, segments)
 
@@ -746,6 +866,9 @@ async def run_prompt_pipeline(
             height=height,
             project_id=project_id,
             lora_context=lora_context,
+            fixed_spans=spans,
+            level=level,
+            outcome=outcome,
         )
 
     # 3) Translate.
