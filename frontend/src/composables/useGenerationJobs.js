@@ -559,10 +559,11 @@ export function useGenerationJobs(options = {}) {
     const existingIndex = jobs.value.findIndex(j => j.id === data.job.id)
     if (existingIndex === -1) {
       jobs.value.unshift(data.job)
-      consumePendingPlaceholder(data.client_ref)
     } else {
       jobs.value.splice(existingIndex, 1, data.job)
     }
+    // Also when the job is already here (its started event can land first, without a ref).
+    consumePendingPlaceholder(data.client_ref)
   }
 
   async function handleJobStarted(data) {
