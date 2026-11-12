@@ -195,7 +195,7 @@ emit("A", man_age, "man and his", wife_age, job, "wife at a market,", mood)
 
 
 class TestThroughPerson:
-    SRC = ('w = person("woman", noun="woman", presentation="feminine", said={"descent": "Irish", "eyes": "emerald", "age": "30 year old"})\n'
+    SRC = ('w = person("woman", noun="woman", presentation="feminine", said={"descent": "Irish", "eyes": "emerald", "age": "30 year old"}, detail="full")\n'
            'emit("A photo of", w, ", in a cafe.")')
 
     def test_person_gives_the_stated_details_said_and_draws_the_rest(self, tmp_path):

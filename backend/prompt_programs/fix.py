@@ -190,18 +190,12 @@ class _Ask:
 class OnnxJudge:
     """P(wrong) for (masked prompt, pick) pairs from a cross-encoder in ONNX, on CPU."""
 
-    def __init__(self, model_dir: str | os.PathLike, threads: int = 0, cache_items: int = 20_000,
-                 manifest: Optional[Dict[str, Any]] = None):
-        """`manifest`: a pick-judge release manifest (prompt_programs.pick_judge). Its
-        kind, maxlen, output, labels, wrong class, cut and model file win over the
-        directory's io.json, and the judge reports itself as pick-judge/<version>@<sha>."""
+    def __init__(self, model_dir: str | os.PathLike, threads: int = 0, cache_items: int = 20_000):
         d = Path(os.path.expanduser(str(model_dir)))
         if not d.is_dir():
             raise FixJudgeUnavailable(f"no judge model directory at {d}")
         cfg = dict(DEFAULTS)
         io = _read_json(d / "io.json")
-        if manifest:
-            io = {**io, **{k: manifest[k] for k in ("kind", "maxlen", "cut", "output") if k in manifest}}
         if io.get("kind") in ("enc", "dec"):
             cfg["kind"] = io["kind"]
         if io.get("maxlen"):
@@ -211,8 +205,6 @@ class OnnxJudge:
         if isinstance(io.get("output"), str):
             cfg["output"] = "probs" if io["output"].strip().lower().startswith("prob") else "logits"
         cfg.update(_read_json(d / "judge.json"))
-        if manifest:
-            cfg.update({k: manifest[k] for k in ("labels", "wrong", "model") if manifest.get(k)})
         model = d / cfg["model"] if cfg.get("model") else next((d / f for f in MODEL_FILES if (d / f).exists()), None)
         if model is None or not model.exists():
             raise FixJudgeUnavailable(f"no ONNX model in {d} (looked for {', '.join(MODEL_FILES)})")
@@ -253,11 +245,7 @@ class OnnxJudge:
         self.cut = float(cfg["cut"])
         self.reads_user_prompt = bool(cfg["user_prompt"])
         name = str(cfg.get("name") or d.name)
-        if manifest:
-            from prompt_programs.pick_judge import version_of
-            self.version = version_of(manifest)
-        else:
-            self.version = f"onnx:{name}@{_file_digest(model)}"
+        self.version = f"onnx:{name}@{_file_digest(model)}"
         self.load_seconds = round(time.monotonic() - started, 2)
         self._cache: "OrderedDict[Tuple[str, str], float]" = OrderedDict()
         self._cache_items = cache_items
@@ -433,56 +421,22 @@ def fix_judge(model_dir: str, threads: int = 0) -> OnnxJudge:
 
 # --------------------------------------------------------------------------- which judge
 
-DEFAULT_JUDGE = "default"          # fix_model naming the pinned pick judge (prompt_programs.pick_judge)
+DEFAULT_JUDGE = "default"          # fix_model naming the Tool View model as the judge (prompt_programs.llm_judge)
 OFF = ("", "off", "none")
 
 
 def fix_mode(model: Optional[str]) -> str:
-    """fix_model's meaning: "off" ("", off, none), "default" (the pinned pick judge, the
-    default), or "dir" (a local model directory: dev and evals)."""
+    """fix_model's meaning: "off" ("", off, none), "default" (the Tool View model reads each
+    draw, the default), or "dir" (a local classifier's directory: evals)."""
     m = (model or "").strip().lower()
     if m in OFF:
         return "off"
     return "default" if m == DEFAULT_JUDGE else "dir"
 
 
-def kick_judge(cfg: Any = None) -> None:
-    """Start the pinned judge's download (or its load from disk) in the background, if
-    that's the configured judge: at launch, and again at prepare in case it stopped.
-    Never blocks."""
-    try:
-        if cfg is None:
-            from prompt_programs.judge import settings
-            cfg = settings()
-        if fix_mode(cfg.fix_model) == "default":
-            from prompt_programs import pick_judge
-            pick_judge.kick(cfg.fix_threads)  # a cached copy loads on that thread too
-    except Exception as e:
-        log.debug(f"[fluent-fix] couldn't start the pick judge: {e}")
-
-
-# Release branches whose Tool View offers Fluent: frontend promptBrand.ts `fluentEnabled`
-# (widen both together).
-FLUENT_BRANCHES = ("dev", "canary")
-
-
-def preload_judge() -> None:
-    """At launch: start getting the pinned judge in any build that offers Fluent, so
-    it's ready, or well on its way, by the first image. Privacy Lockdown applies as to
-    every model download (nothing is fetched from Stimma's hosts). Never blocks."""
-    try:
-        from user_agent import get_app_branch
-        if get_app_branch() not in FLUENT_BRANCHES:
-            return
-    except Exception as e:
-        log.debug(f"[fluent-fix] no app branch, not preloading the pick judge: {e}")
-        return
-    kick_judge()
-
-
 def needs_judge(entry: Dict[str, Any], cfg: Any = None) -> bool:
-    """Whether drawing `entry` waits for the pinned judge: a program with draws, and the
-    pinned judge configured (off and a model directory never wait)."""
+    """Whether drawing `entry` is read by the Tool View model: a program with draws, and
+    that judge configured (off and a model directory never are)."""
     from prompt_programs.draws import uses_draws
     if not uses_draws(entry.get("program") or ""):
         return False
@@ -493,35 +447,29 @@ def needs_judge(entry: Dict[str, Any], cfg: Any = None) -> bool:
 
 
 async def await_judge(entry: Dict[str, Any], cfg: Any = None) -> None:
-    """Before drawing `entry` in a worker thread: wait, on the event loop, while the
-    pinned judge it needs is downloading or loading and making progress, so the draw
-    is judged. Returns at once when it's ready, not needed, or can't be had (the draw
-    then ships unjudged and its record says why). Cancelling the awaiting task ends
-    the wait; the download carries on."""
+    """Before drawing `entry` in a worker thread: make the judge for the Tool View model
+    on this event loop, so the worker's fix pass can hand its calls back here. Never
+    raises: without a judge the draw ships unjudged and its record says so."""
     import asyncio
     try:
-        if cfg is None:
-            from prompt_programs.judge import settings
-            cfg = settings()
         if not needs_judge(entry, cfg):
             return
-        from prompt_programs import pick_judge
-        pick_judge.kick(cfg.fix_threads)
-        while pick_judge.waiting():
-            await asyncio.sleep(pick_judge.POLL_SECONDS)
+        from prompt_programs import llm_judge
+        await llm_judge.ready()
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        log.debug(f"[fluent-fix] couldn't wait for the pick judge: {e}")
+        log.debug(f"[fluent-fix] couldn't ready the judge: {e}")
 
 
 def judge_identity(cfg: Any) -> str:
-    """The configured judge as a draw depends on it: off, the pinned judge's version and
-    readiness, or a model directory. Part of the hot-draw signature."""
+    """The configured judge as a draw depends on it: off, the Tool View model, or a model
+    directory. Part of the hot-draw signature."""
     mode = fix_mode(cfg.fix_model)
     if mode == "default":
-        from prompt_programs import pick_judge
-        return pick_judge.identity()
+        from prompt_programs import llm_judge
+        j = llm_judge.current()
+        return j.version if j is not None else "llm"
     return "off" if mode == "off" else f"dir:{cfg.fix_model}"
 
 
@@ -623,11 +571,16 @@ def _fixer(result: Any, *, judge: Any, redraw: Redraw, seed: int, user_prompt: s
             best = (key, rnd, cur)
         if not flagged or rnd == rounds:
             break
-        target_id = flagged[0][1]
-        target = next(d for d in cur.draws if d.id == target_id)
-        removed.setdefault(target_id, []).append(str(target.value))
-        keep = {**user_fixed, **{d.id: d.value for d in cur.draws if d.id != target_id and d.value is not None}}
-        step["rerolled"] = {"id": target_id, "label": target.label, "value": str(target.value)}
+        # A judge that answers in words (llm_judge) rerolls everything it refused at once: each
+        # round is a model call. A classifier's scores reroll the worst pick, one a round.
+        target_ids = [cid for _, cid in flagged] if getattr(judge, "reroll_all", False) else [flagged[0][1]]
+        targets = [next(d for d in cur.draws if d.id == cid) for cid in target_ids]
+        for t in targets:
+            removed.setdefault(t.id, []).append(str(t.value))
+        keep = {**user_fixed, **{d.id: d.value for d in cur.draws if d.id not in target_ids and d.value is not None}}
+        step["rerolled"] = {"id": targets[0].id, "label": targets[0].label, "value": str(targets[0].value)}
+        if len(targets) > 1:
+            step["rerolled"]["with"] = [{"id": t.id, "label": t.label, "value": str(t.value)} for t in targets[1:]]
         try:
             cur = redraw((seed + REROLL_STRIDE * (rnd + 1)) % (2**31), keep, _merge_edits(user_edits, removed))
         except ProgramError as e:  # nothing left to draw for that pick: keep the best so far
@@ -709,8 +662,8 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
     """realize(), then the fix pass when a fix judge is set (fix_model) and the program
     has pick specs. An exact replay (`revision`) is never fixed. Returns the result and
     the fix record (None when no fix ran; {"judge", "skipped", "error"} when the pinned
-    judge can't be had). Blocking, and it waits for the pinned judge while it downloads
-    (pick_judge.get; bounded by progress): run it in a worker thread, after await_judge."""
+    judge can't be had). Blocking, and the judge's model calls run on the event loop: run
+    it in a worker thread, after await_judge."""
     if revision:
         from prompt_programs.prepare import realize
         return realize(entry, seed=seed, pins=pins, fixed=fixed, edits=edits, triggers=triggers,
@@ -764,12 +717,11 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
         mode = fix_mode(cfg.fix_model)
         if mode == "off":
             return [shipped(r) for r in out]
-        if mode == "default":  # the pinned judge: waits while its download makes progress
-            from prompt_programs import pick_judge
-            judge = pick_judge.get(cfg.fix_threads, cancelled=cancelled)
+        if mode == "default":  # the Tool View model, readied on the event loop (await_judge)
+            from prompt_programs import llm_judge
+            judge = llm_judge.current()
             if judge is None:
-                skipped = pick_judge.skip_record()
-                return [shipped(r if isinstance(r, Exception) else (r, dict(skipped))) for r in out]
+                return [shipped(r if isinstance(r, Exception) else (r, {"judge": "llm", "skipped": "unavailable"})) for r in out]
         else:
             try:
                 judge = fix_judge(cfg.fix_model, cfg.fix_threads)
@@ -789,4 +741,4 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
 
 
 __all__ = ["DEFAULT_JUDGE", "FixJudgeUnavailable", "Item", "OnnxJudge", "default_threads", "fix_draw", "fix_judge",
-           "fix_mode", "await_judge", "judge_identity", "judged_picks", "kick_judge", "needs_judge", "preload_judge", "locate", "mask", "prompt_view", "realize_and_fix", "realize_and_fix_many", "score_draw", "shown_picks"]
+           "fix_mode", "await_judge", "judge_identity", "judged_picks", "needs_judge", "locate", "mask", "prompt_view", "realize_and_fix", "realize_and_fix_many", "score_draw", "shown_picks"]

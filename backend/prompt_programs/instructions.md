@@ -51,11 +51,20 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   with no `group()`: for each detail that varies, one pick per person with ids like
   `girl[1].hair`, `girl[2].hair` and the label of the detail alone ("Hair"), and the rest
   fixed text. The app shows each person's details together.
-- `person(id, noun=..., presentation=..., said={...}, leave=[...])` describes one person and
-  returns the description, to put in `emit()` where the person stands. It draws their age,
-  descent, skin, hair, eyes, face and build for you, so every person is fully described and
-  no two are alike: never write those picks yourself, and never describe a face in your own
-  words.
+- `person(id, noun=..., show=[...], presentation=..., said={...}, leave=[...])` describes one
+  person and returns the whole phrase for them, noun included ("a stocky 60–64-year-old
+  Korean man with short gray hair"): put it in `emit()` where the person stands, and write
+  no "a man" of your own before it. It draws the details you list in `show`, so no two people
+  are alike: never write those picks yourself, and never describe a face in your own words.
+  - `show`: the details of them this picture shows, from `"age"`, `"descent"`, `"skin"`,
+    `"hair"`, `"hair_color"`, `"eyes"`, `"face"`, `"facial_hair"`, `"build"`. Picture the image
+    first and list only what is seen in it. A detail you describe is a detail the image will
+    show: eye color opens the eyes of someone asleep, a build pulls a close portrait out to
+    the body, a face pulls a wide scene in. Someone asleep, seen from behind or looking down
+    has no `"eyes"`. A head-and-shoulders portrait has no `"build"`. A small figure in a wide
+    scene has `"age"`, `"build"` and `"hair"` and no `"face"`, `"eyes"` or `"skin"`. Someone
+    at work, seen from the waist up, has `"age"`, `"descent"`, `"build"`, `"hair"`,
+    `"hair_color"` and `"face"`. What you leave out is not drawn.
   - `noun`: what they are, in the user's word: `noun="woman"`, `noun="fisherman"`,
     `noun="friend"`; or the pick of the user's list that names them (`noun=job`).
   - `presentation`: `"feminine"` or `"masculine"` when the user's words say which.
@@ -154,16 +163,26 @@ phases drew; picks in the same phase are drawn without seeing each other.
      written, where it belongs, and don't describe or guess what it says.
 3. **Make the things the user asked to vary into picks.** When a `#` line says "vary her
    expression", that is a pick: give it `line=` and no `added=True`, and never `hidden=True`.
-4. **Add variety.** Add a pick (`added=True`, with a label) for each detail the prompt
-   leaves open that changes the image: her outfit, the setting, the pose, her
-   hair, her expression. Fewer when the user's lists already vary a lot. Never add a `param`.
-   **Every person is a `person()`**, photographed, drawn or painted: it gives them their age,
-   descent, skin, hair, eyes, face and build. You add the details that depend on the scene:
-   their outfit, hairstyle, expression, pose, accessories, each a pick bound to its list with
-   `cls=` when it has one (see Vocabulary), with an id that starts with the person's
-   (`woman.outfit`). An animal or a creature is not a `person()`. A photo gets a look pick
-   bound to `camera.look`, and a portrait or selfie of one person a framing pick bound to
-   `camera.portrait_framing` or `camera.selfie_framing`, unless the user stated them.
+4. **Picture the image, then add variety.** Picture the image the prompt asks for: how close
+   it is, what the people in it are doing, what of them is seen. Then add a pick
+   (`added=True`, with a label) for each detail the prompt leaves open that the image shows:
+   her outfit, the setting, the light. Fewer when the user's lists already vary a lot. Never
+   add a `param`.
+   **Every person is a `person()`**, photographed, drawn or painted, with `show=` listing what
+   the image shows of them. You add the details that depend on the scene and that the image
+   shows: their outfit, hairstyle, accessories, each a pick bound to its list with `cls=` when
+   it has one (see Vocabulary), with an id that starts with the person's (`woman.outfit`). An
+   outfit the image doesn't show (below the frame of a headshot) is not a pick: say what is
+   seen at the collar in your own words. **What the user said they are doing or how they look
+   is theirs**: "asleep", "laughing", "smiling", "fixing a motorcycle", "dancing", "reading".
+   Never add an expression, pose, gaze or activity pick beside it: someone asleep, working or
+   laughing already has their expression and pose. Add one only when the user said nothing of
+   what the person is doing or how they look. An
+   animal or a creature is not a `person()`. A photo gets a look pick bound to `camera.look`.
+   When the user stated no framing, state one in your own words that fits what you show
+   ("a waist-up photo of", "a wide view of"), or for a portrait or selfie of one person add a
+   framing pick bound to `camera.portrait_framing` or `camera.selfie_framing` and show only
+   what every framing shows (no `"build"`).
    **What the user stated stays in every image**: the subject ("a girl", "a dog", "a
    knight"), what it does ("running", "waving"), the weather ("in a snowstorm"), a place, a
    color, a blue frock, an owl on her shoulder. Their words stay in the text, and never
@@ -319,12 +338,13 @@ expression = pick("expression", cls="person.expression", about="his expression o
     "a tired, contented half-smile"], label="Expression", phase=2, line=2)
 street = pick("street", about="what lines a snowy street at night", seed=[
     "shuttered shops and cars buried under fresh snow"], label="Street", phase=1, added=True)
-man = person("man", noun=job, presentation="masculine")
+man = person("man", noun=job, presentation="masculine", show=["age", "descent", "build", "hair", "hair_color", "facial_hair", "face"])
 emit(man, ", walking home down a snowy street at night, past", street, ", wearing",
      outfit, ". Snow settles on his shoulders, he has", expression, ", and his breath fogs in the cold air.")
 ```
 "a snowy street" and "at night" are the user's: they stay fixed. He is a `person()` whose noun
-is the user's list; "in his fifties" is read from the prompt and sets his age. The outfit
+is the user's list; "in his fifties" is read from the prompt and sets his age. He is seen whole,
+walking, so his build shows; at night on a street his eye color doesn't. The outfit
 names `{job}`, so a chef and a firefighter each get outfits written for them. His expression
 has a list, so it binds to it.
 
@@ -336,7 +356,7 @@ Program:
 ```python
 role = pick("role", ["knight", "pirate"], label="Role", source="list", phase=1, line=1)
 clothes = pick("clothes", ["armor", "greatcoat"], label="Clothes", source="list", phase=2, line=1)
-reader = person("reader", noun=role, presentation="masculine")
+reader = person("reader", noun=role, presentation="masculine", show=["age", "descent", "hair", "hair_color", "facial_hair", "face"])
 sill = pick("sill", about=f"what lies on the window sill beside a {role}", seed=[
     "a stack of worn books and a guttered candle"], label="Window sill", phase=2, added=True)
 emit(reader, ", in his", clothes, ", reading a book by a window. On the sill:", sill, ".")
@@ -344,6 +364,7 @@ emit(reader, ", in his", clothes, ", reading a book by a window. On the sill:", 
 Both lists are emitted themselves, where the user wrote them. The clothes list is phase 2, so
 it is drawn to fit the role. "reading a book by a window" is the user's, so it is fixed text.
 The user left who he is open beyond his role, so `person()` describes him; no face is written by hand.
+He looks down at his book, so his eyes aren't described, and he reads: no expression or pose is added.
 
 Example. User's prompt:
 ```
@@ -351,7 +372,7 @@ Example. User's prompt:
 ```
 Program:
 ```python
-girl = person("girl", noun="girl", presentation="feminine")
+girl = person("girl", noun="girl", presentation="feminine", show=["age", "descent", "hair_color", "build"])
 hairstyle = pick("girl.hairstyle", cls="person.hairstyle", about="the girl's hairstyle", seed=["a loose side braid"],
     label="Hairstyle", phase=2, added=True)
 outfit = pick("girl.outfit", cls="person.outfit.casual", about="what the girl wears on the beach", seed=["a yellow raincoat over shorts"],
@@ -360,7 +381,8 @@ emit("Digital art of", girl, ", her hair in", hairstyle, ", wearing", outfit,
      ", holding an umbrella on a beach.")
 ```
 "a girl", "holding an umbrella", "on a beach" and "digital art" are the user's, so every image
-says them. `person()` describes the girl; the picks add her hairstyle and her outfit, which
+says them. She is a whole figure on a beach, so `person()` describes her age, descent, hair color
+and build and no face; the picks add her hairstyle and her outfit, which
 depend on the scene. The look is theirs: "digital art", and nothing added to it.
 
 Example. User's prompt:
@@ -369,7 +391,7 @@ Example. User's prompt:
 ```
 Program:
 ```python
-baker = person("baker", noun="baker", presentation="feminine")
+baker = person("baker", noun="baker", presentation="feminine", show=["age", "descent", "skin", "hair", "hair_color", "eyes", "face"])
 outfit = pick("baker.outfit", about="what the baker wears at work", seed=["a flour-dusted apron over a striped shirt"],
     label="Outfit", phase=2, added=True)
 expression = pick("baker.expression", cls="person.expression", about="the baker's expression at work", seed=["a focused frown"],
@@ -380,10 +402,31 @@ look = pick("look", cls="camera.look", about="how the photo looks", seed=["the b
     label="Photo look", phase=1, added=True)
 emit("A photo of", baker, ", in her shop, wearing", outfit, ", with", expression, ", framed as", framing, ", with", look, ".")
 ```
-"her shop" says the baker is a woman. It is a photo of one person and the user said nothing of how it is framed or how it looks, so
+"her shop" says the baker is a woman. The user said nothing of what she is doing, so her expression is a pick; had they
+written "kneading dough" or "smiling", there would be none. It is a portrait, so her face, eyes and skin show and her build doesn't.
+It is a photo of one person and the user said nothing of how it is framed or how it looks, so
 both are picks bound to their lists, emitted after the words each list fits ("framed as",
 "with"). No focus, lens or quality words are written as text. Had they written "a candid
 photo", the look pick would be narrowed: `where={"intent": "candid"}`.
+
+Example. User's prompt:
+```
+1: a woman napping in a hammock with a book open on her chest
+```
+Program:
+```python
+woman = person("woman", noun="woman", presentation="feminine", show=["age", "descent", "build", "hair", "hair_color"])
+outfit = pick("woman.outfit", cls="person.outfit.summer", about="what the woman wears in the hammock", seed=["a loose linen shirt and shorts"],
+    label="Outfit", phase=2, added=True)
+garden = pick("garden", about="what surrounds the hammock", seed=["two old apple trees and long grass"],
+    label="Garden", phase=1, added=True)
+light = pick("light", cls="lighting.natural", about="the light in the garden", seed=["dappled afternoon sun"],
+    label="Light", phase=1, added=True)
+emit(woman, ", napping in a hammock with a book open on her chest, wearing", outfit, ". Around her:", garden, ", in", light, ".")
+```
+She is asleep: that is her expression and her pose, so neither is a pick, and her eyes are closed, so
+`show` has no `"eyes"` and no `"face"`. The picks are what the image shows and the user left open:
+her outfit, the garden, the light.
 
 Example. User's prompt:
 ```
@@ -394,13 +437,14 @@ Program:
 friends = group("friends", 4, label="Friends", line=1)
 emit("Four friends sharing a pizza on a rooftop:")
 for i in range(friends):
-    friend = person(f"friends[{i+1}]", noun="friend")
+    friend = person(f"friends[{i+1}]", noun="friend", show=["age", "descent", "hair", "hair_color", "build"])
     emit(friend, ";")
 roof = pick("roof", about="what else is on a city rooftop", seed=["folding chairs and a water tower"],
     label="Rooftop", phase=1, added=True)
 emit("they laugh around an open pizza box among", roof, ".")
 ```
-Four friends are four people: the loop gives each one their own `person()`.
+Four friends are four people: the loop gives each one their own `person()`. Four people share one
+image, so each is shown briefly: no faces or eyes.
 "sharing a pizza" and "on a rooftop" are about all of them, so they are fixed text.
 
 Example. User's prompt:
@@ -409,7 +453,7 @@ Example. User's prompt:
 ```
 Program:
 ```python
-fisherman = person("fisherman", noun="fisherman", presentation="masculine")
+fisherman = person("fisherman", noun="fisherman", presentation="masculine", show=["age", "descent", "build", "hair", "facial_hair", "face"])
 fisherman_coat = pick("fisherman.outfit", cls="person.outfit.cold_weather", about="what the fisherman wears on the pier",
     seed=["a yellow oilskin jacket over a gray sweater"], label="Outfit", phase=2, added=True)
 dog_breed = pick("dog.breed", cls="animal.dog_breed", about="the fisherman's dog", seed=["Border Collie"],

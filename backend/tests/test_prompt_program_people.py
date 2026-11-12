@@ -3,7 +3,7 @@ from prompt_programs.draws import analyze
 from prompt_programs.people import DETAILS, expand_people
 from prompt_programs.vocab import vocabulary
 
-ONE = '''woman = person("woman", noun="woman", presentation="feminine")
+ONE = '''woman = person("woman", noun="woman", presentation="feminine", detail="full")
 outfit = pick("woman.outfit", cls="person.outfit.casual", about=f"what the {woman} wears to cook", seed=["a linen apron"], label="Outfit", phase=2, added=True)
 emit("A portrait of", woman, ", in her kitchen, wearing", outfit, ".")
 '''
@@ -77,7 +77,7 @@ class TestEveryPersonIsFullyDescribed:
         assert "what the {'woman'} wears" in expand_people(ONE)   # elsewhere the person is their noun
 
     def test_a_man_gets_facial_hair_and_the_lists_with_features_of_one_sex_are_told(self):
-        src = expand_people('man = person("man", noun="fisherman", presentation="masculine")\nemit(man, ", on a pier.")\n')
+        src = expand_people('man = person("man", noun="fisherman", presentation="masculine", detail="full")\nemit(man, ", on a pier.")\n')
         assert "pick('man.facial_hair', cls='person.facial_hair'" in src
         assert "pick('man.face', cls='person.face', where={'presentation': 'masculine'}" in src
         assert "pick('man.build', cls='person.build', where={'presentation': 'masculine'}" in src
@@ -101,7 +101,7 @@ class TestEveryPersonIsFullyDescribed:
 
 class TestNothingIsDrawnTwiceOrLeftOut:
     def test_a_person_never_emitted_stands_where_they_were_made(self):
-        src = expand_people('w = person("w", noun="woman")\nemit("In a kitchen.")\n')
+        src = expand_people('w = person("w", noun="woman", detail="full")\nemit("In a kitchen.")\n')
         assert src.index("emit('a', w_build") < src.index("emit('In a kitchen.')")
 
     def test_the_writers_own_pick_on_a_persons_list_becomes_that_persons_detail(self):
@@ -118,7 +118,7 @@ class TestNothingIsDrawnTwiceOrLeftOut:
         assert "eyes = pick('eyes', cls='person.eye_color'" in src and "w_eyes" not in src
 
     def test_a_person_in_an_emitted_f_string_is_described_there(self):
-        src = expand_people('w = person("woman", noun="woman")\nm = person("man", noun="man")\n'
+        src = expand_people('w = person("woman", noun="woman", detail="full")\nm = person("man", noun="man", detail="full")\n'
                             'emit(f"A portrait of {w} and {m} in a kitchen.")\n')
         emit = src.strip().splitlines()[-1]
         assert src.count("emit(") == 1    # neither is emitted again where they were made
@@ -128,7 +128,7 @@ class TestNothingIsDrawnTwiceOrLeftOut:
 
     def test_the_rest_of_an_emitted_f_string_stays_one_string(self):
         from prompt_programs.draws import draw
-        src = expand_people('w = person("woman", noun="woman")\nh = 12\nemit(f"Portrait of {w}, at {h:02}:{30:02}, in {\'day\'}light.")\n')
+        src = expand_people('w = person("woman", noun="woman", detail="full")\nh = 12\nemit(f"Portrait of {w}, at {h:02}:{30:02}, in {\'day\'}light.")\n')
         assert ", at 12:30, in daylight." in draw(src, 1).prompt
 
     def test_leave_and_a_program_without_people(self):
@@ -180,7 +180,7 @@ class TestTheOnePersonOwnsTheirDetails:
 
 
 class TestPresentationIsContextForOutfits:
-    """person(presentation=...) is context for that person's outfit lists: a man isn't drawn a sundress."""
+    """person(presentation=...) was context for that person's outfit lists; new draws have none."""
 
     @staticmethod
     def worn(presentation, n=120):
@@ -191,7 +191,7 @@ class TestPresentationIsContextForOutfits:
         from prompt_programs.fluent import runtime_for
         from prompt_programs.judge import settings
         from prompt_programs.options import OptionStore
-        src = expand_people(f'p = person("p", noun="person"{presentation})\n'
+        src = expand_people(f'p = person("p", noun="person"{presentation}, detail="full")\n'
                             'outfit = pick("p.outfit", cls="person.outfit.summer", about="what they wear", '
                             'seed=["shorts and a T-shirt"], label="Outfit", phase=2, added=True)\n'
                             'emit(p, ", wearing", outfit, ".")\n')
@@ -206,9 +206,11 @@ class TestPresentationIsContextForOutfits:
             out.append(str(next(d for d in r.draws if d.id == "p.outfit").value))
         return out
 
-    def test_a_man_draws_no_outfit_made_for_women_and_the_reverse(self):
+    def test_a_new_draw_leaves_who_wears_what_to_the_judge(self):
+        """New draws have no context weighting: a man's outfit pool is the whole list, and the
+        judge reading the finished prompt is what refuses a sundress (llm_judge)."""
         feminine = ("sundress", "bikini", "skirt")
-        assert not [v for v in self.worn(', presentation="masculine"') if any(w in v for w in feminine)]
+        assert [v for v in self.worn(', presentation="masculine"') if any(w in v for w in feminine)]
         assert [v for v in self.worn(', presentation="feminine"') if any(w in v for w in feminine)]
 
     def test_with_no_presentation_said_the_whole_list_is_drawn(self):

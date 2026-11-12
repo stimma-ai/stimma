@@ -1154,14 +1154,6 @@ async def lifespan(app: FastAPI):
             try:
                 log.info("deferred init begin")
 
-                # Fluent's pick judge downloads in the background from launch, so the
-                # first Fluent image doesn't wait for all of it (headless too).
-                try:
-                    from prompt_programs.fix import preload_judge
-                    preload_judge()
-                except Exception:
-                    log.exception("pick judge preload failed (non-fatal)")
-
                 # Start telemetry (lightweight, non-blocking).
                 # `app_launched` and `session_started` are now triggered by
                 # the frontend's $session_id arriving via X-Stimma-Session-Id.
@@ -1355,13 +1347,6 @@ async def lifespan(app: FastAPI):
     try:
         from multi_device import service as multi_device_service
         await multi_device_service.shutdown()
-    except Exception:
-        pass
-
-    # Stop a pick judge download at its next chunk; its bytes resume next launch.
-    try:
-        from prompt_programs import pick_judge
-        pick_judge.shutdown()
     except Exception:
         pass
 

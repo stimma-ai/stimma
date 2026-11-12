@@ -3,9 +3,10 @@
     woman = person("woman", noun="woman", presentation="feminine")
     emit("A portrait of", woman, ", in her kitchen.")
 
-A writer left to choose which of a person's details to draw draws some of them, some of the
-time. So it doesn't choose: `person()` is rewritten, before anything else reads the program,
-into one bound pick per detail (age, descent, skin, hair, eyes, face, build) and the
+The writer pictures the image and says which of a person's details it shows (`show=`): a detail
+that is described is a detail the image model shows, so eye color opens a sleeper's eyes and a
+build widens a close portrait. `person()` is rewritten, before anything else reads the program,
+into one bound pick per shown detail (of age, descent, skin, hair, eyes, face, build) and the
 description that joins them, placed wherever the program used the person. Everything after
 this sees ordinary picks (`woman.age`, `woman.face`): context, pins, the picker and the judge
 work as they do for picks the writer wrote, and what the user said of the person ("an old
@@ -20,9 +21,10 @@ passes no narrowing words of its own, so it has none to invent.
 - `said`: details the user gave as one value, with their words for it ({"descent": "Irish",
   "eyes": "emerald"}): that detail's pick gets said= their words, so every image draws their
   value and the picker offers the rest of the list (said.py).
+- `show`: the details this picture shows of them, the writer's choice after picturing the image
+  (a sleeper has no eye color, a close portrait no build). Only these are drawn. Without it the
+  short set is (age, descent, hair, hair color, face), or everything with `detail="full"`.
 - `leave`: details the user gave in words no list holds, which the program keeps as fixed text.
-- `detail`: "full" or "brief". A person made in a loop (one of several) is brief unless said
-  otherwise: several full descriptions bury the scene.
 
 Nothing is drawn twice. A pick the program writes itself on a list person() draws from (its
 own `woman.hair_color`, or with one person any pick on the hair color list) keeps its place
@@ -177,8 +179,12 @@ class _People(ast.NodeTransformer):
         stated = _const(kw.get("said"))
         said = {n: v.strip() for k, v in (stated.items() if isinstance(stated, dict) else ())
                 if (n := _name(k)) and isinstance(v, str) and v.strip()}
-        detail = str(_const(kw.get("detail")) or ("brief" if self.loops else "full")).lower()
-        keys = [k for k in DETAILS if k not in leave and (detail != "brief" or k in BRIEF or k in said)
+        shown = _const(kw.get("show"))
+        show = {n for k in (shown if isinstance(shown, (list, tuple, set)) else [shown] if shown else []) if (n := _name(k))}
+        # No show=: a program that asks for everything (detail="full") gets it, any other the short set.
+        detail = str(_const(kw.get("detail")) or "brief").lower()
+        wanted = show if kw.get("show") is not None else set(DETAILS) if detail == "full" else set(BRIEF)
+        keys = [k for k in DETAILS if k not in leave and (k in wanted or k in said)
                 and (k != "facial_hair" or presentation == "masculine" or k in said)]
         out: List[ast.stmt] = []
         var = {k: f"{target}_{k}" for k in keys}

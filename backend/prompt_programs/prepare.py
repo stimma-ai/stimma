@@ -32,7 +32,7 @@ from prompt_programs.vocab import AGE_LIST, vocabulary
 
 log = get_logger(__name__)
 
-PREPARE_VERSION = "pp-53"   # pp-53: person() yields to the program's own picks and is described once, one person's plain details take her id in code, age words narrow by what they imply (narrow-4). pp-52: stated values are said= choices (person(said=), bound picks), High develops what is stated and lights it with a pick. pp-51: person() describes every person (people.py). pp-50: US word choices (vocabulary, instructions). pp-49: US spelling (vocabulary, instructions, the .colors id). pp-48: animal lists offered to the writer, person + animal ids grouped (fix_subjects). pp-47: the four Fluent branches together (said=, context, subjects, fallback) and one
+PREPARE_VERSION = "pp-54"   # pp-54: the writer pictures the image and says what it shows of each person (show=), adds no expression or pose beside a stated one; context weighting is off and the Tool View model judges each draw (llm_judge). pp-53: person() yields to the program's own picks and is described once, one person's plain details take her id in code, age words narrow by what they imply (narrow-4). pp-52: stated values are said= choices (person(said=), bound picks), High develops what is stated and lights it with a pick. pp-51: person() describes every person (people.py). pp-50: US word choices (vocabulary, instructions). pp-49: US spelling (vocabulary, instructions, the .colors id). pp-48: animal lists offered to the writer, person + animal ids grouped (fix_subjects). pp-47: the four Fluent branches together (said=, context, subjects, fallback) and one
 # rule for whose detail a pick is (draws.person_of). pp-46 (each branch on its own): said= keeps a thing the user
 # named (said.py); context facets: a stated descent, time or season and user list values read as context; every
 # subject's details name the subject, shared=True (fix_subjects); a program that loses the user's words is never
@@ -216,8 +216,8 @@ def build_user_message(prompt: str, model_name: Optional[str], mode: str,
                      "pick wherever the image should vary. Develop what the user stated with what is seen there, true to their "
                      "words: the cafe's room and tables, the water and mist at dawn, the dress's cut and "
                      "fabric. That detail stands beside their words, never in their place: "
-                     "emit(\"She sits in a cafe,\", room, ...), not emit(\"She sits in\", room). Describe each "
-                     "person in full. Write the words around each pick so the sentence reads right for every "
+                     "emit(\"She sits in a cafe,\", room, ...), not emit(\"She sits in\", room). Describe of each "
+                     "person only what the image shows of them (show=). Write the words around each pick so the sentence reads right for every "
                      "value it can draw.")
     else:
         parts.append("Write the program, keeping the user's words: emit their prompt as written, joined into "

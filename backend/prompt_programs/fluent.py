@@ -85,7 +85,10 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
     if rev.get("context") not in (None, *CONTEXT_VERSIONS):
         raise ProgramError(f"This prompt was drawn with context rules {rev.get('context')}, which this version of "
                            "Stimma doesn't have, so it can't be replayed exactly.")
-    context = not rev or rev.get("context") in CONTEXT_VERSIONS
+    # A new draw has no context weighting: whether its values fit together is the judge's to say,
+    # reading the finished prompt (prompt_programs.llm_judge). Only a replay of a revision drawn
+    # with it has it.
+    context = bool(rev) and rev.get("context") in CONTEXT_VERSIONS
     pools = rev.get("pools")
     if isinstance(pools, dict) and any(is_pool_ref(v) for v in pools.values()):
         # Vocabulary pools recorded by reference (compact.py): read back whole, as they were drawn from.
@@ -128,8 +131,6 @@ def start_options(entry: Dict[str, Any], *, profile_id: Optional[str] = None, pr
     pools can't fill still draws from its seeds."""
     if not uses_draws(entry.get("program") or ""):
         return []
-    from prompt_programs.fix import kick_judge
-    kick_judge(cfg)  # the pinned judge's first-use download starts now, before the first image
     try:
         rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, filler=filler, cfg=cfg)
         loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
