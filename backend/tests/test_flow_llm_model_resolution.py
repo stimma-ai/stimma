@@ -39,10 +39,10 @@ class TestLiveFlow:
     async def test_concrete_slug_is_used_as_written(self, patched_resolvers):
         resolve = pe.make_flow_llm_resolve_config(flow_id=7, project_id=3)
 
-        cfg = await resolve("stimma:claude-sonnet-5")
+        cfg = await resolve("stimma:claude-sonnet-5-5")
 
-        assert cfg == {"model": "chat-stimma:claude-sonnet-5"}
-        assert patched_resolvers["chat"] == ("stimma:claude-sonnet-5", "flow")
+        assert cfg == {"model": "chat-stimma:claude-sonnet-5-5"}
+        assert patched_resolvers["chat"] == ("stimma:claude-sonnet-5-5", "flow")
         # A named model never consults Settings — that's the whole point.
         assert "effective" not in patched_resolvers
 

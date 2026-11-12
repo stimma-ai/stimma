@@ -20,7 +20,7 @@ def c(slug, vendor=None, name=None, model_id=None):
 class TestTierFor:
     @pytest.mark.parametrize("slug,expected", [
         ("stimma:claude-opus-5-5", DEEP),
-        ("stimma:claude-sonnet-5", BALANCED),
+        ("stimma:claude-sonnet-5-5", BALANCED),
         ("stimma:claude-haiku-5-5", FAST),
         ("stimma:gpt-6-astra", DEEP),
         ("stimma:gpt-6.1-sol", BALANCED),
@@ -92,25 +92,25 @@ class TestSelectAutoModels:
     def test_anthropic_family_wins_and_stays_coherent(self):
         chosen = select_auto_models([
             c("stimma:claude-opus-5-5", vendor="anthropic"),
-            c("stimma:claude-sonnet-5", vendor="anthropic"),
+            c("stimma:claude-sonnet-5-5", vendor="anthropic"),
             c("stimma:claude-haiku-5-5", vendor="anthropic"),
             c("stimma:gpt-6.1-sol", vendor="openai"),
             c("stimma:minimax-m3", vendor="minimax"),
         ])
         assert chosen["chat"] == "stimma:claude-opus-5-5"
-        assert chosen["tool_assistant"] == "stimma:claude-sonnet-5"
-        assert chosen["flow"] == "stimma:claude-sonnet-5"
+        assert chosen["tool_assistant"] == "stimma:claude-sonnet-5-5"
+        assert chosen["flow"] == "stimma:claude-sonnet-5-5"
         assert chosen["quick_task"] == "stimma:claude-haiku-5-5"
 
     def test_fable_never_auto_selected(self):
         chosen = select_auto_models([
             c("stimma:claude-fable-5.1", vendor="anthropic",
               model_id="anthropic:claude-fable-5-1"),
-            c("stimma:claude-sonnet-5", vendor="anthropic"),
+            c("stimma:claude-sonnet-5-5", vendor="anthropic"),
             c("stimma:claude-haiku-5-5", vendor="anthropic"),
         ])
         assert "stimma:claude-fable-5.1" not in chosen.values()
-        assert chosen["chat"] == "stimma:claude-sonnet-5"
+        assert chosen["chat"] == "stimma:claude-sonnet-5-5"
 
     def test_openai_only_install(self):
         chosen = select_auto_models([

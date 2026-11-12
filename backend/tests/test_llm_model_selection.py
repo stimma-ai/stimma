@@ -237,7 +237,7 @@ async def test_auto_draws_the_whole_lineup_from_one_family(monkeypatch):
     monkeypatch.setattr("privacy_lockdown.is_privacy_lockdown_enabled", lambda: False)
     llm_resolver.set_catalog_cache([
         {"slug": "stimma:claude-opus-5-5", "name": "Claude Opus 5.5", "model_vendor": "anthropic"},
-        {"slug": "stimma:claude-sonnet-5", "name": "Claude Sonnet 5", "model_vendor": "anthropic"},
+        {"slug": "stimma:claude-sonnet-5-5", "name": "Claude Sonnet 5.5", "model_vendor": "anthropic"},
         {"slug": "stimma:claude-haiku-5-5", "name": "Claude Haiku 5.5", "model_vendor": "anthropic"},
         {"slug": "stimma:minimax-m3", "name": "MiniMax M3", "model_vendor": "minimax"},
         {"slug": "stimma:gpt-6.1-sol", "name": "GPT-6.1 Sol", "model_vendor": "openai"},
@@ -251,8 +251,8 @@ async def test_auto_draws_the_whole_lineup_from_one_family(monkeypatch):
         llm_resolver.set_catalog_cache([])
 
     assert chosen["chat"] == "stimma:claude-opus-5-5"
-    assert chosen["tool_assistant"] == "stimma:claude-sonnet-5"
-    assert chosen["flow"] == "stimma:claude-sonnet-5"
+    assert chosen["tool_assistant"] == "stimma:claude-sonnet-5-5"
+    assert chosen["flow"] == "stimma:claude-sonnet-5-5"
     assert chosen["quick_task"] == "stimma:claude-haiku-5-5"
 
 
@@ -851,7 +851,7 @@ class TestRoleEffort:
         fields = {
             role: llm_resolver._resolve_level(
                 role, effort=None, levels=anthropic, default="high",
-                quick_task_level="off", slug="stimma:claude-sonnet-5",
+                quick_task_level="off", slug="stimma:claude-sonnet-5-5",
             )
             for role in ("quick_task", "tool_assistant", "flow", "chat")
         }

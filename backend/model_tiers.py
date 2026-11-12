@@ -117,7 +117,7 @@ CURATED_TIERS: dict[str, str] = {
     "claude-fable-5-1": DEEP,
     "claude-fable-5.1": DEEP,
     "claude-fable-5-2": DEEP,
-    "claude-sonnet-5": BALANCED,
+    "claude-sonnet-5-5": BALANCED,
     "claude-haiku-5-5": FAST,
     # OpenAI
     "gpt-6-astra": DEEP,

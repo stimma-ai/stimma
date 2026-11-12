@@ -166,11 +166,12 @@ BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
     ],
     "anthropic": [
         {
-            "model_id": "claude-sonnet-5", "name": "Claude Sonnet 5", "context": 1_000_000,
+            # Rejects thinking:disabled, so there is no off rung.
+            "model_id": "claude-sonnet-5-5", "name": "Claude Sonnet 5.5", "context": 1_000_000,
             "reasoning": _reasoning(
-                "optional", ["off", "low", "medium", "high", "xhigh", "max"],
-                "high", "off", "anthropic_adaptive_default",
-                {"off": "off", "low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "max"},
+                "required", ["low", "medium", "high", "xhigh", "max"],
+                "high", "low", "anthropic_adaptive_required",
+                {"low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "max"},
             ),
         },
         {

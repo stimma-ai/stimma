@@ -341,10 +341,6 @@ _BUILTIN_CATALOG: dict[str, dict] = {
     },
     'default':   {'agent_model': 'agent', 'agent_fast_model': 'agent-fast', 'max_context_tokens': 262_144},
     'agent-max': {'agent_model': 'agent-max', 'agent_fast_model': 'agent-fast', 'max_context_tokens': 262_144},
-    'gpt54':     {'agent_model': 'agent-gpt54', 'agent_fast_model': 'agent-fast-gpt54mini', 'max_context_tokens': 400_000},
-    'opus':      {'agent_model': 'agent-opus', 'agent_fast_model': 'agent-fast-haiku', 'max_context_tokens': 1_048_576},
-    'sonnet':    {'agent_model': 'agent-sonnet', 'agent_fast_model': 'agent-fast-haiku', 'max_context_tokens': 1_048_576},
-    'kimi-k2':   {'agent_model': 'agent-kimi-k2', 'agent_fast_model': 'agent-fast', 'max_context_tokens': 262_144},
 }
 
 

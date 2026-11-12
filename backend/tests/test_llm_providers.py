@@ -182,7 +182,7 @@ def test_branded_provider_contracts_match_current_model_series():
 
     anthropic = branded_models("anthropic", "anthropic-test")
     assert [model.model_id for model in anthropic] == [
-        "claude-sonnet-5",
+        "claude-sonnet-5-5",
         "claude-opus-5-5",
         "claude-fable-5-2",
         "claude-haiku-5-5",
@@ -808,12 +808,12 @@ def test_reasoning_contract_translates_exact_provider_wire_shape():
         "reasoning_effort": "xhigh"
     }
 
-    sonnet = branded_models("anthropic", "anthropic-test")[0]
-    config.reasoning_control = sonnet.reasoning.control
+    haiku = branded_models("anthropic", "anthropic-test")[-1]
+    config.reasoning_control = haiku.reasoning.control
     config.reasoning_level = "off"
-    config.reasoning_default = sonnet.reasoning.default
-    config.reasoning_quick_task = sonnet.reasoning.quick_task
-    config.reasoning_wire_levels = sonnet.reasoning.wire_levels
+    config.reasoning_default = haiku.reasoning.default
+    config.reasoning_quick_task = haiku.reasoning.quick_task
+    config.reasoning_wire_levels = haiku.reasoning.wire_levels
     assert _apply_endpoint_reasoning(config, None, None) == {
         "thinking": {"type": "disabled"}
     }

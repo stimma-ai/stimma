@@ -709,7 +709,7 @@ def llm(
             f"llm(): model must be a model slug string; got {model!r}",
             suggestion=(
                 "Pass a slug from the user's available models, e.g. "
-                "model='stimma:claude-sonnet-5'. Omit model= to use the model "
+                "model='stimma:claude-sonnet-5-5'. Omit model= to use the model "
                 "configured for flows. The slug is written into the program on "
                 "purpose: a flow keeps running on the model it was built and "
                 "tested against instead of drifting when Settings change."

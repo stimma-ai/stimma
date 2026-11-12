@@ -975,7 +975,7 @@ class LLMEvaluator:
         """Resolve one llm() call's model.
 
         ``model`` is whatever the program wrote: a concrete slug
-        (``stimma:claude-sonnet-5``), a legacy role alias, or the evaluator's
+        (``stimma:claude-sonnet-5-5``), a legacy role alias, or the evaluator's
         default when the call omitted it.
         """
         if self._resolve_config is not None:
