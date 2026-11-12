@@ -1087,3 +1087,35 @@ class TestShortForms:
         assert v.get("person.eye_color").short("hazel") == "hazel"
         assert outfit.short("something the list never had") == "something the list never had"
         assert any(x.get("short") for lf in v.to_dict()["leaves"] if lf["id"] == "lighting.natural" for x in lf["values"])
+
+
+class TestDogBreeds:
+    """A teaching list: about two hundred real breeds nobody could name from memory, browsed by
+    breed group, with size to narrow by and the common breeds drawn most."""
+
+    def test_about_two_hundred_breeds_each_once(self):
+        leaf = vocabulary().get("animal.dog_breed")
+        texts = [v.text for v in leaf.values]
+        assert 200 <= len(texts) <= 240
+        assert len({t.lower() for t in texts}) == len(texts)
+
+    def test_every_breed_sits_in_one_group_with_a_size(self):
+        from prompt_programs.fluent import list_parts
+        leaf = vocabulary().get("animal.dog_breed")
+        groups, sizes = leaf.local_facets["breed_group"], leaf.local_facets["size"]
+        assert {"herding", "hound", "sighthound", "terrier", "toy", "working", "sporting"} <= set(groups)
+        for v in leaf.values:
+            assert len(v.tags["breed_group"]) == 1 and v.tags["breed_group"][0] in groups, v.text
+            assert len(v.tags["size"]) == 1 and v.tags["size"][0] in sizes, v.text
+        texts = [v.text for v in leaf.values]
+        parts = list_parts(leaf, texts)
+        assert parts["name"] == "breed_group" and len(parts["of"]) == len(texts)
+
+    def test_common_breeds_are_typical_and_rare_ones_are_not(self):
+        leaf = vocabulary().get("animal.dog_breed")
+        tier = {v.text: v.tier for v in leaf.values}
+        for t in ("Labrador retriever", "golden retriever", "German shepherd", "beagle", "French bulldog"):
+            assert tier[t] == "typical", t
+        for t in ("Azawakh", "Lancashire heeler", "Kishu Ken", "Bergamasco", "otterhound"):
+            assert tier[t] == "unusual", t
+        assert sum(1 for x in tier.values() if x == "typical") < len(tier) // 5
