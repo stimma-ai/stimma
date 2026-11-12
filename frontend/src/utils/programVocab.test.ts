@@ -6,36 +6,14 @@ import {
   buildVocabTree,
   effectiveContext,
   matchesQuery,
-  partLabel,
-  shownOptions,
-  standbyOf,
   valueFits,
   type VocabLeaf,
-  type VocabTier,
 } from './programVocab.ts'
 
 test('matchesQuery needs every word, any case, any order', () => {
   assert.ok(matchesQuery('a broad toothy smile', 'Smile broad'))
   assert.ok(matchesQuery('anything', '   '))
   assert.ok(!matchesQuery('a broad toothy smile', 'smile frown'))
-})
-
-test('shownOptions keeps the list order, filtered by the search and the part chosen', () => {
-  const options = ['jet black', 'dark brown', 'ash brown', 'honey blonde', 'mine']
-  const parts = { name: 'shade', values: ['black', 'brunette', 'blonde'], of: { 'jet black': 'black', 'dark brown': 'brunette', 'ash brown': 'brunette', 'honey blonde': 'blonde' } }
-  assert.equal(shownOptions(options, '  ', null, parts), options)
-  assert.deepEqual(shownOptions(options, 'BROWN'), ['dark brown', 'ash brown'])
-  assert.deepEqual(shownOptions(options, '', 'brunette', parts), ['dark brown', 'ash brown'])
-  assert.deepEqual(shownOptions(options, 'ash', 'brunette', parts), ['ash brown'])
-  // an option the list doesn't know (one the person added) has no part
-  assert.deepEqual(shownOptions(options, 'mine', 'blonde', parts), [])
-  assert.equal(partLabel('strawberry_blonde'), 'strawberry blonde')
-})
-
-test('standbyOf names the values drawn only when ticked', () => {
-  const tiers: Record<string, VocabTier> = { '8–10-year-old': 'opt_in', '20–24-year-old': 'typical', '60–64-year-old': 'plausible' }
-  assert.deepEqual([...standbyOf({ tiers })], ['8–10-year-old'])
-  assert.equal(standbyOf(null).size, 0)
 })
 
 const leaf = (over: Partial<VocabLeaf>): VocabLeaf => ({

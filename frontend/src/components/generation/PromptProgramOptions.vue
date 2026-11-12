@@ -1,359 +1,333 @@
 <template>
-  <!-- A pick's options, one flat list in the list's own order. A tick means the option can
-       be drawn: everything starts ticked, unticking leaves a value out (shift-click does a
-       range). Search and the list's parts only change what is shown; the All row and
-       "Only these" then act on what is shown. A long list renders its first rows and is
-       narrowed by searching.
-       A list-bound choice the server places (programReach.ts) swaps the All row for its
-       settings ("Just Irish · Similar 3 · Any 105"; the lit one is what a run draws from) and
-       lists what fits first, then the rest after a "Beyond your prompt" line that stays in
-       view until scrolled to. While searching, the All row is back: it acts on what is shown. -->
-  <div class="min-h-0 flex flex-col">
-    <div v-if="many" class="px-2 pb-1.5" @keydown="onSearchKey">
+  <!-- One choice's chooser. Nothing is ticked to begin with: the lit row at the top says what
+       images get now, and clicking an option chooses it; clicking more adds them. What is
+       chosen stays in view as chips above the list. Group chips filter the list; with only
+       chips on, the top row chooses those groups whole. -->
+  <div class="min-h-0 flex flex-col" :data-chooser="choice.id">
+    <div v-if="searchable" class="shrink-0 px-2 pb-1.5" @keydown="onSearchKey">
       <SearchField ref="searchRef" v-model="query" placeholder="Search" />
     </div>
 
-    <div v-if="parts" class="px-2 pb-1.5 flex flex-wrap gap-1" role="group" :aria-label="partLabel(parts.name)">
+    <div v-if="parts.length" class="shrink-0 px-2 pb-1.5 flex flex-wrap gap-1 coarse:flex-nowrap coarse:overflow-x-auto coarse:[&>button]:shrink-0" role="group" aria-label="Groups">
       <button
-        v-for="p in parts.values"
-        :key="p"
+        v-for="p in parts"
+        :key="p.key"
         type="button"
-        :aria-pressed="part === p"
-        :data-part="p"
+        :aria-pressed="shownParts.has(p.key)"
+        :data-part="p.part"
         :class="['px-2.5 py-0.5 coarse:py-1.5 rounded-full text-xs coarse:text-[13px] border transition-colors outline-none focus-visible:ring-1 focus-visible:ring-selection/60',
-          part === p ? 'bg-selection/15 text-selection border-selection/40' : 'bg-surface-raised border-transparent text-content-secondary hover:text-content hover:bg-surface-hover']"
-        @click="picked = part === p ? '' : p"
-      >{{ partLabel(p) }}</button>
+          shownParts.has(p.key) ? 'bg-overlay-medium text-content border-transparent' : 'bg-surface-raised border-transparent text-content-secondary hover:text-content hover:bg-surface-hover']"
+        @click="togglePart(p.key)"
+      >{{ partLabel(p.part) }}</button>
     </div>
 
-    <div v-if="segmented" class="px-1.5 pb-1">
-      <SegmentedControl block :model-value="lit" :options="segments" aria-label="Draw from" @update:model-value="choose" />
-    </div>
-
-    <div v-else class="px-1.5">
-      <div
-        data-all
-        role="checkbox"
-        :aria-checked="allState === 'some' ? 'mixed' : allState === 'all'"
-        tabindex="0"
-        class="flex items-center gap-2.5 px-2 py-1.5 coarse:py-2.5 rounded-md cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
-        @click="toggleAll"
-        @keydown.space.self.prevent="toggleAll"
-        @keydown.enter.self.prevent="toggleAll"
+    <!-- What is chosen, always in view -->
+    <div v-if="tokens.length" class="shrink-0 px-2 pb-1.5 flex flex-wrap items-center gap-1 max-h-[5.5rem] overflow-y-auto" data-chosen>
+      <span
+        v-for="t in tokens"
+        :key="tokenKey(t)"
+        class="inline-flex max-w-full items-center gap-1 pl-2.5 pr-1 py-0.5 rounded-full text-xs bg-selection/15 text-selection"
       >
-        <span :class="[boxClass, allState === 'none' ? 'border-edge-strong' : 'bg-selection border-selection text-white']">
-          <CheckIcon v-if="allState === 'all'" class="w-2.5 h-2.5" stroke-width="3" />
-          <MinusIcon v-else-if="allState === 'some'" class="w-2.5 h-2.5" stroke-width="3" />
-        </span>
-        <span class="flex-1 min-w-0 text-xs coarse:text-[13px] text-content-secondary">{{ filtered ? `All ${count(seen.length)} shown` : 'All' }}</span>
-        <button
-          v-if="filtered && seen.length"
-          type="button"
-          class="shrink-0 -my-0.5 px-1.5 py-0.5 coarse:py-1.5 rounded-md text-xs coarse:text-[13px] text-accent hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
-          @click.stop="onlyThese"
-        >Only these</button>
-      </div>
-    </div>
-
-    <div
-      ref="listRef"
-      :class="['min-h-0 overflow-y-auto overscroll-contain px-1.5 pb-1.5 flex flex-col gap-px', many ? 'max-h-[min(26rem,50dvh)]' : '']"
-    >
-      <template v-for="o in rows" :key="o">
-      <div
-        v-if="o === firstBeyond"
-        data-beyond
-        class="sticky -bottom-1.5 z-[1] flex items-center gap-2 px-2 pt-2.5 pb-1 bg-surface"
-      >
-        <span class="text-[11px] text-content-muted">Beyond your prompt</span>
-        <span class="h-px flex-1 bg-edge-subtle" />
-        <span class="text-[11px] text-content-muted font-mono tabular-nums">{{ count(beyondShown) }}</span>
-      </div>
-      <div
-        :data-option="o"
-        role="checkbox"
-        :aria-checked="ticks.has(o)"
-        tabindex="0"
-        class="group/opt flex items-start gap-2.5 px-2 py-1.5 coarse:py-2.5 rounded-md cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
-        @mousedown="onOptionMouseDown"
-        @click="onOptionClick(o, $event)"
-        @keydown.space.self.prevent="toggle(o)"
-        @keydown.enter.self.prevent="toggle(o)"
-      >
-        <span :class="[boxClass, 'mt-[2px]', ticks.has(o) ? 'bg-selection border-selection text-white' : 'border-edge-strong']">
-          <CheckIcon v-if="ticks.has(o)" class="w-2.5 h-2.5" stroke-width="3" />
-        </span>
-        <span :class="['flex-1 min-w-0 text-xs coarse:text-[13px] leading-snug break-words', ticks.has(o) ? 'text-content' : 'text-content-muted']">
-          {{ shownOption(o) }}<span v-if="trigger(o)" class="ml-1.5 font-mono text-[10px] text-content-muted">{{ trigger(o) }}</span>
-        </span>
-        <button
-          type="button"
-          :aria-label="`Only ${shownOption(o)}`"
-          class="shrink-0 -my-0.5 px-1.5 py-0.5 rounded-md text-xs coarse:text-[13px] text-content-secondary hover:text-content hover:bg-overlay-subtle opacity-0 group-hover/opt:opacity-100 group-focus-within/opt:opacity-100 coarse:opacity-100 outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
-          @click.stop="only(o)"
-        >Only</button>
-        <button
-          v-if="program.isOwn(choice, o)"
-          type="button"
-          title="Delete option"
-          :aria-label="`Delete ${shownOption(o)}`"
-          class="shrink-0 -my-0.5 p-0.5 rounded text-content-muted hover:text-red-400 opacity-0 group-hover/opt:opacity-100 group-focus-within/opt:opacity-100 coarse:opacity-100"
-          @click.stop="forget(o)"
-        >
-          <TrashIcon class="w-3.5 h-3.5" />
+        <span class="truncate">{{ tokenText(choice, pool, t) }}</span>
+        <button type="button" class="shrink-0 p-0.5 coarse:p-1.5 rounded-full hover:bg-selection/20" :aria-label="`Remove ${tokenText(choice, pool, t)}`" @click="toggle(t)">
+          <XMarkIcon class="w-3 h-3" />
         </button>
-      </div>
-      </template>
-      <template v-if="!seen.length && filtered">
-        <div class="px-2 py-1.5 coarse:py-2.5 text-xs coarse:text-[13px] text-content-muted">No matches</div>
-        <button
-          v-if="canAddQuery"
-          type="button"
-          class="flex items-center gap-2.5 px-2 py-1.5 coarse:py-2.5 rounded-md text-left text-xs coarse:text-[13px] text-content-secondary hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
-          @click="addQuery"
-        >
-          <PlusIcon class="shrink-0 w-3.5 h-3.5 text-content-muted" />
-          <span class="min-w-0 break-words">Add “{{ query.trim() }}”</span>
-        </button>
-      </template>
-      <div v-if="seen.length > rows.length" data-more class="px-2 pt-1.5 text-[11px] text-content-muted font-mono tabular-nums">
-        {{ count(rows.length) }} of {{ count(seen.length) }}
-      </div>
+      </span>
+      <button v-if="tokens.length > 1" type="button" class="px-1.5 py-0.5 rounded-md text-[11px] text-content-muted hover:text-content hover:bg-overlay-subtle" data-clear @click="clear">Clear</button>
     </div>
 
-    <div v-if="addable" class="px-1.5 pb-1.5">
-      <div class="flex items-center gap-2.5 px-2 py-1 rounded-md focus-within:bg-overlay-subtle">
-        <PlusIcon class="shrink-0 w-3.5 h-3.5 text-content-muted" />
-        <input
-          class="flex-1 min-w-0 bg-transparent text-xs coarse:text-[13px] text-content placeholder:text-content-muted outline-none py-0.5"
-          placeholder="Add your own…"
-          :value="draft"
-          @input="draft = ($event.target as HTMLInputElement).value"
-          @keydown.enter="commit"
-          @keydown.esc="onDraftEscape"
-          @blur="commit"
+    <div ref="listRef" :style="listStyle" class="shrink-0 overflow-y-auto overscroll-contain px-1.5 pb-1.5 flex flex-col gap-px">
+      <!-- The lit row: what images get when nothing is chosen -->
+      <button v-if="!filtered" type="button" :class="rowClass" data-default @click="chooseDefault">
+        <span :class="tickClass"><CheckIcon v-if="defaultLit" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
+        <span :class="['flex-1 min-w-0', defaultLit ? 'text-content font-medium' : 'text-content-secondary']">{{ defaultLabel }}</span>
+      </button>
+      <button v-if="filtered && partsOnly" type="button" :class="rowClass" data-any-part @click="toggleParts">
+        <span :class="tickClass"><CheckIcon v-if="partsChosen" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
+        <span :class="['flex-1 min-w-0', partsChosen ? 'text-content font-medium' : 'text-content-secondary']">Any {{ shownPartNames }}</span>
+      </button>
+
+      <template v-for="(z, i) in shownZones" :key="z.id">
+        <div v-if="i > 0 || (filtered && zones.length > 1)" class="px-2 pt-2.5 pb-1 text-[11px] font-semibold text-content-tertiary">{{ z.title }}</div>
+        <button v-if="z.id !== first && !filtered" type="button" :class="rowClass" :data-zone-any="z.id" @click="toggle({ kind: 'zone', zone: z.id })">
+          <span :class="tickClass"><CheckIcon v-if="hasToken(state, { kind: 'zone', zone: z.id })" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
+          <span :class="['flex-1 min-w-0', hasToken(state, { kind: 'zone', zone: z.id }) ? 'text-content font-medium' : 'text-content-secondary']">Any of these</span>
+        </button>
+        <div
+          v-for="o in z.rows"
+          :key="o"
+          role="button"
+          tabindex="0"
+          :class="[rowClass, 'group/opt']"
+          :data-option="o"
+          :aria-pressed="hasToken(state, { kind: 'value', value: o })"
+          @click="toggle({ kind: 'value', value: o })"
+          @keydown.enter.self.prevent="toggle({ kind: 'value', value: o })"
+          @keydown.space.self.prevent="toggle({ kind: 'value', value: o })"
         >
-      </div>
+          <span :class="tickClass">
+            <CheckIcon v-if="hasToken(state, { kind: 'value', value: o })" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" />
+            <CheckIcon v-else-if="changed && inPlay.has(o)" class="w-3.5 h-3.5 text-content-muted" stroke-width="2" />
+          </span>
+          <span v-if="swatches(o)" class="shrink-0 flex -space-x-1 mt-px">
+            <span v-for="(c, j) in swatches(o)" :key="j" class="w-3.5 h-3.5 rounded-full border border-surface" :style="{ background: c }" />
+          </span>
+          <span :class="['flex-1 min-w-0 leading-snug break-words', inPlay.has(o) ? 'text-content' : 'text-content-secondary']">{{ valueText(pool, o) }}</span>
+          <button
+            v-if="program.isOwn(choice, o)"
+            type="button"
+            title="Delete option"
+            :aria-label="`Delete ${valueText(pool, o)}`"
+            class="shrink-0 -my-0.5 p-0.5 rounded text-content-muted hover:text-red-400 opacity-0 group-hover/opt:opacity-100 group-focus-within/opt:opacity-100 coarse:opacity-100"
+            @click.stop="program.forgetOwn(choice, o)"
+          >
+            <TrashIcon class="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </template>
+
+      <div v-if="hidden > 0" class="px-2 pt-1.5 text-[11px] text-content-muted font-mono tabular-nums" data-more-rows>{{ count(shownCount) }} of {{ count(matchCount) }}</div>
+      <div v-if="writingOptions" class="flex items-center gap-2 px-2 py-1.5 text-xs text-content-muted" data-writing><Spinner size="sm" /> Writing options…</div>
+      <template v-if="filtered && !matchCount">
+        <div class="px-2 py-1.5 text-xs text-content-muted">No matches</div>
+      </template>
+      <button v-if="canAdd" type="button" :class="rowClass" data-add @click="add">
+        <span :class="tickClass"><PlusIcon class="w-3.5 h-3.5 text-content-muted" /></span>
+        <span class="min-w-0 break-words text-content-secondary">Add “{{ query.trim() }}”</span>
+      </button>
     </div>
+
+    <!-- Colors belong to the outfit -->
+    <div v-if="followers.length" class="shrink-0 px-1.5 pb-1.5">
+      <button v-for="f in followers" :key="f.id" type="button" :class="rowClass" :data-follower="f.id" @click="emit('drill', f.id)">
+        <span class="w-24 shrink-0 text-content-secondary">{{ f.label }}</span>
+        <span v-if="followerSwatches(f)" class="shrink-0 flex -space-x-1 mt-px">
+          <span v-for="(c, j) in followerSwatches(f)" :key="j" class="w-3.5 h-3.5 rounded-full border border-surface" :style="{ background: c }" />
+        </span>
+        <span :class="['flex-1 min-w-0 truncate', isChanged(program.states.value[f.id]) ? 'text-selection' : 'text-content-muted']">{{ followerText(f) }}</span>
+        <ChevronRightIcon class="w-3.5 h-4 shrink-0 text-content-muted" />
+      </button>
+    </div>
+
+    <div v-if="canMore || canAsWritten || canLeaveOut" class="shrink-0 border-t border-edge-subtle px-2 py-1.5 flex items-center gap-1">
+      <button v-if="canMore" type="button" :class="footClass" :disabled="writing" data-more @click="more">
+        <Spinner v-if="writing" size="sm" /><SparklesIcon v-else class="w-3.5 h-3.5" />
+        More like these
+      </button>
+      <span class="flex-1" />
+      <button v-if="canAsWritten" type="button" :class="[footClass, asWritten ? 'text-selection' : '']" :aria-pressed="asWritten" data-as-written @click="toggleAsWritten">As written</button>
+      <button v-if="canLeaveOut" type="button" :class="footClass" data-leave-out @click="leave">Leave out</button>
+    </div>
+    <div v-if="writeError" class="px-3 pb-2 text-[11px] text-red-400">{{ writeError }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { CheckIcon, MinusIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CheckIcon, ChevronRightIcon, PlusIcon, SparklesIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import SearchField from '../ui/SearchField.vue'
-import SegmentedControl from '../ui/SegmentedControl.vue'
+import Spinner from '../ui/Spinner.vue'
 import { useViewport } from '../../composables/useViewport'
-import { MANY_OPTIONS, MAX_ROWS, partLabel, shownOption, shownOptions, standbyOf } from '../../utils/programVocab'
-import { stateFor, ticksOf } from '../../utils/programTicks'
-import { litSetting, reachOrder, reachSettings, ticksForSetting, type ReachKey } from '../../utils/programReach'
-import type { PromptProgram, ProgramChoice } from '../../composables/usePromptProgram'
+import { MANY_OPTIONS, MAX_ROWS, matchesQuery } from '../../utils/programVocab'
+import {
+  PALETTE_CLS, asWrittenState, defaultZone, drawable, groupMembers, hasToken, isAsWritten, isChanged, leaveOut, partLabel,
+  pillValue, resetState, swatchesOf, toggleToken, tokenText, tokensOf, valueText, zonesOf, type Token,
+} from '../../utils/programChoices'
+import type { PromptProgram, ProgramChoice, ProgramSlot } from '../../composables/usePromptProgram'
 
 const props = defineProps<{
   choice: ProgramChoice
   program: PromptProgram
-  addable?: boolean
+  /** The slot, when this choice is all of it: its words can be drawn as written. */
+  ownSlot?: ProgramSlot | null
+  /** Where the card hangs from, for the list's height. */
+  anchorBottom?: number
 }>()
+const emit = defineEmits<{ (e: 'drill', id: string): void; (e: 'left-out'): void }>()
 
-const { allowsAutofocus } = useViewport()
-
-const boxClass = 'shrink-0 w-3.5 h-3.5 rounded-[4px] flex items-center justify-center border'
+const rowClass = 'w-full flex items-start gap-2 px-2 py-1.5 coarse:py-2.5 rounded-md text-left text-xs coarse:text-[13px] cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60'
+const tickClass = 'shrink-0 w-3.5 h-4 flex items-center justify-center'
+const footClass = 'flex items-center gap-1.5 px-2 py-1 coarse:py-2 text-xs rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle disabled:opacity-50 disabled:pointer-events-none'
 const count = (n: number) => n.toLocaleString('en-US')
 
+const { allowsAutofocus, isCoarsePointer } = useViewport()
+
 const query = ref('')
-const draft = ref('')
-const picked = ref('')
+const shownParts = ref<Set<string>>(new Set())
 const listRef = ref<HTMLElement | null>(null)
 const searchRef = ref<InstanceType<typeof SearchField> | null>(null)
+const writing = ref(false)
+const writeError = ref('')
 
-const opts = computed(() => props.program.optionsOf(props.choice))
-const edit = computed(() => props.program.edits.value[props.choice.id] || {})
-const vocab = computed(() => props.program.vocabOf(props.choice))
-// Values drawn only when ticked (a list's opt-in values) start unticked, and the All row
-// and "Only these" leave them alone unless they are all that is shown.
-const standby = computed(() => standbyOf(vocab.value))
-const ticks = computed(() => ticksOf(props.choice, props.program.pins.value[props.choice.id], edit.value, opts.value, standby.value))
-const many = computed(() => !!vocab.value || !!props.choice.cls || opts.value.length > MANY_OPTIONS)
+const pool = computed(() => props.program.poolOf(props.choice))
+const state = computed(() => props.program.states.value[props.choice.id] || null)
+const zones = computed(() => zonesOf(props.choice, pool.value, state.value))
+const first = computed(() => defaultZone(props.choice))
+const options = computed(() => zones.value.flatMap(z => z.options))
+const tokens = computed(() => tokensOf(state.value))
+const changed = computed(() => isChanged(state.value))
+const inPlay = computed(() => drawable(props.choice, pool.value, state.value) || new Set<string>())
 
-const parts = computed(() => vocab.value?.parts?.values.length ? vocab.value.parts : null)
-const part = computed(() => parts.value?.values.includes(picked.value) ? picked.value : '')
-const filtered = computed(() => !!query.value.trim() || !!part.value)
+const isList = computed(() => props.choice.source === 'list')
+const isFollower = computed(() => !!props.choice.follows)
+const searchable = computed(() => options.value.length > MANY_OPTIONS || (!isList.value && !isFollower.value))
 
-// How far the choice reaches, as the server placed its options: the settings row, and the
-// list split into what fits and what is beyond the prompt.
-const own = computed(() => new Set(opts.value.filter(o => props.program.isOwn(props.choice, o))))
-const reach = computed(() => vocab.value?.reach || null)
-const settings = computed(() => reachSettings(reach.value, opts.value, own.value))
-const segmented = computed(() => settings.value.length > 1 && !filtered.value)
-const lit = computed(() => litSetting(settings.value, ticks.value, standby.value))
-const segments = computed(() => {
-  const out: Array<{ label: string; value: string; count?: number }> = settings.value.map(s => ({
-    label: s.label, value: s.key, count: s.values.length > 1 ? s.values.length : undefined,
-  }))
-  // Ticks that match no setting read as the person's own selection, lit first.
-  if (lit.value === 'yours') out.unshift({ label: 'Yours', value: 'yours', count: [...ticks.value].filter(t => !own.value.has(t)).length })
-  if (lit.value === 'none') out.unshift({ label: 'None', value: 'none' })
+// The list takes the room left under the card's anchor, so the card itself never has to
+// scroll. On a phone the card is a sheet from the bottom, and the list takes a share of it.
+const listStyle = computed(() => ({
+  maxHeight: isCoarsePointer.value ? 'max(9rem, calc(var(--sheet-menu-max-h) - 330px))'
+    : `max(10rem, min(24rem, calc(100dvh - ${Math.round((props.anchorBottom || 0) + 270)}px)))`,
+}))
+
+// Groups --------------------------------------------------------------------------------
+const parts = computed(() => Object.entries(pool.value?.groups || {}).flatMap(([facet, byPart]) =>
+  Object.keys(byPart).filter(p => byPart[p]?.length).map(part => ({ key: JSON.stringify([facet, part]), facet, part }))))
+const partOf = (key: string) => { const [facet, part] = JSON.parse(key) as [string, string]; return { facet, part } }
+const inShownParts = computed(() => {
+  const out = new Set<string>()
+  for (const key of shownParts.value) { const { facet, part } = partOf(key); for (const o of groupMembers(pool.value, facet, part)) out.add(o) }
   return out
 })
-function choose(key: string | number) {
-  if (key === 'yours' || key === 'none' || key === lit.value) return
-  write(ticksForSetting(settings.value, key as ReachKey, ticks.value, standby.value))
+const filtered = computed(() => !!query.value.trim() || shownParts.value.size > 0)
+const partsOnly = computed(() => shownParts.value.size > 0 && !query.value.trim())
+const partsChosen = computed(() => [...shownParts.value].every(k => hasToken(state.value, { kind: 'group', ...partOf(k) })))
+const shownPartNames = computed(() => [...shownParts.value].map(k => partLabel(partOf(k).part)).join(' or '))
+function togglePart(key: string) {
+  const next = new Set(shownParts.value)
+  next.has(key) ? next.delete(key) : next.add(key)
+  shownParts.value = next
+  if (listRef.value) listRef.value.scrollTop = 0
 }
-const split = computed(() => reachOrder(opts.value, reach.value, own.value))
-const beyond = computed(() => new Set(split.value.beyond))
+function toggleParts() {
+  const on = partsChosen.value
+  let s = state.value
+  for (const k of shownParts.value) {
+    const t: Token = { kind: 'group', ...partOf(k) }
+    if (hasToken(s, t) === on) s = toggleToken(props.choice, s, t)
+  }
+  props.program.setState(props.choice.id, s)
+}
 
-// The list's own order (what fits first, when the choice is placed). In a list too long to
-// show whole, the person's own additions lead, so one just added is in view.
-const order = computed(() => {
-  if (beyond.value.size) return [...split.value.inside, ...split.value.beyond]
-  if (opts.value.length <= MAX_ROWS || !edit.value.add?.length) return opts.value
-  const own = new Set(edit.value.add)
-  return [...opts.value.filter(o => own.has(o)), ...opts.value.filter(o => !own.has(o))]
-})
-const seen = computed(() => shownOptions(order.value, query.value, part.value, parts.value))
-const rows = computed(() => seen.value.length > MAX_ROWS ? seen.value.slice(0, MAX_ROWS) : seen.value)
-const firstBeyond = computed(() => rows.value.find(o => beyond.value.has(o)) ?? null)
-const beyondShown = computed(() => seen.value.filter(o => beyond.value.has(o)).length)
-const bulk = computed(() => {
-  if (!standby.value.size) return seen.value
-  const regular = seen.value.filter(o => !standby.value.has(o))
-  return regular.length ? regular : seen.value
-})
-const allState = computed<'all' | 'some' | 'none'>(() => {
-  const on = ticks.value
-  if (bulk.value.length && bulk.value.every(o => on.has(o))) return 'all'
-  return seen.value.some(o => on.has(o)) ? 'some' : 'none'
-})
-const canAddQuery = computed(() => {
+// The list ------------------------------------------------------------------------------
+const matches = (o: string) => {
   const q = query.value.trim()
-  return !!q && !!props.addable && !opts.value.includes(q)
+  if (q && !matchesQuery(valueText(pool.value, o), q) && !matchesQuery(o, q)) return false
+  return !shownParts.value.size || inShownParts.value.has(o)
+}
+const matched = computed(() => zones.value.map(z => ({ ...z, rows: filtered.value ? z.options.filter(matches) : z.options })))
+const matchCount = computed(() => matched.value.reduce((n, z) => n + z.rows.length, 0))
+// A long list (thousands of faces) renders its first rows; the search narrows it.
+const shownZones = computed(() => {
+  let room = MAX_ROWS
+  return matched.value.map((z) => {
+    const rows = z.rows.slice(0, Math.max(0, room))
+    room -= rows.length
+    return { ...z, rows }
+  }).filter((z, i) => z.rows.length || (i > 0 && !filtered.value && z.options.length))
 })
+const shownCount = computed(() => shownZones.value.reduce((n, z) => n + z.rows.length, 0))
+const hidden = computed(() => matchCount.value - shownCount.value)
 
-// A different pick in the same card (a person's detail): start fresh.
+const defaultLit = computed(() => !changed.value || (zones.value.length > 1 && hasToken(state.value, { kind: 'zone', zone: first.value })))
+const defaultLabel = computed(() => (zones.value.length > 1 && zones.value[0].title) || `Any ${props.choice.label.toLowerCase()}`)
+/** The lit row. With several zones it is the default zone, which can be chosen beside
+    others; with one, it puts the choice back. */
+function chooseDefault() {
+  if (!changed.value) return
+  if (zones.value.length > 1) toggle({ kind: 'zone', zone: first.value })
+  else props.program.setState(props.choice.id, resetState(state.value))
+}
+
+function toggle(t: Token) {
+  props.program.setState(props.choice.id, toggleToken(props.choice, state.value, t))
+}
+function clear() {
+  props.program.setState(props.choice.id, resetState(state.value))
+}
+const tokenKey = (t: Token) => t.kind === 'value' ? `v:${t.value}` : t.kind === 'zone' ? `z:${t.zone}` : `g:${t.facet}:${t.part}`
+
+const palette = computed(() => props.choice.cls === PALETTE_CLS)
+const swatches = (o: string) => (palette.value ? swatchesOf(o) : null)
+
+// Adding --------------------------------------------------------------------------------
+const canAdd = computed(() => {
+  const q = query.value.trim()
+  return !!q && !isList.value && !isFollower.value && !options.value.includes(q) && !matchCount.value
+})
+function add() {
+  props.program.addOwn(props.choice, query.value)
+  query.value = ''
+  if (listRef.value) listRef.value.scrollTop = 0
+}
+
+const writingOptions = computed(() => !!pool.value?.more)
+const canMore = computed(() => !isList.value && !isFollower.value)
+async function more() {
+  if (writing.value) return
+  writing.value = true
+  writeError.value = ''
+  try {
+    await props.program.suggestOptions(props.choice)
+    if (listRef.value) listRef.value.scrollTop = 0
+  } catch (e: any) {
+    const d = e?.response?.data?.detail
+    writeError.value = (typeof d === 'string' ? d : d?.message) || 'Couldn’t write new options.'
+  } finally {
+    writing.value = false
+  }
+}
+
+// As written, Leave out ------------------------------------------------------------------
+const canAsWritten = computed(() => !!props.ownSlot)
+const asWritten = computed(() => isAsWritten(props.ownSlot, state.value))
+function toggleAsWritten() {
+  if (!props.ownSlot) return
+  props.program.setState(props.choice.id, asWritten.value ? resetState(state.value) : asWrittenState(props.ownSlot, state.value))
+}
+const canLeaveOut = computed(() => !isFollower.value && !state.value?.off)
+function leave() {
+  props.program.setState(props.choice.id, leaveOut(state.value))
+  emit('left-out')
+}
+
+// Colors --------------------------------------------------------------------------------
+const followers = computed(() => props.program.followers.value[props.choice.id] || [])
+function followerText(f: ProgramChoice): string {
+  const s = props.program.states.value[f.id]
+  if (s?.off) return 'left out'
+  return pillValue(f, props.program.poolOf(f), s) || 'Any'
+}
+function followerSwatches(f: ProgramChoice): string[] | null {
+  const t = tokensOf(props.program.states.value[f.id])
+  return f.cls === PALETTE_CLS && t.length === 1 && t[0].kind === 'value' ? swatchesOf(t[0].value) : null
+}
+
+// Keys and focus --------------------------------------------------------------------------
+function onSearchKey(e: KeyboardEvent) {
+  if (e.key !== 'Enter') return
+  e.preventDefault()
+  const rows = shownZones.value.flatMap(z => z.rows)
+  if (rows.length === 1) toggle({ kind: 'value', value: rows[0] })
+  else if (canAdd.value) add()
+}
+/** Escape clears the search first; true when it did. */
+function clearQuery(): boolean {
+  if (!query.value && !shownParts.value.size) return false
+  query.value = ''
+  shownParts.value = new Set()
+  return true
+}
+defineExpose({ clearQuery })
+
+function focusSearch() {
+  if (!allowsAutofocus.value) return
+  void nextTick(() => { if (searchable.value) searchRef.value?.focusQuietly() })
+}
 watch(() => props.choice.id, () => {
   query.value = ''
-  draft.value = ''
-  picked.value = ''
-  anchor.value = null
+  shownParts.value = new Set()
+  writeError.value = ''
   focusSearch()
 })
 onMounted(focusSearch)
-function focusSearch() {
-  if (!allowsAutofocus.value) return
-  void nextTick(() => { if (many.value) searchRef.value?.focusQuietly() })
-}
-
-const lora = (name: string) => props.program.program.value?.loras.find(l => l.name === name)
-function trigger(o: string): string {
-  return props.choice.kind === 'lora' ? (lora(o)?.trigger || '').split(',')[0] : ''
-}
-
-function write(next: Iterable<string>) {
-  props.program.setTicks(props.choice.id, stateFor(props.choice, next, opts.value, standby.value))
-}
-
-function toggle(o: string) {
-  const next = new Set(ticks.value)
-  next.has(o) ? next.delete(o) : next.add(o)
-  write(next)
-  anchor.value = o
-}
-
-// One of the person's own options (typed here, or kept for this list from an earlier prompt)
-// can be forgotten: it leaves this choice and the list.
-function forget(o: string) {
-  const e = edit.value
-  void props.program.keepAddition(props.choice, o, false)
-  const rest = opts.value.filter(x => x !== o)
-  props.program.setTicks(props.choice.id, stateFor(props.choice, [...ticks.value].filter(x => x !== o), rest, standby.value),
-    { ...e, add: (e.add || []).filter(x => x !== o) })
-}
-
-function only(o: string) {
-  write([o])
-  anchor.value = o
-}
-
-function toggleAll() {
-  const next = new Set(ticks.value)
-  if (allState.value === 'all') for (const o of seen.value) next.delete(o)
-  else for (const o of bulk.value) next.add(o)
-  write(next)
-}
-
-function onlyThese() {
-  write(bulk.value)
-}
-
-// Shift-click ticks (or unticks) every shown option between the last one clicked and
-// this one. The range is measured in the whole list, so it can start from an option the
-// search has since hidden.
-const anchor = ref<string | null>(null)
-
-function onOptionMouseDown(e: MouseEvent) {
-  // Keep shift-click from selecting the text in between.
-  if (e.shiftKey) e.preventDefault()
-}
-
-function onOptionClick(o: string, e: MouseEvent) {
-  const all = order.value
-  const from = anchor.value ? all.indexOf(anchor.value) : -1
-  const to = all.indexOf(o)
-  if (!e.shiftKey || from < 0 || to < 0) { toggle(o); return }
-  const shown = new Set(seen.value)
-  const on = !ticks.value.has(o)
-  const next = new Set(ticks.value)
-  for (const x of all.slice(Math.min(from, to), Math.max(from, to) + 1)) {
-    if (!shown.has(x)) continue
-    on ? next.add(x) : next.delete(x)
-  }
-  write(next)
-  anchor.value = o
-}
-
-// The person's own option joins the list ticked, whatever else is, and is kept for this
-// list so later prompts offer it too.
-function add(text: string) {
-  const v = text.trim()
-  if (!v || opts.value.includes(v)) return
-  const e = edit.value
-  const next = { ...e, add: [...(e.add || []), v], remove: (e.remove || []).filter(x => x !== v) }
-  props.program.setTicks(props.choice.id, stateFor(props.choice, [...ticks.value, v], [...opts.value, v], standby.value), next)
-  void props.program.keepAddition(props.choice, v)
-  void nextTick(() => {
-    const list = listRef.value
-    if (!list) return
-    const row = [...list.querySelectorAll<HTMLElement>('[data-option]')].find(r => r.dataset.option === v)
-    row?.scrollIntoView({ block: 'nearest' })
-  })
-}
-
-function addQuery() {
-  add(query.value)
-  query.value = ''
-}
-
-function commit() {
-  add(draft.value)
-  draft.value = ''
-}
-
-function onDraftEscape(e: KeyboardEvent) {
-  if (!draft.value) return
-  draft.value = ''
-  e.stopPropagation()
-}
-
-function onSearchKey(e: KeyboardEvent) {
-  if (e.key === 'Escape' && query.value) {
-    // Clear the search first; the next Escape is the card's.
-    query.value = ''
-    e.stopPropagation()
-    e.preventDefault()
-  } else if (e.key === 'Enter') {
-    e.preventDefault()
-    if (seen.value.length === 1) toggle(seen.value[0])
-    else if (!seen.value.length && canAddQuery.value) addQuery()
-  }
-}
 </script>

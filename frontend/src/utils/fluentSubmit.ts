@@ -29,38 +29,24 @@ export interface PromptOptionsContext {
   program: any
 }
 
-/** The prompt menu's LoRA choices as Fluent sends them: on unless switched off. A submit
-    (shapePromptOptions) and the editor's prepare read them the same way, so both prepare
-    under one program key. */
+/** The prompt menu's LoRA choices as Fluent sends them: on unless switched off. */
 export function loraChoices(saved: any): { loraTriggers: boolean; loraNotes: boolean } {
   return { loraTriggers: saved?.loraTriggers !== false, loraNotes: saved?.loraNotes !== false }
 }
 
-/** What the editor asks /prompt-programs/prepare with. */
+/** What the editor asks /prompt-programs/prepare with. A program depends on the prompt and
+    the tool, never on the model's settings, the LoRAs or the canvas. */
 export interface PrepareInputs {
   toolId: string | null
   prompt: string
-  loras: Array<{ lora: string; weight: number; enabled?: boolean }>
-  parameters: Record<string, any>
-  instructions: string
-  enhance: string
-  loraNotes: boolean
-  loraTriggers: boolean
   projectId: number | null | undefined
 }
 
-/** The body of a prepare (and options, pools, preview) request. Every field the server's
-    program key depends on is here, so the submit finds what the editor prepared. */
+/** The body of a prepare (and options, pools, preview) request. */
 export function prepareBody(i: PrepareInputs, extra: Record<string, any> = {}): Record<string, any> {
   return {
     tool_id: i.toolId,
     prompt: i.prompt || '',
-    loras: i.loras.map(l => ({ lora: l.lora, weight: l.weight, enabled: !!l.enabled })),
-    parameters: i.parameters,
-    instructions: i.instructions || '',
-    enhance: i.enhance,
-    lora_notes: i.loraNotes,
-    lora_triggers: i.loraTriggers,
     project_id: i.projectId ?? null,
     ...extra,
   }
@@ -68,15 +54,7 @@ export function prepareBody(i: PrepareInputs, extra: Record<string, any> = {}): 
 
 /** Everything but the prompt text that decides the program: a change means preparing again. */
 export function prepareSettingsSig(i: PrepareInputs): string {
-  return JSON.stringify({
-    tool: i.toolId,
-    loras: i.loras.map(l => [l.lora, l.weight, !!l.enabled]),
-    context: i.parameters,
-    instructions: i.instructions,
-    enhance: i.enhance,
-    loraNotes: i.loraNotes,
-    loraTriggers: i.loraTriggers,
-  })
+  return JSON.stringify({ tool: i.toolId })
 }
 
 /** The promptOptions a submit sends, from the ones saved on the tool. */
@@ -200,19 +178,19 @@ export interface RunActions {
   replay: boolean
   /** Why replay isn't offered, when it isn't. */
   reason?: string
-  /** "Use these choices": the image's picks that the current prompt still offers. */
+  /** "Use these choices": the image's values for the choices the current prompt still has. */
   pins: Record<string, string[]>
 }
 
 export function programRunActions(
   run: any,
-  current: { key: string | null; status: ProgramStatus; optionsOf: (id: string) => string[] | null },
+  current: { key: string | null; status: ProgramStatus; has: (id: string) => boolean },
 ): RunActions {
   const pins: Record<string, string[]> = {}
   for (const d of run?.draws || []) {
-    if (d.kind === 'param' || d.hidden) continue
-    const value = String(d.value)
-    if (current.optionsOf(d.id)?.includes(value)) pins[d.id] = [value]
+    if (d.hidden || d.value == null || !current.has(d.id)) continue
+    // An outfit is kept as its list's template, its colors as their own choice.
+    pins[d.id] = [String(d.template || d.value)]
   }
   if (current.status === 'off') return { replay: false, reason: 'Not available with your current prompt settings.', pins }
   // Made while the prompt couldn't be read: from the words as written there are no draws to
@@ -223,11 +201,4 @@ export function programRunActions(
     return { replay: false, reason: 'Your prompt has changed since this image was made.', pins }
   }
   return { replay: true, pins }
-}
-
-/** The input images one job's prompt is read with. In batch mode each job carries one of
-    the batched images (plus any fixed reference images), so the prompt is read for that. */
-export function jobContextImages<T>(o: { inputImages: T[]; refImages: T[]; batchMode: boolean; batchField?: string | null }): T[] {
-  const batched = o.batchMode && (o.batchField || 'input_images') === 'input_images'
-  return [...(batched ? o.inputImages.slice(0, 1) : o.inputImages), ...o.refImages]
 }

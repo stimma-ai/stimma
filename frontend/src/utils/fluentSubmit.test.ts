@@ -1,11 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DECLINED_CODE, DECLINED_NOTICE, switchDeclinedToDirect, wasDeclined, withDirect, effectiveWay, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
+import { DECLINED_CODE, DECLINED_NOTICE, switchDeclinedToDirect, wasDeclined, withDirect, effectiveWay, foreverSlot, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
   translate: { enabled: false, language: 'zh-Hans' },
-  programPins: { hair: ['bob'] },
+  programChoices: { hair: { values: ['bob'] } },
   ...extra,
 })
 const ctx = (extra: Partial<PromptOptionsContext> = {}): PromptOptionsContext => ({
@@ -14,7 +14,7 @@ const ctx = (extra: Partial<PromptOptionsContext> = {}): PromptOptionsContext =>
   toolHasPrompt: true,
   unsupported: false,
   enhance: { model: 'flux', mode: 'text' },
-  program: { enabled: true, pins: {} },
+  program: { enabled: true, choices: {} },
   ...extra,
 })
 
@@ -49,7 +49,7 @@ test('Raw goes untouched', () => {
 
 test('Fluent carries the program and the enhancer context', () => {
   const out = shapePromptOptions(saved(), ctx())
-  assert.deepEqual(out.program, { enabled: true, pins: {} })
+  assert.deepEqual(out.program, { enabled: true, choices: {} })
   assert.equal(out.autoImprove.enabled, true)
   assert.equal(out.autoImprove.model, 'flux')
   assert.equal(out.loraNotes, true)
@@ -111,67 +111,42 @@ test('a prompt that couldn’t be read says so quietly, by cause, with one actio
 
 test('an image made while the prompt couldn’t be read offers no Same draws', () => {
   const words = programRunActions({ key: null, draws: [], fallback: { rung: 'words', code: 'prepare_timeout' } },
-    { key: 'k1', status: 'ready', optionsOf: () => null })
+    { key: 'k1', status: 'ready', has: () => false })
   assert.deepEqual(words, { replay: false, reason: 'Made from your words as written.', pins: {} })
   const earlier = programRunActions({ key: 'k0', draws: [{ id: 'hair', value: 'bob' }], fallback: { rung: 'previous' } },
-    { key: 'k0', status: 'ready', optionsOf: (id) => (id === 'hair' ? ['bob'] : null) })
+    { key: 'k0', status: 'ready', has: (id) => id === 'hair' })
   assert.equal(earlier.replay, false)
   assert.deepEqual(earlier.pins, { hair: ['bob'] })  // Use these choices still offers what applies
 })
 
 const run = { key: 'k1', draws: [
-  { id: 'hair', value: 'bob' }, { id: 'gone', value: 'x' }, { id: 'coat', value: 'parka' },
-  { id: 'param.cfg', kind: 'param', value: 4 }, { id: 'detail', hidden: true, value: 'lamp' },
+  { id: 'man.hair', value: 'bob' }, { id: 'gone', value: 'x' },
+  { id: 'man.outfit', value: 'a navy parka over white jeans', template: 'a {main} parka over {neutral} jeans' },
+  { id: 'detail', hidden: true, value: 'lamp' },
 ] }
-const options: Record<string, string[]> = { hair: ['bob', 'pixie'], coat: ['trench'] }
-const optionsOf = (id: string) => options[id] ?? null
+const has = (id: string) => ['man.hair', 'man.outfit', 'detail'].includes(id)
 
 test('Same draws, new seed only against the program the image used', () => {
-  assert.equal(programRunActions(run, { key: 'k1', status: 'ready', optionsOf }).replay, true)
-  const moved = programRunActions(run, { key: 'k2', status: 'ready', optionsOf })
+  assert.equal(programRunActions(run, { key: 'k1', status: 'ready', has }).replay, true)
+  const moved = programRunActions(run, { key: 'k2', status: 'ready', has })
   assert.equal(moved.replay, false)
   assert.ok(moved.reason)
-  assert.equal(programRunActions(run, { key: 'k1', status: 'stale', optionsOf }).replay, false)
-  assert.equal(programRunActions(run, { key: null, status: 'off', optionsOf }).replay, false)
-  assert.equal(programRunActions({ draws: run.draws }, { key: 'k1', status: 'ready', optionsOf }).replay, false)
+  assert.equal(programRunActions(run, { key: 'k1', status: 'stale', has }).replay, false)
+  assert.equal(programRunActions(run, { key: null, status: 'off', has }).replay, false)
+  assert.equal(programRunActions({ draws: run.draws }, { key: 'k1', status: 'ready', has }).replay, false)
 })
 
-test('Use these choices pins only what the prompt still offers', () => {
-  assert.deepEqual(programRunActions(run, { key: 'k2', status: 'ready', optionsOf }).pins, { hair: ['bob'] })
-  assert.deepEqual(programRunActions(run, { key: null, status: 'off', optionsOf: () => null }).pins, {})
+test('Use these choices keeps what the prompt still has; an outfit as its template', () => {
+  assert.deepEqual(programRunActions(run, { key: 'k2', status: 'ready', has }).pins,
+    { 'man.hair': ['bob'], 'man.outfit': ['a {main} parka over {neutral} jeans'] })
+  assert.deepEqual(programRunActions(run, { key: null, status: 'off', has: () => false }).pins, {})
 })
 
-test('batch mode reads the prompt for one job: one batched image plus fixed references', () => {
-  assert.deepEqual(jobContextImages({ inputImages: ['a', 'b', 'c'], refImages: ['r'], batchMode: true, batchField: 'input_images' }), ['a', 'r'])
-  assert.deepEqual(jobContextImages({ inputImages: ['a', 'b'], refImages: [], batchMode: true, batchField: null }), ['a'])
-  assert.deepEqual(jobContextImages({ inputImages: ['a', 'b'], refImages: [], batchMode: true, batchField: 'input_videos' }), ['a', 'b'])
-  assert.deepEqual(jobContextImages({ inputImages: ['a', 'b'], refImages: ['r'], batchMode: false }), ['a', 'b', 'r'])
-})
-
-// The backend's rule for a submit: trigger words reach the writer unless loraTriggers is false.
-const backendTriggers = (promptOptions: any) => promptOptions?.loraTriggers !== false
-
-test('the editor prepares with the same Trigger words choice the submit sends', () => {
-  for (const loraTriggers of [undefined, true, false]) {
-    const s = saved({ loraTriggers })
-    const inputs: PrepareInputs = {
-      toolId: 't', prompt: 'a cat', loras: [{ lora: 'rainy-window', weight: 0.8, enabled: true }],
-      parameters: {}, instructions: '', enhance: 'expand', projectId: null, ...loraChoices(s),
-    }
-    const body = prepareBody(inputs)
-    assert.equal(body.lora_triggers, backendTriggers(shapePromptOptions(s, ctx())), `loraTriggers=${loraTriggers}`)
-    assert.equal(body.lora_notes, true)
-  }
-})
-
-test('switching Trigger words is a new program to prepare', () => {
-  const inputs = (loraTriggers: boolean): PrepareInputs => ({
-    toolId: 't', prompt: 'a cat', loras: [{ lora: 'rainy-window', weight: 0.8, enabled: true }],
-    parameters: {}, instructions: '', enhance: 'expand', loraNotes: true, loraTriggers, projectId: null,
-  })
-  assert.notEqual(prepareSettingsSig(inputs(true)), prepareSettingsSig(inputs(false)))
-  assert.equal(prepareSettingsSig(inputs(false)), prepareSettingsSig(inputs(false)))
-  assert.equal(prepareBody(inputs(false), { cache_only: true }).cache_only, true)
+test('a program depends on the prompt and the tool only', () => {
+  const inputs = (prompt: string, toolId = 't'): PrepareInputs => ({ toolId, prompt, projectId: 3 })
+  assert.deepEqual(prepareBody(inputs('a <cat>'), { cache_only: true }), { tool_id: 't', prompt: 'a <cat>', project_id: 3, cache_only: true })
+  assert.equal(prepareSettingsSig(inputs('a <cat>')), prepareSettingsSig(inputs('a <dog>')))
+  assert.notEqual(prepareSettingsSig(inputs('a <cat>')), prepareSettingsSig(inputs('a <cat>', 'u')))
 })
 
 test('a prompt too long or no balance says what to do, without mechanics', () => {
@@ -193,12 +168,12 @@ test('a prompt the chat model declined switches the box to Direct, says so plain
     assert.ok(!wasDeclined({ status: 'error', code }), String(code))
   }
   // The same switch as the remix's Use Exact Prompt; Detail level stays for coming back.
-  const saved = { raw: true, direct: false, autoImprove: { enabled: true, level: 'fill' }, programPins: { a: ['x'] } }
+  const saved = { raw: true, direct: false, autoImprove: { enabled: true, level: 'fill' }, programChoices: { a: { values: ['x'] } } }
   const next = withDirect(saved)
   assert.equal(next.direct, true)
   assert.equal(next.raw, undefined)
   assert.deepEqual(next.autoImprove, saved.autoImprove)
-  assert.deepEqual(next.programPins, saved.programPins)
+  assert.deepEqual(next.programChoices, saved.programChoices)
   assert.equal(effectiveWay({ raw: !!next.raw, direct: next.direct, llmUnconfigured: false }), 'direct')
   // Back in Fluent with the same prompt, the menu says the same, with no Try again.
   const n = fallbackNotice(DECLINED_CODE, 'Brand')
