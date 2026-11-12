@@ -199,11 +199,10 @@ class Leaf:
             before = sum(w for (_, w), s in zip(out, spoken) if s)
             after = sum(w for (_, w), s in zip(nxt, spoken) if s)
             if mode == "drop":   # the values that don't fit leave; the rest keep their own weight
-                # Context the program gives (how a person presents) never empties a pool: when the
-                # user's words narrowed the list to values of the other presentation ("a man in a
-                # romantic outfit"), their words stand and the context isn't applied.
-                given = (vocabulary().context.get(facet) or {}).get("given") == "program"
-                if not given or any(w > 0 for _, w in nxt) or not any(w > 0 for _, w in out):
+                # A context never empties a pool: when the user's words narrowed the list to values
+                # the context would drop ("a young woman with gray hair", "a man in a romantic
+                # outfit"), their words stand and the context isn't applied.
+                if any(w > 0 for _, w in nxt) or not any(w > 0 for _, w in out):
                     out = nxt
                 continue
             if before > 0 and after <= 0:

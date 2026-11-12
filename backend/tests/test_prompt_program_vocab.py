@@ -937,6 +937,14 @@ class TestGrayingFollowsAge:
         assert 0 < thirties < 0.05 < forties < fifties < sixties and eighties > 0.5
         assert self.share("35–39-year-old", self.FULL) == 0
 
+    def test_the_users_words_for_gray_hair_win_at_any_age(self):
+        """A list narrowed to gray for a young person keeps it: a context never empties a pool."""
+        from prompt_programs.vocab import vocabulary
+        leaf = vocabulary().get("person.hair_color")
+        narrowed = [(x.text, x.weight if x.text == "gray" else 0.0) for x in leaf.values if not x.opt_in]
+        got = dict(leaf.weigh(narrowed, [("graying", ("none",))]))
+        assert got["gray"] > 0
+
     def test_the_nose_list_names_no_caricature(self):
         from prompt_programs.vocab import vocabulary
         noses = " ".join(x.text for x in vocabulary().get("person.feature.nose").values)
