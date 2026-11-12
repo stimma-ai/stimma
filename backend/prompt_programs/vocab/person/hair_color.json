@@ -4,7 +4,7 @@
   "description": "The color of scalp hair, including natural shades, dye and fantastical effects.",
   "pos": "adjective",
   "frame": "her ___ hair",
-  "notes": "Color only; person.hair_length_texture owns length, density and texture, and person.hairstyle owns cuts and arrangements. Dyed colors remain eligible in realistic scenes; luminous or physically impossible effects require a genre tag. Shades do not imply descent or age. Natural shades carry a hair_family; drawn after a person's descent, families the descent gives as less common are drawn less often (weight x0.3), and families outside both are rare (weight x0.04: hair is often dyed), never excluded. Gray, white, highlighted and dyed colors are untagged and fit everyone.",
+  "notes": "Color only; person.hair_length_texture owns length, density and texture, and person.hairstyle owns cuts and arrangements. Dyed colors remain eligible in realistic scenes; luminous or physically impossible effects require a genre tag. Shades do not imply descent. Natural shades carry a hair_family; drawn after a person's descent, families the descent gives as less common are drawn less often (weight x0.3), and families outside both are rare (weight x0.04: hair is often dyed), never excluded. Dye follows the natural shades, and highlighted hair stays common until seventy. Graying follows the person's drawn age (graying): natural shades leave from the sixties on as a less common sight, partly gray shades are less common in the thirties and absent before, and fully gray or white ones are absent before forty and less common in the forties.",
   "facets": [
     "era",
     "genre"
@@ -21,13 +21,8 @@
         "hair_family": [
           "black"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -41,13 +36,8 @@
         "hair_family": [
           "dark_brown"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -61,13 +51,8 @@
         "hair_family": [
           "brown"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -81,13 +66,8 @@
         "hair_family": [
           "brown"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -101,13 +81,8 @@
         "hair_family": [
           "blonde"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -121,13 +96,8 @@
         "hair_family": [
           "blonde"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -141,13 +111,8 @@
         "hair_family": [
           "red"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -158,10 +123,8 @@
         "shade": [
           "gray"
         ],
-        "life_stage": [
-          "middle-aged",
-          "older",
-          "elderly"
+        "graying": [
+          "full"
         ]
       }
     },
@@ -172,10 +135,8 @@
         "shade": [
           "white"
         ],
-        "life_stage": [
-          "middle-aged",
-          "older",
-          "elderly"
+        "graying": [
+          "full"
         ]
       }
     },
@@ -187,10 +148,8 @@
           "black",
           "gray"
         ],
-        "life_stage": [
-          "middle-aged",
-          "older",
-          "elderly"
+        "graying": [
+          "some"
         ]
       }
     },
@@ -204,13 +163,8 @@
         "hair_family": [
           "brown"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -224,13 +178,8 @@
         "hair_family": [
           "red"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -246,13 +195,8 @@
           "blonde",
           "red"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -266,13 +210,8 @@
         "hair_family": [
           "blonde"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -286,13 +225,8 @@
         "hair_family": [
           "blonde"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -306,13 +240,8 @@
         "hair_family": [
           "blonde"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -326,13 +255,8 @@
         "hair_family": [
           "red"
         ],
-        "life_stage": [
-          "baby",
-          "child",
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older"
+        "graying": [
+          "none"
         ]
       }
     },
@@ -347,10 +271,8 @@
         "hair_family": [
           "dark_brown"
         ],
-        "life_stage": [
-          "middle-aged",
-          "older",
-          "elderly"
+        "graying": [
+          "some"
         ]
       }
     },
@@ -365,10 +287,8 @@
         "hair_family": [
           "black"
         ],
-        "life_stage": [
-          "middle-aged",
-          "older",
-          "elderly"
+        "graying": [
+          "some"
         ]
       }
     },
@@ -380,6 +300,10 @@
           "brunette",
           "blonde",
           "dyed"
+        ],
+        "graying": [
+          "none",
+          "some"
         ]
       }
     },
@@ -394,6 +318,9 @@
         ],
         "shade": [
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -408,6 +335,9 @@
         ],
         "shade": [
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -422,6 +352,9 @@
         ],
         "shade": [
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -436,6 +369,9 @@
         ],
         "shade": [
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -450,6 +386,9 @@
         ],
         "shade": [
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -464,6 +403,9 @@
         ],
         "shade": [
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -478,6 +420,9 @@
         ],
         "shade": [
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -493,6 +438,9 @@
         "shade": [
           "black",
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -508,6 +456,10 @@
         "shade": [
           "blonde",
           "dyed"
+        ],
+        "graying": [
+          "none",
+          "some"
         ]
       }
     },
@@ -522,6 +474,9 @@
         ],
         "shade": [
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -536,6 +491,9 @@
         ],
         "shade": [
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -550,6 +508,9 @@
         ],
         "shade": [
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -566,6 +527,9 @@
           "black",
           "white",
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -580,10 +544,8 @@
         "shade": [
           "gray"
         ],
-        "life_stage": [
-          "middle-aged",
-          "older",
-          "elderly"
+        "graying": [
+          "full"
         ]
       }
     },
@@ -597,6 +559,9 @@
         ],
         "shade": [
           "dyed"
+        ],
+        "graying": [
+          "none"
         ]
       }
     }
@@ -620,8 +585,9 @@
         "factor": 0.04,
         "less_common": 0.3
       },
-      "life_stage": {
-        "mismatch": "drop"
+      "graying": {
+        "mismatch": "drop",
+        "less_common": 0.08
       }
     }
   }

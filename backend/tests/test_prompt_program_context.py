@@ -424,19 +424,11 @@ class TestNarrowing:
 # --------------------------------------------------------------------------- replay
 
 class TestReplay:
-    def test_a_new_draw_has_no_context_and_says_so(self, tmp_path):
-        """Whether values fit together is the judge's to say: a new draw's pools aren't weighted."""
-        e = entry_of(ONE)
-        for seed in range(5):
-            first = draw(ONE, seed, None, [], None, None, None,
-                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF).options)
-            assert "context" not in first.revision
-
     def test_a_revision_with_context_replays_exactly(self, tmp_path):
         e = entry_of(ONE)
         for seed in range(20):
             first = draw(ONE, seed, None, [], None, None, None,
-                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision={"context": CONTEXT_VERSION}).options)
+                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF).options)
             assert first.revision["context"] == CONTEXT_VERSION
             again = draw(ONE, seed, None, [], None, None, None,
                          options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision).options)
@@ -471,9 +463,9 @@ class TestReplay:
         e = entry_of(ONE)
         for seed in range(10):
             first = draw(ONE, seed, None, [], None, None, None,
-                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision={"context": "ctx-1"}).options)
+                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF).options)
             old = json.loads(json.dumps(first.revision))
-            assert old["context"] == "ctx-1"
+            old["context"] = "ctx-1"
             again = draw(ONE, seed, None, [], None, None, None,
                          options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=old).options)
             assert again.prompt == first.prompt and again.revision["context"] == "ctx-1"

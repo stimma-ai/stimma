@@ -180,7 +180,7 @@ class TestTheOnePersonOwnsTheirDetails:
 
 
 class TestPresentationIsContextForOutfits:
-    """person(presentation=...) was context for that person's outfit lists; new draws have none."""
+    """person(presentation=...) is context for that person's outfit lists: a man isn't drawn a sundress."""
 
     @staticmethod
     def worn(presentation, n=120):
@@ -206,11 +206,9 @@ class TestPresentationIsContextForOutfits:
             out.append(str(next(d for d in r.draws if d.id == "p.outfit").value))
         return out
 
-    def test_a_new_draw_leaves_who_wears_what_to_the_judge(self):
-        """New draws have no context weighting: a man's outfit pool is the whole list, and the
-        judge reading the finished prompt is what refuses a sundress (llm_judge)."""
+    def test_a_man_draws_no_outfit_made_for_women_and_the_reverse(self):
         feminine = ("sundress", "bikini", "skirt")
-        assert [v for v in self.worn(', presentation="masculine"') if any(w in v for w in feminine)]
+        assert not [v for v in self.worn(', presentation="masculine"') if any(w in v for w in feminine)]
         assert [v for v in self.worn(', presentation="feminine"') if any(w in v for w in feminine)]
 
     def test_with_no_presentation_said_the_whole_list_is_drawn(self):

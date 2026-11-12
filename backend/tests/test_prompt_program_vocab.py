@@ -905,3 +905,41 @@ class TestSharesAndComposedLists:
         men = {x.text for x in face.matching({"presentation": "masculine"})}
         assert {x.text for x in gendered if x.tags["presentation"] == ["masculine"]} <= men
         assert not {x.text for x in gendered if x.tags["presentation"] == ["feminine"]} & men
+
+
+class TestGrayingFollowsAge:
+    """Gray hair is drawn as it is seen: never before thirty, seldom in the thirties, more with age."""
+    SOME = {"salt-and-pepper", "gray-templed dark brown", "white-streaked black"}
+    FULL = {"gray", "white"}
+
+    def pool(self, band):
+        from prompt_programs.vocab import vocabulary
+        v = vocabulary()
+        age = next(x for x in v.get("person.age_band").values if x.text == band)
+        fams = tuple(age.tags["graying"]) + tuple("~" + f for f in (age.less_common.get("graying") or ()))
+        leaf = v.get("person.hair_color")
+        items = [(x.text, x.weight) for x in leaf.values if not x.opt_in]
+        got = dict(leaf.weigh(items, [("graying", fams)]))
+        total = sum(got.values())
+        return {k: w / total for k, w in got.items()}
+
+    def share(self, band, names):
+        return sum(w for k, w in self.pool(band).items() if k in names)
+
+    def test_nobody_under_thirty_is_gray(self):
+        for band in ("15–17-year-old", "18–19-year-old", "20–24-year-old", "25–29-year-old"):
+            assert self.share(band, self.SOME | self.FULL) == 0
+
+    def test_it_grows_with_age(self):
+        thirties, forties = self.share("30–34-year-old", self.SOME | self.FULL), self.share("40–44-year-old", self.SOME | self.FULL)
+        fifties, sixties = self.share("50–54-year-old", self.SOME | self.FULL), self.share("60–64-year-old", self.SOME | self.FULL)
+        eighties = self.share("80–84-year-old", self.FULL)
+        assert 0 < thirties < 0.05 < forties < fifties < sixties and eighties > 0.5
+        assert self.share("35–39-year-old", self.FULL) == 0
+
+    def test_the_nose_list_names_no_caricature(self):
+        from prompt_programs.vocab import vocabulary
+        noses = " ".join(x.text for x in vocabulary().get("person.feature.nose").values)
+        for word in ("hooked", "points downward", "prominent", "slit-like", "widens a lot"):
+            assert word not in noses
+

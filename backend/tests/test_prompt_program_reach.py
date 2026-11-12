@@ -172,12 +172,17 @@ class TestNarrowed:
 
 
 class TestOpen:
-    def test_a_stated_context_no_longer_sets_what_fits(self, tmp_path):
-        """New draws have no context weighting (the judge reads each draw), so a wide-open choice
-        has nothing that says which of its values fit: the picker offers the list whole."""
+    def test_a_stated_context_sets_what_fits(self, tmp_path):
         e = entry_of(HAIR, "a Japanese woman", stated_context=[{"of": "", "cls": "person.ethnicity", "values": ["Japanese"]}])
         out = pools(e, tmp_path / "p")
-        assert "reach" not in out["vocab"]["hair"]
+        reach = out["vocab"]["hair"]["reach"]
+        assert reach["any"] == [o for o in out["options"]["hair"] if out["vocab"]["hair"]["tiers"][o] != "opt_in"]
+        assert "black" in reach["fits"] and "platinum blonde" not in reach["fits"]
+        assert set(reach["fits"]) < set(reach["any"])
+        # ticked as "what fits" (the rest left out), a run draws only from it
+        out_ = [o for o in reach["any"] if o not in reach["fits"]]
+        got = set(values(e, tmp_path, "hair", range(300), edits={"hair": {"remove": out_}}))
+        assert got <= set(reach["fits"])
 
     def test_a_context_that_moves_with_another_draw_says_nothing(self, tmp_path):
         assert "reach" not in pools(entry_of(DRAWN), tmp_path)["vocab"]["hair"]

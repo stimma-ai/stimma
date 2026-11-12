@@ -85,10 +85,7 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
     if rev.get("context") not in (None, *CONTEXT_VERSIONS):
         raise ProgramError(f"This prompt was drawn with context rules {rev.get('context')}, which this version of "
                            "Stimma doesn't have, so it can't be replayed exactly.")
-    # A new draw has no context weighting: whether its values fit together is the judge's to say,
-    # reading the finished prompt (prompt_programs.llm_judge). Only a replay of a revision drawn
-    # with it has it.
-    context = bool(rev) and rev.get("context") in CONTEXT_VERSIONS
+    context = not rev or rev.get("context") in CONTEXT_VERSIONS
     pools = rev.get("pools")
     if isinstance(pools, dict) and any(is_pool_ref(v) for v in pools.values()):
         # Vocabulary pools recorded by reference (compact.py): read back whole, as they were drawn from.

@@ -19,6 +19,9 @@
         ],
         "life_stage": [
           "baby"
+        ],
+        "graying": [
+          "none"
         ]
       },
       "opt_in": true
@@ -32,6 +35,9 @@
         ],
         "life_stage": [
           "child"
+        ],
+        "graying": [
+          "none"
         ]
       },
       "opt_in": true
@@ -45,6 +51,9 @@
         ],
         "life_stage": [
           "child"
+        ],
+        "graying": [
+          "none"
         ]
       },
       "opt_in": true
@@ -58,6 +67,9 @@
         ],
         "life_stage": [
           "child"
+        ],
+        "graying": [
+          "none"
         ]
       },
       "opt_in": true
@@ -71,6 +83,9 @@
         ],
         "life_stage": [
           "child"
+        ],
+        "graying": [
+          "none"
         ]
       },
       "opt_in": true
@@ -84,6 +99,9 @@
         ],
         "life_stage": [
           "teen"
+        ],
+        "graying": [
+          "none"
         ]
       },
       "opt_in": true
@@ -97,6 +115,9 @@
         ],
         "life_stage": [
           "teen"
+        ],
+        "graying": [
+          "none"
         ]
       },
       "opt_in": true
@@ -111,6 +132,9 @@
         "life_stage": [
           "teen",
           "young adult"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -123,6 +147,9 @@
         ],
         "life_stage": [
           "young adult"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -135,6 +162,9 @@
         ],
         "life_stage": [
           "young adult"
+        ],
+        "graying": [
+          "none"
         ]
       }
     },
@@ -147,6 +177,14 @@
         ],
         "life_stage": [
           "young adult"
+        ],
+        "graying": [
+          "none"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some"
         ]
       }
     },
@@ -160,6 +198,14 @@
         "life_stage": [
           "young adult",
           "middle-aged"
+        ],
+        "graying": [
+          "none"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some"
         ]
       }
     },
@@ -172,6 +218,15 @@
         ],
         "life_stage": [
           "middle-aged"
+        ],
+        "graying": [
+          "none",
+          "some"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "full"
         ]
       }
     },
@@ -184,6 +239,15 @@
         ],
         "life_stage": [
           "middle-aged"
+        ],
+        "graying": [
+          "none",
+          "some"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "full"
         ]
       }
     },
@@ -196,6 +260,11 @@
         ],
         "life_stage": [
           "middle-aged"
+        ],
+        "graying": [
+          "none",
+          "some",
+          "full"
         ]
       }
     },
@@ -209,6 +278,11 @@
         "life_stage": [
           "middle-aged",
           "older"
+        ],
+        "graying": [
+          "none",
+          "some",
+          "full"
         ]
       }
     },
@@ -221,6 +295,15 @@
         ],
         "life_stage": [
           "older"
+        ],
+        "graying": [
+          "some",
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "none"
         ]
       }
     },
@@ -233,6 +316,15 @@
         ],
         "life_stage": [
           "older"
+        ],
+        "graying": [
+          "some",
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "none"
         ]
       }
     },
@@ -246,6 +338,15 @@
         ],
         "life_stage": [
           "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
         ]
       }
     },
@@ -259,6 +360,15 @@
         ],
         "life_stage": [
           "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
         ]
       }
     },
@@ -272,6 +382,15 @@
         ],
         "life_stage": [
           "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
         ]
       }
     },
@@ -285,6 +404,15 @@
         ],
         "life_stage": [
           "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
         ]
       }
     },
@@ -298,6 +426,15 @@
         ],
         "life_stage": [
           "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
         ]
       }
     },
@@ -311,6 +448,15 @@
         ],
         "life_stage": [
           "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
         ]
       }
     },
@@ -324,6 +470,15 @@
         ],
         "life_stage": [
           "elderly"
+        ],
+        "graying": [
+          "full"
+        ]
+      },
+      "less_common": {
+        "graying": [
+          "some",
+          "none"
         ]
       }
     }
@@ -341,7 +496,8 @@
   },
   "context": {
     "gives": [
-      "life_stage"
+      "life_stage",
+      "graying"
     ]
   },
   "strict": true

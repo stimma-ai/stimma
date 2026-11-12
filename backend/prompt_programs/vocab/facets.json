@@ -218,6 +218,15 @@
     ],
     "about": "how a person presents, when the user's words say (person(presentation=...)): given by the program, not drawn. An outfit made for the other presentation is left out; one with no such tag fits everyone.",
     "given": "program"
+   },
+   "graying": {
+    "scope": "person",
+    "values": [
+     "none",
+     "some",
+     "full"
+    ],
+    "about": "how gray a person's hair is at their drawn age: on an age, the amounts seen at it (none before thirty, some from the thirties as a less common sight, mostly gray or white late in life); on a hair color, the amount it shows. Dyed colors carry no tag and fit every age."
    }
   }
  }
