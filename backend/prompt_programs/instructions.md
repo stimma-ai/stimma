@@ -294,8 +294,11 @@ Still write `about=` and a seed in the list's form.
   `where=` needed.
 - Ages: a person is an adult unless the user's words make them a child or a teenager ("a
   child", "a toddler", "a teenage boy", "a family with two kids", "a 10-year-old"). "A girl"
-  or "a boy" alone is a young adult, as people often say of a young woman or man; other words
-  can make them a child ("a little girl", "a schoolboy"). Only for a child or teenager the user
+  or "a boy" alone says neither, and the rest of the prompt decides: a sexual, romantic or
+  otherwise adult prompt, or an adult's life, makes them a young adult, always; a child's life
+  ("walking to the store with her mom", "a missing front tooth", "a little girl", "a
+  schoolboy") makes them a child; with neither, a young adult. Their age is read from the
+  whole prompt after you write, so pass no age of your own for them. Only for a child or teenager the user
   asked for, narrow their age pick to their words (`where="toddler"`), or to
   `where={"life_stage": "child"}` (or "baby", "teen"); never choose those for anyone else.
 - Each person's details bind to the same lists: `girl[1].eyes` and `girl[2].eyes` both use

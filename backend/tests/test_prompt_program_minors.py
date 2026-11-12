@@ -227,9 +227,32 @@ class TestUnasked:
 # --------------------------------------------------------------------------- narrowing: asked, and "a girl"
 
 class TestNarrowing:
-    def test_the_narrowing_model_is_told_a_girl_alone_is_no_child(self):
-        assert '"A girl" or "a boy" alone is a' in _SYSTEM and "young adult" in _SYSTEM
+    def test_the_narrowing_model_is_told_the_prompt_decides_a_girl_alone(self):
+        """"A girl" is said of a child and of a young woman: the whole prompt decides, an adult
+        prompt always makes her an adult, and with nothing to go on she is a young adult."""
+        assert '"A girl" or "a boy" alone says neither' in _SYSTEM and "the prompt decides" in _SYSTEM
+        assert "never one under 18" in _SYSTEM and "they are a young adult" in _SYSTEM
         assert "a boy or a girl is under 18" not in _SYSTEM
+        with_prompt = messages_for(ages(), "girl", ["18-year-old"], "her age", "a girl walking to the store with her mom")[1]["content"]
+        assert "The whole prompt:\na girl walking to the store with her mom" in with_prompt
+        assert "The whole prompt" not in messages_for(ages(), "girl", ["18-year-old"], "her age")[1]["content"]
+        from prompt_programs.narrow import NarrowCache
+        k = lambda p: NarrowCache.key(ages(), "girl", ["18-year-old"], "her age", p)   # noqa: E731
+        assert k("a girl in a cafe") != k("a girl walking to the store with her mom")
+
+    def test_only_an_age_is_read_with_the_whole_prompt(self):
+        import asyncio
+        from prompt_programs.narrow import subset
+        seen = []
+
+        async def ask(messages, project_id, max_tokens):
+            seen.append(messages[1]["content"])
+            return "[]"
+        asyncio.run(subset(vocabulary().get("person.eye_color"), "dark", None, ask, None, "her eyes", "a girl with dark eyes"))
+        asyncio.run(subset(ages(), "girl", None, ask, None, "her age", "a girl with dark eyes"))
+        assert "The whole prompt" not in seen[0] and "The whole prompt:\na girl with dark eyes" in seen[1]
+
+    def test_the_opt_in_ages_are_still_named_as_such(self):
         user = messages_for(ages(), "girl", [v.text for v in ages().eligible()], "her age")[1]["content"]
         listed = json.loads(user.rsplit(": ", 1)[1])
         assert listed == [v.text for v in ages().values if v.minor]  # the opt-in values, named as such
@@ -242,7 +265,8 @@ class TestNarrowing:
 
     def test_the_writer_is_told_too(self):
         from prompt_programs import prepare as prep
-        assert '"A girl"\n  or "a boy" alone is a young adult' in prep._INSTRUCTIONS
+        assert '"A girl"\n  or "a boy" alone says neither, and the rest of the prompt decides' in prep._INSTRUCTIONS
+        assert "makes them a young adult, always" in prep._INSTRUCTIONS
         assert 'never choose those for anyone else' in prep._INSTRUCTIONS
 
     @pytest.mark.parametrize("prompt,words,keep,minor", [

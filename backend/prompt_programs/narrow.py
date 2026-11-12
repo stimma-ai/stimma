@@ -56,7 +56,7 @@ from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-4"   # narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
+NARROW_VERSION = "narrow-5"   # narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
 NARROW_SECONDS = 20.0   # all of a program's narrowing calls together; past it, unresolved picks go unbound
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
@@ -80,8 +80,17 @@ Ages: a person is an adult (18 or over) unless the description itself makes them
 a teenager: "a child", "a baby", "a toddler", "kids", "a teenage boy", "a 10-year-old", "a
 little girl", "a schoolboy". Such words call for the ages under 18 that match them, and only
 those. A man or a woman is an adult, of whatever ages the rest of the description allows.
-"A girl" or "a boy" alone is a young adult, as people often say of a young woman or man: keep
-the ages from 18 to 29 for them and no others. A "teenage boy" is 13 to 19."""
+A "teenage boy" is 13 to 19.
+
+"A girl" or "a boy" alone says neither: people say it of a child and of a young woman or man
+alike. For an age you are also given the whole prompt, and the prompt decides:
+- When the prompt is sexual, nude, romantic or otherwise adult in what it shows or asks for,
+  or shows an adult's life (a job, a bar, a date, driving, a wedding), they are an adult: keep
+  the ages from 18 to 29 and never one under 18.
+- When the prompt shows a child's life (with her mom or his dad, at school or a playground, a
+  missing front tooth, a toy, a bedtime story), they are a child: keep the ages under 18 that
+  match what it shows.
+- When the prompt shows neither, they are a young adult: keep the ages from 18 to 29."""
 
 _READ_SYSTEM = """You read an image prompt and find the words in it that describe certain details.
 
@@ -173,10 +182,12 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", str(s).strip().lower())
 
 
-def messages_for(leaf: Leaf, phrase: str, values: Sequence[str], about: str = "") -> List[Dict[str, str]]:
+def messages_for(leaf: Leaf, phrase: str, values: Sequence[str], about: str = "", prompt: str = "") -> List[Dict[str, str]]:
     said = f', said of {about.strip()}' if about.strip() else ""
     user = (f'The list "{leaf.label}" ({leaf.description}):\n{json.dumps(list(values), ensure_ascii=False)}\n\n'
             f'Which of these fit "{phrase}"{said}?')
+    if prompt.strip():   # an age is read in the whole prompt (see _SYSTEM)
+        user += f"\n\nThe whole prompt:\n{prompt.strip()}"
     shown = set(values)
     asked = [_shown(v.text) for v in leaf.values if v.opt_in and _shown(v.text) in shown]
     if asked:  # opt-in values (vocab.py): never kept by default
@@ -207,8 +218,9 @@ class NarrowCache:
         self.root = Path(root)
 
     @staticmethod
-    def key(leaf: Leaf, phrase: str, values: Sequence[str], about: str = "") -> str:
-        blob = json.dumps([NARROW_VERSION, leaf.id, list(values), _norm(phrase), _norm(about)], ensure_ascii=False)
+    def key(leaf: Leaf, phrase: str, values: Sequence[str], about: str = "", prompt: str = "") -> str:
+        blob = json.dumps([NARROW_VERSION, leaf.id, list(values), _norm(phrase), _norm(about), *([_norm(prompt)] if prompt else [])],
+                          ensure_ascii=False)
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
 
     def _path(self, key: str) -> Path:
@@ -240,19 +252,20 @@ class NarrowCache:
 
 
 async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask,
-                 project_id: Optional[int] = None, about: str = "") -> Optional[List[str]]:
+                 project_id: Optional[int] = None, about: str = "", prompt: str = "") -> Optional[List[str]]:
     """The values of `leaf` that fit `phrase` (said of `about`, the pick's own description:
     "young" said of "the woman's age" rules out children), from the cache or one model call.
     None when the call fails or its answer can't be read: never cached, worth asking again."""
     values = [v.text for v in leaf.eligible()]
     shown = [_shown(v) for v in values]
-    key = NarrowCache.key(leaf, phrase, values, about)
+    prompt = prompt if leaf.id == AGE_LIST else ""   # only an age is read with the whole prompt
+    key = NarrowCache.key(leaf, phrase, values, about, prompt)
     if cache is not None:
         hit = cache.get(key)
         if hit is not None:
             return hit
     try:
-        reply = await ask(messages_for(leaf, phrase, shown, about), project_id, 2000)
+        reply = await ask(messages_for(leaf, phrase, shown, about, prompt), project_id, 2000)
     except Exception as e:  # the writer's endpoint failing here must not fail the prepare
         log.warning(f"[prompt-program] narrowing {leaf.id} by {phrase!r} failed: {e}")
         return None
@@ -340,6 +353,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             else:
                 notes.append(f'{ch["id"]}: nothing in {lf.id} has {want}; drawing from the whole list')
     t0 = asyncio.get_running_loop().time()
+    whole = str(entry.get("prompt") or "")
     stated = stated_ages(entry, bound, said_ages)
     stated_ctx = stated_context(entry, bound)
     readable = [c for c in bound if not c.get("wildcard")] + stated + stated_ctx
@@ -354,7 +368,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         k = (c["cls"], _norm(phrase), _norm(c.get("about") or ""))
         if phrase and k not in early:
             early[k] = (phrase, c.get("about") or "", asyncio.ensure_future(
-                subset(vocab.leaves[c["cls"]], phrase, cache, ask, project_id, c.get("about") or "")))
+                subset(vocab.leaves[c["cls"]], phrase, cache, ask, project_id, c.get("about") or "", whole)))
     try:
         read = await asyncio.wait_for(read_words(str(entry.get("prompt") or ""), readable, cache, ask, project_id),
                                       seconds)
@@ -404,7 +418,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             return started[2]
         if started is not None:  # asked in other words than it is now: ask as it is
             started[2].cancel()
-        return asyncio.ensure_future(subset(vocab.leaves[k[0]], phrase, cache, ask, project_id, about))
+        return asyncio.ensure_future(subset(vocab.leaves[k[0]], phrase, cache, ask, project_id, about, whole))
 
     async def batch(keys: List[Tuple[str, str, str]]) -> List[Optional[List[str]]]:
         jobs = [job(k) for k in keys]
