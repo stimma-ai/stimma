@@ -890,16 +890,24 @@ def _migrate_legacy_llm_model_slugs(config_file: Path) -> bool:
 
     reasoning_levels = data.get("llm_reasoning_levels")
     if isinstance(reasoning_levels, dict):
-        for legacy_slug, replacement in LEGACY_LLM_MODEL_SLUGS.items():
-            if legacy_slug not in reasoning_levels:
+        for legacy_slug in list(reasoning_levels):
+            # Selections made through the user's own key are saved under the
+            # provider's id; they retire with the same model.
+            provider_id, _, model_id = str(legacy_slug).rpartition(":")
+            replacement = LEGACY_LLM_MODEL_SLUGS.get(legacy_slug)
+            target = replacement
+            if replacement is None and provider_id:
+                replacement = LEGACY_LLM_MODEL_SLUGS.get(f"stimma:{model_id}")
+                target = replacement and f"{provider_id}:{replacement.split(':', 1)[1]}"
+            if not replacement:
                 continue
             legacy_level = reasoning_levels.pop(legacy_slug)
             # Carry the selection over only if the replacement model exposes
             # that level (required-thinking successors cannot inherit off),
             # and never let an obsolete alias overwrite an explicit new choice.
             carryable = LEGACY_LLM_REASONING_LEVELS.get(replacement, {"off", "high"})
-            if replacement not in reasoning_levels and legacy_level in carryable:
-                reasoning_levels[replacement] = legacy_level
+            if target not in reasoning_levels and legacy_level in carryable:
+                reasoning_levels[target] = legacy_level
             changed = True
 
     if not changed:

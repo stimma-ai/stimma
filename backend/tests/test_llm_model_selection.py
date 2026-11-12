@@ -95,6 +95,28 @@ def test_config_migration_carries_fable_reasoning_to_its_successor(tmp_path):
     assert migrated["llm_reasoning_levels"] == {"stimma:claude-fable-5-2": "xhigh"}
 
 
+def test_config_migration_carries_own_key_reasoning_to_the_successor(tmp_path):
+    """A level saved against the user's own Anthropic key follows the model."""
+    import yaml
+
+    from config import _migrate_legacy_llm_model_slugs
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "llm_reasoning_levels:\n"
+        "  anthropic-key:claude-haiku-4-5-20251001: 'off'\n"
+        "  anthropic-key:claude-fable-5-1: xhigh\n"
+        "  anthropic-key:claude-opus-5-5: high\n"
+    )
+
+    assert _migrate_legacy_llm_model_slugs(config_path) is True
+    assert yaml.safe_load(config_path.read_text())["llm_reasoning_levels"] == {
+        "anthropic-key:claude-haiku-5-5": "off",
+        "anthropic-key:claude-fable-5-2": "xhigh",
+        "anthropic-key:claude-opus-5-5": "high",
+    }
+
+
 def test_retired_global_model_keys_are_dropped_not_migrated(tmp_path):
     """The old globals do not seed the per-role settings.
 
