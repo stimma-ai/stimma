@@ -1,0 +1,175 @@
+[
+  {
+    "text": "dorm room with a <young man>, lit by <light>",
+    "slots": [
+      [
+        17,
+        28
+      ],
+      [
+        37,
+        44
+      ]
+    ]
+  },
+  {
+    "text": "<d>[English] hello</d>",
+    "slots": []
+  },
+  {
+    "text": "a <lora:x:0.8> b",
+    "slots": []
+  },
+  {
+    "text": "a<bc>d",
+    "slots": []
+  },
+  {
+    "text": "<<ab>>",
+    "slots": []
+  },
+  {
+    "text": "a <b> c",
+    "slots": []
+  },
+  {
+    "text": "<br> line",
+    "slots": [
+      [
+        0,
+        4
+      ]
+    ]
+  },
+  {
+    "text": "# a note about <young man>\na <young man> here",
+    "slots": [
+      [
+        29,
+        40
+      ]
+    ]
+  },
+  {
+    "text": "a [quiet <young man> reading] in a room",
+    "slots": []
+  },
+  {
+    "text": "a {<young man>|<old woman>} walking",
+    "slots": []
+  },
+  {
+    "text": "a <young man> in a {red|blue} coat",
+    "slots": [
+      [
+        2,
+        13
+      ]
+    ]
+  },
+  {
+    "text": "{{name}} and <pet>",
+    "slots": [
+      [
+        13,
+        18
+      ]
+    ]
+  },
+  {
+    "text": "<pet> and <pet>",
+    "slots": [
+      [
+        0,
+        5
+      ],
+      [
+        10,
+        15
+      ]
+    ]
+  },
+  {
+    "text": "<young man> at the start",
+    "slots": [
+      [
+        0,
+        11
+      ]
+    ]
+  },
+  {
+    "text": "at the end <young man>",
+    "slots": [
+      [
+        11,
+        22
+      ]
+    ]
+  },
+  {
+    "text": "a <30-year-old woman> with her <man's dog>",
+    "slots": [
+      [
+        2,
+        21
+      ],
+      [
+        31,
+        42
+      ]
+    ]
+  },
+  {
+    "text": "a < young man> and <young man >",
+    "slots": []
+  },
+  {
+    "text": "a </young man> here",
+    "slots": []
+  },
+  {
+    "text": "a <young\nman> here",
+    "slots": []
+  },
+  {
+    "text": "a <young man> and <x>",
+    "slots": [
+      [
+        2,
+        13
+      ]
+    ]
+  },
+  {
+    "text": "one <a=b> two <a#b> three <a|b>",
+    "slots": []
+  },
+  {
+    "text": "a {red|<b c>|{x|y}} d <e f>",
+    "slots": [
+      [
+        22,
+        27
+      ]
+    ]
+  },
+  {
+    "text": "  # indented note <x y>\n<x y>",
+    "slots": [
+      [
+        24,
+        29
+      ]
+    ]
+  },
+  {
+    "text": "café<ab> x and 9<ab> and _<ab> and (<ab>)",
+    "slots": [
+      [
+        36,
+        40
+      ]
+    ]
+  }
+]

@@ -5,7 +5,10 @@
  * - [text] - Verbatim text, hidden from auto-improve, preserved in final prompt
  * - {a|b|c} - Wildcard, random selection at generation
  * - # comment - Comment line, guides auto-improve, stripped at generation
+ * - <words> - Slot: Fluent varies it; everywhere else it is its words
  */
+
+import { findSlots } from './promptSyntax.ts'
 
 export interface WildcardInfo {
   count: number
@@ -167,6 +170,18 @@ export function unwrapVerbatim(prompt: string): string {
 }
 
 /**
+ * Each <words> slot as its words: what a slot means where nothing varies it.
+ * Slots in comment lines, [verbatim] and lists are left alone.
+ */
+export function unwrapSlots(prompt: string): string {
+  let result = prompt
+  for (const [from, to] of findSlots(prompt).reverse()) {
+    result = result.slice(0, from) + result.slice(from + 1, to - 1) + result.slice(to)
+  }
+  return result
+}
+
+/**
  * Resolve random prompt syntax before any LLM step.
  * Expands {{name}} first (so segment content can contain inline wildcards),
  * then expands inline wildcards, while preserving comments and [verbatim]
@@ -183,7 +198,7 @@ export function resolveWildcardsForLLM(prompt: string, wildcards?: NamedWildcard
 /**
  * Process a prompt for final generation.
  * Expands {{name}} first (so segment content gets further processing),
- * then strips comments, unwraps verbatim, expands inline wildcards.
+ * then strips comments, unwraps slots and verbatim, expands inline wildcards.
  */
 export function processFinalPrompt(prompt: string, wildcards?: NamedWildcard[], segments?: PromptSegment[]): string {
   let result = prompt
@@ -191,6 +206,7 @@ export function processFinalPrompt(prompt: string, wildcards?: NamedWildcard[], 
     result = expandNamedWildcards(result, wildcards || [], segments)
   }
   result = stripComments(result)
+  result = unwrapSlots(result)
   result = unwrapVerbatim(result)
   result = expandWildcards(result)
   return result

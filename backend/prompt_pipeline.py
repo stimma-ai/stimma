@@ -16,7 +16,8 @@ the editor:
      Skipped in Ideogram JSON mode — that runs post-resolve (step 5).
   3. Translate — same verbatim protection; unknown language codes are a
      no-op (mirrors translateViaApi).
-  4. Final cleanup — strip # comments, unwrap [verbatim], and resolve any
+  4. Final cleanup — strip # comments, unwrap <slots> (their words as
+     written; only Fluent varies them) and [verbatim], and resolve any
      wildcard syntax the LLM may have introduced.
   5. Ideogram JSON — when Enhance is on and the tool is Ideogram 4,
      convert the fully-resolved prompt to structured JSON (final step).
@@ -34,6 +35,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from core.logging import get_logger
 from lora_notes import lora_context_signature, prepend_missing_triggers
+from prompt_programs.slots import unwrap_slots
 
 log = get_logger(__name__)
 
@@ -142,11 +144,12 @@ def process_final_prompt(
     preserve_brackets: bool = False,
 ) -> str:
     """Final resolve: {{name}} first (segment content gets further processing),
-    then strip comments, unwrap verbatim, expand inline wildcards."""
+    then strip comments, unwrap <slots> and verbatim, expand inline wildcards."""
     result = prompt
     if wildcards or segments:
         result = expand_named_wildcards(result, wildcards or [], segments)
     result = strip_comments(result)
+    result = unwrap_slots(result)
     if not preserve_brackets:
         result = unwrap_verbatim(result)
     result = expand_wildcards(result)

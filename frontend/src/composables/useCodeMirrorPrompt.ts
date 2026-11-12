@@ -109,13 +109,15 @@ const namedWildcardDeco = Decoration.mark({ class: 'cm-named-wildcard' })
 const commentDeco = Decoration.mark({ class: 'cm-comment-line' })
 // Plain mode (no chat model reads this prompt): # lines are for a model.
 const unreadCommentDeco = Decoration.mark({ class: 'cm-comment-line', attributes: { title: 'No chat model reads this prompt, so # lines are left out of it.' } })
-// Plain mode: a {{name}} that isn't a wildcard or segment needs a model to fill it.
-const needsModelDeco = Decoration.mark({ class: 'cm-needs-enhance', attributes: { title: 'Not a saved wildcard, so nothing can fill it here.' } })
+// A {{name}} that isn't a saved wildcard or segment: nothing fills it.
+const unknownNameDeco = Decoration.mark({ class: 'cm-needs-enhance', attributes: { title: 'Not a saved wildcard or segment, so nothing fills it.' } })
+const slotDeco = Decoration.mark({ class: 'cm-slot' })
 const verbatimDeco = Decoration.mark({ class: 'cm-verbatim' })
 const SYNTAX_DECO: Record<PromptSyntaxKind, Decoration> = {
   'wildcard': wildcardDeco,
   'named-wildcard': namedWildcardDeco,
-  'needs-model': needsModelDeco,
+  'unknown-name': unknownNameDeco,
+  'slot': slotDeco,
   'comment': commentDeco,
   'comment-unread': unreadCommentDeco,
   'verbatim': verbatimDeco,
@@ -231,6 +233,12 @@ const stimmaTheme = EditorView.theme({
   '.cm-named-wildcard': {
     color: '#d97706', // amber-600
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: '2px',
+    padding: '0 1px',
+  },
+  '.cm-slot': {
+    color: '#7c3aed', // violet-600
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
     borderRadius: '2px',
     padding: '0 1px',
   },

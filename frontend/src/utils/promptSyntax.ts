@@ -7,24 +7,27 @@
  * "as typed" prompt) turn them into spans with the same colors.
  *
  *   {a|b|c}      a list: one option per image           wildcard
+ *   <words>      a slot: Fluent varies it, elsewhere     slot
+ *                it is its words
  *   {{name}}     a wildcard or segment                   named-wildcard
- *                (plain mode, unknown name: nothing      needs-model
- *                can fill it)
+ *                (a name that is neither: nothing        unknown-name
+ *                fills it, in any mode)
  *   [text]       sent exactly as written                 verbatim
  *   # a note     a line for the chat model               comment
  *                (plain mode: no model reads it)         comment-unread
  */
 
 // How the prompt will be read: drives what is marked.
-// enhance: everything is live. plain (Enhance off or no chat model): {a|b} and
-// known {{names}} still resolve, but unknown {{names}} and # lines need a model.
+// enhance: everything is live. plain (Enhance off or no chat model): # lines
+// need a model.
 // raw: sent exactly as typed, so nothing is special.
 export type PromptSyntaxMode = 'enhance' | 'plain' | 'raw'
 
 export type PromptSyntaxKind =
   | 'wildcard'
   | 'named-wildcard'
-  | 'needs-model'
+  | 'unknown-name'
+  | 'slot'
   | 'comment'
   | 'comment-unread'
   | 'verbatim'
@@ -34,43 +37,86 @@ export interface PromptSyntaxRange { from: number; to: number; kind: PromptSynta
 
 export interface PromptSyntaxOptions {
   mode?: PromptSyntaxMode
-  /** Saved wildcard and segment names, lowercased (only plain mode reads them). */
+  /** Saved wildcard and segment names, lowercased. Without it no name is marked unknown. */
   known?: ReadonlySet<string>
 }
 
-const NO_NAMES: ReadonlySet<string> = new Set()
+/**
+ * A slot: `<` + 2 to 80 characters + `>` on one line, none of `< > { } [ ] | # : =`,
+ * not starting with `/` or a space, not ending with a space. The Python side
+ * (backend/prompt_programs/slots.py) writes the end check as a lookbehind; this
+ * spells it as a last character so older WebKit can parse it. The start must
+ * also not follow a letter, digit, `_` or `<` (see `findSlots`). Both sides are
+ * tested against slotGrammar.cases.json.
+ */
+export const SLOT_RE = /<(?![/\s])([^<>{}[\]|#:=\n]{1,79}[^<>{}[\]|#:=\s])>/g
+const SLOT_GUARD = /[<\p{L}\p{N}_]/u
 
 /** The marked ranges of one line, sorted by start (ranges may nest). */
 export function lineSyntaxRanges(text: string, options: PromptSyntaxOptions = {}): PromptSyntaxRange[] {
   const mode = options.mode ?? 'enhance'
-  const known = options.known ?? NO_NAMES
+  const known = options.known
   if (mode === 'raw') return []
   // Comment lines: # at start of line
   if (/^\s*#/.test(text)) return [{ from: 0, to: text.length, kind: mode === 'plain' ? 'comment-unread' : 'comment' }]
 
   const out: PromptSyntaxRange[] = []
-  const named = findNamedWildcards(text, mode, known, out)
-  findBraceGroups(text, out, named)
-  findVerbatim(text, out)
+  const named = findNamedWildcards(text, known, out)
+  const lists = findBraceGroups(text, out, named)
+  const verbatim = findVerbatim(text, out)
+  for (const [from, to] of lineSlots(text, [...named, ...lists, ...verbatim])) out.push({ from, to, kind: 'slot' })
   return out.sort((a, b) => a.from - b.from)
 }
 
-function findNamedWildcards(text: string, mode: PromptSyntaxMode, known: ReadonlySet<string>, out: PromptSyntaxRange[]) {
-  const skip: { from: number; to: number }[] = []
+type Span = { from: number; to: number }
+
+function findNamedWildcards(text: string, known: ReadonlySet<string> | undefined, out: PromptSyntaxRange[]) {
+  const skip: Span[] = []
   const re = /\{\{([^{}]+)\}\}/g
   let match
   while ((match = re.exec(text)) !== null) {
     const from = match.index
     const to = from + match[0].length
-    const needsModel = mode === 'plain' && !known.has(match[1].trim().toLowerCase())
-    out.push({ from, to, kind: needsModel ? 'needs-model' : 'named-wildcard' })
+    const unknown = known !== undefined && !known.has(match[1].trim().toLowerCase())
+    out.push({ from, to, kind: unknown ? 'unknown-name' : 'named-wildcard' })
     skip.push({ from, to })
   }
   return skip
 }
 
-function findBraceGroups(text: string, out: PromptSyntaxRange[], skip: { from: number; to: number }[]) {
+function lineSlots(line: string, skip: Span[]): [number, number][] {
+  const out: [number, number][] = []
+  const re = new RegExp(SLOT_RE.source, 'g')
+  let match
+  while ((match = re.exec(line)) !== null) {
+    const from = match.index
+    if (from > 0 && SLOT_GUARD.test(line[from - 1])) continue
+    if (skip.some(r => from >= r.from && from < r.to)) continue
+    out.push([from, from + match[0].length])
+  }
+  return out
+}
+
+/** Every slot's span in a whole prompt, brackets included (comment lines skipped). */
+export function findSlots(text: string): [number, number][] {
+  const out: [number, number][] = []
+  let at = 0
+  for (const line of text.split('\n')) {
+    if (!/^\s*#/.test(line)) {
+      const marks: PromptSyntaxRange[] = []
+      const named = findNamedWildcards(line, undefined, marks)
+      const lists = findBraceGroups(line, marks, named)
+      const verbatim = findVerbatim(line, marks)
+      for (const [from, to] of lineSlots(line, [...named, ...lists, ...verbatim])) out.push([at + from, at + to])
+    }
+    at += line.length + 1
+  }
+  return out
+}
+
+function findBraceGroups(text: string, out: PromptSyntaxRange[], skip: Span[]) {
   // Match nested braces containing at least one pipe
+  const found: Span[] = []
   let i = 0
   while (i < text.length) {
     // Skip positions inside named wildcard ranges
@@ -89,19 +135,26 @@ function findBraceGroups(text: string, out: PromptSyntaxRange[], skip: { from: n
         else if (text[i] === '|' && depth === 1) hasPipe = true
         i++
       }
-      if (depth === 0 && hasPipe) out.push({ from: start, to: i, kind: 'wildcard' })
+      if (depth === 0 && hasPipe) {
+        out.push({ from: start, to: i, kind: 'wildcard' })
+        found.push({ from: start, to: i })
+      }
     } else {
       i++
     }
   }
+  return found
 }
 
 function findVerbatim(text: string, out: PromptSyntaxRange[]) {
+  const found: Span[] = []
   const re = /\[([^\]]+)\]/g
   let match
   while ((match = re.exec(text)) !== null) {
     out.push({ from: match.index, to: match.index + match[0].length, kind: 'verbatim' })
+    found.push({ from: match.index, to: match.index + match[0].length })
   }
+  return found
 }
 
 /** A run of text with one look: `kind` is the innermost mark over it, or null. */
@@ -144,7 +197,8 @@ export function promptSyntaxSpans(text: string, options: PromptSyntaxOptions = {
 export const PROMPT_SYNTAX_CLASS: Record<PromptSyntaxKind, string> = {
   'wildcard': 'text-green-600 bg-green-500/10 rounded-[2px] px-px',
   'named-wildcard': 'text-amber-600 bg-amber-500/10 rounded-[2px] px-px',
-  'needs-model': 'text-red-500 underline decoration-wavy decoration-red-500/80 underline-offset-[3px]',
+  'unknown-name': 'text-red-500 underline decoration-wavy decoration-red-500/80 underline-offset-[3px]',
+  'slot': 'text-violet-600 bg-violet-500/10 rounded-[2px] px-px',
   'comment': 'text-gray-500 italic',
   'comment-unread': 'text-gray-500 italic',
   'verbatim': 'text-blue-500 bg-blue-500/10 rounded-[2px] px-px',
