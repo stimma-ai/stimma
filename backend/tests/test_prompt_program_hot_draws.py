@@ -65,7 +65,9 @@ class TestBatched:
 
     def test_a_draw_that_fails_doesnt_cost_the_others(self):
         entry = entry_for()
-        out = realize_and_fix_many(entry, seeds=[1, 2, 3], pins={"job": ["astronaut"]}, cfg=CFG, judge=Scorer(moon_rule))
+        # an outfit this choice offers, but not for a nun: refused at the choice, for every seed
+        out = realize_and_fix_many(entry, seeds=[1, 2, 3], pins={"job": ["nun"], "outfit": ["green scrubs"]}, cfg=CFG,
+                                   judge=Scorer(moon_rule))
         assert all(isinstance(o, prep.ProgramError) for o in out)
         out = realize_and_fix_many(entry, seeds=[1, 2], cfg=CFG, judge=Scorer(moon_rule))
         assert all(isinstance(o, tuple) for o in out)

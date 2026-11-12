@@ -316,8 +316,27 @@ class TestStaleTicks:
         for seed in range(12):
             assert draw(src, seed, {"car": ["a gray van", "a white truck"]}).prompt == "A photo of a yellow ferrari."
 
-    def test_one_pinned_value_the_pool_lacks_is_still_refused_at_its_choice(self):
+    def test_one_pinned_value_the_choice_no_longer_offers_is_ignored_too(self):
+        from prompt_programs.draws import draw
+        got = {draw(self.SRC, seed, {"setting": ["a grand throne room"]}).prompt for seed in range(20)}
+        assert len(got) > 1 and all("throne" not in p for p in got)
+        later = ('sky = pick("sky", ["a clear sky", "a gray sky"], label="Sky", source="list", phase=1, line=1)\n'
+                 'fit = pick("outfit", about="what she wears", seed=["a linen dress", "a wool coat"], label="Outfit", phase=2, added=True)\n'
+                 'emit("Under", sky, ", in", fit, ".")\n')
+        got = {draw(later, seed, {"outfit": ["a {main} crochet camisole and {neutral} wide-leg linen pants"]}).prompt for seed in range(20)}
+        assert got and all("crochet" not in p and ("linen dress" in p or "wool coat" in p) for p in got)
+
+    def test_one_pinned_value_the_choice_offers_but_not_here_is_still_refused(self):
         from prompt_programs.draws import DrawAborted, draw
-        with pytest.raises(DrawAborted) as e:
-            draw(self.SRC, 3, {"setting": ["a grand throne room"]})
-        assert e.value.reason == "pin" and e.value.choice_id == "setting"
+        src = ('era = pick("era", ["1920s", "1970s"], label="Era", source="list", phase=1, line=1)\n'
+               'hair = pick("hair", {"1920s": ["finger waves", "a bob"], "1970s": ["feathered hair", "an afro"]}, by=era, '
+               'label="Hair", phase=2, line=1)\nemit("A", era, "woman with", hair, ".")\n')
+        seen = set()
+        for seed in range(30):
+            try:
+                p = draw(src, seed, {"hair": ["a bob"], "era": ["1970s"]}).prompt
+                seen.add(p)
+            except DrawAborted as e:
+                assert e.reason == "pin" and e.choice_id == "hair"
+                seen.add("refused")
+        assert seen == {"refused"}

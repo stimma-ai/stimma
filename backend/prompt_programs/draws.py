@@ -875,7 +875,7 @@ class _Exec(_Runner):
     def _settle(self, cid: str, site: Site, spec: PickSpec, items: List[Tuple[str, float]],
                 context: Dict[str, Any]) -> Tuple[Any, bool]:
         eng, names = self.eng, [o for o, _ in items]
-        pin = eng.single_pins.get(cid)
+        pin = eng.single_pins.get(cid) if cid not in self.stale else None   # a stale pin: unticked (_eligible)
         seen = _Seen(cid, site.index, site.phase, spec, items, context=context)
         self.seen[cid] = seen
         eng.specs[cid] = seen
@@ -968,7 +968,10 @@ class _Exec(_Runner):
         context = self._context(site)
         if leaf is not None and leaf.slots:
             self._unfill_kept(cid, leaf)
-        eligible = self._eligible(cid, spec, context, exclude)
+        # Whether everything this pick's options hang on is final in this run of the program
+        # (as check_pins asks): only then do its ticks say anything about its options.
+        settled = all(self.eng.an.sites[d].phase < self.k for d in (set(site.deps) | site.exclude_deps))
+        eligible = self._eligible(cid, spec, context, exclude, settled)
         value, pinned = self._settle(cid, site, spec, eligible, context)
         colors = None
         # Only a look with color slots draws Colors: a fixed-color template ("a white karate gi")
@@ -1056,7 +1059,8 @@ class _Exec(_Runner):
             self.lora_uses.append(LoraUse(info.name, info.weight, info.trigger, info.path, cid))
         return LoraName(value) if isinstance(value, str) else value
 
-    def _eligible(self, cid: str, spec: PickSpec, context: Dict[str, Any], exclude: Any) -> List[Tuple[str, float]]:
+    def _eligible(self, cid: str, spec: PickSpec, context: Dict[str, Any], exclude: Any,
+                  settled: bool = True) -> List[Tuple[str, float]]:
         pool = self.eng.options.get(spec, context)
         if self.record:  # the revision records the pools the final prompt drew from
             self.eng.pools[pool.key] = ([[o, w, *([pool.roles[o]] if o in pool.roles else [])]
@@ -1070,16 +1074,17 @@ class _Exec(_Runner):
         items = [(o, w) for o, w in zip(pool.items, pool.weights) if o not in excl]
         self.eng.own[cid] = pool.own
         pins = self.eng.pins.get(cid)
-        if pins and len(pins) > 1 and spec.phase <= self.k and not any(o in pins for o in pool.items) \
+        if pins and settled and not any(o in pins for o in pool.items) \
                 and not (pins & self.eng.elsewhere.get(cid, set())):
-            # Ticks that name no option this choice has (not in its pool before anything is
-            # excluded, nor under another value of what it follows) were made on an earlier
-            # program's options for the same id: the prompt was prepared again and the options
-            # changed. They say nothing about these options, so in this run of the program the
-            # choice has no ticks at all: its pool, the words the user stated for it and its
-            # standby values behave as they do unticked (_settle). Only once the choice's own
-            # phase is reached: before that its options may be computed from placeholders, and
-            # say nothing yet. One pinned value keeps its meaning (check_pins).
+            # Ticks, or one pinned value, that name no option this choice has (not in its pool
+            # before anything is excluded, nor under another value of what it follows) were made
+            # on an earlier program's options for the same id: the prompt was prepared again and
+            # the options changed. They say nothing about these options, so in this run of the
+            # program the choice has no ticks at all: its pool, the words the user stated for it
+            # and its standby values behave as they do unticked (_settle). Only once what its
+            # options hang on is final: before that they may be computed from placeholders. A
+            # tick this choice does offer, but not beside the other choices drawn, is still
+            # refused at the choice.
             self.stale.add(cid)
             pins = None
         if pins:

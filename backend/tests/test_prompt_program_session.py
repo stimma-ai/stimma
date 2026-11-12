@@ -1037,12 +1037,14 @@ class TestFallbackRungs:
         record, prompt = await _submit(EDITED)
         assert record["fallback"]["rung"] == "words" and prompt == EDITED
 
-    async def test_an_earlier_program_that_doesnt_fit_the_pins_falls_to_the_words(self, model):
+    async def test_a_pin_the_earlier_program_never_offered_doesnt_stop_it(self, model):
+        """A pinned value the earlier program's choice doesn't offer was made on other options:
+        it is ignored (draws._eligible) and the earlier program still runs."""
         model.replies = [reply(write(GOOD))]
         await ensure(enhance="off")
         model.replies = [_down()]
-        record, _ = await _submit(program={"pins": {"weather": ["sunny"]}})  # nothing fits that pin
-        assert record["fallback"]["rung"] == "words"
+        record, _ = await _submit(program={"pins": {"weather": ["sunny"]}})
+        assert record["fallback"]["rung"] == "previous"
 
     async def test_the_words_as_written_never_wait_for_the_judge(self, model, monkeypatch):
         waited = []
