@@ -117,6 +117,50 @@ _IMPROVE_PROMPT_BY_MODE = {
 }
 
 
+# The length each guide aims for, by mode and level: (low, high, unit). "fill" is
+# the Medium level, "expand" the High one; a request without a level (classic
+# Improve) aims for High. FLUX lines read prose too but want it shorter, so they
+# have their own row. Modes without a row (edits, audio, H3, Ideogram) say
+# nothing about length.
+_LENGTH_TARGETS: Dict[str, Dict[str, Tuple[int, int, str]]] = {
+    "keyword": {"fill": (15, 25, "tags"), "expand": (30, 45, "tags")},
+    "prose-flux": {"fill": (40, 60, "words"), "expand": (80, 120, "words")},
+    "krea-2": {"fill": (50, 80, "words"), "expand": (120, 180, "words")},
+    "flux3-klein": {"fill": (80, 120, "words"), "expand": (200, 300, "words")},
+    "qwen-image-2.1": {"fill": (100, 150, "words"), "expand": (250, 350, "words")},
+    "prose": {"fill": (50, 80, "words"), "expand": (100, 160, "words")},
+    "cinematography": {"fill": (50, 80, "words"), "expand": (80, 120, "words")},
+    "ltx-2.5": {"fill": (2, 4, "sentences"), "expand": (4, 8, "sentences")},
+}
+_FLUX_PROSE_FAMILIES = frozenset({
+    "flux-1-dev", "flux-1-schnell", "flux-1-pro", "flux-1.1-pro", "flux-krea",
+    "flux-kontext", "flux-klein", "flux-2", "flux-other",
+})
+
+
+def length_target(mode: str, level: Optional[str] = None,
+                  family: Optional[str] = None) -> Optional[Tuple[int, int, str]]:
+    """(low, high, unit) the guide aims for, or None where the mode has no target
+    (and at the "off" level, which makes no rewrite)."""
+    if level == "off":
+        return None
+    key = "prose-flux" if mode == "prose" and family in _FLUX_PROSE_FAMILIES else mode
+    return _LENGTH_TARGETS.get(key, {}).get(level or "expand")
+
+
+def _length_target_guidance(target: Optional[Tuple[int, int, str]], *, late: bool = False) -> str:
+    """The guide's closing length line. late: the per-image improver, which may
+    return a prompt that is already at length as it is."""
+    if not target:
+        return ""
+    low, high, unit = target
+    amount = f"{low} to {high} {unit}" if unit == "sentences" else f"about {low} to {high} {unit}"
+    text = f"Length: aim for {amount}."
+    if late:
+        text += " If the prompt is already about that long, return it with only the changes this model's format needs."
+    return text
+
+
 def _qwen_image_refs_phrase(n: int) -> str:
     """The inputs a Qwen-Image-2.1 edit can address, e.g. "2 input images, <image1> and <image2>".
     A single input is referred to naturally, so it gets no tag."""
@@ -837,8 +881,9 @@ async def style_guide(request: "ImprovePromptRequest", session,
     # (input images on a natural-language model); model family drives the rest
     # (keyword / ideogram / prose). Falls back to prose for unknown families and
     # missing model strings.
+    family = model_family(request.model)
     mode = enhancement_mode(
-        model_family(request.model),
+        family,
         is_video=request.is_video,
         is_image_edit=request.input_image_count > 0,
         is_audio=request.is_audio,
@@ -927,7 +972,12 @@ async def style_guide(request: "ImprovePromptRequest", session,
             audio_disabled=(mode == "minimax-h3" and not request.h3_generate_audio),
         ),
     )
-    system_prompt += _lora_guidance(request.lora_context)
+    system_prompt = system_prompt.replace(
+        "{length_target}", _length_target_guidance(length_target(mode, None, family))
+    )
+    # Per-request parts close the guide, so the text before them stays the same
+    # across requests and can be cached; empty slots leave only blank lines.
+    system_prompt = system_prompt.rstrip() + _lora_guidance(request.lora_context)
     system_prompt = re.sub(r"\n{3,}", "\n\n", system_prompt)
     return system_prompt, source_images_b64, mode
 
