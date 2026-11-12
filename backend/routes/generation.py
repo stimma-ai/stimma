@@ -227,6 +227,10 @@ def _prompt_media_id(parameters: Dict[str, Any], effective_task: str) -> Optiona
         if found is not None:
             return found
     for key, value in parameters.items():
+        # Lineage (the image a remix started from) isn't an input: the enhancer isn't shown
+        # it, and a Fluent program isn't keyed on it (the editor never sends it).
+        if key.startswith("inspired_by"):
+            continue
         if key.endswith("_media_id") or key.endswith("_media_ids"):
             found = _first_int(value)
             if found is not None:

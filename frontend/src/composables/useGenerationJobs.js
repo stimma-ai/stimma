@@ -480,8 +480,12 @@ export function useGenerationJobs(options = {}) {
       if (placeholderConsumedBatches.has(job.batch_id)) return
       placeholderConsumedBatches.add(job.batch_id)
     }
+    // Only a placeholder whose submit has reached the server can be this job's: one
+    // still preparing its prompt stays (a job from an earlier run isn't its job).
     // addPendingJob unshifts, so the oldest placeholder is the last element.
-    pendingJobs.value = pendingJobs.value.slice(0, -1)
+    const at = pendingJobs.value.findLastIndex(j => j.posted)
+    if (at < 0) return
+    pendingJobs.value = pendingJobs.value.filter((_, i) => i !== at)
   }
 
   function handleJobProgress(data) {
@@ -1031,12 +1035,15 @@ export function useGenerationJobs(options = {}) {
 
   // Add a pending job (shown while enhancing prompt via LLM). `label` replaces the
   // tile's "Enhancing prompt…" for other pre-submit work (preparing a prompt program).
-  function addPendingJob(prompt, params = {}, label = null) {
+  // `posted: false`: the tile opens before its submit is sent (a run that prepares first);
+  // markPendingJobPosted says when it is, so an arriving job can retire it.
+  function addPendingJob(prompt, params = {}, label = null, { posted = true } = {}) {
     const pendingId = `pending-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const pendingJob = {
       id: pendingId,
       status: 'enhancing',
       pending_label: label,
+      posted,
       parameters: JSON.stringify({
         prompt: prompt,
         ...params
@@ -1064,9 +1071,21 @@ export function useGenerationJobs(options = {}) {
     return pendingJobs.value.some(j => j.id === pendingId)
   }
 
-  // Cancel a pending job (user clicked cancel before submission)
+  function markPendingJobPosted(pendingId) {
+    const job = pendingJobs.value.find(j => j.id === pendingId)
+    if (job) job.posted = true
+  }
+
+  // Cancel a pending job (user clicked cancel before submission). Remembered, so the run
+  // that owns the tile can tell a cancel from a tile an arriving job retired.
+  const cancelledPending = new Set()
   function cancelPendingJob(pendingId) {
+    cancelledPending.add(pendingId)
     removePendingJob(pendingId)
+  }
+
+  function wasPendingJobCancelled(pendingId) {
+    return cancelledPending.has(pendingId)
   }
 
   function getJobPrompt(job) {
@@ -1385,6 +1404,8 @@ export function useGenerationJobs(options = {}) {
     setPendingJobLabel,
     removePendingJob,
     cancelPendingJob,
+    markPendingJobPosted,
+    wasPendingJobCancelled,
     hasPendingJob,
 
     // Live in-flight progress/preview per job

@@ -116,6 +116,9 @@ interface Options {
   projectId: Ref<number | null | undefined>
   promptOptions: Ref<any>
   setPromptOptions: (next: any) => void
+  /** Whether a prompt found unprepared is read right away: not while the user is in the
+      prompt box (it's read when they're done), the tool is still loading, or in the background. */
+  prepareWhenFound?: () => boolean
 }
 
 /** How often the editor looks for a program the server prepared in the background after a failure. */
@@ -251,7 +254,14 @@ export function usePromptProgram(o: Options) {
       const { data } = await axios.post(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true }))
       if (id !== lookupId || sig !== signature.value) return
       if (data?.unsupported) { unsupportedSig.value = sig; return }
-      if (!data?.key) { forget(sig); return }
+      if (!data?.key) {
+        forget(sig)
+        // Nothing prepared for what's here (a tool just opened, a preset, a remix, a changed
+        // setting): read it now, so a run doesn't start by waiting. Not while typing (done
+        // typing reads it), and not a prompt that failed (the server retries those).
+        if (status.value === 'stale' && o.prepareWhenFound?.()) void prepare()
+        return
+      }
       program.value = data
       preparedSig.value = sig
       if (error.value?.sig === sig) error.value = null  // prepared since (the server's background try)
@@ -298,7 +308,11 @@ export function usePromptProgram(o: Options) {
         return true
       }
       markReady(sig)  // runnable now, whatever the box says by the time it's back
-      if (sig !== signature.value) return true  // the prompt moved on; its own prepare will follow
+      if (sig !== signature.value) {
+        // The inputs moved on while this ran, and their lookup was skipped (busy): look now.
+        setTimeout(() => { void lookup() }, 0)
+        return true
+      }
       program.value = data
       preparedSig.value = sig
       error.value = null
@@ -307,6 +321,7 @@ export function usePromptProgram(o: Options) {
       const detail = e?.response?.data?.detail
       const code = prepareErrorCode(e)
       error.value = { sig, code, message: (typeof detail === 'string' ? detail : detail?.message) || 'Couldn’t read this prompt.' }
+      if (sig !== signature.value) setTimeout(() => { void lookup() }, 0)
       return false
     } finally {
       if (!inFlight || inFlight.sig === sig) busy.value = false
@@ -566,7 +581,7 @@ export function usePromptProgram(o: Options) {
 
   return {
     program, status, error, unsupported, pins, edits, choices, sections, byId, openCard,
-    prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns, suggestOptions,
+    lookup, prepare, rethink, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns, suggestOptions,
     setPins, setManyPins, setEdit, setTicks, optionsOf, vocabOf, valueText, isPinned, isNone, showsValue, keepAddition, isOwn,
     loraControl, paramControl, open, close,
   }

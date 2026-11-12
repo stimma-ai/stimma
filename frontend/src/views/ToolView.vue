@@ -3423,8 +3423,7 @@ import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptPro
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
-import { fallbackNotice, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, programRunActions, shapePromptOptions, switchDeclinedToDirect, wasDeclined } from '../utils/fluentSubmit'
-import { judgeNotice, judgeWaitLabel, tellsUnjudged, unjudgedMessage, waitForJudge } from '../utils/fluentJudge'
+import { DRAWING_LABEL, PREPARING_LABEL, fallbackNotice, foreverSlot, isPrepareFailureCode, jobContextImages, loraChoices, programRunActions, shapePromptOptions, switchDeclinedToDirect, wasDeclined } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
@@ -3974,15 +3973,21 @@ const promptProgram = usePromptProgram({
     if (audioInputConfig.value && audioInputConfig.value.audioRole !== 'reference' && (globalPrefs.value.inputAudios?.length ?? 0) > 0) {
       p.input_audios = globalPrefs.value.inputAudios.map(() => 'ref')
     }
-    if (modelParams.width) p.width = Number(modelParams.width)
-    if (modelParams.height) p.height = Number(modelParams.height)
+    if (modelParams.value.width) p.width = Number(modelParams.value.width)
+    if (modelParams.value.height) p.height = Number(modelParams.value.height)
     return p
   }),
   instructions: computed(() => globalPrefs.value.promptOptions?.autoImprove?.instructions || ''),
   projectId: projectScopeId,
   promptOptions: computed(() => globalPrefs.value.promptOptions),
   setPromptOptions: (next: any) => { globalPrefs.value.promptOptions = next },
+  // Only in the window being used: one left open elsewhere doesn't read what another
+  // device is still typing (it looks again when it's focused).
+  prepareWhenFound: () => !isInitialLoading.value && stageViewActive.value && document.hasFocus()
+    && !aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
 })
+// The tool finished loading: what's in the prompt box now is what to look up (and read).
+watch(isInitialLoading, (loading) => { if (!loading) void promptProgram.lookup() })
 // Fluent's "nothing was run" is about the prompt as it was: once the prompt, its mode or
 // Fluent's state moves on, the message is no longer true.
 watch(() => [globalPrefs.value.prompt, globalPrefs.value.promptOptions?.raw, globalPrefs.value.promptOptions?.direct, enhanceLevel.value],
@@ -5518,6 +5523,33 @@ type ForeverSubmitOptions = {
   programPrompt?: string
   // The model catalog was just re-read after the server said there's no chat model.
   modelRechecked?: boolean
+  // This job's tile, opened when the run was clicked (submitJob).
+  runTile?: RunTile
+}
+
+/** A run's placeholder in the strip from the click until its job is queued, with the
+    sidebar's spinner. `close` is safe to call twice. */
+type RunTile = { id: string; close: () => void }
+function openRunTile(label: string | null, prompt: string = globalPrefs.value.prompt,
+  size: { width?: any; height?: any } = modelParams.value, posted = false): RunTile {
+  const id = jobsManager.addPendingJob(prompt, {
+    model_name: tool.value!.model,
+    generator_name: tool.value!.generator,
+    // The requested resolution, so the tile is already the shape of the result.
+    width: size.width,
+    height: size.height,
+  }, label, { posted })
+  const finish = beginInstanceWork(generatorInstanceId)
+  let open = true
+  return {
+    id,
+    close: () => {
+      if (!open) return
+      open = false
+      jobsManager.removePendingJob(id)
+      finish()
+    },
+  }
 }
 
 type SubmitJobResult = {
@@ -5548,45 +5580,6 @@ function unknownSmartNames(prompt: string): string[] {
   const lines = prompt.split('\n').filter(l => !l.trimStart().startsWith('#'))
   const names = [...lines.join('\n').matchAll(/\{\{([^{}]+)\}\}/g)].map(m => m[1].trim())
   return [...new Set(names.filter(n => n && !known.has(n.toLowerCase())))]
-}
-
-/** Before a Fluent run: wait while its fit check is still downloading, with the status on
-    `tile` (the preparing tile, when there is one) or a tile of its own. False when the
-    user cancelled the tile. A check that can't be had is said once per session (not
-    under Privacy Lockdown), and the run goes ahead. */
-async function waitForFluentJudge(tile: string | null): Promise<boolean> {
-  let ownTile: string | null = null
-  let finishOwn: (() => void) | null = null
-  const id = () => tile ?? ownTile
-  const { outcome, state } = await waitForJudge({
-    fetch: async (start) => (await axios.get(`${getApiBase()}/prompt-programs/fix-judge`, { params: start ? { start: 1 } : {} })).data,
-    onWaiting: (st) => {
-      const label = judgeWaitLabel(st, PROMPT_BRAND)
-      if (!id()) {
-        ownTile = jobsManager.addPendingJob(globalPrefs.value.prompt, {
-          model_name: tool.value!.model,
-          generator_name: tool.value!.generator,
-          width: modelParams.width,
-          height: modelParams.height,
-        }, label)
-        finishOwn = beginInstanceWork(generatorInstanceId)
-      } else jobsManager.setPendingJobLabel(id(), label)
-    },
-    cancelled: () => !!id() && !jobsManager.hasPendingJob(id()),
-  })
-  if (ownTile) {
-    jobsManager.removePendingJob(ownTile)
-    finishOwn?.()
-  }
-  if (outcome === 'cancelled') return false
-  if (tellsUnjudged(state) && !judgeNotice.told) {
-    judgeNotice.told = true
-    addToast(unjudgedMessage(PROMPT_BRAND), 'info', 8000, {
-      label: 'Try again',
-      onClick: () => { void axios.get(`${getApiBase()}/prompt-programs/fix-judge`, { params: { retry: 1 } }).catch(() => {}) },
-    })
-  }
-  return true
 }
 
 async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobResult> {
@@ -5640,36 +5633,53 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     }
   }
 
-  // Prompt programs: an out-of-date program is prepared once, before the batch.
-  // The wait is its own tile in the strip, beside any runs already going.
-  const preparingId = !failedRead && options.programPrompt == null && promptProgram.needsPrepare()
-    ? jobsManager.addPendingJob(globalPrefs.value.prompt, {
-        model_name: tool.value!.model,
-        generator_name: tool.value!.generator,
-        width: modelParams.width,
-        height: modelParams.height,
-      }, 'Preparing your prompt…')
-    : null
-  const finishPreparing = preparingId ? beginInstanceWork(generatorInstanceId) : null
-  const ready = !failedRead && (options.programPrompt != null || await promptProgram.ensureReady())
-  let preparingCancelled = !!preparingId && !jobsManager.hasPendingJob(preparingId)
-  // The fit check Fluent downloads at launch: a run that needs it waits for it, on the
-  // same tile, while the server says it's worth waiting (it ran alongside the prepare).
-  if (ready && !preparingCancelled && promptProgram.status.value !== 'off') {
-    preparingCancelled = !(await waitForFluentJudge(preparingId))
+  const count = options.foreverBackendName
+    ? 1
+    : Math.min(8, Math.max(1, options.countOverride ?? uiState.value.batchSize ?? 1))
+  // A Fluent run's tiles go up now, one per image, before anything is waited for: reading
+  // the prompt (once, before the batch), then each image's draw, which the chat model
+  // checks on the server before the job is queued. submitOneJob hands each to its job.
+  const preparing = !failedRead && options.programPrompt == null && promptProgram.needsPrepare()
+  const tiles: RunTile[] = promptProgram.status.value !== 'off'
+    ? Array.from({ length: count }, () => openRunTile(preparing ? PREPARING_LABEL : DRAWING_LABEL))
+    : []
+  const closeTiles = () => tiles.forEach(t => t.close())
+  const allCancelled = () => tiles.length > 0 && tiles.every(t => jobsManager.wasPendingJobCancelled(t.id))
+  let ready = false
+  // A program found gone when the run confirmed it is read again here: the tiles say so.
+  const stopLabelling = watch(promptProgram.status, (st) => {
+    if (st === 'busy') for (const t of tiles) jobsManager.setPendingJobLabel(t.id, PREPARING_LABEL)
+  })
+  try {
+    ready = !failedRead && (options.programPrompt != null || await promptProgram.ensureReady())
+  } catch (e) {
+    closeTiles()
+    throw e
+  } finally {
+    stopLabelling()
   }
-  if (preparingId) {
-    jobsManager.removePendingJob(preparingId)
-    finishPreparing?.()
+  // Every tile cancelled while the prompt was read: nothing runs, and a forever slot is
+  // handed back. A session that ended meanwhile has no slot to hand back.
+  if (allCancelled()) {
+    closeTiles()
+    return noSubmit(options)
   }
-  if (preparingCancelled) return noSubmit(options, false)
+  if (!isForeverSubmissionCurrent(options)) {
+    closeTiles()
+    return noSubmit(options, false)
+  }
+  // (A format that turned out not to be prepared is written per image: the tile's own words.)
+  for (const t of tiles) jobsManager.setPendingJobLabel(t.id, promptProgram.status.value === 'off' ? null : DRAWING_LABEL)
   if (!ready) {
     const code = promptProgram.error.value?.code
     // The chat model went away since this view last looked (removed in Settings, or on
     // another client): learn that, and the run goes Direct like any no-model setup.
     if (code === 'llm_not_configured' && !options.modelRechecked) {
       await checkAgentModels(null, true)
-      if (llmUnconfigured.value) return submitJob({ ...options, modelRechecked: true })
+      if (llmUnconfigured.value) {
+        closeTiles()
+        return submitJob({ ...options, modelRechecked: true })
+      }
     }
     // Otherwise the run goes ahead: the server runs this prompt on its words as written
     // (or the same words' earlier program) and keeps trying to read it in the background.
@@ -5680,13 +5690,23 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   // and then the prompt box switches to Direct, saying why.
   const declined = wasDeclined({ status: promptProgram.status.value, code: promptProgram.error.value?.code })
 
-  const count = options.foreverBackendName
-    ? 1
-    : Math.min(8, Math.max(1, options.countOverride ?? uiState.value.batchSize ?? 1))
   let submitted = false
-  let declineReservation = true
+  let declineReservation = noSubmit(options).declineReservation
   for (let i = 0; i < count; i++) {
-    const result = await submitOneJob(options)
+    const tile = tiles[i]
+    // This image's tile was cancelled while the prompt was read: it isn't made.
+    if (tile && jobsManager.wasPendingJobCancelled(tile.id)) {
+      tile.close()
+      continue
+    }
+    let result: SubmitJobResult
+    try {
+      result = await submitOneJob({ ...options, runTile: tile })
+    } catch (e) {
+      closeTiles()
+      throw e
+    }
+    if (!result.submitted) tile?.close()
     submitted = result.submitted || submitted
     declineReservation = result.declineReservation
   }
@@ -5834,23 +5854,14 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
     (enhanceOn && !promptOptions?.program) ||
     promptOptions?.translate?.enabled
   )
-  const pendingId = needsEnhancing
-    ? jobsManager.addPendingJob(prompt, {
-        model_name: tool.value!.model,
-        generator_name: tool.value!.generator,
-        // Carry the requested resolution so the placeholder tile is already
-        // the shape of the result — otherwise it starts square and reshapes
-        // when the real job arrives.
-        width: capturedState.parameters?.width,
-        height: capturedState.parameters?.height,
-      })
-    : null
-  const finishPendingStatus = pendingId ? beginInstanceWork(generatorInstanceId) : null
-  const removePendingEnhancementJob = () => {
-    if (!pendingId) return
-    jobsManager?.removePendingJob(pendingId)
-    finishPendingStatus?.()
-  }
+  // A Fluent run brought its tile from the click (submitJob). Either way the submit goes
+  // out now, so the job it queues retires this tile.
+  const runTile = options.runTile
+    ?? (needsEnhancing ? openRunTile(null, prompt, capturedState.parameters || {}, true) : null)
+  if (runTile) jobsManager.markPendingJobPosted(runTile.id)
+  const removePendingEnhancementJob = () => runTile?.close()
+  // The tile was cancelled after its submit went out: the job it queued is cancelled.
+  const tileCancelled = () => !!runTile && jobsManager.wasPendingJobCancelled(runTile.id)
 
   // Media-batch: run the tool once per item in the batched slot.
   if (globalPrefs.value.batchMode) {
@@ -5917,6 +5928,8 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         clearForeverBatchSubmit()
       },
       onSubmitted: (batchInfo: BatchJobResponse) => {
+        // By the ids the server just queued: their events may not have arrived yet.
+        if (tileCancelled()) for (const id of batchInfo.job_ids || []) void jobsManager.cancelJob(id, { notifyOnError: false })
         removePendingEnhancementJob()
         console.log(`Media-batch submitted: ${batchInfo.total_jobs} jobs, batch_id: ${batchInfo.batch_id}`)
         if (uiState.value.generateForeverMode) {
@@ -5995,6 +6008,8 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         clearForeverBatchSubmit()
       },
       onSubmitted: (batchInfo: BatchJobResponse) => {
+        // By the ids the server just queued: their events may not have arrived yet.
+        if (tileCancelled()) for (const id of batchInfo.job_ids || []) void jobsManager.cancelJob(id, { notifyOnError: false })
         removePendingEnhancementJob()
         console.log(`Batch submitted: ${batchInfo.total_jobs} jobs, batch_id: ${batchInfo.batch_id}`)
         // Track active batch for forever mode (batches run sequentially)
@@ -6036,7 +6051,10 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
       }),
       shouldSubmit: () => isForeverSubmissionCurrent(options),
       onCancelled: removePendingEnhancementJob,
-      onSubmitted: removePendingEnhancementJob,
+      onSubmitted: (job) => {
+        if (tileCancelled() && job?.job_id != null) void jobsManager.cancelJob(job.job_id)
+        removePendingEnhancementJob()
+      },
       onError: (err: any) => {
         removePendingEnhancementJob()
         submissionError.value = classifySubmissionError(err)
@@ -7913,6 +7931,7 @@ onMounted(async () => {
 onActivated(() => {
   console.log('[ToolView onActivated] Component reactivated', { queryKeys: Object.keys(route.query) })
   stageViewActive.value = true
+  void promptProgram.lookup()  // back in front: read the prompt if it isn't yet
   claimCompactHeader(compactHeaderToken)
   window.addEventListener('keydown', handleKeyDown)
   syncStageVideoPlayback()

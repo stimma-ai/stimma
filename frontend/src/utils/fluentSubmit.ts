@@ -106,6 +106,11 @@ export function shapePromptOptions(saved: any, c: PromptOptionsContext): any {
   }
 }
 
+/** A run's tile in the strip, from the click until its job is queued: while the prompt is
+    read, then while this image's details are drawn and checked to fit together. */
+export const PREPARING_LABEL = 'Preparing your prompt…'
+export const DRAWING_LABEL = 'Choosing details…'
+
 /** What a Generate-forever slot does while the prompt isn't prepared. */
 export type ForeverSlot =
   /** Run the last prepared prompt (and maybe start preparing the new one). */

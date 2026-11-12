@@ -116,8 +116,8 @@ export async function submitJobAsync(params: {
   segments?: unknown[]
   // Receives the raw editor prompt and metadata about the original prompt/options.
   buildPayload: (rawPrompt: string, promptMetadata: PromptMetadata) => Record<string, any>
-  // Called after successful submission
-  onSubmitted?: () => void
+  // Called after successful submission, with the queued job's id
+  onSubmitted?: (job?: { job_id?: number }) => void
   // Called on error
   onError?: (error: any) => void
   // Called when cancellation/building failed before the backend submit endpoint was reached.
@@ -148,9 +148,9 @@ export async function submitJobAsync(params: {
 
     // Submit to backend
     backendSubmitStarted = true
-    await axios.post(`${getAPIBase()}/generate/submit`, payload)
+    const response = await axios.post(`${getAPIBase()}/generate/submit`, payload)
 
-    onSubmitted?.()
+    onSubmitted?.(response?.data)
   } catch (error) {
     console.error('Failed to submit job:', error)
     onError?.(error)

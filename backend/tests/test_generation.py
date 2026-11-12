@@ -222,6 +222,13 @@ class TestPromptPipelineRouting:
             "image-to-video",
         ) == 123
 
+    def test_remix_lineage_is_not_a_prompt_input(self):
+        # The editor prepares a Fluent program without the remix source; a submit carries it.
+        # Both must read the same context, or the run prepares a second program of its own.
+        assert generation_routes._prompt_media_id({"inspired_by_media_id": 5}, "text-to-image") is None
+        assert generation_routes._prompt_media_id(
+            {"inspired_by_media_id": 5, "mask_media_id": 9}, "text-to-image") == 9
+
     def test_h3_context_derives_task_duration_frames_and_audio(self):
         assert generation_routes._prompt_h3_context({"duration": 5}) == (
             "t2va", 5.0, [], True, [],
