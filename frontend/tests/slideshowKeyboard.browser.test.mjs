@@ -37,6 +37,34 @@ async function fixture(t, { chat = false, nav = false, kinds = null, routes = nu
   return page
 }
 
+test('contact sheets scroll with the wheel in slideshow while images still zoom', async t => {
+  const html = Array.from({ length: 80 }, (_, i) => `<p>Sheet row ${i + 1}</p>`).join('')
+  const page = await fixture(t, { kinds: ['stimmasheet.html', 'png'], routes: page =>
+    page.route('**/media/1/content', route => route.fulfill({ json: { html } })),
+  })
+  const document = page.locator('[data-sheet-scope]')
+  await expect(document.getByText('Sheet row 1', { exact: true })).toBeVisible()
+  const scroller = document.locator('..')
+  const viewer = scroller.locator('../..')
+  const transform = await viewer.evaluate(el => getComputedStyle(el).transform)
+  const box = await scroller.boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.wheel(0, 500)
+  await expect.poll(() => scroller.evaluate(el => el.scrollTop)).toBeGreaterThan(0)
+  const down = await scroller.evaluate(el => el.scrollTop)
+  await page.mouse.wheel(0, -200)
+  await expect.poll(() => scroller.evaluate(el => el.scrollTop)).toBeLessThan(down)
+  assert.equal(await viewer.evaluate(el => getComputedStyle(el).transform), transform)
+
+  await page.keyboard.press('ArrowRight')
+  const image = page.locator('img[src*="kind-2"]').first()
+  await expect(image).toBeVisible()
+  const before = await image.evaluate(el => el.getBoundingClientRect().width)
+  await image.hover()
+  await page.mouse.wheel(0, -200)
+  await expect.poll(() => image.evaluate(el => el.getBoundingClientRect().width)).toBeGreaterThan(before)
+})
+
 test('a completed chat video retains its info and marker strip while its page reloads', async t => {
   const page = await fixture(t, { chat: true })
   const video = page.locator('video').first()

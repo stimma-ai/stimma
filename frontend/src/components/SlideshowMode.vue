@@ -4587,7 +4587,7 @@ function handleWheel(event) {
   if (!mediaContainerRef.value?.contains(event.target)) return
 
   // Only zoom for images and videos, let other types (text, sets, grids) scroll naturally
-  if (isAudio.value || isText.value || isSet.value || isGrid.value || isLayout.value || isSprite.value || isPackage.value) return
+  if (isAudio.value || isText.value || isSet.value || isGrid.value || isLayout.value || isSprite.value || isSheet.value || isPackage.value) return
 
   event.preventDefault()
 
