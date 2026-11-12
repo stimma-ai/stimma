@@ -565,6 +565,8 @@ class TestOptionContinuity:
         job = OptionJob("k", spec, {}, prog, "a street", 0)
         user = generation_messages(job)[1]["content"]
         assert '"1970s or 1980s cars"' in user and "rule, not an example" in user
+        assert "nothing added" in user   # a wildcard names its things: "Japan", not a description of Japan
+        assert "nothing added" not in generation_messages(OptionJob("k", spec, {}, plain, "a street", 0))[1]["content"]
 
 
 def test_trigger_words_the_program_writes_for_a_picked_lora_are_cut():

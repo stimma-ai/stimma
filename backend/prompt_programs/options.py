@@ -44,9 +44,9 @@ from prompt_programs.vocab import (
 
 log = get_logger(__name__)
 
-OPTIONS_VERSION = "opts-4"     # bump to invalidate every generated pool on purpose. opts-4: US words. opts-3: US spelling
+OPTIONS_VERSION = "opts-5"     # bump to invalidate every generated pool on purpose. opts-5: a smart wildcard's options name its things, no description added. opts-4: US words. opts-3: US spelling
 FIRST_OPTIONS_VERSION = "opts-1"   # what a revision that records no options version drew with
-OPTIONS_VERSIONS = (FIRST_OPTIONS_VERSION, "opts-2", "opts-3", OPTIONS_VERSION)   # versions a recorded revision can replay
+OPTIONS_VERSIONS = (FIRST_OPTIONS_VERSION, "opts-2", "opts-3", "opts-4", OPTIONS_VERSION)   # versions a recorded revision can replay
 BATCH_SIZE = 12                # options asked for per generation call
 GEN_DECAY = 0.96               # rank decay across generated options (gentler than the writer's lists)
 THIN = 6                       # a generated pool with fewer usable options asks for more, high priority
@@ -403,7 +403,9 @@ def generation_messages(job: OptionJob, count: int = BATCH_SIZE, tool: bool = Fa
     intent = dict(job.program.intents).get(job.spec.id)
     if intent:
         lines += ["", f'The user asked for this detail in their own words: "{intent}". That is a rule, not an example: '
-                      "every option must be within it (\"1970s or 1980s cars\" means only cars from those two decades)."]
+                      "every option must be within it (\"1970s or 1980s cars\" means only cars from those two decades). "
+                      "Each option is one of the things their words name, named the way a person would say it, and "
+                      "nothing added: for \"country\", \"Japan\", never \"Japan, with misty mountains and temples\"."]
     if job.removed:
         lines += ["", "The user deleted these: never write them or any wording of them:", *[f"- {o}" for o in job.removed]]
     if job.spec.said:

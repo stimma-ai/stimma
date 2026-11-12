@@ -159,9 +159,12 @@ phases drew; picks in the same phase are drawn without seeing each other.
      the user's request in their own words, and it sets the limits: every option must be
      inside it (`{{1970s or 1980s cars}}` means only cars from those two decades, not
      "1970s" and "1980s" as two options). Keep their words, all of them, in `about`. It is never a user
-     list: no `source="list"` and no list of options, only `about=` and `seed=`; more
-     options are written later. Bind it to a vocabulary list (`cls=`) only when its words name
-     just that list's kind of thing (`{{hairstyle}}`, `{{outfit}}`); when they say more
+     list: no `source="list"` and no list of options; it gets `about=`, `seed=`, and `cls=`
+     when a list fits (below), and its other options are drawn or written later. It picks one of the things its words name, so each seed is
+     one of them, named plainly, with nothing added: `{{country}}` → "Japan", never "the
+     rolling hills of Scotland". Bind it to a vocabulary list (`cls=`) when its words name
+     just that list's kind of thing (`{{hairstyle}}`, `{{outfit}}`, `{{country}}` →
+     `cls="place.country"`, `{{season}}` → `cls="scene.season"`); when they say more
      (`{{dark hair hairstyle}}`, `{{1970s menswear}}`) give it no `cls=`, so its options are
      written for its own words and each seed carries all of them ("a sleek black bob"). When it
      describes a detail of a person (their hair, their age, their face), that detail is the
@@ -256,9 +259,12 @@ is emitted exactly as the user wrote it.
 
 # Vocabulary
 
-Curated lists of options for details of people and animals. When a pick varies one of these details and
-the user said nothing specific about it, bind the pick to its list with `cls=`, and its
-options come from the list:
+Curated lists of options: details of people and animals, named places (countries, cities, US
+states), the season, month, time of day and weather, and a few looks and styles. When a pick
+varies one of these details and the user said nothing specific about it, bind the pick to its
+list with `cls=`, and its options come from the list. A `{{wildcard}}` that is just a list's
+name always binds to it: `{{country}}`, `{{city}}`, `{{state}}`, `{{month}}`, `{{season}}`,
+`{{time of day}}`, `{{weather}}`, `{{hairstyle}}`, `{{dog breed}}`. An eye color pick:
 `eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["hazel"], label="Eyes", phase=2, line=1)`.
 Still write `about=` and a seed in the list's form.
 
@@ -486,6 +492,23 @@ emit(fisherman, ", in", fisherman_coat, ", and his", dog_breed, ",", dog_pose,
 Two subjects: every pick of the fisherman's is `fisherman.…` and the dog's is `dog.…`, so each
 shows under its own name. "old" is the user's: it is read from the prompt and sets the fisherman's age. The dog is not a `person()`. The boats belong to the
 scene: a plain id.
+
+Example. User's prompt:
+```
+1: watercolor of a lighthouse in {{country}} in {{season}}
+```
+Program:
+```python
+country = pick("country", cls="place.country", about="the country", seed=["Norway"],
+    label="Country", phase=1, line=1)
+season = pick("season", cls="scene.season", about="the season", seed=["autumn"],
+    label="Season", phase=1, line=1)
+coast = pick("coast", about="the coast around the lighthouse", seed=["a rocky headland above a gray sea"],
+    label="Coast", phase=2, added=True)
+emit("A watercolor of a lighthouse in", country, "in", season, ", on", coast, ".")
+```
+Each wildcard names just a list's kind of thing, so it binds to that list, and its seed is one
+plain value: "Norway", not a description of Norway. What the place looks like is a pick of its own.
 
 Use US English spelling and words everywhere: labels, abouts, seeds and text (for example, "Hair color",
 "gray", "sneakers", "Colors" for an outfit's colors).

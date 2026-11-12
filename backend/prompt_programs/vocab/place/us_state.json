@@ -1,0 +1,471 @@
+{
+  "id": "place.us_state",
+  "label": "State",
+  "description": "One of the fifty US states, by its name.",
+  "pos": "proper noun",
+  "frame": "in ___",
+  "notes": "Names only: the image model knows what a place looks like, so a value never describes it (\"Japan\", not \"Japan, with misty mountains\"). Scenery, season and light are other picks.",
+  "facets": [],
+  "closed": true,
+  "local_facets": {
+    "area": [
+      "Northeast",
+      "South",
+      "Midwest",
+      "Southwest",
+      "West"
+    ]
+  },
+  "values": [
+    {
+      "text": "Alabama",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "Alaska",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "West"
+        ]
+      }
+    },
+    {
+      "text": "Arizona",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southwest"
+        ]
+      }
+    },
+    {
+      "text": "Arkansas",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "California",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "West"
+        ]
+      }
+    },
+    {
+      "text": "Colorado",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "West"
+        ]
+      }
+    },
+    {
+      "text": "Connecticut",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Northeast"
+        ]
+      }
+    },
+    {
+      "text": "Delaware",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "Florida",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "Georgia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "Hawaii",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "West"
+        ]
+      }
+    },
+    {
+      "text": "Idaho",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "West"
+        ]
+      }
+    },
+    {
+      "text": "Illinois",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Indiana",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Iowa",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Kansas",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Kentucky",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "Louisiana",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "Maine",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Northeast"
+        ]
+      }
+    },
+    {
+      "text": "Maryland",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "Massachusetts",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Northeast"
+        ]
+      }
+    },
+    {
+      "text": "Michigan",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Minnesota",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Mississippi",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "Missouri",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Montana",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "West"
+        ]
+      }
+    },
+    {
+      "text": "Nebraska",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Nevada",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "West"
+        ]
+      }
+    },
+    {
+      "text": "New Hampshire",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Northeast"
+        ]
+      }
+    },
+    {
+      "text": "New Jersey",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Northeast"
+        ]
+      }
+    },
+    {
+      "text": "New Mexico",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southwest"
+        ]
+      }
+    },
+    {
+      "text": "New York",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Northeast"
+        ]
+      }
+    },
+    {
+      "text": "North Carolina",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "North Dakota",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Ohio",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Oklahoma",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southwest"
+        ]
+      }
+    },
+    {
+      "text": "Oregon",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "West"
+        ]
+      }
+    },
+    {
+      "text": "Pennsylvania",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Northeast"
+        ]
+      }
+    },
+    {
+      "text": "Rhode Island",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Northeast"
+        ]
+      }
+    },
+    {
+      "text": "South Carolina",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "South Dakota",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Tennessee",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "Texas",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southwest"
+        ]
+      }
+    },
+    {
+      "text": "Utah",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "West"
+        ]
+      }
+    },
+    {
+      "text": "Vermont",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Northeast"
+        ]
+      }
+    },
+    {
+      "text": "Virginia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "Washington",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "West"
+        ]
+      }
+    },
+    {
+      "text": "West Virginia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South"
+        ]
+      }
+    },
+    {
+      "text": "Wisconsin",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Midwest"
+        ]
+      }
+    },
+    {
+      "text": "Wyoming",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "West"
+        ]
+      }
+    }
+  ]
+}

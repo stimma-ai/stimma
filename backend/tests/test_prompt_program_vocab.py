@@ -83,6 +83,30 @@ class TestTheVocabulary:
         assert "orange tabby" not in cat
         assert "medium brown" not in cat  # no fixed samples (a shade name like "hazel" is a facet, not a sample)
 
+    def test_places_months_and_seasons_are_offered_by_name(self):
+        cat = vocabulary().catalog()
+        for lid in ("place.country", "place.city", "place.us_state", "scene.month", "scene.season"):
+            assert f"- {lid}:" in cat
+        country = vocabulary().get("place.country")
+        assert country.closed and country.value("Japan") is not None and country.value("the Netherlands") is not None
+        assert all("," not in v.text for v in country.values)   # names, never a description of the place
+        assert len(country.values) > 190 and {"Europe", "East Asia"} <= set(country.local_facets["area"])
+        assert [v.text for v in vocabulary().get("scene.month").values][:2] == ["January", "February"]
+        assert len(vocabulary().get("place.us_state").values) == 50
+        season = vocabulary().get("scene.season")
+        assert sorted(v.text for v in season.values if v.tier == "typical") == ["autumn", "spring", "summer", "winter"]
+
+    def test_every_place_sits_under_one_area_chip(self):
+        from prompt_programs.fluent import list_parts
+        for lid in ("place.country", "place.city", "place.us_state"):
+            leaf = vocabulary().get(lid)
+            texts = [v.text for v in leaf.values]
+            parts = list_parts(leaf, texts)
+            assert parts["name"] == "area" and set(parts["of"]) == set(texts), lid
+        parts = list_parts(vocabulary().get("place.country"), [v.text for v in vocabulary().get("place.country").values])
+        south = {o for o, r in parts["of"].items() if r == "South America"}
+        assert {"Brazil", "Argentina", "Peru", "Guyana"} <= south
+
     def test_the_writer_reads_the_catalog(self):
         assert "{vocabulary}" not in prep._INSTRUCTIONS and "person.eye_color" in prep._INSTRUCTIONS
 

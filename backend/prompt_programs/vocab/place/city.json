@@ -1,0 +1,1846 @@
+{
+  "id": "place.city",
+  "label": "City",
+  "description": "A city or town known around the world, by its name.",
+  "pos": "proper noun",
+  "frame": "in ___",
+  "notes": "Names only: the image model knows what a place looks like, so a value never describes it (\"Japan\", not \"Japan, with misty mountains\"). Scenery, season and light are other picks. A name that several places share carries its region (\"Portland, Oregon\"). Typical: the cities people most often picture.",
+  "facets": [],
+  "closed": true,
+  "local_facets": {
+    "area": [
+      "Europe",
+      "Middle East",
+      "Africa",
+      "South Asia",
+      "Central Asia",
+      "East Asia",
+      "Southeast Asia",
+      "North America",
+      "Central America",
+      "Caribbean",
+      "South America",
+      "Oceania"
+    ]
+  },
+  "values": [
+    {
+      "text": "Amsterdam",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Athens",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Auckland",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Bangkok",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Barcelona",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Beijing",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Berlin",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Boston",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Bruges",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Budapest",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Buenos Aires",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Cairo",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Cape Town",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Chicago",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Copenhagen",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Cusco",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Delhi",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Dubai",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Dublin",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Dubrovnik",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Edinburgh",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Florence",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Hanoi",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Havana",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Ho Chi Minh City",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Hong Kong",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Istanbul",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Jaipur",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Jerusalem",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Kathmandu",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Kraków",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Kuala Lumpur",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Kyoto",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Las Vegas",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Lisbon",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "London",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Los Angeles",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Madrid",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Marrakesh",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Melbourne",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Mexico City",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Miami",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Milan",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Montreal",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Moscow",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Mumbai",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Munich",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Nairobi",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Naples",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "New Orleans",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "New York City",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Osaka",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Oslo",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Paris",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Porto",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Prague",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Reykjavík",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Rio de Janeiro",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Rome",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Saint Petersburg",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "San Francisco",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Seattle",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Seoul",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Seville",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Shanghai",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Singapore",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Stockholm",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Sydney",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Taipei",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Tokyo",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Toronto",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Vancouver",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Varanasi",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Venice",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Vienna",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Washington, D.C.",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Abu Dhabi",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Accra",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Addis Ababa",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Almaty",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central Asia"
+        ]
+      }
+    },
+    {
+      "text": "Amman",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Anchorage",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Antigua Guatemala",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central America"
+        ]
+      }
+    },
+    {
+      "text": "Austin",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Bath",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Beirut",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Belgrade",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Belize City",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central America"
+        ]
+      }
+    },
+    {
+      "text": "Bengaluru",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Bergen",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Bogotá",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Bologna",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Bordeaux",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Brisbane",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Brussels",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Bucharest",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Bukhara",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central Asia"
+        ]
+      }
+    },
+    {
+      "text": "Busan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Cartagena",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Casablanca",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Charleston",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Chefchaouen",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Chengdu",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Chennai",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Chiang Mai",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Colombo",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Cork",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Dakar",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Denver",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Detroit",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Dhaka",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Doha",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Fez",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Galway",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Geneva",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Glasgow",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Granada",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Guadalajara",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Guangzhou",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Hamburg",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Helsinki",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Hiroshima",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Hobart",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Hoi An",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Honolulu",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Isfahan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Jakarta",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Johannesburg",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Kanazawa",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Kigali",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Kingston",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Kolkata",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Kyiv",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "La Paz",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Lagos",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Lahore",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Lima",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Liverpool",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Ljubljana",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Luang Prabang",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Luxor",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Lviv",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Lyon",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Macau",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Manchester",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Manila",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Marseille",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Medellín",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Montevideo",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Muscat",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Nara",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Nashville",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Nice",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Oaxaca",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Oxford",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Palermo",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Panama City",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central America"
+        ]
+      }
+    },
+    {
+      "text": "Penang",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Perth",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Philadelphia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Phnom Penh",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Pittsburgh",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Portland, Oregon",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Quebec City",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Queenstown",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Quito",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Riga",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Salvador",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Salzburg",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Samarkand",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central Asia"
+        ]
+      }
+    },
+    {
+      "text": "San Diego",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "San Juan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "San Miguel de Allende",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Santa Fe",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Santiago",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Santo Domingo",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Sapporo",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Savannah",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Siem Reap",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Sofia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Split",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "São Paulo",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Tallinn",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Tbilisi",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Tehran",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Tel Aviv",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Timbuktu",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Tunis",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Ubud",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Udaipur",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Ulaanbaatar",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Valencia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Valletta",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Valparaíso",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Vilnius",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Warsaw",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Wellington",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Xi'an",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Yangon",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Yogyakarta",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Zanzibar City",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Zurich",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    }
+  ]
+}

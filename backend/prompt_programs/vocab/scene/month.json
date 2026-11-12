@@ -1,0 +1,60 @@
+{
+  "id": "scene.month",
+  "label": "Month",
+  "description": "A month of the year, by its name.",
+  "pos": "proper noun",
+  "frame": "in ___",
+  "notes": "Names only, in calendar order; scene.season owns the season, which a month doesn't fix (July is winter in the southern hemisphere).",
+  "facets": [],
+  "closed": true,
+  "values": [
+    {
+      "text": "January",
+      "tier": "typical"
+    },
+    {
+      "text": "February",
+      "tier": "typical"
+    },
+    {
+      "text": "March",
+      "tier": "typical"
+    },
+    {
+      "text": "April",
+      "tier": "typical"
+    },
+    {
+      "text": "May",
+      "tier": "typical"
+    },
+    {
+      "text": "June",
+      "tier": "typical"
+    },
+    {
+      "text": "July",
+      "tier": "typical"
+    },
+    {
+      "text": "August",
+      "tier": "typical"
+    },
+    {
+      "text": "September",
+      "tier": "typical"
+    },
+    {
+      "text": "October",
+      "tier": "typical"
+    },
+    {
+      "text": "November",
+      "tier": "typical"
+    },
+    {
+      "text": "December",
+      "tier": "typical"
+    }
+  ]
+}

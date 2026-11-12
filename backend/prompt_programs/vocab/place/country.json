@@ -1,0 +1,1837 @@
+{
+  "id": "place.country",
+  "label": "Country",
+  "description": "A country, by its name.",
+  "pos": "proper noun",
+  "frame": "in ___",
+  "notes": "Names only: the image model knows what a place looks like, so a value never describes it (\"Japan\", not \"Japan, with misty mountains\"). Scenery, season and light are other picks. England, Scotland, Wales and Northern Ireland are listed beside the United Kingdom because people name them as countries. Typical: countries people often picture or travel to; every other country is plausible, never unusual.",
+  "facets": [],
+  "closed": true,
+  "local_facets": {
+    "area": [
+      "Europe",
+      "Middle East",
+      "Africa",
+      "South Asia",
+      "Central Asia",
+      "East Asia",
+      "Southeast Asia",
+      "North America",
+      "Central America",
+      "Caribbean",
+      "South America",
+      "Oceania"
+    ]
+  },
+  "values": [
+    {
+      "text": "Argentina",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Australia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Austria",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Belgium",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Bolivia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Brazil",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Cambodia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Canada",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Chile",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "China",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Colombia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Costa Rica",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Central America"
+        ]
+      }
+    },
+    {
+      "text": "Croatia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Cuba",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "the Czech Republic",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Denmark",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Egypt",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "England",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Ethiopia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Finland",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "France",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Germany",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Ghana",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Greece",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Guatemala",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Central America"
+        ]
+      }
+    },
+    {
+      "text": "Hungary",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Iceland",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "India",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Indonesia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Iran",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Ireland",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Israel",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Italy",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Jamaica",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Japan",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Jordan",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Kenya",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Madagascar",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Malaysia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Mexico",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Mongolia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Morocco",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Namibia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Nepal",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "the Netherlands",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "New Zealand",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Nigeria",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Norway",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Peru",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "the Philippines",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Poland",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Portugal",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Romania",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Russia",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Scotland",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Singapore",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "South Africa",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "South Korea",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Spain",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Sri Lanka",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Sweden",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Switzerland",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Taiwan",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "Tanzania",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Thailand",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Turkey",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Ukraine",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "the United Arab Emirates",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "the United Kingdom",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "the United States",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "Vietnam",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Wales",
+      "tier": "typical",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Afghanistan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Albania",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Algeria",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Andorra",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Angola",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Antigua and Barbuda",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Armenia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Azerbaijan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "the Bahamas",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Bahrain",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Bangladesh",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Barbados",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Belarus",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Belize",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central America"
+        ]
+      }
+    },
+    {
+      "text": "Benin",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Bhutan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Bosnia and Herzegovina",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Botswana",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Brunei",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Bulgaria",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Burkina Faso",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Burundi",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Cameroon",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Cape Verde",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "the Central African Republic",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Chad",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "the Comoros",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Cyprus",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "the Democratic Republic of the Congo",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Djibouti",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Dominica",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "the Dominican Republic",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "East Timor",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Ecuador",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "El Salvador",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central America"
+        ]
+      }
+    },
+    {
+      "text": "Equatorial Guinea",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Eritrea",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Estonia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Eswatini",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Fiji",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Gabon",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "the Gambia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Georgia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Grenada",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Guinea",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Guinea-Bissau",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Guyana",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Haiti",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Honduras",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central America"
+        ]
+      }
+    },
+    {
+      "text": "Iraq",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Ivory Coast",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Kazakhstan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central Asia"
+        ]
+      }
+    },
+    {
+      "text": "Kiribati",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Kosovo",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Kuwait",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Kyrgyzstan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central Asia"
+        ]
+      }
+    },
+    {
+      "text": "Laos",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Latvia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Lebanon",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Lesotho",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Liberia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Libya",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Liechtenstein",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Lithuania",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Luxembourg",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Malawi",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "the Maldives",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Mali",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Malta",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "the Marshall Islands",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Mauritania",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Mauritius",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Micronesia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Moldova",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Monaco",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Montenegro",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Mozambique",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Myanmar",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Southeast Asia"
+        ]
+      }
+    },
+    {
+      "text": "Nauru",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Nicaragua",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central America"
+        ]
+      }
+    },
+    {
+      "text": "Niger",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "North Korea",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "East Asia"
+        ]
+      }
+    },
+    {
+      "text": "North Macedonia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Northern Ireland",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Oman",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Pakistan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South Asia"
+        ]
+      }
+    },
+    {
+      "text": "Palau",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Palestine",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Panama",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central America"
+        ]
+      }
+    },
+    {
+      "text": "Papua New Guinea",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Paraguay",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Qatar",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "the Republic of the Congo",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Rwanda",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Saint Kitts and Nevis",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Saint Lucia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Saint Vincent and the Grenadines",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Samoa",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "San Marino",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Saudi Arabia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Senegal",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Serbia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "the Seychelles",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Sierra Leone",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Slovakia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Slovenia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "the Solomon Islands",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Somalia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "South Sudan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Sudan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Suriname",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Syria",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "São Tomé and Príncipe",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Tajikistan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central Asia"
+        ]
+      }
+    },
+    {
+      "text": "Togo",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Tonga",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Trinidad and Tobago",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Caribbean"
+        ]
+      }
+    },
+    {
+      "text": "Tunisia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Turkmenistan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central Asia"
+        ]
+      }
+    },
+    {
+      "text": "Tuvalu",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Uganda",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Uruguay",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Uzbekistan",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Central Asia"
+        ]
+      }
+    },
+    {
+      "text": "Vanuatu",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Vatican City",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Venezuela",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "South America"
+        ]
+      }
+    },
+    {
+      "text": "Yemen",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Middle East"
+        ]
+      }
+    },
+    {
+      "text": "Zambia",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    },
+    {
+      "text": "Zimbabwe",
+      "tier": "plausible",
+      "tags": {
+        "area": [
+          "Africa"
+        ]
+      }
+    }
+  ]
+}

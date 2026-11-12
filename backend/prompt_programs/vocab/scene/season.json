@@ -4,15 +4,55 @@
   "description": "The stage of the year visible in the landscape and seasonal surroundings.",
   "pos": "noun phrase",
   "frame": "in ___",
-  "notes": "Annual phases belong here; scene.weather owns current atmospheric conditions, scene.time_of_day owns daily phases and lighting.natural owns seasonal light. Seasons alone do not fix temperature: winter and summer differ across climates.",
+  "notes": "Annual phases belong here; scene.weather owns current atmospheric conditions, scene.time_of_day owns daily phases and lighting.natural owns seasonal light. Seasons alone do not fix temperature: winter and summer differ across climates. The four seasons by name are typical; a stage within one is plausible, so a picker of seasons reads as seasons.",
   "facets": [
     "climate"
   ],
   "closed": true,
   "values": [
     {
-      "text": "early spring",
+      "text": "spring",
       "tier": "typical",
+      "tags": {
+        "season": [
+          "early_spring",
+          "late_spring"
+        ]
+      }
+    },
+    {
+      "text": "summer",
+      "tier": "typical",
+      "tags": {
+        "season": [
+          "early_summer",
+          "high_summer"
+        ]
+      }
+    },
+    {
+      "text": "autumn",
+      "tier": "typical",
+      "tags": {
+        "season": [
+          "early_autumn",
+          "late_autumn"
+        ]
+      }
+    },
+    {
+      "text": "winter",
+      "tier": "typical",
+      "tags": {
+        "season": [
+          "early_winter",
+          "deep_winter"
+        ]
+      }
+    },
+    {
+      "text": "early spring",
+      "tier": "plausible",
       "tags": {
         "season": [
           "early_spring"
@@ -21,7 +61,7 @@
     },
     {
       "text": "late spring",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "season": [
           "late_spring"
@@ -30,7 +70,7 @@
     },
     {
       "text": "early summer",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "season": [
           "early_summer"
@@ -39,7 +79,7 @@
     },
     {
       "text": "the height of summer",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "season": [
           "high_summer"
@@ -48,7 +88,7 @@
     },
     {
       "text": "early autumn",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "season": [
           "early_autumn"
@@ -57,7 +97,7 @@
     },
     {
       "text": "late autumn",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "season": [
           "late_autumn"
@@ -66,7 +106,7 @@
     },
     {
       "text": "early winter",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "season": [
           "early_winter"
@@ -75,7 +115,7 @@
     },
     {
       "text": "deep winter",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "season": [
           "deep_winter"
