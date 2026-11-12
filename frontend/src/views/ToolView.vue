@@ -339,6 +339,7 @@
             @update:promptOptions="globalPrefs.promptOptions = $event"
             :placeholder="promptPlaceholder"
             :programs="promptProgram.status.value !== 'off'"
+            :suggest-context="promptSuggestContext"
             :prompt-control="fluentOn"
           >
             <template v-if="fluentOn" #mode="{ openHelp }"><FluentControl
@@ -353,6 +354,7 @@
               :lora-notes="globalPrefs.promptOptions?.loraNotes !== false"
               :previous-running="uiState.generateForeverMode && promptProgram.needsPrepare() && promptProgram.readyPrompt() != null"
               :translate="globalPrefs.promptOptions?.translate"
+              :last-prompt="lastFluentPrompt"
               @translate="(code) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, translate: { enabled: !!code, language: code ?? globalPrefs.promptOptions?.translate?.language ?? 'zh-Hans' } }"
               @lora="(key, on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, [key]: on ? undefined : false }"
               @way="(w) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined }"
@@ -958,6 +960,16 @@
               @toggle="toggleStageAudition"
               @click.stop
             />
+            <!-- Fluent: keep parts of what this image drew for the next ones. -->
+            <button
+              v-if="stageKeep"
+              type="button"
+              class="inline-flex h-9 flex-none items-center rounded-md px-2 text-xs text-content-tertiary transition-colors duration-150 hover:bg-overlay-subtle hover:text-accent-hi focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:h-11"
+              :class="keepOpen?.stage ? 'bg-overlay-subtle text-content' : ''"
+              aria-haspopup="dialog"
+              data-keep-button
+              @click.stop="openKeep(stageRun, $event.currentTarget as Element, true)"
+            >Keep from this</button>
             <button
               @click.stop="handleRemixMedia(stageCurrentMediaId)"
               :class="[RESULT_ACTION, 'hover:bg-overlay-subtle hover:text-accent-hi']"
@@ -1194,11 +1206,12 @@
       :program-actions="fluentOn ? programRunActionsFor : null"
       @close="closeInfoModal"
       @program-replay="replayProgramRun"
-      @program-use="useProgramRunChoices"
+      @program-keep="openKeep"
     />
 
-    <!-- Prompt programs: the open choice's card -->
+    <!-- Prompt programs: the open choice's card, and an image's Keep from this -->
     <PromptProgramCard :program="promptProgram" />
+    <KeepFromThisCard :open="keepOpen" :program="promptProgram" @close="keepOpen = null" />
 
     <!-- Mask Editor Modal -->
     <MaskEditorModal
@@ -3419,9 +3432,10 @@ import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptPro
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
-import { DRAWING_LABEL, PREPARING_LABEL, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions, switchDeclinedToDirect, wasDeclined } from '../utils/fluentSubmit'
+import { DRAWING_LABEL, PREPARING_LABEL, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
+import KeepFromThisCard from '../components/generation/KeepFromThisCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
 import { disableUnavailableLoras } from '../utils/availableLoras'
 const _loraPool = useLoraPool()
@@ -3949,6 +3963,16 @@ const promptProgram = usePromptProgram({
   prepareWhenFound: () => !isInitialLoading.value && stageViewActive.value && document.hasFocus()
     && !aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
 })
+// The prompt the newest image made in Fluent was sent with (the prompt menu's developer view).
+const lastFluentPrompt = computed<string | null>(() => {
+  for (const job of stageCompletedJobs.value.slice(0, 20)) {
+    const params = generationJobParams(job)
+    if (params?.prompt_program && typeof params.prompt === 'string') return params.prompt
+  }
+  return null
+})
+// Suggest and Add ask the project's chat model, as Prepare does.
+const promptSuggestContext = computed(() => ({ project_id: projectScopeId.value ?? null }))
 // The tool finished loading: what's in the prompt box now is what to look up (and read).
 watch(isInitialLoading, (loading) => { if (!loading) void promptProgram.lookup() })
 // Fluent's "nothing was run" is about the prompt as it was: once the prompt, its mode or
@@ -3956,25 +3980,35 @@ watch(isInitialLoading, (loading) => { if (!loading) void promptProgram.lookup()
 watch(() => [globalPrefs.value.prompt, globalPrefs.value.promptOptions?.raw, globalPrefs.value.promptOptions?.direct, enhanceLevel.value],
   () => { if (submissionError.value?.endsWith('so nothing ran.')) submissionError.value = null })
 
-// Generation details on an earlier image: what its draws can still do here.
+// An earlier image's draws: what they can still do here.
 function programRunActionsFor(run: any) {
   return programRunActions(run, {
     key: promptProgram.program.value?.key ?? null,
     status: promptProgram.status.value,
-    has: (id) => !!promptProgram.byId.value[id],
+    world: {
+      slots: promptProgram.slots.value,
+      choices: promptProgram.choices.value,
+      states: promptProgram.states.value,
+      pools: promptProgram.pools.value,
+    },
   })
 }
+// Keep from this: the image on stage, Generation details, or wherever an image offers it.
+const keepOpen = ref<{ run: any; anchor: DOMRect; stage?: boolean } | null>(null)
+function openKeep(run: any, at: Element | DOMRect, stage = false) {
+  if (!run) return
+  keepOpen.value = { run, anchor: at instanceof Element ? at.getBoundingClientRect() : at, stage }
+}
+const stageRun = computed<any | null>(() => generationJobParams(stageCurrentJob.value)?.prompt_program ?? null)
+const stageKeep = computed(() => fluentOn.value && !!stageRun.value && programRunActionsFor(stageRun.value).keep)
+// Another image on stage: the card opened from the one before closes.
+watch(() => stageCurrentJob.value?.id, () => { if (keepOpen.value?.stage) keepOpen.value = null })
 
 function replayProgramRun(run: any) {
   // Only against the program the image was made from: anything else isn't "same draws".
   if (!programRunActionsFor(run).replay) return
   const fixed = Object.fromEntries((run?.draws || []).map((d: any) => [d.id, d.value]))
   void submitJob({ countOverride: 1, programFixed: fixed })
-}
-
-function useProgramRunChoices(run: any) {
-  const { pins } = programRunActionsFor(run)
-  if (Object.keys(pins).length) promptProgram.setStates(Object.fromEntries(Object.entries(pins).map(([id, values]) => [id, { values }])))
 }
 
 // The prompt editor's slot was clicked, or just made: its card opens there.
@@ -4172,7 +4206,6 @@ function setDetailLevel(level: EnhanceLevel) {
     ...globalPrefs.value.promptOptions,
     autoImprove: { ...globalPrefs.value.promptOptions?.autoImprove, enabled: level !== 'off', ...(level !== 'off' ? { level } : {}) },
   }
-  void nextTick(preparePromptNow)
 }
 
 // The prompt is done (Vim :w, Cmd/Ctrl+Enter, a pause): read it now. A prepare in
@@ -5534,10 +5567,7 @@ function noSubmit(options: ForeverSubmitOptions, declineReservation = true): Sub
   }
 }
 
-// The declined prompts the user has been told about (see switchDeclinedToDirect).
-const declinedTold = new Set<string>()
-
-/** {{names}} in the prompt that aren't saved wildcards or segments (so only a model can fill them). */
+/** {{names}} in the prompt that aren't saved wildcards or segments. */
 const { wildcards: savedWildcards } = useWildcards()
 const { segments: savedSegments } = useSegments()
 function unknownSmartNames(prompt: string): string[] {
@@ -5563,18 +5593,14 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   }
   if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
 
-  // Direct, and any run with no chat model: {a|b}, saved wildcards and # lines still
-  // work, but a {{name}} that isn't a saved wildcard can't be filled. Never send it
-  // through as literal text.
-  const direct = directMode.value
-  const unfillable = runsDirect.value && hasPrompt.value
+  // A {{name}} is a saved wildcard or prompt segment, in every way but Raw; one that isn't
+  // saved can't be filled. Never send it through as literal text.
+  const unfillable = fluentOn.value && !rawMode.value && hasPrompt.value
     ? unknownSmartNames(globalPrefs.value.prompt || '') : []
   // It's a mistake in the prompt, so the editor marks it (like a syntax error) and the
   // run waits; one quiet line says why, no toast.
   if (unfillable.length) {
-    submissionError.value = direct
-      ? `{{${unfillable[0]}}} isn’t a saved wildcard, so nothing ran.`
-      : `${PROMPT_BRAND} needs a chat model for {{${unfillable[0]}}}, so nothing ran.`
+    submissionError.value = `{{${unfillable[0]}}} isn’t a saved wildcard, so nothing ran.`
     return noSubmit(options)
   }
 
@@ -5650,10 +5676,6 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     // (or the same words' earlier program) and keeps trying to read it in the background.
     // Fluent's chip says so, quietly; nothing stops, Generate forever included.
   }
-  // The chat model declined this prompt: this run still goes, on its words as written (the
-  // server's fallback reads a {{name}} that isn't saved as its words, which Direct can't),
-  // and then the prompt box switches to Direct, saying why.
-  const declined = wasDeclined({ status: promptProgram.status.value, code: promptProgram.error.value?.code })
 
   let submitted = false
   let declineReservation = noSubmit(options).declineReservation
@@ -5675,18 +5697,6 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     submitted = result.submitted || submitted
     declineReservation = result.declineReservation
   }
-  const declinedPrompt = globalPrefs.value.prompt || ''
-  switchDeclinedToDirect({
-    // still this prompt and these settings: submitting can wait on uploads, and an edit made
-    // meanwhile wasn't declined (the status is the current prompt's alone)
-    declined: declined && wasDeclined({ status: promptProgram.status.value, code: promptProgram.error.value?.code }),
-    direct: directMode.value, promptOptions: globalPrefs.value.promptOptions,
-    // Direct stops on a {{name}} that isn't saved; this prompt keeps running as it just did
-    directCantRun: unknownSmartNames(declinedPrompt).length > 0,
-    told: declinedTold.has(declinedPrompt),
-    set: (next) => { globalPrefs.value.promptOptions = next },
-    notify: (message) => { declinedTold.add(declinedPrompt); addToast(message, 'info', 8000) },
-  })
   return { submitted, declineReservation }
 }
 

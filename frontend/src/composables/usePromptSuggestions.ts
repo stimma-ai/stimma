@@ -26,7 +26,7 @@ export interface PromptSuggestionsOptions {
   prompt: Ref<string> | (() => string)
   /** Whether Suggest runs at all (Fluent, not Direct or Raw). */
   active: Ref<boolean> | (() => boolean)
-  /** Extra request fields (tool, project), as Prepare takes them. */
+  /** Extra request fields: `project_id`, whose chat model answers. */
   context?: () => Record<string, unknown> | undefined
 }
 

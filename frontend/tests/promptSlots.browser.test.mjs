@@ -62,7 +62,7 @@ const opened = page => page.evaluate(() => window.opened)
 test('a phrase Fluent underlines becomes a slot with Vary this, and opens', async t => {
   const { page, editor, calls, shot } = await open(t)
   await expect(page.locator('.cm-could-vary')).toHaveText('young man', { timeout: 3000 })
-  assert.deepEqual(calls.suggest, [{ tool_id: 'test-tool', prompt: PROMPT }])
+  assert.deepEqual(calls.suggest, [{ project_id: 7, prompt: PROMPT }])
   await expect(page.locator('[data-slot-add]')).toHaveText(['light', 'camera'])
   await shot('underlined')
 
@@ -124,7 +124,7 @@ test('an add is written into the prompt as a slot, opens, and undoes in one step
   await expect(chip.locator('.animate-spin')).toBeVisible()
   await shot('adding')
   await expect.poll(() => text(page)).toBe(`${PROMPT}, lit by <light>`)
-  assert.deepEqual(calls.add, [{ tool_id: 'test-tool', prompt: PROMPT, name: 'light' }])
+  assert.deepEqual(calls.add, [{ project_id: 7, prompt: PROMPT, name: 'light' }])
   await expect.poll(async () => (await opened(page)).map(o => [o.n, o.words])).toEqual([[1, 'light']])
   // Light is in the prompt now: its chip goes once Suggest has seen it.
   await expect(page.locator('[data-slot-add]')).toHaveText(['camera'], { timeout: 3000 })

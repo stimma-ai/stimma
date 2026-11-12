@@ -61,6 +61,16 @@ test('own options lead the first zone, before the pool arrives too', () => {
 
 const slotPet: ProgramSlot = { id: 'pet', n: 2, kind: 'free', label: 'Pet', words: 'pet', details: ['pet'] }
 
+test('a long list comes whole with the prompt; its pool adds only what it lacks', () => {
+  const faces = Array.from({ length: 500 }, (_, i) => `face ${i}`)
+  const face: ProgramChoice = { id: 'man.face', slot: 'man', kind: 'pick', label: 'Face', cls: 'person.face', options: faces }
+  const got = optionsOf(face, { options: ['a face of my own'] })
+  assert.equal(got.length, 501)
+  assert.equal(got[0], 'a face of my own')
+  // A short list's pool is what it draws from now.
+  assert.deepEqual(optionsOf(hair, hairPool), hairPool.options)
+})
+
 test('as written draws the slot’s own words', () => {
   const s = asWrittenState(slotPet)
   assert.ok(isAsWritten(slotPet, s))

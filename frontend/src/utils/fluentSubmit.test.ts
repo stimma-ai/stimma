@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DECLINED_CODE, DECLINED_NOTICE, switchDeclinedToDirect, wasDeclined, withDirect, effectiveWay, foreverSlot, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
+import { effectiveWay, foreverSlot, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
@@ -109,37 +109,42 @@ test('a prompt that couldn’t be read says so quietly, by cause, with one actio
   }
 })
 
-test('an image made while the prompt couldn’t be read offers no Same draws', () => {
-  const words = programRunActions({ key: null, draws: [], fallback: { rung: 'words', code: 'prepare_timeout' } },
-    { key: 'k1', status: 'ready', has: () => false })
-  assert.deepEqual(words, { replay: false, reason: 'Made from your words as written.', pins: {} })
-  const earlier = programRunActions({ key: 'k0', draws: [{ id: 'hair', value: 'bob' }], fallback: { rung: 'previous' } },
-    { key: 'k0', status: 'ready', has: (id) => id === 'hair' })
-  assert.equal(earlier.replay, false)
-  assert.deepEqual(earlier.pins, { hair: ['bob'] })  // Use these choices still offers what applies
-})
-
-const run = { key: 'k1', draws: [
+const world = {
+  slots: [{ id: 'man', n: 1, kind: 'person' as const, label: 'Man', words: 'man', details: ['man.hair', 'man.outfit'] }],
+  choices: [{ id: 'man.hair', slot: 'man', kind: 'pick' as const, label: 'Hair', options: [] },
+    { id: 'man.outfit', slot: 'man', kind: 'pick' as const, label: 'Outfit', options: [] }],
+  states: {}, pools: {},
+}
+const run = { key: 'k1', version: 'slots-1', draws: [
   { id: 'man.hair', value: 'bob' }, { id: 'gone', value: 'x' },
   { id: 'man.outfit', value: 'a navy parka over white jeans', template: 'a {main} parka over {neutral} jeans' },
-  { id: 'detail', hidden: true, value: 'lamp' },
 ] }
-const has = (id: string) => ['man.hair', 'man.outfit', 'detail'].includes(id)
 
-test('Same draws, new seed only against the program the image used', () => {
-  assert.equal(programRunActions(run, { key: 'k1', status: 'ready', has }).replay, true)
-  const moved = programRunActions(run, { key: 'k2', status: 'ready', has })
-  assert.equal(moved.replay, false)
-  assert.ok(moved.reason)
-  assert.equal(programRunActions(run, { key: 'k1', status: 'stale', has }).replay, false)
-  assert.equal(programRunActions(run, { key: null, status: 'off', has }).replay, false)
-  assert.equal(programRunActions({ draws: run.draws }, { key: 'k1', status: 'ready', has }).replay, false)
+test('an image made while the prompt couldn’t be read offers no Same draws and nothing to keep', () => {
+  const words = programRunActions({ key: null, draws: [], fallback: { rung: 'words', code: 'prepare_timeout' } },
+    { key: 'k1', status: 'ready', world })
+  assert.deepEqual(words, { replay: false, reason: 'Made from your words as written.', keep: false })
+  const earlier = programRunActions({ ...run, key: 'k0', fallback: { rung: 'previous' } }, { key: 'k1', status: 'ready', world })
+  assert.equal(earlier.replay, false)
+  assert.equal(earlier.keep, true)  // Keep from this still offers what applies
 })
 
-test('Use these choices keeps what the prompt still has; an outfit as its template', () => {
-  assert.deepEqual(programRunActions(run, { key: 'k2', status: 'ready', has }).pins,
-    { 'man.hair': ['bob'], 'man.outfit': ['a {main} parka over {neutral} jeans'] })
-  assert.deepEqual(programRunActions(run, { key: null, status: 'off', has: () => false }).pins, {})
+test('Same draws, new seed only against the program the image used', () => {
+  assert.equal(programRunActions(run, { key: 'k1', status: 'ready', world }).replay, true)
+  const moved = programRunActions(run, { key: 'k2', status: 'ready', world })
+  assert.equal(moved.replay, false)
+  assert.ok(moved.reason)
+  assert.equal(programRunActions(run, { key: 'k1', status: 'stale', world }).replay, false)
+  assert.equal(programRunActions(run, { key: null, status: 'off', world }).replay, false)
+  assert.equal(programRunActions({ draws: run.draws }, { key: 'k1', status: 'ready', world }).replay, false)
+})
+
+test('Keep from this only for images made from slots, and only while the prompt is read', () => {
+  assert.equal(programRunActions(run, { key: 'k2', status: 'ready', world }).keep, true)
+  assert.equal(programRunActions(run, { key: 'k1', status: 'stale', world }).keep, false)
+  // The old writer's images carry no slot version.
+  assert.equal(programRunActions({ ...run, version: undefined }, { key: 'k1', status: 'ready', world }).keep, false)
+  assert.equal(programRunActions(run, { key: 'k1', status: 'ready', world: { ...world, choices: [] } }).keep, false)
 })
 
 test('a program depends on the prompt and the tool only', () => {
@@ -156,43 +161,10 @@ test('a prompt too long or no balance says what to do, without mechanics', () =>
   assert.doesNotMatch(`${long.head} ${long.body}`, /\d|character/)
   assert.equal(fallbackNotice('llm_insufficient_balance', 'Brand').action, 'settings')
   assert.ok(isPrepareFailureCode('prompt_too_long') && isPrepareFailureCode('llm_unavailable'))
+  // A slot reading the chat model got wrong runs on the words as written, and can be tried again.
+  assert.ok(isPrepareFailureCode('reader_failed'))
+  assert.equal(fallbackNotice('reader_failed', 'Brand').action, 'retry')
+  // The old writer's refusal is gone: no route answers it now.
+  assert.ok(!isPrepareFailureCode('prepare_declined'))
   assert.ok(!isPrepareFailureCode('job_failed') && !isPrepareFailureCode(null))
-})
-
-test('a prompt the chat model declined switches the box to Direct, says so plainly, and offers nothing to retry', () => {
-  assert.ok(wasDeclined({ status: 'error', code: DECLINED_CODE }))
-  // Only this prompt's own outcome: an old error, or any other failure, keeps Fluent.
-  assert.ok(!wasDeclined({ status: 'stale', code: DECLINED_CODE }))
-  assert.ok(!wasDeclined({ status: 'ready', code: DECLINED_CODE }))
-  for (const code of ['prepare_timeout', 'program_failed', 'llm_unavailable', 'prompt_too_long', undefined]) {
-    assert.ok(!wasDeclined({ status: 'error', code }), String(code))
-  }
-  // The same switch as the remix's Use Exact Prompt; Detail level stays for coming back.
-  const saved = { raw: true, direct: false, autoImprove: { enabled: true, level: 'fill' }, programChoices: { a: { values: ['x'] } } }
-  const next = withDirect(saved)
-  assert.equal(next.direct, true)
-  assert.equal(next.raw, undefined)
-  assert.deepEqual(next.autoImprove, saved.autoImprove)
-  assert.deepEqual(next.programChoices, saved.programChoices)
-  assert.equal(effectiveWay({ raw: !!next.raw, direct: next.direct, llmUnconfigured: false }), 'direct')
-  // Back in Fluent with the same prompt, the menu says the same, with no Try again.
-  const n = fallbackNotice(DECLINED_CODE, 'Brand')
-  assert.deepEqual(n, { head: 'Your chat model declined this prompt', body: 'It’s sent as written.', action: 'none' })
-  assert.ok(isPrepareFailureCode(DECLINED_CODE))
-  // In the user's words: no mechanics.
-  for (const text of [DECLINED_NOTICE, n.head, n.body ?? '']) {
-    assert.doesNotMatch(text, /prepar|writer|program|refus|Fluent|Brand/i)
-  }
-})
-
-test('a declined prompt Direct can’t run stays put, and is told once', () => {
-  const said: string[] = []
-  let set = 0
-  const run = (extra: Record<string, any>) => switchDeclinedToDirect({
-    declined: true, direct: false, promptOptions: {}, set: () => { set++ }, notify: m => said.push(m), ...extra })
-  assert.equal(run({ directCantRun: true }), false)
-  assert.equal(run({ directCantRun: true, told: true }), false)
-  assert.deepEqual([set, said], [0, [DECLINED_NOTICE]])
-  assert.equal(run({}), true)
-  assert.deepEqual([set, said.length], [1, 2])
 })

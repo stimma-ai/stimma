@@ -94,22 +94,6 @@
             </div>
             <!-- Number: compact value row — drag the mono value to scrub,
                  click to type (the mock's ValueRow grammar; no slider). -->
-            <!-- A number the prompt controls (prompt programs): show what it draws;
-                 clicking opens the choice. Change it by editing the prompt. -->
-            <div v-else-if="programParams?.[param.name]" class="py-1.5">
-              <button
-                type="button"
-                class="w-full flex items-center justify-between gap-4 -mx-1 px-1 rounded-md hover:bg-overlay-subtle text-left"
-                data-program-param
-                @click="emit('program-param', param.name, $event.currentTarget as Element)"
-              >
-                <span class="text-[13px] text-content-secondary">{{ sentenceCaseLabel(param.label) }}</span>
-                <span class="flex items-center gap-1.5">
-                  <span class="text-[9px] leading-none px-1 py-0.5 rounded bg-selection/15 text-selection font-mono uppercase">prompt</span>
-                  <span class="font-mono tabular-nums text-xs text-selection">{{ programParams[param.name].range }}</span>
-                </span>
-              </button>
-            </div>
             <div v-else-if="param.type === 'number' || param.type === 'integer'" class="py-1.5">
               <!-- On touch the whole row opens the value sheet. -->
               <div class="flex items-center justify-between gap-4" :class="isCoarsePointer && !constraintState(param).disabled ? 'cursor-pointer' : ''" @click="isCoarsePointer && scrubRefs[param.name]?.openEditor()">
@@ -214,8 +198,6 @@ const props = defineProps<{
   onToggleGroupCollapsed?: (groupLabel: string | null) => void
   /** Full provider-scoped tool id used for x-search-options lookups. */
   fullToolId?: string
-  /** Parameters the prompt controls (prompt programs): name → its range. */
-  programParams?: Record<string, { choiceId: string; range: string }> | null
 }>()
 
 const { searchToolOptions } = useProvidersApi()
@@ -227,7 +209,6 @@ const rowPad = computed(() => (props.flat ? 'px-0 py-1.5' : 'px-0 py-1.5'))
 
 const emit = defineEmits<{
   (e: 'update:param', name: string, value: any): void
-  (e: 'program-param', name: string, anchor: Element): void
 }>()
 
 function emitParam(name: string, value: any) {

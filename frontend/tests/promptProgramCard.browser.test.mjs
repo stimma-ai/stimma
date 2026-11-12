@@ -176,3 +176,24 @@ test('on a phone the card is a bottom sheet', async t => {
   const box = await card.boundingBox()
   assert.ok(box && box.y + box.height > 700, `sheet at ${JSON.stringify(box)}`)
 })
+
+test('a prompt with nothing that varies is ready with no pills and asks for no pools', async t => {
+  const { page, row } = await open(t)
+  await page.evaluate(() => window.setPrompt('a quiet dorm room at dusk'))
+  await expect.poll(() => page.evaluate(() => window.programStatus()), { timeout: 3000 }).toBe('ready')
+  await expect(row).toHaveCount(0)
+  const after = await page.evaluate(() => window.calls.length)
+  await page.waitForTimeout(300)
+  const late = await page.evaluate(n => window.calls.slice(n).map(c => c.url), after)
+  assert.ok(!late.includes('pools'), `asked ${late}`)
+  assert.deepEqual(await page.evaluate(() => window.payload()), { enabled: true, choices: {} })
+})
+
+test('a reading the chat model got wrong (424 reader_failed) is a failed read, with its message', async t => {
+  const { page } = await open(t)
+  await page.evaluate(() => window.setPrompt('a <broken> thing'))
+  await expect.poll(() => page.evaluate(() => window.programStatus()), { timeout: 3000 }).toBe('error')
+  const error = await page.evaluate(() => window.programError())
+  assert.equal(error.code, 'reader_failed')
+  assert.match(error.message, /reading of this prompt/)
+})
