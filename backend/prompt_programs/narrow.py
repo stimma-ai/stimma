@@ -56,7 +56,7 @@ from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-6"   # narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
+NARROW_VERSION = "narrow-7"   # narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
 NARROW_SECONDS = 20.0   # all of a program's narrowing calls together; past it, unresolved picks go unbound
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
@@ -87,8 +87,8 @@ alike. For an age you are also given the whole prompt, and the prompt decides:
 - When the prompt is sexual, nude, romantic or otherwise adult in what it shows or asks for,
   or shows an adult's life (a job, a bar, a date, driving, a wedding), they are an adult: keep
   the ages from 18 to 29 and never one under 18.
-- When the prompt shows a child's life (with her mom or his dad, at school or a playground, a
-  missing front tooth, a toy, a bedtime story), they are a child: keep the ages under 18 that
+- When the prompt shows a child's life (a parent beside them, school, play, what only a child
+  has or does), they are a child: keep the ages under 18 that
   match what it shows.
 - When the prompt shows neither, or you are given no prompt, they are a young adult: keep the
   ages from 18 to 29.

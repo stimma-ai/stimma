@@ -601,7 +601,7 @@ _CHECK_SYSTEM = """You check options written for one detail of an image prompt. 
 
 Give each numbered option one of three answers:
 
-- "no": it is wrong here. It is not the kind of thing the detail asks for, or lies outside a limit the detail's own words set ("dark hair hairstyle" is dark hair, "1970s menswear" is from the 1970s); or it contradicts something the prompt states or undoes what the prompt says is happening; or it brings in a place, a time or a thing that cannot be where the prompt is set.
+- "no": it is wrong here. It is not the kind of thing the detail asks for, or lies outside a limit the detail's own words set ("long red hair hairstyle" is long and red, "1920s evening wear" is from the 1920s); or it contradicts something the prompt states or undoes what the prompt says is happening; or it brings in a place, a time or a thing that cannot be where the prompt is set.
 - "rare": nothing is wrong, but it is a stretch for this prompt.
 - "yes": it fits.
 

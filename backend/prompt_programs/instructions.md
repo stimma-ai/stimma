@@ -59,20 +59,19 @@ dicts, f-strings, and these functions. Nothing else (no imports, no `def`, no `w
   - `show`: the details of them this picture shows, from `"age"`, `"descent"`, `"skin"`,
     `"hair"`, `"hair_color"`, `"eyes"`, `"face"`, `"facial_hair"`, `"build"`. Picture the image
     first and list only what is seen in it. A detail you describe is a detail the image will
-    show: eye color opens the eyes of someone asleep, a build pulls a close portrait out to
-    the body, a face pulls a wide scene in. Someone asleep, seen from behind or looking down
+    show: eye color opens eyes that are closed, a build pulls a close portrait out to
+    the body, a face pulls a wide scene in. Someone whose eyes are closed or turned away from the camera
     has no `"eyes"`. A head-and-shoulders portrait has no `"build"`. A small figure in a wide
     scene has `"age"`, `"build"` and `"hair"` and no `"face"`, `"eyes"` or `"skin"`. Someone
     at work, seen from the waist up, has `"age"`, `"descent"`, `"build"`, `"hair"`,
     `"hair_color"` and `"face"`. What their clothes or gear hide is not shown either: no
-    `"hair"` under a surgeon's cap or a knight's helmet, no `"face"` behind a welding mask.
+    `"hair"` under a beekeeper's veil or a hard hat, no `"face"` behind a fencing mask.
     What you leave out is not drawn. When the person is someone
     in particular whose look is not yours to draw (a character LoRA is on for them, the user
     names a real or fictional person, or says not to vary or describe the person), pass
     `show=[]`: nothing of them is drawn, and they are the user's words alone. Never use
     `hidden=True` to keep a person the same: a hidden pick is still drawn anew for every image.
-  - `kin`: people related by blood (sisters, a father and son, a grandmother and her
-    granddaughter) get the same `kin=` word (`kin="family"`): they then share one descent, so
+  - `kin`: people related by blood (siblings, a parent and their child, cousins) get the same `kin=` word (`kin="family"`): they then share one descent, so
     they look related. A couple or friends are not kin.
   - `noun`: what they are, in the user's word: `noun="woman"`, `noun="fisherman"`,
     `noun="friend"`; or the pick of the user's list that names them (`noun=job`).
@@ -151,20 +150,19 @@ phases drew; picks in the same phase are drawn without seeing each other.
    words you write. Light is a pick only where it is open: outdoors with no
    time of day stated, or a portrait with no place. Then it is one added pick, in a later phase
    than the place it lights and naming it in its `about` (`about="the light on her in the
-   cafe"`). Where the place or the time the user stated already settles the light (a hospital
-   corridor, an office, a parking garage, a subway station, "at dawn", "late at night"), add
+   cafe"`). Where the place or the time the user stated already settles the light (a workplace
+   with its own lighting, a room lit one way, a stated hour or weather), add
    no light pick: say that light once in plain words that are true of that place, the same in
    every image. A setting, sky or weather you add describes the things there, not the light on
    them. **Things that must agree are one pick, not several**: when you add a place the prompt
-   didn't name, its surroundings, time and light go together in that one pick's options ("on a
-   coastal road at sunset, the sea below"), never in a setting pick, an environment pick and a
+   didn't name, its surroundings, time and light go together in that one pick's options ("in a walled garden at midday, bees over the lavender"), never in a setting pick, an environment pick and a
    light pick drawn apart. And every option of a pick you add stays inside what the user
-   stated: a detail of "an empty parking garage ramp" is something found in a parking garage.
-   **A prompt that names only a thing or a place** ("cozy cabin", "red sports car", "a bowl of
-   ramen") leaves the whole picture open, so the pick you add is the view of it, and its seeds
-   are different pictures, not one picture's details: for a cabin, "seen from outside at dusk
-   among pines, smoke rising from the chimney", "its main room with a stone fireplace and a
-   wool rug", "a bunk under the eaves with a quilt and a small window". Write three such seeds,
+   stated: a detail of the place they named is something found in that place.
+   **A prompt that names only a thing or a place** ("a lighthouse", "an old bicycle", "a loaf of
+   bread") leaves the whole picture open, so the pick you add is the view of it, and its seeds
+   are different pictures, not one picture's details: for a lighthouse, "from the
+   rocks below at low tide, gulls wheeling", "its lamp room at night, the lens lit", "the
+   spiral stair seen from the bottom, daylight at the top". Write three such seeds,
    as far apart as the prompt allows.
 2. **Put a pick where each varying part stands:**
    - `{a|b|c}` → a user list pick, its variable in `emit()` where the list stood. Exactly
@@ -183,10 +181,10 @@ phases drew; picks in the same phase are drawn without seeing each other.
      rolling hills of Scotland". Bind it to a vocabulary list (`cls=`) when its words name
      just that list's kind of thing (`{{hairstyle}}`, `{{outfit}}`, `{{country}}` →
      `cls="place.country"`, `{{season}}` → `cls="scene.season"`); when they say more
-     (`{{dark hair hairstyle}}`, `{{1970s menswear}}`) give it no `cls=`, so its options are
-     written for its own words and each seed carries all of them ("a sleek black bob"). When it
+     (`{{long red hair hairstyle}}`, `{{1920s evening wear}}`) give it no `cls=`, so its options are
+     written for its own words and each seed carries all of them ("a long copper braid"). When it
      describes a detail of a person (their hair, their age, their face), that detail is the
-     wildcard's: leave it out of the person's `show` (`{{dark hair hairstyle}}` → no `"hair"`
+     wildcard's: leave it out of the person's `show` (`{{long red hair hairstyle}}` → no `"hair"`
      and no `"hair_color"` in `show`). The label is one or two
      words for what varies, and each seed is a concrete instance of it, never the name itself:
      `{{35mm photographic details, no shallow dof}}` → `label="Photo look"`,
@@ -205,25 +203,25 @@ phases drew; picks in the same phase are drawn without seeing each other.
    the image shows of them. You add the details that depend on the scene and that the image
    shows: their outfit, hairstyle, accessories, each a pick bound to its list with `cls=` when
    it has one (see Vocabulary), with an id that starts with the person's (`woman.outfit`). A
-   headshot is the head and shoulders and nothing below: say so once ("a head-and-shoulders
-   headshot of"), with no framing pick and no outfit pick, and what is seen at the collar is a
-   pick with no list ("a navy blazer over a white shirt") or your own words. What makes someone
-   what they are (a knight's armor, a surgeon's cap and gown, a firefighter's gear) comes
+   framing the user stated that shows only the head and shoulders gets no framing pick and
+   no outfit pick: say the frame once in their words, and what is seen at the collar is a pick
+   with no list or your own words. What makes someone
+   what they are (a beekeeper's suit, a judge's robe, an astronaut's suit) comes
    right after their noun, in your own words or as its own pick with no list, before any other
-   detail of them; so does what the activity always calls for (a cyclist's helmet, a welder's
-   mask, a diver's wetsuit). **What the user said they are doing or how they look
-   is theirs**: "asleep", "laughing", "smiling", "fixing a motorcycle", "dancing", "reading".
-   Never add an expression, pose, gaze or activity pick beside it: someone asleep, working or
-   laughing already has their expression and pose. Add one only when the user said nothing of
+   detail of them; so does what the activity always calls for (a climber's harness, a fencer's
+   mask, a jockey's silks). **What the user said they are doing or how they look
+   is theirs**: "yawning", "whistling", "frowning", "mending a net", "juggling", "reading".
+   Never add an expression, pose, gaze or activity pick beside it: someone yawning, at work or
+   whistling already has their expression and pose. Add one only when the user said nothing of
    what the person is doing or how they look. An
    animal or a creature is not a `person()`. A photo gets a look pick bound to `camera.look`.
    When the user stated no framing, state one once in plain words that fit the request and what
    you show ("a waist-up photo of", "a wide view of"). Add a framing pick (bound to
    `camera.portrait_framing` or `camera.selfie_framing`) only when the prompt is nothing but
    a portrait or selfie of one person, with no action, no place and no framing of the user's
-   ("old man portrait", "selfie of a girl"), and then show only what every framing shows (no
-   `"build"`). A framing the user stated ("headshot", "extreme close-up", "seen from behind",
-   "wide shot") stays in their words, with no framing, gaze, pose or expression pick beside it.
+   ("portrait of a sailor", "a selfie"), and then show only what every framing shows (no
+   `"build"`). A framing the user stated ("a passport photo", "a macro shot", "over the shoulder",
+   "an aerial view") stays in their words, with no framing, gaze, pose or expression pick beside it.
    **What the user stated stays in every image**: the subject ("a girl", "a dog", "a
    knight"), what it does ("running", "waving"), the weather ("in a snowstorm"), a place, a
    color, a blue frock, an owl on her shoulder. Their words stay in the text, and never
@@ -239,13 +237,13 @@ phases drew; picks in the same phase are drawn without seeing each other.
    When their words name a kind of a listed detail of how someone looks rather than one
    value ("young", "a yoga outfit", "red hair"), that detail is a bound pick narrowed to their
    words (see Vocabulary), so every value drawn is what they said. What they are doing or
-   feeling ("smiling", "crying", "laughing") is never a pick: it stays in their words.
+   feeling ("frowning", "yawning", "cheering") is never a pick: it stays in their words.
 5. **A pick owns its subject.** Only when a fixed phrase would be wrong for some value of
    another pick (her trench coat when the weather varies; skin and eyes when ethnicity
    varies), make that phrase a pick too, `hidden=True`, in a later phase. Nothing fixed may
    contradict a drawn value, and nothing is said twice: each pick and each phrase appears once.
-6. **Every subject is their own.** People the user relates to each other (a father and son, a
-   grandmother and her granddaughter, sisters) share a `kin=` word, and get ages that fit: pass the younger one
+6. **Every subject is their own.** People the user relates to each other (a parent and their child,
+   siblings, cousins) share a `kin=` word, and get ages that fit: pass the younger one
    `where={"age": "a young boy"}` (or "a teenage girl", "in her twenties") and, when the elder
    must be old enough, the elder one too (`where={"age": "in his forties or fifties"}`). With more than one subject (people, animals, a knight and
    a dragon), each subject's details are their own picks, never one pick for the whole group:
@@ -326,7 +324,7 @@ Still write `about=` and a seed in the list's form.
   child", "a toddler", "a teenage boy", "a family with two kids", "a 10-year-old"). "A girl"
   or "a boy" alone says neither, and the rest of the prompt decides: a sexual, romantic or
   otherwise adult prompt, or an adult's life, makes them a young adult, always; a child's life
-  ("walking to the store with her mom", "a missing front tooth", "a little girl", "a
+  (a parent beside them, a school day, "a little girl", "a
   schoolboy") makes them a child; with neither, a young adult. Their age is read from the
   whole prompt after you write, so pass no age of your own for them. Only for a child or teenager the user
   asked for, narrow their age pick to their words (`where="toddler"`), or to
@@ -451,7 +449,7 @@ look = pick("look", cls="camera.look", about="how the photo looks", seed=["the b
 emit("A waist-up photo of", baker, ", in her shop, wearing", outfit, ", with", expression, ", with", look, ".")
 ```
 "her shop" says the baker is a woman. The user said nothing of what she is doing, so her expression is a pick; had they
-written "kneading dough" or "smiling", there would be none. She is at work, seen from the waist up, so her build and her face show; her eye color and skin are too fine for that distance.
+written what she is doing or how she looks, there would be none. She is at work, seen from the waist up, so her build and her face show; her eye color and skin are too fine for that distance.
 The user said nothing of how it is framed, so the framing is stated once in plain words; she is in her shop, so it is no
 plain portrait and there is no framing pick. They said nothing of how the photo looks, so the look is a pick bound to its list,
 emitted after the word it fits ("with"). No focus, lens or quality words are written as text. Had they written "a candid
@@ -459,22 +457,20 @@ photo", the look pick would be narrowed: `where={"intent": "candid"}`.
 
 Example. User's prompt:
 ```
-1: a woman napping in a hammock with a book open on her chest
+1: a man whistling while he paints a fence
 ```
 Program:
 ```python
-woman = person("woman", noun="woman", presentation="feminine", show=["age", "descent", "build", "hair", "hair_color"])
-outfit = pick("woman.outfit", cls="person.outfit.summer", about="what the woman wears in the hammock", seed=["a loose linen shirt and shorts"],
+man = person("man", noun="man", presentation="masculine", show=["age", "descent", "build", "hair", "hair_color"])
+outfit = pick("man.outfit", cls="person.outfit.casual", about="what the man wears to paint a fence", seed=["a paint-flecked shirt and old jeans"],
     label="Outfit", phase=2, added=True)
-garden = pick("garden", about="what surrounds the hammock", seed=["two old apple trees and long grass"],
-    label="Garden", phase=1, added=True)
-light = pick("light", cls="lighting.natural", about="the light in the garden", seed=["dappled afternoon sun"],
-    label="Light", phase=1, added=True)
-emit(woman, ", napping in a hammock with a book open on her chest, wearing", outfit, ". Around her:", garden, ", in", light, ".")
+yard = pick("yard", about="the yard behind the fence, with its time of day", seed=["a small back yard on a bright morning, laundry on the line"],
+    label="Yard", phase=1, added=True)
+emit("A waist-up photo of", man, ", whistling while he paints a fence, wearing", outfit, ". Behind him:", yard, ".")
 ```
-She is asleep: that is her expression and her pose, so neither is a pick, and her eyes are closed, so
-`show` has no `"eyes"` and no `"face"`. The picks are what the image shows and the user left open:
-her outfit, the garden, the light.
+He is whistling and painting: that is his expression and his pose, so neither is a pick. He is
+seen from the side at work, so `show` has his build and no `"eyes"` or `"face"`. The yard and
+its time of day are one pick, so they always agree, and there is no separate light pick.
 
 Example. User's prompt:
 ```
