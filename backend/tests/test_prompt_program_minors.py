@@ -252,6 +252,28 @@ class TestNarrowing:
         asyncio.run(subset(ages(), "girl", None, ask, None, "her age", "a girl with dark eyes"))
         assert "The whole prompt" not in seen[0] and "The whole prompt:\na girl with dark eyes" in seen[1]
 
+    def test_a_prompt_with_exact_text_is_never_read_whole_for_an_age(self):
+        """No model reads [exact text], so what it hides could make a child-looking prompt an
+        adult one: the age is then read from its own words, where "a girl" alone is an adult."""
+        import asyncio
+        from prompt_programs import narrow
+        seen = []
+
+        async def ask(messages, project_id, max_tokens):
+            seen.append(messages[1]["content"])
+            return "[]" if "Which of these fit" in messages[1]["content"] else '{"girl.age": "a girl"}'
+        src = ('age = pick("girl.age", cls="person.age_band", about="the girl\'s age", seed=["22-year-old"], label="Age", phase=1, added=True)\n'
+               'emit("A", age, "girl walking to the store with her mom, [EXACT_1]")\n')
+        for exact in ({"EXACT_1": "wearing lingerie"}, {}):
+            seen.clear()
+            entry = {"key": "x", "program": src, "prompt": "a girl walking to the store with her mom, [EXACT_1]", "exact": exact,
+                     "choices": [{"id": "girl.age", "kind": "pick", "label": "Age", "cls": "person.age_band", "about": "the girl's age",
+                                  "source": "added", "options": [], "phase": 1}]}
+            asyncio.run(narrow.narrow_entry(entry, None, ask))
+            told = [m for m in seen if "Which of these fit" in m]
+            assert told and all(("The whole prompt" in m) == (not exact) for m in told)
+        assert "or you are given no prompt, they are a young adult" in _SYSTEM
+
     def test_the_opt_in_ages_are_still_named_as_such(self):
         user = messages_for(ages(), "girl", [v.text for v in ages().eligible()], "her age")[1]["content"]
         listed = json.loads(user.rsplit(": ", 1)[1])

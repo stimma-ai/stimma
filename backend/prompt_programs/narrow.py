@@ -90,7 +90,8 @@ alike. For an age you are also given the whole prompt, and the prompt decides:
 - When the prompt shows a child's life (with her mom or his dad, at school or a playground, a
   missing front tooth, a toy, a bedtime story), they are a child: keep the ages under 18 that
   match what it shows.
-- When the prompt shows neither, they are a young adult: keep the ages from 18 to 29."""
+- When the prompt shows neither, or you are given no prompt, they are a young adult: keep the
+  ages from 18 to 29."""
 
 _READ_SYSTEM = """You read an image prompt and find the words in it that describe certain details.
 
@@ -353,7 +354,11 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             else:
                 notes.append(f'{ch["id"]}: nothing in {lf.id} has {want}; drawing from the whole list')
     t0 = asyncio.get_running_loop().time()
-    whole = str(entry.get("prompt") or "")
+    # The whole prompt, for reading an age. Not when part of it is the user's [exact text]: no
+    # model reads that text, so the prompt as a model sees it could show a child's life while the
+    # hidden part makes it an adult prompt. Then the age is read from its own words, as before:
+    # "a girl" alone is a young adult.
+    whole = "" if entry.get("exact") else str(entry.get("prompt") or "")
     stated = stated_ages(entry, bound, said_ages)
     stated_ctx = stated_context(entry, bound)
     readable = [c for c in bound if not c.get("wildcard")] + stated + stated_ctx
