@@ -1,15 +1,18 @@
 """Slot programs on the real runtime: opt(), people's opt() groups, zones, the outfit
-template and line breaks. Drawn through runtime_for(entry, store=None, mine={}), which reads
+template and line breaks; then the same programs built from a slot reading. Drawn through runtime_for(entry, store=None, mine={}), which reads
 the vocabulary lists (LiteralOptions would draw each detail's one seed every time)."""
 
+import json
 from typing import Any, Dict, List, Optional
 
 import pytest
 
 from prompt_programs.draws import draw
 from prompt_programs.fluent import runtime_for
+from prompt_programs.narrow import narrow_entry
 from prompt_programs.people import expand_people
 from prompt_programs.runtime import discover
+from prompt_programs.slots import ReadingError, build, parse
 from prompt_programs.vocab import vocabulary
 
 DORM = '''
@@ -117,3 +120,122 @@ def test_a_free_slot_draws_its_kinds_unless_other_zones_are_chosen(porch):
     assert drawn <= kinds
     both = {{d.id: d.value for d in _draw(porch, s, zones={"pet": ["kinds", "instead"]}).draws}["pet"] for s in range(30)}
     assert both & instead and both & kinds
+
+
+# --------------------------------------------------------------------------- the builder
+
+DORM_PROMPT = "dorm room with a <young man>, lit by <light>"
+DORM_READING = {"slots": [
+    {"n": 1, "kind": "person", "label": "Young man", "lead": "",
+     "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "young"},
+                "vary": ["age", "descent", "build", "hair", "hair_color"], "outfit": "person.outfit.casual"}},
+    {"n": 2, "kind": "light", "label": "Light", "lead": ", lit by",
+     "light": {"list": "", "examples": ["warm desk-lamp light", "grey morning light through blinds", "blue screen glow"]}},
+]}
+DORM_SOURCE = '''slot1 = person('young_man', noun='man', presentation='masculine', show=['age', 'descent', 'build', 'hair', 'hair_color'], article=False)
+slot1_outfit = pick('young_man.outfit', cls='person.outfit.casual', about="Young man's outfit", label='Outfit', phase=2)
+slot2 = pick('light', about='light', seed=['warm desk-lamp light', 'grey morning light through blinds', 'blue screen glow'], label='Light', phase=1)
+emit('dorm room with a ', slot1, opt(', wearing', slot1_outfit), opt(', lit by', slot2))
+'''
+
+PORCH_PROMPT = ("# she is his granddaughter, visiting\n"
+                "an <elderly African man> reading on a porch with his <pet>, {summer|autumn} evening")
+PORCH_READING = {"slots": [
+    {"n": 1, "kind": "person", "label": "Elderly African man", "lead": "",
+     "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "elderly", "descent": "African"},
+                "vary": ["age", "descent", "build", "hair", "hair_color", "facial_hair"], "outfit": "person.outfit.casual"}},
+    {"n": 2, "kind": "free", "label": "Pet", "lead": " with his",
+     "free": {"about": "his pet, with him on the porch", "kinds": ["ginger tabby cat", "old basset hound", "grey parrot"],
+              "instead": ["stack of library books", "mug of coffee", "transistor radio"]}},
+], "lists": [{"n": 1, "label": "Season"}]}
+PORCH_SOURCE = '''slot1 = person('elderly_african_man', noun='man', presentation='masculine', show=['age', 'descent', 'build', 'hair', 'hair_color', 'facial_hair'], article=False)
+slot1_outfit = pick('elderly_african_man.outfit', cls='person.outfit.casual', about="Elderly African man's outfit", label='Outfit', phase=2)
+slot2 = pick('pet', about='his pet, with him on the porch', seed=['ginger tabby cat', 'old basset hound', 'grey parrot'], zones={'kinds': ['ginger tabby cat', 'old basset hound', 'grey parrot'], 'instead': ['stack of library books', 'mug of coffee', 'transistor radio']}, label='Pet', phase=2)
+list1 = pick('list1', ['summer', 'autumn'], label='Season', source='list', phase=1, line=2)
+emit('# she is his granddaughter, visiting', '\\n', 'an ', slot1, opt(', wearing', slot1_outfit), ' reading on a porch', opt(' with his', slot2), ', ', list1, ' evening')
+'''
+
+ELDERLY = ["71-year-old", "74-year-old", "79-year-old"]
+AFRICAN = ["Kenyan", "Ghanaian"]
+
+
+async def _stub_ask(messages, project_id, max_tokens):
+    """narrow.subset's model: a fixed subset per list, whatever the words."""
+    user = messages[-1]["content"]
+    if user.startswith('The list "Age"'):
+        return json.dumps(ELDERLY)
+    if user.startswith('The list "Descent"'):
+        return json.dumps(AFRICAN)
+    return "[]"
+
+
+def test_the_built_source_is_the_expected_source():
+    assert build(parse(DORM_PROMPT), DORM_READING)[0] == DORM_SOURCE
+    assert build(parse(PORCH_PROMPT), PORCH_READING)[0] == PORCH_SOURCE
+
+
+def test_discover_lists_the_slots_choices():
+    _, dorm = build(parse(DORM_PROMPT), DORM_READING)
+    assert [c["id"] for c in dorm["choices"]] == [
+        "young_man.build", "young_man.age", "young_man.descent", "young_man.hair", "young_man.hair_color",
+        "young_man.outfit", "young_man.outfit.colors", "light"]
+    _, porch = build(parse(PORCH_PROMPT), PORCH_READING)
+    assert sorted(c["id"] for c in porch["choices"]) == sorted([
+        "elderly_african_man.build", "elderly_african_man.age", "elderly_african_man.descent", "elderly_african_man.hair",
+        "elderly_african_man.hair_color", "elderly_african_man.facial_hair", "elderly_african_man.outfit",
+        "elderly_african_man.outfit.colors", "pet", "list1"])
+    assert next(c for c in porch["choices"] if c["id"] == "list1")["label"] == "Season"
+    slots = {s["id"]: s for s in porch["slots"]}
+    assert slots["pet"]["details"] == ["pet"] and slots["pet"]["line"] == 2
+    assert PORCH_PROMPT[slots["pet"]["span"][0]:slots["pet"]["span"][1]] == "<pet>"
+    assert slots["elderly_african_man"]["stated"] == {"age": "elderly", "descent": "African"}
+    assert porch["slot_words"] == {"elderly_african_man.age": "elderly", "elderly_african_man.descent": "African", "pet": "pet"}
+
+
+async def test_the_slots_words_narrow_its_details():
+    _, entry = build(parse(PORCH_PROMPT), PORCH_READING)
+    await narrow_entry(entry, None, _stub_ask)
+    assert sorted(entry["filters"]["elderly_african_man.age"]) == sorted(ELDERLY)
+    assert sorted(entry["filters"]["elderly_african_man.descent"]) == sorted(AFRICAN)
+    for s in range(20):
+        r = _draw(entry, 500 + s)
+        drawn = {d.id: d.value for d in r.draws}
+        assert drawn["elderly_african_man.age"] in ELDERLY and drawn["elderly_african_man.descent"] in AFRICAN
+        assert r.prompt.split("\n")[0] == "# she is his granddaughter, visiting"
+        assert drawn["pet"] in PORCH_READING["slots"][1]["free"]["kinds"]
+        assert r.prompt.endswith(f"porch with his {drawn['pet']}, {drawn['list1']} evening")
+
+
+def test_the_same_words_twice_are_two_people():
+    reading = {"n": 0, "kind": "person", "label": "Friend", "lead": "",
+               "person": {"noun": "friend", "presentation": "", "stated": {}, "vary": ["age", "hair"], "outfit": ""}}
+    src, entry = build(parse("<friend> laughing with <friend>"),
+                       {"slots": [{**reading, "n": 1}, {**reading, "n": 2}]})
+    assert "person('friend'," in src and "person('friend_2'," in src
+    ids = {c["id"] for c in entry["choices"]}
+    assert {"friend.age", "friend.hair", "friend_2.age", "friend_2.hair"} <= ids
+    assert [s["id"] for s in entry["slots"]] == ["friend", "friend_2"]
+
+
+def test_a_camera_slot_is_one_group_and_a_lead_that_isnt_there_stays_text():
+    src, entry = build(parse("a kitchen, shot on <camera>"), {"slots": [
+        {"n": 1, "kind": "camera", "label": "Camera", "lead": ", filmed with", "camera": {"vary": ["shot_size", "lens"]}}]})
+    assert "emit('a kitchen, shot on ', opt(opt(slot1_shot_size), opt(',', slot1_lens)))" in src
+    off = _draw(entry, 1, edits={"camera.shot_size": {"off": True}}).prompt
+    assert off.startswith("A kitchen, shot on ") and ", ," not in off and "on," not in off
+
+
+def test_a_reading_the_builder_cant_use_is_refused():
+    with pytest.raises(ReadingError):
+        build(parse("a <pet>"), {"slots": []})
+    with pytest.raises(ReadingError):
+        build(parse("a <thing>"), {"slots": [{"n": 1, "kind": "list", "label": "Thing", "lead": "",
+                                               "list": {"list": "no.such.list", "stated": ""}}]})
+
+
+def test_a_free_slot_as_written_is_a_pin_of_its_words():
+    _, entry = build(parse(PORCH_PROMPT), PORCH_READING)
+    drawn = {{d.id: d.value for d in _draw(entry, s).draws}["pet"] for s in range(12)}
+    assert "pet" not in drawn
+    r = _draw(entry, 3, pins={"pet": ["pet"]})
+    assert "porch with his pet," in r.prompt

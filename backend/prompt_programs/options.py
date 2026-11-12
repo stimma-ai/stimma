@@ -999,6 +999,7 @@ class GeneratedOptions:
             items: List[str] = []
             weights: List[float] = []
             own: set = set()
+            held: Dict[str, float] = {}
             more = False
             for p in parts:
                 got = self.get(p, context)
@@ -1007,8 +1008,9 @@ class GeneratedOptions:
                         items.append(o)
                         weights.append(w)
                 own |= set(got.own)
+                held.update(got.held)
                 more = more or got.more_coming
-            pool = Pool(key, items, weights, more, True, own=frozenset(own))
+            pool = Pool(key, items, weights, more, True, own=frozenset(own), held=held)
         self._pools[key] = pool
         return pool
 
@@ -1075,9 +1077,15 @@ class GeneratedOptions:
             kept += [(o, 0.0) for o in extra]
             own |= set(extra)
             self.mine_shown[spec.id] = {o: True for o in extra}
+        # A slot's own words lead its kinds, drawn only when chosen ("as written" is a pin of them).
+        words = dict(self.program.intents).get(spec.id, "") if spec.zone == "kinds" else ""
+        held: Dict[str, float] = {}
+        if words.strip() and _norm(words) not in {_norm(o) for o, _ in kept} | gone:
+            kept.insert(0, (words, 0.0))
+            held[words] = 1.0
         if isinstance(self.limits.get(key), (int, float)):  # replaying a recorded revision
             kept = kept[: int(self.limits[key])]
-        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, own=frozenset(own))
+        pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, own=frozenset(own), held=held)
         rounds = self.store.rounds(skey) if self.store is not None else 0
         return pool, items, rounds
 

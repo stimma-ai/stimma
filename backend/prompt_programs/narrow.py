@@ -315,7 +315,9 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     """Narrow every bound choice to what the user's words allow, in place: `entry["filters"]`
     maps the choice id to its subset, the choice shows only those options, and a choice whose
     subset is empty loses its list. Picks whose narrowing didn't finish are recorded in
-    `entry["narrow_pending"]` (see the module docstring). Returns notes for the log."""
+    `entry["narrow_pending"]` (see the module docstring). A slot program's words come from
+    `entry["slot_words"]` (choice id -> the slot's words for it) instead of a reading of the
+    prompt. Returns notes for the log."""
     vocab = vocabulary()
     # A pick with said= is the user's own words, not a kind to narrow to: its list holds alternatives.
     bound = [c for c in entry.get("choices") or [] if vocab.get(c.get("cls")) is not None and not c.get("said")]
@@ -376,15 +378,19 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         if phrase and k not in early:
             early[k] = (phrase, c.get("about") or "", asyncio.ensure_future(
                 subset(vocab.leaves[c["cls"]], phrase, cache, ask, project_id, c.get("about") or "", whole)))
-    try:
-        read = await asyncio.wait_for(read_words(str(entry.get("prompt") or ""), readable, cache, ask, project_id),
-                                      seconds)
-    except asyncio.TimeoutError:
-        read = None
-    except BaseException:
-        for *_, task in early.values():
-            task.cancel()
-        raise
+    if isinstance(entry.get("slot_words"), dict):
+        # A slot program (slots.py): the slot reader already said which of its words state each detail.
+        read = {str(k): str(v) for k, v in entry["slot_words"].items() if str(v).strip()}
+    else:
+        try:
+            read = await asyncio.wait_for(read_words(str(entry.get("prompt") or ""), readable, cache, ask, project_id),
+                                          seconds)
+        except asyncio.TimeoutError:
+            read = None
+        except BaseException:
+            for *_, task in early.values():
+                task.cancel()
+            raise
     if read is None:  # not read: the words found later may narrow these picks
         unfinished |= {c["id"] for c in readable}
         read = {}

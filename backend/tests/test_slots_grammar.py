@@ -22,7 +22,7 @@ def test_parse_cuts_the_prompt_in_order():
     assert "".join(s.text for s in parsed.segments) == prompt
     assert [s.kind for s in parsed.segments] == ["comment", "text", "slot", "text", "list", "text", "slot"]
     first, pet = parsed.slots()
-    assert first.words == "elderly African man" and first.line == 1
+    assert first.words == "elderly African man" and first.line == 2
     assert prompt[first.span[0]:first.span[1]] == "<elderly African man>"
     assert pet.words == "pet"
     assert parsed.lists()[0].items == ["summer", "autumn"]
