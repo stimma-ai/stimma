@@ -24,6 +24,8 @@ passes no narrowing words of its own, so it has none to invent.
 - `show`: the details this picture shows of them, the writer's choice after picturing the image
   (a sleeper has no eye color, a close portrait no build). Only these are drawn. Without it the
   short set is (age, descent, hair, hair color, face), or everything with `detail="full"`.
+- `kin`: a word shared by people related by blood ("family"): they share one descent pick
+  (`family.descent`, shared=True), so sisters or a father and son look related.
 - `where`: the writer's own words for an age the scene needs ({"age": "a young boy"} for a son
   beside his father): the age list is narrowed to them, as a bound pick's `where=` is. Only an
   age: what the user said of any other detail is read from their prompt, so the writer has no
@@ -42,6 +44,7 @@ never drawn and then left out of the prompt.
 from __future__ import annotations
 
 import ast
+import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 # detail name -> (list, label, what it is of the person, a seed, phase)
@@ -144,6 +147,7 @@ class _People(ast.NodeTransformer):
                                   if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "pick" and n.args}
         ids = [(n.value.args[0] if n.value.args else None) for n in made]
         texts = [_id_text(i) or n.targets[0].id for i, n in zip(ids, made)]
+        self.kin: Dict[str, str] = {}                             # a family's name -> its shared descent pick's variable
         self.kept: List[Tuple[str, str]] = []                     # (pick id as written, detail)
         self.adopt: Dict[int, ast.expr] = {}                      # id(pick call) -> the id it takes
         taken: Set[Tuple[int, str]] = set()
@@ -195,7 +199,14 @@ class _People(ast.NodeTransformer):
                 and (k != "facial_hair" or presentation == "masculine" or k in said)]
         out: List[ast.stmt] = []
         var = {k: f"{target}_{k}" for k in keys}
+        # Blood relatives share one descent: the family's pick, made once above the program
+        # (expand_people), stands where this person's own would. A descent the user stated stays theirs.
+        family = re.sub(r"\W+", "_", str(_const(kw.get("kin")) or "").strip().lower()).strip("_")
+        if family and "descent" in keys and "descent" not in said:
+            var["descent"] = self.kin.setdefault(family, f"kin_{family}_descent")
         for k in keys:
+            if k == "descent" and family and var[k] == self.kin.get(family):
+                continue
             cls, label, what, seed, phase = DETAILS[k]
             kws = [ast.keyword("cls", ast.Constant(cls)), ast.keyword("about", ast.Constant(f"the {noun}'s {what}")),
                    ast.keyword("seed", ast.List(elts=[ast.Constant(seed)], ctx=ast.Load())),
@@ -325,6 +336,14 @@ def expand_people(source: str) -> str:
     if not people.count:
         return source
     tree = people.visit(tree)
+    cls, label, _what, seed, phase = DETAILS["descent"]
+    shared = [ast.Assign(targets=[ast.Name(v, ast.Store())], lineno=1, value=ast.Call(
+        func=ast.Name("pick", ast.Load()), args=[ast.Constant(f"{family}.descent")],
+        keywords=[ast.keyword("cls", ast.Constant(cls)), ast.keyword("about", ast.Constant(f"the {family.replace('_', ' ')}'s descent")),
+                  ast.keyword("seed", ast.List(elts=[ast.Constant(seed)], ctx=ast.Load())), ast.keyword("label", ast.Constant(label)),
+                  ast.keyword("phase", ast.Constant(phase)), ast.keyword("added", ast.Constant(True)),
+                  ast.keyword("shared", ast.Constant(True))])) for family, v in people.kin.items()]
+    tree.body = shared + tree.body
     return ast.unparse(ast.fix_missing_locations(tree)) + "\n"
 
 

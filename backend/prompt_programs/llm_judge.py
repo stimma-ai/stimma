@@ -33,7 +33,7 @@ You are given the user's request, the finished prompt, and the choices in it: wh
 Give each choice one of three answers:
 
 - "no": the value breaks the picture. It contradicts the user's request or undoes what the request says is happening; or the picture as requested would not show it at all; or it is not the kind of thing the choice asks for; or it cannot be true together with the other values in the prompt.
-- "rare": nothing is broken, but it is a stretch: an uncommon combination with the other values, or only loosely what the choice asks for.
+- "rare": nothing is broken, but it is a stretch: an uncommon combination with the other values, or only loosely what the choice asks for. A detail of a person that reads as another age or another descent than the one the prompt gives them (gray or white hair, deep wrinkles or sagging skin on someone under forty; natural blonde or red hair on someone whose descent rarely has it) is "rare" at best, and "no" when the request states that age or descent. So is clothing made for the other sex than the person's, or for another season or another kind of occasion than the scene.
 - "yes": it fits.
 
 Unusual people and places are welcome. When unsure between "rare" and "yes", say "yes". Keep "no" for what is actually wrong.

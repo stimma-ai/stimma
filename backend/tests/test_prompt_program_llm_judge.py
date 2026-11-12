@@ -439,3 +439,35 @@ class TestPinnedNote:
             prep._PINNED.reset(told)
         assert 'woman.outfit: "a red coat"' in user and "Keep each of them as a pick with that same id" in user
         assert "pinned" not in prep.writer_messages("a woman", "", [], None, "prose", {}, [], {}, True)[1]["content"]
+class TestKin:
+    SRC = ('a = person("sister[1]", noun="sister", presentation="feminine", kin="family", show=["age", "descent", "hair"])\n'
+           'b = person("sister[2]", noun="sister", presentation="feminine", kin="family", show=["age", "descent", "hair"])\n'
+           'emit("Two sisters:", a, "and", b, ".")\n')
+
+    def test_blood_relatives_share_one_descent_and_keep_their_own_other_details(self):
+        from prompt_programs.draws import draw
+        src = expand_people(self.SRC)
+        assert src.count("pick('family.descent'") == 1 and "shared=True" in src
+        assert "sister[1].descent" not in src and "sister[2].descent" not in src
+        assert "sister[1].age" in src and "sister[2].hair" in src
+        for seed in range(12):
+            r = draw(src, seed)
+            descent = next(d.value for d in r.draws if d.id == "family.descent")
+            assert r.prompt.count(str(descent)) == 2
+
+    def test_the_shared_descent_passes_validation_with_several_subjects(self):
+        from prompt_programs import prepare as prep
+        src = expand_people(self.SRC)
+        got = prep.validate(src, "two sisters", [], set(), "", True)
+        assert not [p for p in got["problems"] if "descent" in p]
+
+    def test_a_stated_descent_stays_that_persons_and_no_kin_means_no_sharing(self):
+        src = expand_people('a = person("mother", noun="mother", kin="family", said={"descent": "Irish"}, show=["age"])\n'
+                            'b = person("son", noun="son", kin="family", show=["age", "descent"])\nemit(a, "and", b)\n')
+        assert "mother.descent" in src and "said='Irish'" in src and src.count("family.descent") == 1
+        plain = expand_people('a = person("a", noun="man", show=["descent"])\nemit(a)\n')
+        assert "kin_" not in plain and "a.descent" in plain
+
+    def test_a_family_nobody_shows_the_descent_of_makes_no_pick(self):
+        src = expand_people('a = person("a", noun="sister", kin="family", show=["age"])\nemit(a)\n')
+        assert "family.descent" not in src
