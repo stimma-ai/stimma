@@ -29,6 +29,7 @@
   "values": [
     {
       "text": "a {main} wool tunic and {neutral} lace-up pants",
+      "short": "tunic and laced pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -47,6 +48,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -59,6 +64,7 @@
     },
     {
       "text": "a {main} linen robe over {neutral} ankle-gathered pants",
+      "short": "linen robe",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -77,6 +83,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -89,6 +99,7 @@
     },
     {
       "text": "a {main} leather jerkin over a {accent} shirt and {neutral} breeches",
+      "short": "leather jerkin",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -106,6 +117,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -118,6 +133,7 @@
     },
     {
       "text": "a {main} hooded cloak over a {neutral} wool dress",
+      "short": "hooded cloak, wool dress",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -151,6 +167,7 @@
     },
     {
       "text": "a {main} velvet robe over a {accent} brocade undergown",
+      "short": "velvet robe, undergown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -183,6 +200,7 @@
     },
     {
       "text": "a {main} leaf-paneled gown with a fitted {accent} linen bodice",
+      "short": "leaf-paneled gown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -214,6 +232,7 @@
     },
     {
       "text": "a {main} silk gown with gold vine embroidery",
+      "short": "vine-embroidered gown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -249,6 +268,7 @@
     },
     {
       "text": "a {main} layered robe with wide silver-trimmed sleeves",
+      "short": "silver-trimmed robe",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -266,6 +286,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -278,6 +302,7 @@
     },
     {
       "text": "a silver mail shirt over a padded {main} tunic and {neutral} wool pants",
+      "short": "mail shirt",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -295,6 +320,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -307,6 +336,7 @@
     },
     {
       "text": "a bronze scale cuirass over a {main} tunic and {neutral} leggings",
+      "short": "scale cuirass",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -324,6 +354,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -336,6 +370,7 @@
     },
     {
       "text": "a steel breastplate over a {main} gambeson and {neutral} quilted pants",
+      "short": "breastplate, gambeson",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -353,6 +388,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -365,6 +404,7 @@
     },
     {
       "text": "a {main} leather brigandine over a {accent} shirt and {neutral} breeches",
+      "short": "leather brigandine",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -382,6 +422,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -394,6 +438,7 @@
     },
     {
       "text": "a {main} layered gown with petal-shaped {accent} overskirts",
+      "short": "petal-skirted gown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -425,6 +470,7 @@
     },
     {
       "text": "a waist-length {main} scalloped wool hooded cape over a {accent} laced bodice and a full {neutral} pinafore skirt",
+      "short": "hooded cape, pinafore",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -457,6 +503,7 @@
     },
     {
       "text": "a patched {main} tunic and oversized {neutral} wool pants",
+      "short": "patched tunic",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -478,6 +525,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -490,6 +541,7 @@
     },
     {
       "text": "a {main} wizard robe with broad {accent} velvet cuffs",
+      "short": "wizard robe",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -503,6 +555,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -518,6 +574,7 @@
     },
     {
       "text": "a {main} wrap tunic and {neutral} gathered pants",
+      "short": "wrap tunic and pants",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -536,6 +593,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -548,6 +609,7 @@
     },
     {
       "text": "a black feather-paneled mantle over a {main} ankle-length robe",
+      "short": "feather mantle",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -565,6 +627,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -577,6 +643,7 @@
     },
     {
       "text": "a {main} quilted surcoat over steel mail and {neutral} padded pants",
+      "short": "surcoat over mail",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -594,6 +661,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -606,6 +677,7 @@
     },
     {
       "text": "a {main} brocade gown with structured crescent-shaped sleeves",
+      "short": "crescent-sleeved gown",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -637,6 +709,7 @@
     },
     {
       "text": "a bark-textured bodice and a full woven-grass skirt",
+      "short": "bark bodice, grass skirt",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -658,6 +731,7 @@
     },
     {
       "text": "a {main} robe sewn with tiny brass discs",
+      "short": "brass-disc robe",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -675,6 +749,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -687,6 +765,7 @@
     },
     {
       "text": "a {main} tiered capelet of embroidered fern-shaped panels over a fitted {accent} tunic and {neutral} flared pants",
+      "short": "fern-panel capelet",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -704,6 +783,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -716,6 +799,7 @@
     },
     {
       "text": "a {main} patchwork cloak over a {accent} linen shirt and {neutral} pants",
+      "short": "patchwork cloak",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -734,6 +818,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -746,6 +834,7 @@
     },
     {
       "text": "a copper mail vest over a {main} quilted jumpsuit",
+      "short": "copper mail vest",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -762,6 +851,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -777,6 +870,7 @@
     },
     {
       "text": "a {main} gold-threaded court gown with a rigid sunray collar and a fan-pleated skirt beneath a short {accent} brocade cape",
+      "short": "sunray-collar court gown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -812,6 +906,7 @@
     },
     {
       "text": "a silver lamellar coat over a {main} tunic and {neutral} pants",
+      "short": "lamellar coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -829,6 +924,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -841,6 +940,7 @@
     },
     {
       "text": "a {main} silk gown with overlapping scale-shaped panels",
+      "short": "scale-paneled gown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -872,6 +972,7 @@
     },
     {
       "text": "a {main} knee-length linen smock with rolled sleeves over {neutral} cropped pants and a broad {accent} pocketed apron",
+      "short": "smock and apron",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -893,6 +994,10 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -905,6 +1010,7 @@
     },
     {
       "text": "a {main} silk cocoon gown with a rigid oval hip frame and translucent {accent} wing-shaped back panels",
+      "short": "cocoon gown with wings",
       "tier": "unusual",
       "tags": {
         "genre": [
@@ -936,6 +1042,7 @@
     },
     {
       "text": "a sculpted gold lamellar robe over {neutral} pleated pants",
+      "short": "gold lamellar robe",
       "tier": "unusual",
       "tags": {
         "genre": [
@@ -949,6 +1056,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -964,6 +1075,7 @@
     },
     {
       "text": "a {main} velvet frock coat and {accent} brocade vest with {neutral} pants",
+      "short": "velvet frock coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -996,6 +1108,7 @@
     },
     {
       "text": "a {main} silk bustle gown with embroidered {accent} thorn-patterned trim",
+      "short": "thorn bustle gown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1028,6 +1141,7 @@
     },
     {
       "text": "a {main} wool riding habit with a fitted double-breasted jacket",
+      "short": "riding habit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1060,6 +1174,7 @@
     },
     {
       "text": "a suit of polished steel plate armor with articulated gauntlets and greaves",
+      "short": "plate armor",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1074,11 +1189,16 @@
         ],
         "formality": [
           "formal"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a bronze lamellar vest over a {main} sleeveless tunic and {neutral} knee-length breeches",
+      "short": "bronze lamellar vest",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1093,6 +1213,10 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1105,6 +1229,7 @@
     },
     {
       "text": "a studded {main} leather harness and {neutral} leather shorts with bronze shin guards",
+      "short": "leather harness",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1119,6 +1244,10 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1132,6 +1261,7 @@
     },
     {
       "text": "a {main} quilted arming coat with {accent} laced sleeves and {neutral} padded hose",
+      "short": "arming coat and hose",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1143,6 +1273,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1155,6 +1289,7 @@
     },
     {
       "text": "a {main} silk hooded robe with embroidered {accent} constellations and a {neutral} linen underrobe",
+      "short": "constellation robe",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1167,7 +1302,11 @@
         "coverage": [
           "full"
         ],
-        "era": "any"
+        "era": "any",
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
       },
       "palette": {
         "tone": [
@@ -1182,6 +1321,7 @@
     },
     {
       "text": "a {main} silk halter top and split {accent} gauze skirt with metallic rune embroidery",
+      "short": "rune-embroidered halter",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1216,6 +1356,7 @@
     },
     {
       "text": "a {main} felted wool coat with spiral-shaped sleeves over a {neutral} knitted robe",
+      "short": "spiral-sleeved coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1231,6 +1372,10 @@
         "era": "any",
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1246,6 +1391,7 @@
     },
     {
       "text": "a sleeveless {main} brocade tunic over {neutral} cropped silk pants with {accent} knotted hems",
+      "short": "brocade tunic, silks",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1258,7 +1404,11 @@
         "coverage": [
           "moderate"
         ],
-        "era": "any"
+        "era": "any",
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
       },
       "palette": {
         "tone": [
@@ -1273,6 +1423,7 @@
     },
     {
       "text": "a fitted {main} suede hooded doublet with {neutral} split-knee pants and {accent} cloth wrist wraps",
+      "short": "suede hooded doublet",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1299,6 +1450,7 @@
     },
     {
       "text": "a {main} split-tailed leather bolero over a {accent} close-fitting shirt and {neutral} wrap-front culottes",
+      "short": "leather bolero, culottes",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1314,6 +1466,10 @@
         "era": [
           "medieval",
           "early_modern"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1326,6 +1482,7 @@
     },
     {
       "text": "a cropped {main} leather bodice and {neutral} linen shorts with {accent} laced side panels",
+      "short": "leather bodice, shorts",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1356,6 +1513,7 @@
     },
     {
       "text": "a fur-lined {main} wool hooded coat over {neutral} felt pants and leather boots",
+      "short": "fur-lined hooded coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1370,6 +1528,10 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1382,6 +1544,7 @@
     },
     {
       "text": "a {main} linen tabard over a {neutral} short-sleeved tunic and {accent} cropped pants",
+      "short": "tabard and tunic",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1396,6 +1559,10 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1408,6 +1575,7 @@
     },
     {
       "text": "a {main} waxed-canvas hooded cape over a {accent} wool jerkin and {neutral} riding pants",
+      "short": "waxed cape and jerkin",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1419,6 +1587,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1431,6 +1603,7 @@
     },
     {
       "text": "a {main} velvet doublet with pearl buttons and {accent} slashed sleeves over {neutral} silk hose",
+      "short": "slashed velvet doublet",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1466,6 +1639,7 @@
     },
     {
       "text": "a sleeveless {main} silk court gown with a stiff {accent} brocade overskirt and pearl edging",
+      "short": "court gown, pearl edging",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1501,6 +1675,7 @@
     },
     {
       "text": "a {main} silk bandeau and draped {accent} gauze skirt with gold chain edging",
+      "short": "bandeau and gauze skirt",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1537,6 +1712,7 @@
     },
     {
       "text": "a {main} linen cassock beneath a {accent} embroidered tabard with a {neutral} woven sash",
+      "short": "cassock and tabard",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1551,6 +1727,10 @@
         ],
         "formality": [
           "formal"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1563,6 +1743,7 @@
     },
     {
       "text": "a {main} wool cowl over an undyed linen habit with rope fastenings",
+      "short": "cowl and habit",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1577,6 +1758,10 @@
         ],
         "budget": [
           "modest"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1589,6 +1774,7 @@
     },
     {
       "text": "a sleeveless {main} linen ritual robe with bronze disc trim and a {accent} woven hem",
+      "short": "ritual robe",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1603,6 +1789,10 @@
         ],
         "climate": [
           "hot"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1615,6 +1805,7 @@
     },
     {
       "text": "a steel mail hauberk beneath a {main} split ceremonial surcoat and {neutral} padded pants",
+      "short": "hauberk and surcoat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1626,6 +1817,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1638,6 +1833,7 @@
     },
     {
       "text": "a short-sleeved {main} linen shift under a {accent} laced wool bodice and {neutral} gathered skirt",
+      "short": "laced bodice and skirt",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1667,6 +1863,7 @@
     },
     {
       "text": "a {main} linen wrap top and {neutral} knee-length woven skirt with a {accent} patched apron",
+      "short": "wrap top, woven skirt",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1699,6 +1896,7 @@
     },
     {
       "text": "a sheepskin-lined {main} wool smock over {neutral} patched pants and felt boots",
+      "short": "sheepskin smock",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1716,6 +1914,10 @@
         ],
         "budget": [
           "modest"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1728,6 +1930,7 @@
     },
     {
       "text": "a {main} quilted silk kaftan with {accent} braided closures over {neutral} linen pants",
+      "short": "quilted silk kaftan",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1742,6 +1945,10 @@
         ],
         "formality": [
           "smart"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1754,6 +1961,7 @@
     },
     {
       "text": "a {main} sleeveless wool overcoat over a {accent} rolled-sleeve linen shirt and {neutral} knee breeches",
+      "short": "wool overcoat, breeches",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1768,6 +1976,10 @@
         ],
         "formality": [
           "smart"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1780,6 +1992,7 @@
     },
     {
       "text": "a {main} brocade vest over a {accent} puff-sleeved shirt and {neutral} striped pants",
+      "short": "brocade vest, puff shirt",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1794,6 +2007,10 @@
         ],
         "formality": [
           "smart"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1806,6 +2023,7 @@
     },
     {
       "text": "a {main} fur-collared wool coat over a {accent} fitted doublet and {neutral} velvet breeches",
+      "short": "fur-collared coat",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1838,6 +2056,7 @@
     },
     {
       "text": "a woven reed halter and a layered skirt of fresh fern fronds",
+      "short": "reed halter, fern skirt",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1861,6 +2080,7 @@
     },
     {
       "text": "a {main} bell-sleeved jester tunic with {accent} diamond panels over {neutral} cropped hose",
+      "short": "jester motley",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1873,7 +2093,11 @@
         "coverage": [
           "moderate"
         ],
-        "era": "any"
+        "era": "any",
+        "presentation": [
+          "feminine",
+          "masculine"
+        ]
       },
       "palette": {
         "tone": [
@@ -1888,6 +2112,7 @@
     },
     {
       "text": "a {main} layered tulle dress with sculpted {accent} butterfly-shaped sleeves and a {neutral} silk underskirt",
+      "short": "butterfly-sleeved dress",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -1934,6 +2159,10 @@
       "light",
       "moderate",
       "full"
+    ],
+    "presentation": [
+      "feminine",
+      "masculine"
     ]
   },
   "context": {

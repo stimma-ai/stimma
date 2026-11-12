@@ -146,6 +146,7 @@
     },
     {
       "text": "fair and patchily depigmented",
+      "short": "fair, depigmented",
       "tier": "unusual",
       "tags": {
         "skin_family": [
@@ -155,6 +156,7 @@
     },
     {
       "text": "medium brown and patchily depigmented",
+      "short": "brown, depigmented",
       "tier": "unusual",
       "tags": {
         "skin_family": [
@@ -164,6 +166,7 @@
     },
     {
       "text": "deep brown and patchily depigmented",
+      "short": "deep brown, depigmented",
       "tier": "unusual",
       "tags": {
         "skin_family": [
@@ -188,6 +191,7 @@
     },
     {
       "text": "light brown and sun-spotted",
+      "short": "light brown, sun-spotted",
       "tier": "plausible",
       "tags": {
         "skin_family": [
@@ -203,6 +207,7 @@
     },
     {
       "text": "deep brown and sun-spotted",
+      "short": "deep brown, sun-spotted",
       "tier": "plausible",
       "tags": {
         "skin_family": [

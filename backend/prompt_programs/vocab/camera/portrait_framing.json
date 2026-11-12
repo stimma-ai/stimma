@@ -26,6 +26,7 @@
   "values": [
     {
       "text": "a tight headshot cropped just above the hairline",
+      "short": "tight headshot",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -35,6 +36,7 @@
     },
     {
       "text": "a head-and-shoulders portrait with the face centered",
+      "short": "centered, shoulders up",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -44,6 +46,7 @@
     },
     {
       "text": "a head-and-shoulders portrait with the person to one side and open space beside them",
+      "short": "off-center, shoulders up",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -53,6 +56,7 @@
     },
     {
       "text": "a head-and-shoulders portrait with the body angled away and the face turned back to the camera",
+      "short": "angled away, face back",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -62,6 +66,7 @@
     },
     {
       "text": "a close portrait at eye level, straight on",
+      "short": "close, eye level",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -71,6 +76,7 @@
     },
     {
       "text": "a face filling the frame, cropped at the forehead and chin",
+      "short": "face filling the frame",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -80,6 +86,7 @@
     },
     {
       "text": "a profile portrait with the face turned toward the edge of the frame",
+      "short": "profile toward the edge",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -89,6 +96,7 @@
     },
     {
       "text": "a three-quarter view of the face, looking past the camera",
+      "short": "three-quarter face",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -98,6 +106,7 @@
     },
     {
       "text": "a close portrait from slightly above, the person looking up at the camera",
+      "short": "close from above",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -107,6 +116,7 @@
     },
     {
       "text": "a close portrait from just below the chin line, looking up at the face",
+      "short": "close from below",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -116,6 +126,7 @@
     },
     {
       "text": "a close portrait partly hidden behind something near the camera",
+      "short": "close, partly hidden",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -125,6 +136,7 @@
     },
     {
       "text": "a close portrait looking back over one shoulder",
+      "short": "close, over the shoulder",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -134,6 +146,7 @@
     },
     {
       "text": "a close portrait with the head tilted and the eyes in the top third of the frame",
+      "short": "close, head tilted",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -143,6 +156,7 @@
     },
     {
       "text": "a close portrait with the face in one corner and plain space across the rest",
+      "short": "face in one corner",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -152,6 +166,7 @@
     },
     {
       "text": "a close portrait with the face at the edge of the frame, half cut off",
+      "short": "half-cut face at edge",
       "tier": "unusual",
       "tags": {
         "crop": [
@@ -161,6 +176,7 @@
     },
     {
       "text": "a close portrait of the lower half of the face and the neck",
+      "short": "lower face and neck",
       "tier": "unusual",
       "tags": {
         "crop": [
@@ -170,6 +186,7 @@
     },
     {
       "text": "a close portrait reflected in a small mirror",
+      "short": "close, in a small mirror",
       "tier": "unusual",
       "tags": {
         "crop": [
@@ -179,6 +196,7 @@
     },
     {
       "text": "a chest-up portrait with the shoulders turned three-quarters to the camera",
+      "short": "chest-up three-quarter",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -188,6 +206,7 @@
     },
     {
       "text": "a waist-up portrait with the hands in the frame",
+      "short": "waist-up with hands",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -197,6 +216,7 @@
     },
     {
       "text": "a straight-on waist-up portrait with the shoulders square to the camera",
+      "short": "straight-on waist-up",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -206,6 +226,7 @@
     },
     {
       "text": "a waist-up portrait with the person to one side and the setting filling the rest",
+      "short": "waist-up, setting beside",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -215,6 +236,7 @@
     },
     {
       "text": "a seated portrait cropped at the waist",
+      "short": "seated, cropped at waist",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -224,6 +246,7 @@
     },
     {
       "text": "a portrait over the shoulder, the person glancing back at the camera",
+      "short": "over-the-shoulder glance",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -233,6 +256,7 @@
     },
     {
       "text": "a waist-up portrait from a low camera, looking up at the person",
+      "short": "waist-up from below",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -242,6 +266,7 @@
     },
     {
       "text": "a waist-up portrait from above, the person looking up",
+      "short": "waist-up from above",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -251,6 +276,7 @@
     },
     {
       "text": "a chest-up portrait with the face low in the frame and empty space above",
+      "short": "chest-up, space above",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -260,6 +286,7 @@
     },
     {
       "text": "a waist-up portrait in profile",
+      "short": "waist-up profile",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -269,6 +296,7 @@
     },
     {
       "text": "a waist-up portrait from behind, the head turned to one side",
+      "short": "waist-up from behind",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -278,6 +306,7 @@
     },
     {
       "text": "a waist-up portrait seen across a table",
+      "short": "across a table",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -287,6 +316,7 @@
     },
     {
       "text": "a waist-up portrait framed by a window, seen from outside",
+      "short": "through a window",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -296,6 +326,7 @@
     },
     {
       "text": "a waist-up portrait with the camera tilted so the frame leans",
+      "short": "waist-up, tilted frame",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -305,6 +336,7 @@
     },
     {
       "text": "a chest-up portrait taken from very close, the shoulders running out of the frame",
+      "short": "chest-up, very close",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -314,6 +346,7 @@
     },
     {
       "text": "a waist-up portrait with the top of the head cropped off",
+      "short": "waist-up, top cropped",
       "tier": "unusual",
       "tags": {
         "crop": [
@@ -323,6 +356,7 @@
     },
     {
       "text": "a three-quarter-length portrait cropped at mid-thigh",
+      "short": "three-quarter length",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -332,6 +366,7 @@
     },
     {
       "text": "a full-length portrait with space above the head and below the feet",
+      "short": "full length, space round",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -341,6 +376,7 @@
     },
     {
       "text": "a full-length portrait, straight on from chest height",
+      "short": "full length, straight on",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -350,6 +386,7 @@
     },
     {
       "text": "a seated full-length portrait",
+      "short": "seated full length",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -359,6 +396,7 @@
     },
     {
       "text": "a full-length portrait from a low camera, the legs long in the frame",
+      "short": "full length from below",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -368,6 +406,7 @@
     },
     {
       "text": "a full-length portrait from above, looking down at the person",
+      "short": "full length from above",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -377,6 +416,7 @@
     },
     {
       "text": "a full-length portrait in profile",
+      "short": "full-length profile",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -386,6 +426,7 @@
     },
     {
       "text": "a full-length portrait from behind",
+      "short": "full length from behind",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -395,6 +436,7 @@
     },
     {
       "text": "a full-length portrait with the person to one side of the frame",
+      "short": "full length, off-center",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -404,6 +446,7 @@
     },
     {
       "text": "a knee-up portrait at a slight angle",
+      "short": "knee-up, slight angle",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -413,6 +456,7 @@
     },
     {
       "text": "a full-length portrait filling the frame from top to bottom",
+      "short": "full length, filling it",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -422,6 +466,7 @@
     },
     {
       "text": "a full-length portrait from a distance, with clear space all round",
+      "short": "full length, distant",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -431,6 +476,7 @@
     },
     {
       "text": "a full-length portrait reflected in a tall mirror",
+      "short": "full length in a mirror",
       "tier": "unusual",
       "tags": {
         "crop": [
@@ -440,6 +486,7 @@
     },
     {
       "text": "a full-length portrait from directly overhead, the person lying down",
+      "short": "overhead, lying down",
       "tier": "unusual",
       "tags": {
         "crop": [
@@ -449,6 +496,7 @@
     },
     {
       "text": "a wide portrait with the person small among their surroundings",
+      "short": "small in surroundings",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -458,6 +506,7 @@
     },
     {
       "text": "a wide portrait with the person centered and the setting symmetrical around them",
+      "short": "wide, symmetrical",
       "tier": "typical",
       "tags": {
         "crop": [
@@ -467,6 +516,7 @@
     },
     {
       "text": "a portrait seen through a doorway, the person framed by its edges",
+      "short": "through a doorway",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -476,6 +526,7 @@
     },
     {
       "text": "a wide portrait with the person at the far side of the frame",
+      "short": "wide, far side of frame",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -485,6 +536,7 @@
     },
     {
       "text": "a wide portrait from behind, the person facing the view",
+      "short": "wide, from behind",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -494,6 +546,7 @@
     },
     {
       "text": "a wide portrait from high up, looking down on the person",
+      "short": "wide, from high up",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -503,6 +556,7 @@
     },
     {
       "text": "a wide portrait from ground level, the person standing against the sky",
+      "short": "wide, against the sky",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -512,6 +566,7 @@
     },
     {
       "text": "a wide portrait with the person seen through a window",
+      "short": "wide, through a window",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -521,6 +576,7 @@
     },
     {
       "text": "a wide portrait with the person in the lower corner and the setting towering above",
+      "short": "wide, setting towering",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -530,6 +586,7 @@
     },
     {
       "text": "a wide portrait with the person in the middle distance and nearer things at the edges",
+      "short": "wide, foreground framing",
       "tier": "plausible",
       "tags": {
         "crop": [
@@ -539,6 +596,7 @@
     },
     {
       "text": "a very distant portrait, the person a small figure in a large view",
+      "short": "tiny figure in the view",
       "tier": "unusual",
       "tags": {
         "crop": [

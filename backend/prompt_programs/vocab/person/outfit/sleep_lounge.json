@@ -27,6 +27,7 @@
   "values": [
     {
       "text": "a {main} cotton pajama shirt and matching loose pants",
+      "short": "cotton pajamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -51,6 +52,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -63,6 +68,7 @@
     },
     {
       "text": "a {main} jersey T-shirt and soft {neutral} lounge pants",
+      "short": "tee and lounge pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -86,11 +92,16 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} waffle-knit top and matching drawstring bottoms",
+      "short": "waffle-knit set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -114,11 +125,16 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} flannel pajama shirt and pants with {main} and {accent} checks",
+      "short": "flannel check pajamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -143,6 +159,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -155,6 +175,7 @@
     },
     {
       "text": "a white cotton nightgown with long sleeves",
+      "short": "long-sleeved nightgown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -191,6 +212,7 @@
     },
     {
       "text": "a {main} satin pajama shirt and matching wide-leg pants",
+      "short": "satin pajamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -215,6 +237,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -227,6 +253,7 @@
     },
     {
       "text": "a {main} cotton tank and {neutral} jersey sleep shorts",
+      "short": "tank and sleep shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -250,11 +277,16 @@
         ],
         "coverage": [
           "light"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} fleece pullover and {neutral} lounge leggings",
+      "short": "fleece and leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -276,11 +308,15 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
       "text": "a {main} cotton robe over pajamas with {accent} and {neutral} stripes",
+      "short": "robe over pajamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -305,6 +341,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -317,6 +357,7 @@
     },
     {
       "text": "a {main} terrycloth robe over a {neutral} cotton nightgown",
+      "short": "robe over nightgown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -348,6 +389,7 @@
     },
     {
       "text": "a {main} fleece onesie with ribbed ankle cuffs",
+      "short": "fleece onesie",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -369,11 +411,16 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} lounge cardigan and matching knitted pants",
+      "short": "knit lounge set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -398,6 +445,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -410,6 +461,7 @@
     },
     {
       "text": "a {main} thermal top and {neutral} ribbed leggings",
+      "short": "thermal top, leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -438,6 +490,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -450,6 +505,7 @@
     },
     {
       "text": "a {main} flannel nightshirt with {accent} plaid and a curved hem",
+      "short": "flannel nightshirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -476,6 +532,10 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -488,6 +548,7 @@
     },
     {
       "text": "a {main} cotton sleep romper with short sleeves",
+      "short": "sleep romper",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -514,11 +575,16 @@
         ],
         "coverage": [
           "light"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} fleece sleepsuit with covered feet",
+      "short": "footed sleepsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -547,11 +613,16 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} cotton pajama top and matching capri pants",
+      "short": "pajamas with capris",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -574,11 +645,15 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
       "text": "a {main} jersey nightgown with short sleeves",
+      "short": "jersey nightgown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -609,6 +684,7 @@
     },
     {
       "text": "a {main} knit hoodie and {neutral} lounge joggers",
+      "short": "hoodie and joggers",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -631,11 +707,16 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} silk camisole and matching loose pajama pants",
+      "short": "cami and pajama pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -666,6 +747,7 @@
     },
     {
       "text": "a {main} satin robe over a matching knee-length nightgown",
+      "short": "satin robe and nightgown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -697,6 +779,7 @@
     },
     {
       "text": "a {main} cotton kurta and loose {neutral} pajama pants",
+      "short": "kurta and pajama pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -726,6 +809,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -738,6 +825,7 @@
     },
     {
       "text": "a {main} jinbei jacket and matching cotton shorts",
+      "short": "jinbei",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -764,11 +852,16 @@
         ],
         "coverage": [
           "light"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} quilted robe over {neutral} thermal pajamas",
+      "short": "robe over thermals",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -796,6 +889,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -808,6 +905,7 @@
     },
     {
       "text": "a {main} sleeveless quilted lounge vest over a {accent} ribbed top and {neutral} wide cropped pants",
+      "short": "quilted lounge vest",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -827,11 +925,15 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
       "text": "a {main} velour zip jacket and matching lounge pants",
+      "short": "velour lounge set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -854,11 +956,16 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} cotton tunic and {neutral} sleep leggings",
+      "short": "tunic and sleep leggings",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -889,6 +996,7 @@
     },
     {
       "text": "a {main} waffle-knit henley and {neutral} lounge shorts",
+      "short": "henley and lounge shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -913,6 +1021,10 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -925,6 +1037,7 @@
     },
     {
       "text": "a {main} jersey lounge dress with loose elbow-length sleeves",
+      "short": "jersey lounge dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -955,6 +1068,7 @@
     },
     {
       "text": "a {main} cotton sleep shirt and matching cuffed shorts",
+      "short": "sleep shirt and shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -978,11 +1092,16 @@
         ],
         "coverage": [
           "light"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} fleece robe over {neutral} jersey pajamas",
+      "short": "fleece robe, pajamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1008,11 +1127,16 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} hooded lounge tunic and {neutral} stretch pants",
+      "short": "hooded lounge tunic",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1034,11 +1158,16 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} pointelle-knit long-sleeved sleep top and matching flared pants with broad {accent} lace ankle ruffles",
+      "short": "pointelle ruffle pajamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1070,6 +1199,7 @@
     },
     {
       "text": "a {main} cotton wrap robe over {neutral} sleep shorts",
+      "short": "wrap robe, sleep shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1093,11 +1223,16 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "an oversized {main} sweatshirt and {accent} jersey lounge shorts",
+      "short": "sweatshirt and shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1120,11 +1255,16 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} ankle-length jersey sleep dress with a racerback and deep side slits",
+      "short": "racerback sleep dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1152,6 +1292,7 @@
     },
     {
       "text": "a soft {main} wool bedgown over a white linen underdress",
+      "short": "bedgown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1187,6 +1328,7 @@
     },
     {
       "text": "a pair of {main} loose cotton boxer sleep shorts with a {accent} drawstring",
+      "short": "boxer sleep shorts",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1214,6 +1356,7 @@
     },
     {
       "text": "a {main} short-sleeved jersey sleep top and matching cropped harem pants",
+      "short": "harem pajamas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1233,11 +1376,16 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} bias-cut silk nightgown with a plunging lace-inset neckline and an open back",
+      "short": "silk slip nightgown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1266,6 +1414,7 @@
     },
     {
       "text": "a {main} sheer chiffon floor-length robe over a {accent} lace camisole and matching briefs",
+      "short": "sheer robe, cami, briefs",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1294,6 +1443,7 @@
     },
     {
       "text": "a quilted {main} silk sleeping robe over a white linen tunic",
+      "short": "quilted sleeping robe",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -1314,6 +1464,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1326,6 +1480,7 @@
     },
     {
       "text": "a {main} silk camisole with {accent} piping and matching sleep shorts",
+      "short": "silk cami, sleep shorts",
       "tier": "typical",
       "tags": {
         "kind": [
@@ -1357,6 +1512,7 @@
     },
     {
       "text": "a short {main} cotton nightgown with narrow straps and a gathered neckline",
+      "short": "short strappy nightgown",
       "tier": "typical",
       "tags": {
         "kind": [
@@ -1399,6 +1555,10 @@
       "light",
       "moderate",
       "full"
+    ],
+    "presentation": [
+      "feminine",
+      "masculine"
     ]
   },
   "context": {

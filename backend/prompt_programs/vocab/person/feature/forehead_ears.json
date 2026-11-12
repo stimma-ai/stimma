@@ -69,6 +69,7 @@
     },
     {
       "text": "a rounded forehead that curves forward",
+      "short": "rounded forehead",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -78,6 +79,7 @@
     },
     {
       "text": "a forehead that slopes back from the brow",
+      "short": "sloping forehead",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -96,6 +98,7 @@
     },
     {
       "text": "a heavy brow ridge above the eyes",
+      "short": "heavy brow ridge",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -112,6 +115,7 @@
     },
     {
       "text": "a slight ridge of bone just above the eyebrows",
+      "short": "slight brow ridge",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -127,6 +131,7 @@
     },
     {
       "text": "shallow hollows at the temples",
+      "short": "hollow temples",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -172,6 +177,7 @@
     },
     {
       "text": "a hairline that comes to a point in the middle",
+      "short": "widow's peak",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -190,6 +196,7 @@
     },
     {
       "text": "a low hairline close to the eyebrows",
+      "short": "low hairline",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -199,6 +206,7 @@
     },
     {
       "text": "a hairline that has drawn back at the temples",
+      "short": "receding at the temples",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -218,6 +226,7 @@
     },
     {
       "text": "a hairline far back on the crown",
+      "short": "high receding hairline",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -236,6 +245,7 @@
     },
     {
       "text": "a hairline with a tuft that grows upward at the front",
+      "short": "cowlick at the front",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -245,6 +255,7 @@
     },
     {
       "text": "a thinning hairline with the scalp showing through",
+      "short": "thinning hairline",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -260,6 +271,7 @@
     },
     {
       "text": "shallow dips in the hairline above both temples",
+      "short": "dips at both temples",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -275,6 +287,7 @@
     },
     {
       "text": "a hairline higher on one side than the other",
+      "short": "uneven hairline",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -284,6 +297,7 @@
     },
     {
       "text": "ears that lie flat against the head",
+      "short": "flat-lying ears",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -293,6 +307,7 @@
     },
     {
       "text": "ears that stand out from the head",
+      "short": "protruding ears",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -320,6 +335,7 @@
     },
     {
       "text": "ears with long, hanging lobes",
+      "short": "long hanging earlobes",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -338,6 +354,7 @@
     },
     {
       "text": "ears pointed slightly at the top",
+      "short": "slightly pointed ears",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -347,6 +364,7 @@
     },
     {
       "text": "one ear that stands out more than the other",
+      "short": "one ear stands out",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -356,6 +374,7 @@
     },
     {
       "text": "large ears with long, creased lobes",
+      "short": "large creased-lobe ears",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -369,6 +388,7 @@
     },
     {
       "text": "thickened, lumpy ears, as on a wrestler",
+      "short": "cauliflower ears",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -378,6 +398,7 @@
     },
     {
       "text": "ears set high, their tops above the line of the eyebrows",
+      "short": "high-set ears",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -387,6 +408,7 @@
     },
     {
       "text": "a crease running across each earlobe",
+      "short": "creased earlobes",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -401,6 +423,7 @@
     },
     {
       "text": "ears with the upper rim folded over",
+      "short": "folded ear rims",
       "tier": "unusual",
       "tags": {
         "aspect": [

@@ -14,6 +14,7 @@
     },
     {
       "text": "a head-and-shoulders portrait",
+      "short": "head and shoulders",
       "tier": "typical"
     },
     {
@@ -26,6 +27,7 @@
     },
     {
       "text": "a knee-up three-quarter shot",
+      "short": "knee-up shot",
       "tier": "typical"
     },
     {
@@ -34,6 +36,7 @@
     },
     {
       "text": "a wide environmental portrait",
+      "short": "environmental portrait",
       "tier": "typical"
     },
     {
@@ -42,6 +45,7 @@
     },
     {
       "text": "a loosely framed full-length portrait",
+      "short": "loose full-length",
       "tier": "plausible"
     },
     {
@@ -50,10 +54,12 @@
     },
     {
       "text": "a neck-to-waist torso crop",
+      "short": "neck-to-waist crop",
       "tier": "plausible"
     },
     {
       "text": "a panoramic environmental portrait",
+      "short": "panoramic portrait",
       "tier": "unusual"
     }
   ]

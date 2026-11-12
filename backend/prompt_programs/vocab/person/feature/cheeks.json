@@ -33,6 +33,7 @@
   "values": [
     {
       "text": "high, prominent cheekbones",
+      "short": "high cheekbones",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -45,6 +46,7 @@
     },
     {
       "text": "flat cheekbones that barely show",
+      "short": "flat cheekbones",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -75,6 +77,7 @@
     },
     {
       "text": "cheekbones that stand out sharply under thin skin",
+      "short": "sharp cheekbones",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -84,6 +87,7 @@
     },
     {
       "text": "narrow cheekbones set close to the nose",
+      "short": "narrow cheekbones",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -102,6 +106,7 @@
     },
     {
       "text": "cheekbones that stand forward of the rest of the face",
+      "short": "forward cheekbones",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -114,6 +119,7 @@
     },
     {
       "text": "cheekbones that curve back in a long shallow line toward the ears",
+      "short": "long sweeping cheekbones",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -123,6 +129,7 @@
     },
     {
       "text": "a shelf of cheekbone with the cheek falling away beneath it",
+      "short": "shelf of cheekbone",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -132,6 +139,7 @@
     },
     {
       "text": "one cheekbone set slightly higher than the other",
+      "short": "uneven cheekbones",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -175,6 +183,7 @@
     },
     {
       "text": "soft cheeks that fill out toward the jaw",
+      "short": "soft full cheeks",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -184,6 +193,7 @@
     },
     {
       "text": "sunken cheeks with a shadow under the cheekbones",
+      "short": "sunken cheeks",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -200,6 +210,7 @@
     },
     {
       "text": "plump cheeks that push up under the eyes",
+      "short": "plump cheeks",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -235,6 +246,7 @@
     },
     {
       "text": "a pad of fullness high on each cheek, just under the eye",
+      "short": "high cheek fullness",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -247,6 +259,7 @@
     },
     {
       "text": "fullness gathered low, in the bottom half of the cheeks",
+      "short": "low cheek fullness",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -262,6 +275,7 @@
     },
     {
       "text": "one cheek a little fuller than the other",
+      "short": "one cheek fuller",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -271,6 +285,7 @@
     },
     {
       "text": "wide cheeks, broader than the forehead",
+      "short": "wide cheeks",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -283,6 +298,7 @@
     },
     {
       "text": "cheeks that narrow from the cheekbones to the corners of the mouth",
+      "short": "tapering cheeks",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -292,6 +308,7 @@
     },
     {
       "text": "a dimple in each cheek at rest",
+      "short": "dimple in each cheek",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -301,6 +318,7 @@
     },
     {
       "text": "a dimple in one cheek only",
+      "short": "one-cheek dimple",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -310,6 +328,7 @@
     },
     {
       "text": "a shallow dimple just above one corner of the mouth",
+      "short": "dimple by the mouth",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -319,6 +338,7 @@
     },
     {
       "text": "a long shallow dimple running down one cheek",
+      "short": "long cheek dimple",
       "tier": "unusual",
       "tags": {
         "aspect": [

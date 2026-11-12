@@ -44,6 +44,7 @@
     },
     {
       "text": "round eyes showing the whole iris",
+      "short": "round eyes",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -53,6 +54,7 @@
     },
     {
       "text": "narrow eyes, long from corner to corner",
+      "short": "narrow eyes",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -62,6 +64,7 @@
     },
     {
       "text": "eyes that turn down at the outer corners",
+      "short": "downturned eyes",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -71,6 +74,7 @@
     },
     {
       "text": "eyes that tilt up at the outer corners",
+      "short": "upturned eyes",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -98,6 +102,7 @@
     },
     {
       "text": "eyes of slightly different sizes",
+      "short": "eyes of different sizes",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -107,6 +112,7 @@
     },
     {
       "text": "eyes wider toward the outer corners than the inner",
+      "short": "wide outer corners",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -116,6 +122,7 @@
     },
     {
       "text": "eyes with a smooth upper lid and no crease",
+      "short": "creaseless upper lids",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -128,6 +135,7 @@
     },
     {
       "text": "eyes with a deep crease in the upper lid",
+      "short": "deep lid crease",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -137,6 +145,7 @@
     },
     {
       "text": "hooded eyes, the upper lid hidden under the brow fold",
+      "short": "hooded eyes",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -146,6 +155,7 @@
     },
     {
       "text": "eyes with a fold of skin covering the inner corner",
+      "short": "epicanthic fold",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -158,6 +168,7 @@
     },
     {
       "text": "heavy upper lids that half cover the iris",
+      "short": "heavy-lidded eyes",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -167,6 +178,7 @@
     },
     {
       "text": "one lid creased and the other smooth",
+      "short": "one lid creased",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -176,6 +188,7 @@
     },
     {
       "text": "upper lids that droop at the outer corners",
+      "short": "drooping outer lids",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -190,6 +203,7 @@
     },
     {
       "text": "loose, folded upper lids resting on the lashes",
+      "short": "loose folded lids",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -212,6 +226,7 @@
     },
     {
       "text": "a high crease with a broad band of eyelid showing beneath the brow",
+      "short": "high lid crease",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -224,6 +239,7 @@
     },
     {
       "text": "full upper lids that narrow the opening of the eye",
+      "short": "full upper lids",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -236,6 +252,7 @@
     },
     {
       "text": "deep-set eyes shadowed by the brow",
+      "short": "deep-set eyes",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -270,6 +287,7 @@
     },
     {
       "text": "prominent eyes that stand forward from their sockets",
+      "short": "prominent eyes",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -279,6 +297,7 @@
     },
     {
       "text": "eyes set shallow, level with the brow and cheek",
+      "short": "shallow-set eyes",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -288,6 +307,7 @@
     },
     {
       "text": "eyes set high in the face",
+      "short": "high-set eyes",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -297,6 +317,7 @@
     },
     {
       "text": "eyes set low, with a tall forehead above them",
+      "short": "low-set eyes",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -306,6 +327,7 @@
     },
     {
       "text": "one eye that turns slightly inward",
+      "short": "one eye turned in",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -333,6 +355,7 @@
     },
     {
       "text": "straight lashes that point downward",
+      "short": "straight lowered lashes",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -342,6 +365,7 @@
     },
     {
       "text": "a visible gap of white beneath the iris",
+      "short": "white below the iris",
       "tier": "plausible",
       "tags": {
         "aspect": [

@@ -67,6 +67,7 @@
     },
     {
       "text": "a sharply angled jaw below the ears",
+      "short": "sharply angled jaw",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -83,6 +84,7 @@
     },
     {
       "text": "a jawline hidden under soft flesh",
+      "short": "soft hidden jawline",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -92,6 +94,7 @@
     },
     {
       "text": "a jaw that tapers in a straight line to the chin",
+      "short": "tapering jaw",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -101,6 +104,7 @@
     },
     {
       "text": "a heavy jaw, wider than the forehead",
+      "short": "heavy jaw",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -117,6 +121,7 @@
     },
     {
       "text": "an uneven jaw, longer on one side",
+      "short": "uneven jaw",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -126,6 +131,7 @@
     },
     {
       "text": "soft jowls on either side of the chin",
+      "short": "soft jowls",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -140,6 +146,7 @@
     },
     {
       "text": "loose jowls that blur the jawline",
+      "short": "loose jowls",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -153,6 +160,7 @@
     },
     {
       "text": "jaw corners that flare outward, wider than the neck below them",
+      "short": "flaring jaw corners",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -165,6 +173,7 @@
     },
     {
       "text": "a small jaw that curves straight into the chin",
+      "short": "small curving jaw",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -212,6 +221,7 @@
     },
     {
       "text": "a small chin that sits back from the lips",
+      "short": "receding chin",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -262,6 +272,7 @@
     },
     {
       "text": "a chin with a cleft down the middle",
+      "short": "cleft chin",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -271,6 +282,7 @@
     },
     {
       "text": "a chin with a dimple in its center",
+      "short": "dimpled chin",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -280,6 +292,7 @@
     },
     {
       "text": "a flat chin with a crease beneath the lower lip",
+      "short": "flat creased chin",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -305,6 +318,7 @@
     },
     {
       "text": "a small rounded chin beneath a wider jaw",
+      "short": "small round chin",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -314,6 +328,7 @@
     },
     {
       "text": "a deep crease between the lower lip and a rounded pad of chin",
+      "short": "deep chin crease",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -323,6 +338,7 @@
     },
     {
       "text": "a lower jaw set back, with the lower lip behind the upper",
+      "short": "overbite jaw",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -335,6 +351,7 @@
     },
     {
       "text": "a lower jaw set forward, with the lower lip in front of the upper",
+      "short": "underbite jaw",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -344,6 +361,7 @@
     },
     {
       "text": "a chin set slightly to one side",
+      "short": "off-center chin",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -384,6 +402,7 @@
     },
     {
       "text": "a fold of loose skin beneath the chin",
+      "short": "loose skin under chin",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -398,6 +417,7 @@
     },
     {
       "text": "loose, creased skin on the neck",
+      "short": "creased neck",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -411,6 +431,7 @@
     },
     {
       "text": "a soft fullness under the chin",
+      "short": "soft under the chin",
       "tier": "plausible",
       "tags": {
         "aspect": [

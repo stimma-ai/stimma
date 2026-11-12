@@ -84,6 +84,7 @@
     },
     {
       "text": "a short, softly broad nose",
+      "short": "short, broad nose",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -149,6 +150,7 @@
     },
     {
       "text": "a slight curve along the nose bridge",
+      "short": "slightly curved bridge",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -165,6 +167,7 @@
     },
     {
       "text": "a gently scooped nose bridge",
+      "short": "scooped bridge",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -192,6 +195,7 @@
     },
     {
       "text": "a nose bent slightly to one side",
+      "short": "nose bent to one side",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -208,6 +212,7 @@
     },
     {
       "text": "a nose with a thickened bridge, as if once broken",
+      "short": "once-broken nose",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -260,6 +265,7 @@
     },
     {
       "text": "a short, slightly upturned nose",
+      "short": "short upturned nose",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -269,6 +275,7 @@
     },
     {
       "text": "softly rounded, full nostrils",
+      "short": "full round nostrils",
       "tier": "typical",
       "tags": {
         "aspect": [

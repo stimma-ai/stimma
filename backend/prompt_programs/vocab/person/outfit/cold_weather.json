@@ -27,6 +27,7 @@
   "values": [
     {
       "text": "a {main} wool peacoat over a {accent} sweater and {neutral} pants",
+      "short": "peacoat and sweater",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -50,11 +51,16 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} quilted puffer jacket and {neutral} jeans",
+      "short": "puffer jacket and jeans",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -75,11 +81,16 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} wool overcoat and {neutral} tailored pants",
+      "short": "wool overcoat",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -103,11 +114,16 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} parka over a {accent} sweater and {neutral} jeans",
+      "short": "parka and sweater",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -129,11 +145,16 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} duffle coat and {neutral} wool pants",
+      "short": "duffle coat",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -157,11 +178,16 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} shearling jacket and faded {neutral} jeans",
+      "short": "shearling jacket, jeans",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -183,11 +209,16 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} fleece jacket and {neutral} insulated pants",
+      "short": "fleece, insulated pants",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -207,11 +238,16 @@
         ],
         "layering": [
           "layered"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} wool cape over a long {neutral} skirt",
+      "short": "wool cape, long skirt",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -253,6 +289,7 @@
     },
     {
       "text": "a {main} wool coat over a {accent} knitted dress",
+      "short": "wool coat, knitted dress",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -282,6 +319,7 @@
     },
     {
       "text": "a {main} puffer vest over a thick {accent} sweater and {neutral} jeans",
+      "short": "puffer vest and sweater",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -302,11 +340,16 @@
         ],
         "layering": [
           "layered"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} padded snowsuit with reinforced knees",
+      "short": "padded snowsuit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -329,11 +372,16 @@
         "layering": [
           "single layer",
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} belted wool coat and {neutral} wide-leg pants",
+      "short": "belted wool coat",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -355,11 +403,16 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} leather jacket over a {accent} wool sweater and {neutral} jeans",
+      "short": "leather jacket, sweater",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -381,11 +434,16 @@
         ],
         "layering": [
           "layered"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} waxed-cotton jacket and {neutral} wool pants",
+      "short": "waxed-cotton jacket",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -409,11 +467,16 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} wool poncho over a {accent} knit top and {neutral} pants",
+      "short": "wool poncho",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -441,6 +504,10 @@
         ],
         "layering": [
           "layered"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -452,6 +519,7 @@
     },
     {
       "text": "a {main} padded hanfu jacket and thick {neutral} pants",
+      "short": "padded hanfu jacket",
       "tier": "plausible",
       "tags": {
         "climate": [
@@ -480,11 +548,16 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} quilted hanten over a {accent} sweater and {neutral} pants",
+      "short": "hanten over sweater",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -509,11 +582,16 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} wool pheran over loose {neutral} pants",
+      "short": "pheran",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -544,6 +622,10 @@
         ],
         "region": [
           "south_asian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -555,6 +637,7 @@
     },
     {
       "text": "a {main} wool djellaba over a {accent} shirt and {neutral} pants",
+      "short": "wool djellaba",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -585,6 +668,10 @@
         ],
         "region": [
           "african"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -596,6 +683,7 @@
     },
     {
       "text": "a {main} padded coat over a {accent} abaya",
+      "short": "padded coat over abaya",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -628,6 +716,7 @@
     },
     {
       "text": "a {main} double-breasted overcoat over a {neutral} wool suit",
+      "short": "overcoat over a suit",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -655,11 +744,16 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} waterproof shell over a {accent} fleece and {neutral} insulated pants",
+      "short": "shell over fleece",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -679,11 +773,16 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a patched {main} wool coat and faded {neutral} pants",
+      "short": "patched wool coat",
       "tier": "plausible",
       "tags": {
         "climate": [
@@ -712,11 +811,16 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} cropped cocoon coat with balloon sleeves over a {accent} wool sweater and {neutral} tapered pants",
+      "short": "cocoon coat",
       "tier": "typical",
       "tags": {
         "climate": [
@@ -739,11 +843,15 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
       "text": "a {main} knee-length insulated cape with arm zips over a {accent} fleece jumpsuit",
+      "short": "insulated cape, jumpsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -763,11 +871,16 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a sheepskin mantle over a {main} gown and {neutral} wool stockings",
+      "short": "sheepskin mantle, gown",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -804,6 +917,7 @@
     },
     {
       "text": "a fur-lined {main} wool robe over a {accent} linen tunic and {neutral} pants",
+      "short": "fur-lined wool robe",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -826,6 +940,10 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -837,6 +955,7 @@
     },
     {
       "text": "a thick {main} felted coat over a {accent} woven tunic and {neutral} leggings",
+      "short": "felted coat, leggings",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -859,6 +978,10 @@
         ],
         "layering": [
           "heavy outerwear"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -870,6 +993,7 @@
     },
     {
       "text": "a {main} long quilted down coat over a {accent} ribbed turtleneck and {neutral} corduroy pants",
+      "short": "long down coat",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -880,11 +1004,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} shearling-lined aviator jacket over a {accent} cable-knit sweater and {neutral} wool pants",
+      "short": "aviator jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -895,11 +1024,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} boiled-wool jacket over a {accent} flannel shirt and {neutral} lined jeans",
+      "short": "boiled-wool jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -910,11 +1044,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} hooded fishtail parka over a {accent} knit tunic and {neutral} thermal leggings",
+      "short": "fishtail parka",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -925,11 +1064,15 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
       "text": "a {main} teddy-fleece coat over a {accent} long-sleeved jersey dress and {neutral} wool tights",
+      "short": "teddy coat, jersey dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -948,6 +1091,7 @@
     },
     {
       "text": "a {main} quilted liner jacket over a {accent} turtleneck and {neutral} brushed-cotton pants",
+      "short": "liner jacket, turtleneck",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -958,11 +1102,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} insulated bib overall with broad shoulder straps over a {accent} padded jacket with {neutral} knitted cuffs",
+      "short": "bib overall and jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -979,11 +1128,16 @@
         ],
         "era": [
           "contemporary"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} wool shirt jacket over a {accent} thermal henley and {neutral} corduroy pants",
+      "short": "shirt jacket and henley",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -994,11 +1148,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} belted padded wrap coat over a {accent} merino tunic and {neutral} wide-leg pants",
+      "short": "padded wrap coat",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1009,11 +1168,15 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
       "text": "a {main} funnel-neck wool coat over a {accent} cable-knit sweater and {neutral} checked pants",
+      "short": "funnel-neck wool coat",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1024,11 +1187,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} insulated seated-cut parka with a shortened back over {neutral} fleece-lined side-opening pants",
+      "short": "seated-cut parka",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1039,11 +1207,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} side-fastening padded cape over a {accent} wool sweater and {neutral} insulated pants",
+      "short": "side-fastening cape",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1054,11 +1227,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} chunky wool cardigan over a {accent} flannel shirt and {neutral} lined canvas pants",
+      "short": "chunky cardigan, flannel",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1069,11 +1247,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} double-faced sheepskin coat over a {accent} wool tunic and {neutral} leggings",
+      "short": "sheepskin coat, tunic",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1084,11 +1267,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} long padded vest over a {accent} wool coat and {neutral} straight pants",
+      "short": "long padded vest",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1099,11 +1287,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} wool greatcoat with a shoulder cape over a {accent} linen shirt and {neutral} high-waisted wool pants",
+      "short": "caped greatcoat",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1128,6 +1321,10 @@
           "steampunk",
           "scifi",
           "horror"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1139,6 +1336,7 @@
     },
     {
       "text": "a {main} quilted cotton jacket over a {accent} long-sleeved tunic and {neutral} padded pants",
+      "short": "quilted cotton jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1149,11 +1347,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} insulated parka with a {accent} chest panel and {neutral} fleece-lined pants",
+      "short": "insulated parka",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1164,11 +1367,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} felted-wool wrap jacket over a thick {accent} knitted dress and {neutral} thermal tights",
+      "short": "felted wrap, knit dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1187,6 +1395,7 @@
     },
     {
       "text": "a {main} ankle-length sleeveless quilted wrap over a {accent} cable-knit maxi dress and {neutral} wool tights",
+      "short": "quilted wrap, maxi knit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1214,6 +1423,7 @@
     },
     {
       "text": "a thick {main} wool turtleneck sweater and {neutral} fleece-lined corduroy pants",
+      "short": "turtleneck and corduroys",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1224,11 +1434,16 @@
         ],
         "climate": [
           "cold"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} long-sleeved heavy knitted maxi dress with {neutral} wool tights",
+      "short": "knitted maxi dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1252,6 +1467,10 @@
       "single layer",
       "layered",
       "heavy outerwear"
+    ],
+    "presentation": [
+      "feminine",
+      "masculine"
     ]
   },
   "context": {

@@ -35,6 +35,7 @@
   "values": [
     {
       "text": "an oval face, a little longer than it is wide",
+      "short": "oval face",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -44,6 +45,7 @@
     },
     {
       "text": "a round face, about as wide as it is long",
+      "short": "round face",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -62,6 +64,7 @@
     },
     {
       "text": "a square face with a wide forehead and a wide jaw",
+      "short": "square face",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -71,6 +74,7 @@
     },
     {
       "text": "a heart-shaped face, wide at the forehead and narrow at the chin",
+      "short": "heart-shaped face",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -80,6 +84,7 @@
     },
     {
       "text": "a face widest at the cheekbones, narrowing above and below",
+      "short": "diamond face",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -89,6 +94,7 @@
     },
     {
       "text": "a rectangular face, long with straight sides",
+      "short": "rectangular face",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -105,6 +111,7 @@
     },
     {
       "text": "a face widest at the jaw, narrowing toward the forehead",
+      "short": "pear-shaped face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -123,6 +130,7 @@
     },
     {
       "text": "a face that tapers evenly from the temples to a narrow chin",
+      "short": "tapering face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -132,6 +140,7 @@
     },
     {
       "text": "a very long face with a high forehead and a long chin",
+      "short": "very long face",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -148,6 +157,7 @@
     },
     {
       "text": "a face with almost straight sides from the temples to the jaw",
+      "short": "straight-sided face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -157,6 +167,7 @@
     },
     {
       "text": "a face only a little longer than it is wide",
+      "short": "nearly square face",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -166,6 +177,7 @@
     },
     {
       "text": "a compact face, short from brow to chin",
+      "short": "compact face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -175,6 +187,7 @@
     },
     {
       "text": "a full, fleshy face with soft edges",
+      "short": "full, fleshy face",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -184,6 +197,7 @@
     },
     {
       "text": "a lean face with the bones showing under the skin",
+      "short": "lean, bony face",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -199,6 +213,7 @@
     },
     {
       "text": "a gaunt face with sunken temples",
+      "short": "gaunt face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -215,6 +230,7 @@
     },
     {
       "text": "a plump face with a soft double chin",
+      "short": "plump face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -224,6 +240,7 @@
     },
     {
       "text": "a baby-round face with full cheeks and a small chin",
+      "short": "baby-round face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -237,6 +254,7 @@
     },
     {
       "text": "a face that has grown heavier in its lower half",
+      "short": "heavier lower face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -251,6 +269,7 @@
     },
     {
       "text": "a thin face with loose skin over the bones",
+      "short": "thin, loose-skinned face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -264,6 +283,7 @@
     },
     {
       "text": "features set close together in the middle of a broad face",
+      "short": "close-set features",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -273,6 +293,7 @@
     },
     {
       "text": "features spread wide across the face",
+      "short": "wide-set features",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -282,6 +303,7 @@
     },
     {
       "text": "a large forehead above small, low-set features",
+      "short": "large forehead",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -291,6 +313,7 @@
     },
     {
       "text": "a long lower face, with a wide gap between nose and chin",
+      "short": "long lower face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -300,6 +323,7 @@
     },
     {
       "text": "a tall forehead that takes up a large share of the face",
+      "short": "tall forehead",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -309,6 +333,7 @@
     },
     {
       "text": "a short forehead, with most of the face below the brows",
+      "short": "short forehead",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -318,6 +343,7 @@
     },
     {
       "text": "a short lower face, with the chin close under the mouth",
+      "short": "short lower face",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -327,6 +353,7 @@
     },
     {
       "text": "a slightly uneven face, one side a little fuller than the other",
+      "short": "slightly uneven face",
       "tier": "typical",
       "tags": {
         "aspect": [
@@ -336,6 +363,7 @@
     },
     {
       "text": "one eye set a little higher than the other",
+      "short": "one eye higher",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -345,6 +373,7 @@
     },
     {
       "text": "a mouth that sits slightly to one side",
+      "short": "off-center mouth",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -354,6 +383,7 @@
     },
     {
       "text": "a nose and chin that lean slightly to the same side",
+      "short": "nose and chin askew",
       "tier": "plausible",
       "tags": {
         "aspect": [
@@ -363,6 +393,7 @@
     },
     {
       "text": "a clearly lopsided face, the jaw wider on one side",
+      "short": "lopsided face",
       "tier": "unusual",
       "tags": {
         "aspect": [
@@ -372,6 +403,7 @@
     },
     {
       "text": "a chin that sits a little off the line of the nose",
+      "short": "off-center chin",
       "tier": "plausible",
       "tags": {
         "aspect": [

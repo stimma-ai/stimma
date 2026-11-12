@@ -27,6 +27,7 @@
   "values": [
     {
       "text": "a {main} blazer, {accent} shirt, and {neutral} tailored pants",
+      "short": "blazer, shirt and pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -54,6 +55,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -68,6 +73,7 @@
     },
     {
       "text": "a {main} wool suit with a {accent} shirt",
+      "short": "wool suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -95,6 +101,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -109,6 +119,7 @@
     },
     {
       "text": "a {main} linen blazer and matching tapered pants",
+      "short": "linen blazer set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -135,6 +146,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -149,6 +164,7 @@
     },
     {
       "text": "a {accent} silk blouse and {main} cigarette pants",
+      "short": "blouse, cigarette pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -189,6 +205,7 @@
     },
     {
       "text": "a {main} turtleneck and {neutral} wool dress pants",
+      "short": "turtleneck, dress pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -212,6 +229,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -226,6 +247,7 @@
     },
     {
       "text": "a {main} tweed blazer and {neutral} straight-leg jeans",
+      "short": "tweed blazer and jeans",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -250,6 +272,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -264,6 +290,7 @@
     },
     {
       "text": "a {main} knit polo and {neutral} tailored chinos",
+      "short": "knit polo and chinos",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -288,6 +315,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -302,6 +333,7 @@
     },
     {
       "text": "a {accent} Oxford shirt and {main} pleated pants",
+      "short": "Oxford, pleated pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -328,6 +360,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -342,6 +378,7 @@
     },
     {
       "text": "a {main} blouse and a {neutral} pencil skirt",
+      "short": "blouse and pencil skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -382,6 +419,7 @@
     },
     {
       "text": "a {main} cardigan over a {accent} shirt and {neutral} pants",
+      "short": "cardigan over shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -408,6 +446,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -422,6 +464,7 @@
     },
     {
       "text": "a {main} pinstriped suit with a {accent} cotton shirt",
+      "short": "pinstriped suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -449,6 +492,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -463,6 +510,7 @@
     },
     {
       "text": "a {main} vest over a {accent} shirt and {neutral} pants",
+      "short": "vest, shirt and pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -489,6 +537,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -503,6 +555,7 @@
     },
     {
       "text": "a {accent} jersey top and a {main} pantsuit",
+      "short": "pantsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -527,6 +580,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -541,6 +597,7 @@
     },
     {
       "text": "a {main} sheath dress with a cropped {accent} jacket",
+      "short": "sheath dress and jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -581,6 +638,7 @@
     },
     {
       "text": "a {main} wool skirt suit with a {accent} silk blouse",
+      "short": "skirt suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -625,6 +683,7 @@
     },
     {
       "text": "a {main} collarless jacket and matching straight pants",
+      "short": "collarless jacket set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -650,6 +709,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -664,6 +727,7 @@
     },
     {
       "text": "a {main} shift dress with three-quarter sleeves",
+      "short": "shift dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -704,6 +768,7 @@
     },
     {
       "text": "a {main} shirt dress with a structured waist",
+      "short": "shirt dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -745,6 +810,7 @@
     },
     {
       "text": "a {accent} knit twinset and a {main} pencil skirt",
+      "short": "twinset, pencil skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -785,6 +851,7 @@
     },
     {
       "text": "a {main} sweater vest over a {accent} shirt and {neutral} pants",
+      "short": "sweater vest over shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -809,6 +876,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -823,6 +894,7 @@
     },
     {
       "text": "a {accent} turtleneck and a {main} checked midi skirt",
+      "short": "turtleneck, checked midi",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -864,6 +936,7 @@
     },
     {
       "text": "a {main} belted jumpsuit with a tailored collar",
+      "short": "belted jumpsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -888,6 +961,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -902,6 +978,7 @@
     },
     {
       "text": "a {accent} blouse and a {main} pinafore midi dress",
+      "short": "blouse and pinafore",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -943,6 +1020,7 @@
     },
     {
       "text": "a {main} linen vest and matching pleated pants",
+      "short": "linen vest set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -969,6 +1047,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -983,6 +1065,7 @@
     },
     {
       "text": "a {accent} tunic blouse and {neutral} palazzo pants",
+      "short": "tunic blouse, palazzos",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1024,6 +1107,7 @@
     },
     {
       "text": "a {main} silk kurta and {neutral} straight pants",
+      "short": "silk kurta",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1055,6 +1139,10 @@
         ],
         "region": [
           "south_asian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1069,6 +1157,7 @@
     },
     {
       "text": "a {main} band-collar jacket and matching tailored pants",
+      "short": "band-collar suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1092,6 +1181,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1106,6 +1199,7 @@
     },
     {
       "text": "a {main} cotton sari with a {accent} tailored blouse",
+      "short": "sari, tailored blouse",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1154,6 +1248,7 @@
     },
     {
       "text": "a {main} salwar kameez with fine tonal embroidery",
+      "short": "tonal salwar kameez",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1202,6 +1297,7 @@
     },
     {
       "text": "a {main} tailored abaya over a {accent} crepe dress",
+      "short": "tailored abaya",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1246,6 +1342,7 @@
     },
     {
       "text": "a crisp white kandura with structured collar and cuffs",
+      "short": "kandura",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1283,6 +1380,7 @@
     },
     {
       "text": "a {main} batik shirt and pressed {neutral} pants",
+      "short": "batik shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1310,6 +1408,10 @@
         ],
         "region": [
           "southeast_asian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1324,6 +1426,7 @@
     },
     {
       "text": "a short-sleeved cotton barong Tagalog and {neutral} tailored pants",
+      "short": "barong Tagalog",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1368,6 +1471,7 @@
     },
     {
       "text": "a {accent} silk blouse and a tailored {main} batik skirt",
+      "short": "blouse and batik skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1412,6 +1516,7 @@
     },
     {
       "text": "a {main} embroidered guayabera and {neutral} dress pants",
+      "short": "embroidered guayabera",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1439,6 +1544,10 @@
         ],
         "region": [
           "latin_american"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1453,6 +1562,7 @@
     },
     {
       "text": "a {main} tang jacket and {neutral} tailored pants",
+      "short": "tang jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1480,6 +1590,10 @@
         ],
         "region": [
           "east_asian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1494,6 +1608,7 @@
     },
     {
       "text": "a {main} wax-print jacket and {neutral} tailored pants",
+      "short": "wax-print jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1521,6 +1636,10 @@
         ],
         "region": [
           "african"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1535,6 +1654,7 @@
     },
     {
       "text": "a {main} kaftan with structured shoulders and matching pants",
+      "short": "structured kaftan set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1562,6 +1682,10 @@
         ],
         "region": [
           "african"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1576,6 +1700,7 @@
     },
     {
       "text": "a {main} sleeveless knee-length tailored vest over a {accent} shirt dress and {neutral} opaque tights",
+      "short": "vest over shirt dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1613,6 +1738,7 @@
     },
     {
       "text": "a {main} cape-back blazer over a {accent} shell top and {neutral} split-hem cigarette pants",
+      "short": "cape-back blazer",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1633,6 +1759,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1647,6 +1776,7 @@
     },
     {
       "text": "a {main} structured sleeveless coatdress with a notched collar and a flared knee-length hem",
+      "short": "coatdress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1684,6 +1814,7 @@
     },
     {
       "text": "a {main} cropped wrap jacket over a {accent} mock-neck top and a {neutral} asymmetrically pleated midi skirt",
+      "short": "wrap jacket, midi skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1721,6 +1852,7 @@
     },
     {
       "text": "a {main} sleeveless longline blazer over a {accent} fine-knit top and {neutral} flared pants",
+      "short": "longline vest, flares",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1741,6 +1873,9 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1755,6 +1890,7 @@
     },
     {
       "text": "a {main} fitted peplum jacket over a {accent} silk shell and a {neutral} calf-length trumpet skirt",
+      "short": "peplum jacket, trumpet",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1792,6 +1928,7 @@
     },
     {
       "text": "a {main} box-pleated overshirt with a wide belt over a {accent} cotton top and {neutral} tapered pants",
+      "short": "belted overshirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1812,6 +1949,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1826,6 +1967,7 @@
     },
     {
       "text": "a {main} cropped bolero jacket over a {accent} poplin shirt and matching high-waisted wide-leg pants",
+      "short": "bolero, wide-leg pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1847,6 +1989,9 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1861,6 +2006,7 @@
     },
     {
       "text": "a {main} herringbone jacket over a {accent} merino crew-neck and {neutral} flannel slacks",
+      "short": "herringbone and flannels",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1872,6 +2018,10 @@
         "occasion": [
           "business formal",
           "client meeting"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1886,6 +2036,7 @@
     },
     {
       "text": "a {main} short-sleeved camp-collar linen shirt and {neutral} pressed cotton pants",
+      "short": "camp-collar linen shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1897,6 +2048,10 @@
         "occasion": [
           "business casual",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1911,6 +2066,7 @@
     },
     {
       "text": "a {main} sleeveless tailored vest and matching Bermuda shorts",
+      "short": "vest and Bermudas",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1922,6 +2078,9 @@
         "occasion": [
           "smart casual",
           "creative workplace"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -1936,6 +2095,7 @@
     },
     {
       "text": "a {main} sleeveless mock-neck top and {neutral} high-waisted culottes",
+      "short": "mock-neck and culottes",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1964,6 +2124,7 @@
     },
     {
       "text": "a {main} longline crepe blazer over a {accent} silk shell and {neutral} wide-leg pants",
+      "short": "longline crepe blazer",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1992,6 +2153,7 @@
     },
     {
       "text": "a {main} belted cotton midi dress with a wide sailor collar and a sharply pleated skirt",
+      "short": "sailor-collar midi dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2029,6 +2191,7 @@
     },
     {
       "text": "a {main} cropped box jacket over a {accent} ribbed tank and {neutral} pleated pants",
+      "short": "box jacket, pleats",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2040,6 +2203,9 @@
         "occasion": [
           "creative workplace",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -2054,6 +2220,7 @@
     },
     {
       "text": "a {main} wrap-front long-sleeved blouse and {neutral} straight wool pants",
+      "short": "wrap blouse, wool pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2082,6 +2249,7 @@
     },
     {
       "text": "a {main} fine-knit short-sleeved sweater and a {accent} pleated midi skirt",
+      "short": "knit tee, pleated midi",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2110,6 +2278,7 @@
     },
     {
       "text": "a {main} long-sleeved crepe tunic with side slits and matching ankle-length pants",
+      "short": "crepe tunic set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2121,6 +2290,9 @@
         "occasion": [
           "business formal",
           "client meeting"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -2135,6 +2307,7 @@
     },
     {
       "text": "a {main} seated-cut blazer with front patch pockets and matching elastic-back dress pants over a {accent} cotton shirt",
+      "short": "seated-cut suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2146,6 +2319,10 @@
         "occasion": [
           "business formal",
           "interview"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2160,6 +2337,7 @@
     },
     {
       "text": "a {main} magnetic-button cotton shirt and {neutral} side-opening tailored pants",
+      "short": "magnetic-button shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2171,6 +2349,10 @@
         "occasion": [
           "business casual",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2185,6 +2367,7 @@
     },
     {
       "text": "a {main} sleeveless wrap jumpsuit with wide legs and a tied waist",
+      "short": "wrap jumpsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2213,6 +2396,7 @@
     },
     {
       "text": "a {main} long-sleeved silk shirt with a concealed placket and {neutral} tapered dress pants",
+      "short": "silk shirt, dress pants",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2224,6 +2408,10 @@
         "occasion": [
           "business formal",
           "client meeting"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2238,6 +2426,7 @@
     },
     {
       "text": "a {main} short-sleeved peplum blouse and a {neutral} knee-length pencil skirt",
+      "short": "peplum blouse, pencil",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2266,6 +2455,7 @@
     },
     {
       "text": "a {main} corduroy blazer over a {accent} jersey turtleneck and {neutral} pleated chinos",
+      "short": "corduroy blazer",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2277,6 +2467,10 @@
         "occasion": [
           "creative workplace",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2291,6 +2485,7 @@
     },
     {
       "text": "a {main} ribbed knitted capelet over a {accent} cotton shirt and {neutral} wool pants",
+      "short": "knitted capelet",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2311,6 +2506,9 @@
           "scifi",
           "cyberpunk",
           "horror"
+        ],
+        "presentation": [
+          "feminine"
         ]
       },
       "palette": {
@@ -2325,6 +2523,7 @@
     },
     {
       "text": "a {main} asymmetric crepe tunic with elbow sleeves and {neutral} cropped pants",
+      "short": "asymmetric tunic",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2353,6 +2552,7 @@
     },
     {
       "text": "a {main} long-sleeved cotton kurta beneath a {accent} woven vest with {neutral} straight pants",
+      "short": "kurta and woven vest",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2384,6 +2584,7 @@
     },
     {
       "text": "a {main} long-sleeved belted tunic and matching tapered pants with pintucked seams",
+      "short": "pintucked tunic set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2395,6 +2596,10 @@
         "occasion": [
           "business casual",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2409,6 +2614,7 @@
     },
     {
       "text": "a {main} sleeveless linen shift dress with a square neckline and knee-length hem",
+      "short": "square-neck shift dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2437,6 +2643,7 @@
     },
     {
       "text": "a {main} knitted polo dress with elbow-length sleeves and a calf-length flared skirt",
+      "short": "knitted polo dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2465,6 +2672,7 @@
     },
     {
       "text": "a {main} double-breasted wool blazer over a {accent} silk shirt and {neutral} straight pants",
+      "short": "double-breasted blazer",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2476,6 +2684,10 @@
         "occasion": [
           "business formal",
           "client meeting"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2490,6 +2702,7 @@
     },
     {
       "text": "a {main} patch-pocket cotton jacket over a {accent} knitted polo and {neutral} tailored drawstring pants",
+      "short": "patch-pocket jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2501,6 +2714,10 @@
         "occasion": [
           "creative workplace",
           "smart casual"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2528,6 +2745,10 @@
       "light",
       "moderate",
       "full"
+    ],
+    "presentation": [
+      "feminine",
+      "masculine"
     ]
   },
   "context": {

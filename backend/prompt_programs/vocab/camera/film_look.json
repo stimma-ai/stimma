@@ -10,6 +10,7 @@
   "values": [
     {
       "text": "fine 35mm film grain and muted colors",
+      "short": "fine 35mm grain",
       "tier": "typical"
     },
     {
@@ -18,130 +19,162 @@
     },
     {
       "text": "high-contrast black-and-white grain",
+      "short": "high-contrast B&W grain",
       "tier": "typical"
     },
     {
       "text": "soft highlight halation and warm color grading",
+      "short": "halation, warm grade",
       "tier": "typical"
     },
     {
       "text": "rich color and deep clean shadows",
+      "short": "rich color, deep shadows",
       "tier": "typical"
     },
     {
       "text": "gentle contrast and pastel colors",
+      "short": "soft pastel film",
       "tier": "typical"
     },
     {
       "text": "neutral color and smooth tonal gradients",
+      "short": "neutral, smooth tones",
       "tier": "typical"
     },
     {
       "text": "cool shadows and warm highlights",
+      "short": "cool shadows, warm highs",
       "tier": "typical"
     },
     {
       "text": "clean monochrome tones and fine detail",
+      "short": "clean monochrome",
       "tier": "typical"
     },
     {
       "text": "coarse grain and saturated primary colors",
+      "short": "coarse saturated grain",
       "tier": "plausible"
     },
     {
       "text": "silvery monochrome midtones and luminous highlights",
+      "short": "silvery monochrome",
       "tier": "plausible"
     },
     {
       "text": "a faded matte finish and warm paper tones",
+      "short": "faded matte, warm paper",
       "tier": "plausible"
     },
     {
       "text": "a magenta cast and streaked emulsion damage",
+      "short": "damaged magenta film",
       "tier": "unusual"
     },
     {
       "text": "bleach-bypass contrast and reduced saturation",
+      "short": "bleach bypass",
       "tier": "plausible"
     },
     {
       "text": "cross-processed green shadows and yellow highlights",
+      "short": "cross-processed",
       "tier": "plausible"
     },
     {
       "text": "subtle red light leaks along the frame edge",
+      "short": "red light leaks",
       "tier": "unusual"
     },
     {
       "text": "uneven exposure and darkened corners",
+      "short": "uneven, dark corners",
       "tier": "plausible"
     },
     {
       "text": "monochrome lith-print texture and gritty shadow clumps",
+      "short": "lith print",
       "tier": "plausible"
     },
     {
       "text": "warm sepia toning and visible paper fibers",
+      "short": "sepia toning",
       "tier": "plausible"
     },
     {
       "text": "a cool selenium-toned monochrome finish",
+      "short": "selenium-toned",
       "tier": "plausible"
     },
     {
       "text": "infrared monochrome tones and pale foliage",
+      "short": "infrared monochrome",
       "tier": "unusual"
     },
     {
       "text": "false-color infrared tones and crimson foliage",
+      "short": "false-color infrared",
       "tier": "unusual"
     },
     {
       "text": "a solarized silver outline around high-contrast edges",
+      "short": "solarized",
       "tier": "unusual"
     },
     {
       "text": "a glossy instant-print finish and uneven color development",
+      "short": "instant print",
       "tier": "plausible"
     },
     {
       "text": "an ultraviolet fluorescence palette against dark shadows",
+      "short": "ultraviolet fluorescence",
       "tier": "unusual"
     },
     {
       "text": "faint scratches and dust flecks across the image",
+      "short": "scratches and dust",
       "tier": "plausible"
     },
     {
       "text": "the mirrorlike silver surface of an early photographic plate",
+      "short": "daguerreotype",
       "tier": "plausible"
     },
     {
       "text": "the brown-gray tones and irregular edges of a wet-plate portrait",
+      "short": "wet-plate collodion",
       "tier": "plausible"
     },
     {
       "text": "the hand-tinted colors of an early postcard photograph",
+      "short": "hand-tinted postcard",
       "tier": "plausible"
     },
     {
       "text": "the bold dye colors of a mid-century color transparency",
+      "short": "mid-century slide film",
       "tier": "plausible"
     },
     {
       "text": "the warm fading and rounded corners of a seventies snapshot",
+      "short": "seventies snapshot",
       "tier": "plausible"
     },
     {
       "text": "the harsh color noise and scan lines of an analog video still",
+      "short": "analog video still",
       "tier": "unusual"
     },
     {
       "text": "the blocky pixels and narrow tonal range of an early digital photograph",
+      "short": "early digital photo",
       "tier": "unusual"
     },
     {
       "text": "a cyanotype-blue monochrome print texture",
+      "short": "cyanotype",
       "tier": "unusual"
     }
   ],

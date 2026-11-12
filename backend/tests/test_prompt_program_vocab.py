@@ -997,3 +997,125 @@ class TestRetiredAgeRanges:
         ages = [0 if v.text == "newborn" else int(v.text.split("-")[0]) for v in leaf.values]
         assert ages == list(range(111))
         assert all(v.opt_in == (a < 18) and v.minor == (a < 18) for v, a in zip(leaf.values, ages))
+
+
+class TestOutfitsKnowWhoTheyAreFor:
+    """Every outfit says who it is conventionally worn by, so a man asked for by name isn't
+    drawn a dress. An outfit anyone wears carries both parts."""
+
+    OUTFITS = ("athletic", "casual", "cold_weather", "fantasy", "formal", "period", "scifi", "sleep_lounge", "smart", "summer")
+    # Checked by hand against the lists: worn by women, never left for a man.
+    FEMININE = {
+        "person.outfit.casual": ["a {main} knee-length jersey dress with short sleeves",
+                                 "a {main} sweatshirt and {neutral} jersey leggings"],
+        "person.outfit.cold_weather": ["a {main} teddy-fleece coat over a {accent} long-sleeved jersey dress and {neutral} wool tights"],
+        "person.outfit.smart": ["a {main} blouse and a {neutral} pencil skirt", "a {accent} jersey top and a {main} pantsuit"],
+        "person.outfit.formal": ["a {main} satin gown with a full skirt", "a {main} crepe jumpsuit with wide tailored legs"],
+        "person.outfit.summer": ["a {main} cotton sundress with a gathered waist"],
+        "person.outfit.sleep_lounge": ["a white cotton nightgown with long sleeves"],
+        "person.outfit.period": ["a {main} wool kirtle over a cream linen shift"],
+        "person.outfit.fantasy": ["a {main} hooded cloak over a {neutral} wool dress"],
+    }
+    # Worn by anyone: left for both.
+    ANYONE = {
+        "person.outfit.casual": ["a {main} cotton T-shirt and straight blue jeans"],
+        "person.outfit.smart": ["a {main} wool suit with a {accent} shirt"],
+        "person.outfit.athletic": ["a white cotton karate gi with matching pants"],
+        "person.outfit.scifi": ["a {main} flight jumpsuit with {accent} reinforced seams"],
+    }
+
+    def leaves(self):
+        v = vocabulary()
+        return [v.get(f"person.outfit.{n}") for n in self.OUTFITS]
+
+    def test_every_outfit_carries_a_presentation(self):
+        for leaf in self.leaves():
+            assert leaf.local_facets["presentation"] == ("feminine", "masculine"), leaf.id
+            for x in leaf.values:
+                got = x.tags.get("presentation")
+                assert got and set(got) <= {"feminine", "masculine"}, (leaf.id, x.text)
+
+    def test_the_masculine_part_leaves_no_dresses(self):
+        from prompt_programs.vocab import tags_match
+        v = vocabulary()
+        for lid, texts in self.FEMININE.items():
+            leaf = v.get(lid)
+            men = {x.text for x in leaf.values if tags_match(x.tags, {"presentation": "masculine"})}
+            women = {x.text for x in leaf.values if tags_match(x.tags, {"presentation": "feminine"})}
+            for t in texts:
+                assert leaf.value(t) is not None, t
+                assert t not in men and t in women, t
+        for lid, texts in self.ANYONE.items():
+            leaf = v.get(lid)
+            for t in texts:
+                assert set(leaf.value(t).tags["presentation"]) == {"feminine", "masculine"}, t
+
+
+class TestShortForms:
+    """The chooser shows a chosen value in a small pill, so every value the person, camera and
+    light builders draw from has a name short enough for one. A face is composed of pieces,
+    each with its own short form, so the composed list is left out."""
+
+    ROOTS = ("person.", "camera.", "lighting.")
+    LIMIT = 24
+
+    def leaves(self):
+        return [lf for lf in vocabulary().leaves.values()
+                if lf.id.startswith(self.ROOTS) and lf.id != "person.face"]
+
+    def test_every_long_value_has_a_short_form_that_fits(self):
+        from prompt_programs.vocab import is_template
+        leaves = self.leaves()
+        assert len(leaves) > 40
+        for leaf in leaves:
+            for v in leaf.values:
+                if v.short:
+                    assert 0 < len(v.short) <= self.LIMIT, (leaf.id, v.short)
+                    assert not is_template(v.short) and "{" not in v.short, (leaf.id, v.short)
+                    assert v.short.split(" ")[0].lower() not in ("a", "an", "the"), (leaf.id, v.short)
+                else:
+                    assert len(v.text) <= self.LIMIT, (leaf.id, v.text)
+
+    def test_the_loader_reads_the_short_form_and_falls_back_to_the_value(self):
+        v = vocabulary()
+        outfit = v.get("person.outfit.casual")
+        assert outfit.short("a {main} flannel shirt and {neutral} denim jeans") == "flannel shirt and jeans"
+        # A drawn outfit is the template filled with colors; its pill names no colors.
+        assert outfit.short("a red flannel shirt and navy denim jeans") == "flannel shirt and jeans"
+        light = v.get("lighting.natural")
+        assert light.short("low golden-hour sun raking across the scene") == "golden hour"
+        assert v.get("person.eye_color").short("hazel") == "hazel"
+        assert outfit.short("something the list never had") == "something the list never had"
+        assert any(x.get("short") for lf in v.to_dict()["leaves"] if lf["id"] == "lighting.natural" for x in lf["values"])
+
+
+class TestDogBreeds:
+    """A teaching list: about two hundred real breeds nobody could name from memory, browsed by
+    breed group, with size to narrow by and the common breeds drawn most."""
+
+    def test_about_two_hundred_breeds_each_once(self):
+        leaf = vocabulary().get("animal.dog_breed")
+        texts = [v.text for v in leaf.values]
+        assert 200 <= len(texts) <= 240
+        assert len({t.lower() for t in texts}) == len(texts)
+
+    def test_every_breed_sits_in_one_group_with_a_size(self):
+        from prompt_programs.fluent import list_parts
+        leaf = vocabulary().get("animal.dog_breed")
+        groups, sizes = leaf.local_facets["breed_group"], leaf.local_facets["size"]
+        assert {"herding", "hound", "sighthound", "terrier", "toy", "working", "sporting"} <= set(groups)
+        for v in leaf.values:
+            assert len(v.tags["breed_group"]) == 1 and v.tags["breed_group"][0] in groups, v.text
+            assert len(v.tags["size"]) == 1 and v.tags["size"][0] in sizes, v.text
+        texts = [v.text for v in leaf.values]
+        parts = list_parts(leaf, texts)
+        assert parts["name"] == "breed_group" and len(parts["of"]) == len(texts)
+
+    def test_common_breeds_are_typical_and_rare_ones_are_not(self):
+        leaf = vocabulary().get("animal.dog_breed")
+        tier = {v.text: v.tier for v in leaf.values}
+        for t in ("Labrador retriever", "golden retriever", "German shepherd", "beagle", "French bulldog"):
+            assert tier[t] == "typical", t
+        for t in ("Azawakh", "Lancashire heeler", "Kishu Ken", "Bergamasco", "otterhound"):
+            assert tier[t] == "unusual", t
+        assert sum(1 for x in tier.values() if x == "typical") < len(tier) // 5

@@ -10,6 +10,7 @@
   "values": [
     {
       "text": "a large softbox from camera left",
+      "short": "softbox camera left",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -22,6 +23,7 @@
     },
     {
       "text": "a white shoot-through umbrella",
+      "short": "shoot-through umbrella",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -34,6 +36,7 @@
     },
     {
       "text": "a ring light around the lens",
+      "short": "ring light",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -58,6 +61,7 @@
     },
     {
       "text": "a beauty dish above the camera",
+      "short": "beauty dish",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -70,6 +74,7 @@
     },
     {
       "text": "a bounced flash aimed at the ceiling",
+      "short": "ceiling-bounced flash",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -82,6 +87,7 @@
     },
     {
       "text": "a soft key light and a white fill card",
+      "short": "soft key and fill card",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -94,6 +100,7 @@
     },
     {
       "text": "two large softboxes flanking the camera",
+      "short": "two flanking softboxes",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -106,6 +113,7 @@
     },
     {
       "text": "a single bare studio strobe",
+      "short": "bare strobe",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -118,6 +126,7 @@
     },
     {
       "text": "a warm rectangular LED panel beside the camera",
+      "short": "warm LED panel",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -131,6 +140,7 @@
     },
     {
       "text": "a three-light portrait setup",
+      "short": "three-light setup",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -144,6 +154,7 @@
     },
     {
       "text": "a silver reflective umbrella",
+      "short": "silver umbrella",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -156,6 +167,7 @@
     },
     {
       "text": "a gridded strip softbox placed as a rear rim light",
+      "short": "strip-box rim light",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -170,6 +182,7 @@
     },
     {
       "text": "a snooted strobe aimed at the face",
+      "short": "snooted strobe",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -184,6 +197,7 @@
     },
     {
       "text": "a clamshell arrangement of two softboxes",
+      "short": "clamshell lighting",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -196,6 +210,7 @@
     },
     {
       "text": "a split-lighting setup with a hard side key",
+      "short": "split lighting",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -210,6 +225,7 @@
     },
     {
       "text": "a loop-lighting setup with a small softbox",
+      "short": "loop lighting",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -222,6 +238,7 @@
     },
     {
       "text": "a broad-lighting setup illuminating the near cheek",
+      "short": "broad lighting",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -234,6 +251,7 @@
     },
     {
       "text": "a large overhead diffusion silk",
+      "short": "overhead silk",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -246,6 +264,7 @@
     },
     {
       "text": "a strobe reflected from a silver card",
+      "short": "silver-card bounce",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -258,6 +277,7 @@
     },
     {
       "text": "a warm gold reflector beneath the face",
+      "short": "gold reflector below",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -271,6 +291,7 @@
     },
     {
       "text": "a feathered softbox key light",
+      "short": "feathered softbox",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -283,6 +304,7 @@
     },
     {
       "text": "a pair of strobes aimed at a white backdrop",
+      "short": "white-backdrop strobes",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -295,6 +317,7 @@
     },
     {
       "text": "a soft key light with black flags absorbing fill",
+      "short": "key with black flags",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -309,6 +332,7 @@
     },
     {
       "text": "a strobe bounced into a large white V-flat",
+      "short": "V-flat bounce",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -321,6 +345,7 @@
     },
     {
       "text": "a warm-balanced fluorescent photography bank",
+      "short": "fluorescent bank",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -334,6 +359,7 @@
     },
     {
       "text": "a softbox placed close to the floor",
+      "short": "floor-level softbox",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -347,6 +373,7 @@
     },
     {
       "text": "a focused optical spot projecting a window pattern",
+      "short": "projected window gobo",
       "tier": "unusual",
       "tags": {
         "mood": [
@@ -360,6 +387,7 @@
     },
     {
       "text": "a circular array of synchronized strobes",
+      "short": "strobe ring array",
       "tier": "unusual",
       "tags": {
         "mood": [
@@ -373,6 +401,7 @@
     },
     {
       "text": "a strobe fired through a water-filled glass tray",
+      "short": "strobe through water",
       "tier": "unusual",
       "tags": {
         "mood": [

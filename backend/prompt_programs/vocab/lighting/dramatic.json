@@ -10,6 +10,7 @@
   "values": [
     {
       "text": "a single hard spotlight from above",
+      "short": "hard top spotlight",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -23,6 +24,7 @@
     },
     {
       "text": "strong rim light against a dark background",
+      "short": "rim light on dark",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -36,6 +38,7 @@
     },
     {
       "text": "warm key light against cool blue fill",
+      "short": "warm key, cool fill",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -50,6 +53,7 @@
     },
     {
       "text": "hard side light dividing the face into light and shadow",
+      "short": "split side light",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -64,6 +68,7 @@
     },
     {
       "text": "soft amber light against deep shadows",
+      "short": "amber light, deep shadow",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -91,6 +96,7 @@
     },
     {
       "text": "red light from one side and blue light from the other",
+      "short": "red and blue sides",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -105,6 +111,7 @@
     },
     {
       "text": "cool cyan light across a dark scene",
+      "short": "cool cyan in the dark",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -119,6 +126,7 @@
     },
     {
       "text": "a bright shaft of light through smoky air",
+      "short": "shaft through smoke",
       "tier": "typical",
       "tags": {
         "mood": [
@@ -132,6 +140,7 @@
     },
     {
       "text": "deep red light with sharp black shadows",
+      "short": "deep red, black shadows",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -147,6 +156,7 @@
     },
     {
       "text": "violet light edged with pale blue highlights",
+      "short": "violet, pale blue edges",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -160,6 +170,7 @@
     },
     {
       "text": "an emerald glow rising from below",
+      "short": "emerald glow from below",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -174,6 +185,7 @@
     },
     {
       "text": "projected bands of light and shadow",
+      "short": "projected light bands",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -188,6 +200,7 @@
     },
     {
       "text": "alternating bands of light and shadow",
+      "short": "alternating light bands",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -201,6 +214,7 @@
     },
     {
       "text": "an oval pool of light surrounded by darkness",
+      "short": "oval pool of light",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -213,6 +227,7 @@
     },
     {
       "text": "crossing beams of white laser light",
+      "short": "crossing laser beams",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -226,6 +241,7 @@
     },
     {
       "text": "pale blue underlighting beneath the chin",
+      "short": "pale blue underlight",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -241,6 +257,7 @@
     },
     {
       "text": "warm light reflected from below",
+      "short": "warm light from below",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -254,6 +271,7 @@
     },
     {
       "text": "orange backlight through drifting smoke",
+      "short": "orange backlit smoke",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -268,6 +286,7 @@
     },
     {
       "text": "magenta highlights against green shadows",
+      "short": "magenta and green",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -282,6 +301,7 @@
     },
     {
       "text": "a moving searchlight sweeping across the scene",
+      "short": "sweeping searchlight",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -295,6 +315,7 @@
     },
     {
       "text": "soft pink light fading into lavender shadow",
+      "short": "pink into lavender",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -310,6 +331,7 @@
     },
     {
       "text": "fragmented projected light through a patterned screen",
+      "short": "patterned-screen light",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -323,6 +345,7 @@
     },
     {
       "text": "rippling reflected light across the walls",
+      "short": "rippling water light",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -336,6 +359,7 @@
     },
     {
       "text": "a luminous halo directly behind the head",
+      "short": "halo behind the head",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -350,6 +374,7 @@
     },
     {
       "text": "pulsing red emergency light",
+      "short": "red emergency light",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -365,6 +390,7 @@
     },
     {
       "text": "a bright triangle of light on one cheek",
+      "short": "Rembrandt triangle",
       "tier": "plausible",
       "tags": {
         "mood": [
@@ -378,6 +404,7 @@
     },
     {
       "text": "a spiraling pattern of projected light",
+      "short": "spiral projection",
       "tier": "unusual",
       "tags": {
         "mood": [
@@ -390,6 +417,7 @@
     },
     {
       "text": "rainbow caustics scattered across the skin",
+      "short": "rainbow caustics",
       "tier": "unusual",
       "tags": {
         "mood": [
@@ -403,6 +431,7 @@
     },
     {
       "text": "concentric rings of projected laser light",
+      "short": "laser rings",
       "tier": "unusual",
       "tags": {
         "mood": [
@@ -415,6 +444,7 @@
     },
     {
       "text": "saturated yellow light against cobalt shadows",
+      "short": "yellow against cobalt",
       "tier": "unusual",
       "tags": {
         "mood": [
@@ -428,6 +458,7 @@
     },
     {
       "text": "a web of fine laser beams in haze",
+      "short": "laser web in haze",
       "tier": "unusual",
       "tags": {
         "mood": [

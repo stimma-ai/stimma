@@ -102,6 +102,7 @@
     },
     {
       "text": "sewing a loose button onto a shirt",
+      "short": "sewing on a button",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -130,6 +131,7 @@
     },
     {
       "text": "sorting a stack of letters",
+      "short": "sorting letters",
       "tier": "typical",
       "tags": {
         "setting": [
@@ -140,6 +142,7 @@
     },
     {
       "text": "polishing a pair of shoes",
+      "short": "polishing shoes",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -176,6 +179,7 @@
     },
     {
       "text": "sorting a stack of documents",
+      "short": "sorting documents",
       "tier": "typical",
       "tags": {
         "setting": [
@@ -186,6 +190,7 @@
     },
     {
       "text": "measuring a piece of fabric",
+      "short": "measuring fabric",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -196,6 +201,7 @@
     },
     {
       "text": "examining a small mechanical part",
+      "short": "examining a small part",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -205,6 +211,7 @@
     },
     {
       "text": "drawing a diagram on paper",
+      "short": "drawing a diagram",
       "tier": "typical",
       "tags": {
         "setting": [
@@ -235,6 +242,7 @@
     },
     {
       "text": "counting a handful of coins",
+      "short": "counting coins",
       "tier": "typical",
       "tags": {
         "setting": [
@@ -246,6 +254,7 @@
     },
     {
       "text": "explaining a chart to a small group",
+      "short": "explaining a chart",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -256,6 +265,7 @@
     },
     {
       "text": "photographing a small object",
+      "short": "photographing an object",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -274,6 +284,7 @@
     },
     {
       "text": "testing a circuit with a handheld meter",
+      "short": "testing a circuit",
       "tier": "unusual",
       "tags": {
         "setting": [
@@ -337,6 +348,7 @@
     },
     {
       "text": "blowing seeds from a dandelion",
+      "short": "blowing a dandelion",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -346,6 +358,7 @@
     },
     {
       "text": "skipping a stone across water",
+      "short": "skipping a stone",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -365,6 +378,7 @@
     },
     {
       "text": "examining a flower through a magnifying glass",
+      "short": "studying a flower",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -394,6 +408,7 @@
     },
     {
       "text": "catching falling snowflakes on an outstretched hand",
+      "short": "catching snowflakes",
       "tier": "unusual",
       "tags": {
         "setting": [
@@ -414,6 +429,7 @@
     },
     {
       "text": "sharing a snack with a friend",
+      "short": "sharing a snack",
       "tier": "typical",
       "tags": {
         "setting": [
@@ -446,6 +462,7 @@
     },
     {
       "text": "moving a piece on a game board",
+      "short": "moving a game piece",
       "tier": "typical",
       "tags": {
         "setting": [
@@ -456,6 +473,7 @@
     },
     {
       "text": "tossing a ball to a companion",
+      "short": "tossing a ball",
       "tier": "typical",
       "tags": {
         "setting": [
@@ -477,6 +495,7 @@
     },
     {
       "text": "assembling a jigsaw puzzle",
+      "short": "doing a jigsaw puzzle",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -496,6 +515,7 @@
     },
     {
       "text": "building a tower of wooden blocks",
+      "short": "stacking wooden blocks",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -599,6 +619,7 @@
     },
     {
       "text": "swimming through calm water",
+      "short": "swimming",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -648,6 +669,7 @@
     },
     {
       "text": "balancing a spinning ball on one fingertip",
+      "short": "spinning a ball",
       "tier": "unusual",
       "tags": {
         "setting": [
@@ -658,6 +680,7 @@
     },
     {
       "text": "leaping over a low hurdle",
+      "short": "leaping a hurdle",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -696,6 +719,7 @@
     },
     {
       "text": "pulling a wheeled suitcase",
+      "short": "pulling a suitcase",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -711,6 +735,7 @@
     },
     {
       "text": "adjusting the straps of a backpack",
+      "short": "adjusting a backpack",
       "tier": "typical",
       "tags": {
         "setting": [
@@ -721,6 +746,7 @@
     },
     {
       "text": "showing a ticket to an attendant",
+      "short": "showing a ticket",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -730,6 +756,7 @@
     },
     {
       "text": "photographing a distant landmark",
+      "short": "photographing a landmark",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -766,6 +793,7 @@
     },
     {
       "text": "asking a passerby for directions",
+      "short": "asking for directions",
       "tier": "typical",
       "tags": {
         "setting": [
@@ -777,6 +805,7 @@
     },
     {
       "text": "taking a sip from a water bottle",
+      "short": "sipping from a bottle",
       "tier": "typical",
       "tags": {
         "setting": [
@@ -788,6 +817,7 @@
     },
     {
       "text": "tying a luggage tag onto a bag",
+      "short": "tying a luggage tag",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -798,6 +828,7 @@
     },
     {
       "text": "sketching a route in the sand",
+      "short": "sketching in the sand",
       "tier": "unusual",
       "tags": {
         "setting": [
@@ -830,6 +861,7 @@
     },
     {
       "text": "shaping a small lump of clay",
+      "short": "shaping clay",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -874,6 +906,7 @@
     },
     {
       "text": "strumming an acoustic guitar",
+      "short": "strumming a guitar",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -894,6 +927,7 @@
     },
     {
       "text": "carving a small wooden figure",
+      "short": "carving a wooden figure",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -905,6 +939,7 @@
     },
     {
       "text": "threading beads onto a cord",
+      "short": "threading beads",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -915,6 +950,7 @@
     },
     {
       "text": "weaving a glowing spell between open hands",
+      "short": "weaving a glowing spell",
       "tier": "typical",
       "tags": {
         "setting": [
@@ -928,6 +964,7 @@
     },
     {
       "text": "guiding a floating crystal through the air",
+      "short": "guiding a crystal",
       "tier": "plausible",
       "tags": {
         "setting": [
@@ -941,6 +978,7 @@
     },
     {
       "text": "rearranging symbols on a hovering holographic display",
+      "short": "using a hologram",
       "tier": "typical",
       "tags": {
         "setting": [

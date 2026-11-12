@@ -30,6 +30,7 @@
     },
     {
       "text": "a three-quarter front angle",
+      "short": "three-quarter front",
       "tier": "typical"
     },
     {
@@ -46,6 +47,7 @@
     },
     {
       "text": "a three-quarter rear angle",
+      "short": "three-quarter rear",
       "tier": "plausible"
     },
     {
@@ -62,14 +64,17 @@
     },
     {
       "text": "the viewpoint of someone lying down",
+      "short": "lying-down viewpoint",
       "tier": "plausible"
     },
     {
       "text": "a low angle with the camera tilted sideways",
+      "short": "low Dutch angle",
       "tier": "plausible"
     },
     {
       "text": "an overhead angle with the frame rotated diagonally",
+      "short": "overhead, rotated",
       "tier": "plausible"
     }
   ]

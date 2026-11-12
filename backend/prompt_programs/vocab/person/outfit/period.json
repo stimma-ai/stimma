@@ -27,6 +27,7 @@
   "values": [
     {
       "text": "a white linen kalasiris with a narrow {accent} woven sash",
+      "short": "kalasiris",
       "tier": "typical",
       "tags": {
         "era": [
@@ -69,6 +70,7 @@
     },
     {
       "text": "a {main} wool peplos with a folded upper edge",
+      "short": "peplos",
       "tier": "typical",
       "tags": {
         "era": [
@@ -107,6 +109,7 @@
     },
     {
       "text": "a white linen chiton beneath a {main} wool himation",
+      "short": "chiton and himation",
       "tier": "typical",
       "tags": {
         "era": [
@@ -130,6 +133,10 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -142,6 +149,7 @@
     },
     {
       "text": "a cream Roman tunic beneath a white wool toga",
+      "short": "toga",
       "tier": "typical",
       "tags": {
         "era": [
@@ -172,6 +180,7 @@
     },
     {
       "text": "a {main} wool tunic and pants with {accent} and {neutral} woven checks",
+      "short": "checked tunic and pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -192,6 +201,9 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -204,6 +216,7 @@
     },
     {
       "text": "a belted {main} Persian tunic and loose {accent} pants",
+      "short": "Persian tunic, pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -227,6 +240,10 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -239,6 +256,7 @@
     },
     {
       "text": "a {main} cross-collar robe over a {accent} silk skirt",
+      "short": "cross-collar robe, skirt",
       "tier": "typical",
       "tags": {
         "era": [
@@ -276,6 +294,7 @@
     },
     {
       "text": "a white wrapped antariya and a draped cotton uttariya",
+      "short": "antariya and uttariya",
       "tier": "typical",
       "tags": {
         "era": [
@@ -300,11 +319,16 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} wool kirtle over a cream linen shift",
+      "short": "kirtle and shift",
       "tier": "typical",
       "tags": {
         "era": [
@@ -343,6 +367,7 @@
     },
     {
       "text": "a {main} wool cotehardie over a white linen underdress",
+      "short": "cotehardie",
       "tier": "typical",
       "tags": {
         "era": [
@@ -381,6 +406,7 @@
     },
     {
       "text": "a {main} belted tunic and {neutral} wool hose",
+      "short": "belted tunic and hose",
       "tier": "typical",
       "tags": {
         "era": [
@@ -401,6 +427,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -413,6 +442,7 @@
     },
     {
       "text": "a {main} houppelande with broad hanging sleeves",
+      "short": "houppelande",
       "tier": "typical",
       "tags": {
         "era": [
@@ -435,6 +465,10 @@
         ],
         "region": [
           "european"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -447,6 +481,7 @@
     },
     {
       "text": "a quilted {main} linen gambeson over a {accent} tunic and {neutral} wool hose",
+      "short": "gambeson and hose",
       "tier": "typical",
       "tags": {
         "era": [
@@ -467,6 +502,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -479,6 +517,7 @@
     },
     {
       "text": "a {accent} silk kosode beneath layered {main} silk robes",
+      "short": "kosode, layered robes",
       "tier": "typical",
       "tags": {
         "era": [
@@ -516,6 +555,7 @@
     },
     {
       "text": "a {main} hitatare jacket and matching wide hakama",
+      "short": "hitatare and hakama",
       "tier": "typical",
       "tags": {
         "era": [
@@ -553,6 +593,7 @@
     },
     {
       "text": "a wool kaftan with {main} and {accent} stripes over a linen shirt and {neutral} pants",
+      "short": "striped wool kaftan",
       "tier": "typical",
       "tags": {
         "era": [
@@ -575,6 +616,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -587,6 +631,7 @@
     },
     {
       "text": "a {main} doublet, cream linen shirt, and {neutral} trunk hose",
+      "short": "doublet and trunk hose",
       "tier": "typical",
       "tags": {
         "era": [
@@ -626,6 +671,7 @@
     },
     {
       "text": "a {main} velvet gown over a {accent} brocade forepart",
+      "short": "velvet gown, forepart",
       "tier": "typical",
       "tags": {
         "era": [
@@ -661,6 +707,7 @@
     },
     {
       "text": "a {main} wool bodice and full skirt over a linen shift",
+      "short": "bodice and full skirt",
       "tier": "typical",
       "tags": {
         "era": [
@@ -697,6 +744,7 @@
     },
     {
       "text": "a {main} silk mantua over a quilted {accent} petticoat",
+      "short": "mantua and petticoat",
       "tier": "typical",
       "tags": {
         "era": [
@@ -735,6 +783,7 @@
     },
     {
       "text": "a {main} robe a la francaise over a matching petticoat",
+      "short": "robe a la francaise",
       "tier": "typical",
       "tags": {
         "era": [
@@ -776,6 +825,7 @@
     },
     {
       "text": "a {main} wool justaucorps, {accent} vest, and {neutral} knee breeches",
+      "short": "justaucorps, breeches",
       "tier": "typical",
       "tags": {
         "era": [
@@ -815,6 +865,7 @@
     },
     {
       "text": "a {main} Ottoman entari over a cream shirt and {neutral} salwar",
+      "short": "entari and salwar",
       "tier": "typical",
       "tags": {
         "era": [
@@ -838,6 +889,10 @@
         ],
         "period": [
           "18th century"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -850,6 +905,7 @@
     },
     {
       "text": "a white Mughal jama and fitted cotton churidar pants",
+      "short": "jama and churidar",
       "tier": "typical",
       "tags": {
         "era": [
@@ -882,6 +938,7 @@
     },
     {
       "text": "a {main} haori over a {neutral} kimono and hakama with {main} and {accent} stripes",
+      "short": "haori and hakama",
       "tier": "typical",
       "tags": {
         "era": [
@@ -906,6 +963,9 @@
         ],
         "period": [
           "18th century"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -918,6 +978,7 @@
     },
     {
       "text": "a {main} cotton unku over a short {accent} woven wrap",
+      "short": "unku",
       "tier": "typical",
       "tags": {
         "era": [
@@ -942,6 +1003,9 @@
         ],
         "period": [
           "18th century"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -954,6 +1018,7 @@
     },
     {
       "text": "a white muslin Empire-waist dress with short puffed sleeves",
+      "short": "Empire-waist dress",
       "tier": "typical",
       "tags": {
         "era": [
@@ -983,6 +1048,7 @@
     },
     {
       "text": "a {main} wool frock coat and pants with {neutral} and {accent} stripes",
+      "short": "striped frock coat suit",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1019,6 +1085,7 @@
     },
     {
       "text": "a {main} silk crinoline dress with a fitted bodice",
+      "short": "crinoline dress",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1054,6 +1121,7 @@
     },
     {
       "text": "a {main} bustle gown with a draped overskirt",
+      "short": "bustle gown",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1089,6 +1157,7 @@
     },
     {
       "text": "a {accent} high-neck blouse and {main} walking skirt",
+      "short": "blouse, walking skirt",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1124,6 +1193,7 @@
     },
     {
       "text": "a faded {main} cotton prairie dress with a white pinafore",
+      "short": "prairie dress, pinafore",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1160,6 +1230,7 @@
     },
     {
       "text": "a {main} Qing jacket and matching silk pants",
+      "short": "Qing jacket and pants",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1184,6 +1255,10 @@
         ],
         "period": [
           "victorian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1196,6 +1271,7 @@
     },
     {
       "text": "a {main} jeogori and a full {accent} silk chima",
+      "short": "jeogori and chima",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1235,6 +1311,7 @@
     },
     {
       "text": "a white cotton angarkha and loose cream dhoti",
+      "short": "angarkha and dhoti",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1267,6 +1344,7 @@
     },
     {
       "text": "a {main} baju kurung with a {neutral} woven sarong patterned in {accent}",
+      "short": "baju kurung, sarong",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1305,6 +1383,7 @@
     },
     {
       "text": "a white cotton tunic and pants beneath an embroidered {main} agbada",
+      "short": "agbada over tunic",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1343,6 +1422,7 @@
     },
     {
       "text": "a {main} beaded drop-waist dress with a fringed hem",
+      "short": "beaded flapper dress",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1378,6 +1458,7 @@
     },
     {
       "text": "a {main} linen suit with high-waisted wide pants",
+      "short": "1930s linen suit",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1398,6 +1479,10 @@
         ],
         "period": [
           "1920s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1410,6 +1495,7 @@
     },
     {
       "text": "a silver bias-cut satin gown with a cowl neckline",
+      "short": "bias-cut satin gown",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1440,6 +1526,7 @@
     },
     {
       "text": "a {main} work jacket and high-waisted blue denim overalls",
+      "short": "work jacket, overalls",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1459,6 +1546,10 @@
         ],
         "period": [
           "1930s–40s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1471,6 +1562,7 @@
     },
     {
       "text": "a {main} swing dress with a fitted cotton bodice",
+      "short": "swing dress",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1505,6 +1597,7 @@
     },
     {
       "text": "a {main} boucle skirt suit with a collarless jacket",
+      "short": "boucle skirt suit",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1540,6 +1633,7 @@
     },
     {
       "text": "a {main} geometric minidress patterned in {accent} with a white Peter Pan collar",
+      "short": "mod minidress",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1574,6 +1668,7 @@
     },
     {
       "text": "a {main} corduroy jacket and flared blue denim jeans",
+      "short": "corduroy jacket, flares",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1594,6 +1689,10 @@
         ],
         "period": [
           "1960s–70s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1606,6 +1705,7 @@
     },
     {
       "text": "a {main} polyester leisure suit and {accent} open-collar shirt",
+      "short": "leisure suit",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1625,6 +1725,9 @@
         ],
         "period": [
           "1960s–70s"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -1637,6 +1740,7 @@
     },
     {
       "text": "a {main} padded-shoulder blazer and matching pleated pants",
+      "short": "shoulder-pad suit",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1657,6 +1761,10 @@
         ],
         "period": [
           "1980s–90s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1669,6 +1777,7 @@
     },
     {
       "text": "a {main} shell-suit jacket and matching nylon track pants",
+      "short": "shell suit",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1690,6 +1799,10 @@
         ],
         "period": [
           "1980s–90s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1702,6 +1815,7 @@
     },
     {
       "text": "a {main} slip dress over a {accent} cotton T-shirt",
+      "short": "slip dress over a tee",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1738,6 +1852,7 @@
     },
     {
       "text": "a short {main} linen work tunic with a cord belt",
+      "short": "linen work tunic",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1760,6 +1875,9 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -1772,6 +1890,7 @@
     },
     {
       "text": "an undyed linen loincloth with a pleated front panel",
+      "short": "linen loincloth",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1802,6 +1921,7 @@
     },
     {
       "text": "a {main} wool stola over a white linen tunic with a {accent} palla",
+      "short": "stola and palla",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1840,6 +1960,7 @@
     },
     {
       "text": "a {main} silk shenyi with a wrapped front and a {accent} woven belt",
+      "short": "shenyi",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1862,6 +1983,10 @@
         ],
         "period": [
           "ancient"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -1874,6 +1999,7 @@
     },
     {
       "text": "a {main} wool chlamys clasped over a knee-length linen chiton",
+      "short": "chlamys and chiton",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1911,6 +2037,7 @@
     },
     {
       "text": "a {main} linen tunic and {neutral} wool pants with cross-gartered leg wraps",
+      "short": "tunic and leg wraps",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1936,6 +2063,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -1948,6 +2078,7 @@
     },
     {
       "text": "a {main} wool apron dress with bronze clasps over a white linen underdress",
+      "short": "apron dress",
       "tier": "typical",
       "tags": {
         "era": [
@@ -1985,6 +2116,7 @@
     },
     {
       "text": "a {main} silk bliaut with fitted sleeves and a {accent} woven girdle",
+      "short": "bliaut",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2022,6 +2154,7 @@
     },
     {
       "text": "a {main} wool surcoat over a {accent} long-sleeved gown",
+      "short": "surcoat over a gown",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2060,6 +2193,7 @@
     },
     {
       "text": "a white linen shirt beneath a {main} short wool jacket and {neutral} hose",
+      "short": "shirt, jacket and hose",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2085,6 +2219,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2097,6 +2234,7 @@
     },
     {
       "text": "a {main} round-collar silk robe with a {neutral} leather belt",
+      "short": "round-collar robe",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2116,6 +2254,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2128,6 +2269,7 @@
     },
     {
       "text": "a {main} wool riding coat over a {accent} linen tunic and {neutral} pants",
+      "short": "riding coat over tunic",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2147,6 +2289,9 @@
         ],
         "period": [
           "medieval"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2159,6 +2304,7 @@
     },
     {
       "text": "a {main} linen work smock over a {neutral} wool skirt",
+      "short": "work smock, wool skirt",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2200,6 +2346,7 @@
     },
     {
       "text": "a {main} wool jerkin over a white linen shirt and {neutral} knee breeches",
+      "short": "jerkin and breeches",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2226,6 +2373,9 @@
         ],
         "period": [
           "renaissance"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2238,6 +2388,7 @@
     },
     {
       "text": "a {main} embroidered silk doublet with slashed sleeves and matching trunk hose",
+      "short": "slashed silk doublet",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2276,6 +2427,7 @@
     },
     {
       "text": "a {main} silk robe a la polonaise over a {accent} petticoat",
+      "short": "robe a la polonaise",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2314,6 +2466,7 @@
     },
     {
       "text": "a {main} wool riding habit with a fitted jacket and a full skirt",
+      "short": "riding habit",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2352,6 +2505,7 @@
     },
     {
       "text": "a {main} cotton shortgown and {neutral} petticoat beneath a white linen apron",
+      "short": "shortgown and apron",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2393,6 +2547,7 @@
     },
     {
       "text": "a {main} cotton kosode with small {accent} resist-dyed motifs and a {neutral} sash",
+      "short": "kosode",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2416,6 +2571,10 @@
         ],
         "period": [
           "18th century"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2428,6 +2587,7 @@
     },
     {
       "text": "a {main} quilted cotton jacket over a white shirt and {neutral} work pants",
+      "short": "quilted work jacket",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2451,6 +2611,10 @@
         ],
         "period": [
           "victorian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2463,6 +2627,7 @@
     },
     {
       "text": "a {main} wool sack coat, {accent} vest, and {neutral} pants",
+      "short": "sack coat suit",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2501,6 +2666,7 @@
     },
     {
       "text": "a {main} cotton smock-frock with gathered embroidery over {neutral} corduroy pants",
+      "short": "smock-frock",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2527,6 +2693,9 @@
         ],
         "period": [
           "victorian"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2539,6 +2708,7 @@
     },
     {
       "text": "a {main} wool morning coat over a white shirt and {neutral} striped pants",
+      "short": "morning coat",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2577,6 +2747,7 @@
     },
     {
       "text": "a {main} wool paletot over a {accent} high-neck walking dress",
+      "short": "paletot, walking dress",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2616,6 +2787,7 @@
     },
     {
       "text": "a {main} cotton kebaya with a {neutral} batik sarong patterned in {accent}",
+      "short": "kebaya and sarong",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2654,6 +2826,7 @@
     },
     {
       "text": "a {main} high-neck cotton blouse with leg-of-mutton sleeves and a {neutral} gored skirt",
+      "short": "leg-of-mutton blouse",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2691,6 +2864,7 @@
     },
     {
       "text": "a {main} wool knickerbocker suit with a {accent} knitted vest and {neutral} stockings",
+      "short": "knickerbocker suit",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2725,6 +2899,7 @@
     },
     {
       "text": "a {main} cotton house dress with {accent} floral print and a white apron",
+      "short": "house dress and apron",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2760,6 +2935,7 @@
     },
     {
       "text": "a {main} tweed jacket over a {accent} knitted pullover and {neutral} Oxford bags",
+      "short": "tweed and Oxford bags",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2779,6 +2955,9 @@
         ],
         "period": [
           "1920s"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2791,6 +2970,7 @@
     },
     {
       "text": "a {main} leather motorcycle jacket over a white T-shirt and cuffed blue jeans",
+      "short": "motorcycle jacket, jeans",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2811,6 +2991,10 @@
         ],
         "period": [
           "1950s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2823,6 +3007,7 @@
     },
     {
       "text": "an oversized {main} flannel shirt with {accent} checks over a white T-shirt and distressed blue jeans",
+      "short": "grunge flannel",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2843,6 +3028,10 @@
         ],
         "period": [
           "1980s–90s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2855,6 +3044,7 @@
     },
     {
       "text": "a loose {main} linen work smock over a {neutral} wool tunic and drawstring pants",
+      "short": "smock over tunic",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2874,6 +3064,10 @@
         ],
         "period": [
           "renaissance"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2887,6 +3081,7 @@
     },
     {
       "text": "a hooded {main} wool travel cloak over a {accent} linen smock and loose {neutral} pants",
+      "short": "travel cloak",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2907,6 +3102,10 @@
         ],
         "period": [
           "renaissance"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -2920,6 +3119,7 @@
     },
     {
       "text": "a {main} wool cutaway tailcoat over a {accent} vest, white linen shirt, and {neutral} pantaloons",
+      "short": "cutaway tailcoat",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2957,6 +3157,7 @@
     },
     {
       "text": "a {main} sleeveless linen work apron with a full gathered front over a {accent} collarless shirt and {neutral} knee breeches",
+      "short": "work apron, breeches",
       "tier": "typical",
       "tags": {
         "era": [
@@ -2977,6 +3178,9 @@
         ],
         "period": [
           "regency"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -2990,6 +3194,7 @@
     },
     {
       "text": "a {main} wool greatcoat with stacked shoulder capes over a {accent} linen work shirt and {neutral} fall-front pants",
+      "short": "caped greatcoat",
       "tier": "typical",
       "tags": {
         "era": [
@@ -3011,6 +3216,9 @@
         ],
         "period": [
           "regency"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -3024,6 +3232,7 @@
     },
     {
       "text": "a {main} cotton motoring duster over a {accent} high-collared shirt and {neutral} straight pants",
+      "short": "motoring duster",
       "tier": "typical",
       "tags": {
         "era": [
@@ -3045,6 +3254,9 @@
         ],
         "period": [
           "edwardian"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -3058,6 +3270,7 @@
     },
     {
       "text": "a {main} knitted bathing tunic and matching knee-length bathing drawers with {accent} horizontal stripes",
+      "short": "bathing costume",
       "tier": "typical",
       "tags": {
         "era": [
@@ -3079,6 +3292,10 @@
         ],
         "period": [
           "edwardian"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -3092,6 +3309,7 @@
     },
     {
       "text": "a {accent} high-neck lawn blouse with a wide lace yoke tucked into a {main} ankle-length gored skirt with a sweeping back train",
+      "short": "Edwardian lace blouse",
       "tier": "typical",
       "tags": {
         "era": [
@@ -3128,6 +3346,7 @@
     },
     {
       "text": "a {main} cotton mechanic’s coverall with a buttoned front and {accent} patch pockets",
+      "short": "mechanic's coverall",
       "tier": "typical",
       "tags": {
         "era": [
@@ -3148,6 +3367,10 @@
         ],
         "period": [
           "1920s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -3161,6 +3384,7 @@
     },
     {
       "text": "a {main} cotton bib-and-brace work overall over a {accent} rolled-sleeve collarless shirt",
+      "short": "bib-and-brace overall",
       "tier": "typical",
       "tags": {
         "era": [
@@ -3181,6 +3405,10 @@
         ],
         "period": [
           "1930s–40s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -3194,6 +3422,7 @@
     },
     {
       "text": "a {main} cotton bowling shirt with {accent} vertical panels and {neutral} cuffed pants",
+      "short": "bowling shirt",
       "tier": "typical",
       "tags": {
         "era": [
@@ -3214,6 +3443,10 @@
         ],
         "period": [
           "1950s"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -3227,6 +3460,7 @@
     },
     {
       "text": "a {main} gabardine windbreaker over a {accent} knitted polo and {neutral} straight cotton pants",
+      "short": "windbreaker, knit polo",
       "tier": "typical",
       "tags": {
         "era": [
@@ -3247,6 +3481,9 @@
         ],
         "period": [
           "1950s"
+        ],
+        "presentation": [
+          "masculine"
         ]
       },
       "palette": {
@@ -3260,6 +3497,7 @@
     },
     {
       "text": "a loose unbleached linen shift with gathered wrist cuffs",
+      "short": "linen shift",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -3296,6 +3534,7 @@
     },
     {
       "text": "a loose cream linen shirt and soft drawstring braies",
+      "short": "shirt and braies",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -3324,6 +3563,9 @@
         ],
         "region": [
           "european"
+        ],
+        "presentation": [
+          "masculine"
         ]
       }
     }
@@ -3353,6 +3595,10 @@
       "1950s",
       "1960s–70s",
       "1980s–90s"
+    ],
+    "presentation": [
+      "feminine",
+      "masculine"
     ]
   },
   "context": {

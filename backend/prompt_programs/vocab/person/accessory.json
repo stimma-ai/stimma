@@ -36,6 +36,7 @@
   "values": [
     {
       "text": "round wire-rimmed glasses",
+      "short": "wire-rimmed glasses",
       "tier": "typical",
       "tags": {
         "genre": [
@@ -579,6 +580,7 @@
     },
     {
       "text": "a pocket watch on a vest chain",
+      "short": "pocket watch",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -796,6 +798,7 @@
     },
     {
       "text": "a crown of floating crystal shards",
+      "short": "floating crystal crown",
       "tier": "unusual",
       "tags": {
         "genre": [
@@ -821,6 +824,7 @@
     },
     {
       "text": "a pair of wireless earbuds",
+      "short": "wireless earbuds",
       "tier": "typical",
       "tags": {
         "genre": [

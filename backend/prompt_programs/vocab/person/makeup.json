@@ -26,6 +26,7 @@
     },
     {
       "text": "a thin line of liquid eyeliner",
+      "short": "liquid eyeliner",
       "tier": "typical"
     },
     {
@@ -38,6 +39,7 @@
     },
     {
       "text": "a light dusting of face powder",
+      "short": "face powder",
       "tier": "typical",
       "tags": {
         "genre": "any",
@@ -66,10 +68,12 @@
     },
     {
       "text": "a matte foundation finish",
+      "short": "matte foundation",
       "tier": "typical"
     },
     {
       "text": "a softly blended smoky eye",
+      "short": "smoky eye",
       "tier": "typical",
       "adult_only": true
     },
@@ -116,6 +120,7 @@
     },
     {
       "text": "glitter along the eyelids",
+      "short": "glitter lids",
       "tier": "unusual"
     },
     {
@@ -138,6 +143,7 @@
     },
     {
       "text": "shimmering cheek highlighter",
+      "short": "cheek highlighter",
       "tier": "plausible"
     },
     {
@@ -151,6 +157,7 @@
     },
     {
       "text": "a small painted beauty mark",
+      "short": "painted beauty mark",
       "tier": "plausible"
     },
     {
@@ -167,6 +174,7 @@
     },
     {
       "text": "pale powder and a cupid’s-bow lip",
+      "short": "pale powder, bow lip",
       "tier": "plausible",
       "tags": {
         "era": [
@@ -178,6 +186,7 @@
     },
     {
       "text": "rouge circles high on the cheeks",
+      "short": "rouge circles",
       "tier": "plausible",
       "tags": {
         "era": [
@@ -189,6 +198,7 @@
     },
     {
       "text": "pastel blue lids and thick false lashes",
+      "short": "pastel lids, faux lashes",
       "tier": "plausible",
       "tags": {
         "era": [
@@ -201,6 +211,7 @@
     },
     {
       "text": "neon pink blush swept to the temples",
+      "short": "neon pink blush",
       "tier": "unusual",
       "tags": {
         "era": [
@@ -212,6 +223,7 @@
     },
     {
       "text": "luminous runes painted across the cheeks",
+      "short": "painted runes",
       "tier": "plausible",
       "tags": {
         "genre": [
@@ -222,6 +234,7 @@
     },
     {
       "text": "glowing circuit lines around the eyes",
+      "short": "glowing circuit lines",
       "tier": "plausible",
       "tags": {
         "genre": [

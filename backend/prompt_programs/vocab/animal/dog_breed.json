@@ -1,261 +1,21 @@
 {
   "id": "animal.dog_breed",
   "label": "Dog breed",
-  "description": "Dog breeds and mixed-breed kinds, with approximate adult size.",
+  "description": "Dog breeds, by breed group, and mixed-breed kinds, with approximate adult size.",
   "pos": "noun phrase",
   "frame": "a ___ on a lead",
-  "notes": "Breed identity and mixed-breed size only; coats, personality, pose and expression are independent. Size is a coarse typical adult grouping; popularity tiers are broad editorial estimates rather than a regional registration ranking.",
+  "notes": "Breed identity and mixed-breed size only; coats, personality, pose and expression are independent. Size is a coarse typical adult grouping; popularity tiers are broad editorial estimates rather than a regional registration ranking. Breed groups follow the usual kennel-club groups (FCI's spitz and primitive types kept together, non-sporting called companion); each breed sits in the one group people would look for it in. Every value is a recognized breed under its usual English name; crossbreeds named as designer dogs are left out.",
   "facets": [],
   "closed": false,
   "untagged": {},
   "values": [
     {
-      "text": "Chihuahua",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "French bulldog",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "dachshund",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "pug",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "Pomeranian",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "small mixed-breed dog",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "Shih Tzu",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "Maltese",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "Yorkshire terrier",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "miniature schnauzer",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "bichon frise",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "Papillon",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "Chinese crested dog",
-      "tier": "unusual",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "Japanese chin",
-      "tier": "unusual",
-      "tags": {
-        "size": [
-          "small"
-        ]
-      }
-    },
-    {
-      "text": "beagle",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "cocker spaniel",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "border collie",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "bulldog",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "medium mixed-breed dog",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "Staffordshire bull terrier",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "whippet",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "Shetland sheepdog",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "miniature poodle",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "Shiba Inu",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "basset hound",
-      "tier": "plausible",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "Basenji",
-      "tier": "unusual",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
-      "text": "Finnish spitz",
-      "tier": "unusual",
-      "tags": {
-        "size": [
-          "medium"
-        ]
-      }
-    },
-    {
       "text": "Labrador retriever",
       "tier": "typical",
       "tags": {
+        "breed_group": [
+          "sporting"
+        ],
         "size": [
           "large"
         ]
@@ -265,105 +25,537 @@
       "text": "golden retriever",
       "tier": "typical",
       "tags": {
+        "breed_group": [
+          "sporting"
+        ],
         "size": [
           "large"
         ]
       }
     },
     {
-      "text": "German shepherd",
+      "text": "cocker spaniel",
       "tier": "typical",
       "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "English springer spaniel",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "German shorthaired pointer",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
         "size": [
           "large"
         ]
       }
     },
     {
-      "text": "standard poodle",
+      "text": "Brittany",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Vizsla",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Weimaraner",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Irish setter",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "English setter",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Gordon setter",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "English pointer",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "German wirehaired pointer",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Chesapeake Bay retriever",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "flat-coated retriever",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "curly-coated retriever",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Nova Scotia duck tolling retriever",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "English cocker spaniel",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Welsh springer spaniel",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Boykin spaniel",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Clumber spaniel",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "field spaniel",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Sussex spaniel",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "American water spaniel",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Irish water spaniel",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Lagotto Romagnolo",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "wirehaired pointing griffon",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Spinone Italiano",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Kooikerhondje",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sporting"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "beagle",
       "tier": "typical",
       "tags": {
+        "breed_group": [
+          "hound"
+        ],
         "size": [
-          "large"
+          "medium"
         ]
       }
     },
     {
-      "text": "large mixed-breed dog",
+      "text": "dachshund",
       "tier": "typical",
       "tags": {
+        "breed_group": [
+          "hound"
+        ],
         "size": [
-          "large"
+          "small"
         ]
       }
     },
     {
-      "text": "boxer",
-      "tier": "typical",
-      "tags": {
-        "size": [
-          "large"
-        ]
-      }
-    },
-    {
-      "text": "Rottweiler",
+      "text": "basset hound",
       "tier": "plausible",
       "tags": {
+        "breed_group": [
+          "hound"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "bloodhound",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "hound"
+        ],
         "size": [
           "large"
         ]
       }
     },
     {
-      "text": "Siberian husky",
+      "text": "Rhodesian ridgeback",
       "tier": "plausible",
       "tags": {
+        "breed_group": [
+          "hound"
+        ],
         "size": [
           "large"
         ]
       }
     },
     {
-      "text": "Doberman",
-      "tier": "plausible",
+      "text": "black and tan coonhound",
+      "tier": "unusual",
       "tags": {
+        "breed_group": [
+          "hound"
+        ],
         "size": [
           "large"
         ]
       }
     },
     {
-      "text": "Dalmatian",
-      "tier": "plausible",
+      "text": "bluetick coonhound",
+      "tier": "unusual",
       "tags": {
+        "breed_group": [
+          "hound"
+        ],
         "size": [
           "large"
         ]
       }
     },
     {
-      "text": "Bernese mountain dog",
-      "tier": "plausible",
+      "text": "redbone coonhound",
+      "tier": "unusual",
       "tags": {
+        "breed_group": [
+          "hound"
+        ],
         "size": [
           "large"
         ]
       }
     },
     {
-      "text": "Great Dane",
-      "tier": "plausible",
+      "text": "Treeing Walker coonhound",
+      "tier": "unusual",
       "tags": {
+        "breed_group": [
+          "hound"
+        ],
         "size": [
           "large"
         ]
       }
     },
     {
-      "text": "Newfoundland",
-      "tier": "plausible",
+      "text": "Plott hound",
+      "tier": "unusual",
       "tags": {
+        "breed_group": [
+          "hound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "American foxhound",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "hound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "English foxhound",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "hound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "harrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "hound"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "otterhound",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "hound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Petit Basset Griffon Vendéen",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "hound"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Grand Basset Griffon Vendéen",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "hound"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Hamiltonstövare",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "hound"
+        ],
         "size": [
           "large"
         ]
@@ -373,6 +565,57 @@
       "text": "greyhound",
       "tier": "plausible",
       "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "whippet",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Italian greyhound",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Afghan hound",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Irish wolfhound",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
         "size": [
           "large"
         ]
@@ -382,8 +625,251 @@
       "text": "Borzoi",
       "tier": "unusual",
       "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
         "size": [
           "large"
+        ]
+      }
+    },
+    {
+      "text": "Saluki",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Scottish deerhound",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Pharaoh hound",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Ibizan hound",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Sloughi",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Azawakh",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Galgo Español",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "silken windhound",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "sighthound"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "boxer",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Rottweiler",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Doberman",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Bernese mountain dog",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Great Dane",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Newfoundland",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "mastiff",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "bullmastiff",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Cane Corso",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Saint Bernard",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Great Pyrenees",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Portuguese water dog",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "medium"
         ]
       }
     },
@@ -391,6 +877,1785 @@
       "text": "Komondor",
       "tier": "unusual",
       "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "giant schnauzer",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "standard schnauzer",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Kuvasz",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Anatolian shepherd dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Kangal shepherd dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Caucasian shepherd dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Central Asian shepherd dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Leonberger",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Tibetan mastiff",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Neapolitan mastiff",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Dogue de Bordeaux",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Boerboel",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Greater Swiss mountain dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Black Russian terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Dogo Argentino",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Hovawart",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Estrela mountain dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Chinook",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "working"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "German shepherd",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "border collie",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Australian shepherd",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Pembroke Welsh corgi",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Shetland sheepdog",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "rough collie",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Belgian Malinois",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Old English sheepdog",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Australian cattle dog",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Cardigan Welsh corgi",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "smooth collie",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Belgian tervuren",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Belgian sheepdog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "bearded collie",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Australian kelpie",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Bouvier des Flandres",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Briard",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Beauceron",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Dutch shepherd",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Puli",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Pumi",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Bergamasco",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Polish lowland sheepdog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Icelandic sheepdog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Finnish lapphund",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Norwegian buhund",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Swedish vallhund",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Canaan dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "miniature American shepherd",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Entlebucher mountain dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Appenzeller sennenhund",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Spanish water dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Pyrenean shepherd",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Lancashire heeler",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Catahoula leopard dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "herding"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Jack Russell terrier",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "miniature schnauzer",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Staffordshire bull terrier",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "West Highland white terrier",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Scottish terrier",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "bull terrier",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Airedale terrier",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "American Staffordshire terrier",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "American pit bull terrier",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Border terrier",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Cairn terrier",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "wire fox terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "smooth fox terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Parson Russell terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "rat terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "soft-coated wheaten terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Kerry blue terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Irish terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Welsh terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Lakeland terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Norfolk terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Norwich terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Bedlington terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Dandie Dinmont terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Skye terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Sealyham terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Australian terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Manchester terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "miniature bull terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Cesky terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Glen of Imaal terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "terrier"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Chihuahua",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "pug",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Pomeranian",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Cavalier King Charles spaniel",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Shih Tzu",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Maltese",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Yorkshire terrier",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Papillon",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Havanese",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "miniature pinscher",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "toy poodle",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Pekingese",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Chinese crested dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Japanese chin",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Brussels griffon",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "affenpinscher",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "English toy spaniel",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "silky terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "toy fox terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Biewer terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Russian toy",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "toy"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Siberian husky",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Shiba Inu",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Alaskan malamute",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Samoyed",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Akita",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "chow chow",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Basenji",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Finnish spitz",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Keeshond",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Norwegian elkhound",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "American Eskimo dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Japanese spitz",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "German spitz",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Volpino Italiano",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Eurasier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Alaskan Klee Kai",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Kishu Ken",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Shikoku",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Korean Jindo",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Thai ridgeback",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Xoloitzcuintli",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Peruvian Inca Orchid",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Norwegian lundehund",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Karelian bear dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Greenland dog",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "spitz and primitive"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "French bulldog",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "bulldog",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "standard poodle",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Boston terrier",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "bichon frise",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "miniature poodle",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Dalmatian",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "large"
+        ]
+      }
+    },
+    {
+      "text": "Lhasa Apso",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Chinese Shar-Pei",
+      "tier": "plausible",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Tibetan terrier",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "Tibetan spaniel",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Schipperke",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Coton de Tuléar",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Löwchen",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "Bolognese",
+      "tier": "unusual",
+      "tags": {
+        "breed_group": [
+          "companion"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "small mixed-breed dog",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "mixed"
+        ],
+        "size": [
+          "small"
+        ]
+      }
+    },
+    {
+      "text": "medium mixed-breed dog",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "mixed"
+        ],
+        "size": [
+          "medium"
+        ]
+      }
+    },
+    {
+      "text": "large mixed-breed dog",
+      "tier": "typical",
+      "tags": {
+        "breed_group": [
+          "mixed"
+        ],
         "size": [
           "large"
         ]
@@ -398,6 +2663,18 @@
     }
   ],
   "local_facets": {
+    "breed_group": [
+      "sporting",
+      "hound",
+      "sighthound",
+      "working",
+      "herding",
+      "terrier",
+      "toy",
+      "spitz and primitive",
+      "companion",
+      "mixed"
+    ],
     "size": [
       "small",
       "medium",

@@ -37,6 +37,7 @@
   "values": [
     {
       "text": "burgundy, cream and charcoal",
+      "short": "burgundy, cream, gray",
       "tier": "typical",
       "roles": {
         "main": "burgundy",
@@ -90,6 +91,7 @@
     },
     {
       "text": "neon red, electric blue and black",
+      "short": "neon red, blue, black",
       "tier": "unusual",
       "roles": {
         "main": "neon red",
@@ -125,6 +127,7 @@
     },
     {
       "text": "terracotta, sage and off-white",
+      "short": "terracotta, sage, white",
       "tier": "typical",
       "roles": {
         "main": "terracotta",
@@ -143,6 +146,7 @@
     },
     {
       "text": "tangerine, turquoise and white",
+      "short": "tangerine, turquoise",
       "tier": "plausible",
       "roles": {
         "main": "tangerine",
@@ -160,6 +164,7 @@
     },
     {
       "text": "neon orange, hot pink and charcoal",
+      "short": "neon orange, hot pink",
       "tier": "unusual",
       "roles": {
         "main": "neon orange",
@@ -195,6 +200,7 @@
     },
     {
       "text": "butter yellow, pale blue and cream",
+      "short": "butter yellow, pale blue",
       "tier": "plausible",
       "roles": {
         "main": "butter yellow",
@@ -213,6 +219,7 @@
     },
     {
       "text": "golden yellow, cobalt blue and white",
+      "short": "yellow, cobalt, white",
       "tier": "plausible",
       "roles": {
         "main": "golden yellow",
@@ -230,6 +237,7 @@
     },
     {
       "text": "neon yellow, electric purple and black",
+      "short": "neon yellow and purple",
       "tier": "unusual",
       "roles": {
         "main": "neon yellow",
@@ -265,6 +273,7 @@
     },
     {
       "text": "forest green, burgundy and charcoal",
+      "short": "forest green, burgundy",
       "tier": "typical",
       "roles": {
         "main": "forest green",
@@ -283,6 +292,7 @@
     },
     {
       "text": "sage, dusty rose and off-white",
+      "short": "sage, dusty rose",
       "tier": "typical",
       "roles": {
         "main": "sage",
@@ -301,6 +311,7 @@
     },
     {
       "text": "neon green, neon orange and black",
+      "short": "neon green and orange",
       "tier": "unusual",
       "roles": {
         "main": "neon green",
@@ -318,6 +329,7 @@
     },
     {
       "text": "deep teal, rust and cream",
+      "short": "deep teal, rust, cream",
       "tier": "typical",
       "roles": {
         "main": "deep teal",
@@ -336,6 +348,7 @@
     },
     {
       "text": "seafoam, pale peach and off-white",
+      "short": "seafoam, pale peach",
       "tier": "plausible",
       "roles": {
         "main": "seafoam",
@@ -354,6 +367,7 @@
     },
     {
       "text": "turquoise, coral and white",
+      "short": "turquoise, coral, white",
       "tier": "plausible",
       "roles": {
         "main": "turquoise",
@@ -371,6 +385,7 @@
     },
     {
       "text": "dark teal, slate blue and charcoal",
+      "short": "dark teal, slate blue",
       "tier": "typical",
       "roles": {
         "main": "dark teal",
@@ -389,6 +404,7 @@
     },
     {
       "text": "navy, white and heather gray",
+      "short": "navy, white, gray",
       "tier": "typical",
       "roles": {
         "main": "navy",
@@ -407,6 +423,7 @@
     },
     {
       "text": "pale blue, blush pink and cream",
+      "short": "pale blue, blush, cream",
       "tier": "typical",
       "roles": {
         "main": "pale blue",
@@ -425,6 +442,7 @@
     },
     {
       "text": "cobalt blue, golden yellow and white",
+      "short": "cobalt, yellow, white",
       "tier": "plausible",
       "roles": {
         "main": "cobalt blue",
@@ -442,6 +460,7 @@
     },
     {
       "text": "slate blue, powder blue and blue-gray",
+      "short": "slate and powder blue",
       "tier": "plausible",
       "roles": {
         "main": "slate blue",
@@ -460,6 +479,7 @@
     },
     {
       "text": "plum, dusty rose and charcoal",
+      "short": "plum, dusty rose",
       "tier": "typical",
       "roles": {
         "main": "plum",
@@ -478,6 +498,7 @@
     },
     {
       "text": "lavender, pale mint and off-white",
+      "short": "lavender, pale mint",
       "tier": "plausible",
       "roles": {
         "main": "lavender",
@@ -496,6 +517,7 @@
     },
     {
       "text": "violet, tangerine and white",
+      "short": "violet, tangerine, white",
       "tier": "plausible",
       "roles": {
         "main": "violet",
@@ -531,6 +553,7 @@
     },
     {
       "text": "dusty rose, sage and cream",
+      "short": "dusty rose, sage, cream",
       "tier": "typical",
       "roles": {
         "main": "dusty rose",
@@ -548,6 +571,7 @@
     },
     {
       "text": "blush pink, pale lavender and off-white",
+      "short": "blush and lavender",
       "tier": "typical",
       "roles": {
         "main": "blush pink",
@@ -566,6 +590,7 @@
     },
     {
       "text": "hot pink, cobalt blue and black",
+      "short": "hot pink, cobalt, black",
       "tier": "plausible",
       "roles": {
         "main": "hot pink",
@@ -583,6 +608,7 @@
     },
     {
       "text": "neon pink, neon yellow and charcoal",
+      "short": "neon pink and yellow",
       "tier": "unusual",
       "roles": {
         "main": "neon pink",
@@ -600,6 +626,7 @@
     },
     {
       "text": "chocolate brown, camel and cream",
+      "short": "chocolate, camel, cream",
       "tier": "typical",
       "roles": {
         "main": "chocolate brown",
@@ -618,6 +645,7 @@
     },
     {
       "text": "chestnut, olive and beige",
+      "short": "chestnut, olive, beige",
       "tier": "typical",
       "roles": {
         "main": "chestnut",
@@ -636,6 +664,7 @@
     },
     {
       "text": "taupe, dusty blue and off-white",
+      "short": "taupe, dusty blue",
       "tier": "typical",
       "roles": {
         "main": "taupe",
@@ -728,6 +757,7 @@
     },
     {
       "text": "camel, rust and off-white",
+      "short": "camel, rust, off-white",
       "tier": "typical",
       "roles": {
         "main": "camel",
@@ -746,6 +776,7 @@
     },
     {
       "text": "black, white and heather gray",
+      "short": "black, white, gray",
       "tier": "typical",
       "roles": {
         "main": "black",
@@ -763,6 +794,7 @@
     },
     {
       "text": "black, burgundy and charcoal",
+      "short": "black, burgundy",
       "tier": "typical",
       "roles": {
         "main": "black",
@@ -781,6 +813,7 @@
     },
     {
       "text": "jet black, charcoal and slate gray",
+      "short": "jet black, charcoal",
       "tier": "typical",
       "roles": {
         "main": "jet black",
@@ -799,6 +832,7 @@
     },
     {
       "text": "black, neon green and gray",
+      "short": "black, neon green, gray",
       "tier": "unusual",
       "roles": {
         "main": "black",
@@ -833,6 +867,7 @@
     },
     {
       "text": "ivory, cream and off-white",
+      "short": "ivory and cream",
       "tier": "typical",
       "roles": {
         "main": "ivory",
@@ -851,6 +886,7 @@
     },
     {
       "text": "off-white, pale peach and beige",
+      "short": "off-white, peach, beige",
       "tier": "typical",
       "roles": {
         "main": "off-white",
@@ -869,6 +905,7 @@
     },
     {
       "text": "white, scarlet and charcoal",
+      "short": "white, scarlet, charcoal",
       "tier": "plausible",
       "roles": {
         "main": "white",
@@ -886,6 +923,7 @@
     },
     {
       "text": "charcoal, white and heather gray",
+      "short": "charcoal, white, gray",
       "tier": "typical",
       "roles": {
         "main": "charcoal",
@@ -905,6 +943,7 @@
     },
     {
       "text": "pearl gray, pale blue and off-white",
+      "short": "pearl gray, pale blue",
       "tier": "typical",
       "roles": {
         "main": "pearl gray",
@@ -923,6 +962,7 @@
     },
     {
       "text": "slate gray, rust and cream",
+      "short": "slate gray, rust, cream",
       "tier": "typical",
       "roles": {
         "main": "slate gray",
@@ -941,6 +981,7 @@
     },
     {
       "text": "heather gray, silver gray and charcoal",
+      "short": "grays and charcoal",
       "tier": "typical",
       "roles": {
         "main": "heather gray",

@@ -45,6 +45,7 @@
     },
     {
       "text": "cool light from an open blue sky",
+      "short": "open blue sky light",
       "tier": "typical",
       "tags": {
         "time_of_day": [
@@ -61,6 +62,7 @@
     },
     {
       "text": "dappled sunlight through a leafy canopy",
+      "short": "dappled canopy light",
       "tier": "typical",
       "tags": {
         "space": [
@@ -81,6 +83,7 @@
     },
     {
       "text": "sunlight reflected from a pale stone wall",
+      "short": "bounce off a stone wall",
       "tier": "typical",
       "tags": {
         "space": [
@@ -101,6 +104,7 @@
     },
     {
       "text": "sunlight filtered through a fabric awning",
+      "short": "light through an awning",
       "tier": "typical",
       "tags": {
         "space": [
@@ -121,6 +125,7 @@
     },
     {
       "text": "slanting sunlight between tall buildings",
+      "short": "slanting between towers",
       "tier": "typical",
       "tags": {
         "space": [
@@ -142,6 +147,7 @@
     },
     {
       "text": "sunlight reflected from rippling water",
+      "short": "rippling water light",
       "tier": "typical",
       "tags": {
         "space": [
@@ -162,6 +168,7 @@
     },
     {
       "text": "sunlight spilling beneath a deep porch roof",
+      "short": "under a deep porch",
       "tier": "typical",
       "tags": {
         "space": [
@@ -182,6 +189,7 @@
     },
     {
       "text": "soft daylight from a large window",
+      "short": "soft window light",
       "tier": "typical",
       "tags": {
         "space": [
@@ -203,6 +211,7 @@
     },
     {
       "text": "sunlight falling through sheer curtains",
+      "short": "through sheer curtains",
       "tier": "typical",
       "tags": {
         "space": [
@@ -224,6 +233,7 @@
     },
     {
       "text": "a narrow shaft of sunlight through a partly open door",
+      "short": "shaft from a door",
       "tier": "typical",
       "tags": {
         "space": [
@@ -245,6 +255,7 @@
     },
     {
       "text": "sunlight striped by window blinds",
+      "short": "striped by blinds",
       "tier": "typical",
       "tags": {
         "space": [
@@ -267,6 +278,7 @@
     },
     {
       "text": "diffuse daylight from a skylight",
+      "short": "skylight daylight",
       "tier": "typical",
       "tags": {
         "space": [
@@ -288,6 +300,7 @@
     },
     {
       "text": "low golden-hour sun raking across the scene",
+      "short": "golden hour",
       "tier": "typical",
       "tags": {
         "time_of_day": [
@@ -304,6 +317,7 @@
     },
     {
       "text": "warm sunset light beneath a bank of clouds",
+      "short": "sunset under clouds",
       "tier": "typical",
       "tags": {
         "time_of_day": [
@@ -319,6 +333,7 @@
     },
     {
       "text": "the pale first light above the horizon",
+      "short": "first light",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -337,6 +352,7 @@
     },
     {
       "text": "pink dawn light reflected from high clouds",
+      "short": "pink dawn",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -356,6 +372,7 @@
     },
     {
       "text": "sunrise breaking through a line of trees",
+      "short": "sunrise through trees",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -375,6 +392,7 @@
     },
     {
       "text": "cool blue twilight after sunset",
+      "short": "blue hour",
       "tier": "plausible",
       "tags": {
         "time_of_day": [
@@ -409,6 +427,7 @@
     },
     {
       "text": "silver moonlight reflected from still water",
+      "short": "moonlight on water",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -429,6 +448,7 @@
     },
     {
       "text": "faint starlight beneath a clear sky",
+      "short": "starlight",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -449,6 +469,7 @@
     },
     {
       "text": "a bar of moonlight across the floor",
+      "short": "bar of moonlight",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -469,6 +490,7 @@
     },
     {
       "text": "sunlight colored by a stained-glass window",
+      "short": "stained-glass light",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -490,6 +512,7 @@
     },
     {
       "text": "sunlight softened by a paper window screen",
+      "short": "paper-screen light",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -511,6 +534,7 @@
     },
     {
       "text": "green-tinted daylight through greenhouse glass",
+      "short": "greenhouse light",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -533,6 +557,7 @@
     },
     {
       "text": "daylight entering through high clerestory windows",
+      "short": "clerestory light",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -554,6 +579,7 @@
     },
     {
       "text": "sunlight broken into small patches by a carved screen",
+      "short": "carved-screen patches",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -574,6 +600,7 @@
     },
     {
       "text": "sunlight through a round porthole",
+      "short": "porthole sunlight",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -595,6 +622,7 @@
     },
     {
       "text": "sunlight scattered by sea mist",
+      "short": "sea mist light",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -615,6 +643,7 @@
     },
     {
       "text": "sunlight reflected upward from pale sand",
+      "short": "bounce off pale sand",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -635,6 +664,7 @@
     },
     {
       "text": "sunlight streaming through gaps in storm clouds",
+      "short": "sun through storm clouds",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -655,6 +685,7 @@
     },
     {
       "text": "sunlight cutting through tall reeds",
+      "short": "sun through reeds",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -675,6 +706,7 @@
     },
     {
       "text": "sunlight diffused by a translucent canopy",
+      "short": "translucent canopy",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -695,6 +727,7 @@
     },
     {
       "text": "bright daylight reflected from fresh snow",
+      "short": "snow-bounced daylight",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -717,6 +750,7 @@
     },
     {
       "text": "blue daylight filtered through thick ice",
+      "short": "blue light through ice",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -740,6 +774,7 @@
     },
     {
       "text": "green auroral light across the sky",
+      "short": "aurora",
       "tier": "unusual",
       "tags": {
         "space": [
@@ -760,6 +795,7 @@
     },
     {
       "text": "the brief white flare of lightning",
+      "short": "lightning flash",
       "tier": "unusual",
       "tags": {
         "space": [
@@ -779,6 +815,7 @@
     },
     {
       "text": "the dim copper light of a solar eclipse",
+      "short": "eclipse light",
       "tier": "unusual",
       "tags": {
         "space": [
@@ -799,6 +836,7 @@
     },
     {
       "text": "sunlight refracted into rainbow bands by a glass prism",
+      "short": "prism rainbow bands",
       "tier": "unusual",
       "tags": {
         "space": [
@@ -819,6 +857,7 @@
     },
     {
       "text": "low sunlight glowing through dry grasses",
+      "short": "backlit dry grass",
       "tier": "plausible",
       "tags": {
         "space": [
@@ -837,6 +876,7 @@
     },
     {
       "text": "sunlight reflected from copper-colored canyon walls",
+      "short": "copper canyon light",
       "tier": "plausible",
       "tags": {
         "space": [

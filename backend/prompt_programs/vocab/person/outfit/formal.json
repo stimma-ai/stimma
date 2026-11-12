@@ -27,6 +27,7 @@
   "values": [
     {
       "text": "a {main} tuxedo with a white pleated dress shirt",
+      "short": "tuxedo",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -67,6 +68,7 @@
     },
     {
       "text": "a {main} three-piece suit and a crisp {accent} shirt",
+      "short": "three-piece suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -95,6 +97,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -106,6 +112,7 @@
     },
     {
       "text": "a white dinner jacket and black tailored pants",
+      "short": "white dinner jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -139,6 +146,7 @@
     },
     {
       "text": "a {main} velvet suit and {neutral} silk shirt",
+      "short": "velvet suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -167,6 +175,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -178,6 +190,7 @@
     },
     {
       "text": "a {main} tailcoat, white vest, and gray striped formal pants",
+      "short": "white tie and tails",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -217,6 +230,7 @@
     },
     {
       "text": "a {main} double-breasted suit and {accent} shirt",
+      "short": "double-breasted suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -245,6 +259,10 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       },
       "palette": {
@@ -256,6 +274,7 @@
     },
     {
       "text": "a {main} silk gown with a square neckline",
+      "short": "square-neck silk gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -294,6 +313,7 @@
     },
     {
       "text": "a {main} satin gown with a full skirt",
+      "short": "full-skirted satin gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -332,6 +352,7 @@
     },
     {
       "text": "a {main} velvet dress with long fitted sleeves",
+      "short": "velvet long-sleeve dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -370,6 +391,7 @@
     },
     {
       "text": "a {main} sequined gown with a straight silhouette",
+      "short": "sequined column gown",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -404,6 +426,7 @@
     },
     {
       "text": "a {main} chiffon gown with layered sleeves",
+      "short": "chiffon gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -442,6 +465,7 @@
     },
     {
       "text": "a {main} crepe jumpsuit with wide tailored legs",
+      "short": "tailored crepe jumpsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -468,11 +492,15 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
       "text": "a {accent} silk blouse and a floor-length {main} skirt",
+      "short": "blouse and long skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -509,6 +537,7 @@
     },
     {
       "text": "a {main} tulle gown with an embroidered bodice",
+      "short": "embroidered tulle gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -547,6 +576,7 @@
     },
     {
       "text": "a {main} lace dress with elbow-length sleeves",
+      "short": "lace dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -581,6 +611,7 @@
     },
     {
       "text": "a {main} high-neck silk gown with an accordion-pleated skirt and a sculpted fan-shaped back",
+      "short": "fan-backed silk gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -619,6 +650,7 @@
     },
     {
       "text": "a {main} crepe evening suit with a draped {accent} blouse",
+      "short": "crepe evening suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -653,6 +685,7 @@
     },
     {
       "text": "a white satin bridal gown with lace sleeves",
+      "short": "lace-sleeved bridal gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -692,6 +725,7 @@
     },
     {
       "text": "a {main} embroidered pantsuit with a {accent} satin shell",
+      "short": "embroidered pantsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -718,11 +752,15 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
       "text": "a {main} silk sari with a {accent} brocade blouse",
+      "short": "silk sari",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -762,6 +800,7 @@
     },
     {
       "text": "a {main} embroidered lehenga and matching long-sleeved choli",
+      "short": "lehenga choli",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -801,6 +840,7 @@
     },
     {
       "text": "a {main} sherwani and {accent} silk churidar pants",
+      "short": "sherwani",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -840,6 +880,7 @@
     },
     {
       "text": "a {main} anarkali suit with a flared embroidered tunic",
+      "short": "anarkali suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -877,6 +918,7 @@
     },
     {
       "text": "a {main} silk abaya over a {accent} evening dress",
+      "short": "evening abaya",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -912,6 +954,7 @@
     },
     {
       "text": "a white thobe beneath a {main} gold-trimmed bisht",
+      "short": "bisht over thobe",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -957,6 +1000,7 @@
     },
     {
       "text": "a {main} embroidered takchita with a matching underdress",
+      "short": "takchita",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -996,6 +1040,7 @@
     },
     {
       "text": "a {main} agbada over a matching tunic and pants",
+      "short": "agbada",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1035,6 +1080,7 @@
     },
     {
       "text": "a {main} lace boubou with a matching long skirt",
+      "short": "lace boubou",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1074,6 +1120,7 @@
     },
     {
       "text": "a {main} aso-oke blouse and a matching wrapper skirt",
+      "short": "aso-oke blouse, wrapper",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1113,6 +1160,7 @@
     },
     {
       "text": "a white embroidered habesha kemis with woven {accent} borders",
+      "short": "habesha kemis",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1152,6 +1200,7 @@
     },
     {
       "text": "a {main} silk qipao with gold floral embroidery",
+      "short": "qipao",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1187,6 +1236,7 @@
     },
     {
       "text": "a black formal kimono with a gold brocade obi",
+      "short": "formal kimono",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1225,6 +1275,7 @@
     },
     {
       "text": "a {accent} jeogori and a full {main} chima",
+      "short": "hanbok",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1264,6 +1315,7 @@
     },
     {
       "text": "{neutral} baji and a {accent} jeogori beneath a {main} silk durumagi",
+      "short": "hanbok and durumagi",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1303,6 +1355,7 @@
     },
     {
       "text": "a {main} embroidered ao dai over {neutral} silk pants",
+      "short": "ao dai",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1338,6 +1391,7 @@
     },
     {
       "text": "a cream silk barong Tagalog and {neutral} dress pants",
+      "short": "barong Tagalog",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1373,6 +1427,7 @@
     },
     {
       "text": "a {accent} brocade kebaya and a {main} batik sarong",
+      "short": "kebaya and sarong",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1412,6 +1467,7 @@
     },
     {
       "text": "a {main} silk baju kurung with a matching long skirt",
+      "short": "baju kurung",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1451,6 +1507,7 @@
     },
     {
       "text": "a {main} baju Melayu with matching pants and a woven {accent} sampin",
+      "short": "baju Melayu",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1490,6 +1547,7 @@
     },
     {
       "text": "a {main} terno gown with structured butterfly sleeves",
+      "short": "terno gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1525,6 +1583,7 @@
     },
     {
       "text": "a black formal jacket and a {main} tartan kilt",
+      "short": "kilt and formal jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1568,6 +1627,7 @@
     },
     {
       "text": "a {main} bunad with an embroidered bodice and white blouse",
+      "short": "bunad",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1611,6 +1671,7 @@
     },
     {
       "text": "a {main} charro suit with silver embroidery and matching pants",
+      "short": "charro suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1654,6 +1715,7 @@
     },
     {
       "text": "a {accent} embroidered blouse and a full {main} skirt trimmed with {neutral} ribbons",
+      "short": "ribboned folk skirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1690,6 +1752,7 @@
     },
     {
       "text": "a black tailcoat and a finely woven tan kiekie over a black tupenu",
+      "short": "tailcoat and kiekie",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1724,6 +1787,7 @@
     },
     {
       "text": "a {accent} formal shirt and {main} tailored sulu",
+      "short": "sulu and formal shirt",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1759,6 +1823,7 @@
     },
     {
       "text": "a hand-beaded {main} couture gown with a sweeping train",
+      "short": "couture gown with train",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1800,6 +1865,7 @@
     },
     {
       "text": "a {main} sculpted opera coat with a high standing collar over a {accent} silk column dress",
+      "short": "opera coat, column dress",
       "tier": "plausible",
       "tags": {
         "formality": [
@@ -1831,6 +1897,7 @@
     },
     {
       "text": "a {main} architectural satin jacket with a flared peplum and a matching narrow ankle-length skirt",
+      "short": "peplum jacket set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1859,6 +1926,7 @@
     },
     {
       "text": "a {main} collarless silk tunic with a broad {accent} sash and matching wide palazzo pants",
+      "short": "tunic, sash, palazzos",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1879,11 +1947,15 @@
         ],
         "coverage": [
           "full"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
       "text": "a {main} fitted satin fishtail gown with a flared knee-length tier and long {accent} opera sleeves",
+      "short": "fishtail gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1913,6 +1985,7 @@
     },
     {
       "text": "a {main} silk cape-sleeved evening tunic over matching tailored knee-length shorts",
+      "short": "cape-sleeved evening set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1933,11 +2006,16 @@
         ],
         "coverage": [
           "moderate"
+        ],
+        "presentation": [
+          "feminine",
+          "masculine"
         ]
       }
     },
     {
       "text": "a {main} satin mini dress with spaghetti straps and a draped neckline",
+      "short": "satin slip mini dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1958,6 +2036,7 @@
     },
     {
       "text": "a {main} backless silk halter gown with a thigh-high side slit",
+      "short": "backless halter gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1979,6 +2058,7 @@
     },
     {
       "text": "a {main} strapless velvet column gown with a structured bodice",
+      "short": "strapless velvet gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -1999,6 +2079,7 @@
     },
     {
       "text": "a {main} one-shoulder crepe midi dress with a folded neckline",
+      "short": "one-shoulder midi dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2018,6 +2099,7 @@
     },
     {
       "text": "a {main} sequined crop top and a matching high-waisted mini skirt",
+      "short": "sequined crop and mini",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2038,6 +2120,7 @@
     },
     {
       "text": "a {main} silk gown with waist cutouts and a gathered floor-length skirt",
+      "short": "cutout silk gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2057,6 +2140,7 @@
     },
     {
       "text": "a {main} long-sleeved velvet evening jumpsuit with a {accent} satin sash",
+      "short": "velvet evening jumpsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2069,11 +2153,15 @@
           "black tie",
           "gala",
           "wedding guest"
+        ],
+        "presentation": [
+          "feminine"
         ]
       }
     },
     {
       "text": "a {main} brocade dinner suit over a {accent} long-sleeved silk shirt",
+      "short": "brocade dinner suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2093,6 +2181,7 @@
     },
     {
       "text": "a {main} morning coat over a {accent} vest with a white shirt and gray striped pants",
+      "short": "morning suit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2117,6 +2206,7 @@
     },
     {
       "text": "a {main} velvet smoking jacket with a quilted {accent} shawl collar over a white dress shirt and black straight pants",
+      "short": "velvet smoking jacket",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2148,6 +2238,7 @@
     },
     {
       "text": "a {main} organza ball gown with puff sleeves and {accent} embroidered flowers",
+      "short": "organza ball gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2168,6 +2259,7 @@
     },
     {
       "text": "a {main} pleated chiffon midi dress with cap sleeves and a tied neckline",
+      "short": "chiffon midi dress",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2187,6 +2279,7 @@
     },
     {
       "text": "a white crepe bridal jumpsuit with long lace sleeves and a sweeping overskirt",
+      "short": "bridal jumpsuit",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2209,6 +2302,7 @@
     },
     {
       "text": "a {main} seated-cut tuxedo jacket with matching side-opening pants and a white dress shirt",
+      "short": "seated-cut tuxedo",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2233,6 +2327,7 @@
     },
     {
       "text": "a {main} draped satin cape gown with a floor-length train",
+      "short": "satin cape gown",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2252,6 +2347,7 @@
     },
     {
       "text": "a {main} embroidered long-sleeved kaftan over a matching silk underdress",
+      "short": "embroidered kaftan",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2273,6 +2369,7 @@
     },
     {
       "text": "a {main} high-collared silk blouse with bishop sleeves and {neutral} flowing satin pants",
+      "short": "bishop-sleeve blouse set",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2292,6 +2389,7 @@
     },
     {
       "text": "a {main} asymmetric satin top with a single sleeve and {neutral} flared evening pants",
+      "short": "one-sleeve evening top",
       "tier": "typical",
       "tags": {
         "formality": [
@@ -2324,6 +2422,10 @@
       "light",
       "moderate",
       "full"
+    ],
+    "presentation": [
+      "feminine",
+      "masculine"
     ]
   },
   "context": {
