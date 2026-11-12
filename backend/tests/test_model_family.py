@@ -23,6 +23,11 @@ FIXTURES = [
     ("flux3-klein-base", "flux-3-klein"),
     ("flux-3-image-klein", "flux-3-klein"),
     ("FLUX.1-Fill-dev", "flux-1-fill"),
+    ("flux1-krea-dev_fp8_scaled.safetensors", "flux-krea"),
+    # --- Krea 2: its own line ---
+    ("krea2_turbo_fp8_scaled.safetensors", "krea-2"),
+    ("krea-2-turbo", "krea-2"),
+    ("Krea 2", "krea-2"),
     # --- Stable Diffusion lines ---
     ("sd_xl_base_1.0.safetensors", "sdxl"),
     ("juggernautXL_v9.safetensors", FAMILY_OTHER),  # fine-tune w/o line marker

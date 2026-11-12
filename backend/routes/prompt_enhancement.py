@@ -90,6 +90,8 @@ def enhancement_mode(
         return "qwen-image-2.1-edit" if is_image_edit else "qwen-image-2.1"
     if family == "flux-3-klein":
         return "flux3-klein-edit" if is_image_edit else "flux3-klein"
+    if family == "krea-2" and not is_image_edit:
+        return "krea-2"
     if family == "ideogram":
         return "ideogram"
     if family in _KEYWORD_FAMILIES:
@@ -114,6 +116,7 @@ _IMPROVE_PROMPT_BY_MODE = {
     "edit": "improve_image_edit_system_prompt",
     "audio": "improve_audio_system_prompt",
     "prose": "improve_system_prompt",
+    "krea-2": "improve_krea2_system_prompt",
 }
 
 
@@ -1081,7 +1084,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
                  if request.instructions and request.instructions.strip() else "")
         user_content = f"Refine this image-edit instruction:\n\n{request.prompt}{instr}"
-    elif mode == "prose":
+    elif mode in ("prose", "krea-2"):
         instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
                  if request.instructions and request.instructions.strip() else "")
         user_content = (
