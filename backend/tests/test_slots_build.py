@@ -239,3 +239,25 @@ def test_a_free_slot_as_written_is_a_pin_of_its_words():
     assert "pet" not in drawn
     r = _draw(entry, 3, pins={"pet": ["pet"]})
     assert "porch with his pet," in r.prompt
+
+
+def test_a_realized_prompt_says_where_each_drawn_value_stands():
+    """IMPROVER task 5: every drawn value's (start, end, id) in the emitted prompt, after the
+    user's [exact text] is back; the user's own words are never a span."""
+    from prompt_programs.fluent import runtime_for as rt_for
+    from prompt_programs.runtime import tidy_text
+    from prompt_programs.prepare import mask_exact, realize
+
+    masked, exact = mask_exact(PORCH_PROMPT.replace("evening", "evening, [Kodak Portra 400]"))
+    _, entry = build(parse(masked), PORCH_READING)
+    entry["exact"] = exact
+    for seed in range(8):
+        r = realize(entry, seed=seed, runtime=rt_for(entry, store=None, mine={}))
+        drawn = {d.id: str(d.value) for d in r.draws if d.value is not None}
+        ids = [cid for _, _, cid in r.spans]
+        assert {"elderly_african_man.age", "elderly_african_man.descent", "pet", "list1"} <= set(ids)
+        assert len(ids) == len(set(ids))
+        for start, end, cid in r.spans:
+            assert r.prompt[start:end].lower() in (drawn[cid].lower(), tidy_text([drawn[cid]]).lower())
+        assert all(a < b <= c for (a, b, _), (c, _, _) in zip(r.spans, r.spans[1:]))
+        assert "[Kodak Portra 400]" in r.prompt and r.prompt.startswith("# she is his granddaughter")

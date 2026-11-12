@@ -766,6 +766,15 @@ class DrawResult(RunResult):
     revision: Dict[str, Any] = field(default_factory=dict)
     more_coming: List[str] = field(default_factory=list)   # choices whose pools are still filling
     stats: Dict[str, Any] = field(default_factory=dict)    # proposals and rejections
+    # The emitted parts in order, each with the id of the pick whose value it is (None for the
+    # program's own text): where each drawn value stands is found from these (value_spans).
+    value_parts: List[Tuple[str, Optional[str]]] = field(default_factory=list)
+
+    @property
+    def spans(self) -> List[Tuple[int, int, str]]:
+        """(start, end, choice id) of every drawn value in `prompt` as it stands now (after
+        [exact text] is put back too), in order. User text is never a span."""
+        return value_spans(self.prompt, self.value_parts)
 
     def to_dict(self) -> Dict[str, Any]:
         d = super().to_dict()
@@ -773,6 +782,50 @@ class DrawResult(RunResult):
         if self.more_coming:
             d["more_coming"] = list(self.more_coming)
         return d
+
+
+def _value_parts(exe: Any) -> List[Tuple[str, Optional[str]]]:
+    """Each emitted part with the pick it is the value of: a part of an emit() argument that
+    pick's value fed, whose text is that value (any case). A value written into other text
+    (an f-string) is no part of its own, so it isn't one."""
+    out: List[Tuple[str, Optional[str]]] = []
+    for text, taint in exe.spans:
+        own = text.strip().lower()
+        cid = next((c for s, derived in sorted(taint) if not derived for c in exe.site_ids.get(s, [])
+                    if c in exe.by_id and exe.by_id[c].kind == "pick" and exe.by_id[c].value is not None
+                    and str(exe.by_id[c].value).strip().lower() == own and own), None)
+        out.append((text, cid))
+    return out
+
+
+def value_spans(prompt: str, parts: Sequence[Tuple[str, Optional[str]]]) -> List[Tuple[int, int, str]]:
+    """Where each value part stands in the prompt made from `parts` (tidy_text, perhaps with
+    [exact text] put back): the parts are found in order, case aside, as whole words, each
+    after the one before. Tidying may drop or change the program's own short joiners ("a"
+    before a value's own "a"), so one of those moves the search only when it is found right
+    there, and only to where it starts. A value not found is no span: it goes unmarked."""
+    at = 0
+    out: List[Tuple[int, int, str]] = []
+    for text, cid in parts:
+        t = text.strip()
+        if not t:
+            continue
+        m = None
+        for form in dict.fromkeys((t, tidy_text([t]))):   # "a olive coat" reads "an olive coat" once tidied
+            pat = (r"(?<!\w)" if form[:1].isalnum() else "") + re.escape(form) + (r"(?!\w)" if form[-1:].isalnum() else "")
+            m = re.compile(pat, re.I).search(prompt, at) if form else None
+            if m is not None:
+                break
+        if m is None:
+            continue
+        if cid is not None:
+            out.append((m.start(), m.end(), cid))
+            at = m.end()
+        elif len(t.split()) > 3:
+            at = m.end()
+        elif not prompt[at:m.start()].strip(" \t\n,.;:!?"):
+            at = m.start()
+    return out
 
 
 # --------------------------------------------------------------------------- execution
@@ -1445,7 +1498,8 @@ def draw(source: str, seed: int, pins: Optional[Dict[str, Sequence[str]]] = None
     stats = {"proposals": eng.proposals, "rejected": eng.rejected}
     return DrawResult(prompt, final.draws, final.lora_uses, final.params, final.groups, seed,
                       revision=eng.revision(source),
-                      more_coming=list(dict.fromkeys(eng.more_coming)), stats=stats)
+                      more_coming=list(dict.fromkeys(eng.more_coming)), stats=stats,
+                      value_parts=_value_parts(final))
 
 
 @functools.lru_cache(maxsize=128)
@@ -1466,5 +1520,5 @@ def fixed_text(source: str, loras: Optional[Sequence[LoraInfo]] = None, tool_par
 
 __all__ = [
     "CONTEXT_VERSION", "CONTEXT_VERSIONS", "Analysis", "DrawAborted", "DrawResult", "LiteralOptions", "OptionsService", "PickSpec", "Pool",
-    "analyze", "context_links", "context_suffix", "draw", "fixed_text", "owns", "person_of", "pool_key", "uses_draws",
+    "analyze", "context_links", "context_suffix", "draw", "fixed_text", "owns", "person_of", "pool_key", "uses_draws", "value_spans",
 ]
