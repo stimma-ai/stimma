@@ -190,12 +190,17 @@ class _Ask:
 class OnnxJudge:
     """P(wrong) for (masked prompt, pick) pairs from a cross-encoder in ONNX, on CPU."""
 
-    def __init__(self, model_dir: str | os.PathLike, threads: int = 0, cache_items: int = 20_000):
+    def __init__(self, model_dir: str | os.PathLike, threads: int = 0, cache_items: int = 20_000,
+                 manifest: Optional[Dict[str, Any]] = None):
+        """`manifest`: a judge release's manifest (tools/models_release.py). Its kind, maxlen,
+        output, labels, wrong class, cut and model file win over the directory's io.json."""
         d = Path(os.path.expanduser(str(model_dir)))
         if not d.is_dir():
             raise FixJudgeUnavailable(f"no judge model directory at {d}")
         cfg = dict(DEFAULTS)
         io = _read_json(d / "io.json")
+        if manifest:
+            io = {**io, **{k: manifest[k] for k in ("kind", "maxlen", "cut", "output") if k in manifest}}
         if io.get("kind") in ("enc", "dec"):
             cfg["kind"] = io["kind"]
         if io.get("maxlen"):
@@ -205,6 +210,8 @@ class OnnxJudge:
         if isinstance(io.get("output"), str):
             cfg["output"] = "probs" if io["output"].strip().lower().startswith("prob") else "logits"
         cfg.update(_read_json(d / "judge.json"))
+        if manifest:
+            cfg.update({k: manifest[k] for k in ("labels", "wrong", "model") if manifest.get(k)})
         model = d / cfg["model"] if cfg.get("model") else next((d / f for f in MODEL_FILES if (d / f).exists()), None)
         if model is None or not model.exists():
             raise FixJudgeUnavailable(f"no ONNX model in {d} (looked for {', '.join(MODEL_FILES)})")
@@ -446,7 +453,7 @@ def needs_judge(entry: Dict[str, Any], cfg: Any = None) -> bool:
     return fix_mode(cfg.fix_model) == "default"
 
 
-async def await_judge(entry: Dict[str, Any], cfg: Any = None) -> None:
+async def await_judge(entry: Dict[str, Any], cfg: Any = None, project_id: Optional[int] = None) -> None:
     """Before drawing `entry` in a worker thread: make the judge for the Tool View model
     on this event loop, so the worker's fix pass can hand its calls back here. Never
     raises: without a judge the draw ships unjudged and its record says so."""
@@ -455,20 +462,20 @@ async def await_judge(entry: Dict[str, Any], cfg: Any = None) -> None:
         if not needs_judge(entry, cfg):
             return
         from prompt_programs import llm_judge
-        await llm_judge.ready()
+        await llm_judge.ready(project_id)
     except asyncio.CancelledError:
         raise
     except Exception as e:
         log.debug(f"[fluent-fix] couldn't ready the judge: {e}")
 
 
-def judge_identity(cfg: Any) -> str:
+def judge_identity(cfg: Any, project_id: Optional[int] = None) -> str:
     """The configured judge as a draw depends on it: off, the Tool View model, or a model
     directory. Part of the hot-draw signature."""
     mode = fix_mode(cfg.fix_model)
     if mode == "default":
         from prompt_programs import llm_judge
-        j = llm_judge.current()
+        j = llm_judge.current(project_id)
         return j.version if j is not None else "llm"
     return "off" if mode == "off" else f"dir:{cfg.fix_model}"
 
@@ -719,7 +726,7 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
             return [shipped(r) for r in out]
         if mode == "default":  # the Tool View model, readied on the event loop (await_judge)
             from prompt_programs import llm_judge
-            judge = llm_judge.current()
+            judge = llm_judge.current(project_id)
             if judge is None:
                 return [shipped(r if isinstance(r, Exception) else (r, {"judge": "llm", "skipped": "unavailable"})) for r in out]
         else:

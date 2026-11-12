@@ -1047,7 +1047,7 @@ class TestFallbackRungs:
     async def test_the_words_as_written_never_wait_for_the_judge(self, model, monkeypatch):
         waited = []
 
-        async def await_judge(entry):
+        async def await_judge(entry, **_kw):
             waited.append(entry.get("key"))
         monkeypatch.setattr("prompt_programs.fix.await_judge", await_judge)
         model.replies = [_down()]

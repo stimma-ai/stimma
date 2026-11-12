@@ -830,7 +830,7 @@ class GenerationQueue:
 
         spec = intent['spec']
         # Its draws wait for the judge like a submit's (this task is cancelled with the pool).
-        await await_judge(spec['entry'])
+        await await_judge(spec['entry'], project_id=spec.get('project_id'))
         while self._prompt_warm_intent.get(generator_instance_id) is intent:
             missing = intent['concurrency'] - len(self._prompt_warm_ready.get(generator_instance_id, []))
             if missing <= 0:

@@ -224,7 +224,7 @@ async def preview(req: PreviewRequest) -> Dict[str, Any]:
         from prompt_programs.fix import await_judge
         from prompt_programs.fluent import attach_filler
         attach_filler(entry, get_current_profile())
-        await await_judge(entry)
+        await await_judge(entry, project_id=req.project_id)
         # In a thread: a judge on CPU must not hold up the event loop.
         result, fix = await asyncio.to_thread(realize_and_fix, entry, seed=draw_seed(req.seed), pins=req.pins,
                                               edits=req.edits, profile_id=get_current_profile(),

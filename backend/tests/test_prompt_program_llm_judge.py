@@ -105,7 +105,7 @@ def test_default_means_the_tool_view_model_and_without_it_a_draw_ships_unjudged(
 
 def test_everything_refused_in_a_round_is_rerolled_together(monkeypatch, loop, tmp_path):
     lp = loop(lambda k: "no" if k[4] in ("a stormy sky", "wheat") else "yes")
-    monkeypatch.setattr(llm_judge, "_current", lp.judge)
+    monkeypatch.setitem(llm_judge._judges, None, lp.judge)
     src = ('sky = pick("sky", about="the sky", seed=["a stormy sky", "a clear sky", "a pale sky"], label="Sky", phase=1, added=True)\n'
            'crop = pick("crop", about="what grows", seed=["wheat", "barley", "rye"], label="Crop", phase=1, added=True)\n'
            'emit("A field of", crop, "under", sky, ".")\n')
@@ -122,6 +122,81 @@ def test_everything_refused_in_a_round_is_rerolled_together(monkeypatch, loop, t
             seen += 1
             assert rec["rerolls"] == 1 and len(first["rerolled"]["with"]) == 1
     assert seen
+
+
+def test_a_call_that_takes_too_long_is_given_up_not_left_running(monkeypatch, loop):
+    lp = loop(lambda k: "no")
+    state = {"cancelled": False}
+
+    async def slow(judge, head, chunk):
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            state["cancelled"] = True
+            raise
+    monkeypatch.setattr(llm_judge.LlmJudge, "_call", slow)
+    monkeypatch.setattr(llm_judge, "TIMEOUT", 0.2)
+    with pytest.raises(Exception):
+        lp.judge.p_wrong(items("hazel"))
+    for _ in range(50):
+        if state["cancelled"]:
+            break
+        threading.Event().wait(0.02)
+    assert state["cancelled"]
+
+
+class TestReady:
+    def cfg(self, **kw):
+        return SimpleNamespace(**{"model": "m", "url": "http://a/v1", "provider_kind": "openai", **kw})
+
+    def run(self, monkeypatch, answers):
+        import llm_resolver
+        seen = []
+
+        async def effective(role, project_id=None):
+            seen.append((role, project_id))
+            got = answers[project_id]
+            if isinstance(got, Exception):
+                raise got
+            return got
+        monkeypatch.setattr(llm_resolver, "get_effective_llm_config", effective)
+        return seen
+
+    def test_each_project_has_the_judge_of_its_own_tool_view_model(self, monkeypatch):
+        llm_judge.reset()
+        answers = {None: self.cfg(), 7: self.cfg(model="other")}
+        seen = self.run(monkeypatch, answers)
+
+        async def go():
+            return await llm_judge.ready(), await llm_judge.ready(7)
+        a, b = asyncio.run(go())
+        assert seen == [("tool_assistant", None), ("tool_assistant", 7)]
+        assert a is not b and a.version != b.version and llm_judge.current(7) is b and llm_judge.current() is a
+
+    def test_another_endpoint_with_the_same_model_name_is_another_judge(self, monkeypatch):
+        llm_judge.reset()
+        answers = {None: self.cfg()}
+        self.run(monkeypatch, answers)
+
+        async def go():
+            first = await llm_judge.ready()
+            again = await llm_judge.ready()
+            answers[None] = self.cfg(url="http://b/v1")
+            return first, again, await llm_judge.ready()
+        first, again, moved = asyncio.run(go())
+        assert again is first and moved is not first and moved.version != first.version
+
+    def test_a_model_that_can_no_longer_be_resolved_leaves_no_judge(self, monkeypatch):
+        llm_judge.reset()
+        answers = {None: self.cfg()}
+        self.run(monkeypatch, answers)
+
+        async def go():
+            first = await llm_judge.ready()
+            answers[None] = RuntimeError("no provider")
+            return first, await llm_judge.ready()
+        first, after = asyncio.run(go())
+        assert first is not None and after is None and llm_judge.current() is None
 
 
 class TestShow:

@@ -631,7 +631,7 @@ async def _run_prompt_program(
         # signature sees it ready. An exact replay is never judged, so never waits.
         if not program_opts.get("revision"):
             from prompt_programs.fix import await_judge
-            await await_judge(entry)
+            await await_judge(entry, project_id=project_id)
         hot = None
         if hot_draws_for and program_opts.get("draw_seed") is None and not program_opts.get("revision"):
             hot = _take_hot_draw(hot_draws_for, entry, program_opts, triggers=lora_triggers,
@@ -740,7 +740,7 @@ def hot_draw_signature(entry: Dict[str, Any], program_opts: Dict[str, Any], *, t
         "project_id": project_id, "settings": dataclasses.asdict(cfg),
         # the judge's version and readiness: draws made before it was ready
         # aren't served once it's ready, and a new judge version never serves old draws
-        "judge": judge_identity(cfg),
+        "judge": judge_identity(cfg, project_id),
         # the user's options kept per list: a draw made before one was added never serves after
         "additions": _additions_version(profile_id),
     }

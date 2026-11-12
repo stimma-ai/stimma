@@ -64,10 +64,12 @@ class LlmJudge:
     cut = CUT
     reroll_all = True
 
-    def __init__(self, loop: asyncio.AbstractEventLoop, cfg: Any) -> None:
+    def __init__(self, loop: asyncio.AbstractEventLoop, cfg: Any, key: str = "") -> None:
         self.loop = loop
         self.cfg = cfg
-        self.version = f"llm:{getattr(cfg, 'model', '') or 'tool-assistant'}"
+        self.key = key   # the model and endpoint it asks: another one is another judge
+        where = hashlib.sha256(key.encode("utf-8")).hexdigest()[:6] if key else ""
+        self.version = f"llm:{getattr(cfg, 'model', '') or 'tool-assistant'}" + (f"@{where}" if where else "")
         self._answers: Dict[Tuple[str, str, str, str, str], str] = {}
         self._lock = threading.Lock()
         self.calls = 0
@@ -83,7 +85,12 @@ class LlmJudge:
                 here = None
             if here is self.loop:   # it would wait on itself: the fix pass runs in a worker thread
                 raise RuntimeError("the judge was asked from its own event loop's thread")
-            got = asyncio.run_coroutine_threadsafe(self._ask(todo), self.loop).result(TIMEOUT)
+            asked = asyncio.run_coroutine_threadsafe(self._ask(todo), self.loop)
+            try:
+                got = asked.result(TIMEOUT)
+            except BaseException:   # too slow, or this thread is ending: the model call is given up, not left running
+                asked.cancel()
+                raise
             with self._lock:
                 self._answers.update(got)
                 if len(self._answers) > 50_000:
@@ -129,36 +136,35 @@ class LlmJudge:
         return {"version": self.version, "calls": self.calls, "answers": len(self._answers)}
 
 
-_current: Optional[LlmJudge] = None
+_judges: Dict[Optional[int], LlmJudge] = {}   # by project: a project may set its own Tool View model
 
 
 async def ready(project_id: Optional[int] = None) -> Optional[LlmJudge]:
-    """The judge for the Tool View model as configured now, made on the running loop. None when
-    no model is configured (the draw then ships unjudged)."""
-    global _current
+    """The judge for the Tool View model as configured now for this project, made on the running
+    loop. None when no model can be resolved: the draw then ships unjudged."""
     from llm_resolver import get_effective_llm_config
     try:
         cfg = await get_effective_llm_config("tool_assistant", project_id)
     except Exception as e:
         log.debug(f"[fluent-judge] no Tool View model for the judge: {e}")
-        return _current
+        _judges.pop(project_id, None)
+        return None
     loop = asyncio.get_running_loop()
-    key = json.dumps([getattr(cfg, "model", ""), getattr(cfg, "base_url", ""), getattr(cfg, "provider", "")], default=str)
-    if _current is None or _current.loop is not loop or getattr(_current, "_key", None) != key:
-        _current = LlmJudge(loop, cfg)
-        _current._key = key  # type: ignore[attr-defined]
+    key = json.dumps([getattr(cfg, "model", ""), getattr(cfg, "url", ""), getattr(cfg, "provider_kind", "")], default=str)
+    judge = _judges.get(project_id)
+    if judge is None or judge.loop is not loop or judge.key != key:
+        judge = _judges[project_id] = LlmJudge(loop, cfg, key)
     else:
-        _current.cfg = cfg   # fresh credentials, the same judge and its answers
-    return _current
+        judge.cfg = cfg   # fresh credentials, the same judge and its answers
+    return judge
 
 
-def current() -> Optional[LlmJudge]:
-    return _current
+def current(project_id: Optional[int] = None) -> Optional[LlmJudge]:
+    return _judges.get(project_id)
 
 
 def reset() -> None:
-    global _current
-    _current = None
+    _judges.clear()
 
 
 __all__ = ["CUT", "LlmJudge", "RULES", "current", "ready", "reset"]
