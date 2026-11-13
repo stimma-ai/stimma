@@ -30,6 +30,10 @@ READER_VERSION = "reader-3"   # reader-3: a part of a person is not a person; le
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
+# A reading's reply budget: a few hundred tokens a part is room enough with no reasoning, and
+# a runaway reply stops in seconds instead of minutes.
+READING_TOKENS, SLOT_TOKENS = 300, 300
+
 
 class ReaderFailed(Exception):
     """The chat model's reading of the slots couldn't be used, after one retry."""
@@ -371,7 +375,7 @@ async def read(parsed: Parsed, *, ask: Ask, project_id: Optional[int], model: Op
                     {"role": "user", "content": user_message(parsed, asked)}]
         problem = ""
         for attempt in range(2):
-            reply = await ask(messages, project_id, 3000)
+            reply = await ask(messages, project_id, READING_TOKENS + SLOT_TOKENS * len(asked))
             try:
                 got_slots, got_lists = check_reply(reply, parsed, asked)
                 reading = _reading({**slots, **got_slots}, {**lists, **got_lists})

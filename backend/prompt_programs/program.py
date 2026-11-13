@@ -121,7 +121,7 @@ def store_for(profile_id: Optional[str]) -> ProgramStore:
     return ProgramStore(app_dirs.get_profile_dir(profile_id or get_current_profile()) / "prompt_programs")
 
 
-async def ask_model(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int = 4096) -> str:
+async def ask_model(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int = 1500) -> str:
     """One plain completion from the chat model Fluent reads prompts with."""
     from llm import llm_complete_text
     from llm_correlation import llm_correlation_context
@@ -129,7 +129,9 @@ async def ask_model(messages: List[Dict[str, Any]], project_id: Optional[int], m
 
     cfg = await get_effective_llm_config("tool_assistant", project_id)
     with llm_correlation_context("prompt-program"):
-        return await llm_complete_text(config=cfg, messages=messages, max_tokens=max_tokens, temperature=0.3)
+        # Nothing Fluent asks needs reasoning: ask for none, and never retry with room for it.
+        return await llm_complete_text(config=cfg, messages=messages, max_tokens=max_tokens, temperature=0.3,
+                                       enable_thinking=False, retry_reasoning=False)
 
 
 # Whether an endpoint's model makes tool calls, learned on first contact: (api base, model) →

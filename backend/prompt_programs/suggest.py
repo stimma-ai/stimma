@@ -65,7 +65,9 @@ async def ask_model(messages: List[Dict[str, Any]], project_id: Optional[int], m
 
     cfg = await get_effective_llm_config("tool_assistant", project_id)
     with llm_correlation_context("prompt-program"):
-        return await llm_complete_text(config=cfg, messages=messages, max_tokens=max_tokens, temperature=0.3)
+        # Nothing Fluent asks needs reasoning: ask for none, and never retry with room for it.
+        return await llm_complete_text(config=cfg, messages=messages, max_tokens=max_tokens, temperature=0.3,
+                                       enable_thinking=False, retry_reasoning=False)
 
 
 async def model_name(project_id: Optional[int]) -> str:

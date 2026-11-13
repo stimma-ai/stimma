@@ -208,7 +208,7 @@ async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask
         if hit is not None:
             return hit
     try:
-        reply = await ask(messages_for(leaf, phrase, shown, about, prompt), project_id, 2000)
+        reply = await ask(messages_for(leaf, phrase, shown, about, prompt), project_id, 200 + 16 * len(shown))
     except Exception as e:  # the writer's endpoint failing here must not fail the prepare
         log.warning(f"[prompt-program] narrowing {leaf.id} by {phrase!r} failed: {e}")
         return None
