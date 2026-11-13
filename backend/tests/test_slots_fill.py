@@ -233,6 +233,22 @@ def test_an_open_face_is_one_subtle_piece_and_ticked_pieces_of_different_parts_g
     assert {values(draw(e, s, pins={"young_woman.face": noses}))["young_woman.face"] for s in range(12)} <= set(noses)
 
 
+def test_a_detail_that_starts_left_out_still_shows_its_options_groups_and_looks():
+    """The chooser of a hairstyle (left out until chosen) gets its pool like any detail: its
+    options, group chips and look lines. A face shows its parts, not a list of its own."""
+    from prompt_programs.fluent import pool_options
+    e = entry_of(KITCHEN_PROMPT, KITCHEN_READING, {"young_woman.age": YOUNG})
+    got = pool_options(e, store=None, mine={})
+    leaf = vocabulary().get("person.hairstyle")
+    style = got["vocab"]["young_woman.hairstyle"]
+    assert style["cls"] == leaf.id and style["groups"] and style["looks"]
+    assert set(got["options"]["young_woman.hairstyle"]) <= {v.text for v in leaf.values}
+    assert len(got["options"]["young_woman.hairstyle"]) > 100
+    assert "young_woman.face" not in got["options"] and got["options"]["young_woman.face.nose"]
+    # Asking for its options turns nothing on: untouched, it still isn't drawn.
+    assert all("young_woman.hairstyle" not in values(draw(e, s)) for s in range(5))
+
+
 def test_a_hairstyle_starts_left_out_and_follows_the_hair_length():
     e = entry_of(KITCHEN_PROMPT, KITCHEN_READING, {"young_woman.age": YOUNG})
     style = next(c for c in e["choices"] if c["id"] == "young_woman.hairstyle")

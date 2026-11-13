@@ -171,11 +171,14 @@ class TestThePoolsAnswerStaysSmall:
         assert set(tiers.values()) <= {"opt_in"} and not set(tiers) & kept and len(tiers) < 100
         assert "reach" not in got["vocab"]["woman.face"]           # a long list keeps its plain row
         # The face's parts (its shape, eyes…) are short lists of their own, sent whole: a few
-        # kilobytes each. The rest of the answer stays as small as it was.
+        # kilobytes each. So is the hairstyle that starts left out, with its looks and groups.
+        # The rest of the answer stays as small as it was.
         parts = [c["id"] for c in e["choices"] if c.get("part_of") == "woman.face"]
-        rest = {k: {c: x for c, x in v.items() if c not in parts} if isinstance(v, dict) else v for k, v in got.items()}
+        whole = [*parts, "woman.hairstyle"]
+        rest = {k: {c: x for c, x in v.items() if c not in whole} if isinstance(v, dict) else v for k, v in got.items()}
         assert size(rest) < 40_000 < size(e)
         assert len(parts) == 12 and all(size(got["options"][p]) + size(got["vocab"][p]) < 6_000 for p in parts)
+        assert got["vocab"]["woman.hairstyle"]["looks"]
         # a short list is answered whole, as before, with its opt-in values marked for the picker
         assert len(got["options"]["woman.age"]) > 10
         assert "opt_in" in set(got["vocab"]["woman.age"]["tiers"].values())

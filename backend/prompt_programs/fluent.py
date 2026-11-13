@@ -206,8 +206,10 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
     generated = [c["id"] for c in entry.get("choices") or [] if c.get("kind") == "pick" and c.get("source") != "list"]
     bound_cls = {c["id"]: c.get("cls") for c in entry.get("choices") or [] if c.get("cls")}
     listed = {c["id"]: c.get("options") for c in entry.get("choices") or [] if c.get("cls")}
-    # A face's part starts left out: it is drawn turned on to see its options.
-    quiet = {c["id"] for c in entry.get("choices") or [] if c.get("part_of") and c.get("starts_off")}
+    # A detail that starts left out (a hairstyle, a face's part) is drawn turned on to see its
+    # options. A face shows its parts' options, not a list of its own.
+    wholes = {str(c["part_of"]) for c in entry.get("choices") or [] if c.get("part_of")}
+    quiet = {c["id"] for c in entry.get("choices") or [] if c.get("starts_off") and c["id"] not in wholes}
 
     def own_adds(cid: str) -> List[str]:   # options the user added in this choice's card
         return [str(x) for x in ((rt.options.edits.get(cid) or {}).get("add") or [])]
