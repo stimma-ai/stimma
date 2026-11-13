@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  addOwn, asWritten, listChoiceAt, carriedIds, carryChoices, chooseAny, cleanState, clearSeed, isChanged, keptPieces, leaveOut, lineText, lookOf,
+  addOwn, asWritten, listChoiceAt, carriedIds, followId, carryChoices, chooseAny, cleanState, clearSeed, isChanged, keptPieces, leaveOut, lineText, lookOf,
   numberRepeats, optionsOf, pinTo, regionNote, resetState, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleValue, wireState,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramSlot } from './programWire.ts'
@@ -140,4 +140,21 @@ test('a list in the text is its list choice: same place and options, else the on
   assert.equal(listChoiceAt([{ items: ['x', 'y'] }], choices, 1), null)
   assert.equal(lineText({ values: ['summer', 'autumn'] }, true), 'summer, autumn')
   assert.equal(lineText({ values: ['a', 'b', 'c', 'd'] }, true), 'a, b, c +1')
+})
+
+
+test('a late More like these follows its slot through an edit, and is dropped when the slot is gone', () => {
+  const two = {
+    key: 'k1', choices: [{ id: 'mug', kind: 'variants', label: 'Mug' }, { id: 'mug_2', kind: 'variants', label: 'Mug' }],
+    slots: [{ id: 'mug', n: 1, words: 'mug', ...ready }, { id: 'mug_2', n: 2, words: 'mug', ...ready }],
+  } as any
+  assert.equal(followId('mug', two, two), 'mug')
+  // the first <mug> deleted: the survivor is `mug` now, and was `mug_2`
+  const one = { key: 'k2', from: 'k1', choices: [{ id: 'mug', kind: 'variants', label: 'Mug' }],
+                slots: [{ id: 'mug', n: 1, words: 'mug', was: 'mug_2', ...ready }] } as any
+  assert.equal(followId('mug', two, one), null)       // the deleted slot's batch goes nowhere
+  assert.equal(followId('mug_2', two, one), 'mug')    // the survivor's batch follows it
+  const later = { ...one, key: 'k3', from: 'k2' }
+  assert.equal(followId('mug_2', two, later), null)   // moved on further: dropped
+  assert.equal(followId('mug', null, two), null)
 })

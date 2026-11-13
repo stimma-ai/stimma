@@ -3,7 +3,7 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { prepareBody, prepareErrorCode, prepareSettingsSig, readPending, shownKey, type PrepareInputs } from '../utils/fluentSubmit'
 import {
-  addOwn as addOwnTo, carriedIds, carryChoices, cleanState, isChanged, keptPools, listChoiceAt, lookOf, numberRepeats, optionsOf as optionsIn,
+  addOwn as addOwnTo, carriedIds, carryChoices, cleanState, followId, isChanged, keptPools, listChoiceAt, lookOf, numberRepeats, optionsOf as optionsIn,
   resetState, wireState, type SlotLookKind,
 } from '../utils/programChoices'
 import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareResponse, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
@@ -374,18 +374,25 @@ export function usePromptProgram(o: Options) {
       (awaited: about 10 to 20 seconds). The new variants join its pool and are marked new.
       Resolves to how many came back; a chat model that can't be reached rejects. */
   async function moreLikeThese(id: string): Promise<number> {
+    // The prompt may be edited while the batch is written: the answer follows its slot (followId),
+    // and is dropped when that slot is gone, never shown on another.
+    const start = program.value
     const { data } = await axios.post(`${getApiBase()}/prompt-programs/options`, request({
-      cache_only: true, choice_id: id, choices: wireChoices.value, key: program.value?.key,
+      cache_only: true, choice_id: id, choices: wireChoices.value, key: start?.key,
     }))
     const got: string[] = (Array.isArray(data?.options) ? data.options : []).filter((x: unknown) => typeof x === 'string' && x.trim())
-    fresh.value = { ...fresh.value, [id]: got }
+    const here = followId(id, start, program.value)
+    if (here === null) return 0
+    fresh.value = { ...fresh.value, [here]: got }
     await fetchPools()
+    const now = followId(id, start, program.value)
+    if (now === null) return 0
     // Shown at once even if the pool read back before the batch was stored.
-    const p = pools.value[id]
+    const p = pools.value[now]
     if (p && got.length) {
       const have = new Set((p.variants || []).map(v => v.text))
       const missing = got.filter(t => !have.has(t))
-      if (missing.length) pools.value = { ...pools.value, [id]: { ...p, variants: [...(p.variants || []), ...missing.map(text => ({ text }))], options: [...p.options, ...missing] } }
+      if (missing.length) pools.value = { ...pools.value, [now]: { ...p, variants: [...(p.variants || []), ...missing.map(text => ({ text }))], options: [...p.options, ...missing] } }
     }
     return got.length
   }

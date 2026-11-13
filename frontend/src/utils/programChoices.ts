@@ -341,6 +341,19 @@ export function carriedIds(prev: Shown | null | undefined, next: Landed): Record
   return out
 }
 
+/** Where an answer for slot `id` of the program `start` belongs now: the same id while the
+    program is still `start`, else the id that slot has in the program prepared after the edit
+    (carriedIds), or null when that slot is gone or the program moved on further (the answer is
+    dropped, never shown on another slot: two `<mug>`s with the first removed leave `mug`, which
+    must not get the removed one's variants). */
+export function followId(id: string, start: Shown | null | undefined,
+                         now: (Landed & Pick<PreparedProgram, 'key'>) | null | undefined): string | null {
+  if (!start?.key || !now?.key) return null
+  if (now.key === start.key) return id
+  const ids = carriedIds(start, now)
+  return ids && id in ids ? ids[id] : null
+}
+
 /** Values kept per choice id (what was chosen, the variants shown), moved to the ids a newly
     prepared program gives the same choices. With no map, by id: those the program still has. */
 export function carryChoices<T>(byId: Record<string, T>, ids: Record<string, string> | null,
