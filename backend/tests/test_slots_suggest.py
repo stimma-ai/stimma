@@ -147,6 +147,26 @@ class TestAdd:
         assert got["prompt"] == "dorm room with a <young man>, <light>" and len(ask.calls) == 2
         assert got["prompt"][got["slot"]["from"]:got["slot"]["to"]] == "<light>"
 
+    async def test_words_joined_by_only_a_comma_are_asked_again_once(self):
+        """A reply that says the prompt is written in words but adds a bare tag is asked once more
+        to join it with words; a second bare one, or a tag prompt, is kept as written."""
+        prompt = "dorm room with a young man"
+        bare = {"form": "words", "prompt": "dorm room with a young man, <light>"}
+        joined = {"form": "words", "prompt": "dorm room with a young man, lit by <light>"}
+        ask = Fake(bare, joined)
+        assert (await sg.add(prompt, "light", ask))["prompt"] == joined["prompt"] and len(ask.calls) == 2
+        assert 'joined with only ","' in ask.calls[1][-1]["content"]
+        ask = Fake(bare, bare)
+        assert (await sg.add(prompt, "light", ask))["prompt"] == bare["prompt"] and len(ask.calls) == 2
+        ask = Fake(bare, "not json")
+        assert (await sg.add(prompt, "light", ask))["prompt"] == bare["prompt"]
+        tags = {"form": "tags", "prompt": "1girl, long hair, <light>"}
+        ask = Fake(tags)
+        assert (await sg.add("1girl, long hair", "light", ask))["prompt"] == tags["prompt"] and len(ask.calls) == 1
+
+    def test_the_add_prompt_asks_for_the_form_first(self):
+        assert '"form": "words"' in sg.ADD_SYSTEM and "even when it is short" in sg.ADD_SYSTEM
+
     async def test_a_comment_line_after_the_text_stays_last(self):
         prompt = "dorm room with a <young man>.\n# keep it calm"
         moved = {"prompt": "# keep it calm\ndorm room with a <young man>, lit by <light>."}

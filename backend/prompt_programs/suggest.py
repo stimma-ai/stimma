@@ -47,14 +47,18 @@ For each add, name is the words that would go in the angle brackets and label is
 
 ADD_SYSTEM = """You add one changing part to an image prompt. The user marks the parts that change from picture to picture with angle brackets: "dorm room with a <young man>, lit by <light>". They ask you to add a new one, and you write it into their prompt the way they would have written it themselves.
 
+First decide how the prompt is written:
+- "words": it has joining words between the things it names ("with", "on", "at", "a", "the", a verb), even when it is short and has no full stop: "dorm room with a young man", "an old man reading on a porch at dusk", "a red car parked outside a diner at night". Join the new part with words that make it read as part of the same phrase: "dorm room with a young man, lit by <light>", "an old man reading on a porch at dusk, in <weather>", "a red car parked outside a diner, under a <sky>".
+- "tags": it is only short tags between commas, with no joining words between them: "1girl, long hair, sailor uniform, school rooftop". Add the bare tag: "1girl, long hair, sailor uniform, school rooftop, <light>".
+
+Then write it in:
 - Change as little as possible. Keep every character of the prompt exactly as it is, and only insert the new words.
-- Write the joining words the way the prompt is written. Words in a sentence or phrase ("a kitchen at noon") get joining words that make the new part read as part of it: "a kitchen at noon, lit by <light>", "a kitchen at noon, shot as <camera>". Only a prompt that is a list of short tags ("1girl, long hair, kitchen") gets the bare tag: ", <light>".
 - Put it where it reads naturally, usually after what it belongs to.
 - Add exactly one part in angle brackets, with exactly the words you were given. Leave every existing part in angle brackets, square brackets or curly braces as it is.
 - Lines starting with # are notes from the user: leave them as they are and put nothing on them.
 
 Reply with JSON only, in this shape:
-{"prompt": "the whole prompt with the new part added"}"""
+{"form": "words", "prompt": "the whole prompt with the new part added"}"""
 
 
 async def ask_model(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int) -> str:
@@ -307,6 +311,7 @@ async def add(prompt: str, name: str, ask: Optional[Ask] = None, project_id: Opt
     ask = ask or ask_model
     messages: List[Dict[str, Any]] = [{"role": "system", "content": ADD_SYSTEM},
                                       {"role": "user", "content": f"The prompt:\n{prompt}\n\nAdd: <{name}>"}]
+    usable: Optional[Dict[str, Any]] = None   # a valid reply whose joining didn't match its own form
     for attempt in range(2):
         reply = await ask(messages, project_id, max(800, len(prompt) // 2 + 400))
         got = _json_object(reply)
@@ -316,9 +321,27 @@ async def add(prompt: str, name: str, ask: Optional[Ask] = None, project_id: Opt
             after = _restore_ends(prompt, got["prompt"])
             span, problem = check_added(prompt, after, name)
             if span is not None:
-                return {"prompt": after, "slot": {"from": span[0], "to": span[1]}}
+                out = {"prompt": after, "slot": {"from": span[0], "to": span[1]}}
+                joined = _joined_with(prompt, after, span)
+                if got.get("form") != "words" or re.search(r"\w", joined) or usable is not None:
+                    return out
+                # The reply says the prompt is written in words, yet joins the part with only
+                # punctuation: asked once more, and kept as it is if the second says the same.
+                usable = out
+                problem = (f'you said the prompt is written in words, but <{name}> is joined with only "{joined.strip()}": '
+                           "join it with words that make it read as part of the phrase")
+            elif usable is not None:
+                return usable
         log.info(f"[add] reply not used (try {attempt + 1}): {problem}; {str(reply)[:160]!r}")
         messages = messages + [{"role": "assistant", "content": str(reply or "")},
                                {"role": "user", "content": f"That reply couldn't be used: {problem}. Reply again with only "
                                                            "the JSON, holding the whole prompt with the one new part added."}]
-    return plain_add(prompt, name)
+    return usable or plain_add(prompt, name)
+
+
+def _joined_with(before: str, after: str, span: Span) -> str:
+    """The text the reply put right before the new slot (what was inserted ahead of it)."""
+    i = 0
+    while i < min(len(before), span[0]) and before[i] == after[i]:
+        i += 1
+    return after[i:span[0]]
