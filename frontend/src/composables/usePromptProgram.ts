@@ -3,7 +3,7 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { prepareBody, prepareErrorCode, prepareSettingsSig, type PrepareInputs } from '../utils/fluentSubmit'
 import { additionList, isOwnOption } from '../utils/programAdditions'
-import { cleanState, isBuilder, optionsOf as optionsIn, resetState } from '../utils/programChoices'
+import { cleanState, isBuilder, numberRepeats, optionsOf as optionsIn, resetState } from '../utils/programChoices'
 import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareResponse, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 
 export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
@@ -290,7 +290,9 @@ export function usePromptProgram(o: Options) {
 
   // Slots and choices -----------------------------------------------------------------
 
-  const slots = computed<ProgramSlot[]>(() => [...(program.value?.slots || [])].sort((a, b) => a.n - b.n))
+  // The same words in brackets twice are two people (or things): when their labels match,
+  // they read "Friend 1", "Friend 2", in the prompt's order.
+  const slots = computed<ProgramSlot[]>(() => numberRepeats([...(program.value?.slots || [])].sort((a, b) => a.n - b.n)))
   const choices = computed(() => (program.value?.choices || []).filter(c => !c.hidden))
   const byId = computed<Record<string, ProgramChoice>>(() => Object.fromEntries(choices.value.map(c => [c.id, c])))
   const slotById = computed<Record<string, ProgramSlot>>(() => Object.fromEntries(slots.value.map(s => [s.id, s])))
@@ -458,3 +460,4 @@ export function usePromptProgram(o: Options) {
 }
 
 export type PromptProgram = ReturnType<typeof usePromptProgram>
+

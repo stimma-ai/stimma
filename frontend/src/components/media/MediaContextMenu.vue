@@ -343,6 +343,18 @@
           <span>Save {{ isSet ? 'members' : 'cells' }} as assets…</span>
         </button>
 
+        <!-- What the view this item came from offers on it (Tool View: Keep from this) -->
+        <button
+          v-for="a in viewActions"
+          :key="a.label"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+          data-view-action
+          @click="runViewAction(a)"
+        >
+          <CheckCircleIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>{{ a.label }}</span>
+        </button>
+
         <!-- Remix (single item only, not grids, sprites or packages) - with submenu -->
         <div
           v-if="!isMultiple && !isGrid && !isSprite && !isPackage"
@@ -971,7 +983,7 @@ import { useAssetTrash } from '../../composables/useAssetTrash'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMediaContextMenu, useMediaContextMenuHost, broadcastMediaContextMenuEvent } from '../../composables/useMediaContextMenu'
+import { useMediaContextMenu, useMediaContextMenuHost, broadcastMediaContextMenuEvent, mediaMenuActions, type MediaMenuAction } from '../../composables/useMediaContextMenu'
 import { setPendingMedia } from '../../composables/usePendingMedia'
 import { useContextMenuPosition, useSubmenuPosition, computeSubmenuX, computeBridgeStyle, computeSubmenuStyle, measureMenu, SHEET_MENU_STYLE } from '../../composables/useContextMenuPosition'
 import { useMediaApi } from '../../composables/useMediaApi'
@@ -984,7 +996,7 @@ import TagPickerPopover from '../TagPickerPopover.vue'
 import ProjectPickerSubmenu from '../ProjectPickerSubmenu.vue'
 import ExportModal from '../ExportModal.vue'
 import NativeShareDialog from '../NativeShareDialog.vue'
-import { ChevronDownIcon, ArchiveBoxIcon, ArrowDownOnSquareStackIcon, ArrowDownTrayIcon, ArrowPathRoundedSquareIcon, ArrowUpTrayIcon, ArrowUturnLeftIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronRightIcon, FaceSmileIcon, LinkIcon, MagnifyingGlassIcon, PaperAirplaneIcon, PencilIcon, PhotoIcon, PlusIcon, PrinterIcon, ShareIcon, Square3Stack3DIcon, Squares2X2Icon, TagIcon, TrashIcon, ViewColumnsIcon, WrenchScrewdriverIcon } from '@heroicons/vue/24/outline'
+import { ChevronDownIcon, ArchiveBoxIcon, CheckCircleIcon, ArrowDownOnSquareStackIcon, ArrowDownTrayIcon, ArrowPathRoundedSquareIcon, ArrowUpTrayIcon, ArrowUturnLeftIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronRightIcon, FaceSmileIcon, LinkIcon, MagnifyingGlassIcon, PaperAirplaneIcon, PencilIcon, PhotoIcon, PlusIcon, PrinterIcon, ShareIcon, Square3Stack3DIcon, Squares2X2Icon, TagIcon, TrashIcon, ViewColumnsIcon, WrenchScrewdriverIcon } from '@heroicons/vue/24/outline'
 import { useShareDialog } from '../../composables/useShareDialog'
 import { desktop } from '../../desktop'
 import { supportsNativeShare } from '../../utils/nativeShare'
@@ -1300,6 +1312,12 @@ const targetAssetIds = computed<number[]>(() => (
 const targetIds = computed(() => targetAssetIds.value.length > 0 ? targetAssetIds.value : targetMediaIds.value)
 const selectedItems = computed(() => contextMenu.state.value.selectedItems || [])
 const isMultiple = computed(() => targetIds.value.length > 1)
+const viewActions = computed(() => (isMultiple.value ? [] : mediaMenuActions(contextMenu.state.value.mediaId)))
+function runViewAction(a: MediaMenuAction) {
+  const at = menuRef.value?.getBoundingClientRect() ?? new DOMRect(contextMenu.state.value.x, contextMenu.state.value.y, 1, 1)
+  contextMenu.hide()
+  a.run(at)
+}
 
 // Ask: the prompt row at the top of the menu.
 const askActive = ref(false)

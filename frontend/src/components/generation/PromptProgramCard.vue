@@ -139,7 +139,8 @@ const view = computed<View>(() => {
   const c = id ? props.program.byId.value[id] : null
   return c ? choiceView(c) : topView.value || { kind: 'pending', words: '' }
 })
-const labelOf = (v: View | null) => !v ? '' : v.kind === 'pending' ? v.words : v.kind === 'panel' ? v.slot.label : (v.slot?.label || v.choice.label)
+// A slot not read yet is titled by its words, as its label would start.
+const labelOf = (v: View | null) => !v ? '' : v.kind === 'pending' ? v.words.charAt(0).toUpperCase() + v.words.slice(1) : v.kind === 'panel' ? v.slot.label : (v.slot?.label || v.choice.label)
 const title = computed(() => labelOf(view.value))
 const backLabel = computed(() => {
   const prev = stack.value[stack.value.length - 2]

@@ -100,10 +100,11 @@ test('a person opens on its details; a detail’s chooser has groups and a way b
   // The row's × puts the detail back.
   await card.locator('[data-reset="young_man.hair"]').click()
   await expect.poll(state).toEqual({})
-  // An outfit's options read short; its colors sit inside it, as swatches.
+  // An outfit's options read in full without their colors (the pill reads short); its
+  // colors sit inside it, as swatches.
   await card.locator('[data-row="young_man.outfit"]').click()
-  await expect(option('a {main} flannel shirt and {neutral} jeans')).toContainText('flannel and jeans')
-  await expect(option('a {main} suit with a {accent} tie')).toContainText('a … suit with a … tie')
+  await expect(option('a {main} flannel shirt and {neutral} jeans')).toHaveText('a flannel shirt and jeans')
+  await expect(option('a {main} suit with a {accent} tie')).toHaveText('a suit with a tie')
   await card.locator('[data-follower="young_man.outfit.colors"]').click()
   await expect(card.locator('[data-back]')).toHaveText('Outfit')
   await option('navy, white and gray').click()

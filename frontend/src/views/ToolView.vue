@@ -355,6 +355,7 @@
               :previous-running="uiState.generateForeverMode && promptProgram.needsPrepare() && promptProgram.readyPrompt() != null"
               :translate="globalPrefs.promptOptions?.translate"
               :last-prompt="lastFluentPrompt"
+              :last-run="lastFluentRun"
               @translate="(code) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, translate: { enabled: !!code, language: code ?? globalPrefs.promptOptions?.translate?.language ?? 'zh-Hans' } }"
               @lora="(key, on) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, [key]: on ? undefined : false }"
               @way="(w) => globalPrefs.promptOptions = { ...globalPrefs.promptOptions, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined }"
@@ -1372,7 +1373,8 @@ import ConnectionError from '../components/ConnectionError.vue'
 import { MediaContextMenu, MediaImage } from '../components/media'
 import { AudioPlayer, VideoAuditionControl } from '../components/viewers'
 import { useScopedVideoPlayback, useManagedMediaElement } from '../composables/useMediaPlayback'
-import { useMediaContextMenu } from '../composables/useMediaContextMenu'
+import { useMediaContextMenu, useMediaMenuAction } from '../composables/useMediaContextMenu'
+import { RESULT_KEEP } from '../composables/resultKeep'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { shouldPlayStageVideo } from '../utils/stageVideoPlayback'
 import { mobileAutoplayAllowed } from '../composables/useMobilePlaybackLifecycle'
@@ -3963,14 +3965,17 @@ const promptProgram = usePromptProgram({
   prepareWhenFound: () => !isInitialLoading.value && stageViewActive.value && document.hasFocus()
     && !aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
 })
-// The prompt the newest image made in Fluent was sent with (the prompt menu's developer view).
-const lastFluentPrompt = computed<string | null>(() => {
+// The newest image made in Fluent: the prompt it was sent with and its record (the prompt
+// menu's developer view).
+const lastFluentParams = computed<any | null>(() => {
   for (const job of stageCompletedJobs.value.slice(0, 20)) {
     const params = generationJobParams(job)
-    if (params?.prompt_program && typeof params.prompt === 'string') return params.prompt
+    if (params?.prompt_program && typeof params.prompt === 'string') return params
   }
   return null
 })
+const lastFluentPrompt = computed<string | null>(() => lastFluentParams.value?.prompt ?? null)
+const lastFluentRun = computed<any | null>(() => lastFluentParams.value?.prompt_program ?? null)
 // Suggest and Add ask the project's chat model, as Prepare does.
 const promptSuggestContext = computed(() => ({ project_id: projectScopeId.value ?? null }))
 // The tool finished loading: what's in the prompt box now is what to look up (and read).
@@ -4003,6 +4008,22 @@ const stageRun = computed<any | null>(() => generationJobParams(stageCurrentJob.
 const stageKeep = computed(() => fluentOn.value && !!stageRun.value && programRunActionsFor(stageRun.value).keep)
 // Another image on stage: the card opened from the one before closes.
 watch(() => stageCurrentJob.value?.id, () => { if (keepOpen.value?.stage) keepOpen.value = null })
+/** An image's run, when it can offer Keep from this here. */
+function keepableRun(job: any): any | null {
+  const run = generationJobParams(job)?.prompt_program ?? null
+  return fluentOn.value && run && programRunActionsFor(run).keep ? run : null
+}
+// The result tiles' own action strip, and the menu on any of this view's images (a tile,
+// the stage, the slideshow).
+provide(RESULT_KEEP, {
+  can: job => !!keepableRun(job),
+  open: (job, at) => openKeep(keepableRun(job), at),
+})
+useMediaMenuAction((mediaId) => {
+  const job = allJobs.value.find((j: any) => j.result_media_id === mediaId)
+  const run = job ? keepableRun(job) : null
+  return run ? { label: 'Keep from this', run: at => openKeep(run, at) } : null
+})
 
 function replayProgramRun(run: any) {
   // Only against the program the image was made from: anything else isn't "same draws".
