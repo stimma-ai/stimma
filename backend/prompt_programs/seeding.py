@@ -91,7 +91,8 @@ def plan(reading: Dict[str, Any], words: str = "") -> Dict[str, Any]:
         outfit = str(got.get("outfit") or "")
         if outfit and outfit != "written" and not got.get("clothes_part") and not str(got.get("clothes") or "").strip():
             add("idea", outfit, "", f"the {noun}'s outfit", {"presentation": presentation} if presentation else None)
-        return {"kind": kind, "banks": banks, "stated_descent": bool(stated.get("descent"))}
+        owned = bool(got.get("clothes_part")) or bool(str(got.get("clothes") or "").strip())
+        return {"kind": kind, "banks": banks, "stated_descent": bool(stated.get("descent")), "clothes_owned": owned}
     if kind == "animal":
         noun = str(got.get("noun") or words)
         stated = {str(k): str(v) for k, v in (got.get("stated") or {}).items() if str(v).strip()}
@@ -143,7 +144,7 @@ def seeds_of(record: Dict[str, Any]) -> V.Seeds:
             gender=narrowed(by["gender"]) if "gender" in by else None,
             ages=narrowed(age) if age is not None and age.get("narrowed") is not None else None,
             ideas=[(b["list"], narrowed(b)) for b in banks if b["role"] == "idea"],
-            stated=stated, minor=minor)
+            stated=stated, minor=minor, clothes_owned=bool(record.get("clothes_owned")))
     cores = [b for b in banks if b["role"] == "core"]
     lists = [(b["list"], narrowed(b)) for b in (cores or banks)]
     return V.list_seeds(lists, single=bool(cores) and len(lists) == 1, minor=minor, stated=stated)
@@ -285,6 +286,7 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
             elif got:
                 minor += minor_ages(got)
         out[sid] = {"v": SEEDS_VERSION, "kind": p["kind"], "banks": banks, "stated_descent": p.get("stated_descent", False),
+                    "clothes_owned": p.get("clothes_owned", False),
                     **({"stated": stated} if stated else {}), **({"minor": list(dict.fromkeys(minor))} if minor else {})}
         if waiting:
             pending.append(sid)

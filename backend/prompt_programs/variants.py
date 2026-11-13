@@ -43,7 +43,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-4"   # variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-5"   # variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -199,6 +199,8 @@ class Seeds:
     core: Optional[Bank] = None           # a slot bound to one list: one value per variant to build on
     ideas: Tuple[Bank, ...] = ()          # lists ideas are drawn from (the writer may reject them)
     minor: Tuple[str, ...] = ()           # the ages under 18 the person may be
+    person: bool = False                  # a person: each variant develops its own aspects (ASPECTS)
+    clothes_owned: bool = False           # the prompt or another part says what they wear
 
     def pinned(self, pins: Optional[Pins]) -> "Seeds":
         """The seeds with the user's picks: descent and gender drawn only from what was picked
@@ -219,7 +221,8 @@ class Seeds:
 def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: bool = False,
                  gender: Optional[Sequence[str]] = None,
                  ages: Optional[Sequence[str]] = None, ideas: Sequence[Tuple[str, Optional[Sequence[str]]]] = (),
-                 stated: Optional[Dict[str, Sequence[str]]] = None, minor: Sequence[str] = ()) -> Seeds:
+                 stated: Optional[Dict[str, Sequence[str]]] = None, minor: Sequence[str] = (),
+                 clothes_owned: bool = False) -> Seeds:
     """A person's seeds. `descent`: the descent values their words allow (narrowed; None when the
     words state none: the whole list). `stated_descent`: their words state it, so a single value
     left needs no seed. `gender`: the genders their words allow (narrowed: "woman" keeps woman and
@@ -229,13 +232,14 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
     (an unnarrowed age would fight "young" or "elderly"; the writer keeps them adults). `ideas`:
     (list, narrowed or None) per list whose values may seed their look. `stated`: what the prompt
     states of the scene (bank). `minor`: ages under 18 they may be besides their own (a user list
-    of ages on their line)."""
+    of ages on their line). `clothes_owned`: the prompt or another part says what they wear, so no
+    variant develops their clothes."""
     from prompt_programs.vocab import minor_ages
     minor = tuple(dict.fromkeys([*(minor_ages(list(ages)) if ages else ()), *minor]))
     d = bank(DESCENT, descent, minor=bool(minor))
     if d is not None and stated_descent and len(d.values) == 1:
         d = None   # their words name it already
-    return Seeds(descent=d, gender=bank(GENDER, gender),
+    return Seeds(descent=d, gender=bank(GENDER, gender), person=True, clothes_owned=clothes_owned,
                  age=bank(AGE, ages, minor=bool(minor)) if ages is not None and _open_age(ages) else None, minor=minor,
                  ideas=tuple(b for b in (bank(lid, n, minor=bool(minor), stated=stated) for lid, n in ideas)
                              if b is not None))
@@ -272,15 +276,33 @@ class Spec:
     gender: str = ""
     age: str = ""
     core: str = ""
+    develop: Tuple[str, ...] = ()   # a person's aspects this variant describes in particular
+    gender_needs: Tuple[str, ...] = ()   # the words of its gender the variant must state (none: the slot's words do)
 
     def line(self) -> str:
-        parts = ([f'"{self.descent}"'] if self.descent else []) + ([f"gender: {self.gender}"] if self.gender else []) \
-            + ([f"age: {self.age}"] if self.age else []) + ([f'core: "{self.core}"'] if self.core else [])
+        parts = ([f'"{self.descent}"'] if self.descent else []) \
+            + ([f'gender: "{gender_mark(self.gender)}"'] if self.gender_needs else []) \
+            + ([f"age: {self.age}"] if self.age else []) + ([f'core: "{self.core}"'] if self.core else []) \
+            + ([f"develop: {' and '.join(self.develop)}"] if self.develop else [])
         return ", ".join(parts)
 
     def seeds(self) -> Dict[str, str]:
         return {k: v for k, v in (("descent", self.descent), ("gender", self.gender), ("age", self.age),
                                   ("core", self.core)) if v}
+
+
+CLOTHES = "what they wear"
+# The aspects of a person the writer is asked to develop, two per variant, rotated (draw_seeds).
+ASPECTS = ("bearing and posture", "expression", "styling and grooming", CLOTHES, "build", "face",
+           "what they carry or hold", "how their age shows")
+
+
+def gender_mark(value: str) -> str:
+    """What a variant must say of a gender: the gender list's short form (vocab person.gender:
+    "trans woman", "non-binary"), else the value."""
+    from prompt_programs.vocab import vocabulary
+    leaf = vocabulary().get(GENDER)
+    return leaf.short(value) if leaf is not None else value
 
 
 def _weighted(rng: random.Random, pairs: Sequence[Tuple[str, float]]) -> str:
@@ -293,9 +315,15 @@ def _weighted(rng: random.Random, pairs: Sequence[Tuple[str, float]]) -> str:
     return pairs[-1][0]
 
 
-def _spread(rng: random.Random, b: Bank, n: int) -> List[str]:
-    """n values of a list by its weights, each once before any repeats."""
+def _spread(rng: random.Random, b: Bank, n: int, used: Sequence[str] = ()) -> List[str]:
+    """n values of a list by its weights, each once before any repeats; values in `used` (the
+    pool built on them already) come after the rest."""
     out: List[str] = []
+    fresh = [x for x in b.values if x[0] not in set(used)]
+    while fresh and len(out) < n:
+        t = _weighted(rng, fresh)
+        out.append(t)
+        fresh = [x for x in fresh if x[0] != t]
     while len(out) < n:
         left = list(b.values)
         while left and len(out) < n:
@@ -330,11 +358,15 @@ class Drawn:
     short: List[Bank]
 
 
-def draw_seeds(rng: random.Random, seeds: Seeds, n: int) -> Drawn:
-    """Per variant its descent, gender and age (each by its list's weights) and core (each
-    value once before any repeats); 1-2 ideas per variant from the long idea lists, no repeats
-    in a batch; short idea lists shown whole."""
-    cores = _spread(rng, seeds.core, n) if seeds.core is not None else []
+def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_cores: Sequence[str] = ()) -> Drawn:
+    """Per variant its descent, gender and age (each by its list's weights), core (each value once
+    before any repeats, the ones the pool hasn't built on first) and, for a person, two aspects to
+    develop (rotated, so the set doesn't share one template); 1-2 ideas per variant from the long
+    idea lists, no repeats in a batch; short idea lists shown whole. `words`: the slot's words (a
+    gender they state needs no seed line)."""
+    cores = _spread(rng, seeds.core, n, used_cores) if seeds.core is not None else []
+    aspects = [a for a in ASPECTS if not (seeds.clothes_owned and a == CLOTHES)]
+    rng.shuffle(aspects)
     specs: List[Spec] = []
     for i in range(n):
         s = Spec()
@@ -342,6 +374,9 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int) -> Drawn:
             s.descent = _weighted(rng, seeds.descent.values)
         if seeds.gender is not None:
             s.gender = _weighted(rng, seeds.gender.values)
+            s.gender_needs = tuple(t for t in tokens(gender_mark(s.gender)) if t not in tokens(words))
+        if seeds.person and aspects:
+            s.develop = (aspects[(2 * i) % len(aspects)], aspects[(2 * i + 1) % len(aspects)])
         if seeds.age is not None:
             s.age = _weighted(rng, seeds.age.values)
         if cores:
@@ -389,7 +424,7 @@ Rules:
 - Light comes only from sources that exist in or reach this place: an indoor room gets lamps, screens, fire or window light, never shade from a tree, dappled leaves, golden-hour sun on a beach or underwater light. With no stated place, ordinary light that could be anywhere.
 - Visual and concrete: what it looks like, not mood or story.
 - Make the variants clearly different from each other, across the whole range the words allow, including uncommon but real choices. At most 20 words each beyond the kept words.
-- A person: each variant shows them visibly differently, with at least two of age, build, hair, face or clothing beyond any descent, unless the prompt already says them (a clothing part elsewhere in the prompt owns the clothes).
+- A person: write each variant as an authored take on who this is, leaning into the marked words themselves: for "dominant young woman", how her dominance shows in her bearing, expression, styling and attitude, and in what she wears or carries when the prompt leaves that open. Each variant develops the aspects its seed line names, so the set differs in far more than hair. No shared template: vary how each variant is phrased, and weave its seeds in where they read naturally, never as a list or a prefix. Never describe what another part of the prompt owns (a clothing part elsewhere owns the clothes).
 - Each variant stands alone: never "another", "also", "again" or a reference to other variants.
 - Every person is an adult unless the prompt's own words make them a child or teenager; "a girl" or "a boy" alone is a young adult.
 - If a person may be under 18, nothing sexual or adult-coded.
@@ -397,8 +432,9 @@ Rules:
 Ideas. You may get ideas drawn at random from vocabulary lists, for breadth and uncommon picks. Use an idea wherever it could be true here, each at most once, adjusting its wording a little if needed; name it in the variant's "idea" field ("" for none). Reject only an idea that contradicts the prompt or the kept words, listing it under "rejected" first, copied exactly.
 
 Per-variant seeds, one line per variant when given:
-- a quoted descent: write that exact word or words into the variant, meaning that heritage's look. If the marked words name several people, it applies to one of them.
-- gender: who the person is; write them as that, in words that fit their own words and the picture.
+- a quoted descent: write that exact word or words into the variant, woven in where it reads naturally, meaning that heritage's look. If the marked words name several people, it applies to one of them.
+- gender: write the person as that, with those exact words in the variant ("a trans woman", "a young trans woman"), woven in naturally; the marked words still stay.
+- develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must.
 - age: about how old the person looks; work it in before their words ("a 34-year-old chef") or say it another natural way ("a chef in her forties"), never as a number tacked on at the end.
 - core: build this variant on that value, adding a few words that place it in this prompt. If it can't be true in this prompt, use another value of the same kind and list the core under "rejected".
 
@@ -582,8 +618,13 @@ def check(text: str, words: str, keep: Sequence[str], spec: Spec) -> str:
         return "empty"
     if any(c in _MARKUP for c in text):
         return "markup in text"
+    tt = tokens(text)
+    if spec.gender_needs and not all(t in tt for t in spec.gender_needs):
+        return "gender missing"
+    # The words of a gender may stand inside the user's own run ("young trans woman").
+    bare = [t for t in tt if t not in spec.gender_needs] if spec.gender_needs else tt
     for k in keep:
-        if not has_run(text, k):
+        if _run_at(tt, tokens(k)) < 0 and _run_at(bare, tokens(k)) < 0:
             return "words not kept"
     if len(tokens(text)) - sum(len(tokens(k)) for k in keep) > MAX_ADDED_WORDS:
         return "too long"
@@ -626,12 +667,13 @@ class Batch:
 
 
 async def write_batch(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id: Optional[int] = None,
-                      have: Sequence[str] = (), rng: Optional[random.Random] = None) -> Batch:
+                      have: Sequence[str] = (), rng: Optional[random.Random] = None,
+                      used_cores: Sequence[str] = ()) -> Batch:
     """One writer call for `n` variants, checked. Never raises: a failed call or an unreadable
     reply is a batch with nothing in it and its `error`."""
     import time
     rng = rng or random.Random()
-    drawn = draw_seeds(rng, seeds, n)
+    drawn = draw_seeds(rng, seeds, n, slot.words, used_cores)
     out = Batch()
     t0 = time.monotonic()
     try:
@@ -702,9 +744,10 @@ async def write_first(slot: Slot, seeds: Seeds, *, ask: Ask, project_id: Optiona
 
 
 async def top_up(slot: Slot, seeds: Seeds, have: Sequence[str], *, ask: Ask, project_id: Optional[int] = None,
-                 n: int = TOPUP, rng: Optional[random.Random] = None) -> Batch:
-    """TOPUP more variants, told what the pool already holds (More like these is the same call)."""
-    return await write_batch(slot, seeds, n, ask=ask, project_id=project_id, have=have, rng=rng)
+                 n: int = TOPUP, rng: Optional[random.Random] = None, used_cores: Sequence[str] = ()) -> Batch:
+    """TOPUP more variants, told what the pool already holds, built on the list values it hasn't
+    built on yet first (More like these is the same call)."""
+    return await write_batch(slot, seeds, n, ask=ask, project_id=project_id, have=have, rng=rng, used_cores=used_cores)
 
 
 __all__ = ["AGE", "Ask", "Bank", "Batch", "DESCENT", "Drawn", "MIN_POOL", "N_OTHER", "N_PERSON", "GENDER", "Pins",

@@ -513,7 +513,8 @@ class PoolWriter:
         if n <= 0:
             return []
         b = await top_up(job.slot, seeds, [v["text"] for v in have], ask=self.ask, project_id=job.project_id,
-                         n=n, rng=random.Random(f"{job.key}|{done}"))
+                         n=n, rng=random.Random(f"{job.key}|{done}"),
+                         used_cores=[str(v["seeds"]["core"]) for v in have if (v.get("seeds") or {}).get("core")])
         self.calls += 1
         seen = {_norm(v["text"]) for v in have}
         kept = [v for v in b.variants if _norm(v["text"]) not in seen][:n]

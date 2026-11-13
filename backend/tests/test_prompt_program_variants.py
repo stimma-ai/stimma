@@ -62,7 +62,9 @@ class FakeWriter:
         for i in range(1, req["n"] + 1):
             line = req["seeds"].get(i, "")
             d = re.match(r'"([^"]+)"', line)
-            text = f"{self.prefix}{ADJ[(i + len(self.calls)) % len(ADJ)]} {d.group(1) + ' ' if d else ''}{base} no{i}c{len(self.calls)}"
+            g = re.search(r'gender: "([^"]+)"', line)
+            text = (f"{self.prefix}{ADJ[(i + len(self.calls)) % len(ADJ)]} {d.group(1) + ' ' if d else ''}"
+                    f"{g.group(1) + ' ' if g else ''}{base} no{i}c{len(self.calls)}")
             if slip == "drop_words":
                 text = f"{ADJ[i % len(ADJ)]} thing no{i}"
             out.append({"n": i, "text": text, "idea": ""})
@@ -196,7 +198,7 @@ def test_gender_is_drawn_by_its_shares_and_narrowed_by_the_words():
     # the writer is told it per variant
     s = V.person_seeds(gender=["non-binary person"])
     msg = V.messages(slot_of("a <person> in a kitchen", "person"), V.draw_seeds(random.Random(1), s, 3), s)[1]["content"]
-    assert "gender: non-binary person" in msg
+    assert 'gender: "non-binary"' in msg
 
 
 def test_a_stated_single_descent_needs_no_seed_but_a_narrowed_one_does():
@@ -350,7 +352,8 @@ def test_a_slip_degrades_never_raises():
         assert b.variants == []
     assert run(V.write_batch(sl, V.Seeds(), 10, ask=FakeWriter(["raise"]))).error
     person = run(V.write_batch(slot_of(PROMPT, "person"), V.person_seeds(), 10, ask=FakeWriter(["drop_words"])))
-    assert person.variants == [] and person.dropped["words not kept"] == 10
+    assert person.variants == [] and sum(person.dropped.values()) == 10
+    assert set(person.dropped) <= {"words not kept", "gender missing"}
 
 
 def test_a_write_that_times_out_degrades(monkeypatch):
@@ -731,3 +734,30 @@ def test_a_top_up_fills_only_the_room_left_and_more_may_pass_the_cap_by_one_batc
         assert len(await w.more(job_for(sl, V.Seeds(), key="a" * 32))) == V.TOPUP
         assert len(w.store.variants("a" * 32)) == P.MAX_POOL + V.TOPUP
     run(go())
+
+
+def test_a_person_states_its_gender_and_develops_rotated_aspects():
+    sl = slot_of("a <young woman> in a kitchen", "person")
+    seeds = V.person_seeds(gender=["woman", "trans woman"], clothes_owned=True)
+    d = V.draw_seeds(random.Random(2), seeds, 40, sl.words)
+    trans = [x for x in d.specs if x.gender == "trans woman"]
+    woman = [x for x in d.specs if x.gender == "woman"]
+    assert all(x.gender_needs == ("trans",) for x in trans) and all(x.gender_needs == () for x in woman)
+    assert all(len(x.develop) == 2 and V.CLOTHES not in x.develop for x in d.specs)
+    assert len({x.develop for x in d.specs}) >= 6                     # no one template
+    msg = V.messages(sl, d, seeds)[1]["content"]
+    assert 'gender: "trans woman"' not in msg or trans                  # told only where it adds a word
+    if woman:
+        assert all('gender:' not in ln for ln in msg.splitlines() if ln.startswith(f"{d.specs.index(woman[0]) + 1}. "))
+    spec = V.Spec(gender="trans woman", gender_needs=("trans",))
+    keep = ["young woman"]
+    assert V.check("a young trans woman with a cropped bob", "young woman", keep, spec) == ""
+    assert V.check("a young woman with a cropped bob", "young woman", keep, spec) == "gender missing"
+    nb = V.Spec(gender="non-binary person", gender_needs=tuple(V.tokens(V.gender_mark("non-binary person"))))
+    assert V.check("a non-binary chef in a striped apron", "chef", ["chef"], nb) == ""
+
+
+def test_top_ups_build_on_the_list_values_the_pool_has_not_used_first():
+    b = V.Bank("x", "X", tuple((f"v{i}", 1.0) for i in range(10)))
+    got = V._spread(random.Random(1), b, 6, used=[f"v{i}" for i in range(6)])
+    assert set(got) == {"v6", "v7", "v8", "v9"} | set(got[4:]) and set(got[:4]) == {"v6", "v7", "v8", "v9"}
