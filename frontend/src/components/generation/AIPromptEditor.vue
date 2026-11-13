@@ -283,6 +283,7 @@ import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
 import { slotEditing, wrapSlot, replaceDocument, rangeRect, setVaryEffect } from '../../composables/promptSlotEditing'
+import { setSlotMarks, slotMarks as slotMarksExtension, type SlotMarks } from '../../composables/promptSlotMarks'
 import { shownAdds, usePromptSuggestions, type ReadSlots } from '../../composables/usePromptSuggestions'
 import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
 import PromptSlotAdds from './PromptSlotAdds.vue'
@@ -332,6 +333,8 @@ interface Props {
       replacing Enhance, Raw and the … help entry. A prop, not a slot check: slots
       aren't reactive, and the host can switch this at runtime. */
   promptControl?: boolean
+  /** How each slot shows what is chosen for it (Fluent's marks); null: the plain slot look. */
+  slotMarks?: SlotMarks | null
   // When set, this editor renders no chat affordance of its own (no sparkle, no
   // inline panel). The embedder (ToolView) owns a page-level PromptAgentChat and
   // drives this editor through the exposed handle.
@@ -361,6 +364,8 @@ const emit = defineEmits<{
       lines and [verbatim] left out, as the grammar finds them); `rect` is where its
       words are on screen. Sent when a slot is clicked and right after one is made. */
   (e: 'open-slot', value: { n: number; words: string; rect: DOMRect }): void
+  /** The pointer is over a slot (its place and where it is), or over none (null). */
+  (e: 'slot-hover', value: { n: number; rect: DOMRect } | null): void
 }>()
 
 // Box height. Desktop rests at ~5 lines and grows to 408px; phones give the
@@ -532,6 +537,15 @@ const slotExtensions = [
   EditorView.domEventHandlers({
     keydown(e) { if (e.key === 'Escape') offer.value = null; return false },
   }),
+  slotMarksExtension({
+    onHover: (n, rect) => emit('slot-hover', n && rect && fluentSlots.value ? { n, rect } : null),
+    // A slot's dot or thumbnail opens it, as its words do.
+    onGlyph: (n) => {
+      const view = getView()
+      const at = view ? findSlots(view.state.doc.toString())[n - 1] : null
+      if (at && fluentSlots.value) { offer.value = null; openSlotAt(at[0] + 1) }
+    },
+  }),
 ]
 
 // CodeMirror composable
@@ -561,6 +575,11 @@ const rawMode = computed(() => fluentEnabled.value && hasMode.value && !!props.p
 // can't prepare).
 const fluentSlots = computed(() => hasMode.value && !!props.programs && !rawMode.value && !props.promptOptions.direct)
 watch(fluentSlots, on => { if (!on) offer.value = null })
+// Fluent's marks follow what is chosen; off (Direct, Raw), slots keep their plain look.
+function showMarks() {
+  getView()?.dispatch({ effects: setSlotMarks.of(fluentSlots.value ? props.slotMarks ?? null : null) })
+}
+watch([() => props.slotMarks, fluentSlots], showMarks, { flush: 'post' })
 
 // Suggest: phrases that could vary (underlined) and things worth adding (chips under the text).
 const { answer, adding, suggestNow, add } = usePromptSuggestions({
@@ -757,6 +776,7 @@ watch(() => props.modelValue, (newVal) => {
 })
 
 onMounted(() => {
+  showMarks()
   document.addEventListener('click', handleClickOutside)
   // "Vary this" floats over the text: anything scrolling moves the words out from under it.
   window.addEventListener('scroll', hideOffer, true)

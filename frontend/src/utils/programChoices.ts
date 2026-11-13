@@ -1,385 +1,291 @@
 /**
- * What the user chose for a prompt's slots, and what follows from it: the options a card
- * lists, which of them an image can draw, the pills' words. Pure, so it tests without a DOM.
+ * What the user chose for a prompt's slots, and what follows from it: how a slot shows in the
+ * text, what its line under the prompt says, which variants its picker lists. Pure, so it
+ * tests without a DOM.
  *
- * Nothing starts chosen. With nothing chosen a choice draws from its default zone (its first:
- * kinds of what the words name), or from all its options when it has no zones. Choosing adds:
- * options, whole groups ("any sporty"), whole zones ("Other ages"). "Any X" and the default
- * zone alone are stored as no choice. Leaving a choice out (`off`) replaces what is chosen.
+ * A slot is one choice (its id is the slot's). Nothing starts chosen: the slot draws from its
+ * whole pool of variants. The user can pin variants (`values`), take the slot's own words
+ * (`as_written`), leave it out (`off`), or, for a person, pick seeds from the comprehensive
+ * lists (descent, gender), which steer the draw and the next writes. A `{a|b}` list of the
+ * user's own is a choice too, with its options as values.
  */
 
-import type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
-import { shownOption } from './programVocab.ts'
+import type {
+  ChoicePool, ChoiceSeeds, ChoiceState, DescentPicker, PreparedProgram, ProgramChoice, ProgramSlot, Variant,
+} from './programWire.ts'
 
-export type Token =
-  | { kind: 'value'; value: string }
-  | { kind: 'group'; facet: string; part: string }
-  | { kind: 'zone'; zone: string }
+const uniq = (xs: unknown[] | undefined) => [...new Set((xs || []).filter((x): x is string => typeof x === 'string' && !!x.trim()))]
 
-export interface Zone { id: string; title: string; options: string[] }
-
-const uniq = (xs: string[]) => [...new Set(xs.filter(x => typeof x === 'string' && x.trim()))]
-
-/** The zone a choice draws from when nothing is chosen. */
-export function defaultZone(c: Pick<ProgramChoice, 'zones'>): string {
-  return c.zones?.[0]?.id ?? 'all'
+/** The seeds as stored: empty parts dropped. Null when nothing is picked. */
+export function cleanSeeds(seeds: ChoiceSeeds | null | undefined): ChoiceSeeds | null {
+  if (!seeds) return null
+  const values = uniq(seeds.descent?.values)
+  const region = uniq(seeds.descent?.groups?.region)
+  const gender = uniq(seeds.gender?.values)
+  const out: ChoiceSeeds = {}
+  if (values.length || region.length) out.descent = { ...(values.length ? { values } : {}), ...(region.length ? { groups: { region } } : {}) }
+  if (gender.length) out.gender = { values: gender }
+  return Object.keys(out).length ? out : null
 }
 
-type ChoiceShape = Pick<ProgramChoice, 'zones'> & { starts_off?: boolean }
-
-/** A state as stored: empty parts dropped, the default zone alone dropped, `off` alone with
-    the user's own options. A choice that starts left out keeps `on` and stores no `off` (that
-    is how it starts). Null when nothing is left. */
-export function cleanState(c: ChoiceShape, s: ChoiceState | null | undefined): ChoiceState | null {
+/** A state as stored: empty parts dropped; `off` and `as_written` alone with the user's own
+    variants; `from` only on a single pin. Null when nothing is left. */
+export function cleanState(s: ChoiceState | null | undefined): ChoiceState | null {
   if (!s) return null
-  const add = uniq(s.add || [])
+  const add = uniq(s.add)
   const own = add.length ? { add } : {}
-  if (s.off) return c.starts_off ? (add.length ? { add } : null) : { off: true, ...own }
-  const values = uniq(s.values || [])
-  const groups: Record<string, string[]> = {}
-  for (const [facet, parts] of Object.entries(s.groups || {})) {
-    const p = uniq(parts || [])
-    if (p.length) groups[facet] = p
-  }
-  const grouped = Object.keys(groups).length > 0
-  let zones = uniq(s.zones || [])
-  if (!values.length && !grouped && zones.length === 1 && zones[0] === defaultZone(c)) zones = []
+  if (s.off) return { off: true, ...own }
+  if (s.as_written) return { as_written: true, ...own }
+  const values = uniq(s.values)
+  const seeds = cleanSeeds(s.seeds)
+  const from = values.length === 1 && typeof s.from === 'number' && !seeds ? { from: s.from } : {}
   const out: ChoiceState = {
-    ...(c.starts_off && s.on ? { on: true } : {}),
     ...(values.length ? { values } : {}),
-    ...(grouped ? { groups } : {}),
-    ...(zones.length ? { zones } : {}),
+    ...(seeds ? { seeds } : {}),
     ...own,
+    ...from,
   }
   return Object.keys(out).length ? out : null
 }
 
-/** The user changed what the choice draws (their own options alone change nothing). */
+/** What is sent for a state: as stored, without what only the editor uses (`from`). */
+export function wireState(s: ChoiceState): ChoiceState {
+  const { from: _from, ...rest } = s
+  return rest
+}
+
+export function hasSeeds(s: ChoiceState | null | undefined): boolean {
+  return !!cleanSeeds(s?.seeds)
+}
+
+/** The user changed what the choice draws (their own variants alone change nothing). */
 export function isChanged(s: ChoiceState | null | undefined): boolean {
-  return !!s && (!!s.off || !!s.on || !!s.values?.length || !!s.zones?.length || Object.values(s.groups || {}).some(p => p.length))
+  return !!s && (!!s.off || !!s.as_written || !!s.values?.length || hasSeeds(s))
 }
 
-/** Left out now: by the user, or a choice that starts left out and wasn't turned on. */
-export function isOff(c: { starts_off?: boolean } | null | undefined, s: ChoiceState | null | undefined): boolean {
-  return !!s?.off || (!!c?.starts_off && !isChanged(s))
-}
-
-/** A list longer than this (thousands of faces) comes whole with /prepare, and /pools sends
-    only the options it adds (the server's PARTS_MAX). */
-export const LONG_LIST = 400
-
-function firstZone(c: ProgramChoice, pool: ChoicePool | null | undefined): string[] {
-  if (!pool) return c.options
-  return c.options.length > LONG_LIST ? uniq([...pool.options, ...c.options]) : pool.options
-}
-
-/** A choice's options by zone, as its card lists them, in the order given. The user's own
-    options (added here, or kept for its list) lead the first zone. Before its pool arrives,
-    the prepared options stand in for the first zone. A choice with no zones of its own lists
-    its pool's options, whatever zones the pool names. */
-export function zonesOf(c: ProgramChoice, pool: ChoicePool | null | undefined, s?: ChoiceState | null): Zone[] {
-  const declared = c.zones?.length ? c.zones : [{ id: 'all', title: '' }]
-  const zones: Zone[] = declared.map((z, i) => ({
-    id: z.id,
-    title: z.title || '',
-    options: c.zones?.length && pool?.zones ? pool.zones[z.id] || [] : i === 0 ? firstZone(c, pool) : [],
-  }))
-  const listed = new Set(zones.flatMap(z => z.options))
-  const own = uniq([...(s?.add || []), ...(pool?.mine || [])]).filter(o => !listed.has(o))
-  if (own.length) zones[0] = { ...zones[0], options: [...own, ...zones[0].options] }
-  return zones
-}
-
-export function optionsOf(c: ProgramChoice, pool: ChoicePool | null | undefined, s?: ChoiceState | null): string[] {
-  return uniq(zonesOf(c, pool, s).flatMap(z => z.options))
-}
-
-/** The pools of the choices a newly prepared program still has (an edit kept their slots): they
-    show until the program's own pools arrive. */
-export function keptPools(pools: Record<string, ChoicePool>, have: Record<string, unknown>): Record<string, ChoicePool> {
-  return Object.fromEntries(Object.entries(pools).filter(([id]) => id in have))
-}
-
-type Shown = Pick<PreparedProgram, 'key' | 'slots' | 'choices'>
-type Landed = Pick<PreparedProgram, 'slots' | 'choices' | 'from'>
-
-/** For a program prepared after an edit: each choice id of the program shown before it, mapped
-    to the id the same choice has now, by the parts the server matched (`was`: where each part
-    stands in the text, not its id; two `<mug>`s with the first removed leave `mug`, which was
-    `mug_2`). Null when the answer doesn't say (it wasn't matched against `prev`). A choice of
-    `prev` missing from the map went with the edit, or couldn't be told apart from another. */
-export function carriedIds(prev: Shown | null | undefined, next: Landed): Record<string, string> | null {
-  if (!prev?.key || !next.from || next.from !== prev.key) return null
-  const before = new Map((prev.slots || []).map(s => [s.id, s]))
-  const have = new Set((next.choices || []).map(c => c.id))
-  const out: Record<string, string> = {}
-  for (const s of next.slots || []) {
-    const o = s.was ? before.get(s.was) : undefined
-    if (!o) continue
-    for (const d of o.details) {
-      const id = d === o.id ? s.id : d.startsWith(`${o.id}.`) ? s.id + d.slice(o.id.length) : null
-      if (id && have.has(id)) out[d] = id
-    }
-  }
-  for (const c of next.choices || []) if (c.source === 'list' && c.was) out[c.was] = c.id
-  return out
-}
-
-/** Values kept per choice id (what was chosen, the options shown), moved to the ids a newly
-    prepared program gives the same choices. With no map, by id: those the program still has. */
-export function carryChoices<T>(byId: Record<string, T>, ids: Record<string, string> | null,
-  prev: Shown | null | undefined, next: Pick<PreparedProgram, 'choices'>): Record<string, T> {
-  const have = new Set((next.choices || []).map(c => c.id))
-  if (!ids) return Object.fromEntries(Object.entries(byId).filter(([id]) => have.has(id)))
-  const shown = new Set((prev?.choices || []).map(c => c.id))
-  const out: Record<string, T> = {}
-  for (const [id, v] of Object.entries(byId)) if (id in ids) out[ids[id]] = v
-  for (const [id, v] of Object.entries(byId)) {
-    if (id in ids || shown.has(id) || !have.has(id) || id in out) continue
-    out[id] = v   // not the shown program's (kept from before it): by id
-  }
-  return out
-}
-
-/** The options a group holds. */
-export function groupMembers(pool: ChoicePool | null | undefined, facet: string, part: string): string[] {
-  return pool?.groups?.[facet]?.[part] || []
-}
-
-// Browsing by a facet (descent by world region) -------------------------------------------
-
-/** The facet a choice's chooser is browsed by (descent's `region`), '' when it lists its
-    options plainly. */
-export function browseOf(pool: ChoicePool | null | undefined): string {
-  const f = pool?.browse
-  return f && pool?.groups?.[f] ? f : ''
-}
-
-/** The parts a chooser is browsed by, in order, each with its options. */
-export function browseParts(pool: ChoicePool | null | undefined): Array<{ part: string; options: string[] }> {
-  const f = browseOf(pool)
-  return f ? Object.entries(pool!.groups![f]).filter(([, os]) => os?.length).map(([part, options]) => ({ part, options })) : []
-}
-
-/** What is chosen in one part (a region): "Any" when the whole part is, else its options
-    chosen, short; '' when nothing in it is. */
-export function browsePartText(pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined, part: string): string {
-  const f = browseOf(pool)
-  if (!f || !s || s.off) return ''
-  if (s.groups?.[f]?.includes(part)) return 'Any'
-  const members = new Set(groupMembers(pool, f, part))
-  return (s.values || []).filter(v => members.has(v)).map(v => valueText(pool, v)).join(', ')
-}
-
-/** The state with nothing in one part chosen: neither the part whole nor any of its options. */
-export function clearBrowsePart(c: ChoiceShape, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined,
-                                part: string): ChoiceState | null {
-  const f = browseOf(pool)
-  if (!f || !s || s.off) return s || null
-  const members = new Set(groupMembers(pool, f, part))
-  return cleanState(c, { ...s, values: (s.values || []).filter(v => !members.has(v)),
-    groups: { ...(s.groups || {}), [f]: (s.groups?.[f] || []).filter(p => p !== part) } })
-}
-
-/** The state with groups of other facets (a heritage chosen before descent had regions) as
-    their options, one by one. The server reads groups of several facets together as values in
-    all of them, never a heritage and a region beside each other: as options they add. */
-function groupsAsValues(c: ChoiceShape, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined): ChoiceState | null {
-  const f = browseOf(pool)
-  if (!f || !s || s.off) return s || null
-  const others = Object.entries(s.groups || {}).filter(([facet, parts]) => facet !== f && parts?.length)
-  if (!others.length) return s
-  const values = [...(s.values || []), ...others.flatMap(([facet, parts]) => parts.flatMap(p => groupMembers(pool, facet, p)))]
-  return cleanState(c, { ...s, values, groups: s.groups?.[f]?.length ? { [f]: s.groups[f] } : {} })
-}
-
-/** Choose a part whole (a region), or un-choose it. Chosen whole, its options chosen one by one
-    go: the part says them all. What was chosen elsewhere stays, beside it. */
-export function toggleBrowsePart(c: ChoiceShape, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined,
-                                 part: string): ChoiceState | null {
-  const f = browseOf(pool)
-  if (!f) return s || null
-  const t: Token = { kind: 'group', facet: f, part }
-  if (hasToken(s, t)) return toggleToken(c, s, t)
-  return toggleToken(c, clearBrowsePart(c, pool, groupsAsValues(c, pool, s), part), t)
-}
-
-/** What an image can draw now. Null when the choice is left out. */
-export function drawable(c: ProgramChoice, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined): Set<string> | null {
-  if (isOff(c, s)) return null
-  const zones = zonesOf(c, pool, s)
-  if (!tokensOf(s).length) return new Set(zones.find(z => z.id === defaultZone(c))?.options || zones[0]?.options || [])
-  const out = new Set<string>(s!.values || [])
-  for (const [facet, parts] of Object.entries(s!.groups || {})) for (const p of parts) for (const o of groupMembers(pool, facet, p)) out.add(o)
-  for (const z of zones) if (s!.zones?.includes(z.id)) for (const o of z.options) out.add(o)
-  return out
-}
-
-export function tokensOf(s: ChoiceState | null | undefined): Token[] {
-  if (!s || s.off) return []
-  return [
-    ...(s.zones || []).map(zone => ({ kind: 'zone' as const, zone })),
-    ...Object.entries(s.groups || {}).flatMap(([facet, parts]) => parts.map(part => ({ kind: 'group' as const, facet, part }))),
-    ...(s.values || []).map(value => ({ kind: 'value' as const, value })),
-  ]
-}
-
-export function hasToken(s: ChoiceState | null | undefined, t: Token): boolean {
-  if (!s || s.off) return false
-  if (t.kind === 'value') return !!s.values?.includes(t.value)
-  if (t.kind === 'zone') return !!s.zones?.includes(t.zone)
-  return !!s.groups?.[t.facet]?.includes(t.part)
-}
-
-const flip = (xs: string[] | undefined, x: string) => (xs || []).includes(x) ? (xs || []).filter(v => v !== x) : [...(xs || []), x]
-
-/** Choose a token, or un-choose it when it is chosen. Choosing brings a left-out choice back. */
-export function toggleToken(c: ChoiceShape, s: ChoiceState | null | undefined, t: Token): ChoiceState | null {
-  const base: ChoiceState = s?.off ? { add: s.add } : { ...(s || {}) }
-  if (t.kind === 'value') base.values = flip(base.values, t.value)
-  else if (t.kind === 'zone') base.zones = flip(base.zones, t.zone)
-  else base.groups = { ...(base.groups || {}), [t.facet]: flip(base.groups?.[t.facet], t.part) }
-  return cleanState(c, base)
-}
-
-/** Back to how the choice starts; the user's own options stay in its list. */
+/** Back to how the choice starts; the user's own variants stay. */
 export function resetState(s: ChoiceState | null | undefined): ChoiceState | null {
   return s?.add?.length ? { add: s.add } : null
 }
 
-export function leaveOut(s: ChoiceState | null | undefined, c?: { starts_off?: boolean } | null): ChoiceState | null {
-  if (c?.starts_off) return resetState(s)   // how it starts
-  return s?.add?.length ? { off: true, add: s.add } : { off: true }
+const own = (s: ChoiceState | null | undefined) => (s?.add?.length ? { add: s.add } : {})
+const seedsOf = (s: ChoiceState | null | undefined) => (s?.seeds && !s.off && !s.as_written ? { seeds: s.seeds } : {})
+
+/** Pin a variant, or un-pin it. Choosing brings a slot left out or as written back. */
+export function toggleValue(s: ChoiceState | null | undefined, text: string): ChoiceState | null {
+  const values = s?.off || s?.as_written ? [] : [...(s?.values || [])]
+  const i = values.indexOf(text)
+  if (i >= 0) values.splice(i, 1)
+  else values.push(text)
+  return cleanState({ values, ...seedsOf(s), ...own(s) })
 }
 
-/** "Any", for a choice that starts left out: drawn from all its options. */
-export function turnOn(s: ChoiceState | null | undefined): ChoiceState {
-  return { on: true, ...(s?.add?.length ? { add: s.add } : {}) }
+/** "Any of these": no variant pinned; picked seeds stay. */
+export function chooseAny(s: ChoiceState | null | undefined): ChoiceState | null {
+  return cleanState({ ...seedsOf(s), ...own(s) })
 }
 
-// Words ----------------------------------------------------------------------------------
-
-/** An option as a pill, chip or row says it: its short form when it has one. */
-export function valueText(pool: ChoicePool | null | undefined, value: string): string {
-  return pool?.short?.[value] || shownOption(value)
+export function asWritten(s: ChoiceState | null | undefined): ChoiceState {
+  return { as_written: true, ...own(s) }
 }
 
-/** A group's name as its chip reads. */
-export function partLabel(part: string): string {
-  return part.replace(/_/g, ' ')
+export function leaveOut(s: ChoiceState | null | undefined): ChoiceState {
+  return { off: true, ...own(s) }
 }
 
-function zoneTitle(c: ProgramChoice, zone: string): string {
-  return c.zones?.find(z => z.id === zone)?.title || `Any ${c.label.toLowerCase()}`
+/** Exactly this variant, as Keep from this sets it (with the image it came from). */
+export function pinTo(s: ChoiceState | null | undefined, text: string, from?: number | null): ChoiceState {
+  return { values: [text], ...own(s), ...(typeof from === 'number' ? { from } : {}) }
 }
 
-/** A chosen token in words: "sporty" as "any sporty", a part the chooser is browsed by as its
-    name ("East Asia"), a zone by its title, an option short. */
-export function tokenText(c: ProgramChoice, pool: ChoicePool | null | undefined, t: Token): string {
-  if (t.kind === 'value') return valueText(pool, t.value)
-  if (t.kind === 'group') return t.facet === browseOf(pool) ? partLabel(t.part) : `any ${partLabel(t.part)}`
-  return zoneTitle(c, t.zone)
+/** Add the user's own variant and pin it. */
+export function addOwn(s: ChoiceState | null | undefined, text: string): ChoiceState | null {
+  const v = text.trim()
+  if (!v) return cleanState(s)
+  const base = s?.off || s?.as_written ? {} : s || {}
+  return cleanState({ ...base, add: [v, ...(s?.add || []).filter(x => x !== v)], values: [...(base.values || []).filter(x => x !== v), v] })
 }
 
-/** A slot's own words, drawn as they are. Only for a slot with one choice. */
-export function asWrittenState(slot: Pick<ProgramSlot, 'words'>, s?: ChoiceState | null): ChoiceState {
-  return { values: [slot.words], ...(s?.add?.length ? { add: s.add } : {}) }
-}
-export function isAsWritten(slot: Pick<ProgramSlot, 'words'> | null | undefined, s: ChoiceState | null | undefined): boolean {
-  return !!slot && !!s && !s.off && !s.zones?.length && !Object.keys(s.groups || {}).length
-    && s.values?.length === 1 && s.values[0] === slot.words
+// Seeds (a person's descent and gender) ------------------------------------------------------
+
+/** Every heritage the picked seeds allow ([] when no descent is picked). */
+export function pickedHeritages(seeds: ChoiceSeeds | null | undefined, descent: DescentPicker | null | undefined): string[] {
+  const out = new Set(seeds?.descent?.values || [])
+  for (const r of seeds?.descent?.groups?.region || []) for (const h of descent?.parts.find(p => p.id === r)?.values || []) out.add(h)
+  return [...out]
 }
 
-/** What the pill says after its label; '' when the label says it all. */
-export function pillValue(c: ProgramChoice, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined,
-                          slot?: ProgramSlot | null): string {
-  if (!s || isOff(c, s)) return ''
-  if (isAsWritten(slot, s)) return 'as written'
-  const tokens = tokensOf(s)
-  if (!tokens.length) return ''
-  if (browseOf(pool) && tokens.every(t => t.kind !== 'zone')) {
-    // A chooser browsed by region names what is chosen: "East Asia, Swedish +1".
-    const said = tokens.map(t => tokenText(c, pool, t))
-    return said.slice(0, 2).join(', ') + (said.length > 2 ? ` +${said.length - 2}` : '')
+/** Whether a variant is what the picked seeds ask for (as the server draws). A seed facet with
+    nothing picked allows anything. */
+export function variantMatches(v: Variant, seeds: ChoiceSeeds | null | undefined, descent: DescentPicker | null | undefined): boolean {
+  const heritages = pickedHeritages(seeds, descent)
+  if (heritages.length && !heritages.includes(v.seeds?.descent || '')) return false
+  const genders = seeds?.gender?.values || []
+  if (genders.length && !genders.includes(v.seeds?.gender || '')) return false
+  return true
+}
+
+/** After a seed pick: pinned variants written for something the picks now rule out go, so a
+    pin never contradicts the descent or gender the user just chose. A pin whose seeds aren't
+    known (the user's own, kept from an image) stays. */
+function dropConflicting(s: ChoiceState, pool: ChoicePool | null | undefined): ChoiceState {
+  if (!s.values?.length) return s
+  const byText = new Map((pool?.variants || []).map(v => [v.text, v]))
+  const values = s.values.filter((t) => {
+    const v = byText.get(t)
+    return !v || v.own || variantMatches(v, s.seeds, pool?.person?.descent)
+  })
+  return { ...s, values }
+}
+
+function withSeeds(s: ChoiceState | null | undefined, seeds: ChoiceSeeds, pool: ChoicePool | null | undefined): ChoiceState | null {
+  const base: ChoiceState = s?.off || s?.as_written ? { ...own(s) } : { ...(s || {}) }
+  delete base.from
+  return cleanState(dropConflicting({ ...base, seeds }, pool))
+}
+
+const flip = (xs: string[] | undefined, x: string) => (xs || []).includes(x) ? (xs || []).filter(v => v !== x) : [...(xs || []), x]
+
+/** Pick a heritage, or un-pick it. In a region picked whole, un-picking one leaves the rest. */
+export function toggleHeritage(s: ChoiceState | null | undefined, heritage: string, pool: ChoicePool | null | undefined): ChoiceState | null {
+  const descent = pool?.person?.descent
+  let values = [...(s?.seeds?.descent?.values || [])]
+  let regions = [...(s?.seeds?.descent?.groups?.region || [])]
+  const whole = descent?.parts.find(p => regions.includes(p.id) && p.values.includes(heritage))
+  if (whole) {
+    regions = regions.filter(r => r !== whole.id)
+    values = uniq([...values, ...whole.values.filter(h => h !== heritage)])
+  } else values = flip(values, heritage)
+  return withSeeds(s, { ...(s?.seeds || {}), descent: { values, groups: { region: regions } } }, pool)
+}
+
+/** Pick a region whole, or un-pick it. Picked whole, its heritages picked one by one go. */
+export function toggleRegion(s: ChoiceState | null | undefined, region: string, pool: ChoicePool | null | undefined): ChoiceState | null {
+  const members = new Set(pool?.person?.descent?.parts.find(p => p.id === region)?.values || [])
+  const regions = s?.seeds?.descent?.groups?.region || []
+  const on = !regions.includes(region)
+  const values = (s?.seeds?.descent?.values || []).filter(h => !on || !members.has(h))
+  return withSeeds(s, { ...(s?.seeds || {}), descent: { values, groups: { region: flip(regions, region) } } }, pool)
+}
+
+export function toggleGender(s: ChoiceState | null | undefined, gender: string, pool: ChoicePool | null | undefined): ChoiceState | null {
+  return withSeeds(s, { ...(s?.seeds || {}), gender: { values: flip(s?.seeds?.gender?.values, gender) } }, pool)
+}
+
+export function clearSeed(s: ChoiceState | null | undefined, which: 'descent' | 'gender', pool: ChoicePool | null | undefined): ChoiceState | null {
+  const seeds = { ...(s?.seeds || {}) }
+  delete seeds[which]
+  return withSeeds(s, seeds, pool)
+}
+
+/** A region's note in the descent list: "all", "2 of 9", or how many heritages it holds. */
+export function regionNote(s: ChoiceState | null | undefined, part: { id: string; values: string[] }): string {
+  if (s?.seeds?.descent?.groups?.region?.includes(part.id)) return 'all'
+  const n = part.values.filter(h => s?.seeds?.descent?.values?.includes(h)).length
+  return n ? `${n} of ${part.values.length}` : String(part.values.length)
+}
+
+// What the picker lists ------------------------------------------------------------------------
+
+/** A slot's variants as its picker lists them: pinned texts the pool doesn't hold (kept from an
+    image) first, then the pool; with seeds picked, only the variants that match them (the
+    user's own always). */
+export function shownVariants(pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined): Variant[] {
+  const all = pool?.variants || (pool?.options || []).map(text => ({ text }))
+  const have = new Set(all.map(v => v.text))
+  const extra = (s?.values || []).filter(t => !have.has(t)).map(text => ({ text, own: true }))
+  const seeds = hasSeeds(s) ? s!.seeds : null
+  const listed = seeds ? all.filter(v => v.own || (s?.values || []).includes(v.text) || variantMatches(v, seeds, pool?.person?.descent)) : all
+  return [...extra, ...listed]
+}
+
+/** A choice's options: a slot's variant texts, a list's options, with the user's own first. */
+export function optionsOf(c: ProgramChoice, pool: ChoicePool | null | undefined, s?: ChoiceState | null): string[] {
+  const base = pool?.variants ? pool.variants.map(v => v.text) : pool?.options || c.options || []
+  return uniq([...(s?.add || []), ...base, ...(s?.values || [])])
+}
+
+/** A variant in pieces, the runs of the slot's own words marked `kept`, so the picker can show
+    them quieter than what the writer added. The server's `keep` names those runs; without it,
+    the longest run of the slot's words the variant holds (display only: it decides nothing). */
+export function keptPieces(text: string, words: string, keep?: string[] | null): Array<{ t: string; kept?: boolean }> {
+  const find = (chunk: string): [number, number] | null => {
+    const parts = chunk.trim().split(/[\s-]+/).filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    if (!parts.length) return null
+    const m = new RegExp(`(?<![\\w])${parts.join('[\\s-]+')}(?![\\w])`, 'i').exec(text)
+    return m ? [m.index, m.index + m[0].length] : null
   }
-  if (tokens.every(t => t.kind === 'value')) {
-    return valueText(pool, (tokens[0] as { value: string }).value) + (tokens.length > 1 ? ` +${tokens.length - 1}` : '')
+  let spans: Array<[number, number]> = []
+  if (keep?.length) spans = keep.map(find).filter((x): x is [number, number] => !!x)
+  else {
+    const ws = words.trim().split(/\s+/).filter(Boolean)
+    for (let len = ws.length; len > 0 && !spans.length; len--) {
+      for (let i = 0; i + len <= ws.length; i++) {
+        const run = ws.slice(i, i + len).join(' ')
+        if (len === 1 && run.length < 4) continue
+        const at = find(run)
+        if (at) { spans = [at]; break }
+      }
+    }
   }
-  if (tokens.length === 1) return tokens[0].kind === 'group' ? partLabel(tokens[0].part) : tokenText(c, pool, tokens[0])
-  return `${tokens.length} chosen`
+  spans.sort((a, b) => a[0] - b[0])
+  const out: Array<{ t: string; kept?: boolean }> = []
+  let at = 0
+  for (const [a, b] of spans) {
+    if (a < at) continue
+    if (a > at) out.push({ t: text.slice(at, a) })
+    out.push({ t: text.slice(a, b), kept: true })
+    at = b
+  }
+  if (at < text.length) out.push({ t: text.slice(at) })
+  return out
 }
 
-/** A part's row inside its choice (a face's nose): what is chosen, "Any" when it is only turned
-    on, '' when untouched (the choice draws from any part then). */
-export function partText(c: ProgramChoice, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined): string {
-  if (!isChanged(s) || isOff(c, s)) return ''
-  return pillValue(c, pool, s) || 'Any'
+// How a slot shows -----------------------------------------------------------------------------
+
+/** One word for how a slot stands: its mark in the text, its line, its picker's header.
+    `keep`: one variant kept from an image; `pinned`: one variant; `several`: more, or seeds;
+    `written`: its own words; `off`: left out; `writing`: its variants aren't written yet;
+    `varying`: drawn from its whole pool. */
+export type SlotLookKind = 'varying' | 'writing' | 'pinned' | 'several' | 'keep' | 'written' | 'off'
+
+export function lookOf(slot: Pick<ProgramSlot, 'state'> | null | undefined, s: ChoiceState | null | undefined,
+                       pool?: ChoicePool | null): SlotLookKind {
+  if (s?.off) return 'off'
+  if (s?.as_written) return 'written'
+  const n = s?.values?.length || 0
+  if (n === 1 && !hasSeeds(s)) return typeof s?.from === 'number' ? 'keep' : 'pinned'
+  if (n || hasSeeds(s)) return 'several'
+  const state = pool?.state || slot?.state
+  if (!slot || slot.state === 'reading' || state === 'writing' || state === 'reading') return 'writing'
+  if (slot.state === 'as_written') return 'written'
+  return 'varying'
 }
 
-/** A choice's row in its builder when some of its parts are chosen (a face): each part chosen,
-    by its value or as "any eye shape"; '' when none is. */
-export function partsText(parts: ProgramChoice[], states: ProgramChoices, pools: Record<string, ChoicePool>): string {
-  return parts.filter(p => isChanged(states[p.id]) && !isOff(p, states[p.id]))
-    .map(p => pillValue(p, pools[p.id], states[p.id]) || `any ${p.label.toLowerCase()}`).join(', ')
+/** "trans woman" as a row or line says it. */
+export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+/** The seeds picked, in words: "East Asia or Swedish · Trans woman". */
+export function seedsText(s: ChoiceState | null | undefined): string {
+  const regions = s?.seeds?.descent?.groups?.region || []
+  const heritages = s?.seeds?.descent?.values || []
+  const d = [...regions, ...heritages]
+  const descent = d.length > 2 ? `${d.slice(0, 2).join(', ')} +${d.length - 2}` : d.join(' or ')
+  const gender = (s?.seeds?.gender?.values || []).map(cap).join(' or ')
+  return [descent, gender].filter(Boolean).join(' · ')
 }
 
-/** "No light": the label of something left out. */
-export function offLabel(label: string): string {
-  return `No ${label.charAt(0).toLowerCase()}${label.slice(1)}`
+/** What a slot is set to, in a few words, for its line under the prompt; '' while it varies. */
+export function lineText(s: ChoiceState | null | undefined): string {
+  if (!s) return ''
+  if (s.off) return 'left out'
+  if (s.as_written) return 'as written'
+  const values = s.values || []
+  const pinned = values.length === 1 ? values[0] : values.length > 1 ? `${values.length} variants` : ''
+  return [seedsText(s), pinned].filter(Boolean).join(' · ')
 }
 
-// Colors -----------------------------------------------------------------------------------
-
-/** The outfit colors list: its values read as swatches. */
-export const PALETTE_CLS = 'person.palette'
-
-// The palette list's color names.
-const HEX: Record<string, string> = {
-  beige: '#d9c7a7', black: '#1b1b1d', 'blue-gray': '#6e8194', 'blush pink': '#eebfc3', 'brick red': '#a0432f', burgundy: '#6d1f2f',
-  'butter yellow': '#f2dd8a', camel: '#b98b56', charcoal: '#3a3d42', chestnut: '#7b4631', 'chocolate brown': '#4b2e22', 'cobalt blue': '#1f4fc4',
-  cocoa: '#6a4a3c', coral: '#f0745f', cream: '#f1e8d2', 'dark teal': '#12525a', 'deep teal': '#0f5f66', 'dusty blue': '#7f9bb5',
-  'dusty rose': '#c48a91', ecru: '#d8ceb2', eggplant: '#43264a', 'electric blue': '#1a6bff', 'electric purple': '#9a2bff', espresso: '#33221b',
-  'forest green': '#24523a', 'golden yellow': '#e5b22c', gray: '#8b8e93', 'heather gray': '#a9abb0', 'hot pink': '#f0308b', ivory: '#f4efe1',
-  'jet black': '#0d0d0f', lavender: '#b3a2d8', mauve: '#a37d92', mustard: '#c99a26', navy: '#1c2c52', 'neon green': '#4cff3a',
-  'neon orange': '#ff7a1a', 'neon pink': '#ff3fb4', 'neon red': '#ff2a3a', 'neon yellow': '#f3ff2e', oatmeal: '#d6cab4', 'off-white': '#eeeae0',
-  olive: '#6c6f36', 'pale blue': '#bcd6ea', 'pale lavender': '#d9d0ee', 'pale mint': '#c9ecd9', 'pale peach': '#f6d6c0', 'pearl gray': '#cfd0d2',
-  plum: '#5c2a52', 'powder blue': '#a9c8e4', rust: '#a8502a', sage: '#9aa88a', sand: '#d3bf98', scarlet: '#d3202c',
-  seafoam: '#93d6bd', 'silver gray': '#b4b7bb', 'slate blue': '#566b8c', 'slate gray': '#5b6570', tan: '#c3a076', tangerine: '#f28a1c',
-  taupe: '#8d7f73', terracotta: '#bf6b4a', turquoise: '#2bbfc0', violet: '#7a48c8', white: '#f7f7f5',
-}
-
-/** A palette value ("burgundy, cream and charcoal") as its colors, when every one is known. */
-export function swatchesOf(value: string): string[] | null {
-  const names = value.split(/, | and /).map(n => n.trim())
-  const hex = names.map(n => HEX[n])
-  return hex.length && hex.every(Boolean) ? hex : null
-}
-
-// Pills ------------------------------------------------------------------------------------
-
-export interface Pill {
-  id: string
-  /** What clicking it opens: a slot (its builder or chooser), or one choice's chooser. */
-  open: { slot: string } | { choice: string }
-  label: string
-  value: string
-  swatches: string[] | null
-  title: string
-  changed: boolean
-  /** The choices its × puts back. */
-  resets: string[]
-  /** A person (or camera) with several details chosen, as one pill. */
-  folded: boolean
-  /** Its slot is still being read, or went in as written because it couldn't be. */
-  pending?: 'reading' | 'written'
-}
-
-export interface ChoiceWorld {
-  slots: ProgramSlot[]
-  choices: ProgramChoice[]
-  states: ProgramChoices
-  pools: Record<string, ChoicePool>
-}
+// Programs across edits ------------------------------------------------------------------------
 
 /** Slots whose labels repeat, numbered in order ("Friend 1", "Friend 2"); the rest as they are. */
 export function numberRepeats(slots: ProgramSlot[]): ProgramSlot[] {
@@ -394,121 +300,41 @@ export function numberRepeats(slots: ProgramSlot[]): ProgramSlot[] {
   })
 }
 
-/** A slot's rows on its card, from its details as `choice` finds them: an outfit's colors sit
-    inside the outfit, a face's parts inside the face, not on rows of their own. */
-export function rowsOf(slot: ProgramSlot, choice: (id: string) => ProgramChoice | undefined): ProgramChoice[] {
-  return slot.details.map(choice).filter((c): c is ProgramChoice => !!c && !(c.follows && slot.details.includes(c.follows))
-    && !(c.part_of && slot.details.includes(c.part_of) && !!choice(c.part_of)))
+/** The pools of the choices a newly prepared program still has (an edit kept their slots): they
+    show until the program's own pools arrive. */
+export function keptPools(pools: Record<string, ChoicePool>, have: Record<string, unknown>): Record<string, ChoicePool> {
+  return Object.fromEntries(Object.entries(pools).filter(([id]) => id in have))
 }
 
-/** A slot whose card lists details (a person, an animal, a camera) rather than options: one
-    with more than one row. A slot with a single row (an animal with only its kind varying, an
-    outfit with its colors) opens straight on that row's options, titled by the slot. */
-export function isBuilder(slot: ProgramSlot, choice: (id: string) => ProgramChoice | undefined): boolean {
-  return rowsOf(slot, choice).length > 1
-}
+type Shown = Pick<PreparedProgram, 'key' | 'slots' | 'choices'>
+type Landed = Pick<PreparedProgram, 'slots' | 'choices' | 'from'>
 
-/** A person or an animal stands as its words when every detail is off (a camera with its
-    details off is left out). Its As written turns them all off, on its details' card or on a
-    single detail's, and it has no Leave out of its own. */
-export function standsAsWritten(slot: Pick<ProgramSlot, 'kind'>): boolean {
-  return slot.kind === 'person' || slot.kind === 'animal'
-}
-
-/** Every detail of the slot is off, at least one by choice: it stands as written. */
-export function detailsAsWritten(slot: ProgramSlot, choice: (id: string) => ProgramChoice | undefined,
-                                 states: ProgramChoices): boolean {
-  const ids = slot.details.filter(id => choice(id))
-  return ids.length > 0 && ids.every(id => isOff(choice(id), states[id])) && ids.some(id => states[id]?.off)
-}
-
-/** The states that turn a slot's details all off (as written), or put them back. */
-export function toggleDetailsAsWritten(slot: ProgramSlot, choice: (id: string) => ProgramChoice | undefined,
-                                       states: ProgramChoices): Record<string, ChoiceState | null> {
-  const on = detailsAsWritten(slot, choice, states)
-  return Object.fromEntries(slot.details.filter(id => choice(id)).map(id => [id, on ? resetState(states[id])
-    : { off: true, ...(states[id]?.add?.length ? { add: states[id].add } : {}) }]))
-}
-
-/** Three or more of one person's details chosen: one pill for the person. */
-export const FOLD = 3
-
-export function pillsOf(w: ChoiceWorld): Pill[] {
-  const byId = new Map(w.choices.filter(c => !c.hidden).map(c => [c.id, c]))
-  const st = (id: string) => w.states[id]
-  const pool = (id: string) => w.pools[id]
-  const get = (id: string) => byId.get(id)
-  const builders = w.slots.filter(s => isBuilder(s, get)).length
-  const out: Pill[] = []
-  const inSlot = new Set<string>()
-  // A choice's parts (a face's nose) are said in its pill, not in pills of their own.
-  const partsOf = (c: ProgramChoice) => w.choices.filter(p => p.part_of === c.id && byId.has(p.id))
-  const said = (c: ProgramChoice) => partsText(partsOf(c), w.states, w.pools)
-  const changedHere = (c: ProgramChoice) => isChanged(st(c.id)) || !!said(c)
-  const offHere = (c: ProgramChoice) => isOff(c, st(c.id)) && !said(c)
-
-  function choicePill(c: ProgramChoice, label: string, slot: ProgramSlot | null, open: Pill['open']): Pill {
-    const s = st(c.id)
-    const off = offHere(c)
-    const value = said(c) || pillValue(c, pool(c.id), s, slot)
-    const tokens = tokensOf(s)
-    const swatches = c.cls === PALETTE_CLS && tokens.length === 1 && tokens[0].kind === 'value' ? swatchesOf(tokens[0].value) : null
-    const shown = off ? offLabel(label) : label
-    return {
-      id: c.id, open, label: shown, value, swatches, changed: changedHere(c), resets: [c.id, ...partsOf(c).map(p => p.id)], folded: false,
-      title: [shown, ...(said(c) ? [said(c)] : []), ...tokens.map(t => tokenText(c, pool(c.id), t))].join('\n'),
-    }
-  }
-
-  for (const slot of [...w.slots].sort((a, b) => a.n - b.n)) {
-    const all = slot.details.map(id => byId.get(id)).filter((c): c is ProgramChoice => !!c)
-    all.forEach(c => inSlot.add(c.id))
-    const details = all.filter(c => !(c.part_of && byId.has(c.part_of)))
-    // A slot still being read (or read as written) is a pill with its label and nothing chosen yet.
-    if (!details.length) {
-      const pending = slot.degraded || slot.state === 'ready' ? 'written' : 'reading'
-      out.push({ id: slot.id, open: { slot: slot.id }, label: slot.label, value: pending === 'written' ? 'as written' : '',
-        swatches: null, changed: false, resets: [], folded: false, title: slot.label, pending })
-      continue
-    }
-    if (!isBuilder(slot, get)) {
-      // One row: the slot's pill is that row's ("Camera angle low angle"); what goes with it
-      // (an outfit's colors) has a pill of its own once changed.
-      const [one] = rowsOf(slot, get)
-      if (one && standsAsWritten(slot) && detailsAsWritten(slot, get, w.states)) {
-        // An animal with its one detail off is its words, not left out.
-        out.push({ id: one.id, open: { slot: slot.id }, label: slot.label, value: 'as written', swatches: null,
-          title: `${slot.label}\nas written`, changed: true, resets: details.map(c => c.id), folded: false })
-      } else if (one) out.push(choicePill(one, slot.label, slot, { slot: slot.id }))
-      for (const c of details) if (c !== one && isChanged(st(c.id))) out.push(choicePill(c, c.label, null, { choice: c.id }))
-      continue
-    }
-    const ids = all.map(c => c.id)
-    const changed = details.filter(changedHere)
-    const base = { id: slot.id, open: { slot: slot.id }, swatches: null, resets: ids }
-    if (details.length && details.every(offHere) && details.some(c => st(c.id)?.off)) {
-      out.push({ ...base, label: slot.label, value: 'as written', title: `${slot.label}\nas written`, changed: true, folded: false })
-    } else if (changed.length >= FOLD) {
-      const words = changed.map(c => offHere(c) ? offLabel(c.label).toLowerCase() : said(c) || pillValue(c, pool(c.id), st(c.id)) || 'any')
-      const lines = changed.map((c, i) => `${c.label}: ${words[i]}`)
-      out.push({ ...base, label: slot.label, value: words.join(', '), title: [slot.label, ...lines].join('\n'), changed: true, folded: true })
-    } else {
-      out.push({ ...base, label: slot.label, value: '', title: slot.label, changed: false, folded: false })
-      for (const c of changed) {
-        const label = builders > 1 ? `${slot.label}’s ${c.label.toLowerCase()}` : c.label
-        out.push(choicePill(c, label, null, { choice: c.id }))
-      }
-    }
-  }
-  // The user's own {a|b} lists.
-  for (const c of byId.values()) {
-    if (inSlot.has(c.id) || c.slot || c.follows) continue
-    out.push(choicePill(c, c.label, null, { choice: c.id }))
-  }
+/** For a program prepared after an edit: each choice id of the program shown before it, mapped
+    to the id the same choice has now, by the parts the server matched (`was`: where each part
+    stands in the text, not its id; two `<mug>`s with the first removed leave `mug`, which was
+    `mug_2`). Null when the answer doesn't say (it wasn't matched against `prev`). */
+export function carriedIds(prev: Shown | null | undefined, next: Landed): Record<string, string> | null {
+  if (!prev?.key || !next.from || next.from !== prev.key) return null
+  const before = new Set((prev.slots || []).map(s => s.id))
+  const have = new Set((next.choices || []).map(c => c.id))
+  const out: Record<string, string> = {}
+  for (const s of next.slots || []) if (s.was && before.has(s.was) && have.has(s.id)) out[s.was] = s.id
+  for (const c of next.choices || []) if (c.source === 'list' && c.was) out[c.was] = c.id
   return out
 }
 
-/** How many choices are changed, of those the pills show. */
-export function changedCount(w: ChoiceWorld): number {
-  return new Set(pillsOf(w).flatMap(p => p.resets).filter(id => isChanged(w.states[id]))).size
+/** Values kept per choice id (what was chosen, the variants shown), moved to the ids a newly
+    prepared program gives the same choices. With no map, by id: those the program still has. */
+export function carryChoices<T>(byId: Record<string, T>, ids: Record<string, string> | null,
+  prev: Shown | null | undefined, next: Pick<PreparedProgram, 'choices'>): Record<string, T> {
+  const have = new Set((next.choices || []).map(c => c.id))
+  if (!ids) return Object.fromEntries(Object.entries(byId).filter(([id]) => have.has(id)))
+  const shown = new Set((prev?.choices || []).map(c => c.id))
+  const out: Record<string, T> = {}
+  for (const [id, v] of Object.entries(byId)) if (id in ids) out[ids[id]] = v
+  for (const [id, v] of Object.entries(byId)) {
+    if (id in ids || shown.has(id) || !have.has(id) || id in out) continue
+    out[id] = v   // not the shown program's (kept from before it): by id
+  }
+  return out
 }

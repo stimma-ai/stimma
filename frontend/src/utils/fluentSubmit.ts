@@ -3,7 +3,7 @@
 
 import type { ProgramStatus } from '../composables/usePromptProgram'
 import { isInsufficientBalanceCode, isLlmSetupCode } from './llmErrorCodes.ts'
-import { keepGroups, type KeepWorld } from './keepFromThis.ts'
+import { keepRows, type KeepWorld } from './keepFromThis.ts'
 
 /** How the prompt is read for this run. With no chat model, everything but Raw is Direct:
     lists, saved wildcards and segments fill, brackets unwrap, # lines drop, no model.
@@ -193,7 +193,7 @@ export function programRunActions(
   run: any,
   current: { key: string | null; status: ProgramStatus; world: KeepWorld | null },
 ): RunActions {
-  const keep = current.status === 'ready' && !!current.world && keepGroups(run, current.world).length > 0
+  const keep = current.status === 'ready' && !!current.world && keepRows(run, current.world).length > 0
   if (current.status === 'off') return { replay: false, reason: 'Not available with your current prompt settings.', keep }
   // Made while the prompt couldn't be read: from the words as written there are no draws to
   // repeat; from the same words' earlier settings, only its picks that still apply.

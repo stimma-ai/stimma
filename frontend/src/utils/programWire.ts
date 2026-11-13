@@ -2,14 +2,17 @@
  * Fluent's wire shapes, in one place: what /prompt-programs/prepare and /prompt-programs/pools
  * answer, and what the user's choices look like when stored and sent.
  *
- * A slot is words in angle brackets in the prompt (`<young man>`). Each slot has one or more
- * choices: a person or camera slot one per detail (age, hair, outfit, its colors…), any other
- * slot exactly one. A `{a|b}` list in the prompt is a choice with no slot.
+ * A slot is words in angle brackets in the prompt (`<young woman>`). Its value is a variant of
+ * those words, written by the chat model in the background and kept as the slot's pool; each
+ * slot is one choice, with the slot's id. A `{a|b}` list in the prompt is a choice with no slot.
  */
 
-import type { VocabTier } from './programVocab.ts'
-
 export type SlotKind = 'person' | 'animal' | 'camera' | 'light' | 'list' | 'free'
+
+/** How a slot stands: `reading` (not read yet), `writing` (read; its first variants are being
+    written), `ready` (a pool to draw from), `as_written` (its reading or its writer gave
+    nothing: it stands as its words until the next prepare tries again). */
+export type SlotState = 'reading' | 'writing' | 'ready' | 'as_written'
 
 /** One slot of the prompt, as /prepare reads it. */
 export interface ProgramSlot {
@@ -17,7 +20,7 @@ export interface ProgramSlot {
   /** Its 1-based order in the prompt, as the editor counts slots. */
   n: number
   kind: SlotKind
-  /** Two or three words for its pill. */
+  /** Two or three words for its line. */
   label: string
   /** The words between the brackets. */
   words: string
@@ -25,62 +28,40 @@ export interface ProgramSlot {
       doesn't hold the same slots (a saved segment with slots of its own). */
   span?: [number, number] | null
   line?: number | null
-  /** Its choices' ids, in the order the builder lists them. */
-  details: string[]
-  /** For a person: detail -> the slot's own words that settle it ({age: "elderly"}). */
-  stated?: Record<string, string>
-  /** `reading` until the slot reader has said what it is (it shows its words and nothing to
-      choose yet), then `ready`. */
-  state?: 'reading' | 'ready'
-  /** Its reading couldn't be used: it stands as its words until it is read again. */
-  degraded?: boolean
+  state?: SlotState
   /** Its id in the program the prepare named as shown (`from`), when it is the same slot there:
-      what was chosen for it and its options move over by this, not by the id. */
+      what was chosen for it and its variants move over by this, not by the id. */
   was?: string
 }
 
-/** A choice's zone: where its options come from. `kinds` (kinds of what the words name) is
-    the default; `instead` holds other things that could stand there. */
-export interface ChoiceZone { id: string; title?: string }
-
 export interface ProgramChoice {
   id: string
-  /** The slot it belongs to; none for a `{a|b}` list. */
+  /** A slot's choice: the slot's id. None for a `{a|b}` list. */
   slot?: string
-  kind: 'pick'
+  /** `variants` for a slot, `pick` for the user's own list. */
+  kind: 'variants' | 'pick'
   label: string
   /** The user's own `{a|b}` list. */
   source?: 'list'
   line?: number
-  /** The vocabulary list it draws from. */
-  cls?: string
-  /** Its options as prepared (a zone's options arrive with /pools). */
-  options: string[]
-  zones?: ChoiceZone[]
+  /** A list's options (a slot's come with /pools). */
+  options?: string[]
   hidden?: boolean
-  /** Drawn to go with another choice (an outfit's colors). */
-  follows?: string
-  /** Left out until the user turns it on (a person's face). */
-  starts_off?: boolean
-  /** A part of another choice (a face's nose): listed inside that choice, not beside it. */
-  part_of?: string
-  parent?: string
-  when?: string[]
   /** A `{a|b}` list's id in the program named by `from`, when it is the same list there. */
   was?: string
 }
 
 /** POST /prompt-programs/prepare. It answers at once from the prompt's parse: every slot,
-    each still `reading` or `ready`. A prompt with nothing that varies answers
+    each with its state. A prompt with nothing that varies answers
     `{key: null, slots: [], choices: []}`; a format that isn't prepared
     `{key: null, unsupported: mode}`. */
 export interface PreparedProgram {
   key: string | null
   slots: ProgramSlot[]
   choices: ProgramChoice[]
-  /** Some part is still being read (or narrowed). */
+  /** Some slot is still being read or written. */
   reading?: boolean
-  /** Background reading for this prompt is running now: look again soon. */
+  /** Background work for this prompt is running now: look again soon. */
   working?: boolean
   /** The key of the program the request said it shows, when its slots' and lists' `was` say
       which of that program's parts they are. */
@@ -94,49 +75,90 @@ export interface PreparedProgram {
 /** What /prepare answers, before it is known which of its forms this is. */
 export type PrepareResponse = Partial<PreparedProgram> & { unsupported?: string }
 
-/** One choice's options in /prompt-programs/pools. A choice bound to a vocabulary list also
-    says which list (`cls`, `label`, `closed`) and each option's tier. */
-export interface ChoicePool {
-  options: string[]
-  /** zone id -> its options. */
-  zones?: Record<string, string[]>
-  /** facet -> part -> its options. An option may sit in several parts. The facet `group`
-      holds the list's declared groups (descent's heritages). */
-  groups?: Record<string, Record<string, string[]>>
-  /** The facet of `groups` the chooser is browsed by (descent's `region`): it opens on a row per
-      part, each leading to its options, and shows no group chips. */
-  browse?: string
-  cls?: string
-  label?: string
-  closed?: boolean
-  tiers?: Record<string, VocabTier>
-  /** The user's own options kept for this choice's list from earlier prompts. */
-  mine?: string[]
-  /** Its options are still being written. */
-  more?: boolean
-  /** option -> its short form, for pills and rows, where one exists. */
-  short?: Record<string, string>
-  /** option -> one line on what it looks like, for lists that teach (hairstyles, film stocks). */
-  looks?: Record<string, string>
+/** The seeds a variant was written with: each only when given. */
+export interface VariantSeeds {
+  descent?: string
+  gender?: string
+  age?: string
+  core?: string
+  idea?: string
 }
 
-/** POST /prompt-programs/pools. `more`: the choices whose options are still being written. */
+/** One variant in a slot's pool. A variant's identity is its text. */
+export interface Variant {
+  text: string
+  seeds?: VariantSeeds
+  uses?: number
+  /** The user's own, added in the picker. */
+  own?: boolean
+}
+
+/** Descent: a comprehensive list, browsed Region > heritage. */
+export interface DescentPicker {
+  list: string
+  label: string
+  /** The facet it is browsed by (`region`). */
+  browse: string
+  /** Every region, in the list's order, with its heritages. */
+  parts: Array<{ id: string; values: string[] }>
+  /** What the slot's words allow (all of it when they state no descent). */
+  fits?: string[]
+  picked?: { values: string[]; groups?: Record<string, string[]> }
+  /** heritage -> how many variants in the pool carry it. */
+  in_pool?: Record<string, number>
+}
+
+/** Gender: a short comprehensive list, shown whole, narrowed to what the words allow. */
+export interface GenderPicker {
+  list: string
+  label: string
+  options: string[]
+  /** What the slot's words allow of it. */
+  fits?: string[]
+  picked?: { values: string[] }
+  in_pool?: Record<string, number>
+}
+
+/** One choice's pool in /prompt-programs/pools. A slot's is its variants; a list's, its options. */
+export interface ChoicePool {
+  kind?: 'variants'
+  state?: SlotState
+  /** A write is in flight for this slot (a quiet spinner). */
+  more?: boolean
+  /** The whole pool in pool order (newest last), then the user's own. */
+  variants?: Variant[]
+  /** The same texts, for code that reads options; a list's options. */
+  options: string[]
+  /** The slot's choice as the server read it. */
+  chosen?: ChoiceState | null
+  /** The runs of the slot's words every variant keeps, when the server says. */
+  keep?: string[]
+  /** A person's comprehensive lists. */
+  person?: { descent?: DescentPicker; gender?: GenderPicker }
+}
+
+/** POST /prompt-programs/pools. `more`: the slots with a write in flight. */
 export interface PoolsResponse { choices: Record<string, ChoicePool>; more?: string[] }
+
+/** Seeds the user picked for a person: they steer the draw and the next writes. */
+export interface ChoiceSeeds {
+  descent?: { values?: string[]; groups?: { region?: string[] } }
+  gender?: { values?: string[] }
+}
 
 /** What the user chose for one choice. Nothing chosen is no entry at all. */
 export interface ChoiceState {
-  /** Option texts. */
+  /** Pinned variants (a list's options): the least-used of them is drawn. */
   values?: string[]
-  /** facet -> parts: every option in those parts. */
-  groups?: Record<string, string[]>
-  /** Zone ids: every option in those zones. */
-  zones?: string[]
+  /** The slot's own words, as they are. */
+  as_written?: boolean
   /** Left out of the prompt. */
   off?: boolean
-  /** Drawn, for a choice that starts left out (`starts_off`). */
-  on?: boolean
-  /** The user's own options. */
+  seeds?: ChoiceSeeds
+  /** The user's own variants (a list's own options). */
   add?: string[]
+  /** Kept from an image (Keep from this): its media id, for its thumbnail. Never sent. */
+  from?: number
 }
 
 /** "Any" is sent as no entry: the server reads `{any: true}` and nothing chosen the same. */

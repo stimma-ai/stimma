@@ -333,6 +333,7 @@
             @focusout="handlePromptFocusOut"
             @save="preparePromptNow"
             @open-slot="openPromptSlot"
+            @slot-hover="promptProgram.hover.value = $event"
             :rows="drawerMode ? 2 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
             external-chat
             :promptOptions="globalPrefs.promptOptions"
@@ -342,6 +343,7 @@
             :suggest-context="promptSuggestContext"
             :read-slots="promptReadSlots"
             :prompt-control="fluentOn"
+            :slot-marks="promptProgram.marks.value"
           >
             <template v-if="fluentOn" #mode="{ openHelp }"><FluentControl
               :program="promptProgram"
@@ -364,7 +366,7 @@
               @mode="setDetailLevel"
               @help="(anchor) => openHelp(anchor)"
             /></template>
-            <template #below-editor><PromptProgramChoices :program="promptProgram" /></template>
+            <template #below-editor><PromptSlotLines :program="promptProgram" /></template>
           </AIPromptEditor>
         </div>
         </Teleport>
@@ -971,7 +973,7 @@
               :class="keepOpen?.stage ? 'bg-overlay-subtle text-content' : ''"
               aria-haspopup="dialog"
               data-keep-button
-              @click.stop="openKeep(stageRun, $event.currentTarget as Element, true)"
+              @click.stop="openKeep(stageRun, $event.currentTarget as Element, true, stageCurrentMediaId)"
             >Keep from this</button>
             <button
               @click.stop="handleRemixMedia(stageCurrentMediaId)"
@@ -1209,11 +1211,12 @@
       :program-actions="fluentOn ? programRunActionsFor : null"
       @close="closeInfoModal"
       @program-replay="replayProgramRun"
-      @program-keep="openKeep"
+      @program-keep="(run: any, at: Element) => openKeep(run, at, false, infoModalJob?.result_media_id)"
     />
 
-    <!-- Prompt programs: the open choice's card, and an image's Keep from this -->
-    <PromptProgramCard :program="promptProgram" />
+    <!-- Fluent: the open slot's picker, a slot's hover card, and an image's Keep from this -->
+    <FluentPicker :program="promptProgram" />
+    <PromptSlotHover :program="promptProgram" />
     <KeepFromThisCard :open="keepOpen" :program="promptProgram" @close="keepOpen = null" />
 
     <!-- Mask Editor Modal -->
@@ -3433,12 +3436,13 @@ watch(() => videoImages.startImage, (newStart, oldStart) => {
 // LoRA state — ref that syncs bidirectionally with the composable pool
 import { useLoraPool } from '../composables/useLoraPool'
 import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptProgram'
-import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
+import PromptSlotLines from '../components/generation/PromptSlotLines.vue'
+import PromptSlotHover from '../components/generation/PromptSlotHover.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
 import { DRAWING_LABEL, PREPARING_LABEL, directImproves, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
-import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
+import FluentPicker from '../components/generation/FluentPicker.vue'
 import KeepFromThisCard from '../components/generation/KeepFromThisCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
 import { disableUnavailableLoras } from '../utils/availableLoras'
@@ -3966,6 +3970,7 @@ const promptProgram = usePromptProgram({
   // device is still typing (it looks again when it's focused).
   prepareWhenFound: () => !isInitialLoading.value && stageViewActive.value && document.hasFocus()
     && !aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
+  thumbOf: (mediaId: number) => getThumbnailUrl(mediaId, 64),
 })
 // The newest image made in Fluent: the prompt it was sent with and its record (the prompt
 // menu's developer view).
@@ -4011,10 +4016,11 @@ function programRunActionsFor(run: any) {
   })
 }
 // Keep from this: the image on stage, Generation details, or wherever an image offers it.
-const keepOpen = ref<{ run: any; anchor: DOMRect; stage?: boolean } | null>(null)
-function openKeep(run: any, at: Element | DOMRect, stage = false) {
+// `media`: the image's, for the thumbnail a slot kept from it shows.
+const keepOpen = ref<{ run: any; anchor: DOMRect; stage?: boolean; media?: number | null } | null>(null)
+function openKeep(run: any, at: Element | DOMRect, stage = false, media?: number | null) {
   if (!run) return
-  keepOpen.value = { run, anchor: at instanceof Element ? at.getBoundingClientRect() : at, stage }
+  keepOpen.value = { run, anchor: at instanceof Element ? at.getBoundingClientRect() : at, stage, media: media ?? null }
 }
 const stageRun = computed<any | null>(() => generationJobParams(stageCurrentJob.value)?.prompt_program ?? null)
 const stageKeep = computed(() => fluentOn.value && !!stageRun.value && programRunActionsFor(stageRun.value).keep)
@@ -4029,12 +4035,12 @@ function keepableRun(job: any): any | null {
 // the stage, the slideshow).
 provide(RESULT_KEEP, {
   can: job => !!keepableRun(job),
-  open: (job, at) => openKeep(keepableRun(job), at),
+  open: (job, at) => openKeep(keepableRun(job), at, false, (job as any).result_media_id),
 })
 useMediaMenuAction((mediaId) => {
   const job = allJobs.value.find((j: any) => j.result_media_id === mediaId)
   const run = job ? keepableRun(job) : null
-  return run ? { label: 'Keep from this', run: at => openKeep(run, at) } : null
+  return run ? { label: 'Keep from this', run: at => openKeep(run, at, false, mediaId) } : null
 })
 
 function replayProgramRun(run: any) {
@@ -4044,7 +4050,7 @@ function replayProgramRun(run: any) {
   void submitJob({ countOverride: 1, programFixed: fixed })
 }
 
-// The prompt editor's slot was clicked, or just made: its card opens there.
+// The prompt editor's slot was clicked, or just made: its picker opens there.
 function openPromptSlot(e: { n: number; words: string; rect: DOMRect }) {
   if (promptProgram.status.value !== 'off') promptProgram.openEditorSlot(e)
 }

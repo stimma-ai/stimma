@@ -3,8 +3,9 @@ import axios from 'axios'
 import '../../src/style.css'
 import AIPromptEditor from '../../src/components/generation/AIPromptEditor.vue'
 import FluentControl from '../../src/components/generation/FluentControl.vue'
-import PromptProgramChoices from '../../src/components/generation/PromptProgramChoices.vue'
-import PromptProgramCard from '../../src/components/generation/PromptProgramCard.vue'
+import PromptSlotLines from '../../src/components/generation/PromptSlotLines.vue'
+import FluentPicker from '../../src/components/generation/FluentPicker.vue'
+import PromptSlotHover from '../../src/components/generation/PromptSlotHover.vue'
 import { usePromptProgram, type EnhanceLevel } from '../../src/composables/usePromptProgram'
 import { shapePromptOptions } from '../../src/utils/fluentSubmit'
 import { setDevMode } from '../../src/appConfig'
@@ -13,8 +14,8 @@ import { RESULT_KEEP } from '../../src/composables/resultKeep'
 import { mediaMenuActions, useMediaMenuAction } from '../../src/composables/useMediaContextMenu'
 
 // Tool View's prompt card in Fluent, wired as ToolView.vue wires it: the real editor with
-// the real Fluent menu in its mode slot and the pill row under the text, the slot card, the
-// prompt program composable, and a Generate button that shapes the submit's promptOptions
+// the real Fluent menu in its mode slot, its marks and the lines under the text, the slot's
+// picker and hover card, the prompt program composable, and a Generate button that shapes the submit's promptOptions
 // the way ToolView's submit does (utils/fluentSubmit.ts). As in ToolView, the prompt is read
 // when the user pauses in the box or leaves it, not while they type. The page's routes answer the
 // backend's endpoints in their real shapes; what Generate sent lands in window.sent.
@@ -106,7 +107,9 @@ const App = defineComponent({
         promptControl: true,
         externalChat: true,
         rows: 5,
+        slotMarks: program.marks.value,
         'onOpen-slot': (e: { n: number; words: string; rect: DOMRect }) => { if (program.status.value !== 'off') program.openEditorSlot(e) },
+        'onSlot-hover': (e: { n: number; rect: DOMRect } | null) => { program.hover.value = e },
       }, {
         mode: ({ openHelp }: any) => h(FluentControl, {
           program, raw: raw.value, direct: direct.value, enhance: enhance.value, llmUnconfigured: false, modelName: 'Krea 2',
@@ -115,10 +118,11 @@ const App = defineComponent({
           onWay: (w: string) => { promptOptions.value = { ...promptOptions.value, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined } },
           onHelp: (anchor: DOMRect | null) => openHelp(anchor),
         }),
-        'below-editor': () => h(PromptProgramChoices, { program }),
+        'below-editor': () => h(PromptSlotLines, { program }),
       }),
       h('button', { type: 'button', 'data-generate': '', class: 'self-end px-3 py-1.5 rounded-md bg-accent text-white text-xs', onClick: generate }, 'Generate'),
-      h(PromptProgramCard, { program }),
+      h(FluentPicker, { program }),
+      h(PromptSlotHover, { program }),
       h('div', { class: 'grid grid-cols-2 gap-2 w-[440px]', 'data-results': '' }, results.map(job => h(JobTile, { key: job.id, job }))),
     ])
   },

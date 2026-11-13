@@ -130,14 +130,12 @@ test('a prompt that couldn’t be read says so quietly, by cause, with one actio
 })
 
 const world = {
-  slots: [{ id: 'man', n: 1, kind: 'person' as const, label: 'Man', words: 'man', details: ['man.hair', 'man.outfit'] }],
-  choices: [{ id: 'man.hair', slot: 'man', kind: 'pick' as const, label: 'Hair', options: [] },
-    { id: 'man.outfit', slot: 'man', kind: 'pick' as const, label: 'Outfit', options: [] }],
+  slots: [{ id: 'man', n: 1, kind: 'person' as const, label: 'Man', words: 'man' }],
+  choices: [{ id: 'man', slot: 'man', kind: 'variants' as const, label: 'Man' }],
   states: {}, pools: {},
 }
 const run = { key: 'k1', version: 'slots-1', draws: [
-  { id: 'man.hair', value: 'bob' }, { id: 'gone', value: 'x' },
-  { id: 'man.outfit', value: 'a navy parka over white jeans', template: 'a {main} parka over {neutral} jeans' },
+  { id: 'man', value: 'tall man with a bob' }, { id: 'gone', value: 'x' },
 ] }
 
 test('an image made while the prompt couldn’t be read offers no Same draws and nothing to keep', () => {

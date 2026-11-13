@@ -1,89 +1,53 @@
-import test from 'node:test'
 import assert from 'node:assert/strict'
-import { flipRow, isSlotRun, keepGroups, type KeepWorld } from './keepFromThis.ts'
-import type { ProgramChoice } from './programWire.ts'
+import test from 'node:test'
+import { flipRow, isSlotRun, keepRows, type KeepWorld } from './keepFromThis.ts'
 
-const ch = (id: string, label: string, extra: Partial<ProgramChoice> = {}): ProgramChoice => ({ id, kind: 'pick', label, options: [], ...extra })
 const world = (states = {}): KeepWorld => ({
   slots: [
-    { id: 'young_man', n: 1, kind: 'person', label: 'Young man', words: 'young man',
-      details: ['young_man.age', 'young_man.descent', 'young_man.hair', 'young_man.outfit', 'young_man.outfit.colors'] },
-    { id: 'light', n: 2, kind: 'light', label: 'Light', words: 'light', details: ['light'] },
-    { id: 'pet', n: 3, kind: 'free', label: 'Pet', words: 'pet', details: ['pet'] },
+    { id: 'light', n: 2, kind: 'light', label: 'Lighting', words: 'lighting' },
+    { id: 'woman', n: 1, kind: 'person', label: 'Woman', words: 'young woman' },
   ],
   choices: [
-    ch('young_man.age', 'Age', { slot: 'young_man' }), ch('young_man.descent', 'Descent', { slot: 'young_man' }),
-    ch('young_man.hair', 'Hair', { slot: 'young_man' }), ch('young_man.outfit', 'Outfit', { slot: 'young_man', cls: 'person.outfit.casual' }),
-    ch('young_man.outfit.colors', 'Colors', { slot: 'young_man', cls: 'person.palette', follows: 'young_man.outfit' }),
-    ch('light', 'Light', { slot: 'light' }), ch('pet', 'Pet', { slot: 'pet' }),
-    ch('list1', 'Season', { source: 'list', line: 1 }),
+    { id: 'woman', kind: 'variants', label: 'Woman', slot: 'woman' },
+    { id: 'light', kind: 'variants', label: 'Lighting', slot: 'light' },
+    { id: 'list1', kind: 'pick', label: 'Season', source: 'list', options: ['summer', 'autumn'] },
   ],
   states,
-  pools: { light: { options: [], short: { 'cool daylight through a tall window': 'cool daylight' } },
-    'young_man.outfit': { options: [], short: { 'a {main} flannel shirt and {neutral} jeans': 'flannel and jeans' } } },
+  pools: {},
 })
-const run = {
-  key: 'k1', version: 'slots-1',
-  draws: [
-    { id: 'young_man.age', value: '24-year-old', kind: 'pick' }, { id: 'young_man.descent', value: 'Korean', kind: 'pick' },
-    { id: 'young_man.hair', value: 'buzz cut', kind: 'pick' },
-    { id: 'young_man.outfit', value: 'a navy flannel shirt and gray jeans', template: 'a {main} flannel shirt and {neutral} jeans', kind: 'pick' },
-    { id: 'young_man.outfit.colors', value: 'navy, white and gray', kind: 'pick' },
-    { id: 'light', value: 'cool daylight through a tall window', kind: 'pick' },
-    { id: 'pet', value: null, kind: 'pick' },  // left out in this image
-    { id: 'list1', value: 'autumn', kind: 'pick' },
-    { id: 'gone', value: 'x', kind: 'pick' },
-  ],
-}
+const run = { key: 'k', version: 'slots-1', draws: [
+  { id: 'light', value: 'soft window light' },
+  { id: 'woman', value: 'young woman of Korean descent with a sharp bob' },
+  { id: 'list1', value: 'autumn' },
+  // An earlier Fluent's person detail: matches no choice now.
+  { id: 'woman.age', value: '24-year-old' },
+  { id: 'gone', value: 'x' },
+] }
 
-test('a person is their look and their outfit; every other slot and list is a line', () => {
-  const g = keepGroups(run, world())
-  assert.deepEqual(g.map(x => [x.label, x.rows.map(r => [r.label, r.text])]), [
-    ['Young man', [['Look', '24-year-old, Korean, buzz cut'], ['Outfit', 'flannel and jeans']]],
-    ['', [['Light', 'cool daylight'], ['Season', 'autumn']]],
+test('a line per slot in the prompt’s order, then the user’s lists; old detail draws pass by', () => {
+  const rows = keepRows(run, world())
+  assert.deepEqual(rows.map(r => [r.key, r.label, r.text, r.on]), [
+    ['woman', 'Woman', 'young woman of Korean descent with a sharp bob', false],
+    ['light', 'Lighting', 'soft window light', false],
+    ['list1', 'Season', 'autumn', false],
   ])
-  const outfit = g[0].rows[1]
-  assert.equal(outfit.swatches?.length, 3)
-  // The outfit is kept as its template, its colors as their own choice.
-  assert.deepEqual(outfit.drawn, [{ id: 'young_man.outfit', value: 'a {main} flannel shirt and {neutral} jeans' },
-    { id: 'young_man.outfit.colors', value: 'navy, white and gray' }])
 })
 
-test('ticking sets each choice to the image’s value; the tick is read from the choices', () => {
-  const look = keepGroups(run, world())[0].rows[0]
-  assert.equal(look.on, false)
-  const set = flipRow(look, { 'young_man.hair': { add: ['mullet'] } })
-  assert.deepEqual(set, {
-    'young_man.age': { values: ['24-year-old'] }, 'young_man.descent': { values: ['Korean'] },
-    'young_man.hair': { values: ['buzz cut'], add: ['mullet'] },
-  })
-  const after = keepGroups(run, world(set))[0].rows[0]
-  assert.equal(after.on, true)
-  // Unticking puts them back, keeping the user's own options.
-  assert.deepEqual(flipRow(after, set), { 'young_man.age': null, 'young_man.descent': null, 'young_man.hair': { add: ['mullet'] } })
-  // Anything more chosen than this image's value is not "this image".
-  assert.equal(keepGroups(run, world({ ...set, 'young_man.age': { values: ['24-year-old', '27-year-old'] } }))[0].rows[0].on, false)
+test('a tick pins exactly what the image drew, with the image; unticking lets it vary', () => {
+  const [, light] = keepRows(run, world({ light: { add: ['mine'] } }))
+  const set = flipRow(light, { light: { add: ['mine'] } }, 42)
+  assert.deepEqual(set, { light: { values: ['soft window light'], add: ['mine'], from: 42 } })
+  const ticked = keepRows(run, world(set))[1]
+  assert.equal(ticked.on, true)
+  assert.deepEqual(flipRow(ticked, set as any), { light: { add: ['mine'] } })
+  // Anything more chosen than this one variant is not this image's line.
+  assert.equal(keepRows(run, world({ light: { values: ['soft window light', 'neon'] } }))[1].on, false)
 })
 
-test('only images made from slots offer anything', () => {
-  assert.ok(isSlotRun(run))
-  assert.ok(!isSlotRun({ ...run, version: undefined }))
-  assert.ok(!isSlotRun({ ...run, fallback: { rung: 'words' } }))
-  assert.deepEqual(keepGroups({ key: 'k', draws: run.draws, mode: 'prose', elaborate: true }, world()), [])
-})
-
-test('a camera of one detail, now that detail’s list, keeps what an older image drew for it', () => {
-  const w: KeepWorld = {
-    slots: [{ id: 'selfie_camera_angle', n: 1, kind: 'list', label: 'Selfie camera angle', words: 'selfie camera angle',
-      details: ['selfie_camera_angle'] }],
-    choices: [ch('selfie_camera_angle', 'Selfie camera angle', { slot: 'selfie_camera_angle', cls: 'camera.angle' })],
-    states: {}, pools: {},
-  }
-  const older = { key: 'k0', version: 'slots-1', draws: [{ id: 'selfie_camera_angle.angle', value: 'a high angle', kind: 'pick' }] }
-  const [g] = keepGroups(older, w)
-  assert.deepEqual(g.rows.map(r => [r.label, r.text, r.drawn]), [
-    ['Selfie camera angle', 'a high angle', [{ id: 'selfie_camera_angle', value: 'a high angle' }]],
-  ])
-  const now = { ...older, draws: [{ id: 'selfie_camera_angle', value: 'eye level', kind: 'pick' }] }
-  assert.equal(keepGroups(now, w)[0].rows[0].text, 'eye level')
+test('only images made from slots offer it', () => {
+  assert.equal(isSlotRun(run), true)
+  assert.equal(isSlotRun({ ...run, version: undefined }), false)
+  assert.equal(isSlotRun({ ...run, fallback: { rung: 'words' } }), false)
+  assert.deepEqual(keepRows({ key: 'k', draws: run.draws }, world()), [])
+  assert.deepEqual(keepRows({ ...run, draws: [{ id: 'woman.age', value: '24-year-old' }] }, world()), [])
 })

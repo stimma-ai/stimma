@@ -6,10 +6,10 @@ import { chromium, expect } from '@playwright/test'
 import config from '../vite.config.js'
 
 // The main Fluent story through Tool View's prompt card as ToolView wires it: the editor,
-// its Fluent menu, the pill row and the slot card together, against routes that answer in
-// the backend's shapes (routes/prompt_programs.py `public`, /pools, /suggest, /add). Type a
-// plain prompt, make a slot from an underline, choose in its builder, add light from the row
-// under the text, leave it out, set the detail level, and generate.
+// its Fluent menu, its marks, the lines under it and the slot's picker together, against routes
+// that answer in the backend's shapes (routes/prompt_programs.py `public`, /pools, /suggest,
+// /add). Type a plain prompt, make a slot from an underline, pin a variant in its picker, add
+// light from the row under the text, leave it out, set the detail level, and generate.
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
   root: fileURLToPath(new URL('..', import.meta.url)),
@@ -20,13 +20,12 @@ const output = (Array.isArray(built) ? built : [built]).flatMap(result => result
 const css = output.find(item => item.type === 'asset' && item.fileName.endsWith('.css'))
 const SHOTS = process.env.PROMPT_SHOTS_DIR
 
-const YOUNG = ['18-year-old', '21-year-old', '24-year-old', '27-year-old']
-const OLDER = ['35-year-old', '48-year-old', '62-year-old']
-const HAIR = ['buzz cut', 'crew cut', 'side part', 'shoulder-length curls']
+const MEN = ['young man of Korean descent with a buzz cut', 'lanky young man of Irish descent with a side part', 'young man of Nigerian descent with shoulder-length curls']
 const LIGHTS = ['warm desk lamp glow', 'soft afternoon window light', 'cool overhead fluorescent light']
+const VARIANTS = { young_man: MEN, light: LIGHTS }
 
-// A stand-in backend: the slot reader's result for the slots it knows, built into the
-// editor's view of a program as `public()` builds it.
+// A stand-in backend: one choice per slot, built into the editor's view of a program as
+// `public()` builds it; each slot's variants come with /pools.
 function readSlots(prompt) {
   const slots = []
   const choices = []
@@ -37,29 +36,14 @@ function readSlots(prompt) {
     n++
     const words = m[1]
     const span = [m.index, m.index + m[0].length]
-    if (words === 'young man') {
-      const details = ['young_man.age', 'young_man.descent', 'young_man.hair']
-      slots.push({ id: 'young_man', n, kind: 'person', label: 'Young man', words, span, line: 1, details, stated: { age: 'young' } })
-      choices.push(
-        { id: 'young_man.age', kind: 'pick', label: 'Age', cls: 'person.age_band', options: [...YOUNG, ...OLDER], slot: 'young_man', zones: [{ id: 'kinds', title: 'Young' }, { id: 'instead', title: 'Other ages' }] },
-        { id: 'young_man.descent', kind: 'pick', label: 'Descent', cls: 'person.ethnicity', options: ['Korean', 'Irish', 'Nigerian'], slot: 'young_man' },
-        { id: 'young_man.hair', kind: 'pick', label: 'Hair', cls: 'person.hairstyle', options: HAIR, slot: 'young_man' },
-      )
-    } else {
-      const id = words.replace(/\W+/g, '_')
-      slots.push({ id, n, kind: words === 'light' ? 'light' : 'free', label: words === 'light' ? 'Lighting' : words, words, span, line: 1, details: [id] })
-      choices.push({ id, kind: 'pick', label: words === 'light' ? 'Lighting' : words, options: words === 'light' ? LIGHTS : [words], slot: id })
-    }
+    const id = words.replace(/\W+/g, '_')
+    const label = words === 'light' ? 'Lighting' : words === 'young man' ? 'Young man' : words
+    slots.push({ id, n, kind: words === 'young man' ? 'person' : words === 'light' ? 'light' : 'free', label, words, span, line: 1 })
+    choices.push({ id, kind: 'variants', label, slot: id })
   }
   return { key: slots.length ? `k:${slots.map(s => s.words).join('|')}` : null, slots, choices }
 }
-
-const pools = {
-  'young_man.age': { options: [...YOUNG, ...OLDER], more: false, cls: 'person.age_band', label: 'Age', closed: true, zones: { kinds: YOUNG, instead: OLDER } },
-  'young_man.descent': { options: ['Korean', 'Irish', 'Nigerian'], more: false, cls: 'person.ethnicity', label: 'Descent', closed: true },
-  'young_man.hair': { options: HAIR, more: false, cls: 'person.hairstyle', label: 'Hairstyle', closed: true, groups: { length: { short: HAIR.slice(0, 3), long: HAIR.slice(3) } } },
-  light: { options: LIGHTS, more: false, short: { [LIGHTS[0]]: 'desk lamp', [LIGHTS[1]]: 'window light', [LIGHTS[2]]: 'fluorescent' } },
-}
+const variantsOf = (id, words) => (VARIANTS[id] || [`a ${words}`, `an old ${words}`, `a small ${words}`]).map(text => ({ text, seeds: {} }))
 
 async function open(t, { theme = 'dark', width = 900, height = 760, mobile = false, start = '', dev = false } = {}) {
   const browser = await chromium.launch()
@@ -100,19 +84,22 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
       const done = new Set(read.slots.filter(sl => reads.get(sl.words) === 'read').map(sl => sl.id))
       if (done.size < read.slots.length) {
         const slots = read.slots.map(sl => done.has(sl.id) ? { ...sl, state: 'ready' }
-          : { id: sl.id, n: sl.n, kind: 'free', label: sl.words, words: sl.words, span: sl.span, line: sl.line, details: [], state: 'reading' })
+          : { id: sl.id, n: sl.n, kind: 'free', label: sl.words, words: sl.words, span: sl.span, line: sl.line, state: 'reading' })
         const choices = read.choices.filter(c => done.has(c.slot))
         return json({ key: read.key, slots, choices, reading: true, working: read.slots.some(sl => reads.get(sl.words) === 'working') })
       }
       return json({ ...read, slots: read.slots.map(s => ({ ...s, state: 'ready' })), reading: false, working: false, example: 'A dorm room with a 24-year-old Korean man', seconds: 0.7,
-        ...(body.include_program ? { picks: [{ id: 'young_man.age', cls: 'person.age_band' }], example: 'Dorm room with a 21-year-old man', readings: { slots: [{ n: 1, kind: 'person', label: 'Young man' }] } } : {}) })
+        ...(body.include_program ? { picks: [{ id: 'young_man', kind: 'variants' }], example: 'Dorm room with a 21-year-old man', readings: { slots: [{ n: 1, kind: 'person', label: 'Young man' }] } } : {}) })
     }
     if (url.endsWith('/prompt-programs/pools')) {
       calls.pools.push(body)
       const read = readSlots(body.prompt)
-      return json({ choices: Object.fromEntries(read.choices.map(c => [c.id, pools[c.id] || { options: c.options, more: false }])), more: [] })
+      return json({ choices: Object.fromEntries(read.slots.map((sl) => {
+        const variants = variantsOf(sl.id, sl.words)
+        return [sl.id, { kind: 'variants', state: 'ready', more: false, variants, options: variants.map(v => v.text), chosen: body.choices?.[sl.id] || null }]
+      })), more: [] })
     }
-    if (url.endsWith('/prompt-programs/preview')) return json({ prompt: 'A dorm room with a 21-year-old Irish man with a buzz cut', draws: [{ id: 'young_man.age', value: '21-year-old' }] })
+    if (url.endsWith('/prompt-programs/preview')) return json({ prompt: 'A dorm room with a 21-year-old Irish man with a buzz cut', draws: [{ id: 'young_man', value: MEN[1] }] })
     if (url.endsWith('/api/generate')) return json(body)
     if (url.includes('/api/')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
     return route.fulfill({ contentType: 'text/html', body: `<html data-theme="${theme}" class="${theme}"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body class="bg-app"><script>window.START = ${JSON.stringify(start)}; window.DEV = ${dev}</script><div id="app"></div></body></html>` })
@@ -123,16 +110,17 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
   await page.locator('.cm-content').waitFor()
   t.after(() => assert.deepEqual(errors, []))
   const shot = async file => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${file}.png` }) }
-  const card = page.locator('[data-program-card]')
-  const pills = page.locator('[data-program-choices]')
-  return { page, calls, shot, card, pills, editor: page.locator('.cm-content') }
+  const card = page.locator('[data-picker]')
+  const lines = page.locator('[data-slot-lines]')
+  const mark = n => page.locator(`[data-slot-n="${n}"]`)
+  return { page, calls, shot, card, lines, mark, editor: page.locator('.cm-content') }
 }
 
 const text = page => page.evaluate(() => window.text())
 
 async function story(t, opts = {}) {
   const tag = opts.tag || 'desktop-dark'
-  const { page, calls, shot, card, pills, editor } = await open(t, opts)
+  const { page, calls, shot, card, lines, mark, editor } = await open(t, opts)
   const tap = opts.mobile ? (l => l.tap()) : (l => l.click())
 
   // A plain prompt: Suggest underlines what could vary and offers what is absent.
@@ -142,43 +130,43 @@ async function story(t, opts = {}) {
   await expect(page.locator('[data-slot-add]')).toHaveText(['light', 'camera'])
   assert.equal(calls.suggest.at(-1).prompt, 'dorm room with a young man')
   assert.equal(calls.suggest.at(-1).project_id, 7)
-  // Nothing varies yet: no pills.
-  await expect(pills).toHaveCount(0)
+  // Nothing varies yet: no slots, no lines.
+  await expect(lines).toHaveCount(0)
+  await expect(page.locator('[data-program-choices]')).toHaveCount(0)
   await shot(`${tag}-1-underlined`)
 
-  // Vary this wraps it and the card opens while the slot is read, then fills.
+  // Vary this wraps it and the picker opens while the slot is read, then fills.
   await page.locator('.cm-could-vary').click()
   await tap(page.locator('[data-vary]'))
   await expect.poll(() => text(page)).toBe('dorm room with a <young man>')
-  await expect(card.locator('[data-writing]')).toContainText('Writing options')
+  await expect(card.locator('[data-writing]')).toContainText('Writing variants')
   await shot(`${tag}-2-writing`)
-  await expect(card.locator('[data-row="young_man.age"]')).toBeVisible({ timeout: 4000 })
-  await expect(card.locator('[data-row="young_man.age"]')).toContainText('young')
-  await shot(`${tag}-3-builder`)
+  await expect(card.locator(`[data-variant="${MEN[0]}"]`)).toBeVisible({ timeout: 4000 })
+  await expect(card.locator('[data-any] svg')).toHaveCount(1)
+  await shot(`${tag}-3-picker`)
 
-  // Choose a hairstyle: it shows as a pill of its own.
-  await tap(card.locator('[data-row="young_man.hair"]'))
-  await tap(card.locator('[data-option="buzz cut"]'))
-  await expect(pills.locator('[data-choice="young_man.hair"]')).toHaveText(/Hair\s*buzz cut/)
+  // Pin a variant: the slot gets its dot, and a line under the prompt says what it is.
+  await tap(card.locator(`[data-variant="${MEN[1]}"]`))
+  await expect(page.locator('[data-line="young_man"]')).toContainText(MEN[1])
+  await expect(mark(1)).toHaveAttribute('data-slot-look', 'pinned')
   await shot(`${tag}-4-chosen`)
   await page.keyboard.press('Escape')
-  await page.keyboard.press('Escape')
   await expect(card).toHaveCount(0)
-  await expect(pills.locator('[data-choice="young_man"]')).toHaveText('Young man')
 
   // + light writes it into the prompt as a slot and opens it.
   await tap(page.locator('[data-slot-add="light"]'))
   await expect.poll(() => text(page)).toBe('dorm room with a <young man>, lit by <light>')
   assert.deepEqual(calls.add.at(-1), { project_id: 7, prompt: 'dorm room with a <young man>', name: 'light' })
-  await expect(card.locator(`[data-option="${LIGHTS[0]}"]`)).toBeVisible({ timeout: 4000 })
-  await expect(card.locator('[data-default]')).toHaveText('Any lighting')
+  await expect(card.locator(`[data-variant="${LIGHTS[0]}"]`)).toBeVisible({ timeout: 4000 })
+  await expect(card.locator('[data-picker-title]')).toHaveText('light')
   await expect(page.locator('[data-slot-add]')).toHaveText(['camera'], { timeout: 4000 })
   await shot(`${tag}-5-light`)
 
   // Leave it out.
   await tap(card.locator('[data-leave-out]'))
   await expect(card).toHaveCount(0)
-  await expect(pills.locator('[data-choice="light"]')).toHaveText('No lighting')
+  await expect(page.locator('[data-line="light"]')).toContainText('left out')
+  await expect(mark(2)).toHaveAttribute('data-slot-look', 'off')
   await shot(`${tag}-6-left-out`)
 
   // Detail level High from the Fluent menu.
@@ -196,7 +184,7 @@ async function story(t, opts = {}) {
   await expect.poll(() => page.evaluate(() => window.sent.length)).toBe(1)
   const [body] = await page.evaluate(() => window.sent)
   assert.equal(body.parameters.prompt, 'dorm room with a <young man>, lit by <light>')
-  assert.deepEqual(body.promptOptions.program, { enabled: true, choices: { 'young_man.hair': { values: ['buzz cut'] }, light: { off: true } } })
+  assert.deepEqual(body.promptOptions.program, { enabled: true, choices: { young_man: { values: [MEN[1]] }, light: { off: true } } })
   assert.equal(body.promptOptions.autoImprove.enabled, true)
   assert.equal(body.promptOptions.autoImprove.level, 'expand')
   return { page, calls }
@@ -215,15 +203,15 @@ async function typeSlot(t) {
   await o.page.keyboard.type('a <young man')
   await o.page.keyboard.type('>')
   await expect.poll(() => text(o.page)).toBe('a <young man>')
-  // The look-up has found it unread: a pill that is still reading, and nothing asked to read it.
-  await expect(o.pills.locator('[data-choice="young_man"] [data-reading]')).toBeVisible({ timeout: 2000 })
+  // The look-up has found it unread: the slot shows as still being written, and nothing asked to read it.
+  await expect(o.mark(1)).toHaveAttribute('data-slot-look', 'writing', { timeout: 2000 })
+  await o.page.waitForTimeout(500)
   assert.deepEqual(o.calls.prepare.filter(b => !b.cache_only), [])
   return o
 }
 const reads = calls => calls.prepare.filter(b => !b.cache_only).map(b => b.prompt)
-async function filledIn({ pills, calls }) {
-  await expect(pills.locator('[data-choice="young_man"]')).toHaveText('Young man', { timeout: 4000 })
-  await expect(pills.locator('[data-reading]')).toHaveCount(0)
+async function filledIn({ mark, calls }) {
+  await expect(mark(1)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
   assert.deepEqual(reads(calls), ['a <young man>'])
 }
 
@@ -255,13 +243,12 @@ test('a slot typed is read when the user generates at once', async t => {
 
 test('the developer view shows the slot reading and the picks made from it', async t => {
   const { page, card } = await open(t, { start: 'dorm room with a <young man>', dev: true })
-  await expect(page.locator('[data-program-choices] [data-choice="young_man"]')).toBeVisible({ timeout: 4000 })
-  await expect(page.locator('[data-program-choices] [data-reading]')).toHaveCount(0, { timeout: 4000 })
+  await expect(page.locator('[data-slot-n="1"]')).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
   await expect(card).toHaveCount(0)
   await page.locator('[data-fluent-chip]').click()
   await page.getByRole('button', { name: 'Show readings' }).click()
   const dialog = page.locator('[data-program-debug]')
-  await expect(dialog).toContainText('"young_man.age"')
+  await expect(dialog).toContainText('"young_man"')
   await expect(dialog.locator('[data-reading]')).toContainText('"kind": "person"')
   await expect(dialog).toContainText('A dorm room with a 21-year-old Irish man')
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/dev-dialog.png` })
@@ -288,8 +275,8 @@ test('Keep from this on a result tile and in the menu, only for images made from
   assert.deepEqual(await page.evaluate(() => window.kept), [['tile', 1], ['menu', 1]])
 })
 
-// Touch: on a phone every pill, its ×, Reset and the + ideas are full-size targets (44px),
-// the pills stay small to look at, four of them wrap, and no two targets overlap.
+// Touch: on a phone each line's tick, words and ×, and the + ideas, are full-size targets
+// (44px), and no two targets overlap.
 const FOUR = 'dorm room with a <young man> and his <pet>, lit by <light>, at a <late-night diner on the edge of town>'
 const MIN = 44
 
@@ -298,66 +285,55 @@ async function measure(locator) {
 }
 const overlaps = (a, b) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5
 
-async function phonePills(t, theme) {
-  const { page, card, pills, shot } = await open(t, { width: 390, height: 844, mobile: true, theme, start: FOUR })
-  await expect(pills.locator('[data-choice]')).toHaveCount(4, { timeout: 4000 })
-  // Choose a pet and leave out the light: two ×, and Reset.
-  await pills.locator('[data-choice="pet"]').tap()
-  await card.locator('[data-option="pet"]').tap()
-  await expect(card.locator('[data-chosen] button[aria-label^="Remove"]')).toHaveCount(1)
-  const chosen = await measure(card.locator('[data-chosen] button[aria-label^="Remove"]'))
-  await shot(`phone-${theme}-chooser-chips`)
+async function phoneLines(t, theme) {
+  const { page, card, lines, mark, shot } = await open(t, { width: 390, height: 844, mobile: true, theme, start: FOUR })
+  await expect(mark(2)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
+  // Pin a pet and leave out the light: two lines.
+  await mark(2).tap()
+  await card.locator('[data-variant="an old pet"]').tap()
+  await shot(`phone-${theme}-picker`)
   await page.keyboard.press('Escape')
   await expect(card).toHaveCount(0)
-  await pills.locator('[data-choice="light"]').tap()
+  await mark(3).tap()
   await card.locator('[data-leave-out]').tap()
   await expect(card).toHaveCount(0)
-  await expect(pills.locator('[data-reset]')).toHaveCount(2)
+  await expect(lines.locator('[data-line]')).toHaveCount(2)
   await expect(page.locator('[data-slot-add]')).toHaveText(['camera'], { timeout: 4000 })
-  await shot(`phone-${theme}-pills`)
+  await shot(`phone-${theme}-lines`)
   return {
-    page, pills, chosen,
-    choice: await measure(pills.locator('[data-choice]')),
-    reset: await measure(pills.locator('[data-reset]')),
-    resetAll: await measure(pills.locator('[data-reset-all]')),
+    page, lines,
+    tick: await measure(lines.locator('[data-line-tick]')),
+    open: await measure(lines.locator('[data-line-open]')),
+    remove: await measure(lines.locator('[data-line-remove]')),
     adds: await measure(page.locator('[data-slot-add]')),
-    visible: await measure(pills.locator('[data-choice]').locator('xpath=..')),
-    row: (await measure(pills))[0],
+    row: (await measure(lines))[0],
   }
 }
 
 for (const theme of ['dark', 'light']) {
-  test(`on a phone, pills, their ×, Reset and the + ideas are touch-sized, ${theme}`, async t => {
-    const m = await phonePills(t, theme)
-    if (process.env.PROMPT_MEASURE) console.log(JSON.stringify(m, (k, v) => typeof v === 'number' ? Math.round(v * 10) / 10 : v === m.page || v === m.pills ? undefined : v))
-    const targets = { choice: m.choice, reset: m.reset, resetAll: m.resetAll, adds: m.adds, chosen: m.chosen }
+  test(`on a phone, the lines' tick, words and ×, and the + ideas are touch-sized, ${theme}`, async t => {
+    const m = await phoneLines(t, theme)
+    const targets = { tick: m.tick, open: m.open, remove: m.remove, adds: m.adds }
     for (const [name, boxes] of Object.entries(targets)) {
       assert.ok(boxes.length, `${name} present`)
       for (const b of boxes) assert.ok(b.w >= MIN && b.h >= MIN, `${name} target ${b.w}x${b.h}`)
     }
-    // Small to look at: no taller than the app's other chips.
-    for (const v of m.visible) assert.ok(v.h <= 34, `visible pill ${v.h}px tall`)
-    // Four pills (and Reset) wrap onto more than one line, all on screen.
-    const rows = new Set(m.choice.map(b => Math.round(b.y)))
-    assert.ok(rows.size >= 2, `pills on ${rows.size} line(s)`)
-    const row = [...m.choice, ...m.reset, ...m.resetAll]
-    for (const b of row) assert.ok(b.x >= m.row.x - 0.5 && b.x + b.w <= m.row.x + m.row.w + 0.5 && b.x >= 0 && b.x + b.w <= 390, `in the row: ${JSON.stringify(b)}`)
-    // No target overlaps another: a tap lands on one thing. (A pill holds its own ×.)
-    for (let i = 0; i < row.length; i++) for (let j = i + 1; j < row.length; j++) {
-      const a = row[i], b = row[j]
-      const nested = (p, q) => p.x <= q.x + 0.5 && p.y <= q.y + 0.5 && p.x + p.w >= q.x + q.w - 0.5 && p.y + p.h >= q.y + q.h - 0.5
-      assert.ok(!overlaps(a, b) || nested(a, b) || nested(b, a), `targets overlap: ${JSON.stringify(a)} ${JSON.stringify(b)}`)
+    const all = [...m.tick, ...m.open, ...m.remove]
+    for (const b of all) assert.ok(b.x >= 0 && b.x + b.w <= 390, `on screen: ${JSON.stringify(b)}`)
+    for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+      assert.ok(!overlaps(all[i], all[j]), `targets overlap: ${JSON.stringify(all[i])} ${JSON.stringify(all[j])}`)
     }
-    // A long value still truncates inside its pill.
-    const truncated = await m.pills.locator('[data-choice] .truncate').evaluateAll(els => els.every(el => el.scrollWidth <= el.clientWidth + 1 || getComputedStyle(el).textOverflow === 'ellipsis'))
-    assert.ok(truncated)
   })
 }
 
-test('on a desktop, pills keep their size', async t => {
-  const { page, pills } = await open(t, { start: FOUR })
-  await expect(pills.locator('[data-choice]')).toHaveCount(4, { timeout: 4000 })
-  for (const b of await measure(pills.locator('[data-choice]'))) assert.ok(b.h <= 28, `desktop pill ${b.h}px`)
+test('on a desktop, lines stay compact', async t => {
+  const { page, card, lines, mark } = await open(t, { start: FOUR })
+  await expect(mark(2)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
+  await mark(2).click()
+  await card.locator('[data-variant="an old pet"]').click()
+  await page.keyboard.press('Escape')
+  await expect(lines.locator('[data-line]')).toHaveCount(1)
+  for (const b of await measure(lines.locator('[data-line]'))) assert.ok(b.h <= 28, `desktop line ${b.h}px`)
   for (const b of await measure(page.locator('[data-slot-add]'))) assert.ok(b.h <= 28, `desktop add ${b.h}px`)
 })
 
