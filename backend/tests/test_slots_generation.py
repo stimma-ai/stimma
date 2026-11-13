@@ -251,7 +251,8 @@ async def test_generate_forever_sends_a_pooled_prompt_improved_ahead(tool, forev
 
     await _read(monkeypatch, profile)
     cold = await _submit(forever=True)
-    assert len(tool) == 1 and cold["prompt"].endswith(ADDED)  # the first image waits on its improve
+    # the first image waits on its own improve (the pool's improves ahead may land meanwhile)
+    assert tool and cold["prompt"].endswith(ADDED) and cold["prompt_program"]["improve"]["improved"] == "true"
     await _settle(forever_queue)
     pool = forever_queue._prompt_warm_ready["gen-1"]
     assert len(pool) == 2 and all(h["sent"].endswith(ADDED) and h["improve"]["improved"] == "true" for h in pool)
