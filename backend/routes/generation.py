@@ -417,11 +417,9 @@ _BATCH_PROMPT_CONCURRENCY = 4
 
 
 async def _batch_prompt_preflight(parameters: Dict[str, Any], request) -> None:
-    """The prompt work a batch's children share, done once before any of them: reading
-    the prompt's slots (Fluent, with its judge). Failing would fail every child, so it
-    fails the submit, as it would a single one, before anything is queued."""
-    from llm_resolver import LLMUnavailableError
-
+    """What a batch's children share, checked once before any of them: a Fluent prompt too
+    long to read fails the submit before anything is queued. Nothing here waits on a model:
+    each child draws from whatever of its slots is read by then."""
     prompt = parameters.get("prompt")
     options = request.prompt_options or {}
     if not isinstance(prompt, str) or not prompt or options.get("raw"):
@@ -430,18 +428,7 @@ async def _batch_prompt_preflight(parameters: Dict[str, Any], request) -> None:
     if not (isinstance(program_opts, dict) and program_opts.get("enabled")
             and prompt_enhance_context(parameters, request.tool_id, request.task_type, options)["program_supported"]):
         return
-    from prompt_programs.fix import await_judge
-    from prompt_programs.program import ProgramError, model_failure
-
-    entry = await _read_slots(prompt, profile_id=get_current_profile(), project_id=request.project_id)
-    if entry and entry.get("key"):
-        try:
-            await await_judge(entry, project_id=request.project_id)
-        except Exception as e:
-            failure = e if isinstance(e, (ProgramError, LLMUnavailableError)) else model_failure(e)
-            if failure is None:
-                raise
-            raise _slots_failed(failure) from None
+    await _read_slots(prompt, profile_id=get_current_profile(), project_id=request.project_id)
 
 
 def _child_failure_message(e: BaseException) -> str:
@@ -761,19 +748,16 @@ def _slots_failed(e: Exception) -> HTTPException:
 
 
 async def _read_slots(prompt: str, *, profile_id: Optional[str], project_id: Optional[int]) -> Optional[Dict[str, Any]]:
-    """The prompt's slot program (prompt_programs.slots.ensure), its failures as _slots_failed."""
-    from llm_resolver import LLMUnavailableError
+    """The prompt's slots as they stand now (prompt_programs.slots.current): never waits on the
+    slot reader or narrowing, and starts reading whatever isn't read yet for later images. Only
+    a prompt too long to read fails, as _slots_failed."""
     from prompt_programs import slots
-    from prompt_programs.program import ProgramError, model_failure
-    from prompt_programs.reader import ReaderFailed
+    from prompt_programs.program import ProgramError
 
     try:
-        return await slots.ensure(prompt, profile_id=profile_id, project_id=project_id)
-    except Exception as e:
-        failure = e if isinstance(e, (ReaderFailed, ProgramError, LLMUnavailableError)) else model_failure(e)
-        if failure is None:
-            raise
-        raise _slots_failed(failure) from None
+        return await slots.current(prompt, profile_id=profile_id, project_id=project_id)
+    except ProgramError as e:
+        raise _slots_failed(e) from None
 
 
 async def _run_slots(

@@ -11,8 +11,8 @@ import pytest
 import routes.generation as gen
 from agent.v2 import prompt_handling as ph
 from agent.v2.prompt_handling import PromptHandlingError, PromptRequest, prepare_prompt
-from tests.test_slots_build import PORCH_PROMPT as PROMPT, PORCH_READING
-from tests.test_slots_reader import FakeModel, _reply, _use, profile  # noqa: F401 (profile is a fixture)
+from tests.test_slots_fill import PORCH_PROMPT as PROMPT, PORCH_READING
+from tests.test_slots_reader import FakeModel, _reply, _use, profile, ready  # noqa: F401 (profile is a fixture)
 
 SCHEMA = {"prompt": {"type": "string"}}
 
@@ -148,7 +148,7 @@ class TestSameWhetherOrNotToolViewHasTheFeature:
 
 
 @pytest.fixture
-def writer(monkeypatch, profile, prose_model):  # noqa: F811
+async def writer(monkeypatch, profile, prose_model):  # noqa: F811
     """The chat model that reads the prompt's slots, stubbed (as tests/test_slots_reader.py),
     and the improver, which keeps what it is given; returns the reader's calls."""
     import prompt_programs.fix as fix
@@ -176,7 +176,8 @@ def writer(monkeypatch, profile, prose_model):  # noqa: F811
     monkeypatch.setattr(gen, "get_current_profile", lambda: profile)
     monkeypatch.setattr(gen, "get_database_registry", lambda: type("R", (), {
         "get_database": lambda self, p: type("D", (), {"async_session_maker": _Session})()})())
-    model = _use(monkeypatch, FakeModel(*[_reply(PORCH_READING)] * 8))
+    model = _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
+    await ready(PROMPT, profile)
     return model.asked
 
 
@@ -218,7 +219,7 @@ class TestVary:
     async def test_one_prepare_for_many_calls(self, writer):
         import asyncio
         outs = await asyncio.gather(*[_vary() for _ in range(6)])
-        assert len(writer) == 1
+        assert len(writer) == 3   # each part read once, before any of them
         assert len({o.params["prompt_program"]["key"] for o in outs}) == 1
 
     async def test_draw_seed_repeats_the_choices(self, writer):
@@ -258,15 +259,19 @@ class TestVary:
         assert seen == ["off", "off", "expand", "fill"]
 
     async def test_no_chat_model_stops_the_call_and_says_so(self, writer, monkeypatch):
-        from llm_resolver import LLMNotConfiguredError
+        """The slot reader never stops a run; Improve, the one call it waits for, does."""
+        from fastapi import HTTPException
         from prompt_programs import program
+        import routes.prompt_enhancement as pe
 
         async def unconfigured(*a, **kw):
-            raise LLMNotConfiguredError("No chat model is configured.")
+            raise HTTPException(status_code=424, detail={"code": "llm_not_configured",
+                                                         "message": "No chat model is set up."})
 
         monkeypatch.setattr(program, "ask_model", unconfigured)
+        monkeypatch.setattr(pe, "improve_prompt", unconfigured)
         with pytest.raises(PromptHandlingError) as e:
-            await _vary()
+            await _vary(enhance=True)
         assert "no chat model is set up" in str(e.value) and "Nothing was generated" in str(e.value)
 
     async def test_models_that_cant_vary_write_each_prompt(self, lists, monkeypatch):

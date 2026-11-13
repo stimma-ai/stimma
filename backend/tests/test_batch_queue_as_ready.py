@@ -113,12 +113,12 @@ async def test_a_child_whose_improve_raises_fails_alone(generation_client, gener
     queue.settle_batch.assert_awaited_once()
 
 
-async def test_a_slot_reading_failure_queues_nothing(generation_client, generation_db_session):
-    from prompt_programs.reader import ReaderFailed
+async def test_a_prompt_too_long_to_read_queues_nothing(generation_client, generation_db_session):
+    from prompt_programs.program import PromptTooLong
 
     set_id = await _three_item_set(generation_db_session)
     queue, queued, _ = _queue()
-    ensure = AsyncMock(side_effect=ReaderFailed("the reading could not be used"))
+    ensure = AsyncMock(side_effect=PromptTooLong("This prompt is too long to prepare."))
     pipeline = AsyncMock()
     options = {"program": {"enabled": True}, "autoImprove": {"enabled": True}}
     # A set's image is an edit input, which Fluent doesn't vary; a tool it does (image to
@@ -132,14 +132,14 @@ async def test_a_slot_reading_failure_queues_nothing(generation_client, generati
     with (
         patch('generation_queue.get_generation_queue', return_value=queue),
         patch('routes.generation.prompt_enhance_context', side_effect=supported),
-        patch('prompt_programs.slots.ensure', new=ensure),
+        patch('prompt_programs.slots.current', new=ensure),
         patch('routes.generation._apply_generation_prompt_pipeline', new=pipeline),
     ):
         response = await generation_client.post(
             "/api/generate/submit-batch", json=_submit(set_id, options, prompt="a <young man> in a cafe"))
 
-    assert response.status_code == 424, response.text
-    assert response.json()["detail"]["code"] == "reader_failed"
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]["code"] == "prompt_too_long"
     ensure.assert_awaited_once()  # once for the batch, before any child
     pipeline.assert_not_called()
     assert queued == []

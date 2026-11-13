@@ -307,7 +307,7 @@ class TestSubmit:
 
         async def ensure(prompt, **kw):
             return dict(entry)
-        monkeypatch.setattr("prompt_programs.slots.ensure", ensure)
+        monkeypatch.setattr("prompt_programs.slots.current", ensure)
         monkeypatch.setattr("generation_queue.get_generation_queue", lambda: queue)
 
         async def submit(**opts):
