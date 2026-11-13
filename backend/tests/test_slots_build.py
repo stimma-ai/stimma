@@ -206,6 +206,16 @@ async def test_the_slots_words_narrow_its_details():
         assert r.prompt.endswith(f"porch with his {drawn['pet']}, {drawn['list1']} evening")
 
 
+async def test_a_masculine_persons_build_draws_no_value_tagged_only_feminine():
+    _, entry = build(parse(PORCH_PROMPT), PORCH_READING)
+    await narrow_entry(entry, None, _stub_ask)
+    feminine = {v.text for v in vocabulary().get("person.build").values
+                if "masculine" not in (v.tags.get("presentation") or ["masculine"])}
+    assert {"petite", "broad-hipped"} <= feminine
+    allowed = entry["filters"]["elderly_african_man.build"]
+    assert allowed and not set(allowed) & feminine
+
+
 async def test_a_slow_narrowing_leaves_the_answers_that_came_back():
     """Past the time limit only the narrowings still out are pending: an age that came back
     in time holds while the descent's late answer is asked again later."""
