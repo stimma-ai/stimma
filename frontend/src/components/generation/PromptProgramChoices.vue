@@ -2,10 +2,12 @@
   <!-- Under the prompt: one pill per slot and per {a|b} list. An untouched pill is its label;
        a chosen one is "Label value" with the value kept short (the whole of it in the
        tooltip), and its × puts it back. A person's chosen details are pills of their own,
-       folding into the person's pill at three. -->
+       folding into the person's pill at three. On a touch screen each pill, its × and Reset
+       are 44px targets that reach past the pill's edge; the row's gaps leave them room, so
+       the pills look as they do elsewhere and no two targets overlap. -->
   <div
     v-if="program.status.value !== 'off' && pills.length"
-    :class="['px-3 pt-1 pb-2 flex flex-wrap items-center gap-1.5 transition-opacity', program.status.value === 'ready' ? '' : 'opacity-50']"
+    :class="['px-3 pt-1 pb-2 coarse:pt-2 coarse:pb-2.5 flex flex-wrap items-center gap-1.5 coarse:gap-x-2 coarse:gap-y-3.5 transition-opacity', program.status.value === 'ready' ? '' : 'opacity-50']"
     data-program-choices
   >
     <span
@@ -16,7 +18,7 @@
     >
       <button
         type="button"
-        :class="['inline-flex items-center gap-1 min-w-0 py-1 coarse:py-1.5 coarse:text-[13px] pl-2.5 rounded-full outline-none focus-visible:ring-1 focus-visible:ring-selection/60', p.changed ? 'pr-0.5' : 'pr-2.5']"
+        :class="['inline-flex items-center gap-1 min-w-0 py-1 coarse:py-1.5 coarse:min-h-11 coarse:min-w-11 coarse:-my-2 coarse:text-[13px] pl-2.5 rounded-full outline-none focus-visible:ring-1 focus-visible:ring-selection/60', p.changed ? 'pr-0.5 coarse:pr-0' : 'pr-2.5']"
         :data-choice="p.id"
         @click="open(p, $event.currentTarget as Element)"
       >
@@ -30,19 +32,19 @@
       <button
         v-if="p.changed"
         type="button"
-        class="shrink-0 mr-1 p-0.5 coarse:p-1.5 coarse:mr-0.5 rounded-full opacity-70 hover:opacity-100 hover:bg-selection/20 outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
+        class="group/x shrink-0 mr-1 coarse:w-11 coarse:h-11 coarse:-my-2 coarse:-mr-1.5 flex items-center justify-center rounded-full opacity-70 hover:opacity-100 outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
         :aria-label="`Reset ${p.label}`"
         :data-reset="p.id"
         @click="program.reset(p.resets)"
       >
-        <XMarkIcon class="w-3 h-3" />
+        <span class="p-0.5 rounded-full group-hover/x:bg-selection/20"><XMarkIcon class="w-3 h-3" /></span>
       </button>
     </span>
 
     <button
       v-if="changed > 1"
       type="button"
-      class="ml-auto px-1.5 py-0.5 coarse:py-1.5 rounded-md text-[11px] coarse:text-xs text-content-muted hover:text-content hover:bg-overlay-subtle"
+      class="ml-auto px-1.5 py-0.5 coarse:px-2.5 coarse:min-h-11 coarse:-my-2 coarse:-mr-2.5 rounded-md text-[11px] coarse:text-xs text-content-muted hover:text-content hover:bg-overlay-subtle"
       data-reset-all
       @click="program.resetAll()"
     >Reset</button>

@@ -21,19 +21,20 @@
       >{{ partLabel(p.part) }}</button>
     </div>
 
-    <!-- What is chosen, always in view -->
-    <div v-if="tokens.length" class="shrink-0 px-2 pb-1.5 flex flex-wrap items-center gap-1 max-h-[5.5rem] overflow-y-auto" data-chosen>
+    <!-- What is chosen, always in view. On a touch screen each × and Clear is a 44px target
+         reaching past its chip; the gaps leave it room. -->
+    <div v-if="tokens.length" class="shrink-0 px-2 pb-1.5 coarse:pt-2 coarse:pb-2 flex flex-wrap items-center gap-1 coarse:gap-x-2 coarse:gap-y-4 max-h-[5.5rem] overflow-y-auto" data-chosen>
       <span
         v-for="t in tokens"
         :key="tokenKey(t)"
-        class="inline-flex max-w-full items-center gap-1 pl-2.5 pr-1 py-0.5 rounded-full text-xs bg-selection/15 text-selection"
+        class="inline-flex max-w-full items-center gap-1 pl-2.5 pr-1 coarse:pr-0 py-0.5 rounded-full text-xs coarse:text-[13px] bg-selection/15 text-selection"
       >
         <span class="truncate">{{ tokenText(choice, pool, t) }}</span>
-        <button type="button" class="shrink-0 p-0.5 coarse:p-1.5 rounded-full hover:bg-selection/20" :aria-label="`Remove ${tokenText(choice, pool, t)}`" @click="toggle(t)">
-          <XMarkIcon class="w-3 h-3" />
+        <button type="button" class="group/x shrink-0 coarse:w-11 coarse:h-11 coarse:-my-2.5 coarse:-mr-1.5 flex items-center justify-center rounded-full" :aria-label="`Remove ${tokenText(choice, pool, t)}`" @click="toggle(t)">
+          <span class="p-0.5 rounded-full group-hover/x:bg-selection/20"><XMarkIcon class="w-3 h-3" /></span>
         </button>
       </span>
-      <button v-if="tokens.length > 1" type="button" class="px-1.5 py-0.5 rounded-md text-[11px] text-content-muted hover:text-content hover:bg-overlay-subtle" data-clear @click="clear">Clear</button>
+      <button v-if="tokens.length > 1" type="button" class="px-1.5 py-0.5 coarse:px-2.5 coarse:min-h-11 coarse:-my-2.5 rounded-md text-[11px] coarse:text-xs text-content-muted hover:text-content hover:bg-overlay-subtle" data-clear @click="clear">Clear</button>
     </div>
 
     <div ref="listRef" :style="listStyle" class="shrink-0 overflow-y-auto overscroll-contain px-1.5 pb-1.5 flex flex-col gap-px">

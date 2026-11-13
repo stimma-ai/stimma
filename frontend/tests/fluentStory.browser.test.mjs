@@ -227,3 +227,136 @@ test('Keep from this on a result tile and in the menu, only for images made from
   await page.evaluate(() => window.runMenuAction(5))
   assert.deepEqual(await page.evaluate(() => window.kept), [['tile', 1], ['menu', 1]])
 })
+
+// Touch: on a phone every pill, its ×, Reset and the + ideas are full-size targets (44px),
+// the pills stay small to look at, four of them wrap, and no two targets overlap.
+const FOUR = 'dorm room with a <young man> and his <pet>, lit by <light>, at a <late-night diner on the edge of town>'
+const MIN = 44
+
+async function measure(locator) {
+  return locator.evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } }))
+}
+const overlaps = (a, b) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5
+
+async function phonePills(t, theme) {
+  const { page, card, pills, shot } = await open(t, { width: 390, height: 844, mobile: true, theme, start: FOUR })
+  await expect(pills.locator('[data-choice]')).toHaveCount(4, { timeout: 4000 })
+  // Choose a pet and leave out the light: two ×, and Reset.
+  await pills.locator('[data-choice="pet"]').tap()
+  await card.locator('[data-option="pet"]').tap()
+  await expect(card.locator('[data-chosen] button[aria-label^="Remove"]')).toHaveCount(1)
+  const chosen = await measure(card.locator('[data-chosen] button[aria-label^="Remove"]'))
+  await shot(`phone-${theme}-chooser-chips`)
+  await page.keyboard.press('Escape')
+  await expect(card).toHaveCount(0)
+  await pills.locator('[data-choice="light"]').tap()
+  await card.locator('[data-leave-out]').tap()
+  await expect(card).toHaveCount(0)
+  await expect(pills.locator('[data-reset]')).toHaveCount(2)
+  await expect(page.locator('[data-slot-add]')).toHaveText(['camera'], { timeout: 4000 })
+  await shot(`phone-${theme}-pills`)
+  return {
+    page, pills, chosen,
+    choice: await measure(pills.locator('[data-choice]')),
+    reset: await measure(pills.locator('[data-reset]')),
+    resetAll: await measure(pills.locator('[data-reset-all]')),
+    adds: await measure(page.locator('[data-slot-add]')),
+    visible: await measure(pills.locator('[data-choice]').locator('xpath=..')),
+    row: (await measure(pills))[0],
+  }
+}
+
+for (const theme of ['dark', 'light']) {
+  test(`on a phone, pills, their ×, Reset and the + ideas are touch-sized, ${theme}`, async t => {
+    const m = await phonePills(t, theme)
+    if (process.env.PROMPT_MEASURE) console.log(JSON.stringify(m, (k, v) => typeof v === 'number' ? Math.round(v * 10) / 10 : v === m.page || v === m.pills ? undefined : v))
+    const targets = { choice: m.choice, reset: m.reset, resetAll: m.resetAll, adds: m.adds, chosen: m.chosen }
+    for (const [name, boxes] of Object.entries(targets)) {
+      assert.ok(boxes.length, `${name} present`)
+      for (const b of boxes) assert.ok(b.w >= MIN && b.h >= MIN, `${name} target ${b.w}x${b.h}`)
+    }
+    // Small to look at: no taller than the app's other chips.
+    for (const v of m.visible) assert.ok(v.h <= 34, `visible pill ${v.h}px tall`)
+    // Four pills (and Reset) wrap onto more than one line, all on screen.
+    const rows = new Set(m.choice.map(b => Math.round(b.y)))
+    assert.ok(rows.size >= 2, `pills on ${rows.size} line(s)`)
+    const row = [...m.choice, ...m.reset, ...m.resetAll]
+    for (const b of row) assert.ok(b.x >= m.row.x - 0.5 && b.x + b.w <= m.row.x + m.row.w + 0.5 && b.x >= 0 && b.x + b.w <= 390, `in the row: ${JSON.stringify(b)}`)
+    // No target overlaps another: a tap lands on one thing. (A pill holds its own ×.)
+    for (let i = 0; i < row.length; i++) for (let j = i + 1; j < row.length; j++) {
+      const a = row[i], b = row[j]
+      const nested = (p, q) => p.x <= q.x + 0.5 && p.y <= q.y + 0.5 && p.x + p.w >= q.x + q.w - 0.5 && p.y + p.h >= q.y + q.h - 0.5
+      assert.ok(!overlaps(a, b) || nested(a, b) || nested(b, a), `targets overlap: ${JSON.stringify(a)} ${JSON.stringify(b)}`)
+    }
+    // A long value still truncates inside its pill.
+    const truncated = await m.pills.locator('[data-choice] .truncate').evaluateAll(els => els.every(el => el.scrollWidth <= el.clientWidth + 1 || getComputedStyle(el).textOverflow === 'ellipsis'))
+    assert.ok(truncated)
+  })
+}
+
+test('on a desktop, pills keep their size', async t => {
+  const { page, pills } = await open(t, { start: FOUR })
+  await expect(pills.locator('[data-choice]')).toHaveCount(4, { timeout: 4000 })
+  for (const b of await measure(pills.locator('[data-choice]'))) assert.ok(b.h <= 28, `desktop pill ${b.h}px`)
+  for (const b of await measure(page.locator('[data-slot-add]'))) assert.ok(b.h <= 28, `desktop add ${b.h}px`)
+})
+
+// The prompt tips, opened from the Fluent menu: what you can type, slots first, in each way of sending.
+async function openTips(page, way) {
+  await page.locator('[data-fluent-chip]').click()
+  const menu = page.locator('[data-fluent-menu]')
+  if (way) await menu.getByRole('radio', { name: way }).click()
+  await page.getByRole('button', { name: 'Prompt tips' }).click()
+  const tips = page.locator('[data-prompt-tips]')
+  await expect(tips).toBeVisible()
+  return tips
+}
+
+for (const [label, opts] of [['desktop dark', {}], ['desktop light', { theme: 'light' }], ['phone dark', { width: 390, height: 844, mobile: true }], ['phone light', { width: 390, height: 844, mobile: true, theme: 'light' }]]) {
+  test(`the prompt tips cover slots first, then what else you can type, ${label}`, async t => {
+    const { page, shot } = await open(t, opts)
+    const tips = await openTips(page)
+    const sections = await tips.locator('section h4').allInnerTexts()
+    assert.deepEqual(sections, ['Vary any part', 'Choose what it can be', 'Keep from this', 'Detail level', 'Lists', 'Saved wildcards and segments', 'Comment lines', 'Exact text'])
+    const text = await tips.innerText()
+    for (const s of ['Vary this', 'press <', '+ light', 'Leave out', 'As written', 'Keep from this', 'Yours', 'Medium', 'High'])
+      assert.ok(text.includes(s), `tips mention ${s}`)
+    await expect(tips.locator('[data-tip-example="slot"]')).toContainText('<young man>')
+    // No mechanics, no old features, no em dashes.
+    assert.doesNotMatch(text, /Try different|smart wildcard|LoRA|parameters|—/i)
+    // Slots wear the editor's slot colour, apart from lists and saved names.
+    const colour = sel => tips.locator(sel).first().evaluate(el => getComputedStyle(el).color)
+    const slot = await colour('[data-tip-example="slot"] [data-tone="slot"]')
+    const list = await colour('[data-tone="list"]')
+    const named = await colour('[data-tone="name"]')
+    assert.notEqual(slot, list)
+    assert.notEqual(slot, named)
+    const editorSlot = await page.evaluate(() => {
+      const probe = document.createElement('span'); probe.style.color = 'rgb(var(--color-selection-rgb))'; document.body.appendChild(probe)
+      const c = getComputedStyle(probe).color; probe.remove(); return c
+    })
+    assert.equal(slot, editorSlot)
+    // On screen, and scrolls rather than running off it.
+    const box = await tips.boundingBox()
+    const vp = page.viewportSize()
+    assert.ok(box.x >= 0 && box.x + box.width <= vp.width && box.y >= 0 && box.y + box.height <= vp.height + 0.5, `tips at ${JSON.stringify(box)}`)
+    await expect(tips.locator('[data-tips-way]')).toHaveCount(0)
+    await shot(`tips-${label.replace(' ', '-')}-fluent`)
+    await tips.evaluate(el => { el.scrollTop = el.scrollHeight })
+    await shot(`tips-${label.replace(' ', '-')}-fluent-end`)
+  })
+}
+
+test('the prompt tips say what Direct and Raw do with the rest', async t => {
+  const { page, shot } = await open(t, { start: 'dorm room with a <young man>' })
+  let tips = await openTips(page, 'Direct')
+  await expect(tips.locator('[data-tips-way]')).toHaveText('Direct fills in lists and saved wildcards. Slots are sent as their words. Choose Fluent to vary them.')
+  await expect(tips.locator('section h4').first()).toHaveText('Vary any part')
+  await shot('tips-direct')
+  await page.keyboard.press('Escape')
+  await page.mouse.click(5, 5)
+  await expect(tips).toHaveCount(0)
+  tips = await openTips(page, 'Raw')
+  await expect(tips.locator('[data-tips-way]')).toHaveText('Raw sends your prompt exactly as typed. Choose Fluent or Direct to use the rest.')
+  await shot('tips-raw')
+})
