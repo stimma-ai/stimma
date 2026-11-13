@@ -26,7 +26,7 @@ from prompt_programs.slots import CAMERA, KINDS, Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-3"   # reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-4"   # reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -280,12 +280,18 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
         examples = _strings(got.get("outfit_examples"), f"part {n}: outfit_examples") if outfit == "written" else []
         if outfit == "written" and not examples:
             raise _Bad(f'part {n}: an outfit that is "written" needs three outfit_examples')
+        kept = {d: w.strip() for d, w in stated.items()
+                if d in DETAILS and isinstance(w, str) and w.strip() and _copied(w, sources)}
+        # A detail the words state is drawn, within the words: left undrawn, the person would be
+        # only their noun and the words would be lost ("young man" drawn as "a man").
+        vary = list(dict.fromkeys([*(d for d in _strings(got.get("vary"), f"part {n}: vary") if d in DETAILS), *kept]))
+        if not vary and not outfit:
+            raise _Bad(f"part {n}: a person needs details to vary (from {', '.join(DETAILS)}) or an outfit; "
+                       "words about part of a person are a list or free, not a person")
         out["person"] = {
             "noun": str(got.get("noun") or "").strip() or "person",
             "presentation": got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else "",
-            "stated": {d: w.strip() for d, w in stated.items()
-                       if d in DETAILS and isinstance(w, str) and w.strip() and _copied(w, sources)},
-            "vary": [d for d in dict.fromkeys(_strings(got.get("vary"), f"part {n}: vary")) if d in DETAILS],
+            "stated": kept, "vary": vary,
             "outfit": outfit, **({"outfit_examples": examples} if examples else {}),
         }
     elif kind == "camera":

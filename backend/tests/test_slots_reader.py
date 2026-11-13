@@ -126,6 +126,24 @@ async def test_a_missing_part_or_a_list_that_doesnt_exist_is_retried():
     assert got["slots"][0]["list"]["list"] == "animal.dog_breed"
 
 
+async def test_a_person_with_nothing_to_draw_is_retried():
+    """Words about part of a person read as a person with no details would emit only a noun."""
+    empty = {"slots": [{"n": 1, "kind": "person", "label": "Hairstyle", "lead": "",
+                        "person": {"noun": "girl", "presentation": "feminine", "stated": {}, "vary": [], "outfit": ""}}]}
+    listed = {"slots": [{"n": 1, "kind": "list", "label": "Hairstyle", "lead": "",
+                         "list": {"list": "person.hairstyle", "stated": ""}}]}
+    model = FakeModel(json.dumps(empty), json.dumps(listed))
+    got = await reader.read(parse("1girl, <hairstyle>, rooftop"), ask=model, project_id=None, model="m")
+    assert len(model.asked) == 2 and "a person needs details to vary" in model.asked[1][-1]["content"]
+    assert got["slots"][0]["kind"] == "list"
+
+
+async def test_a_stated_detail_is_always_drawn():
+    model = FakeModel(_reply(DORM_READING, n1={"person": {**DORM_READING["slots"][0]["person"], "vary": ["hair"]}}))
+    got = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m")
+    assert got["slots"][0]["person"]["vary"] == ["hair", "age"]
+
+
 async def test_a_lead_that_isnt_in_the_text_is_cleared():
     model = FakeModel(_reply(DORM_READING, n2={"lead": ", lighted with"}))
     got = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m")
@@ -234,7 +252,9 @@ async def test_a_stated_age_still_reaches_the_minors_policy(profile, monkeypatch
             return await super().__call__(messages, project_id, max_tokens)
     _use(monkeypatch, Young(json.dumps(reading)))
     entry = await slots.ensure("a <10-year-old boy> flying a kite", profile_id=profile)
-    assert entry["ages"] == {"slot_10_year_old_boy": young}
+    # the stated age is drawn, within the words, so the prompt keeps it and the pools know it
+    assert entry["reading"]["slots"][0]["person"]["vary"] == ["hair", "hair_color", "age"]
+    assert entry["filters"]["slot_10_year_old_boy.age"] == young
     assert dict(program_minors(entry)) == {"slot_10_year_old_boy": tuple(young)}
 
 
