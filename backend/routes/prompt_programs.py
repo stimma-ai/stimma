@@ -13,7 +13,7 @@ log = get_logger(__name__)
 router = APIRouter(prefix="/api/prompt-programs", tags=["prompt-programs"])
 
 # What a slot and a choice say to the editor (the program text itself stays server-side unless asked for).
-_SLOT_KEYS = ("id", "n", "kind", "label", "words", "span", "line", "details", "stated")
+_SLOT_KEYS = ("id", "n", "kind", "label", "words", "span", "line", "details", "stated", "degraded")
 _CHOICE_KEYS = ("id", "kind", "label", "cls", "options", "follows", "parent", "when")
 
 

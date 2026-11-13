@@ -108,11 +108,42 @@ async def test_bad_json_gets_one_retry_that_says_why():
     assert [s["kind"] for s in got["slots"]] == ["person", "free"] and got["lists"] == [{"n": 1, "label": "Season"}]
 
 
-async def test_a_second_bad_reply_fails_with_the_reason():
+async def test_one_bad_slot_among_good_ones_is_read_as_written_and_the_others_stand(tmp_path):
+    cache = NarrowCache(tmp_path)
     model = FakeModel(_reply(PORCH_READING, n2={"kind": "thing"}), _reply(PORCH_READING, n2={"kind": "thing"}))
-    with pytest.raises(reader.ReaderFailed, match="kind must be one of"):
-        await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m")
-    assert len(model.asked) == 2
+    got = await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m", cache=cache)
+    assert len(model.asked) == 2 and "kind must be one of" in model.asked[1][-1]["content"]
+    man, pet = got["slots"]
+    assert man["kind"] == "person" and "degraded" not in man
+    assert pet["degraded"] is True and pet["kind"] == "free" and pet["label"] == "pet" and "kind must be" in pet["reason"]
+    src, entry = slots.build(parse(PORCH_PROMPT), got)
+    assert entry["example"].endswith("reading on a porch with his pet, summer evening") or \
+        entry["example"].endswith("reading on a porch with his pet, autumn evening"), entry["example"]
+    assert [m.get("degraded") for m in entry["slots"]] == [None, True] and entry["slots"][1]["details"] == []
+    # nothing read as written is cached: the next read asks again, only for that slot
+    model = FakeModel(_reply(PORCH_READING))
+    again = await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m", cache=cache)
+    assert len(model.asked) == 1 and 'Answer only for: ⟨2⟩ "pet".' in model.asked[0][-1]["content"]
+    assert again["slots"][1]["kind"] == "free" and "degraded" not in again["slots"][1]
+
+
+async def test_a_reply_that_is_never_json_reads_every_slot_as_written():
+    model = FakeModel("no", "still no")
+    got = await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m")
+    assert [s["degraded"] for s in got["slots"]] == [True, True] and got["lists"] == [{"n": 1, "label": ""}]
+    _, entry = slots.build(parse(PORCH_PROMPT), got)
+    assert entry["example"].split("\n")[-1] in (
+        "An elderly African man reading on a porch with his pet, summer evening",
+        "An elderly African man reading on a porch with his pet, autumn evening"), entry["example"]
+
+
+async def test_a_person_with_nothing_to_draw_twice_is_read_as_written():
+    empty = {"slots": [{"n": 1, "kind": "person", "label": "Hairstyle", "lead": "",
+                        "person": {"noun": "hairstyle", "presentation": "", "stated": {}, "vary": [], "outfit": ""}}]}
+    got = await reader.read(parse("1girl, <hairstyle>, rooftop"), ask=FakeModel(json.dumps(empty), json.dumps(empty)),
+                            project_id=None, model="m")
+    assert got["slots"][0]["degraded"] is True
+    assert slots.build(parse("1girl, <hairstyle>, rooftop"), got)[1]["example"] == "1girl, hairstyle, rooftop"
 
 
 async def test_a_missing_part_or_a_list_that_doesnt_exist_is_retried():
@@ -323,11 +354,18 @@ def test_the_prepare_route_answers_with_slots_and_choices(profile, monkeypatch):
     assert nothing == {"key": None, "slots": [], "choices": []}
 
 
-def test_a_reading_that_cant_be_used_is_a_424(profile, monkeypatch):
-    _use(monkeypatch, FakeModel("no", "still no"))
-    r = _client(monkeypatch, profile).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": DORM_PROMPT})
-    assert r.status_code == 424 and r.json()["detail"]["code"] == "reader_failed"
-    assert "isn't valid JSON" in r.json()["detail"]["message"]
+def test_a_reading_that_cant_be_used_still_prepares_and_says_degraded(profile, monkeypatch):
+    model = _use(monkeypatch, FakeModel("no", "still no", _reply(DORM_READING)))
+    client = _client(monkeypatch, profile)
+    r = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": DORM_PROMPT})
+    assert r.status_code == 200
+    out = r.json()
+    assert [s["degraded"] for s in out["slots"]] == [True, True] and out["example"] == "Dorm room with a young man, lit by light"
+    # served to a lookup, read again by the next prepare
+    assert client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": DORM_PROMPT,
+                                                             "cache_only": True}).json()["key"] == out["key"]
+    again = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": DORM_PROMPT}).json()
+    assert len(model.asked) == 3 and not any(s.get("degraded") for s in again["slots"])
 
 
 class SlowDescent(FakeModel):
@@ -363,28 +401,45 @@ async def test_a_slow_narrowing_is_waited_for_and_the_example_is_drawn_after_it(
         assert drawn["elderly_african_man.descent"] in AFRICAN and drawn["elderly_african_man.age"] in ELDERLY
 
 
-async def test_a_narrowing_that_fails_fails_the_prepare_and_is_not_stored(profile, monkeypatch):
-    from prompt_programs.narrow import NarrowFailed
+def _stands_as_typed(entry):
+    """Every draw keeps "African" as typed, and the man's age still within "elderly"."""
+    for seed in range(6):
+        r = prep.realize(entry, seed=seed)
+        drawn = {d.id: d.value for d in r.draws}
+        assert " African man" in r.prompt, r.prompt
+        assert drawn["elderly_african_man.age"] in ELDERLY
+        assert not any(d in r.prompt for d in AFRICAN)
+
+
+async def test_a_narrowing_that_fails_keeps_the_stated_words_as_typed_and_the_run_goes_on(profile, monkeypatch):
     model = _use(monkeypatch, SlowDescent(_reply(PORCH_READING), fails=True))
-    with pytest.raises(NarrowFailed, match="elderly_african_man.descent"):
-        await slots.ensure(PORCH_PROMPT, profile_id=profile)
-    assert model.descent_asks == 2   # one more try before it fails
-    assert await slots.ensure(PORCH_PROMPT, profile_id=profile, cache_only=True) is None
+    entry = await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    assert model.descent_asks >= 2   # one more try, then the words stand as typed
+    assert entry["degraded"] is True and "narrow_pending" not in entry
+    assert entry["slots"][0]["degraded"] is True and "elderly_african_man.age" in entry["slots"][0]["details"]
+    _stands_as_typed(entry)
+    # a lookup gets it; the next prepare narrows again
+    assert (await slots.ensure(PORCH_PROMPT, profile_id=profile, cache_only=True))["key"] == entry["key"]
+    model = _use(monkeypatch, SlowDescent())
+    again = await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    assert model.descent_asks >= 1 and not again.get("degraded")
+    assert sorted(again["filters"]["elderly_african_man.descent"]) == sorted(AFRICAN)
 
 
-async def test_a_narrowing_past_the_time_limit_fails_the_prepare(profile, monkeypatch):
+async def test_a_narrowing_past_the_time_limit_keeps_the_stated_words_as_typed(profile, monkeypatch):
     import prompt_programs.narrow as nw
-    from prompt_programs.narrow import NarrowFailed
     monkeypatch.setattr(nw, "NARROW_SECONDS", 0.5)
     _use(monkeypatch, SlowDescent(_reply(PORCH_READING), delay=3.0))
-    with pytest.raises(NarrowFailed):
-        await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    entry = await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    assert entry["degraded"] is True
+    _stands_as_typed(entry)
 
 
-def test_a_failed_narrowing_is_a_424_like_a_reader_failure(profile, monkeypatch):
+def test_a_failed_narrowing_still_prepares(profile, monkeypatch):
     _use(monkeypatch, SlowDescent(_reply(PORCH_READING), fails=True))
     r = _client(monkeypatch, profile).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PORCH_PROMPT})
-    assert r.status_code == 424 and r.json()["detail"]["code"] == "narrowing_failed"
+    assert r.status_code == 200 and r.json()["slots"][0]["degraded"] is True
+    assert " African man" in r.json()["example"]
 
 
 async def test_a_stored_entry_with_unfinished_narrowing_is_narrowed_before_it_draws(profile, monkeypatch):

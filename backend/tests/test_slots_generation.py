@@ -131,12 +131,11 @@ async def test_agent_keep_choices_are_choices_of_values(tool, monkeypatch):
         await _submit(keep_choices={"hat": "bowler"})
 
 
-async def test_slots_that_cant_be_read_fail_the_run_with_a_424(tool, monkeypatch):
+async def test_slots_that_cant_be_read_still_run_as_written(tool, monkeypatch):
     _use(monkeypatch, FakeModel("not json", "still not json"))
-    with pytest.raises(HTTPException) as e:
-        await _submit()
-    assert e.value.status_code == 424 and e.value.detail["code"] == "reader_failed"
-    assert tool == []
+    out = await _submit(level="off")
+    assert out["prompt"] in ("An elderly African man reading on a porch with his pet, summer evening",
+                             "An elderly African man reading on a porch with his pet, autumn evening"), out["prompt"]
 
 
 async def test_a_prompt_too_long_is_refused(tool, monkeypatch):
