@@ -80,6 +80,20 @@ def test_the_prompt_carries_the_person_guidance_and_the_catalogs():
                   "already says what they wear", "- hair_color:", "- person.outfit.casual:", "- person.hairstyle:"):
         assert words in text
     assert "EXACT" in text and "{catalog}" not in text and "{details}" not in text
+    # Each kind's own fields are shown in their object: a list's id goes inside "list": {...}.
+    assert '"list": {"list": "<the list\'s id>", "stated": ""}' in text
+    assert "are not a person" in text
+
+
+async def test_a_list_id_outside_its_object_is_retried_with_the_shape():
+    flat = {"slots": [{"n": 1, "kind": "list", "label": "Hairstyle", "lead": "", "list": "person.hairstyle", "stated": ""}],
+            "lists": []}
+    nested = {"slots": [{"n": 1, "kind": "list", "label": "Hairstyle", "lead": "",
+                         "list": {"list": "person.hairstyle", "stated": ""}}], "lists": []}
+    model = FakeModel(json.dumps(flat), json.dumps(nested))
+    got = await reader.read(parse("1girl, <hairstyle>, rooftop"), ask=model, project_id=None, model="m")
+    assert len(model.asked) == 2 and '"list": {...}' in model.asked[1][-1]["content"]
+    assert got["slots"][0]["list"] == {"list": "person.hairstyle", "stated": ""}
 
 
 async def test_bad_json_gets_one_retry_that_says_why():

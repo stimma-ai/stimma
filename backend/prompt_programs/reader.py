@@ -26,7 +26,7 @@ from prompt_programs.slots import CAMERA, KINDS, Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-1"
+READER_VERSION = "reader-3"   # reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -43,11 +43,14 @@ about the image: read them as context for every part. Text shown as [EXACT_1] is
 exact text, hidden from you.
 
 For each numbered part, say what it is and how it varies. Reply with JSON only, with nothing
-before or after it, in the shape shown at the end.
+before or after it, in the shape shown at the end. Each part's own fields go in an object named
+after its kind: "person": {...}, "camera": {...}, "light": {...}, "list": {...} or "free": {...}.
 
 kind:
-- "person": one person, or a character like one. Two parts with the same words are two
-  different people.
+- "person": one person, or a character like one: the words name who they are ("young man",
+  "nurse", "my friend"). Two parts with the same words are two different people. Words that
+  name only something about a person (their hair, their clothes, their eyes) are not a person:
+  they are a "list" when a list below covers them, else "free".
 - "camera": how the picture is taken: shot size, lens, angle, film look.
 - "light": the light in the scene.
 - "list": something one of the lists below already covers well. Give its id.
@@ -61,9 +64,11 @@ For a person:
 - vary: the details that change from image to image, from the person details below. They are
   the fixed things about the person: their age, within what the words say ("young man" stays
   young, "elderly African man" stays elderly and of African descent), their descent, build,
-  hair and the like. Choose what this picture shows of them: a small figure in a wide scene
-  shows age, build and hair, not eyes; a close portrait shows face and eyes, not build. You
-  need not include every detail. Facial hair only for a masculine person.
+  hair and the like. Most often: age, descent, build, hair and hair_color, with facial_hair
+  for a masculine person. Choose what this picture shows of them: a small figure in a wide
+  scene shows age, build and hair, not eyes; a close portrait adds face and eyes.
+  You need not include every detail, but leave one out only for a reason. Facial hair only
+  for a masculine person.
 - Leave out expression unless the prompt or a note asks for it to change. Leave out pose and
   accessories: they are not part of the person.
 - outfit: their clothes change too, unless the prompt already says what they wear. Give the id
@@ -73,10 +78,13 @@ For a person:
   would read after "wearing"; else [].
 
 For a camera: vary, the parts of it that change, from: shot_size, lens, angle, film_look.
+  "camera": {"vary": ["shot_size", "angle"]}
 
 For light: examples, three kinds of light that fit this scene.
+  "light": {"examples": ["...", "...", "..."]}
 
 For a list: list (its id) and stated (the words of the part that narrow it, copied exactly, or "").
+  "list": {"list": "<the list's id>", "stated": ""}
 
 For free: about (what it is in this image, a few words), kinds (three specific kinds of the
 thing the words name) and instead (three other things that could stand in the same place in
@@ -88,9 +96,11 @@ not "a cat".
 
 For every part:
 - label: two or three words naming it for a menu.
-- lead: when this part is left out of the prompt, the words right before it that should go
-  with it, copied exactly (", lit by" in "a kitchen, lit by ⟨light⟩"); "" when nothing should
-  go ("a ⟨young man⟩ in a kitchen").
+- lead: when this part is left out of the prompt, the words right before it that would be left
+  hanging without it, copied exactly: ", lit by" in "a kitchen, lit by ⟨light⟩"; " with a" in
+  "a desk with a ⟨lamp⟩"; "," in "red car, ⟨camera⟩". Only joining words, articles and the
+  punctuation before them, never a word that names or describes something else. "" when nothing
+  would hang ("⟨old man⟩ in a kitchen").
 
 For each numbered list {Ln: ...}: a label of one or two words.
 
@@ -105,7 +115,7 @@ The reply's shape (an example):
 
 SHAPE = {
     "slots": [
-        {"n": 1, "kind": "person", "label": "Elderly African man", "lead": "",
+        {"n": 1, "kind": "person", "label": "Elderly African man", "lead": "an",
          "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "elderly", "descent": "African"},
                     "vary": ["age", "descent", "build", "hair", "hair_color", "facial_hair"],
                     "outfit": "person.outfit.casual", "outfit_examples": []}},
@@ -252,7 +262,7 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
         raise _Bad(f"part {n}: kind must be one of {', '.join(KINDS)}")
     got = r.get(kind)
     if not isinstance(got, dict):
-        raise _Bad(f'part {n}: a {kind} needs its "{kind}" object')
+        raise _Bad(f'part {n}: a {kind} needs its fields in a "{kind}" object, as "{kind}": {{...}}')
     lead = r.get("lead") if isinstance(r.get("lead"), str) else ""
     if not lead.strip() or not before.rstrip().endswith(lead.strip()):
         lead = ""
@@ -287,7 +297,7 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
     elif kind == "list":
         lid = got.get("list")
         if not isinstance(lid, str) or vocab.get(lid) is None:
-            raise _Bad(f'part {n}: list "{lid}" is not one of the lists')
+            raise _Bad(f'part {n}: list "{lid}" is not one of the lists (the id goes in "list": {{"list": "<id>", "stated": ""}})')
         stated = got.get("stated") if isinstance(got.get("stated"), str) else ""
         out["list"] = {"list": lid, "stated": stated.strip() if stated.strip() and _copied(stated, sources) else ""}
     else:
