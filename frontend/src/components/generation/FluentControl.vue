@@ -181,19 +181,33 @@
             <button type="button" class="text-[12px] text-content-tertiary hover:text-content px-2 py-1 rounded-md hover:bg-overlay-subtle" @click="copyProgram">{{ copied ? 'Copied' : 'Copy' }}</button>
             <button type="button" class="text-content-tertiary hover:text-content p-1 rounded-md hover:bg-overlay-subtle" aria-label="Close" @click="programText = null">✕</button>
           </div>
-          <div v-if="programText === ''" class="mx-4 mb-4 rounded-md border border-edge-subtle bg-surface-overlay px-3 py-6 text-[12px] text-content-secondary flex items-center justify-center gap-2">
+          <div v-if="programText === '' && !nothingVaries" class="mx-4 mb-4 rounded-md border border-edge-subtle bg-surface-overlay px-3 py-6 text-[12px] text-content-secondary flex items-center justify-center gap-2">
             <template v-if="showError"><span class="text-red-400">{{ showError }}</span></template>
             <template v-else><span class="w-3 h-3 rounded-full border-2 border-accent-hi/25 border-t-accent-hi animate-spin" /> Preparing your prompt…</template>
           </div>
           <template v-else>
-          <div v-if="lastPrompt" class="mx-4 mb-2" data-last-prompt>
-            <div class="text-xs font-semibold text-content-secondary mb-1">Last image’s prompt</div>
-            <div class="max-h-[16vh] overflow-y-auto rounded-md bg-surface-overlay border border-edge-subtle px-3 py-2 text-[12px] leading-relaxed text-content-secondary whitespace-pre-wrap select-text">{{ lastPrompt }}</div>
+          <div v-if="lastRun || lastPrompt" class="mx-4 mb-2" data-last-prompt>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-semibold text-content-secondary">Last image’s prompt</span>
+              <span v-if="lastRunFacts" class="font-mono text-[10.5px] text-content-muted">{{ lastRunFacts }}</span>
+            </div>
+            <div v-if="lastRun?.filled && lastRun.filled !== lastRun.sent" class="mb-1 max-h-[12vh] overflow-y-auto rounded-md bg-surface-overlay border border-edge-subtle px-3 py-2 text-[12px] leading-relaxed text-content-tertiary whitespace-pre-wrap select-text" data-last-filled>{{ lastRun.filled }}</div>
+            <div class="max-h-[16vh] overflow-y-auto rounded-md bg-surface-overlay border border-edge-subtle px-3 py-2 text-[12px] leading-relaxed text-content-secondary whitespace-pre-wrap select-text">{{ lastPrompt || lastRun?.sent }}</div>
           </div>
-          <div class="mx-4 rounded-md border border-edge-subtle bg-surface-overlay h-[40vh] min-h-[200px] overflow-hidden">
-            <ReadOnlyCode :text="programText" name="program.py" wrap />
+          <div v-if="nothingVaries" class="mx-4 rounded-md border border-edge-subtle bg-surface-overlay px-3 py-4 text-[12px] text-content-secondary" data-nothing-varies>
+            Nothing in this prompt varies: no slots or lists, so there is no program. Each image is improved at the detail level.
           </div>
-          <div class="px-4 pt-3 pb-4 overflow-y-auto min-h-0">
+          <div v-else class="mx-4 grid grid-cols-1 md:grid-cols-2 gap-2 h-[40vh] min-h-[200px]">
+            <div class="min-h-0 flex flex-col rounded-md border border-edge-subtle bg-surface-overlay overflow-hidden">
+              <div class="shrink-0 px-3 pt-1.5 pb-1 text-[11px] font-semibold text-content-tertiary">Slot reading</div>
+              <div class="flex-1 min-h-0" data-reading><ReadOnlyCode :text="readingText" name="reading.json" wrap /></div>
+            </div>
+            <div class="min-h-0 flex flex-col rounded-md border border-edge-subtle bg-surface-overlay overflow-hidden">
+              <div class="shrink-0 px-3 pt-1.5 pb-1 text-[11px] font-semibold text-content-tertiary">Program</div>
+              <div class="flex-1 min-h-0"><ReadOnlyCode :text="programText" name="program.py" wrap /></div>
+            </div>
+          </div>
+          <div v-if="!nothingVaries" class="px-4 pt-3 pb-4 overflow-y-auto min-h-0">
             <div class="flex items-center gap-2 mb-1.5">
               <span class="text-xs font-semibold text-content-secondary">Sample runs</span>
               <span class="text-[11px] text-content-muted">with your current choices</span>
@@ -258,6 +272,9 @@ const props = defineProps<{
   translate?: { enabled: boolean; language: string }
   /** What the newest image made in this mode was sent with, for the developer dialog. */
   lastPrompt?: string | null
+  /** That image's record (its job's `prompt_program`): the filled prompt, what was sent,
+      its detail level and what the improver did. */
+  lastRun?: { filled?: string; sent?: string; level?: string; improve?: Record<string, any> } | null
 }>()
 const emit = defineEmits<{
   (e: 'mode', level: EnhanceLevel): void
@@ -272,6 +289,19 @@ const chip = ref<HTMLElement | null>(null)
 const menuEl = ref<HTMLElement | null>(null)
 const menuOpen = ref(false)
 const programText = ref<string | null>(null)
+const readingText = ref('')
+// The prompt was read and nothing in it varies: there is no program to show.
+const nothingVaries = ref(false)
+const lastRunFacts = computed(() => {
+  const r = props.lastRun
+  if (!r) return ''
+  // The improver's report (prompt_pipeline.py): improved "true" | "skipped" | "fallback",
+  // its word target, and why it fell back.
+  const imp = r.improve || {}
+  const how = imp.improved === 'true' ? 'improved' : imp.improved
+  const target = Array.isArray(imp.target) ? `${imp.target.join('-')} words` : ''
+  return [r.level && `level ${r.level}`, how, target, imp.reason].filter(Boolean).join(' · ')
+})
 const vocabOpen = ref(false)
 const languagesOpen = ref(false)
 watch(menuOpen, (open) => { if (!open) languagesOpen.value = false })
@@ -450,6 +480,8 @@ const showError = ref('')
 /** Open the program, reading the prompt first if needed (the dialog shows the wait). */
 async function showProgram() {
   programText.value = ''
+  readingText.value = ''
+  nothingVaries.value = false
   showError.value = ''
   samples.value = []
   try {
@@ -457,13 +489,16 @@ async function showProgram() {
       showError.value = props.program.error.value?.message || 'Couldn’t read this prompt.'
       return
     }
-    const got = await props.program.fetchProgramText()
     if (programText.value === null) return  // closed while reading
+    if (!props.program.program.value?.key) { nothingVaries.value = true; return }
+    const got = await props.program.fetchProgramText()
+    if (programText.value === null) return
     if (!got.program) {
       showError.value = 'Couldn’t load the program. Try again.'
       return
     }
     programText.value = got.program
+    readingText.value = got.reading == null ? '' : JSON.stringify(got.reading, null, 2)
   } catch (e: any) {
     if (programText.value !== null) showError.value = e?.response?.data?.detail?.message || 'Couldn’t load the program.'
     return

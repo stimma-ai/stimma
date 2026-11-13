@@ -166,3 +166,35 @@ export function useMediaContextMenuHost(onEvent: (name: HostEventName, ...args: 
 export function broadcastMediaContextMenuEvent(name: HostEventName, ...args: unknown[]) {
   hostEvent.value = { seq: ++hostEventSeq, name, args }
 }
+
+// --- Actions a view adds ------------------------------------------------------
+//
+// A view can offer an action of its own on one media item it knows about (Tool View's
+// "Keep from this" on an image it generated). The menu shows the action whenever it opens
+// on that single item, from any place: a result tile, the stage, the slideshow. Like the
+// hosts above, a kept-alive view's action applies only while that view is active.
+
+export interface MediaMenuAction {
+  label: string
+  /** Run it; `at` is where the menu was, for anything the action opens. */
+  run: (at: DOMRect) => void
+}
+type MediaMenuActionProvider = (mediaId: number) => MediaMenuAction | null
+
+const actionProviders = ref<Array<{ id: symbol; provide: MediaMenuActionProvider }>>([])
+
+export function useMediaMenuAction(provide: MediaMenuActionProvider) {
+  const id = Symbol('mediaMenuAction')
+  const claim = () => { actionProviders.value = [...actionProviders.value.filter(p => p.id !== id), { id, provide }] }
+  const release = () => { actionProviders.value = actionProviders.value.filter(p => p.id !== id) }
+  onMounted(claim)
+  onActivated(claim)
+  onDeactivated(release)
+  onBeforeUnmount(release)
+}
+
+/** The actions views offer on this one item. */
+export function mediaMenuActions(mediaId: number | undefined): MediaMenuAction[] {
+  if (mediaId == null) return []
+  return actionProviders.value.map(p => p.provide(mediaId)).filter((a): a is MediaMenuAction => !!a)
+}

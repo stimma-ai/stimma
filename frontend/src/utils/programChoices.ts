@@ -238,6 +238,19 @@ export interface ChoiceWorld {
   pools: Record<string, ChoicePool>
 }
 
+/** Slots whose labels repeat, numbered in order ("Friend 1", "Friend 2"); the rest as they are. */
+export function numberRepeats(slots: ProgramSlot[]): ProgramSlot[] {
+  const count = new Map<string, number>()
+  for (const s of slots) count.set(s.label, (count.get(s.label) || 0) + 1)
+  const seen = new Map<string, number>()
+  return slots.map((s) => {
+    if ((count.get(s.label) || 0) < 2) return s
+    const k = (seen.get(s.label) || 0) + 1
+    seen.set(s.label, k)
+    return { ...s, label: `${s.label} ${k}` }
+  })
+}
+
 /** A slot whose card lists details (a person, a camera) rather than options. */
 export function isBuilder(slot: ProgramSlot): boolean {
   return slot.kind === 'person' || slot.kind === 'camera' || slot.details.length > 1

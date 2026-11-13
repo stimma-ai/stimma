@@ -14,10 +14,15 @@ export const MAX_ROWS = 150
 
 export const TIER_ORDER: VocabTier[] = ['typical', 'plausible', 'unusual', 'generated', 'opt_in']
 
-/** A list value as the picker shows it: a template's color slots ({main}, {accent},
- *  {neutral}) read as "…", since its colors come from the Colors choice. */
+/** A list value as the picker shows it: without a template's color slots ({main},
+ *  {accent}, {neutral}), since its colors are chosen inside it (the outfit's Colors). */
 export function shownOption(text: string): string {
-  return text.replace(/\{(?:main|accent|neutral)\}/g, '…').replace(/\s{2,}/g, ' ').trim()
+  return text
+    .replace(/ with \{(?:main|accent|neutral)\} and \{(?:main|accent|neutral)\} (\w+)/g, ' with $1')
+    .replace(/\{(?:main|accent|neutral)\} and \{(?:main|accent|neutral)\} /g, '')
+    .replace(/\{(?:main|accent|neutral)\} ?/g, '')
+    .replace(/^a ([aeiou])/i, 'an $1')
+    .replace(/\s{2,}/g, ' ').trim()
 }
 
 /** Case-insensitive; every word in the query must appear somewhere in the option. */

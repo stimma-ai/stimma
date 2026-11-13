@@ -72,7 +72,7 @@
           <span v-if="swatches(o)" class="shrink-0 flex -space-x-1 mt-px">
             <span v-for="(c, j) in swatches(o)" :key="j" class="w-3.5 h-3.5 rounded-full border border-surface" :style="{ background: c }" />
           </span>
-          <span :class="['flex-1 min-w-0 leading-snug break-words', inPlay.has(o) ? 'text-content' : 'text-content-secondary']">{{ valueText(pool, o) }}</span>
+          <span :class="['flex-1 min-w-0 leading-snug break-words', inPlay.has(o) ? 'text-content' : 'text-content-secondary']">{{ shownOption(o) }}</span>
           <button
             v-if="program.isOwn(choice, o)"
             type="button"
@@ -128,7 +128,7 @@ import { CheckIcon, ChevronRightIcon, PlusIcon, SparklesIcon, TrashIcon, XMarkIc
 import SearchField from '../ui/SearchField.vue'
 import Spinner from '../ui/Spinner.vue'
 import { useViewport } from '../../composables/useViewport'
-import { MANY_OPTIONS, MAX_ROWS, matchesQuery } from '../../utils/programVocab'
+import { MANY_OPTIONS, MAX_ROWS, matchesQuery, shownOption } from '../../utils/programVocab'
 import {
   PALETTE_CLS, asWrittenState, defaultZone, drawable, groupMembers, hasToken, isAsWritten, isChanged, leaveOut, partLabel,
   pillValue, resetState, swatchesOf, toggleToken, tokenText, tokensOf, valueText, zonesOf, type Token,

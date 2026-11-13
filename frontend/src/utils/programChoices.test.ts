@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  asWrittenState, changedCount, cleanState, drawable, isAsWritten, isChanged, leaveOut, optionsOf, pillsOf, pillValue,
+  asWrittenState, changedCount, cleanState, drawable, isAsWritten, isChanged, leaveOut, numberRepeats, optionsOf, pillsOf, pillValue,
   resetState, swatchesOf, toggleToken, tokenText, zonesOf, PALETTE_CLS,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
@@ -86,7 +86,7 @@ test('a pill says the value short, or how many', () => {
   assert.equal(pillValue(pet, petPool, { zones: ['instead'], values: ['pet'] }), '2 chosen')
   assert.equal(tokenText(hair, hairPool, { kind: 'group', facet: 'length', part: 'short' }), 'any short')
   // Color placeholders read as the app shows them; no word rewriting.
-  assert.equal(pillValue(hair, null, { values: ['a {main} parka'] }), 'a … parka')
+  assert.equal(pillValue(hair, null, { values: ['a {main} parka'] }), 'a parka')
 })
 
 test('a palette reads as swatches only when every color is known', () => {
@@ -145,4 +145,10 @@ test('two people say whose detail a pill is', () => {
   const woman: ProgramSlot = { id: 'woman', n: 4, kind: 'person', label: 'Old woman', words: 'old woman', details: ['woman.hair'] }
   const pills = pillsOf({ ...world({ 'man.hair': { values: ['buzz cut'] } }), slots: [man, woman], choices: [...choices, ch('woman.hair', 'Hair', { slot: 'woman' })] })
   assert.equal(pills[1].label, 'Young man’s hair')
+})
+
+test('the same words twice read as two, numbered in order', () => {
+  const slot = (id: string, n: number, label: string) => ({ id, n, kind: 'person' as const, label, words: label.toLowerCase(), details: [] })
+  const out = numberRepeats([slot('friend', 1, 'Friend'), slot('dog', 2, 'Dog'), slot('friend_2', 3, 'Friend')])
+  assert.deepEqual(out.map(s => s.label), ['Friend 1', 'Dog', 'Friend 2'])
 })

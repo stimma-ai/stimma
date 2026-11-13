@@ -51,7 +51,7 @@
                   : 'text-content-muted hover:text-content-secondary'
             ]"
             :title="llmUnconfigured
-              ? 'Requires a chat model — add one in Settings > Chat Models'
+              ? 'Requires a chat model. Add one in Settings > Chat Models.'
               : 'Enhance the prompt with AI when generating'"
           >
             <WandSparklesIcon class="w-3.5 h-3.5" />
@@ -76,7 +76,7 @@
                     : 'text-content-muted hover:text-content-secondary'
               ]"
               :title="llmUnconfigured
-                ? 'Requires a chat model — add one in Settings > Chat Models'
+                ? 'Requires a chat model. Add one in Settings > Chat Models.'
                 : translateActive
                   ? `Translating the prompt to ${activeLanguageLabel} before generating`
                   : 'Translate the prompt into another language before generating'"
@@ -267,7 +267,7 @@
                     <span class="text-xs font-medium text-content-secondary">Enhance prompt</span>
                   </div>
                   <p class="text-xs text-content-tertiary leading-relaxed">
-                    When enabled, your prompt is automatically enhanced by AI each time you generate. The original prompt is preserved in the editor &mdash; only the version sent to the generation tool is improved.
+                    When enabled, your prompt is automatically enhanced by AI each time you generate. The original prompt stays in the editor; only the version sent to the generation tool is improved.
                   </p>
                 </div>
                 </template>
@@ -648,8 +648,9 @@ const GREY = 'text-gray-500 italic bg-zinc-500/10'
 const BLUE = 'text-blue-500 bg-blue-500/10'
 const fluentTips = [
   { title: 'What changes', examples: [{ code: 'a <young man> on a porch, lit by <light>', tone: SLOT }],
-    text: ['Words in angle brackets change from image to image. Click them to choose what they can be.',
-      'Select any words and choose Vary this, or type < with words selected.'] },
+    text: ['Words in angle brackets change from image to image. Click them to choose what they can be, or leave them out.',
+      'Select any words and choose Vary this, or type < with words selected. Click an underlined phrase, or a + idea under your prompt, to have it change too.',
+      'The same words in brackets twice are two different people or things.'] },
   { title: 'Lists and saved wildcards', examples: [{ code: '{red|blue|green}', tone: GREEN }, { code: '{{hairstyle}}', tone: AMBER }],
     text: ['Each image uses one of {red|blue|green}. {{hairstyle}} uses your saved wildcard or prompt segment with that name.'] },
   { title: 'Comments', examples: [{ code: '# she is a marine biologist', tone: GREY }],
