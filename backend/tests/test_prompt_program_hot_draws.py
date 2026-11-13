@@ -326,3 +326,10 @@ class TestSubmit:
         seeded = await submit(draw_seed=7)
         # drawn from seed 7 (or a reroll of it, REROLL_STRIDE apart)
         assert (seeded["draw_seed"] - 7) % 10007 == 0 and len(queue._prompt_warm_ready["gen-1"]) == before
+
+
+def test_background_reading_running_or_not_keeps_the_pool():
+    from routes.generation import hot_draw_signature
+    entry = entry_for()
+    sig = lambda e: hot_draw_signature(e, pins={}, edits={}, zones={}, profile_id="p", project_id=None)  # noqa: E731
+    assert sig({**entry, "working": True, "reading": True}) == sig({**entry, "working": False, "reading": False})

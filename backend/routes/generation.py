@@ -858,7 +858,9 @@ def hot_draw_signature(entry: Dict[str, Any], *, pins: Dict[str, Any], edits: Di
 
     cfg = settings()
     payload = {
-        "entry": entry, "pins": pins or {}, "edits": edits or {}, "zones": zones or {},
+        # (whether background reading is running says nothing about what is drawn)
+        "entry": {k: v for k, v in entry.items() if k not in ("working", "reading")},
+        "pins": pins or {}, "edits": edits or {}, "zones": zones or {},
         "profile_id": profile_id, "project_id": project_id, "settings": dataclasses.asdict(cfg),
         # the judge's version and readiness: draws made before it was ready
         # aren't served once it's ready, and a new judge version never serves old draws
