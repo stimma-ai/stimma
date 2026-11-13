@@ -32,6 +32,8 @@ passes no narrowing words of its own, so it has none to invent.
   words of its own to invent for those.
 - `leave`: details the user gave in words no list holds, which the program keeps as fixed text.
 - `article=False`: no "a" before them; the prompt's own words lead to them ("with a", "an").
+- `words`: the user's own words for them ("elderly African man"): with every detail turned off
+  they stand as these words instead of their noun.
 - `wearing`: their outfit's pick, described after the rest of them (", wearing ...").
 - `close`: text that ends their description when any of it is drawn ("," before "reading on a
   porch"), and goes when none of it is.
@@ -274,6 +276,13 @@ class _People(ast.NodeTransformer):
         # "a slender 32-year-old Korean woman with warm beige skin, shoulder-length wavy dark brown hair, hazel eyes, ..."
         # Each group is an opt(): a detail turned off takes its joining words with it.
         article = _const(kw.get("article")) is not False   # article=False: the prompt's own words lead to them
+        typed = _const(kw.get("words"))
+        if isinstance(typed, str) and typed.strip() and var and _const(noun_part) is not None:
+            # With every detail of theirs off they are the user's own words ("elderly African man"),
+            # not their noun alone: `noun if any detail is drawn else words`.
+            drawn = [ast.Compare(left=name(k), ops=[ast.IsNot()], comparators=[ast.Constant(None)]) for k in var]
+            noun_part = ast.IfExp(test=drawn[0] if len(drawn) == 1 else ast.BoolOp(op=ast.Or(), values=drawn),
+                                  body=noun_part, orelse=ast.Constant(typed.strip()))
         parts: List[ast.expr] = ([ast.Constant("a")] if article else []) + [
             name(k) for k in ("build", "age", "descent") if k in var] + [noun_part]
 

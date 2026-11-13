@@ -310,7 +310,7 @@ def build(parsed: Parsed, readings: Dict[str, Any], as_typed: Optional[Dict[str,
             said = {d: w for d, w in stated.items() if keyed[d] in typed} or None
             outfit = got.get("outfit") or ""
             stmts.append(f"{var} = " + _call("person", cid, noun=str(got.get("noun") or "person"), presentation=presentation,
-                                             said=said, show=vary, article=False)[:-1]
+                                             said=said, show=vary, article=False, words=seg.words)[:-1]
                          + (f", wearing={var}_outfit)" if outfit else ")"))
             person_at = len(stmts) - 1
             parts.append(var)

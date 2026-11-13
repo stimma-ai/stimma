@@ -477,7 +477,7 @@ def test_a_person_with_no_outfit_still_closes_with_the_comma():
     assert re.search(r"man with [^,]+, [^,]+, reading on a porch", body), body
     details = [c["id"] for c in entry["choices"] if c["id"].startswith("elderly_african_man.")]
     bare = _draw(entry, 1, edits={d: {"off": True} for d in details}).prompt.split("\n")[-1]
-    assert bare.startswith("A man reading on a porch"), bare
+    assert bare.startswith("An elderly African man reading on a porch"), bare   # as written: no comma
     hair = _draw(entry, 1, edits={d: {"off": True} for d in details if d.endswith("facial_hair")}).prompt
     assert re.search(r"hair, reading on a porch", hair), hair
 

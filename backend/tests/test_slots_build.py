@@ -3,6 +3,7 @@ template and line breaks; then the same programs built from a slot reading. Draw
 the vocabulary lists (LiteralOptions would draw each detail's one seed every time)."""
 
 import json
+import re
 from typing import Any, Dict, List, Optional
 
 import pytest
@@ -132,7 +133,7 @@ DORM_READING = {"slots": [
     {"n": 2, "kind": "light", "label": "Light", "lead": ", lit by",
      "light": {"list": "", "examples": ["warm desk-lamp light", "grey morning light through blinds", "blue screen glow"]}},
 ]}
-DORM_SOURCE = '''slot1 = person('young_man', noun='man', presentation='masculine', show=['age', 'descent', 'build', 'hair', 'hair_color'], article=False, wearing=slot1_outfit)
+DORM_SOURCE = '''slot1 = person('young_man', noun='man', presentation='masculine', show=['age', 'descent', 'build', 'hair', 'hair_color'], article=False, words='young man', wearing=slot1_outfit)
 slot1_outfit = pick('young_man.outfit', cls='person.outfit.casual', where={'presentation': 'masculine'}, about="Young man's outfit", label='Outfit', phase=2)
 slot2 = pick('light', about='light', seed=['warm desk-lamp light', 'grey morning light through blinds', 'blue screen glow'], label='Light', phase=1)
 emit('dorm room with a ', slot1, opt(', lit by', slot2))
@@ -148,7 +149,7 @@ PORCH_READING = {"slots": [
      "free": {"about": "his pet, with him on the porch", "kinds": ["ginger tabby cat", "old basset hound", "grey parrot"],
               "instead": ["stack of library books", "mug of coffee", "transistor radio"]}},
 ], "lists": [{"n": 1, "label": "Season"}]}
-PORCH_SOURCE = '''slot1 = person('elderly_african_man', noun='man', presentation='masculine', show=['age', 'descent', 'build', 'hair', 'hair_color', 'facial_hair'], article=False, wearing=slot1_outfit, close=',')
+PORCH_SOURCE = '''slot1 = person('elderly_african_man', noun='man', presentation='masculine', show=['age', 'descent', 'build', 'hair', 'hair_color', 'facial_hair'], article=False, words='elderly African man', wearing=slot1_outfit, close=',')
 slot1_outfit = pick('elderly_african_man.outfit', cls='person.outfit.casual', where={'presentation': 'masculine'}, about="Elderly African man's outfit", label='Outfit', phase=2)
 slot2 = pick('pet', about='his pet, with him on the porch', seed=['ginger tabby cat', 'old basset hound', 'grey parrot'], zones={'kinds': ['ginger tabby cat', 'old basset hound', 'grey parrot'], 'instead': ['stack of library books', 'mug of coffee', 'transistor radio']}, label='Pet', phase=2)
 list1 = pick('list1', ['summer', 'autumn'], label='Season', source='list', phase=1, line=2)
@@ -301,3 +302,17 @@ def test_a_realized_prompt_says_where_each_drawn_value_stands():
             assert r.prompt[start:end].lower() in (drawn[cid].lower(), tidy_text([drawn[cid]]).lower())
         assert all(a < b <= c for (a, b, _), (c, _, _) in zip(r.spans, r.spans[1:]))
         assert "[Kodak Portra 400]" in r.prompt and r.prompt.startswith("# she is his granddaughter")
+
+
+def test_a_person_as_written_is_the_slots_own_words():
+    """Every detail of <elderly African man> off ("As written") leaves the words as typed, not
+    "a man"; with one detail still on, the noun stands with it."""
+    entry = build(parse(PORCH_PROMPT), PORCH_READING)[1]
+    mine = [c["id"] for c in entry["choices"] if c["id"].startswith("elderly_african_man.")]
+    details = [d for d in mine if ".outfit" not in d]
+    worn = _draw(entry, 2, edits={d: {"off": True} for d in details}).prompt.split("\n")[-1]
+    assert worn.startswith("An elderly African man, wearing "), worn
+    bare = _draw(entry, 2, edits={d: {"off": True} for d in mine}).prompt.split("\n")[-1]
+    assert bare.startswith("An elderly African man reading on a porch with his "), bare
+    aged = _draw(entry, 2, edits={d: {"off": True} for d in details if not d.endswith(".age")}).prompt
+    assert re.search(r"An? \d+-year-old man, wearing", aged), aged
